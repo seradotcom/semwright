@@ -116,6 +116,7 @@ impl Root {
         }
         // SAFETY: open returned a new owned descriptor.
         Ok(Self {
+            // SAFETY: successful open returned a new, uniquely owned descriptor.
             fd: unsafe { OwnedFd::from_raw_fd(fd) },
             readable,
             writable,

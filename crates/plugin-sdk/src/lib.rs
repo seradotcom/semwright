@@ -108,8 +108,8 @@ pub enum Request {
         command: String,
         args: Value,
     },
-    Health,
-    Shutdown,
+    Health {},
+    Shutdown {},
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -156,8 +156,10 @@ where
                 };
                 write_frame(&mut output, &response).await?;
             }
-            Request::Health => write_frame(&mut output, &Response::Healthy { protocol: 1 }).await?,
-            Request::Shutdown => return Ok(()),
+            Request::Health {} => {
+                write_frame(&mut output, &Response::Healthy { protocol: 1 }).await?
+            }
+            Request::Shutdown {} => return Ok(()),
             _ => {
                 return Err(Error::new(
                     ErrorCode::PluginProtocolError,
@@ -182,5 +184,16 @@ mod tests {
             serde_json::from_value::<Request>(serde_json::json!({"type":"health","shell":"x"}))
                 .is_err()
         );
+    }
+    #[test]
+    fn empty_control_messages_are_strict_and_wire_compatible() {
+        for message in [Request::Health {}, Request::Shutdown {}] {
+            let encoded = serde_json::to_value(&message).unwrap();
+            assert_eq!(encoded.as_object().unwrap().len(), 1);
+            assert!(serde_json::from_value::<Request>(encoded.clone()).is_ok());
+            let mut invalid = encoded;
+            invalid["unexpected"] = serde_json::json!(true);
+            assert!(serde_json::from_value::<Request>(invalid).is_err());
+        }
     }
 }

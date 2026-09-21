@@ -118,7 +118,7 @@ async fn run(cli: &Cli) -> Result<i32> {
             let mut timer = tokio::time::interval(Duration::from_secs(30));
             loop {
                 timer.tick().await;
-                if ipc::write_frame(&mut write, &ClientMessage::Ping)
+                if ipc::write_frame(&mut write, &ClientMessage::Ping {})
                     .await
                     .is_err()
                 {

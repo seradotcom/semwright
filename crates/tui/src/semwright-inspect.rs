@@ -112,14 +112,14 @@ async fn run() -> Result<()> {
             requested = false;
             body = "Loading from broker…".into();
         }
-        if task.as_ref().is_some_and(|t| t.is_finished()) {
-            if let Some(done) = task.take() {
-                body = match done.await {
-                    Ok(Ok(value)) => escaped(&serde_json::to_string_pretty(&value)?),
-                    Ok(Err(error)) => escaped(&error.to_string()),
-                    Err(_) => "Inspector request cancelled".into(),
-                };
-            }
+        if task.as_ref().is_some_and(|t| t.is_finished())
+            && let Some(done) = task.take()
+        {
+            body = match done.await {
+                Ok(Ok(value)) => escaped(&serde_json::to_string_pretty(&value)?),
+                Ok(Err(error)) => escaped(&error.to_string()),
+                Err(_) => "Inspector request cancelled".into(),
+            };
         }
         let filtered = if query.is_empty() {
             body.clone()
@@ -163,47 +163,47 @@ async fn run() -> Result<()> {
                 area[2],
             );
         })?;
-        if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
-                if search {
-                    match key.code {
-                        KeyCode::Esc | KeyCode::Enter => search = false,
-                        KeyCode::Backspace => {
-                            query.pop();
-                        }
-                        KeyCode::Char(c) if query.len() < 256 && !c.is_control() => query.push(c),
-                        _ => (),
-                    }
-                    scroll = 0;
-                    continue;
-                }
+        if event::poll(Duration::from_millis(50))?
+            && let Event::Key(key) = event::read()?
+        {
+            if key.kind != KeyEventKind::Press {
+                continue;
+            }
+            if search {
                 match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Tab | KeyCode::Right => {
-                        pane = (pane + 1) % PANES.len();
-                        scroll = 0;
-                        requested = true;
+                    KeyCode::Esc | KeyCode::Enter => search = false,
+                    KeyCode::Backspace => {
+                        query.pop();
                     }
-                    KeyCode::Left => {
-                        pane = (pane + PANES.len() - 1) % PANES.len();
-                        scroll = 0;
-                        requested = true;
-                    }
-                    KeyCode::Down => scroll = scroll.saturating_add(1),
-                    KeyCode::Up => scroll = scroll.saturating_sub(1),
-                    KeyCode::PageDown => scroll = scroll.saturating_add(15),
-                    KeyCode::PageUp => scroll = scroll.saturating_sub(15),
-                    KeyCode::Char('r') => requested = true,
-                    KeyCode::Char('/') => search = true,
-                    KeyCode::Esc => {
-                        query.clear();
-                        scroll = 0;
-                    }
+                    KeyCode::Char(c) if query.len() < 256 && !c.is_control() => query.push(c),
                     _ => (),
                 }
+                scroll = 0;
+                continue;
+            }
+            match key.code {
+                KeyCode::Char('q') => break,
+                KeyCode::Tab | KeyCode::Right => {
+                    pane = (pane + 1) % PANES.len();
+                    scroll = 0;
+                    requested = true;
+                }
+                KeyCode::Left => {
+                    pane = (pane + PANES.len() - 1) % PANES.len();
+                    scroll = 0;
+                    requested = true;
+                }
+                KeyCode::Down => scroll = scroll.saturating_add(1),
+                KeyCode::Up => scroll = scroll.saturating_sub(1),
+                KeyCode::PageDown => scroll = scroll.saturating_add(15),
+                KeyCode::PageUp => scroll = scroll.saturating_sub(15),
+                KeyCode::Char('r') => requested = true,
+                KeyCode::Char('/') => search = true,
+                KeyCode::Esc => {
+                    query.clear();
+                    scroll = 0;
+                }
+                _ => (),
             }
         }
     }

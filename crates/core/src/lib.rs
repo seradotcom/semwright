@@ -175,10 +175,10 @@ impl Broker {
         }
     }
     pub async fn probe(&self) -> Vec<Feature> {
-        if let Some((when, features)) = &*self.features.read().await {
-            if when.elapsed() < Duration::from_secs(5) {
-                return features.clone();
-            }
+        if let Some((when, features)) = &*self.features.read().await
+            && when.elapsed() < Duration::from_secs(5)
+        {
+            return features.clone();
         }
         let mut jobs = tokio::task::JoinSet::new();
         for backend in self.backends.values() {
@@ -245,29 +245,29 @@ impl Broker {
         }
         let is_input =
             request.command.starts_with("input.") || request.command.starts_with("pointer.");
-        if let Some(reference) = reference {
-            if !is_input {
-                if request
-                    .backend
-                    .as_ref()
-                    .is_some_and(|name| name != &reference.backend)
-                {
-                    return Err(Error::new(
-                        ErrorCode::PolicyDenied,
-                        "Reference is bound to its origin backend; migration is forbidden",
-                    ));
-                }
-                let backend = self.backends.get(&reference.backend).ok_or_else(|| {
-                    Error::new(ErrorCode::StaleReference, "Origin backend disappeared")
-                })?;
-                if !backend.supports(&request.command) {
-                    return Err(Error::new(
-                        ErrorCode::Unsupported,
-                        "The reference's backend does not implement this command",
-                    ));
-                }
-                return Ok(reference.backend.clone());
+        if let Some(reference) = reference
+            && !is_input
+        {
+            if request
+                .backend
+                .as_ref()
+                .is_some_and(|name| name != &reference.backend)
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Reference is bound to its origin backend; migration is forbidden",
+                ));
             }
+            let backend = self.backends.get(&reference.backend).ok_or_else(|| {
+                Error::new(ErrorCode::StaleReference, "Origin backend disappeared")
+            })?;
+            if !backend.supports(&request.command) {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "The reference's backend does not implement this command",
+                ));
+            }
+            return Ok(reference.backend.clone());
         }
         let actual_command = if request.command == "ui.find" {
             "ui.snapshot"
@@ -460,7 +460,7 @@ impl Broker {
             Err(error) => {
                 return Envelope::finish(
                     id,
-                    safe_name.into(),
+                    safe_name,
                     "core".into(),
                     started.elapsed(),
                     request.dry_run,

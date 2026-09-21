@@ -194,13 +194,11 @@ impl Cdp {
                             | "DOM.attributeRemoved"
                             | "DOM.characterDataModified"
                             | "Page.frameNavigated"
-                    ) {
-                        if let Some(session) = value.get("sessionId").and_then(Value::as_str) {
-                            if let Ok(mut map) = generations.lock() {
-                                let n = map.entry(session.into()).or_insert(0);
-                                *n = n.saturating_add(1);
-                            }
-                        }
+                    ) && let Some(session) = value.get("sessionId").and_then(Value::as_str)
+                        && let Ok(mut map) = generations.lock()
+                    {
+                        let n = map.entry(session.into()).or_insert(0);
+                        *n = n.saturating_add(1);
                     }
                     // Metadata only: no console text, headers, URLs, request bodies or download names.
                     if matches!(
@@ -486,21 +484,17 @@ impl Chromium {
                     "Isolated browser startup timed out",
                 ));
             }
-            if let Ok(text) = tokio::fs::read_to_string(&active).await {
-                if text.len() <= 4096 {
-                    if let Some((port, path)) = text.trim().split_once('\n') {
-                        if let Ok(port) = port.parse::<u16>() {
-                            if port > 0
-                                && path.starts_with("/devtools/browser/")
-                                && path
-                                    .bytes()
-                                    .all(|b| b.is_ascii_alphanumeric() || b"/-_".contains(&b))
-                            {
-                                break format!("ws://127.0.0.1:{port}{path}");
-                            }
-                        }
-                    }
-                }
+            if let Ok(text) = tokio::fs::read_to_string(&active).await
+                && text.len() <= 4096
+                && let Some((port, path)) = text.trim().split_once('\n')
+                && let Ok(port) = port.parse::<u16>()
+                && port > 0
+                && path.starts_with("/devtools/browser/")
+                && path
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"/-_".contains(&b))
+            {
+                break format!("ws://127.0.0.1:{port}{path}");
             }
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         };
@@ -624,7 +618,9 @@ impl Chromium {
 fn attribute(node: &Value, name: &str) -> Option<String> {
     node["attributes"]
         .as_array()?
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .find(|pair| pair[0].as_str() == Some(name))
         .and_then(|pair| pair[1].as_str())
         .map(str::to_owned)
@@ -1034,8 +1030,10 @@ mod tests {
     }
     #[test]
     fn exact_origin_not_prefix() {
-        let mut c = BrowserConfig::default();
-        c.allowed_origins = vec!["https://example.org".into()];
+        let c = BrowserConfig {
+            allowed_origins: vec!["https://example.org".into()],
+            ..Default::default()
+        };
         assert!(c.validate().is_ok());
         assert!(c.check_url("https://example.org/path").is_ok());
         assert!(c.check_url("https://example.org.evil.test/").is_err());

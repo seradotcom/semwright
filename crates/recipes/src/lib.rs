@@ -260,12 +260,12 @@ impl Recipe {
                         .recipe_progress(summary.len(), &step.id),
                 );
             }
-            if let Some(condition) = &step.when {
-                if !check(condition, &state)? {
-                    state["steps"][&step.id] = json!({"skipped":true});
-                    summary.push(json!({"step":step.id,"skipped":true}));
-                    continue;
-                }
+            if let Some(condition) = &step.when
+                && !check(condition, &state)?
+            {
+                state["steps"][&step.id] = json!({"skipped":true});
+                summary.push(json!({"step":step.id,"skipped":true}));
+                continue;
             }
             let secret_flow = is_tainted(&step.args, &tainted)
                 || step.when.as_ref().is_some_and(|c| {
@@ -419,6 +419,25 @@ fn check(assertion: &Assertion, state: &Value) -> Result<bool> {
             .is_some_and(|a| Some(a.len() as u64) == right.as_u64()),
     })
 }
+
+fn is_tainted(value: &Value, roots: &BTreeSet<String>) -> bool {
+    match value {
+        Value::Object(map) => {
+            if let Some(path) = map.get("$var").and_then(Value::as_str) {
+                roots.iter().any(|root| {
+                    path == root
+                        || path
+                            .strip_prefix(root)
+                            .is_some_and(|tail| tail.starts_with('/'))
+                })
+            } else {
+                map.values().any(|v| is_tainted(v, roots))
+            }
+        }
+        Value::Array(values) => values.iter().any(|v| is_tainted(v, roots)),
+        _ => false,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -523,23 +542,4 @@ mod tests {
         assert_eq!(f.calls.load(Ordering::SeqCst), 0);
     }
     proptest! {#[test]fn binding_preserves_types(n in any::<i64>()){let state=json!({"inputs":{"n":n}});prop_assert_eq!(resolve(&json!({"$var":"/inputs/n"}),&state,0).unwrap(),json!(n));}}
-}
-
-fn is_tainted(value: &Value, roots: &BTreeSet<String>) -> bool {
-    match value {
-        Value::Object(map) => {
-            if let Some(path) = map.get("$var").and_then(Value::as_str) {
-                roots.iter().any(|root| {
-                    path == root
-                        || path
-                            .strip_prefix(root)
-                            .is_some_and(|tail| tail.starts_with('/'))
-                })
-            } else {
-                map.values().any(|v| is_tainted(v, roots))
-            }
-        }
-        Value::Array(values) => values.iter().any(|v| is_tainted(v, roots)),
-        _ => false,
-    }
 }

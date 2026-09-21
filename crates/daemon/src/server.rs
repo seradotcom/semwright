@@ -108,26 +108,26 @@ impl Sessions {
         Ok(())
     }
     fn finish(&self, session: &str, id: &str) {
-        if let Ok(mut entries) = self.entries.lock() {
-            if let Some(state) = entries.get_mut(session) {
-                state.active.remove(id);
-                state.touched = Instant::now();
-            }
+        if let Ok(mut entries) = self.entries.lock()
+            && let Some(state) = entries.get_mut(session)
+        {
+            state.active.remove(id);
+            state.touched = Instant::now();
         }
     }
     fn cancel(&self, session: &str, id: &str) {
-        if let Ok(entries) = self.entries.lock() {
-            if let Some(active) = entries.get(session).and_then(|state| state.active.get(id)) {
-                active.token.cancel();
-            }
+        if let Ok(entries) = self.entries.lock()
+            && let Some(active) = entries.get(session).and_then(|state| state.active.get(id))
+        {
+            active.token.cancel();
         }
     }
     fn disconnect(&self, session: &str, connection: &str) {
-        if let Ok(entries) = self.entries.lock() {
-            if let Some(state) = entries.get(session) {
-                for active in state.active.values().filter(|a| a.connection == connection) {
-                    active.token.cancel();
-                }
+        if let Ok(entries) = self.entries.lock()
+            && let Some(state) = entries.get(session)
+        {
+            for active in state.active.values().filter(|a| a.connection == connection) {
+                active.token.cancel();
             }
         }
     }
@@ -312,7 +312,7 @@ async fn connection(
                     sessions.cancel(&session, &request_id);
                 }
             }
-            ClientMessage::Ping => {
+            ClientMessage::Ping {} => {
                 if tx.send(ServerMessage::Pong).await.is_err() {
                     break;
                 }

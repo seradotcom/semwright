@@ -25,7 +25,7 @@ pub enum ClientMessage {
     Subscribe {
         after: u64,
     },
-    Ping,
+    Ping {},
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -258,6 +258,18 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
     #[test]
+    fn ping_rejects_unknown_fields_without_changing_wire_encoding() {
+        let valid = serde_json::json!({"type":"ping"});
+        assert_eq!(serde_json::to_value(ClientMessage::Ping {}).unwrap(), valid);
+        assert!(serde_json::from_value::<ClientMessage>(valid).is_ok());
+        assert!(
+            serde_json::from_value::<ClientMessage>(
+                serde_json::json!({"type":"ping", "execute":"unexpected"})
+            )
+            .is_err()
+        );
+    }
+    #[test]
     fn oversized_rejected_before_allocation() {
         assert!(decode::<serde_json::Value>(&u32::MAX.to_be_bytes()).is_err());
     }
@@ -276,11 +288,11 @@ mod tests {
     async fn framing_handles_short_reads() {
         let (mut a, mut b) = tokio::io::duplex(3);
         let handle = tokio::spawn(async move {
-            write_frame(&mut a, &ClientMessage::Ping).await.unwrap();
+            write_frame(&mut a, &ClientMessage::Ping {}).await.unwrap();
         });
         assert!(matches!(
             read_frame::<_, ClientMessage>(&mut b).await.unwrap(),
-            ClientMessage::Ping
+            ClientMessage::Ping {}
         ));
         handle.await.unwrap();
     }

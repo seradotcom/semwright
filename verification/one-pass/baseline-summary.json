@@ -1,0 +1,20 @@
+{
+  "status": "COMPILED_AND_EXECUTED_DEVELOPMENT_BASELINE",
+  "toolchain": "1.98.1",
+  "rust_tests": {
+    "passed": 106,
+    "failed": 0,
+    "ignored": 0,
+    "log": "test-third.log"
+  },
+  "gates": {
+    "check": "PASS",
+    "build": "PASS",
+    "clippy_warnings_denied": "PASS",
+    "fmt": "PASS",
+    "docs_warnings_denied": "PASS",
+    "doctest_command": "PASS; zero examples",
+    "fake_cli_daemon_recipe_audit_e2e": "PASS"
+  },
+  "limitations": "This baseline is not full release acceptance. New feature scope, independent security review, live desktop and integration gates remain open."
+}

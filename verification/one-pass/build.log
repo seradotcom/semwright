@@ -1,0 +1,7 @@
+   Compiling semwright-mcp v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/mcp)
+   Compiling semwright-daemon v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/daemon)
+   Compiling semwright-tui v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/tui)
+   Compiling semwright-cli v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/cli)
+   Compiling semwright-plugin-host v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-host)
+   Compiling semwright-example-plugin v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/adapters/example-plugin)
+    Finished `dev` profile [unoptimized] target(s) in 3.05s

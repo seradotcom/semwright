@@ -444,7 +444,7 @@ impl Selector {
                 let text = format!("{} {} {}", n.role, n.name, n.description).to_lowercase();
                 words.iter().filter(|w| text.contains(w.as_str())).count()
             };
-            found.retain(|n| score(&n) > 0);
+            found.retain(|n| score(n) > 0);
             found.sort_by_key(|n| std::cmp::Reverse(score(n)));
         }
         if let Some(n) = self.nth {

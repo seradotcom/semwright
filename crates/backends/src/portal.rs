@@ -390,13 +390,13 @@ impl Portal {
     }
     async fn stop(&self, owner: Option<&str>) -> Result<Value> {
         let mut guard = self.session.lock().await;
-        if let Some(session) = guard.as_ref() {
-            if owner.is_some_and(|o| o != session.owner) {
-                return Err(Error::new(
-                    ErrorCode::PolicyDenied,
-                    "Cannot close another broker session's remote-input grant",
-                ));
-            }
+        if let Some(session) = guard.as_ref()
+            && owner.is_some_and(|o| o != session.owner)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Cannot close another broker session's remote-input grant",
+            ));
         }
         if let Some(mut session) = guard.take() {
             let proxy = error(
@@ -615,7 +615,7 @@ fn copy_screenshot(source: &std::path::Path, destination: &std::path::Path) -> R
     let metadata = file.metadata()?;
     // SAFETY: getuid has no pointer arguments or other preconditions.
     if !metadata.is_file()
-        || metadata.uid() != unsafe { libc::getuid() }
+        || metadata.uid() != semwright_protocol::current_uid()
         || metadata.len() > 33_554_432
     {
         return Err(Error::new(

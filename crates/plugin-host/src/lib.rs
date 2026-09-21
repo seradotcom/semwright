@@ -299,7 +299,7 @@ impl Host {
                     "Plugin replied with an unexpected id or message",
                 )),
             };
-            let _ = write_frame(&mut input, &Request::Shutdown).await;
+            let _ = write_frame(&mut input, &Request::Shutdown {}).await;
             result
         };
         let timeout = descriptor
@@ -377,6 +377,7 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let p = d.path().join("plugin");
         std::fs::write(&p, b"\x7fELFexample").unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert!(verify_executable(&p, &"0".repeat(64)).is_err());
     }
     #[test]
@@ -385,6 +386,7 @@ mod tests {
         let p = d.path().join("plugin");
         let body = b"#!/bin/sh\necho bad";
         std::fs::write(&p, body).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert!(verify_executable(&p, &format!("{:x}", Sha256::digest(body))).is_err());
     }
     #[test]
@@ -393,9 +395,21 @@ mod tests {
         let p = d.path().join("plugin");
         let body = b"\x7fELFexample";
         std::fs::write(&p, body).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert_eq!(
             verify_executable(&p, &format!("{:x}", Sha256::digest(body))).unwrap(),
             body
+        );
+    }
+    #[test]
+    fn writable_by_others_is_rejected_even_with_matching_digest() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("plugin");
+        let body = b"\x7fELFexample";
+        std::fs::write(&path, body).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
+        assert!(
+            matches!(verify_executable(&path, &format!("{:x}", Sha256::digest(body))), Err(error) if error.code == ErrorCode::PermissionDenied)
         );
     }
 }

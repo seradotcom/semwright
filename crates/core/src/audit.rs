@@ -274,11 +274,11 @@ mod tests {
     #[test]
     fn journal_contains_no_arguments() {
         let d = tempfile::tempdir().unwrap();
-        let a = Audit::open(d.path(), 65536, 2).unwrap();
+        let a = Audit::open(&d.path().join("audit"), 65536, 2).unwrap();
         let mut s = a.begin("clipboard.write", &unique_id(), "session").unwrap();
         s.finish(&Ok(serde_json::json!({"text":"SECRET-TEST"})))
             .unwrap();
-        let text = std::fs::read_to_string(d.path().join("audit.jsonl")).unwrap();
+        let text = std::fs::read_to_string(d.path().join("audit/audit.jsonl")).unwrap();
         assert!(!text.contains("SECRET-TEST"));
         assert_eq!(a.tail(9).unwrap().len(), 2);
     }
@@ -286,17 +286,17 @@ mod tests {
     fn restart_verifies_chain() {
         let d = tempfile::tempdir().unwrap();
         {
-            let a = Audit::open(d.path(), 65536, 2).unwrap();
+            let a = Audit::open(&d.path().join("audit"), 65536, 2).unwrap();
             let mut s = a.begin("doctor", &unique_id(), "s").unwrap();
             s.finish(&Ok(serde_json::json!({}))).unwrap();
         }
-        let a = Audit::open(d.path(), 65536, 2).unwrap();
+        let a = Audit::open(&d.path().join("audit"), 65536, 2).unwrap();
         assert_eq!(a.tail(1).unwrap()[0].sequence, 2);
     }
     #[test]
     fn abandoned_requests_are_recorded() {
         let d = tempfile::tempdir().unwrap();
-        let a = Audit::open(d.path(), 65536, 2).unwrap();
+        let a = Audit::open(&d.path().join("audit"), 65536, 2).unwrap();
         drop(a.begin("ui.invoke", &unique_id(), "s").unwrap());
         assert_eq!(a.tail(1).unwrap()[0].phase, "abandoned");
     }
@@ -304,14 +304,23 @@ mod tests {
     fn tampering_fails_closed() {
         let d = tempfile::tempdir().unwrap();
         {
-            let a = Audit::open(d.path(), 65536, 2).unwrap();
+            let a = Audit::open(&d.path().join("audit"), 65536, 2).unwrap();
             drop(a.begin("doctor", &unique_id(), "s").unwrap());
         }
-        let p = d.path().join("audit.jsonl");
+        let p = d.path().join("audit/audit.jsonl");
         let s = std::fs::read_to_string(&p)
             .unwrap()
             .replace("doctor", "edited");
         std::fs::write(p, s).unwrap();
-        assert!(Audit::open(d.path(), 65536, 2).is_err());
+        assert!(Audit::open(&d.path().join("audit"), 65536, 2).is_err());
+    }
+    #[test]
+    fn shared_existing_directory_is_rejected() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(
+            matches!(Audit::open(directory.path(), 65536, 2), Err(error) if error.code == ErrorCode::PermissionDenied)
+        );
     }
 }

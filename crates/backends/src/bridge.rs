@@ -305,10 +305,10 @@ impl Mailbox {
         let id = value["id"]
             .as_str()
             .ok_or_else(|| zbus::fdo::Error::InvalidArgs("Reply id required".into()))?;
-        if let Ok(mut pending) = self.state.pending.lock() {
-            if let Some(sender) = pending.remove(id) {
-                let _ = sender.send(value);
-            }
+        if let Ok(mut pending) = self.state.pending.lock()
+            && let Some(sender) = pending.remove(id)
+        {
+            let _ = sender.send(value);
         }
         Ok(())
     }

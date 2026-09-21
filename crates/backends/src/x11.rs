@@ -163,13 +163,11 @@ impl Backend for X11 {
         }
         let target = native_target(args)?;
         let id = s.validate(&target)?;
-        if c.starts_with("input.") || c.starts_with("pointer.") {
-            if s.focused()? != Some(id) {
-                return Err(Error::new(
-                    ErrorCode::Conflict,
-                    "X11 focus changed; input not sent",
-                ));
-            }
+        if (c.starts_with("input.") || c.starts_with("pointer.")) && s.focused()? != Some(id) {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "X11 focus changed; input not sent",
+            ));
         }
         match c {
             "window.focus" => s.event(id, "_NET_ACTIVE_WINDOW", [2, CURRENT_TIME, 0, 0, 0])?,
