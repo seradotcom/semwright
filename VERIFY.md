@@ -36,6 +36,25 @@ origin denial, download denial, and profile cleanup. The runner normalizes the o
 mode of its ephemeral Chrome installation; production validation continues to reject executables
 writable by group or others.
 
+## Provider Runtime closure included in this development line
+
+The Provider Runtime is now an explicit broker abstraction rather than command-prefix inference.
+Provider identity, source kind, version, namespace and origin are owner-bound; imported metadata
+is untrusted data and cannot claim builtin authority. Provider capabilities can be registered,
+replaced and removed atomically against a catalog revision, and invocation provenance is preserved
+through execution and audit.
+
+The exact-commit quality suite exercises **11 Provider Runtime integration tests** and **10 dynamic
+provider catalog tests**. These include simultaneous registration, operation-level availability,
+atomic descriptor replacement, stale catalog revisions, schema/result validation, timeout and
+cancellation propagation, hostile metadata, provider-scoped events, definitive disconnect, and
+bounded external JSON Schema/value traversal including Draft 7 `dependencies`. The real Chromium
+hosted job also exercises the acknowledged-close stale-reference regression.
+
+This closes the Provider Runtime foundation only. `ExternalMcpProvider` federation, the public App
+Driver SDK/conformance surface, real Blender introspection, hostile plugin sandbox certification,
+and the remaining Linux-runtime blockers are separate acceptance work.
+
 ## Verification hardening included in the baseline
 
 - The command schema contract expects the current 83 descriptors (166 input/output schemas).

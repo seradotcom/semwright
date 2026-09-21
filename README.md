@@ -122,7 +122,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | RemoteDesktop portal, interactive screenshot | Native D-Bus source + Rust lifecycle tests | Compiled/tested; no accepted live portal/EIS session |
 | EIS/libei, PipeWire pixel stream, AT-SPI delta snapshots | Incomplete/deferred paths | Explicit release blockers; not relabelled as live-only evidence |
 | Blender | Python add-on + Rust client | Mocked host coverage; no accepted real Blender/RNA/addon run |
-| Chromium | Isolated-profile Rust CDP adapter | Real Rust hosted integration passed on the accepted baseline; current stale-ref fix needs branch CI |
+| Chromium | Isolated-profile Rust CDP adapter | Real Rust hosted integration passes on this development line, including close/stale-ref invalidation and owned-profile cleanup |
 | Scoped filesystem | Rust scoped implementation + native harness | Rust tests plus native openat2 checks in hosted baseline |
 | Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
 

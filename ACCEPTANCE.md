@@ -215,3 +215,24 @@ PASS: **60**, FAIL: **62**, LIVE_VERIFICATION_PENDING: **0**, NOT_APPLICABLE: **
 These totals measure checklist resolution, not a percentage of software correctness.
 A green compiler baseline does not replace missing live/security evidence, regardless of the
 number of documents, tests authored, or individually passing component checks.
+
+## Provider Runtime expansion acceptance
+
+These criteria extend the original 123-entry checklist; they do not replace or renumber it.
+
+| ID | Expansion requirement | Status | Evidence / limitation |
+|---|---|---|---|
+| P001 | Provider identity and namespace are explicit and cannot claim builtin authority. | PASS | ProviderIdentity validation plus negative namespace/authority tests. |
+| P002 | Invocation provenance survives broker execution and audit. | PASS | Provider Runtime integration verifies provider/version/digest/generation in result and audit. |
+| P003 | Dynamic provider registration/update/removal is atomic and revisioned. | PASS | Provider catalog transaction tests cover replace/remove and failed-batch rollback. |
+| P004 | Stale catalog revisions fail rather than silently repaginating. | PASS | Catalog revision conflict tests. |
+| P005 | Availability is operation-specific for dynamic providers. | PASS | One available fixture operation does not enable an unavailable sibling operation. |
+| P006 | Terminal disconnect invalidates execution and cannot be reactivated by refresh. | PASS | Definitive-disconnect regression plus in-flight cancellation integration. |
+| P007 | Provider capability changes/events are source-bound and do not require polling. | PASS | Broadcast refresh/event integration with broker-bound provenance. |
+| P008 | Imported metadata cannot grant permission or self-approve confirmation. | PASS | Hostile-description policy/confirmation regression. |
+| P009 | External schemas and values are resource-bounded consistently. | PASS | Depth/node/regex/ref budgets including Draft 7 dependency subschemas. |
+| P010 | Result schemas, timeouts and cancellation are enforced at the broker boundary. | PASS | Provider Runtime result/timeout/cancel integration tests. |
+| P011 | Duplicate/simultaneous provider ownership cannot overwrite an existing owner. | PASS | Atomic duplicate-registration regression. |
+| P012 | Provider Runtime is exercised under the required hosted exact-commit gates. | PASS | Quality x86_64/ARM64, source contracts, dependency, coverage, fuzz and real Chromium checks on the commit containing this document. |
+
+Provider Runtime expansion subtotal: **12 PASS, 0 FAIL**. MCP federation, public App Driver SDK/conformance, events/jobs breadth and application-specific deep drivers remain tracked separately in RELEASE_BLOCKERS.md.
