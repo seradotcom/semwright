@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-81 built-in descriptors. A descriptor is not proof of live backend support.
+83 built-in descriptors. A descriptor is not proof of live backend support.
 Run `computerctl doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -92,6 +92,8 @@ for many backends in this development handoff; strengthening them is a release g
 | `plugin.install` | `plugin.manage` | code_execution | 30000 ms | core |
 | `plugin.remove` | `plugin.manage` | destructive | 30000 ms | core |
 | `plugin.doctor` | `desktop.observe` | read_only | 30000 ms | core |
+| `capabilities.search` | `desktop.observe` | read_only | 10000 ms | core |
+| `capabilities.describe` | `desktop.observe` | read_only | 10000 ms | core |
 
 ## `doctor`
 
@@ -2079,5 +2081,119 @@ Idempotency: `read_only`. Dry run: `true`.
     "name"
   ],
   "additionalProperties": false
+}
+```
+
+## `capabilities.search`
+
+Search the bounded capability catalog by exact ID, words, quoted phrases, provider, app, risk, category, tags, object types and current operation availability. Results include provenance, not blanket permission.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "query": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "app": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "category": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "risk": {
+      "enum": [
+        "code_execution",
+        "destructive",
+        "mutating",
+        "mutating_reversible",
+        "privilege_sensitive",
+        "read_only",
+        "secret_access",
+        null
+      ]
+    },
+    "available": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "object_types": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8192
+    },
+    "revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  }
+}
+```
+
+## `capabilities.describe`
+
+Describe one capability with full input/output schema, source digest, provenance and operation-specific routes. Availability never grants authorization.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  }
 }
 ```

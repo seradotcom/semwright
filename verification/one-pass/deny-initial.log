@@ -1,0 +1,1754 @@
+error[rejected]: failed to satisfy license requirements
+   ┌─ /home/sergio/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/borrow-or-share-0.2.4/Cargo.toml:32:12
+   │
+32 │ license = "MIT-0"
+   │            ━━━━━
+   │            │
+   │            rejected: license is not explicitly allowed
+   │
+   ├ MIT-0 - MIT No Attribution:
+   ├   - OSI approved
+   ├ borrow-or-share v0.2.4
+     └── fluent-uri v0.3.2
+         └── referencing v0.33.0
+             └── jsonschema v0.33.0
+                 └── semwright-registry v0.9.0-dev.1
+                     ├── semwright-cli v0.9.0-dev.1
+                     ├── semwright-core v0.9.0-dev.1
+                     │   └── semwright-daemon v0.9.0-dev.1
+                     └── semwright-mcp v0.9.0-dev.1
+
+warning[duplicate]: found 2 duplicate entries for crate 'base64'
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:14:1
+   │  
+14 │ ╭ base64 0.22.1 registry+https://github.com/rust-lang/crates.io-index
+15 │ │ base64 0.23.1 registry+https://github.com/rust-lang/crates.io-index
+   │ ╰───────────────────────────────────────────────────────────────────┘ lock entries
+   │  
+   ├ base64 v0.22.1
+     ├── jsonschema v0.33.0
+     │   └── semwright-registry v0.9.0-dev.1
+     │       ├── semwright-cli v0.9.0-dev.1
+     │       ├── semwright-core v0.9.0-dev.1
+     │       │   └── semwright-daemon v0.9.0-dev.1
+     │       └── semwright-mcp v0.9.0-dev.1
+     └── semwright-adapters v0.9.0-dev.1
+         └── semwright-daemon v0.9.0-dev.1 (*)
+   ├ base64 v0.23.1
+     └── rmcp v3.4.0
+         └── semwright-mcp v0.9.0-dev.1
+
+warning[duplicate]: found 2 duplicate entries for crate 'getrandom'
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:78:1
+   │  
+78 │ ╭ getrandom 0.3.4 registry+https://github.com/rust-lang/crates.io-index
+79 │ │ getrandom 0.4.3 registry+https://github.com/rust-lang/crates.io-index
+   │ ╰─────────────────────────────────────────────────────────────────────┘ lock entries
+   │  
+   ├ getrandom v0.3.4
+     ├── ahash v0.8.12
+     │   ├── jsonschema v0.33.0
+     │   │   └── semwright-registry v0.9.0-dev.1
+     │   │       ├── semwright-cli v0.9.0-dev.1
+     │   │       ├── semwright-core v0.9.0-dev.1
+     │   │       │   └── semwright-daemon v0.9.0-dev.1
+     │   │       └── semwright-mcp v0.9.0-dev.1
+     │   └── referencing v0.33.0
+     │       └── jsonschema v0.33.0 (*)
+     └── rand_core v0.9.5
+         ├── rand v0.9.5
+         │   ├── proptest v1.11.0
+         │   │   ├── (dev) semwright-adapters v0.9.0-dev.1
+         │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1
+         │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-backends v0.9.0-dev.1
+         │   │   │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+         │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+         │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1
+         │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+         │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1
+         │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-example-plugin v0.9.0-dev.1
+         │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-policy v0.9.0-dev.1
+         │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+         │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-protocol v0.9.0-dev.1
+         │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+         │   │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+         │   │   │   └── semwright-tui v0.9.0-dev.1
+         │   │   ├── (dev) semwright-recipes v0.9.0-dev.1
+         │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+         │   │   │   └── semwright-core v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-registry v0.9.0-dev.1 (*)
+         │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+         │   │   └── (dev) semwright-types v0.9.0-dev.1
+         │   │       ├── semwright-adapters v0.9.0-dev.1 (*)
+         │   │       ├── semwright-backend-api v0.9.0-dev.1 (*)
+         │   │       ├── semwright-backends v0.9.0-dev.1 (*)
+         │   │       ├── semwright-cli v0.9.0-dev.1 (*)
+         │   │       ├── semwright-core v0.9.0-dev.1 (*)
+         │   │       ├── semwright-daemon v0.9.0-dev.1 (*)
+         │   │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+         │   │       ├── semwright-mcp v0.9.0-dev.1 (*)
+         │   │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+         │   │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+         │   │       ├── semwright-policy v0.9.0-dev.1 (*)
+         │   │       ├── semwright-protocol v0.9.0-dev.1 (*)
+         │   │       ├── semwright-recipes v0.9.0-dev.1 (*)
+         │   │       ├── semwright-registry v0.9.0-dev.1 (*)
+         │   │       └── semwright-tui v0.9.0-dev.1 (*)
+         │   └── tungstenite v0.28.0
+         │       └── tokio-tungstenite v0.28.0
+         │           └── semwright-adapters v0.9.0-dev.1 (*)
+         ├── rand_chacha v0.9.0
+         │   ├── proptest v1.11.0 (*)
+         │   └── rand v0.9.5 (*)
+         └── rand_xorshift v0.4.0
+             └── proptest v1.11.0 (*)
+   ├ getrandom v0.4.3
+     ├── tempfile v3.27.0
+     │   ├── proptest v1.11.0
+     │   │   ├── (dev) semwright-adapters v0.9.0-dev.1
+     │   │   │   └── semwright-daemon v0.9.0-dev.1
+     │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1
+     │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-backends v0.9.0-dev.1
+     │   │   │   │   ├── (dev) semwright-core v0.9.0-dev.1
+     │   │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+     │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-cli v0.9.0-dev.1
+     │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-mcp v0.9.0-dev.1
+     │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1
+     │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1
+     │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-example-plugin v0.9.0-dev.1
+     │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-policy v0.9.0-dev.1
+     │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+     │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-protocol v0.9.0-dev.1
+     │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+     │   │   │   └── semwright-tui v0.9.0-dev.1
+     │   │   ├── (dev) semwright-recipes v0.9.0-dev.1
+     │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+     │   │   │   └── semwright-core v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-registry v0.9.0-dev.1
+     │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+     │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   │   │   └── semwright-mcp v0.9.0-dev.1 (*)
+     │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+     │   │   └── (dev) semwright-types v0.9.0-dev.1
+     │   │       ├── semwright-adapters v0.9.0-dev.1 (*)
+     │   │       ├── semwright-backend-api v0.9.0-dev.1 (*)
+     │   │       ├── semwright-backends v0.9.0-dev.1 (*)
+     │   │       ├── semwright-cli v0.9.0-dev.1 (*)
+     │   │       ├── semwright-core v0.9.0-dev.1 (*)
+     │   │       ├── semwright-daemon v0.9.0-dev.1 (*)
+     │   │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+     │   │       ├── semwright-mcp v0.9.0-dev.1 (*)
+     │   │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+     │   │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+     │   │       ├── semwright-policy v0.9.0-dev.1 (*)
+     │   │       ├── semwright-protocol v0.9.0-dev.1 (*)
+     │   │       ├── semwright-recipes v0.9.0-dev.1 (*)
+     │   │       ├── semwright-registry v0.9.0-dev.1 (*)
+     │   │       └── semwright-tui v0.9.0-dev.1 (*)
+     │   ├── rusty-fork v0.3.1
+     │   │   └── proptest v1.11.0 (*)
+     │   ├── (dev) semwright-adapters v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-backend-api v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-plugin-host v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-policy v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-protocol v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-recipes v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-registry v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+     │   ├── (dev) semwright-types v0.9.0-dev.1 (*)
+     │   └── uds_windows v1.2.1
+     │       └── zbus v5.19.0
+     │           ├── semwright-backends v0.9.0-dev.1 (*)
+     │           └── semwright-daemon v0.9.0-dev.1 (*)
+     └── uuid v1.26.1
+         ├── rmcp v3.4.0
+         │   └── semwright-mcp v0.9.0-dev.1 (*)
+         ├── semwright-adapters v0.9.0-dev.1 (*)
+         ├── semwright-backends v0.9.0-dev.1 (*)
+         ├── semwright-cli v0.9.0-dev.1 (*)
+         ├── semwright-core v0.9.0-dev.1 (*)
+         ├── semwright-daemon v0.9.0-dev.1 (*)
+         ├── semwright-mcp v0.9.0-dev.1 (*)
+         ├── semwright-policy v0.9.0-dev.1 (*)
+         ├── semwright-protocol v0.9.0-dev.1 (*)
+         ├── semwright-types v0.9.0-dev.1 (*)
+         ├── uuid-simd v0.8.0
+         │   └── jsonschema v0.33.0
+         │       └── semwright-registry v0.9.0-dev.1 (*)
+         └── zbus v5.19.0 (*)
+
+warning[duplicate]: found 2 duplicate entries for crate 'hashbrown'
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:80:1
+   │  
+80 │ ╭ hashbrown 0.15.5 registry+https://github.com/rust-lang/crates.io-index
+81 │ │ hashbrown 0.17.1 registry+https://github.com/rust-lang/crates.io-index
+   │ ╰──────────────────────────────────────────────────────────────────────┘ lock entries
+   │  
+   ├ hashbrown v0.15.5
+     └── lru v0.12.5
+         └── ratatui v0.29.0
+             └── semwright-tui v0.9.0-dev.1
+   ├ hashbrown v0.17.1
+     └── indexmap v2.14.2
+         ├── rmcp v3.4.0
+         │   └── semwright-mcp v0.9.0-dev.1
+         ├── serde_yaml_ng v0.10.0
+         │   └── semwright-recipes v0.9.0-dev.1
+         │       ├── semwright-cli v0.9.0-dev.1
+         │       └── semwright-core v0.9.0-dev.1
+         │           └── semwright-daemon v0.9.0-dev.1
+         └── toml_edit v0.25.15+spec-1.1.0
+             └── proc-macro-crate v3.5.0
+                 ├── zbus_macros v5.19.0
+                 │   └── zbus v5.19.0
+                 │       ├── semwright-backends v0.9.0-dev.1
+                 │       │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+                 │       │   └── semwright-daemon v0.9.0-dev.1 (*)
+                 │       └── semwright-daemon v0.9.0-dev.1 (*)
+                 └── zvariant_derive v5.15.0
+                     └── zvariant v5.15.0
+                         ├── zbus v5.19.0 (*)
+                         ├── zbus_macros v5.19.0 (*)
+                         └── zbus_names v4.3.4
+                             ├── zbus v5.19.0 (*)
+                             └── zbus_macros v5.19.0 (*)
+
+warning[duplicate]: found 2 duplicate entries for crate 'linux-raw-sys'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:109:1
+    │  
+109 │ ╭ linux-raw-sys 0.4.15 registry+https://github.com/rust-lang/crates.io-index
+110 │ │ linux-raw-sys 0.12.1 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰──────────────────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ linux-raw-sys v0.4.15
+      └── rustix v0.38.44
+          └── crossterm v0.28.1
+              ├── ratatui v0.29.0
+              │   └── semwright-tui v0.9.0-dev.1
+              └── semwright-tui v0.9.0-dev.1 (*)
+    ├ linux-raw-sys v0.12.1
+      └── rustix v1.1.5
+          ├── gethostname v1.1.0
+          │   └── x11rb v0.13.2
+          │       └── semwright-backends v0.9.0-dev.1
+          │           ├── (dev) semwright-core v0.9.0-dev.1
+          │           │   └── semwright-daemon v0.9.0-dev.1
+          │           └── semwright-daemon v0.9.0-dev.1 (*)
+          ├── tempfile v3.27.0
+          │   ├── proptest v1.11.0
+          │   │   ├── (dev) semwright-adapters v0.9.0-dev.1
+          │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1
+          │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-cli v0.9.0-dev.1
+          │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-mcp v0.9.0-dev.1
+          │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-example-plugin v0.9.0-dev.1
+          │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-policy v0.9.0-dev.1
+          │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-protocol v0.9.0-dev.1
+          │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-tui v0.9.0-dev.1
+          │   │   ├── (dev) semwright-recipes v0.9.0-dev.1
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-core v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-registry v0.9.0-dev.1
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-mcp v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+          │   │   └── (dev) semwright-types v0.9.0-dev.1
+          │   │       ├── semwright-adapters v0.9.0-dev.1 (*)
+          │   │       ├── semwright-backend-api v0.9.0-dev.1 (*)
+          │   │       ├── semwright-backends v0.9.0-dev.1 (*)
+          │   │       ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │       ├── semwright-core v0.9.0-dev.1 (*)
+          │   │       ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+          │   │       ├── semwright-mcp v0.9.0-dev.1 (*)
+          │   │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+          │   │       ├── semwright-policy v0.9.0-dev.1 (*)
+          │   │       ├── semwright-protocol v0.9.0-dev.1 (*)
+          │   │       ├── semwright-recipes v0.9.0-dev.1 (*)
+          │   │       ├── semwright-registry v0.9.0-dev.1 (*)
+          │   │       └── semwright-tui v0.9.0-dev.1 (*)
+          │   ├── rusty-fork v0.3.1
+          │   │   └── proptest v1.11.0 (*)
+          │   ├── (dev) semwright-adapters v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-backend-api v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-plugin-host v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-policy v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-protocol v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-recipes v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-registry v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-types v0.9.0-dev.1 (*)
+          │   └── uds_windows v1.2.1
+          │       └── zbus v5.19.0
+          │           ├── semwright-backends v0.9.0-dev.1 (*)
+          │           └── semwright-daemon v0.9.0-dev.1 (*)
+          ├── x11rb v0.13.2 (*)
+          └── zbus v5.19.0 (*)
+
+warning[duplicate]: found 2 duplicate entries for crate 'r-efi'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:146:1
+    │  
+146 │ ╭ r-efi 5.3.0 registry+https://github.com/rust-lang/crates.io-index
+147 │ │ r-efi 6.0.0 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰─────────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ r-efi v5.3.0
+      └── getrandom v0.3.4
+          ├── ahash v0.8.12
+          │   ├── jsonschema v0.33.0
+          │   │   └── semwright-registry v0.9.0-dev.1
+          │   │       ├── semwright-cli v0.9.0-dev.1
+          │   │       ├── semwright-core v0.9.0-dev.1
+          │   │       │   └── semwright-daemon v0.9.0-dev.1
+          │   │       └── semwright-mcp v0.9.0-dev.1
+          │   └── referencing v0.33.0
+          │       └── jsonschema v0.33.0 (*)
+          └── rand_core v0.9.5
+              ├── rand v0.9.5
+              │   ├── proptest v1.11.0
+              │   │   ├── (dev) semwright-adapters v0.9.0-dev.1
+              │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1
+              │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-backends v0.9.0-dev.1
+              │   │   │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+              │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+              │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1
+              │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+              │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1
+              │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-example-plugin v0.9.0-dev.1
+              │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-policy v0.9.0-dev.1
+              │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+              │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-protocol v0.9.0-dev.1
+              │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+              │   │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+              │   │   │   └── semwright-tui v0.9.0-dev.1
+              │   │   ├── (dev) semwright-recipes v0.9.0-dev.1
+              │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+              │   │   │   └── semwright-core v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-registry v0.9.0-dev.1 (*)
+              │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+              │   │   └── (dev) semwright-types v0.9.0-dev.1
+              │   │       ├── semwright-adapters v0.9.0-dev.1 (*)
+              │   │       ├── semwright-backend-api v0.9.0-dev.1 (*)
+              │   │       ├── semwright-backends v0.9.0-dev.1 (*)
+              │   │       ├── semwright-cli v0.9.0-dev.1 (*)
+              │   │       ├── semwright-core v0.9.0-dev.1 (*)
+              │   │       ├── semwright-daemon v0.9.0-dev.1 (*)
+              │   │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+              │   │       ├── semwright-mcp v0.9.0-dev.1 (*)
+              │   │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+              │   │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+              │   │       ├── semwright-policy v0.9.0-dev.1 (*)
+              │   │       ├── semwright-protocol v0.9.0-dev.1 (*)
+              │   │       ├── semwright-recipes v0.9.0-dev.1 (*)
+              │   │       ├── semwright-registry v0.9.0-dev.1 (*)
+              │   │       └── semwright-tui v0.9.0-dev.1 (*)
+              │   └── tungstenite v0.28.0
+              │       └── tokio-tungstenite v0.28.0
+              │           └── semwright-adapters v0.9.0-dev.1 (*)
+              ├── rand_chacha v0.9.0
+              │   ├── proptest v1.11.0 (*)
+              │   └── rand v0.9.5 (*)
+              └── rand_xorshift v0.4.0
+                  └── proptest v1.11.0 (*)
+    ├ r-efi v6.0.0
+      └── getrandom v0.4.3
+          ├── tempfile v3.27.0
+          │   ├── proptest v1.11.0
+          │   │   ├── (dev) semwright-adapters v0.9.0-dev.1
+          │   │   │   └── semwright-daemon v0.9.0-dev.1
+          │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1
+          │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-backends v0.9.0-dev.1
+          │   │   │   │   ├── (dev) semwright-core v0.9.0-dev.1
+          │   │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-cli v0.9.0-dev.1
+          │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-mcp v0.9.0-dev.1
+          │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-example-plugin v0.9.0-dev.1
+          │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-policy v0.9.0-dev.1
+          │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-protocol v0.9.0-dev.1
+          │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-tui v0.9.0-dev.1
+          │   │   ├── (dev) semwright-recipes v0.9.0-dev.1
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-core v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-registry v0.9.0-dev.1
+          │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+          │   │   │   └── semwright-mcp v0.9.0-dev.1 (*)
+          │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+          │   │   └── (dev) semwright-types v0.9.0-dev.1
+          │   │       ├── semwright-adapters v0.9.0-dev.1 (*)
+          │   │       ├── semwright-backend-api v0.9.0-dev.1 (*)
+          │   │       ├── semwright-backends v0.9.0-dev.1 (*)
+          │   │       ├── semwright-cli v0.9.0-dev.1 (*)
+          │   │       ├── semwright-core v0.9.0-dev.1 (*)
+          │   │       ├── semwright-daemon v0.9.0-dev.1 (*)
+          │   │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+          │   │       ├── semwright-mcp v0.9.0-dev.1 (*)
+          │   │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+          │   │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+          │   │       ├── semwright-policy v0.9.0-dev.1 (*)
+          │   │       ├── semwright-protocol v0.9.0-dev.1 (*)
+          │   │       ├── semwright-recipes v0.9.0-dev.1 (*)
+          │   │       ├── semwright-registry v0.9.0-dev.1 (*)
+          │   │       └── semwright-tui v0.9.0-dev.1 (*)
+          │   ├── rusty-fork v0.3.1
+          │   │   └── proptest v1.11.0 (*)
+          │   ├── (dev) semwright-adapters v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-backend-api v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-plugin-host v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-policy v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-protocol v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-recipes v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-registry v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+          │   ├── (dev) semwright-types v0.9.0-dev.1 (*)
+          │   └── uds_windows v1.2.1
+          │       └── zbus v5.19.0
+          │           ├── semwright-backends v0.9.0-dev.1 (*)
+          │           └── semwright-daemon v0.9.0-dev.1 (*)
+          └── uuid v1.26.1
+              ├── rmcp v3.4.0
+              │   └── semwright-mcp v0.9.0-dev.1 (*)
+              ├── semwright-adapters v0.9.0-dev.1 (*)
+              ├── semwright-backends v0.9.0-dev.1 (*)
+              ├── semwright-cli v0.9.0-dev.1 (*)
+              ├── semwright-core v0.9.0-dev.1 (*)
+              ├── semwright-daemon v0.9.0-dev.1 (*)
+              ├── semwright-mcp v0.9.0-dev.1 (*)
+              ├── semwright-policy v0.9.0-dev.1 (*)
+              ├── semwright-protocol v0.9.0-dev.1 (*)
+              ├── semwright-types v0.9.0-dev.1 (*)
+              ├── uuid-simd v0.8.0
+              │   └── jsonschema v0.33.0
+              │       └── semwright-registry v0.9.0-dev.1 (*)
+              └── zbus v5.19.0 (*)
+
+warning[duplicate]: found 2 duplicate entries for crate 'rustix'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:163:1
+    │  
+163 │ ╭ rustix 0.38.44 registry+https://github.com/rust-lang/crates.io-index
+164 │ │ rustix 1.1.5 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰──────────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ rustix v0.38.44
+      └── crossterm v0.28.1
+          ├── ratatui v0.29.0
+          │   └── semwright-tui v0.9.0-dev.1
+          └── semwright-tui v0.9.0-dev.1 (*)
+    ├ rustix v1.1.5
+      ├── gethostname v1.1.0
+      │   └── x11rb v0.13.2
+      │       └── semwright-backends v0.9.0-dev.1
+      │           ├── (dev) semwright-core v0.9.0-dev.1
+      │           │   └── semwright-daemon v0.9.0-dev.1
+      │           └── semwright-daemon v0.9.0-dev.1 (*)
+      ├── tempfile v3.27.0
+      │   ├── proptest v1.11.0
+      │   │   ├── (dev) semwright-adapters v0.9.0-dev.1
+      │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1
+      │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-cli v0.9.0-dev.1
+      │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-mcp v0.9.0-dev.1
+      │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1
+      │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1
+      │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-example-plugin v0.9.0-dev.1
+      │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-policy v0.9.0-dev.1
+      │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-protocol v0.9.0-dev.1
+      │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │   │   │   └── semwright-tui v0.9.0-dev.1
+      │   │   ├── (dev) semwright-recipes v0.9.0-dev.1
+      │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   └── semwright-core v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-registry v0.9.0-dev.1
+      │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   └── semwright-mcp v0.9.0-dev.1 (*)
+      │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+      │   │   └── (dev) semwright-types v0.9.0-dev.1
+      │   │       ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │       ├── semwright-backend-api v0.9.0-dev.1 (*)
+      │   │       ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │       ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │       ├── semwright-core v0.9.0-dev.1 (*)
+      │   │       ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+      │   │       ├── semwright-mcp v0.9.0-dev.1 (*)
+      │   │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │   │       ├── semwright-policy v0.9.0-dev.1 (*)
+      │   │       ├── semwright-protocol v0.9.0-dev.1 (*)
+      │   │       ├── semwright-recipes v0.9.0-dev.1 (*)
+      │   │       ├── semwright-registry v0.9.0-dev.1 (*)
+      │   │       └── semwright-tui v0.9.0-dev.1 (*)
+      │   ├── rusty-fork v0.3.1
+      │   │   └── proptest v1.11.0 (*)
+      │   ├── (dev) semwright-adapters v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-backend-api v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-plugin-host v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-policy v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-protocol v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-recipes v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-registry v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+      │   ├── (dev) semwright-types v0.9.0-dev.1 (*)
+      │   └── uds_windows v1.2.1
+      │       └── zbus v5.19.0
+      │           ├── semwright-backends v0.9.0-dev.1 (*)
+      │           └── semwright-daemon v0.9.0-dev.1 (*)
+      ├── x11rb v0.13.2 (*)
+      └── zbus v5.19.0 (*)
+
+error[wildcard]: found 6 wildcard dependencies for crate 'semwright-adapters'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/adapters/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+15 │ semwright-backend-api.workspace = true
+   │                                   ━━━━ wildcard dependency
+16 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:53:22
+   │
+53 │ semwright-adapters = { path = "crates/adapters" }
+   │                      ────────────────────────────
+   │                      │
+   │                      workspace dependency
+   │                      workspace dependency
+   │                      workspace dependency
+   │
+   ├ semwright-adapters v0.9.0-dev.1
+     └── semwright-daemon v0.9.0-dev.1
+
+error[wildcard]: found 2 wildcard dependencies for crate 'semwright-backend-api'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/backend-api/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:51:25
+   │
+51 │ semwright-backend-api = { path = "crates/backend-api" }
+   │                         ─────────────────────────────── workspace dependency
+   │
+   ├ semwright-backend-api v0.9.0-dev.1
+     ├── semwright-adapters v0.9.0-dev.1
+     │   └── semwright-daemon v0.9.0-dev.1
+     ├── semwright-backends v0.9.0-dev.1
+     │   ├── (dev) semwright-core v0.9.0-dev.1
+     │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+     │   └── semwright-daemon v0.9.0-dev.1 (*)
+     ├── semwright-core v0.9.0-dev.1 (*)
+     └── semwright-daemon v0.9.0-dev.1 (*)
+
+error[wildcard]: found 8 wildcard dependencies for crate 'semwright-backends'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/backends/Cargo.toml:14:32
+   │
+14 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+15 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+16 │ semwright-policy.workspace = true
+   │                              ━━━━ wildcard dependency
+17 │ semwright-backend-api.workspace = true
+   │                                   ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:52:22
+   │
+52 │ semwright-backends = { path = "crates/backends" }
+   │                      ────────────────────────────
+   │                      │
+   │                      workspace dependency
+   │                      workspace dependency
+   │                      workspace dependency
+   │                      workspace dependency
+   │
+   ├ semwright-backends v0.9.0-dev.1
+     ├── (dev) semwright-core v0.9.0-dev.1
+     │   └── semwright-daemon v0.9.0-dev.1
+     └── semwright-daemon v0.9.0-dev.1 (*)
+
+error[wildcard]: found 10 wildcard dependencies for crate 'semwright-cli'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/cli/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+15 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+16 │ semwright-recipes.workspace = true
+   │                               ━━━━ wildcard dependency
+17 │ semwright-plugin-sdk.workspace = true
+   │                                  ━━━━ wildcard dependency
+18 │ semwright-registry.workspace = true
+   │                                ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:56:17
+   │
+56 │ semwright-cli = { path = "crates/cli" }
+   │                 ───────────────────────
+   │                 │
+   │                 workspace dependency
+   │                 workspace dependency
+   │                 workspace dependency
+   │                 workspace dependency
+   │                 workspace dependency
+   │
+   ├ semwright-cli v0.9.0-dev.1
+
+error[wildcard]: found 18 wildcard dependencies for crate 'semwright-core'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/core/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+15 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+16 │ semwright-registry.workspace = true
+   │                                ━━━━ wildcard dependency
+17 │ semwright-policy.workspace = true
+   │                              ━━━━ wildcard dependency
+18 │ semwright-backend-api.workspace = true
+   │                                   ━━━━ wildcard dependency
+19 │ semwright-recipes.workspace = true
+   │                               ━━━━ wildcard dependency
+20 │ semwright-plugin-sdk.workspace = true
+   │                                  ━━━━ wildcard dependency
+21 │ semwright-plugin-host.workspace = true
+   │                                   ━━━━ wildcard dependency
+   ·
+34 │ semwright-backends.workspace = true
+   │                                ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:54:18
+   │
+54 │ semwright-core = { path = "crates/core" }
+   │                  ────────────────────────
+   │                  │
+   │                  workspace dependency
+   │                  workspace dependency
+   │                  workspace dependency
+   │                  workspace dependency
+   │                  workspace dependency
+   │                  workspace dependency
+   │                  workspace dependency
+   │                  workspace dependency
+   │                  workspace dependency
+   │
+   ├ semwright-core v0.9.0-dev.1
+     └── semwright-daemon v0.9.0-dev.1
+
+error[wildcard]: found 18 wildcard dependencies for crate 'semwright-daemon'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/daemon/Cargo.toml:16:29
+   │
+16 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+17 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+18 │ semwright-policy.workspace = true
+   │                              ━━━━ wildcard dependency
+19 │ semwright-backend-api.workspace = true
+   │                                   ━━━━ wildcard dependency
+20 │ semwright-backends.workspace = true
+   │                                ━━━━ wildcard dependency
+21 │ semwright-adapters.workspace = true
+   │                                ━━━━ wildcard dependency
+22 │ semwright-core.workspace = true
+   │                            ━━━━ wildcard dependency
+23 │ semwright-plugin-host.workspace = true
+   │                                   ━━━━ wildcard dependency
+24 │ semwright-plugin-sdk.workspace = true
+   │                                  ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:55:20
+   │
+55 │ semwright-daemon = { path = "crates/daemon" }
+   │                    ──────────────────────────
+   │                    │
+   │                    workspace dependency
+   │                    workspace dependency
+   │                    workspace dependency
+   │                    workspace dependency
+   │                    workspace dependency
+   │                    workspace dependency
+   │                    workspace dependency
+   │                    workspace dependency
+   │                    workspace dependency
+   │
+   ├ semwright-daemon v0.9.0-dev.1
+
+bug[unresolved-workspace-dependency]: failed to resolve a workspace dependency
+   ┌─ /home/sergio/Documents/Projects/semwright/adapters/example-plugin/Cargo.toml:10:34
+   │
+10 │ semwright-plugin-sdk.workspace = true
+   │                                  ━━━━
+   │                                  │
+   │                                  usage of workspace dependency
+   │
+   ├ semwright-example-plugin v0.9.0-dev.1
+
+bug[unresolved-workspace-dependency]: failed to resolve a workspace dependency
+   ┌─ /home/sergio/Documents/Projects/semwright/adapters/example-plugin/Cargo.toml:11:29
+   │
+11 │ semwright-types.workspace = true
+   │                             ━━━━
+   │                             │
+   │                             usage of workspace dependency
+   │
+   ├ semwright-example-plugin v0.9.0-dev.1 (*)
+
+error[wildcard]: found 2 wildcard dependencies for crate 'semwright-example-plugin'
+   ┌─ /home/sergio/Documents/Projects/semwright/adapters/example-plugin/Cargo.toml:10:34
+   │
+10 │ semwright-plugin-sdk.workspace = true
+   │                                  ━━━━ wildcard dependency
+11 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+   │
+   ├ semwright-example-plugin v0.9.0-dev.1
+
+error[wildcard]: found 6 wildcard dependencies for crate 'semwright-mcp'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/mcp/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+15 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+16 │ semwright-registry.workspace = true
+   │                                ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:57:17
+   │
+57 │ semwright-mcp = { path = "crates/mcp" }
+   │                 ───────────────────────
+   │                 │
+   │                 workspace dependency
+   │                 workspace dependency
+   │                 workspace dependency
+   │
+   ├ semwright-mcp v0.9.0-dev.1
+
+error[wildcard]: found 8 wildcard dependencies for crate 'semwright-plugin-host'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/plugin-host/Cargo.toml:14:30
+   │
+14 │ semwright-policy.workspace = true
+   │                              ━━━━ wildcard dependency
+15 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+16 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+17 │ semwright-plugin-sdk.workspace = true
+   │                                  ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:50:25
+   │
+50 │ semwright-plugin-host = { path = "crates/plugin-host" }
+   │                         ───────────────────────────────
+   │                         │
+   │                         workspace dependency
+   │                         workspace dependency
+   │                         workspace dependency
+   │                         workspace dependency
+   │
+   ├ semwright-plugin-host v0.9.0-dev.1
+     ├── semwright-core v0.9.0-dev.1
+     │   └── semwright-daemon v0.9.0-dev.1
+     └── semwright-daemon v0.9.0-dev.1 (*)
+
+error[wildcard]: found 4 wildcard dependencies for crate 'semwright-plugin-sdk'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/plugin-sdk/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+15 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:49:24
+   │
+49 │ semwright-plugin-sdk = { path = "crates/plugin-sdk" }
+   │                        ──────────────────────────────
+   │                        │
+   │                        workspace dependency
+   │                        workspace dependency
+   │
+   ├ semwright-plugin-sdk v0.9.0-dev.1
+     ├── semwright-cli v0.9.0-dev.1
+     ├── semwright-core v0.9.0-dev.1
+     │   └── semwright-daemon v0.9.0-dev.1
+     ├── semwright-daemon v0.9.0-dev.1 (*)
+     ├── semwright-example-plugin v0.9.0-dev.1
+     └── semwright-plugin-host v0.9.0-dev.1
+         ├── semwright-core v0.9.0-dev.1 (*)
+         └── semwright-daemon v0.9.0-dev.1 (*)
+
+error[wildcard]: found 2 wildcard dependencies for crate 'semwright-policy'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/policy/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:47:20
+   │
+47 │ semwright-policy = { path = "crates/policy" }
+   │                    ────────────────────────── workspace dependency
+   │
+   ├ semwright-policy v0.9.0-dev.1
+     ├── semwright-backends v0.9.0-dev.1
+     │   ├── (dev) semwright-core v0.9.0-dev.1
+     │   │   └── semwright-daemon v0.9.0-dev.1
+     │   └── semwright-daemon v0.9.0-dev.1 (*)
+     ├── semwright-core v0.9.0-dev.1 (*)
+     ├── semwright-daemon v0.9.0-dev.1 (*)
+     └── semwright-plugin-host v0.9.0-dev.1
+         ├── semwright-core v0.9.0-dev.1 (*)
+         └── semwright-daemon v0.9.0-dev.1 (*)
+
+error[wildcard]: found 2 wildcard dependencies for crate 'semwright-protocol'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/protocol/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:45:22
+   │
+45 │ semwright-protocol = { path = "crates/protocol" }
+   │                      ──────────────────────────── workspace dependency
+   │
+   ├ semwright-protocol v0.9.0-dev.1
+     ├── semwright-adapters v0.9.0-dev.1
+     │   └── semwright-daemon v0.9.0-dev.1
+     ├── semwright-backends v0.9.0-dev.1
+     │   ├── (dev) semwright-core v0.9.0-dev.1
+     │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+     │   └── semwright-daemon v0.9.0-dev.1 (*)
+     ├── semwright-cli v0.9.0-dev.1
+     ├── semwright-core v0.9.0-dev.1 (*)
+     ├── semwright-daemon v0.9.0-dev.1 (*)
+     ├── semwright-mcp v0.9.0-dev.1
+     ├── semwright-plugin-host v0.9.0-dev.1
+     │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   └── semwright-daemon v0.9.0-dev.1 (*)
+     ├── semwright-plugin-sdk v0.9.0-dev.1
+     │   ├── semwright-cli v0.9.0-dev.1 (*)
+     │   ├── semwright-core v0.9.0-dev.1 (*)
+     │   ├── semwright-daemon v0.9.0-dev.1 (*)
+     │   ├── semwright-example-plugin v0.9.0-dev.1
+     │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+     └── semwright-tui v0.9.0-dev.1
+
+error[wildcard]: found 2 wildcard dependencies for crate 'semwright-recipes'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/recipes/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:48:21
+   │
+48 │ semwright-recipes = { path = "crates/recipes" }
+   │                     ─────────────────────────── workspace dependency
+   │
+   ├ semwright-recipes v0.9.0-dev.1
+     ├── semwright-cli v0.9.0-dev.1
+     └── semwright-core v0.9.0-dev.1
+         └── semwright-daemon v0.9.0-dev.1
+
+error[wildcard]: found 2 wildcard dependencies for crate 'semwright-registry'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/registry/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:46:22
+   │
+46 │ semwright-registry = { path = "crates/registry" }
+   │                      ──────────────────────────── workspace dependency
+   │
+   ├ semwright-registry v0.9.0-dev.1
+     ├── semwright-cli v0.9.0-dev.1
+     ├── semwright-core v0.9.0-dev.1
+     │   └── semwright-daemon v0.9.0-dev.1
+     └── semwright-mcp v0.9.0-dev.1
+
+error[wildcard]: found 4 wildcard dependencies for crate 'semwright-tui'
+   ┌─ /home/sergio/Documents/Projects/semwright/crates/tui/Cargo.toml:14:29
+   │
+14 │ semwright-types.workspace = true
+   │                             ━━━━ wildcard dependency
+15 │ semwright-protocol.workspace = true
+   │                                ━━━━ wildcard dependency
+   │
+   ┌─ /home/sergio/Documents/Projects/semwright/Cargo.toml:58:17
+   │
+58 │ semwright-tui = { path = "crates/tui" }
+   │                 ───────────────────────
+   │                 │
+   │                 workspace dependency
+   │                 workspace dependency
+   │
+   ├ semwright-tui v0.9.0-dev.1
+
+warning[duplicate]: found 2 duplicate entries for crate 'syn'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:210:1
+    │  
+210 │ ╭ syn 2.0.119 registry+https://github.com/rust-lang/crates.io-index
+211 │ │ syn 3.0.6 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰───────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ syn v2.0.119
+      ├── async-recursion v1.1.1
+      │   └── zbus v5.19.0
+      │       ├── semwright-backends v0.9.0-dev.1
+      │       │   ├── (dev) semwright-core v0.9.0-dev.1
+      │       │   │   └── semwright-daemon v0.9.0-dev.1
+      │       │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │       └── semwright-daemon v0.9.0-dev.1 (*)
+      ├── enumflags2_derive v0.7.12
+      │   └── enumflags2 v0.7.12
+      │       ├── landlock v0.4.7
+      │       │   └── semwright-plugin-host v0.9.0-dev.1
+      │       │       ├── semwright-core v0.9.0-dev.1 (*)
+      │       │       └── semwright-daemon v0.9.0-dev.1 (*)
+      │       ├── zbus v5.19.0 (*)
+      │       └── zvariant v5.15.0
+      │           ├── zbus v5.19.0 (*)
+      │           ├── zbus_macros v5.19.0
+      │           │   └── zbus v5.19.0 (*)
+      │           └── zbus_names v4.3.4
+      │               ├── zbus v5.19.0 (*)
+      │               └── zbus_macros v5.19.0 (*)
+      ├── strum_macros v0.26.4
+      │   └── strum v0.26.3
+      │       └── ratatui v0.29.0
+      │           └── semwright-tui v0.9.0-dev.1
+      ├── tracing-attributes v0.1.31
+      │   └── tracing v0.1.44
+      │       ├── rmcp v3.4.0
+      │       │   └── semwright-mcp v0.9.0-dev.1
+      │       ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       ├── tokio v1.53.1
+      │       │   ├── rmcp v3.4.0 (*)
+      │       │   ├── semwright-adapters v0.9.0-dev.1
+      │       │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │       │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │       │   ├── semwright-cli v0.9.0-dev.1
+      │       │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │   ├── semwright-example-plugin v0.9.0-dev.1
+      │       │   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │       │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │   ├── semwright-plugin-sdk v0.9.0-dev.1
+      │       │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-example-plugin v0.9.0-dev.1 (*)
+      │       │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │   ├── semwright-protocol v0.9.0-dev.1
+      │       │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │       │   │   └── semwright-tui v0.9.0-dev.1 (*)
+      │       │   ├── semwright-recipes v0.9.0-dev.1
+      │       │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │       │   │   └── semwright-core v0.9.0-dev.1 (*)
+      │       │   ├── semwright-tui v0.9.0-dev.1 (*)
+      │       │   ├── tokio-tungstenite v0.28.0
+      │       │   │   └── semwright-adapters v0.9.0-dev.1 (*)
+      │       │   ├── tokio-util v0.7.19
+      │       │   │   ├── rmcp v3.4.0 (*)
+      │       │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-backend-api v0.9.0-dev.1
+      │       │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │       │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │       │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │   │   └── semwright-recipes v0.9.0-dev.1 (*)
+      │       │   └── zbus v5.19.0 (*)
+      │       ├── tracing-subscriber v0.3.23
+      │       │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │       └── zbus v5.19.0 (*)
+      ├── windows-implement v0.60.2
+      │   └── windows-core v0.62.2
+      │       └── iana-time-zone v0.1.65
+      │           └── chrono v0.4.45
+      │               ├── rmcp v3.4.0 (*)
+      │               └── schemars v1.2.2
+      │                   ├── rmcp v3.4.0 (*)
+      │                   └── semwright-types v0.9.0-dev.1
+      │                       ├── semwright-adapters v0.9.0-dev.1 (*)
+      │                       ├── semwright-backend-api v0.9.0-dev.1 (*)
+      │                       ├── semwright-backends v0.9.0-dev.1 (*)
+      │                       ├── semwright-cli v0.9.0-dev.1 (*)
+      │                       ├── semwright-core v0.9.0-dev.1 (*)
+      │                       ├── semwright-daemon v0.9.0-dev.1 (*)
+      │                       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+      │                       ├── semwright-mcp v0.9.0-dev.1 (*)
+      │                       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │                       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │                       ├── semwright-policy v0.9.0-dev.1
+      │                       │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │                       │   ├── semwright-core v0.9.0-dev.1 (*)
+      │                       │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │                       │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │                       ├── semwright-protocol v0.9.0-dev.1 (*)
+      │                       ├── semwright-recipes v0.9.0-dev.1 (*)
+      │                       ├── semwright-registry v0.9.0-dev.1
+      │                       │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │                       │   ├── semwright-core v0.9.0-dev.1 (*)
+      │                       │   └── semwright-mcp v0.9.0-dev.1 (*)
+      │                       └── semwright-tui v0.9.0-dev.1 (*)
+      └── windows-interface v0.59.3
+          └── windows-core v0.62.2 (*)
+    ├ syn v3.0.6
+      ├── async-trait v0.1.92
+      │   ├── semwright-adapters v0.9.0-dev.1
+      │   │   └── semwright-daemon v0.9.0-dev.1
+      │   ├── semwright-backend-api v0.9.0-dev.1
+      │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │   ├── semwright-backends v0.9.0-dev.1
+      │   │   │   ├── (dev) semwright-core v0.9.0-dev.1
+      │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   ├── semwright-recipes v0.9.0-dev.1
+      │   │   ├── semwright-cli v0.9.0-dev.1
+      │   │   └── semwright-core v0.9.0-dev.1 (*)
+      │   └── zbus v5.19.0
+      │       ├── semwright-backends v0.9.0-dev.1 (*)
+      │       └── semwright-daemon v0.9.0-dev.1 (*)
+      ├── clap_derive v4.6.7
+      │   └── clap v4.6.7
+      │       ├── clap_complete v4.6.11
+      │       │   └── semwright-cli v0.9.0-dev.1 (*)
+      │       ├── clap_mangen v0.2.33
+      │       │   └── semwright-cli v0.9.0-dev.1 (*)
+      │       ├── semwright-cli v0.9.0-dev.1 (*)
+      │       ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       ├── semwright-mcp v0.9.0-dev.1
+      │       └── semwright-tui v0.9.0-dev.1
+      ├── darling_core v0.24.1
+      │   ├── darling v0.24.1
+      │   │   ├── instability v0.3.13
+      │   │   │   └── ratatui v0.29.0
+      │   │   │       └── semwright-tui v0.9.0-dev.1 (*)
+      │   │   └── rmcp-macros v3.4.0
+      │   │       └── rmcp v3.4.0
+      │   │           └── semwright-mcp v0.9.0-dev.1 (*)
+      │   └── darling_macro v0.24.1
+      │       └── darling v0.24.1 (*)
+      ├── darling_macro v0.24.1 (*)
+      ├── displaydoc v0.2.7
+      │   ├── icu_collections v2.3.0
+      │   │   ├── icu_normalizer v2.3.0
+      │   │   │   └── idna_adapter v1.2.2
+      │   │   │       └── idna v1.1.0
+      │   │   │           ├── jsonschema v0.33.0
+      │   │   │           │   └── semwright-registry v0.9.0-dev.1
+      │   │   │           │       ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │           │       ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │           │       └── semwright-mcp v0.9.0-dev.1 (*)
+      │   │   │           └── url v2.5.8
+      │   │   │               ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │   │               └── semwright-backends v0.9.0-dev.1 (*)
+      │   │   └── icu_properties v2.3.0
+      │   │       └── idna_adapter v1.2.2 (*)
+      │   ├── icu_locale_core v2.3.0
+      │   │   ├── icu_properties v2.3.0 (*)
+      │   │   └── icu_provider v2.3.1
+      │   │       ├── icu_normalizer v2.3.0 (*)
+      │   │       └── icu_properties v2.3.0 (*)
+      │   ├── icu_properties v2.3.0 (*)
+      │   ├── icu_provider v2.3.1 (*)
+      │   ├── tinystr v0.8.4
+      │   │   └── icu_locale_core v2.3.0 (*)
+      │   └── zerotrie v0.2.5
+      │       ├── icu_properties v2.3.0 (*)
+      │       └── icu_provider v2.3.1 (*)
+      ├── futures-macro v0.3.34
+      │   └── futures-util v0.3.34
+      │       ├── futures v0.3.34
+      │       │   └── rmcp v3.4.0 (*)
+      │       ├── futures-executor v0.3.34
+      │       │   └── futures v0.3.34 (*)
+      │       ├── js-sys v0.3.105
+      │       │   └── iana-time-zone v0.1.65
+      │       │       └── chrono v0.4.45
+      │       │           ├── rmcp v3.4.0 (*)
+      │       │           └── schemars v1.2.2
+      │       │               ├── rmcp v3.4.0 (*)
+      │       │               └── semwright-types v0.9.0-dev.1
+      │       │                   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-backend-api v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-backends v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-cli v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-example-plugin v0.9.0-dev.1
+      │       │                   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-plugin-host v0.9.0-dev.1
+      │       │                   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │                   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-plugin-sdk v0.9.0-dev.1
+      │       │                   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-example-plugin v0.9.0-dev.1 (*)
+      │       │                   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-policy v0.9.0-dev.1
+      │       │                   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │                   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-protocol v0.9.0-dev.1
+      │       │                   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │                   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │       │                   │   └── semwright-tui v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-recipes v0.9.0-dev.1 (*)
+      │       │                   ├── semwright-registry v0.9.0-dev.1 (*)
+      │       │                   └── semwright-tui v0.9.0-dev.1 (*)
+      │       ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       ├── semwright-backends v0.9.0-dev.1 (*)
+      │       ├── tokio-tungstenite v0.28.0
+      │       │   └── semwright-adapters v0.9.0-dev.1 (*)
+      │       └── tokio-util v0.7.19
+      │           ├── rmcp v3.4.0 (*)
+      │           ├── semwright-adapters v0.9.0-dev.1 (*)
+      │           ├── semwright-backend-api v0.9.0-dev.1 (*)
+      │           ├── semwright-backends v0.9.0-dev.1 (*)
+      │           ├── semwright-cli v0.9.0-dev.1 (*)
+      │           ├── semwright-core v0.9.0-dev.1 (*)
+      │           ├── semwright-daemon v0.9.0-dev.1 (*)
+      │           ├── semwright-mcp v0.9.0-dev.1 (*)
+      │           ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │           └── semwright-recipes v0.9.0-dev.1 (*)
+      ├── instability v0.3.13 (*)
+      ├── ref-cast-impl v1.0.27
+      │   └── ref-cast v1.0.27
+      │       ├── fluent-uri v0.3.2
+      │       │   └── referencing v0.33.0
+      │       │       └── jsonschema v0.33.0 (*)
+      │       └── schemars v1.2.2 (*)
+      ├── rmcp-macros v3.4.0 (*)
+      ├── schemars_derive v1.2.2
+      │   └── schemars v1.2.2 (*)
+      ├── serde_derive v1.0.229
+      │   └── serde v1.0.229
+      │       ├── ahash v0.8.12
+      │       │   ├── jsonschema v0.33.0 (*)
+      │       │   └── referencing v0.33.0 (*)
+      │       ├── chrono v0.4.45 (*)
+      │       ├── email_address v0.2.9
+      │       │   └── jsonschema v0.33.0 (*)
+      │       ├── enumflags2 v0.7.12
+      │       │   ├── landlock v0.4.7
+      │       │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       │   ├── zbus v5.19.0 (*)
+      │       │   └── zvariant v5.15.0
+      │       │       ├── zbus v5.19.0 (*)
+      │       │       ├── zbus_macros v5.19.0
+      │       │       │   └── zbus v5.19.0 (*)
+      │       │       └── zbus_names v4.3.4
+      │       │           ├── zbus v5.19.0 (*)
+      │       │           └── zbus_macros v5.19.0 (*)
+      │       ├── fluent-uri v0.3.2 (*)
+      │       ├── jsonschema v0.33.0 (*)
+      │       ├── rmcp v3.4.0 (*)
+      │       ├── schemars v1.2.2 (*)
+      │       ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       ├── semwright-backends v0.9.0-dev.1 (*)
+      │       ├── semwright-cli v0.9.0-dev.1 (*)
+      │       ├── semwright-core v0.9.0-dev.1 (*)
+      │       ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       ├── semwright-mcp v0.9.0-dev.1 (*)
+      │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │       ├── semwright-policy v0.9.0-dev.1 (*)
+      │       ├── semwright-protocol v0.9.0-dev.1 (*)
+      │       ├── semwright-recipes v0.9.0-dev.1 (*)
+      │       ├── semwright-registry v0.9.0-dev.1 (*)
+      │       ├── semwright-types v0.9.0-dev.1 (*)
+      │       ├── serde_yaml_ng v0.10.0
+      │       │   └── semwright-recipes v0.9.0-dev.1 (*)
+      │       ├── tracing-serde v0.2.0
+      │       │   └── tracing-subscriber v0.3.23
+      │       │       └── semwright-daemon v0.9.0-dev.1 (*)
+      │       ├── tracing-subscriber v0.3.23 (*)
+      │       ├── zbus v5.19.0 (*)
+      │       ├── zbus_names v4.3.4 (*)
+      │       ├── zcheapstr v1.1.0
+      │       │   └── zvariant v5.15.0 (*)
+      │       ├── zvariant v5.15.0 (*)
+      │       └── zvariant_utils v4.2.0
+      │           ├── zbus_macros v5.19.0 (*)
+      │           ├── zvariant v5.15.0 (*)
+      │           └── zvariant_derive v5.15.0
+      │               └── zvariant v5.15.0 (*)
+      ├── serde_derive_internals v0.30.0
+      │   └── schemars_derive v1.2.2 (*)
+      ├── serde_repr v0.1.21
+      │   └── zbus v5.19.0 (*)
+      ├── synstructure v0.14.0
+      │   ├── yoke-derive v0.8.3
+      │   │   └── yoke v0.8.3
+      │   │       ├── icu_collections v2.3.0 (*)
+      │   │       ├── icu_provider v2.3.1 (*)
+      │   │       ├── zerotrie v0.2.5 (*)
+      │   │       └── zerovec v0.11.8
+      │   │           ├── icu_collections v2.3.0 (*)
+      │   │           ├── icu_locale_core v2.3.0 (*)
+      │   │           ├── icu_normalizer v2.3.0 (*)
+      │   │           ├── icu_properties v2.3.0 (*)
+      │   │           ├── icu_provider v2.3.1 (*)
+      │   │           ├── potential_utf v0.1.6
+      │   │           │   └── icu_collections v2.3.0 (*)
+      │   │           └── tinystr v0.8.4 (*)
+      │   └── zerofrom-derive v0.1.8
+      │       └── zerofrom v0.1.8
+      │           ├── icu_collections v2.3.0 (*)
+      │           ├── icu_provider v2.3.1 (*)
+      │           ├── yoke v0.8.3 (*)
+      │           ├── zerotrie v0.2.5 (*)
+      │           └── zerovec v0.11.8 (*)
+      ├── thiserror-impl v2.0.20
+      │   └── thiserror v2.0.20
+      │       ├── landlock v0.4.7 (*)
+      │       ├── rmcp v3.4.0 (*)
+      │       ├── semwright-types v0.9.0-dev.1 (*)
+      │       └── tungstenite v0.28.0
+      │           └── tokio-tungstenite v0.28.0 (*)
+      ├── tokio-macros v2.7.2
+      │   └── tokio v1.53.1
+      │       ├── rmcp v3.4.0 (*)
+      │       ├── semwright-adapters v0.9.0-dev.1 (*)
+      │       ├── semwright-backends v0.9.0-dev.1 (*)
+      │       ├── semwright-cli v0.9.0-dev.1 (*)
+      │       ├── semwright-core v0.9.0-dev.1 (*)
+      │       ├── semwright-daemon v0.9.0-dev.1 (*)
+      │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+      │       ├── semwright-mcp v0.9.0-dev.1 (*)
+      │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │       ├── semwright-protocol v0.9.0-dev.1 (*)
+      │       ├── semwright-recipes v0.9.0-dev.1 (*)
+      │       ├── semwright-tui v0.9.0-dev.1 (*)
+      │       ├── tokio-tungstenite v0.28.0 (*)
+      │       ├── tokio-util v0.7.19 (*)
+      │       └── zbus v5.19.0 (*)
+      ├── wasm-bindgen-macro-support v0.2.128
+      │   └── wasm-bindgen-macro v0.2.128
+      │       └── wasm-bindgen v0.2.128
+      │           ├── iana-time-zone v0.1.65 (*)
+      │           └── js-sys v0.3.105 (*)
+      ├── yoke-derive v0.8.3 (*)
+      ├── zbus_macros v5.19.0 (*)
+      ├── zerofrom-derive v0.1.8 (*)
+      ├── zerovec-derive v0.11.6
+      │   └── zerovec v0.11.8 (*)
+      ├── zvariant_derive v5.15.0 (*)
+      └── zvariant_utils v4.2.0 (*)
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/sergio/Documents/Projects/semwright/deny.toml:4:82
+  │
+4 │ allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "MPL-2.0"]
+  │                                                                                  ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/sergio/Documents/Projects/semwright/deny.toml:4:159
+  │
+4 │ allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "MPL-2.0"]
+  │                                                                                                                                                               ━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/sergio/Documents/Projects/semwright/deny.toml:4:98
+  │
+4 │ allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "MPL-2.0"]
+  │                                                                                                  ━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/sergio/Documents/Projects/semwright/deny.toml:4:170
+  │
+4 │ allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "MPL-2.0"]
+  │                                                                                                                                                                          ━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/sergio/Documents/Projects/semwright/deny.toml:4:120
+  │
+4 │ allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Unicode-3.0", "Unicode-DFS-2016", "Zlib", "BSL-1.0", "CC0-1.0", "MPL-2.0"]
+  │                                                                                                                        ━━━━━━━━━━━━━━━━ unmatched license allowance
+
+warning[duplicate]: found 2 duplicate entries for crate 'toml_datetime'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:223:1
+    │  
+223 │ ╭ toml_datetime 0.7.5+spec-1.1.0 registry+https://github.com/rust-lang/crates.io-index
+224 │ │ toml_datetime 1.1.1+spec-1.1.0 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰────────────────────────────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ toml_datetime v0.7.5+spec-1.1.0
+      └── toml v0.9.12+spec-1.1.0
+          ├── semwright-cli v0.9.0-dev.1
+          └── semwright-daemon v0.9.0-dev.1
+    ├ toml_datetime v1.1.1+spec-1.1.0
+      └── toml_edit v0.25.15+spec-1.1.0
+          └── proc-macro-crate v3.5.0
+              ├── zbus_macros v5.19.0
+              │   └── zbus v5.19.0
+              │       ├── semwright-backends v0.9.0-dev.1
+              │       │   ├── (dev) semwright-core v0.9.0-dev.1
+              │       │   │   └── semwright-daemon v0.9.0-dev.1
+              │       │   └── semwright-daemon v0.9.0-dev.1 (*)
+              │       └── semwright-daemon v0.9.0-dev.1 (*)
+              └── zvariant_derive v5.15.0
+                  └── zvariant v5.15.0
+                      ├── zbus v5.19.0 (*)
+                      ├── zbus_macros v5.19.0 (*)
+                      └── zbus_names v4.3.4
+                          ├── zbus v5.19.0 (*)
+                          └── zbus_macros v5.19.0 (*)
+
+warning[duplicate]: found 2 duplicate entries for crate 'unicode-width'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:241:1
+    │  
+241 │ ╭ unicode-width 0.1.14 registry+https://github.com/rust-lang/crates.io-index
+242 │ │ unicode-width 0.2.0 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰─────────────────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ unicode-width v0.1.14
+      └── unicode-truncate v1.1.0
+          └── ratatui v0.29.0
+              └── semwright-tui v0.9.0-dev.1
+    ├ unicode-width v0.2.0
+      └── ratatui v0.29.0
+          └── semwright-tui v0.9.0-dev.1
+
+warning[duplicate]: found 2 duplicate entries for crate 'windows-sys'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:268:1
+    │  
+268 │ ╭ windows-sys 0.59.0 registry+https://github.com/rust-lang/crates.io-index
+269 │ │ windows-sys 0.61.2 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰────────────────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ windows-sys v0.59.0
+      └── rustix v0.38.44
+          └── crossterm v0.28.1
+              ├── ratatui v0.29.0
+              │   └── semwright-tui v0.9.0-dev.1
+              └── semwright-tui v0.9.0-dev.1 (*)
+    ├ windows-sys v0.61.2
+      ├── anstyle-query v1.1.5
+      │   └── anstream v1.0.0
+      │       └── clap_builder v4.6.7
+      │           └── clap v4.6.7
+      │               ├── clap_complete v4.6.11
+      │               │   └── semwright-cli v0.9.0-dev.1
+      │               ├── clap_mangen v0.2.33
+      │               │   └── semwright-cli v0.9.0-dev.1 (*)
+      │               ├── semwright-cli v0.9.0-dev.1 (*)
+      │               ├── semwright-daemon v0.9.0-dev.1
+      │               ├── semwright-mcp v0.9.0-dev.1
+      │               └── semwright-tui v0.9.0-dev.1
+      ├── anstyle-wincon v3.0.11
+      │   └── anstream v1.0.0 (*)
+      ├── errno v0.3.14
+      │   ├── rustix v0.38.44
+      │   │   └── crossterm v0.28.1
+      │   │       ├── ratatui v0.29.0
+      │   │       │   └── semwright-tui v0.9.0-dev.1 (*)
+      │   │       └── semwright-tui v0.9.0-dev.1 (*)
+      │   ├── rustix v1.1.5
+      │   │   ├── gethostname v1.1.0
+      │   │   │   └── x11rb v0.13.2
+      │   │   │       └── semwright-backends v0.9.0-dev.1
+      │   │   │           ├── (dev) semwright-core v0.9.0-dev.1
+      │   │   │           │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │           └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   ├── tempfile v3.27.0
+      │   │   │   ├── proptest v1.11.0
+      │   │   │   │   ├── (dev) semwright-adapters v0.9.0-dev.1
+      │   │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1
+      │   │   │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1
+      │   │   │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1
+      │   │   │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-example-plugin v0.9.0-dev.1
+      │   │   │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-policy v0.9.0-dev.1
+      │   │   │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │   │   └── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-protocol v0.9.0-dev.1
+      │   │   │   │   │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │   │   │   │   │   └── semwright-tui v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-recipes v0.9.0-dev.1
+      │   │   │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   │   │   └── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-registry v0.9.0-dev.1
+      │   │   │   │   │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   │   │   ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │   │   └── semwright-mcp v0.9.0-dev.1 (*)
+      │   │   │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+      │   │   │   │   └── (dev) semwright-types v0.9.0-dev.1
+      │   │   │   │       ├── semwright-adapters v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-backend-api v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-core v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-example-plugin v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-mcp v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-policy v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-protocol v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-recipes v0.9.0-dev.1 (*)
+      │   │   │   │       ├── semwright-registry v0.9.0-dev.1 (*)
+      │   │   │   │       └── semwright-tui v0.9.0-dev.1 (*)
+      │   │   │   ├── rusty-fork v0.3.1
+      │   │   │   │   └── proptest v1.11.0 (*)
+      │   │   │   ├── (dev) semwright-adapters v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-backend-api v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-backends v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-cli v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-core v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-daemon v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-mcp v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-plugin-host v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-policy v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-protocol v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-recipes v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-registry v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-tui v0.9.0-dev.1 (*)
+      │   │   │   ├── (dev) semwright-types v0.9.0-dev.1 (*)
+      │   │   │   └── uds_windows v1.2.1
+      │   │   │       └── zbus v5.19.0
+      │   │   │           ├── semwright-backends v0.9.0-dev.1 (*)
+      │   │   │           └── semwright-daemon v0.9.0-dev.1 (*)
+      │   │   ├── x11rb v0.13.2 (*)
+      │   │   └── zbus v5.19.0 (*)
+      │   └── signal-hook-registry v1.4.8
+      │       ├── signal-hook v0.3.18
+      │       │   ├── crossterm v0.28.1 (*)
+      │       │   └── signal-hook-mio v0.2.5
+      │       │       └── crossterm v0.28.1 (*)
+      │       └── tokio v1.53.1
+      │           ├── rmcp v3.4.0
+      │           │   └── semwright-mcp v0.9.0-dev.1 (*)
+      │           ├── semwright-adapters v0.9.0-dev.1 (*)
+      │           ├── semwright-backends v0.9.0-dev.1 (*)
+      │           ├── semwright-cli v0.9.0-dev.1 (*)
+      │           ├── semwright-core v0.9.0-dev.1 (*)
+      │           ├── semwright-daemon v0.9.0-dev.1 (*)
+      │           ├── semwright-example-plugin v0.9.0-dev.1 (*)
+      │           ├── semwright-mcp v0.9.0-dev.1 (*)
+      │           ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │           ├── semwright-plugin-sdk v0.9.0-dev.1 (*)
+      │           ├── semwright-protocol v0.9.0-dev.1 (*)
+      │           ├── semwright-recipes v0.9.0-dev.1 (*)
+      │           ├── semwright-tui v0.9.0-dev.1 (*)
+      │           ├── tokio-tungstenite v0.28.0
+      │           │   └── semwright-adapters v0.9.0-dev.1 (*)
+      │           ├── tokio-util v0.7.19
+      │           │   ├── rmcp v3.4.0 (*)
+      │           │   ├── semwright-adapters v0.9.0-dev.1 (*)
+      │           │   ├── semwright-backend-api v0.9.0-dev.1 (*)
+      │           │   ├── semwright-backends v0.9.0-dev.1 (*)
+      │           │   ├── semwright-cli v0.9.0-dev.1 (*)
+      │           │   ├── semwright-core v0.9.0-dev.1 (*)
+      │           │   ├── semwright-daemon v0.9.0-dev.1 (*)
+      │           │   ├── semwright-mcp v0.9.0-dev.1 (*)
+      │           │   ├── semwright-plugin-host v0.9.0-dev.1 (*)
+      │           │   └── semwright-recipes v0.9.0-dev.1 (*)
+      │           └── zbus v5.19.0 (*)
+      ├── mio v1.2.3
+      │   ├── crossterm v0.28.1 (*)
+      │   ├── signal-hook-mio v0.2.5 (*)
+      │   └── tokio v1.53.1 (*)
+      ├── nu-ansi-term v0.50.3
+      │   └── tracing-subscriber v0.3.23
+      │       └── semwright-daemon v0.9.0-dev.1 (*)
+      ├── rustix v1.1.5 (*)
+      ├── socket2 v0.6.5
+      │   └── tokio v1.53.1 (*)
+      ├── tempfile v3.27.0 (*)
+      ├── tokio v1.53.1 (*)
+      ├── uds_windows v1.2.1 (*)
+      └── zbus v5.19.0 (*)
+
+warning[duplicate]: found 2 duplicate entries for crate 'winnow'
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:279:1
+    │  
+279 │ ╭ winnow 0.7.15 registry+https://github.com/rust-lang/crates.io-index
+280 │ │ winnow 1.0.4 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰──────────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ winnow v0.7.15
+      └── toml v0.9.12+spec-1.1.0
+          ├── semwright-cli v0.9.0-dev.1
+          └── semwright-daemon v0.9.0-dev.1
+    ├ winnow v1.0.4
+      ├── toml_edit v0.25.15+spec-1.1.0
+      │   └── proc-macro-crate v3.5.0
+      │       ├── zbus_macros v5.19.0
+      │       │   └── zbus v5.19.0
+      │       │       ├── semwright-backends v0.9.0-dev.1
+      │       │       │   ├── (dev) semwright-core v0.9.0-dev.1
+      │       │       │   │   └── semwright-daemon v0.9.0-dev.1
+      │       │       │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │       │       └── semwright-daemon v0.9.0-dev.1 (*)
+      │       └── zvariant_derive v5.15.0
+      │           └── zvariant v5.15.0
+      │               ├── zbus v5.19.0 (*)
+      │               ├── zbus_macros v5.19.0 (*)
+      │               └── zbus_names v4.3.4
+      │                   ├── zbus v5.19.0 (*)
+      │                   └── zbus_macros v5.19.0 (*)
+      ├── toml_parser v1.1.3+spec-1.1.0
+      │   ├── toml v0.9.12+spec-1.1.0
+      │   │   ├── semwright-cli v0.9.0-dev.1
+      │   │   └── semwright-daemon v0.9.0-dev.1 (*)
+      │   └── toml_edit v0.25.15+spec-1.1.0 (*)
+      ├── zbus v5.19.0 (*)
+      ├── zbus_names v4.3.4 (*)
+      ├── zvariant v5.15.0 (*)
+      └── zvariant_utils v4.2.0
+          ├── zbus_macros v5.19.0 (*)
+          ├── zvariant v5.15.0 (*)
+          └── zvariant_derive v5.15.0 (*)
+
+error[unmaintained]: paste - no longer maintained
+    ┌─ /home/sergio/Documents/Projects/semwright/Cargo.lock:135:1
+    │
+135 │ paste 1.0.15 registry+https://github.com/rust-lang/crates.io-index
+    │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ unmaintained advisory detected
+    │
+    ├ ID: RUSTSEC-2024-0436
+    ├ Advisory: https://rustsec.org/advisories/RUSTSEC-2024-0436
+    ├ The creator of the crate `paste` has stated in the [`README.md`](https://github.com/dtolnay/paste/blob/master/README.md) 
+      that this project is not longer maintained as well as archived the repository
+      
+      ## Possible Alternative(s)
+      
+      - [`pastey`]: a fork of paste and is aimed to be a drop-in replacement with additional features for paste crate
+      - [`with_builtin_macros`]: crate providing a [superset of `paste`'s functionality including general `macro_rules!` eager expansions](https://docs.rs/with_builtin_macros/0.1.0/with_builtin_macros/macro.with_eager_expansions.html)  and `concat!`/`concat_idents!` macros
+      
+      [`pastey`]: https://crates.io/crates/pastey
+      [`with_builtin_macros`]: https://crates.io/crates/with_builtin_macros
+    ├ Announcement: https://github.com/dtolnay/paste
+    ├ Solution: No safe upgrade is available!
+    ├ paste v1.0.15
+      └── ratatui v0.29.0
+          └── semwright-tui v0.9.0-dev.1
+
+advisories FAILED, bans FAILED, licenses FAILED, sources ok

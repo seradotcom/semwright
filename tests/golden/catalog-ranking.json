@@ -1,0 +1,17 @@
+[
+  {
+    "query": "blender.object.list",
+    "provider": null,
+    "first": "blender.object.list"
+  },
+  {
+    "query": "browser.tab.list",
+    "provider": "browser-cdp",
+    "first": "browser.tab.list"
+  },
+  {
+    "query": "capabilities.search",
+    "provider": "semwright-core",
+    "first": "capabilities.search"
+  }
+]

@@ -1,0 +1,23 @@
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	﻿2026-09-21T18:00:35.5830763Z ##[group]Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.5831492Z [36;1mcargo clippy --locked --workspace --all-targets --all-features -- -D warnings[0m
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.5867018Z shell: /usr/bin/bash -e {0}
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.5867287Z env:
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.5867710Z   CARGO_HOME: /home/runner/.cargo
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.5867989Z   CARGO_INCREMENTAL: 0
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.5868229Z   CARGO_TERM_COLOR: always
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.5868473Z ##[endgroup]
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:35.8353225Z [1m[92m    Checking[0m semwright-types v0.9.0-dev.1 (/home/runner/work/semwright/semwright/crates/types)
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2179967Z [1m[91merror[0m[1m: this expression creates a reference which is immediately dereferenced by the compiler[0m
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2181434Z    [1m[94m--> [0mcrates/types/src/lib.rs:447:36
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2182311Z     [1m[94m|[0m
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2183213Z [1m[94m447[0m [1m[94m|[0m             found.retain(|n| score(&n) > 0);
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2184560Z     [1m[94m|[0m                                    [1m[91m^^[0m [1m[91mhelp: change this to: `n`[0m
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2185564Z     [1m[94m|[0m
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2186947Z     [1m[94m= [0m[1mhelp[0m: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2193657Z     [1m[94m= [0m[1mnote[0m: `-D clippy::needless-borrow` implied by `-D warnings`
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2195284Z     [1m[94m= [0m[1mhelp[0m: to override `-D warnings` add `#[allow(clippy::needless_borrow)]`
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2196168Z 
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2355516Z [1m[91merror[0m: could not compile `semwright-types` (lib) due to 1 previous error
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2356787Z [1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2365179Z [1m[91merror[0m: could not compile `semwright-types` (lib test) due to 1 previous error
+rust	Run cargo clippy --locked --workspace --all-targets --all-features -- -D warnings	2026-09-21T18:00:36.2629123Z ##[error]Process completed with exit code 101.

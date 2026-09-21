@@ -1,0 +1,14 @@
+    Checking semwright-types v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/types)
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> crates/types/src/lib.rs:447:36
+    |
+447 |             found.retain(|n| score(&n) > 0);
+    |                                    ^^ help: change this to: `n`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+    = note: `-D clippy::needless-borrow` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_borrow)]`
+
+error: could not compile `semwright-types` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `semwright-types` (lib test) due to 1 previous error

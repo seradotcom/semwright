@@ -1,0 +1,41 @@
+    Checking semwright-types v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/types)
+    Checking bit-vec v0.8.0
+    Checking bit-set v0.8.0
+    Checking fancy-regex v0.16.2
+    Checking semwright-protocol v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/protocol)
+    Checking jsonschema v0.33.0
+    Checking semwright-plugin-sdk v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-sdk)
+    Checking semwright-policy v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/policy)
+   Compiling rustix v1.1.5
+    Checking semwright-backend-api v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backend-api)
+    Checking semwright-registry v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/registry)
+    Checking semwright-recipes v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/recipes)
+    Checking fastrand v2.5.0
+    Checking futures-lite v2.6.1
+    Checking semwright-plugin-host v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-host)
+    Checking semwright-adapters v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/adapters)
+    Checking semwright-core v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/core)
+ Documenting semwright-cli v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/cli)
+    Checking gethostname v1.1.0
+    Checking x11rb v0.13.2
+    Checking zbus v5.19.0
+    Checking semwright-cli v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/cli)
+ Documenting semwright-plugin-host v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-host)
+ Documenting semwright-mcp v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/mcp)
+    Checking semwright-backends v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backends)
+ Documenting semwright-backends v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backends)
+ Documenting semwright-tui v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/tui)
+ Documenting semwright-adapters v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/adapters)
+    Checking semwright-daemon v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/daemon)
+ Documenting semwright-daemon v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/daemon)
+ Documenting semwright-core v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/core)
+ Documenting semwright-registry v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/registry)
+ Documenting semwright-recipes v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/recipes)
+ Documenting semwright-example-plugin v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/adapters/example-plugin)
+ Documenting semwright-plugin-sdk v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-sdk)
+ Documenting semwright-policy v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/policy)
+ Documenting semwright-backend-api v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backend-api)
+ Documenting semwright-protocol v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/protocol)
+ Documenting semwright-types v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/types)
+    Finished `dev` profile [unoptimized] target(s) in 13.82s
+   Generated /tmp/semwright-target/doc/semwright_adapters/index.html and 18 other files

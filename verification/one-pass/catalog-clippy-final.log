@@ -1,0 +1,6 @@
+    Checking semwright-registry v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/registry)
+    Checking semwright-core v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/core)
+    Checking semwright-mcp v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/mcp)
+    Checking semwright-cli v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/cli)
+    Checking semwright-daemon v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/daemon)
+    Finished `dev` profile [unoptimized] target(s) in 2.91s

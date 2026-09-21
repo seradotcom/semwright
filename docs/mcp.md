@@ -29,3 +29,5 @@ roots-based grant escalation or a tool for turning policy off. It does not imple
 per-session dynamic registration of all application commands, a full task persistence API,
 or MCP-driven privileged elicitation. Search/describe/execute is the deliberate small
 surface. The read-only inspector and CLI use the same registry, errors and policy.
+
+The compatible catalog additions are `capabilities_search` and `capabilities_describe`. See [capability discovery](capabilities.md).

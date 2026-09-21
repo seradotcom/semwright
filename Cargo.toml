@@ -36,26 +36,26 @@ clap_complete = "4.5"
 clap_mangen = "0.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-rmcp = { version = "=3.4.0", features = ["server", "macros", "schemars", "transport-io"] }
-ratatui = "0.29"
-crossterm = "0.28"
+rmcp = { version = "=3.4.0", features = ["server", "client", "macros", "schemars", "transport-io"] }
+ratatui = "0.30.2"
+crossterm = "0.29"
 proptest = "1"
 tempfile = "3"
-semwright-types = { path = "crates/types" }
-semwright-protocol = { path = "crates/protocol" }
-semwright-registry = { path = "crates/registry" }
-semwright-policy = { path = "crates/policy" }
-semwright-recipes = { path = "crates/recipes" }
-semwright-plugin-sdk = { path = "crates/plugin-sdk" }
-semwright-plugin-host = { path = "crates/plugin-host" }
-semwright-backend-api = { path = "crates/backend-api" }
-semwright-backends = { path = "crates/backends" }
-semwright-adapters = { path = "crates/adapters" }
-semwright-core = { path = "crates/core" }
-semwright-daemon = { path = "crates/daemon" }
-semwright-cli = { path = "crates/cli" }
-semwright-mcp = { path = "crates/mcp" }
-semwright-tui = { path = "crates/tui" }
+semwright-types = { path = "crates/types", version = "=0.9.0-dev.1" }
+semwright-protocol = { path = "crates/protocol", version = "=0.9.0-dev.1" }
+semwright-registry = { path = "crates/registry", version = "=0.9.0-dev.1" }
+semwright-policy = { path = "crates/policy", version = "=0.9.0-dev.1" }
+semwright-recipes = { path = "crates/recipes", version = "=0.9.0-dev.1" }
+semwright-plugin-sdk = { path = "crates/plugin-sdk", version = "=0.9.0-dev.1" }
+semwright-plugin-host = { path = "crates/plugin-host", version = "=0.9.0-dev.1" }
+semwright-backend-api = { path = "crates/backend-api", version = "=0.9.0-dev.1" }
+semwright-backends = { path = "crates/backends", version = "=0.9.0-dev.1" }
+semwright-adapters = { path = "crates/adapters", version = "=0.9.0-dev.1" }
+semwright-core = { path = "crates/core", version = "=0.9.0-dev.1" }
+semwright-daemon = { path = "crates/daemon", version = "=0.9.0-dev.1" }
+semwright-cli = { path = "crates/cli", version = "=0.9.0-dev.1" }
+semwright-mcp = { path = "crates/mcp", version = "=0.9.0-dev.1" }
+semwright-tui = { path = "crates/tui", version = "=0.9.0-dev.1" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

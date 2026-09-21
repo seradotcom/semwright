@@ -1,34 +1,30 @@
 # Release blockers — 0.9.0-dev.1
 
-**This handoff does not meet the requested v1.0-grade completion checklist.** It contains
-substantial implementation source and executed component checks, not a validated binary
-release. The following issues must not be relabelled “live verification pending” when
-implementation or compilation work is actually missing.
+**Baseline for all statements below: the exact Git commit containing this document.**
 
-| ID | Blocker | Completion evidence needed |
+The hosted source, Rust, dependency, coverage, bounded-fuzz, fake-E2E, and real Chromium jobs are
+green on that exact commit. Those baseline gates are closed; this is still not a release candidate.
+
+| ID | Remaining blocker | Completion evidence needed |
 |---|---|---|
-| R01 | No Rust toolchain was available; workspace, tests and SDK integrations were not compiled | Clean-checkout `check`, `test`, `clippy`, `fmt`, `doc`, release build logs |
-| R02 | No `Cargo.lock`, toolchain is floating `stable`, full dependency licenses/advisories unknown | Reviewed lockfile, pinned actual toolchain, audit/deny reports, MSRV decision |
-| R03 | Rust broker/CLI/MCP/plugin integration is unexecuted | Fake-daemon end-to-end run, real MCP client negotiation/cancellation, malformed transport tests |
-| R04 | EIS/libei transport, PipeWire pixel-stream decoding, portal restore-token persistence and clipboard-session integration are not implemented | Real paths, lifecycle/cancellation/coordinate contracts, consent revocation tests |
-| R05 | AT-SPI delta snapshots and complete event-driven cache/conformance coverage are incomplete | Private D-Bus fixture + GTK/Qt live runs, event loss and object reuse regression tests |
-| R06 | Desktop bridges/backends have not run on GNOME, Plasma, Sway, Hyprland or a native X11 desktop | Recorded desktop/version/session matrix, negative tests, focus drift and cancellation |
-| R07 | X11 uses synchronous calls in async methods and fingerprints do not include a lifecycle event epoch | Bounded worker/process boundary, create/destroy/reuse tracking, unresponsive server tests |
-| R08 | Blender Python was only tested with mocks; Rust bridge is unexecuted; path-based bpy I/O cannot be made FD-relative | Real background/GUI API tests; trusted workspace threat review and race documentation |
-| R09 | Chromium Rust adapter is not validated; download quota enforcement and complete crash-profile/artifact cleanup are incomplete | Rust adapter against a disposable browser, multi-frame/event races, download limits and crash cleanup |
-| R10 | Plugin sandbox was not executed; runtime handshake verifies protocol/name, not a full independent schema/version digest | Negative filesystem/network/process/env tests, updated handshake attestation and watchdog tests |
-| R11 | Many output schemas are generic objects; planner uses backend-level probe availability rather than every operation-specific state | Tighten output contracts and operation capability probing with compatibility fixtures |
-| R12 | Schema/recipe evolution, richer inspector ref workflows, service CLI, observation event breadth and long-task MCP mapping are incomplete | Versioned migration tests and complete UX contracts, or explicitly reduced release scope |
-| R13 | CI definitions, architecture builds, fuzzing, Rust coverage and benchmarks were not executed | Hosted CI evidence; bounded fuzz logs, honest whole-workspace coverage, measured benchmarks |
-| R14 | Binary tarballs, `.deb`, aarch64 builds and Nix expression are configured only; no reproducible release/publishing/SBOM/signing | Built/installed/uninstalled artifacts, immutable Actions/dependencies, provenance and release ownership |
-| R15 | Core/application security has not had an independent review | Peer review of authorization, prompt injection containment, cancellation, stale identity and disclosure boundaries |
+| R01 | No MSRV policy or compatibility range has been established; Rust 1.98.1 is the tested pin, not an MSRV. | Document a supported range and execute its lower bound. |
+| R02 | EIS/libei input transport is incomplete. | Real portal-granted sessions, revocation, cancellation, coordinate and lifecycle tests. |
+| R03 | PipeWire ScreenCast pixel decoding and robust stream lifecycle are incomplete. | Real frames, format negotiation, damage/resize, cancellation and resource cleanup tests. |
+| R04 | Portal restore-token persistence and clipboard/session integration are incomplete. | Durable scoped storage plus consent/revocation and stale-token tests. |
+| R05 | AT-SPI delta snapshots, event-loss recovery and object-reuse coverage are incomplete. | Private D-Bus fixtures and GTK/Qt live conformance. |
+| R06 | GNOME, Plasma, Sway, Hyprland and native X11 live matrices are unexecuted. | Versioned session matrix with negative, focus-drift and cancellation tests. |
+| R07 | X11 still needs a bounded blocking boundary and lifecycle epochs. | Unresponsive-server tests and create/destroy/reuse tracking. |
+| R08 | Blender has mocked Python coverage but no accepted real Blender/RNA/addon execution. | Background and GUI Blender runs, introspection/addon discovery, refs, render/export and cleanup. |
+| R09 | Chromium now has a real Rust happy/negative integration, but quotas, crash recovery, multi-frame races and artifact lifecycle need deeper coverage. | Quota and crash matrices with deterministic cleanup and stale-ref tests. |
+| R10 | Plugin sandbox and driver conformance are not certified by executed hostile negative tests; handshake attestation is incomplete. | Filesystem/network/process/env escape tests, schema/version digest attestation and watchdog tests. |
+| R11 | MCP federation is not implemented/validated end to end. | Real upstream sessions, namespacing, central policy, untrusted-content containment, cancellation and invalidation. |
+| R12 | App Driver SDK/registry distribution, safe packages and compatibility resolution are incomplete. | Conformance harness, signed/checksummed safe extraction, no install-time execution and compatibility fixtures. |
+| R13 | Events/jobs, long-operation progress/cancellation and richer inspector/reference workflows are incomplete. | Source-tagged event and structured job integration tests across drivers/backends. |
+| R14 | Several outputs and availability signals remain too generic or backend-wide. | Tight output schemas and operation-specific probing/compatibility fixtures. |
+| R15 | Binary packages, install/uninstall, Nix evaluation, reproducibility, SBOM/signing and publishing provenance are unverified. | Clean hosted artifact matrix and installation/removal evidence. |
+| R16 | Live desktop/application security has no independent review. | Peer review of policy, prompt-injection containment, cancellation, stale identity and disclosure boundaries. |
 
-Additional limitations: recipe output redaction is a best-effort taint mechanism, not
-formal information-flow security; some failure paths do not yet include full progress
-metadata. Plugin installation through IPC is session-persistent, not a durable trust-store
-UI. Runtime capability discovery is not a certification of support. An app-native command
-addressed by an object name does not inherit the desktop ref store's generation semantics.
-
-The acceptance table records every original checklist entry. Do not remove requirements
-or rename failing checks to produce an artificial “all PASS”. `release-readiness.json`
-and `scripts/release/assert-ready.py` prevent accidental binary-release admission.
+Additional limitations remain: recipe taint/redaction is not formal information-flow security;
+runtime discovery is not certification; application names do not automatically inherit desktop-ref
+generation semantics. `release-readiness.json` must remain blocked until the corresponding gates are
+actually evidenced, not merely implemented or documented.

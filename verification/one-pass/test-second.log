@@ -1,0 +1,283 @@
+   Compiling semwright-types v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/types)
+   Compiling semwright-protocol v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/protocol)
+   Compiling semwright-plugin-sdk v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-sdk)
+   Compiling semwright-registry v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/registry)
+   Compiling semwright-policy v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/policy)
+   Compiling semwright-backend-api v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backend-api)
+   Compiling semwright-recipes v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/recipes)
+   Compiling semwright-plugin-host v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-host)
+   Compiling semwright-backends v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backends)
+   Compiling semwright-core v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/core)
+   Compiling semwright-adapters v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/adapters)
+   Compiling semwright-cli v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/cli)
+   Compiling semwright-daemon v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/daemon)
+   Compiling semwright-mcp v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/mcp)
+   Compiling semwright-example-plugin v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/adapters/example-plugin)
+   Compiling semwright-tui v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/tui)
+    Finished `test` profile [unoptimized] target(s) in 15.43s
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_adapters-3ee755116ae0a880)
+
+running 5 tests
+test chromium::tests::default_denies_navigation ... ok
+test chromium::tests::exact_origin_not_prefix ... ok
+test chromium::tests::file_urls_and_script_urls_denied ... ok
+test chromium::tests::sensitive_attributes_are_not_selected_by_helper ... ok
+test chromium::tests::origin_configuration_cannot_be_path_or_wildcard ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_backend_api-2aeef3079f7195b0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_backends-c42555af105f1d25)
+
+running 15 tests
+test atspi::tests::machine_button_role ... ok
+test atspi::tests::password_role_is_distinct ... ok
+test atspi::tests::state_bits_cross_words ... ok
+test atspi::tests::unique_owner_required ... ok
+test bridge::tests::targets_are_not_raw_ids ... ok
+test bridge::tests::wrong_bridge_version ... ok
+test hyprland::tests::rejects_dispatch_injection ... ok
+test portal::tests::consent_cannot_be_skipped ... ok
+test portal::tests::consent_lifecycle ... ok
+test portal::tests::denial_can_be_requested_again ... ok
+test sway::tests::container_is_not_window ... ok
+test portal::tests::screenshot_rejects_non_png ... ok
+test sway::tests::floating_and_tiled_are_both_visible ... ok
+test sway::tests::target_contains_no_command_source ... ok
+test hyprland::tests::hex_addresses_pass ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_cli-bf7d3876052f64d3)
+
+running 4 tests
+test tests::no_permission_upgrade_flags ... ok
+test tests::clap_definitions_are_consistent ... ok
+test tests::invoke_uses_registry_command ... ok
+test tests::known_examples_match_schemas ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running unittests src/computerctl.rs (/tmp/semwright-target/debug/deps/computerctl-044c99f804249ff5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_core-11f88faa6ae6831e)
+
+running 5 tests
+test audit::tests::shared_existing_directory_is_rejected ... ok
+test audit::tests::abandoned_requests_are_recorded ... ok
+test audit::tests::journal_contains_no_arguments ... ok
+test audit::tests::tampering_fails_closed ... ok
+test audit::tests::restart_verifies_chain ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/broker_contract.rs (/tmp/semwright-target/debug/deps/broker_contract-3f82648e0a1dcbca)
+
+running 21 tests
+test app_scope_filters_discovery ... ok
+test doctor_labels_fixture_not_live_desktop ... ok
+test duplicate_labels_remain_discovery_candidates ... ok
+test injected_failure_is_not_retried ... ok
+test cancelled_before_dispatch_has_no_side_effect ... ok
+test dry_run_never_invokes ... ok
+test denied_audit_is_not_labelled_allow ... ok
+test extra_confirmation_flag_is_not_authority ... ok
+test configured_confirmation_cannot_be_self_approved ... ok
+test audit_never_contains_typed_payload ... ok
+test exact_ref_invokes_and_then_becomes_stale ... ok
+test full_fake_export_recipe ... ok
+test shell_is_not_registered ... ok
+test mutation_requires_reference_not_selector ... ok
+test observe_can_inspect_but_cannot_invoke ... ok
+test no_ref_migration_to_another_backend ... ok
+test recipe_dry_run_does_not_execute ... ok
+test vanished_node_cannot_target_a_replacement ... ok
+test observe_recipe_cannot_gain_mutation_permission ... ok
+test reference_does_not_cross_sessions ... ok
+test session_revocation_invalidates_references ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running benches/core.rs (/tmp/semwright-target/debug/deps/core-93418a364144f100)
+{"benchmark":"selector_exact_500","iterations":1000,"mean_ns":89116,"method":"single-process arithmetic mean; not a statistical performance claim","total_ns":89116795}
+{"benchmark":"selector_ranked_500","iterations":1000,"mean_ns":1277953,"method":"single-process arithmetic mean; not a statistical performance claim","total_ns":1277953693}
+{"benchmark":"policy","iterations":1000,"mean_ns":159,"method":"single-process arithmetic mean; not a statistical performance claim","total_ns":159843}
+{"benchmark":"protocol_roundtrip","iterations":1000,"mean_ns":4727,"method":"single-process arithmetic mean; not a statistical performance claim","total_ns":4727966}
+{"benchmark":"registry_search","iterations":1000,"mean_ns":33015,"method":"single-process arithmetic mean; not a statistical performance claim","total_ns":33015028}
+{"benchmark":"fake_actionable_snapshot","iterations":1000,"mean_ns":154235,"method":"single-process arithmetic mean; not a statistical performance claim","total_ns":154235070}
+{"benchmark":"fake_broker_find_invoke_with_audit","iterations":100,"mean_ns":15071778,"method":"single-process arithmetic mean; not a statistical performance claim","total_ns":1507177855}
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_daemon-c48bd7318365a8b8)
+
+running 5 tests
+test config::tests::unknown_config_key_rejected ... ok
+test server::tests::disconnect_cancels_only_its_own_connection ... ok
+test server::tests::malformed_request_ids_fail ... ok
+test config::tests::root_scope_must_not_contain_broker_state ... ok
+test server::tests::replay_registration_fails ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/semwrightd.rs (/tmp/semwright-target/debug/deps/semwrightd-673eed4998e7026f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/semwright-target/debug/deps/semwright_example_plugin-5b90f98e432be61b)
+
+running 1 test
+test tests::unicode_is_not_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_mcp-919961eb23c9a26d)
+
+running 3 tests
+test tests::no_self_approval_tool ... ok
+test tests::discovery_is_small_and_typed ... ok
+test tests::gateway_is_not_falsely_readonly ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running unittests src/semwright-mcp.rs (/tmp/semwright-target/debug/deps/semwright_mcp-78d9217958f132d4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_plugin_host-7414de98a2ad46cb)
+
+running 3 tests
+test tests::exact_bytes_are_staged ... FAILED
+test tests::mismatched_digest_rejected ... ok
+test tests::scripts_are_not_binary_plugins ... ok
+
+failures:
+
+---- tests::exact_bytes_are_staged stdout ----
+
+thread 'tests::exact_bytes_are_staged' (187461) panicked at crates/plugin-host/src/lib.rs:397:75:
+called `Result::unwrap()` on an `Err` value: Error { code: PermissionDenied, message: "Plugin executable must be a non-writable-by-others regular file owned by the user/root, <=64 MiB", candidates: [], outcome_known: true, progress: None }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::exact_bytes_are_staged
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p semwright-plugin-host --lib`
+     Running unittests src/semwright-sandbox.rs (/tmp/semwright-target/debug/deps/semwright_sandbox-da37b1908a272534)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_plugin_sdk-ec65fa95c78f7345)
+
+running 2 tests
+test tests::manifest_requires_hash ... ok
+test tests::reject_extra_wire_keys ... FAILED
+
+failures:
+
+---- tests::reject_extra_wire_keys stdout ----
+
+thread 'tests::reject_extra_wire_keys' (187467) panicked at crates/plugin-sdk/src/lib.rs:181:9:
+assertion failed: serde_json::from_value::<Request>(serde_json::json!({"type":"health","shell":"x"})).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::reject_extra_wire_keys
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p semwright-plugin-sdk --lib`
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_policy-fd77384396617ed7)
+
+running 11 tests
+test filesystem::tests::traversal_rejected ... ok
+test tests::dangerous_cannot_self_approve ... ok
+test tests::desktop_does_not_grant_clipboard_or_shell ... ok
+test filesystem::tests::symlink_escape_fails ... ok
+test filesystem::tests::hardlinks_are_not_a_read_capability ... ok
+test tests::explicit_deny_wins ... ok
+test tests::observe_cannot_mutate ... ok
+test tests::terminal_controls_are_escaped ... ok
+test filesystem::tests::atomic_scoped_roundtrip ... ok
+test tests::deny_is_monotone ... ok
+test filesystem::tests::parent_prefix_never_passes ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_protocol-88f57b74af2044da)
+
+running 6 tests
+test tests::oversized_rejected_before_allocation ... ok
+test golden_contract::hello_frame_matches_checked_in_golden ... ok
+test tests::versioned_roundtrip ... ok
+test tests::framing_handles_short_reads ... ok
+test tests::arbitrary_frames_do_not_panic ... ok
+test tests::roundtrip_string ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_recipes-0bb55e7be0d3d329)
+
+running 8 tests
+test tests::mixed_binding_objects_fail ... ok
+test tests::strings_are_not_shell_templates ... ok
+test tests::unknown_fields_fail ... ok
+test tests::deterministic_output ... ok
+test tests::no_destructive_retries ... ok
+test tests::cancelled_recipe_does_not_run ... ok
+test tests::dry_run_has_no_calls ... ok
+test tests::binding_preserves_types ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_registry-f656a32dac862e31)
+
+running 6 tests
+test tests::remote_schema_is_forbidden ... ok
+test tests::no_duplicate_registration ... ok
+test tests::schemas_reject_unbounded_snapshots ... ok
+test tests::no_client_backend_internals ... ok
+test tests::discovery_is_bounded ... ok
+test tests::every_schema_builds ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running unittests src/semwright-inspect.rs (/tmp/semwright-target/debug/deps/semwright_inspect-4e0eb2eb13a5c182)
+
+running 1 test
+test tests::terminal_injection_is_escaped ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/semwright-target/debug/deps/semwright_types-5b18137f2fc84466)
+
+running 7 tests
+test tests::expired_refs_fail ... ok
+test tests::ambiguity_is_not_an_action ... ok
+test tests::cycles_terminate ... ok
+test tests::refs_are_session_bound ... ok
+test tests::ranked_is_discovery_only ... ok
+test tests::exact_match_never_invents_nodes ... ok
+test tests::serde_error_roundtrip ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+error: 2 targets failed:
+    `-p semwright-plugin-host --lib`
+    `-p semwright-plugin-sdk --lib`

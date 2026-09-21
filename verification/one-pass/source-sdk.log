@@ -1,0 +1,14 @@
+Command contracts/documentation are synchronized.
+{
+  "source_validation": "PASS",
+  "counts": {
+    "json": 19,
+    "toml": 25,
+    "yaml": 9,
+    "python_syntax": 17,
+    "javascript_syntax": 5,
+    "shell_syntax": 3,
+    "json_schemas": 165
+  },
+  "rust_compiled": false
+}

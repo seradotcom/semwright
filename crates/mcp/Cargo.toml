@@ -23,6 +23,10 @@ clap.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+semwright-daemon.workspace = true
+semwright-core.workspace = true
+semwright-backends.workspace = true
+semwright-policy.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
 

@@ -1,0 +1,66 @@
+    Checking semwright-types v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/types)
+       Fixed crates/types/src/lib.rs (1 fix)
+    Checking semwright-protocol v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/protocol)
+    Checking semwright-registry v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/registry)
+    Checking semwright-plugin-sdk v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-sdk)
+    Checking semwright-policy v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/policy)
+    Checking semwright-recipes v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/recipes)
+warning: unsafe block missing a safety comment
+   --> crates/policy/src/filesystem.rs:119:17
+    |
+119 |             fd: unsafe { OwnedFd::from_raw_fd(fd) },
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider adding a safety comment on the preceding line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#undocumented_unsafe_blocks
+    = note: requested on the command line with `-D clippy::undocumented-unsafe-blocks`
+
+warning: `semwright-policy` (lib) generated 1 warning
+    Checking semwright-backend-api v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backend-api)
+       Fixed crates/recipes/src/lib.rs (1 fix)
+    Checking semwright-plugin-host v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-host)
+    Checking semwright-backends v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backends)
+    Checking semwright-core v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/core)
+       Fixed crates/backends/src/portal.rs (1 fix)
+       Fixed crates/backends/src/x11.rs (1 fix)
+       Fixed crates/backends/src/bridge.rs (1 fix)
+warning: unsafe block missing a safety comment
+   --> crates/backends/src/portal.rs:617:30
+    |
+617 |         || metadata.uid() != unsafe { libc::getuid() }
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: consider adding a safety comment on the preceding line
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#undocumented_unsafe_blocks
+    = note: requested on the command line with `-D clippy::undocumented-unsafe-blocks`
+
+warning: `semwright-backends` (lib) generated 1 warning
+    Checking semwright-adapters v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/adapters)
+       Fixed crates/core/src/lib.rs (3 fixes)
+    Checking semwright-cli v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/cli)
+       Fixed crates/adapters/src/chromium.rs (7 fixes)
+    Checking semwright-daemon v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/daemon)
+    Checking semwright-mcp v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/mcp)
+       Fixed crates/daemon/src/server.rs (3 fixes)
+warning: `semwright-backends` (lib test) generated 1 warning (1 duplicate)
+warning: field assignment outside of initializer for an instance created with Default::default()
+    --> crates/adapters/src/chromium.rs:1032:9
+     |
+1032 |         c.allowed_origins = vec!["https://example.org".into()];
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+note: consider initializing the variable with `chromium::BrowserConfig { allowed_origins: vec!["https://example.org".into()], ..Default::default() }` and removing relevant reassignments
+    --> crates/adapters/src/chromium.rs:1031:9
+     |
+1031 |         let mut c = BrowserConfig::default();
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#field_reassign_with_default
+     = note: `#[warn(clippy::field_reassign_with_default)]` on by default
+
+warning: `semwright-adapters` (lib test) generated 1 warning
+    Checking semwright-example-plugin v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/adapters/example-plugin)
+    Checking semwright-tui v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/tui)
+       Fixed crates/tui/src/semwright-inspect.rs (2 fixes)
+       Fixed crates/recipes/src/lib.rs (1 fix)
+warning: `semwright-policy` (lib test) generated 1 warning (1 duplicate)
+    Finished `dev` profile [unoptimized] target(s) in 18.18s
