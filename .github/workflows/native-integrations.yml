@@ -34,6 +34,7 @@ jobs:
           command -v google-chrome
           google-chrome --version | tee verification/native-ci/browser-version.log
           test -x /opt/google/chrome/chrome
+          sudo chmod 0755 /opt/google/chrome/chrome
           stat -c '%A %a %U:%G %n' /opt/google/chrome/chrome | tee verification/native-ci/browser-binary.log
       - name: Real Rust adapter, owned profile, loopback fixture
         env:
