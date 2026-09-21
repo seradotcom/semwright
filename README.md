@@ -2,13 +2,15 @@
 
 **A local capability broker that turns Linux applications and desktops into typed commands—not a stream of guessed clicks.**
 
-> **Development source handoff, 0.9.0-dev.1. Not a verified release candidate.**
-> The Rust workspace has **not been compiled** in the authoring environment: Rust/Cargo
-> were unavailable and toolchain downloads could not be completed. `Cargo.lock` is
-> consequently absent. Python, JavaScript, a native Linux filesystem harness, and a
-> separate live Chromium protocol probe were executed. Those results do **not** verify
-> the Rust broker or adapters. Read [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md)
-> before building, connecting an agent, or granting desktop access.
+> **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
+> The accepted development baseline has a committed `Cargo.lock`, pins Rust 1.98.1, and
+> passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
+> rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz, and real Rust Chromium
+> integration gates. The Provider Runtime work on this development branch must be
+> re-certified on its exact commit before extending those claims. Live desktop, Blender,
+> plugin-sandbox, packaging and release evidence remain incomplete. Read
+> [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
+> desktop access.
 
 ```text
 Agent intent                 Semwright authority                 Linux / application
@@ -50,27 +52,26 @@ must prove the intended window is focused. No failed mutation automatically fall
 to another backend. Interactive screenshot capture is separate; there is no vision model.
 
 The distinguishing design is the **shared authorization boundary**: CLI, MCP, inspector,
-recipes, and plugin commands cannot obtain a more privileged execution path by choosing
-a different frontend. This is an implementation objective, not a claim that uncompiled
-code has passed a security audit.
+recipes, providers, and plugin commands cannot obtain a more privileged execution path
+by choosing a different frontend. Passing compiler and CI gates is not a substitute for
+the independent security review and live-system evidence still listed as blockers.
 
 ## Build and first validation
 
 Use a disposable Linux account or VM first. Do not use `sudo` to run the daemon.
-An installed Rust toolchain and network access for dependency resolution are required.
+Use the repository-pinned Rust toolchain and the committed lockfile. Network access may
+still be required to populate an empty Cargo cache.
 
 ```sh
-# From this source tree, on a machine with Rust:
+# From this source tree:
 ./scripts/dev/bootstrap.sh
-# Review the generated Cargo.lock and pin rust-toolchain.toml before a release.
-cargo fmt --all
-cargo check --locked --workspace --all-targets
-cargo test --locked --workspace --all-targets
-cargo build --locked --workspace
+cargo fmt --all -- --check
+cargo check --locked --workspace --all-targets --all-features
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-targets --all-features
 ./scripts/dev/fake-smoke.sh
 ```
 
-The first compile may reveal dependency/API/type errors that could not be detected here.
 Do not mark a failed gate as optional or delete a test to get a green result.
 The full gate script also requires `cargo-audit` and `cargo-deny`:
 
@@ -115,24 +116,25 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 
 | Component | Delivered | Evidence in this handoff |
 |---|---|---|
-| Rust core, broker, CLI, MCP, inspector | Source + unit/property/integration tests | **Not compiled or executed** |
-| AT-SPI, Sway, Hyprland, X11, GNOME/KWin clients | Native backend source | No live compositor validation |
-| GNOME/KWin bridges | JavaScript source + shared-contract tests | 20 Node tests; not a shell runtime test |
-| RemoteDesktop portal, interactive screenshot | Native D-Bus source | Rust tests authored; no live portal session |
-| EIS/libei, PipeWire pixel stream, AT-SPI delta snapshots | **Not implemented** | Explicit unavailable/deferred status |
-| Blender | Python add-on + Rust client | Python tests with mocked host; no live Blender |
-| Chromium | Isolated-profile Rust CDP adapter | 8 live **Python CDP contract** tests; not Rust adapter tests |
-| Scoped filesystem | Rust `openat2` source + native harness | 20 C/kernel checks; not Rust execution |
-| Plugins | SDK, digest pinning, bubblewrap + Landlock source | No executed Rust sandbox conformance |
+| Rust core, broker, CLI, MCP, inspector | Source + Rust unit/property/integration tests | Hosted baseline compiled and executed on x86_64 + ARM64; current branch requires exact-SHA recertification |
+| AT-SPI, Sway, Hyprland, X11, GNOME/KWin clients | Native backend source + Rust tests | Compiled/tested in hosted baseline; no live compositor matrix |
+| GNOME/KWin bridges | JavaScript source + shared-contract tests | Node contract tests; not a live shell/runtime test |
+| RemoteDesktop portal, interactive screenshot | Native D-Bus source + Rust lifecycle tests | Compiled/tested; no accepted live portal/EIS session |
+| EIS/libei, PipeWire pixel stream, AT-SPI delta snapshots | Incomplete/deferred paths | Explicit release blockers; not relabelled as live-only evidence |
+| Blender | Python add-on + Rust client | Mocked host coverage; no accepted real Blender/RNA/addon run |
+| Chromium | Isolated-profile Rust CDP adapter | Real Rust hosted integration passes on this development line, including close/stale-ref invalidation and owned-profile cleanup |
+| Scoped filesystem | Rust scoped implementation + native harness | Rust tests plus native openat2 checks in hosted baseline |
+| Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
 [acceptance resolution](ACCEPTANCE.md), [verification](VERIFY.md).
 
 ## MCP
 
-The frontend uses the official `rmcp` Rust SDK. It presents eight discovery/gateway tools,
-not a hundred application operations at startup. Tool discovery returns the same registry
-schemas used by the broker. A generic local MCP client configuration after installing:
+The frontend uses the official `rmcp` Rust SDK. It deliberately presents a small
+discovery/gateway surface instead of exposing every internal capability as a static MCP
+tool. Tool discovery returns the same registry schemas used by the broker. A generic
+local MCP client configuration after installing:
 
 ```json
 {

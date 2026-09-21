@@ -2170,6 +2170,16 @@ Idempotency: `read_only`. Dry run: `true`.
         "null"
       ],
       "minimum": 0
+    },
+    "source": {
+      "enum": [
+        "builtin",
+        "plugin",
+        "driver",
+        "external_mcp",
+        "recipe",
+        null
+      ]
     }
   }
 }

@@ -35,7 +35,7 @@ pub enum ServerMessage {
         session: String,
     },
     Result {
-        envelope: Envelope,
+        envelope: Box<Envelope>,
     },
     Event {
         sequence: u64,
@@ -189,7 +189,7 @@ impl Client {
         loop {
             match read_frame::<_, ServerMessage>(&mut self.stream).await? {
                 ServerMessage::Result { envelope } if envelope.request_id == id => {
-                    return Ok(envelope);
+                    return Ok(*envelope);
                 }
                 ServerMessage::Error { error } => return Err(error),
                 ServerMessage::Event { .. } => (),

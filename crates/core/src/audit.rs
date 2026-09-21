@@ -23,6 +23,8 @@ pub struct Record {
     pub request_id: String,
     pub session_tag: String,
     pub backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<InvocationProvenance>,
     pub decision: String,
     pub ok: Option<bool>,
     pub error_code: Option<ErrorCode>,
@@ -189,6 +191,15 @@ impl Audit {
             .collect())
     }
     pub fn begin(self: &Arc<Self>, command: &str, id: &str, session: &str) -> Result<Scope> {
+        self.begin_with_provenance(command, id, session, None)
+    }
+    pub fn begin_with_provenance(
+        self: &Arc<Self>,
+        command: &str,
+        id: &str,
+        session: &str,
+        provenance: Option<InvocationProvenance>,
+    ) -> Result<Scope> {
         let record = Record {
             sequence: 0,
             unix_ms: now(),
@@ -197,6 +208,7 @@ impl Audit {
             request_id: safe_id(id),
             session_tag: tag(session),
             backend: "unselected".into(),
+            provenance,
             decision: "not_evaluated".into(),
             ok: None,
             error_code: None,
@@ -228,6 +240,15 @@ pub struct Scope {
     finished: bool,
 }
 impl Scope {
+    pub fn executed_provider(&mut self, provider: &str, generation: Option<u64>) {
+        if let Some(provenance) = self.record.provenance.as_mut() {
+            provenance.execution_provider = Some(provider.into());
+            provenance.provider_generation = generation;
+        }
+    }
+    pub fn provenance(&self) -> Option<InvocationProvenance> {
+        self.record.provenance.clone()
+    }
     pub fn backend(&mut self, backend: &str) {
         self.record.backend = backend.into();
     }

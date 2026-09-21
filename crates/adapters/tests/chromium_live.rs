@@ -187,10 +187,13 @@ async fn exercise(
     browser
         .execute(ctx, "browser.tab.close", &json!({"_target":tab}))
         .await?;
-    assert_eq!(
-        browser.validate(&tab).await.unwrap_err().code,
-        ErrorCode::StaleReference
-    );
+    // Closing is an immediate lifecycle boundary, not a race with Target.getTargets.
+    for _ in 0..16 {
+        assert_eq!(
+            browser.validate(&tab).await.unwrap_err().code,
+            ErrorCode::StaleReference
+        );
+    }
     Ok(())
 }
 #[tokio::test]

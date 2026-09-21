@@ -305,6 +305,8 @@ struct Instance {
     epoch: String,
     cdp: Arc<Cdp>,
     sessions: BTreeMap<String, String>,
+    // A successful close invalidates refs immediately, before asynchronous CDP target events.
+    closed_tabs: VecDeque<String>,
 }
 impl Instance {
     async fn targets(&self) -> Result<Vec<Value>> {
@@ -320,6 +322,12 @@ impl Instance {
             .collect())
     }
     async fn check_tab(&self, target: &str, config: &BrowserConfig) -> Result<()> {
+        if self.closed_tabs.iter().any(|id| id == target) {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Browser tab was closed",
+            ));
+        }
         let row = self
             .targets()
             .await?
@@ -507,6 +515,7 @@ impl Chromium {
             epoch: unique_id(),
             cdp,
             sessions: BTreeMap::new(),
+            closed_tabs: VecDeque::new(),
         });
         Ok(
             json!({"launched":true,"isolated_profile":true,"headless":headless,"browser_sandbox_disabled":false,"downloads_enabled":self.config.allow_downloads}),
@@ -795,7 +804,13 @@ impl Backend for Chromium {
                 let result = cdp
                     .call("Target.closeTarget", json!({"targetId":tab}), None)
                     .await?;
-                instance.sessions.remove(&tab);
+                if result["success"] == true {
+                    instance.sessions.remove(&tab);
+                    if instance.closed_tabs.len() == 256 {
+                        instance.closed_tabs.pop_front();
+                    }
+                    instance.closed_tabs.push_back(tab);
+                }
                 Ok(json!({"changed":result["success"]==true}))
             }
             "browser.tab.focus" => {
