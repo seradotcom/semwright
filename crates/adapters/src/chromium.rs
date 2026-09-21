@@ -1050,10 +1050,35 @@ impl Backend for Chromium {
     }
     async fn shutdown(&self) -> Result<()> {
         if let Some(mut instance) = self.instance.lock().await.take() {
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                instance.cdp.call("Browser.close", json!({}), None),
+            )
+            .await;
             instance.cdp.stop.cancel();
-            let _ = instance.child.kill().await;
-            let _ = instance.child.wait().await;
-            let _ = std::fs::remove_dir_all(&instance.profile);
+            if tokio::time::timeout(std::time::Duration::from_secs(5), instance.child.wait())
+                .await
+                .is_err()
+            {
+                let _ = instance.child.kill().await;
+                let _ = instance.child.wait().await;
+            }
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            loop {
+                match std::fs::remove_dir_all(&instance.profile) {
+                    Ok(()) => break,
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+                    Err(_) if std::time::Instant::now() < deadline => {
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                    }
+                    Err(_) => {
+                        return Err(Error::new(
+                            ErrorCode::BackendFailed,
+                            "Failed to remove the owned Chromium profile after shutdown",
+                        ));
+                    }
+                }
+            }
         }
         Ok(())
     }
