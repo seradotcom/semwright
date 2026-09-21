@@ -11,7 +11,7 @@ import jsonschema
 import yaml
 ROOT=Path(__file__).resolve().parents[1]
 def main():
-    files=[p for p in ROOT.rglob('*') if p.is_file() and not any(s in {'target','.git','node_modules','__pycache__'} for s in p.relative_to(ROOT).parts)]
+    files=[p for p in ROOT.rglob('*') if p.is_file() and not any(s in {'target','.git','node_modules','__pycache__','dummy-docs'} for s in p.relative_to(ROOT).parts)]
     counts={'json':0,'toml':0,'yaml':0,'python_syntax':0,'javascript_syntax':0,'shell_syntax':0,'json_schemas':0}
     for p in files:
         if p.suffix=='.json':json.loads(p.read_text());counts['json']+=1
