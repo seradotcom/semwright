@@ -1,0 +1,257 @@
+test_bad_transform_fails_before_change (test_blender.DispatcherTests.test_bad_transform_fails_before_change) ... ERROR
+test_collection_link_idempotent (test_blender.DispatcherTests.test_collection_link_idempotent) ... ERROR
+test_collision_has_no_implicit_suffix (test_blender.DispatcherTests.test_collision_has_no_implicit_suffix) ... ERROR
+test_create_and_list_empty (test_blender.DispatcherTests.test_create_and_list_empty) ... ERROR
+test_delete (test_blender.DispatcherTests.test_delete) ... ERROR
+test_inspect (test_blender.DispatcherTests.test_inspect) ... ERROR
+test_material_creation_and_assignment (test_blender.DispatcherTests.test_material_creation_and_assignment) ... ERROR
+test_open_disables_embedded_scripts (test_blender.DispatcherTests.test_open_disables_embedded_scripts) ... ERROR
+test_render_restores_settings (test_blender.DispatcherTests.test_render_restores_settings) ... ERROR
+test_save_is_copy_and_private (test_blender.DispatcherTests.test_save_is_copy_and_private) ... ERROR
+test_status (test_blender.DispatcherTests.test_status) ... ERROR
+test_transform (test_blender.DispatcherTests.test_transform) ... ERROR
+test_unrestricted_python_command_absent (test_blender.DispatcherTests.test_unrestricted_python_command_absent) ... ERROR
+test_budget_checked_before_read (test_blender.FramingTests.test_budget_checked_before_read) ... ok
+test_duplicate_key_rejected (test_blender.FramingTests.test_duplicate_key_rejected) ... ok
+test_nonfinite_input_rejected (test_blender.FramingTests.test_nonfinite_input_rejected) ... ok
+test_nonfinite_output_rejected (test_blender.FramingTests.test_nonfinite_output_rejected) ... ok
+test_seeded_roundtrips (test_blender.FramingTests.test_seeded_roundtrips) ... ok
+test_short_header (test_blender.FramingTests.test_short_header) ... ok
+test_short_payload (test_blender.FramingTests.test_short_payload) ... ok
+test_utf8_roundtrip (test_blender.FramingTests.test_utf8_roundtrip) ... ok
+test_closed_connection_cancels_queued_work (test_blender.HostTests.test_closed_connection_cancels_queued_work) ... ok
+test_declared_error_payload_redacted (test_blender.HostTests.test_declared_error_payload_redacted) ... ok
+test_drain_budget (test_blender.HostTests.test_drain_budget) ... ok
+test_exception_payload_redacted (test_blender.HostTests.test_exception_payload_redacted) ... ok
+test_existing_socket_not_replaced (test_blender.HostTests.test_existing_socket_not_replaced) ... ok
+test_expired_queued_job_does_not_dispatch (test_blender.HostTests.test_expired_queued_job_does_not_dispatch) ... ok
+test_invalid_request_id_does_not_queue (test_blender.HostTests.test_invalid_request_id_does_not_queue) ... ok
+test_main_thread_dispatch_only (test_blender.HostTests.test_main_thread_dispatch_only) ... ok
+test_socket_mode (test_blender.HostTests.test_socket_mode) ... ok
+test_wrong_handshake_closes (test_blender.HostTests.test_wrong_handshake_closes) ... ok
+test_array_bounds (test_blender.ValidationTests.test_array_bounds) ... ok
+test_boolean_is_not_integer (test_blender.ValidationTests.test_boolean_is_not_integer) ... ok
+test_boolean_is_not_number (test_blender.ValidationTests.test_boolean_is_not_number) ... ok
+test_bounds (test_blender.ValidationTests.test_bounds) ... ok
+test_every_host_schema_is_same_as_registry (test_blender.ValidationTests.test_every_host_schema_is_same_as_registry) ... FAIL
+test_infinity_rejected (test_blender.ValidationTests.test_infinity_rejected) ... ok
+test_length_rejected (test_blender.ValidationTests.test_length_rejected) ... ok
+test_nesting_budget (test_blender.ValidationTests.test_nesting_budget) ... ok
+test_nul_rejected (test_blender.ValidationTests.test_nul_rejected) ... ok
+test_open_object_schema_rejected (test_blender.ValidationTests.test_open_object_schema_rejected) ... ok
+test_unknown_field_rejected (test_blender.ValidationTests.test_unknown_field_rejected) ... ERROR
+test_unlisted_primitive_rejected (test_blender.ValidationTests.test_unlisted_primitive_rejected) ... ERROR
+test_clean_existing_path (test_blender.WorkspaceTests.test_clean_existing_path) ... ok
+test_clean_new_path (test_blender.WorkspaceTests.test_clean_new_path) ... ok
+test_fifo_rejected (test_blender.WorkspaceTests.test_fifo_rejected) ... ok
+test_filesystem_root_rejected (test_blender.WorkspaceTests.test_filesystem_root_rejected) ... ok
+test_hardlink_rejected (test_blender.WorkspaceTests.test_hardlink_rejected) ... ok
+test_leaf_symlink_rejected (test_blender.WorkspaceTests.test_leaf_symlink_rejected) ... ok
+test_missing_existing_path (test_blender.WorkspaceTests.test_missing_existing_path) ... ok
+test_parent_symlink_rejected (test_blender.WorkspaceTests.test_parent_symlink_rejected) ... ok
+test_private_directory_rejects_modes (test_blender.WorkspaceTests.test_private_directory_rejects_modes) ... ok
+test_relative_root_rejected (test_blender.WorkspaceTests.test_relative_root_rejected) ... ok
+test_suffix_rejected (test_blender.WorkspaceTests.test_suffix_rejected) ... ok
+test_traversal_rejected (test_blender.WorkspaceTests.test_traversal_rejected) ... ok
+test_all_162_schemas_valid (test_contracts.ContractTests.test_all_162_schemas_valid) ... ok
+test_all_descriptors_bounded (test_contracts.ContractTests.test_all_descriptors_bounded) ... ok
+test_backend_internal_arguments_rejected (test_contracts.ContractTests.test_backend_internal_arguments_rejected) ... ok
+test_bridge_metadata (test_contracts.ContractTests.test_bridge_metadata) ... ok
+test_cli_payload_examples (test_contracts.ContractTests.test_cli_payload_examples) ... ok
+test_every_input_is_closed (test_contracts.ContractTests.test_every_input_is_closed) ... ok
+test_frontends_cannot_import_live_backends (test_contracts.ContractTests.test_frontends_cannot_import_live_backends) ... ok
+test_gnome_xml_well_formed (test_contracts.ContractTests.test_gnome_xml_well_formed) ... ok
+test_no_placeholder_rust_macros (test_contracts.ContractTests.test_no_placeholder_rust_macros) ... ok
+test_no_unrestricted_code_surface (test_contracts.ContractTests.test_no_unrestricted_code_surface) ... ok
+test_recipe_static_budgets_and_commands (test_contracts.ContractTests.test_recipe_static_budgets_and_commands) ... ok
+test_ref_rejects_native_identifiers (test_contracts.ContractTests.test_ref_rejects_native_identifiers) ... ok
+test_runtime_schema_has_no_remote_refs (test_contracts.ContractTests.test_runtime_schema_has_no_remote_refs) ... ok
+test_toml_parses (test_contracts.ContractTests.test_toml_parses) ... ok
+test_unique_command_names (test_contracts.ContractTests.test_unique_command_names) ... ok
+test_workspace_local_paths_exist (test_contracts.ContractTests.test_workspace_local_paths_exist) ... ok
+
+======================================================================
+ERROR: test_bad_transform_fails_before_change (test_blender.DispatcherTests.test_bad_transform_fails_before_change)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 403, in test_bad_transform_fails_before_change
+    self.commands("blender.object.transform", {"name": "a", "location": [True, 1, 2]})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_collection_link_idempotent (test_blender.DispatcherTests.test_collection_link_idempotent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 385, in test_collection_link_idempotent
+    self.commands("blender.collection.create", {"name": "group"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_collision_has_no_implicit_suffix (test_blender.DispatcherTests.test_collision_has_no_implicit_suffix)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 367, in test_collision_has_no_implicit_suffix
+    self.commands("blender.object.create", {"name": "a", "primitive": "empty"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_create_and_list_empty (test_blender.DispatcherTests.test_create_and_list_empty)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 363, in test_create_and_list_empty
+    self.commands("blender.object.create", {"name": "a", "primitive": "empty"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_delete (test_blender.DispatcherTests.test_delete)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 380, in test_delete
+    self.commands("blender.object.delete", {"name": "a"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_inspect (test_blender.DispatcherTests.test_inspect)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 360, in test_inspect
+    self.assertEqual(self.commands("blender.scene.inspect", {})["name"], "Fixture")
+                     ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_material_creation_and_assignment (test_blender.DispatcherTests.test_material_creation_and_assignment)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 391, in test_material_creation_and_assignment
+    self.commands("blender.material.create", {"name": "m", "color": [1, 0, 0, 1], "roughness": 0.4})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_open_disables_embedded_scripts (test_blender.DispatcherTests.test_open_disables_embedded_scripts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 410, in test_open_disables_embedded_scripts
+    self.commands("blender.file.open", {"path": "safe.blend"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_render_restores_settings (test_blender.DispatcherTests.test_render_restores_settings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 433, in test_render_restores_settings
+    self.commands("blender.render", {"path": "render.png"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_save_is_copy_and_private (test_blender.DispatcherTests.test_save_is_copy_and_private)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 421, in test_save_is_copy_and_private
+    self.commands("blender.file.save", {"path": "safe.blend"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_status (test_blender.DispatcherTests.test_status)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 355, in test_status
+    value = self.commands("blender.status", {})
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_transform (test_blender.DispatcherTests.test_transform)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 374, in test_transform
+    result = self.commands("blender.object.transform", {"name": "a", "location": [1, 2, 3], "scale": [2, 2, 2]})
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_unrestricted_python_command_absent (test_blender.DispatcherTests.test_unrestricted_python_command_absent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 397, in test_unrestricted_python_command_absent
+    self.commands("blender.python.exec", {"code": "forbidden"})
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/semwright/adapters/blender/semwright_blender/commands.py", line 69, in __call__
+    schema = SCHEMAS.get(command)
+             ^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'get'
+
+======================================================================
+ERROR: test_unknown_field_rejected (test_blender.ValidationTests.test_unknown_field_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 103, in test_unknown_field_rejected
+    validate({"python": "forbidden"}, SCHEMAS["blender.status"])
+                                      ~~~~~~~^^^^^^^^^^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+
+======================================================================
+ERROR: test_unlisted_primitive_rejected (test_blender.ValidationTests.test_unlisted_primitive_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 107, in test_unlisted_primitive_rejected
+    validate({"name": "x", "primitive": "eval"}, SCHEMAS["blender.object.create"])
+                                                 ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+
+======================================================================
+FAIL: test_every_host_schema_is_same_as_registry (test_blender.ValidationTests.test_every_host_schema_is_same_as_registry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/test_blender.py", line 143, in test_every_host_schema_is_same_as_registry
+    self.assertEqual(SCHEMAS, expected)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+AssertionError: [{'name': 'blender.status', 'version': '1[9314 chars]r']}] != {'blender.status': {'type': 'object', 'pr[3641 chars]lse}}
+
+----------------------------------------------------------------------
+Ran 71 tests in 2.824s
+
+FAILED (failures=1, errors=15)

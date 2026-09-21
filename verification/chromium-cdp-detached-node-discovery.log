@@ -1,0 +1,23 @@
+LIVE CDP browser: Chrome/144.0.7559.96 sandbox_disabled=False
+test_capture_png (__main__.LiveCdpTests.test_capture_png) ... ok
+test_dom_query_and_machine_node_id (__main__.LiveCdpTests.test_dom_query_and_machine_node_id) ... ok
+test_dom_snapshot_contains_accessible_labels (__main__.LiveCdpTests.test_dom_snapshot_contains_accessible_labels) ... ok
+test_explicit_download_denial (__main__.LiveCdpTests.test_explicit_download_denial) ... ok
+test_hit_test_then_click_without_evaluate (__main__.LiveCdpTests.test_hit_test_then_click_without_evaluate) ... ok
+test_navigation_invalidates_old_dom_id (__main__.LiveCdpTests.test_navigation_invalidates_old_dom_id) ... FAIL
+test_no_javascript_fill (__main__.LiveCdpTests.test_no_javascript_fill) ... ok
+test_target_metadata (__main__.LiveCdpTests.test_target_metadata) ... ok
+
+======================================================================
+FAIL: test_navigation_invalidates_old_dom_id (__main__.LiveCdpTests.test_navigation_invalidates_old_dom_id)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/semwright/tests/python/cdp_live.py", line 204, in test_navigation_invalidates_old_dom_id
+    self.fail('Old DOM backend node remained accessible after navigation')
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Old DOM backend node remained accessible after navigation
+
+----------------------------------------------------------------------
+Ran 8 tests in 10.023s
+
+FAILED (failures=1)

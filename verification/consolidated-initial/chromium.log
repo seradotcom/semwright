@@ -1,0 +1,14 @@
+LIVE CDP browser: Chrome/144.0.7559.96 sandbox_disabled=False
+test_capture_png (__main__.LiveCdpTests.test_capture_png) ... ok
+test_dom_query_and_machine_node_id (__main__.LiveCdpTests.test_dom_query_and_machine_node_id) ... ok
+test_dom_snapshot_contains_accessible_labels (__main__.LiveCdpTests.test_dom_snapshot_contains_accessible_labels) ... ok
+test_explicit_download_denial (__main__.LiveCdpTests.test_explicit_download_denial) ... ok
+test_hit_test_then_click_without_evaluate (__main__.LiveCdpTests.test_hit_test_then_click_without_evaluate) ... ok
+test_navigation_emits_generation_invalidation (__main__.LiveCdpTests.test_navigation_emits_generation_invalidation) ... ok
+test_no_javascript_fill (__main__.LiveCdpTests.test_no_javascript_fill) ... ok
+test_target_metadata (__main__.LiveCdpTests.test_target_metadata) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 6.217s
+
+OK

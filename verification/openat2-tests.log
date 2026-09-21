@@ -1,0 +1,21 @@
+PASS create confined root
+PASS open pinned root fd
+PASS create fixture
+PASS write fixture
+PASS create outside sentinel
+PASS ordinary relative file allowed
+PASS parent escape denied
+PASS absolute path denied before content read
+PASS create fixture symlink
+PASS leaf symlink denied
+PASS create parent symlink
+PASS parent symlink denied
+PASS create magic-link fixture
+PASS magic-link escape denied
+PASS create hardlink fixture
+PASS openat2 alone permits hardlinks
+PASS additional single-link policy detects hardlink
+PASS rename original root
+PASS replace root pathname
+PASS pinned fd remains at original inode
+RESULT 20 native kernel checks passed

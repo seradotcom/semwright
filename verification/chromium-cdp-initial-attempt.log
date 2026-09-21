@@ -1,0 +1,8 @@
+LIVE CDP browser: Chrome/144.0.7559.96 sandbox_disabled=False
+test_capture_png (__main__.LiveCdpTests.test_capture_png) ... FAIL
+test_dom_query_and_machine_node_id (__main__.LiveCdpTests.test_dom_query_and_machine_node_id) ... FAIL
+test_dom_snapshot_contains_accessible_labels (__main__.LiveCdpTests.test_dom_snapshot_contains_accessible_labels) ... FAIL
+test_explicit_download_denial (__main__.LiveCdpTests.test_explicit_download_denial) ... ERROR
+test_hit_test_then_click_without_evaluate (__main__.LiveCdpTests.test_hit_test_then_click_without_evaluate) ... FAIL
+test_navigation_invalidates_old_dom_id (__main__.LiveCdpTests.test_navigation_invalidates_old_dom_id) ... FAIL
+test_no_javascript_fill (__main__.LiveCdpTests.test_no_javascript_fill) ... 

@@ -1,0 +1,1 @@
+Release blocked: rust_build_and_tests, reviewed_lockfile, pinned_toolchain, clippy_and_fmt, dependency_audit_and_licenses, rust_broker_integration, plugin_sandbox_negative_tests, live_desktop_matrix, application_adapter_validation, release_packaging_validation, security_review, Cargo.lock present

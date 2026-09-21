@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: all bridge copies share the exact contract
+ok 1 - all bridge copies share the exact contract
+  ---
+  duration_ms: 2.892841
+  type: 'test'
+  ...
+# Subtest: focus allowed
+ok 2 - focus allowed
+  ---
+  duration_ms: 0.975339
+  type: 'test'
+  ...
+# Subtest: close allowed
+ok 3 - close allowed
+  ---
+  duration_ms: 0.376616
+  type: 'test'
+  ...
+# Subtest: move bounded
+ok 4 - move bounded
+  ---
+  duration_ms: 0.323861
+  type: 'test'
+  ...
+# Subtest: resize bounded
+ok 5 - resize bounded
+  ---
+  duration_ms: 0.289857
+  type: 'test'
+  ...
+# Subtest: arbitrary evaluation is not an operation
+ok 6 - arbitrary evaluation is not an operation
+  ---
+  duration_ms: 0.631231
+  type: 'test'
+  ...
+# Subtest: extra payload rejected
+ok 7 - extra payload rejected
+  ---
+  duration_ms: 0.631131
+  type: 'test'
+  ...
+# Subtest: prototype payload rejected
+ok 8 - prototype payload rejected
+  ---
+  duration_ms: 0.298006
+  type: 'test'
+  ...
+# Subtest: null rejected
+ok 9 - null rejected
+  ---
+  duration_ms: 0.609608
+  type: 'test'
+  ...
+# Subtest: array rejected
+ok 10 - array rejected
+  ---
+  duration_ms: 1.005252
+  type: 'test'
+  ...
+# Subtest: missing identity rejected
+ok 11 - missing identity rejected
+  ---
+  duration_ms: 0.445817
+  type: 'test'
+  ...
+# Subtest: oversized payload rejected
+ok 12 - oversized payload rejected
+  ---
+  duration_ms: 0.236908
+  type: 'test'
+  ...
+# Subtest: non-integer coordinates rejected
+ok 13 - non-integer coordinates rejected
+  ---
+  duration_ms: 0.376229
+  type: 'test'
+  ...
+# Subtest: zero dimensions rejected
+ok 14 - zero dimensions rejected
+  ---
+  duration_ms: 0.356537
+  type: 'test'
+  ...
+# Subtest: out-of-range dimensions rejected
+ok 15 - out-of-range dimensions rejected
+  ---
+  duration_ms: 0.310262
+  type: 'test'
+  ...
+# Subtest: exact unique window resolved
+ok 16 - exact unique window resolved
+  ---
+  duration_ms: 4.963594
+  type: 'test'
+  ...
+# Subtest: missing window fails stale
+ok 17 - missing window fails stale
+  ---
+  duration_ms: 0.89514
+  type: 'test'
+  ...
+# Subtest: duplicate identity fails ambiguity
+ok 18 - duplicate identity fails ambiguity
+  ---
+  duration_ms: 0.174356
+  type: 'test'
+  ...
+# Subtest: reused id with different process fingerprint fails
+ok 19 - reused id with different process fingerprint fails
+  ---
+  duration_ms: 0.170957
+  type: 'test'
+  ...
+# Subtest: seeded coordinate range regression
+ok 20 - seeded coordinate range regression
+  ---
+  duration_ms: 29.25933
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 361.439641
