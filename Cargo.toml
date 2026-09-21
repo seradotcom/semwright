@@ -38,7 +38,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 rmcp = { version = "=3.4.0", features = ["server", "macros", "schemars", "transport-io"] }
 ratatui = "0.29"
-crossterm = "0.28"
+crossterm = "0.29"
 proptest = "1"
 tempfile = "3"
 semwright-types = { path = "crates/types" }
