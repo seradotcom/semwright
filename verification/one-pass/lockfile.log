@@ -1,0 +1,13 @@
+    Updating crates.io index
+     Locking 286 packages to latest compatible versions
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding clap_mangen v0.2.33 (available: v0.3.3)
+      Adding crossterm v0.28.1 (available: v0.29.0)
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding jsonschema v0.33.0 (available: v0.56.0)
+      Adding ratatui v0.29.0 (available: v0.30.2)
+      Adding sha2 v0.10.9 (available: v0.11.0)
+      Adding tokio-tungstenite v0.28.0 (available: v0.30.0)
+      Adding toml v0.9.12+spec-1.1.0 (available: v1.1.6+spec-1.1.0)
+      Adding unicode-width v0.2.0 (available: v0.2.2)
+      Adding x11rb v0.13.2 (available: v0.14.0)

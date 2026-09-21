@@ -1,0 +1,16 @@
+{
+  "canonical_archive_sha256": "006a3a40dc5b902057030a091e6323c49ea988cacd4a1c898c7f1e99f3b15899",
+  "crc": "PASS",
+  "files_verified_byte_for_byte": 200,
+  "initial_scoped_secret_patterns": "no matches",
+  "baseline_commit": "9e2d66e",
+  "historical_log_preservation_commit": "2d07734",
+  "build_environment": {
+    "CARGO_TARGET_DIR": "/tmp/semwright-target",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "msrv": "not established; 1.98.1 is the tested pinned toolchain"
+}

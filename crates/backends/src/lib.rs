@@ -10,7 +10,7 @@ pub mod sway;
 pub mod system;
 pub mod x11;
 
-pub fn environment()->serde_json::Value{
+pub fn environment() -> serde_json::Value {
     serde_json::json!({
         "os":"linux",
         "session_type":std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_|if std::env::var_os("WAYLAND_DISPLAY").is_some(){"wayland".into()}else if std::env::var_os("DISPLAY").is_some(){"x11".into()}else{"headless".into()}),
