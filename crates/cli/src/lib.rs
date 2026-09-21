@@ -43,9 +43,10 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Command {
     Doctor,
+    #[command(visible_alias = "capability")]
     Capabilities {
         #[command(subcommand)]
-        command: ListOnly,
+        command: Capability,
     },
     Commands {
         #[command(subcommand)]
@@ -123,6 +124,42 @@ pub enum ListOnly {
 #[derive(Subcommand, Debug)]
 pub enum Config {
     Paths,
+}
+#[derive(Subcommand, Debug)]
+pub enum Capability {
+    List,
+    Search {
+        #[arg(default_value = "")]
+        query: String,
+        #[arg(long)]
+        provider: Option<String>,
+        #[arg(long)]
+        app: Option<String>,
+        #[arg(long)]
+        category: Option<String>,
+        #[arg(long)]
+        risk: Option<String>,
+        #[arg(long)]
+        available: Option<bool>,
+        #[arg(long)]
+        tag: Vec<String>,
+        #[arg(long)]
+        object_type: Vec<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        #[arg(long, default_value_t = 0)]
+        offset: usize,
+        #[arg(long)]
+        revision: Option<u64>,
+    },
+    Describe {
+        name: String,
+    },
+    Execute {
+        command: String,
+        #[command(flatten)]
+        args: JsonArgs,
+    },
 }
 #[derive(Subcommand, Debug)]
 pub enum Discovery {
@@ -429,7 +466,27 @@ fn put(v: &mut Value, k: &str, s: &Option<String>) {
 pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
     let (cmd, args) = match &cli.command {
         Command::Doctor => ("doctor".into(), json!({})),
-        Command::Capabilities { .. } => ("capabilities.list".into(), json!({})),
+        Command::Capabilities { command } => match command {
+            Capability::List => ("capabilities.list".into(), json!({})),
+            Capability::Search {
+                query,
+                provider,
+                app,
+                category,
+                risk,
+                available,
+                tag,
+                object_type,
+                limit,
+                offset,
+                revision,
+            } => (
+                "capabilities.search".into(),
+                json!({"query":query,"provider":provider,"app":app,"category":category,"risk":risk,"available":available,"tags":tag,"object_types":object_type,"limit":limit,"offset":offset,"revision":revision}),
+            ),
+            Capability::Describe { name } => ("capabilities.describe".into(), json!({"name":name})),
+            Capability::Execute { command, args } => (command.clone(), args.value()?),
+        },
         Command::Commands {
             command: Discovery::Search { query, limit },
         } => (

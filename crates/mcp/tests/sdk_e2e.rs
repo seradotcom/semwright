@@ -71,6 +71,21 @@ async fn exercise(discover: bool, profile: Profile) {
     let tools = client.list_all_tools().await.unwrap();
     assert!(tools.len() <= 12, "Gateway must remain context efficient");
     assert!(!tools.iter().any(|tool| tool.name.contains("approve")));
+    let catalog = client
+        .call_tool(
+            CallToolRequestParams::new("capabilities_search").with_arguments(
+                json!({"query":"ui.find","limit":1})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .unwrap()
+        .structured_content
+        .unwrap();
+    assert_eq!(catalog["data"]["capabilities"][0]["id"], "ui.find");
+    assert_eq!(catalog["data"]["availability_is_authorization"], false);
     let doctor = client
         .call_tool(CallToolRequestParams::new("computer_doctor"))
         .await

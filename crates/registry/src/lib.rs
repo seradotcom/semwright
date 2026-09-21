@@ -1,26 +1,58 @@
 //! One command registry for CLI, MCP, policy, recipes, docs and plugins.
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Result};
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
+pub mod catalog;
+pub use catalog::{CatalogQuery, Metadata, SourceKind};
 
 pub const BUILTIN_COMMANDS: &str = include_str!("../../../schemas/commands.json");
 #[derive(Clone)]
 pub struct Registry {
     commands: BTreeMap<String, CommandDescriptor>,
+    metadata: BTreeMap<String, Metadata>,
+    validators: BTreeMap<String, (Arc<jsonschema::Validator>, Arc<jsonschema::Validator>)>,
+    revision: u64,
 }
 impl Registry {
     pub fn builtin() -> Result<Self> {
         let descriptors: Vec<CommandDescriptor> = serde_json::from_str(BUILTIN_COMMANDS)?;
-        let mut registry = Self {
-            commands: BTreeMap::new(),
-        };
+        let mut registry = Self::empty();
         for descriptor in descriptors {
             registry.register(descriptor)?;
         }
         Ok(registry)
     }
+    pub fn empty() -> Self {
+        Self {
+            commands: BTreeMap::new(),
+            metadata: BTreeMap::new(),
+            validators: BTreeMap::new(),
+            revision: 0,
+        }
+    }
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+    pub fn metadata(&self, command: &str) -> Result<&Metadata> {
+        self.metadata.get(command).ok_or_else(|| {
+            Error::new(
+                ErrorCode::NotFound,
+                "Capability provenance is not registered",
+            )
+        })
+    }
     pub fn register(&mut self, descriptor: CommandDescriptor) -> Result<()> {
-        if descriptor.name.len() > 128
+        let metadata = Metadata::builtin(&descriptor);
+        self.register_with_metadata(descriptor, metadata)
+    }
+    /// Registration is a trusted host operation, never an authority granted by imported text.
+    pub fn register_with_metadata(
+        &mut self,
+        descriptor: CommandDescriptor,
+        mut metadata: Metadata,
+    ) -> Result<()> {
+        if descriptor.name.is_empty()
+            || descriptor.name.len() > 128
             || !descriptor.name.bytes().all(|c| {
                 c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'.' | b'_' | b'-')
             })
@@ -37,18 +69,37 @@ impl Registry {
                 "Commands must declare capabilities and a bounded timeout",
             ));
         }
+        if serde_json::to_vec(&descriptor)?.len() > 262_144 || descriptor.description.len() > 16_384
+        {
+            return Err(Error::invalid(
+                "Capability descriptor exceeds its byte budget",
+            ));
+        }
         for schema in [&descriptor.input_schema, &descriptor.output_schema] {
             reject_remote_refs(schema)?;
-            jsonschema::validator_for(schema)
-                .map_err(|_| Error::invalid("Invalid command JSON Schema"))?;
         }
+        let input = Arc::new(
+            jsonschema::validator_for(&descriptor.input_schema)
+                .map_err(|_| Error::invalid("Invalid command input JSON Schema"))?,
+        );
+        let output = Arc::new(
+            jsonschema::validator_for(&descriptor.output_schema)
+                .map_err(|_| Error::invalid("Invalid command output JSON Schema"))?,
+        );
+        metadata.validate_for(&descriptor)?;
+        metadata.descriptor_sha256 = catalog::descriptor_digest(&descriptor)?;
+
         if self.commands.contains_key(&descriptor.name) {
             return Err(Error::new(
                 ErrorCode::Conflict,
                 "A registered command cannot be overwritten",
             ));
         }
+        self.validators
+            .insert(descriptor.name.clone(), (input, output));
+        self.metadata.insert(descriptor.name.clone(), metadata);
         self.commands.insert(descriptor.name.clone(), descriptor);
+        self.revision = self.revision.saturating_add(1);
         Ok(())
     }
     pub fn remove_plugin_command(&mut self, name: &str) -> Result<()> {
@@ -61,6 +112,9 @@ impl Registry {
         self.commands
             .remove(name)
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Plugin command not registered"))?;
+        self.metadata.remove(name);
+        self.validators.remove(name);
+        self.revision = self.revision.saturating_add(1);
         Ok(())
     }
     pub fn describe(&self, name: &str) -> Result<&CommandDescriptor> {
@@ -84,33 +138,33 @@ impl Registry {
             .collect()
     }
     pub fn validate_input(&self, command: &str, args: &Value) -> Result<()> {
-        validate(
-            &self.describe(command)?.input_schema,
-            args,
-            "Command arguments do not match the published schema",
-        )
+        let validator = &self
+            .validators
+            .get(command)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Command is not registered"))?
+            .0;
+        if validator.is_valid(args) {
+            Ok(())
+        } else {
+            Err(Error::invalid(
+                "Command arguments do not match the published schema",
+            ))
+        }
     }
     pub fn validate_output(&self, command: &str, value: &Value) -> Result<()> {
-        validate(
-            &self.describe(command)?.output_schema,
-            value,
-            "Backend output violates its published contract",
-        )
-        .map_err(|_| {
-            Error::new(
+        let validator = &self
+            .validators
+            .get(command)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Command is not registered"))?
+            .1;
+        if validator.is_valid(value) {
+            Ok(())
+        } else {
+            Err(Error::new(
                 ErrorCode::BackendFailed,
                 "Backend output violates its published contract",
-            )
-        })
-    }
-}
-fn validate(schema: &Value, value: &Value, message: &str) -> Result<()> {
-    let validator = jsonschema::validator_for(schema)
-        .map_err(|_| Error::new(ErrorCode::Internal, "Registered schema is invalid"))?;
-    if validator.is_valid(value) {
-        Ok(())
-    } else {
-        Err(Error::invalid(message))
+            ))
+        }
     }
 }
 fn reject_remote_refs(value: &Value) -> Result<()> {

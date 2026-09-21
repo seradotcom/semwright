@@ -88,6 +88,10 @@ impl Backend for Clipboard {
     fn supports(&self, c: &str) -> bool {
         matches!(c, "clipboard.read" | "clipboard.write")
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command)
+            .then(|| "clipboard.explicit".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         vec![Feature {
             backend: self.name().into(),

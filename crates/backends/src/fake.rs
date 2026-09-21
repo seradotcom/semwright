@@ -134,6 +134,9 @@ impl Backend for FakeDesktop {
                 | "portal.stop"
         )
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "desktop.fixture".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         vec![feature(
             "fake",

@@ -1,0 +1,75 @@
+{
+  "commit": "3be28a093b87def0bb8f9a43bfbf60fa901d3e6b",
+  "quality_run": 35637959232,
+  "security_coverage_fuzz_run": 35637959010,
+  "status": "success",
+  "rust_tests": 108,
+  "coverage": {
+    "branches": {
+      "count": 0,
+      "covered": 0,
+      "notcovered": 0,
+      "percent": 0
+    },
+    "functions": {
+      "count": 938,
+      "covered": 317,
+      "percent": 33.7953091684435
+    },
+    "instantiations": {
+      "count": 1924,
+      "covered": 383,
+      "percent": 19.906444906444907
+    },
+    "lines": {
+      "count": 7641,
+      "covered": 2883,
+      "percent": 37.73066352571653
+    },
+    "mcdc": {
+      "count": 0,
+      "covered": 0,
+      "notcovered": 0,
+      "percent": 0
+    },
+    "regions": {
+      "count": 11829,
+      "covered": 4598,
+      "notcovered": 7231,
+      "percent": 38.87057232225886
+    }
+  },
+  "fuzz": [
+    {
+      "target": "recipe",
+      "executions": 231376,
+      "seconds": 11,
+      "result": "completed without reported crash"
+    },
+    {
+      "target": "plugin",
+      "executions": 1009252,
+      "seconds": 11,
+      "result": "completed without reported crash"
+    },
+    {
+      "target": "path",
+      "executions": 6087649,
+      "seconds": 11,
+      "result": "completed without reported crash"
+    },
+    {
+      "target": "protocol",
+      "executions": 1301247,
+      "seconds": 11,
+      "result": "completed without reported crash"
+    },
+    {
+      "target": "selector",
+      "executions": 792753,
+      "seconds": 11,
+      "result": "completed without reported crash"
+    }
+  ],
+  "source": "Full reports retained as GitHub Actions artifacts; totals are measured, not release acceptance."
+}

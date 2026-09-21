@@ -137,6 +137,9 @@ impl Backend for Gnome {
     fn supports(&self, c: &str) -> bool {
         supports(c)
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "window.manage".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         let ok = tokio::time::timeout(Duration::from_secs(2), self.call("Hello", None))
             .await
@@ -364,6 +367,9 @@ impl Backend for Kwin {
     }
     fn supports(&self, c: &str) -> bool {
         supports(c)
+    }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "window.manage".to_owned())
     }
     async fn probe(&self) -> Vec<Feature> {
         vec![feature(

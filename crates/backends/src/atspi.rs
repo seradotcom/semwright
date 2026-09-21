@@ -368,6 +368,9 @@ impl Backend for Atspi {
                 | "ui.expand"
         )
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "ui.observe".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         let ready = tokio::time::timeout(Duration::from_secs(3), self.connect())
             .await

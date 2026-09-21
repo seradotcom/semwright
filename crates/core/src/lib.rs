@@ -1,5 +1,6 @@
 //! The single authorization and execution authority used by every frontend.
 pub mod audit;
+mod catalog;
 use async_trait::async_trait;
 use semwright_backend_api::{Backend, Context};
 use semwright_plugin_host::Host;
@@ -310,9 +311,15 @@ impl Broker {
                 .backends
                 .get(&name)
                 .is_some_and(|backend| backend.supports(actual_command))
-                && features
-                    .iter()
-                    .any(|feature| feature.backend == name && feature.usable())
+                && self
+                    .backends
+                    .get(&name)
+                    .and_then(|backend| backend.operation_feature(actual_command))
+                    .is_some_and(|key| {
+                        features.iter().any(|feature| {
+                            feature.backend == name && feature.capability == key && feature.usable()
+                        })
+                    })
             {
                 return Ok(name);
             }
@@ -715,7 +722,13 @@ impl Broker {
             };
             if request.command != "ui.find" {
                 self.filter_apps(&mut output);
-                self.materialize(session, selected, &mut output)?;
+                if self
+                    .backends
+                    .get(selected.as_str())
+                    .is_some_and(|backend| backend.emits_native_refs())
+                {
+                    self.materialize(session, selected, &mut output)?;
+                }
             }
             if serde_json::to_vec(&output)?.len() > MAX_FRAME - 8192 {
                 return Err(Error::new(
@@ -734,6 +747,7 @@ impl Broker {
             result=tokio::time::timeout(Duration::from_millis(descriptor.timeout_ms),action)=>match result{Ok(result)=>result,Err(_)=>{context.cancellation.cancel();Err(Error::new(ErrorCode::Timeout,"Command exceeded its action timeout; no retry was attempted").uncertain())}},
         };
         if descriptor.risk.mutates() {
+            *self.features.write().await = None;
             result.map_err(|e| {
                 if matches!(
                     e.code,
@@ -814,6 +828,11 @@ impl Broker {
             "capabilities.list" => Ok(
                 json!({"granted":self.policy.capabilities(),"filesystem":self.policy.config().filesystem.iter().map(|r|json!({"name":r.name,"read":r.read,"write":r.write})).collect::<Vec<_>>(),"backends":self.probe().await,"fake":self.fake}),
             ),
+            "capabilities.search" => {
+                self.catalog_search(serde_json::from_value(args.clone())?)
+                    .await
+            }
+            "capabilities.describe" => self.catalog_describe(arg_str(args, "name")?).await,
             "commands.search" => {
                 let registry = self
                     .registry

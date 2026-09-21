@@ -2941,5 +2941,225 @@
     "backends": [
       "core"
     ]
+  },
+  {
+    "name": "capabilities.search",
+    "version": "1.0",
+    "description": "Search the bounded capability catalog by exact ID, words, quoted phrases, provider, app, risk, category, tags, object types and current operation availability. Results include provenance, not blanket permission.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "app": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "category": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "risk": {
+          "enum": [
+            "code_execution",
+            "destructive",
+            "mutating",
+            "mutating_reversible",
+            "privilege_sensitive",
+            "read_only",
+            "secret_access",
+            null
+          ]
+        },
+        "available": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "object_types": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8192
+        },
+        "revision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "revision",
+        "total",
+        "offset",
+        "next_offset",
+        "capabilities",
+        "availability_is_authorization"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "next_offset": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "provenance",
+              "risk",
+              "required_scopes",
+              "routes",
+              "available",
+              "score"
+            ]
+          }
+        },
+        "availability_is_authorization": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "capabilities.describe",
+    "version": "1.0",
+    "description": "Describe one capability with full input/output schema, source digest, provenance and operation-specific routes. Availability never grants authorization.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "revision",
+        "capability",
+        "provenance",
+        "routes",
+        "availability_is_authorization"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "capability": {
+          "type": "object"
+        },
+        "provenance": {
+          "type": "object",
+          "required": [
+            "source",
+            "provider",
+            "descriptor_sha256",
+            "untrusted_metadata"
+          ]
+        },
+        "routes": {
+          "type": "array"
+        },
+        "availability_is_authorization": {
+          "const": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
   }
 ]

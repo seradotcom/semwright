@@ -23,6 +23,15 @@ pub trait Backend: Send + Sync {
     fn name(&self) -> &'static str;
     fn supports(&self, command: &str) -> bool;
     async fn probe(&self) -> Vec<Feature>;
+    /// The exact probe key required by an operation. Unknown mappings fail closed.
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| command.to_owned())
+    }
+    /// Only trusted native providers may emit internal object-reference markers.
+    fn emits_native_refs(&self) -> bool {
+        true
+    }
+
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value>;
     /// Must reject changed/reused identities immediately before side effects.
     async fn validate(&self, _target: &NativeTarget) -> Result<()> {

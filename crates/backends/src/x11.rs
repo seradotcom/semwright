@@ -123,6 +123,9 @@ impl Backend for X11 {
                 | "pointer.move"
         )
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "window.manage".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         let ready = self
             .state

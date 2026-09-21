@@ -50,6 +50,9 @@ impl Backend for Blender {
     fn supports(&self, command: &str) -> bool {
         command.starts_with("blender.")
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "blender.observe".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         let available = matches!(
             tokio::time::timeout(std::time::Duration::from_secs(2), self.connect()).await,

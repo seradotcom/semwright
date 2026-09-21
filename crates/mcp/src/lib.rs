@@ -17,7 +17,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-const MAPPINGS: [(&str, &str); 7] = [
+const MAPPINGS: [(&str, &str); 9] = [
     ("computer_doctor", "doctor"),
     ("computer_capabilities", "capabilities.list"),
     ("computer_search_commands", "commands.search"),
@@ -25,6 +25,8 @@ const MAPPINGS: [(&str, &str); 7] = [
     ("computer_snapshot", "ui.snapshot"),
     ("computer_find", "ui.find"),
     ("computer_audit_tail", "audit.tail"),
+    ("capabilities_search", "capabilities.search"),
+    ("capabilities_describe", "capabilities.describe"),
 ];
 #[derive(Clone)]
 pub struct Server {
@@ -214,7 +216,7 @@ mod tests {
     #[test]
     fn discovery_is_small_and_typed() {
         let list = tools().unwrap();
-        assert_eq!(list.len(), 8);
+        assert_eq!(list.len(), 10);
         for tool in list {
             assert_eq!(tool.input_schema.get("type"), Some(&json!("object")));
             assert!(tool.output_schema.is_some());

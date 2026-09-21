@@ -25,6 +25,10 @@ impl Backend for Filesystem {
     fn supports(&self, c: &str) -> bool {
         matches!(c, "filesystem.read" | "filesystem.write")
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command)
+            .then(|| "filesystem.scoped".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         vec![feature(
             self.name(),

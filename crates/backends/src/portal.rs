@@ -668,11 +668,60 @@ impl Backend for Portal {
                 | "screen.stream_info"
         )
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        if !self.supports(command) {
+            return None;
+        }
+        Some(
+            match command {
+                "screen.capture" => "screen.capture",
+                "portal.status" | "portal.stop" | "screen.stream_info" => "portal.status",
+                _ => "input.consented",
+            }
+            .into(),
+        )
+    }
     async fn probe(&self) -> Vec<Feature> {
         let remote = self.version(REMOTE).await;
         let screenshot = self.version("org.freedesktop.portal.Screenshot").await;
-        vec![Feature{backend:self.name().into(),capability:"input.consented".into(),status:if remote>0{CapabilityStatus::SupportedWithConsent}else{CapabilityStatus::Unavailable},reason:format!("RemoteDesktop interface version {remote}; Notify route, EIS not implemented"),remediation:"Install the matching xdg-desktop-portal backend and explicitly approve portal.start".into()},
-            Feature{backend:self.name().into(),capability:"screen.capture".into(),status:if screenshot>0{CapabilityStatus::SupportedWithConsent}else{CapabilityStatus::Unavailable},reason:format!("Screenshot portal version {screenshot}"),remediation:"A user-facing screenshot chooser is required".into()}]
+        vec![
+            Feature {
+                backend: self.name().into(),
+                capability: "input.consented".into(),
+                status: if remote > 0 {
+                    CapabilityStatus::SupportedWithConsent
+                } else {
+                    CapabilityStatus::Unavailable
+                },
+                reason: format!(
+                    "RemoteDesktop interface version {remote}; input additionally requires a live, owner-consented session"
+                ),
+                remediation:
+                    "Install a matching portal backend and explicitly approve portal.start".into(),
+            },
+            Feature {
+                backend: self.name().into(),
+                capability: "screen.capture".into(),
+                status: if screenshot > 0 {
+                    CapabilityStatus::SupportedWithConsent
+                } else {
+                    CapabilityStatus::Unavailable
+                },
+                reason: format!(
+                    "Screenshot portal version {screenshot}; distinct from RemoteDesktop availability"
+                ),
+                remediation: "A user-facing screenshot chooser is required".into(),
+            },
+            Feature {
+                backend: self.name().into(),
+                capability: "portal.status".into(),
+                status: CapabilityStatus::Supported,
+                reason:
+                    "Diagnostic/session-stop operations do not imply pixel-stream or input support"
+                        .into(),
+                remediation: String::new(),
+            },
+        ]
     }
     async fn execute(&self, ctx: &Context, c: &str, args: &Value) -> Result<Value> {
         match c {

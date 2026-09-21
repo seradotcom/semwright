@@ -100,6 +100,9 @@ impl Backend for Hyprland {
                 | "app.close"
         )
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "window.manage".to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
         let ready =
             tokio::time::timeout(std::time::Duration::from_secs(2), self.request("j/version"))

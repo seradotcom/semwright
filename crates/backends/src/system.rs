@@ -178,14 +178,78 @@ impl Backend for System {
                 | "systemd.user.status"
         )
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| command.to_owned())
+    }
     async fn probe(&self) -> Vec<Feature> {
-        vec![feature(
-            self.name(),
-            "process.observe",
-            std::path::Path::new("/proc/self/status").is_file(),
-            "Linux /proc current-user metadata; optional D-Bus operations probe on demand",
-            "Run as a normal user; configure launch keys explicitly",
-        )]
+        async fn service_present(system: bool, name: &str) -> bool {
+            tokio::time::timeout(std::time::Duration::from_millis(700), async {
+                let connection = if system {
+                    Connection::system().await?
+                } else {
+                    Connection::session().await?
+                };
+                let proxy = Proxy::new(
+                    &connection,
+                    "org.freedesktop.DBus",
+                    "/org/freedesktop/DBus",
+                    "org.freedesktop.DBus",
+                )
+                .await?;
+                proxy.call::<_, _, bool>("NameHasOwner", &(name,)).await
+            })
+            .await
+            .is_ok_and(|result| result.unwrap_or(false))
+        }
+        let (notifications, network, systemd) = tokio::join!(
+            service_present(false, "org.freedesktop.Notifications"),
+            service_present(true, "org.freedesktop.NetworkManager"),
+            service_present(false, "org.freedesktop.systemd1"),
+        );
+        vec![
+            feature(
+                self.name(),
+                "process.list",
+                std::path::Path::new("/proc/self/status").is_file(),
+                "Current-UID process metadata only",
+                "A mounted proc filesystem is required",
+            ),
+            feature(
+                self.name(),
+                "app.launch",
+                !self.applications.is_empty(),
+                "Only explicitly configured launch keys are available",
+                "Configure an application executable and fixed arguments in owner configuration",
+            ),
+            feature(
+                self.name(),
+                "process.signal",
+                !self.processes.lock().await.is_empty(),
+                "Only retained broker-launched process references can be signalled",
+                "Launch a permitted application first",
+            ),
+            feature(
+                self.name(),
+                "notifications.send",
+                notifications,
+                "Notification bus service ownership was checked",
+                "Start a notification service in this session",
+            ),
+            feature(
+                self.name(),
+                "network.status",
+                network,
+                "NetworkManager system-bus ownership was checked",
+                "NetworkManager is optional and is not inferred from /proc availability",
+            ),
+            feature(
+                self.name(),
+                "systemd.user.status",
+                systemd,
+                "User systemd session-bus ownership was checked",
+                "A systemd user manager must be available",
+            ),
+        ]
     }
     async fn execute(&self, ctx: &Context, c: &str, args: &Value) -> Result<Value> {
         ctx.check_cancelled()?;

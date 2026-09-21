@@ -359,3 +359,108 @@ async fn no_ref_migration_to_another_backend() {
         .await;
     assert_eq!(r.error.unwrap().code, ErrorCode::PolicyDenied);
 }
+
+#[tokio::test]
+async fn catalog_is_compact_provenanced_and_uses_actual_operation_state() {
+    let fixture = Fixture::new(Profile::Observe);
+    let result = fixture
+        .call("capabilities.search", json!({"query":"ui.find","limit":1}))
+        .await;
+    assert!(result.ok, "{result:?}");
+    let catalog = result.data.unwrap();
+    let row = &catalog["capabilities"][0];
+    assert_eq!(row["id"], "ui.find");
+    assert_eq!(row["available"], true);
+    assert_eq!(row["routes"][0]["provider"], "fake");
+    assert!(row.get("input_schema").is_none());
+    assert_eq!(
+        row["provenance"]["descriptor_sha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+    assert_eq!(catalog["availability_is_authorization"], false);
+    let description = fixture
+        .call("capabilities.describe", json!({"name":"ui.invoke"}))
+        .await;
+    assert!(description.data.unwrap()["capability"]["input_schema"].is_object());
+    assert_eq!(
+        fixture
+            .call("capabilities.search", json!({"revision":0}))
+            .await
+            .error
+            .unwrap()
+            .code,
+        ErrorCode::Conflict
+    );
+}
+
+#[tokio::test]
+async fn missing_native_provider_is_not_reported_available() {
+    let fixture = Fixture::new(Profile::Observe);
+    let result = fixture
+        .call(
+            "capabilities.search",
+            json!({"provider":"blender-native","available":true}),
+        )
+        .await;
+    assert!(result.ok);
+    assert_eq!(result.data.unwrap()["total"], 0);
+}
+
+struct MixedPortal;
+#[async_trait::async_trait]
+impl semwright_backend_api::Backend for MixedPortal {
+    fn name(&self) -> &'static str {
+        "portal"
+    }
+    fn supports(&self, command: &str) -> bool {
+        matches!(command, "screen.capture" | "portal.start")
+    }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        Some(
+            if command == "screen.capture" {
+                "screen.capture"
+            } else {
+                "input.consented"
+            }
+            .into(),
+        )
+    }
+    async fn probe(&self) -> Vec<semwright_types::Feature> {
+        vec![semwright_backend_api::feature(
+            "portal",
+            "screen.capture",
+            true,
+            "Fixture screenshot-only service",
+            "",
+        )]
+    }
+    async fn execute(
+        &self,
+        _: &semwright_backend_api::Context,
+        _: &str,
+        _: &Value,
+    ) -> semwright_types::Result<Value> {
+        panic!("Catalog lookup must not execute a provider")
+    }
+}
+#[tokio::test]
+async fn one_working_probe_does_not_enable_unrelated_operations() {
+    let directory = tempfile::tempdir().unwrap();
+    let broker = Broker::new(
+        Policy::new(PolicyConfig::default()).unwrap(),
+        vec![Arc::new(MixedPortal)],
+        Audit::open(&directory.path().join("audit"), 65536, 2).unwrap(),
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    let capture = broker.catalog_describe("screen.capture").await.unwrap();
+    let input = broker.catalog_describe("portal.start").await.unwrap();
+    assert_eq!(capture["routes"][0]["available"], true);
+    assert_eq!(input["routes"][0]["available"], false);
+}

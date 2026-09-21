@@ -682,8 +682,47 @@ impl Backend for Chromium {
     fn supports(&self, command: &str) -> bool {
         command.starts_with("browser.")
     }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| {
+            match command {
+                "browser.status" => "browser.status",
+                "browser.launch" => "browser.launch",
+                _ => "browser.running",
+            }
+            .into()
+        })
+    }
     async fn probe(&self) -> Vec<Feature> {
-        vec![Feature{backend:self.name().into(),capability:"browser.observe".into(),status:if self.config.executable.is_file(){CapabilityStatus::Experimental}else{CapabilityStatus::Unavailable},reason:"Isolated profile only; broker launch and explicit origin grants required".into(),remediation:"Configure the browser executable and allowed_origins; browser.launch requires trusted human approval".into()}]
+        let executable = std::fs::metadata(&self.config.executable)
+            .is_ok_and(|meta| meta.is_file() && meta.mode() & 0o022 == 0);
+        let mut instance = self.instance.lock().await;
+        let running = instance.as_mut().is_some_and(|instance| {
+            instance.child.try_wait().is_ok_and(|exit| exit.is_none())
+                && !instance.cdp.stop.is_cancelled()
+        });
+        vec![
+            semwright_backend_api::feature(
+                self.name(),
+                "browser.status",
+                true,
+                "Diagnostic only; does not attach to a normal browser profile",
+                "",
+            ),
+            semwright_backend_api::feature(
+                self.name(),
+                "browser.launch",
+                executable && current_uid() != 0 && !running,
+                "A safe executable and an unused owned browser slot are required",
+                "Configure an installed Chromium executable and run as a normal user",
+            ),
+            semwright_backend_api::feature(
+                self.name(),
+                "browser.running",
+                running,
+                "An owned live browser process is required; origin and node context are revalidated per call",
+                "Launch a disposable browser through Semwright first",
+            ),
+        ]
     }
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
         ctx.check_cancelled()?;
