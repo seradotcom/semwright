@@ -1,0 +1,107 @@
+    Updating crates.io index
+     Locking 89 packages to latest compatible versions
+      Adding anyhow v1.0.104
+      Adding approx v0.5.1
+      Adding atomic v0.6.1
+      Adding bit-set v0.5.3
+      Adding bit-vec v0.6.3
+      Adding bitflags v1.3.2
+      Adding by_address v1.2.1
+      Adding bytemuck v1.25.2
+    Removing cassowary v0.3.0
+      Adding cfg_aliases v0.2.2
+    Updating compact_str v0.8.2 -> v0.9.1
+      Adding convert_case v0.10.0
+      Adding critical-section v1.2.0
+    Updating crossterm v0.28.1 -> v0.29.0
+      Adding csscolorparser v0.6.2
+      Adding deltae v0.3.2
+      Adding deranged v0.5.8
+      Adding derive_more v2.1.1
+      Adding derive_more-impl v2.1.1
+      Adding document-features v0.2.12
+      Adding euclid v0.22.14
+      Adding fancy-regex v0.11.0
+      Adding filedescriptor v0.8.3
+      Adding finl_unicode v1.5.0
+      Adding fixedbitset v0.4.2
+    Updating foldhash v0.1.5 -> v0.2.0
+    Updating hashbrown v0.15.5 -> v0.16.1
+    Updating itertools v0.13.0 -> v0.14.0
+      Adding kasuari v0.4.12
+      Adding lab v0.11.0
+      Adding libm v0.2.16
+      Adding line-clipping v0.3.8
+    Removing linux-raw-sys v0.4.15
+      Adding litrs v1.0.0
+    Updating lru v0.12.5 -> v0.18.4
+      Adding mac_address v1.1.8
+      Adding memmem v0.1.1
+      Adding minimal-lexical v0.2.1
+      Adding nix v0.29.0
+      Adding nom v7.1.3
+      Adding num-conv v0.2.2
+      Adding num-derive v0.4.2
+      Adding num_threads v0.1.7
+      Adding ordered-float v4.6.0
+      Adding palette v0.7.7
+      Adding palette_derive v0.7.7
+      Adding palette_math v0.7.7
+    Removing paste v1.0.15
+      Adding pest v2.9.2
+      Adding pest_derive v2.9.2
+      Adding pest_generator v2.9.2
+      Adding pest_meta v2.9.2
+      Adding phf v0.11.3
+      Adding phf_codegen v0.11.3
+      Adding phf_generator v0.11.3
+      Adding phf_macros v0.11.3
+      Adding phf_shared v0.11.3
+      Adding portable-atomic v1.15.0
+      Adding powerfmt v0.2.0
+      Adding rand v0.8.8
+      Adding rand_core v0.6.4
+    Updating ratatui v0.29.0 -> v0.30.2
+      Adding ratatui-core v0.1.2
+      Adding ratatui-crossterm v0.1.2
+      Adding ratatui-macros v0.7.2
+      Adding ratatui-termina v0.1.0
+      Adding ratatui-termwiz v0.1.2
+      Adding ratatui-widgets v0.3.2
+      Adding rustc_version v0.4.1
+    Removing rustix v0.38.44
+      Adding semver v1.0.28
+      Adding siphasher v1.0.3
+    Updating strum v0.26.3 -> v0.28.0
+    Updating strum_macros v0.26.4 -> v0.28.0
+      Adding syn v1.0.109
+      Adding termina v0.3.3
+      Adding terminfo v0.9.0
+      Adding termios v0.3.3
+      Adding termwiz v0.23.3
+      Adding thiserror v1.0.69
+      Adding thiserror-impl v1.0.69
+      Adding time v0.3.55
+      Adding time-core v0.1.9
+      Adding tokio-stream v0.1.19
+      Adding ucd-trie v0.1.7
+    Updating unicode-truncate v1.1.0 -> v2.0.1
+    Removing unicode-width v0.1.14
+      Adding vtparse v0.6.2
+      Adding wezterm-bidi v0.2.3
+      Adding wezterm-blob-leases v0.1.1
+      Adding wezterm-color-types v0.3.0
+      Adding wezterm-dynamic v0.2.1
+      Adding wezterm-dynamic-derive v0.1.1
+      Adding wezterm-input-types v0.1.0
+    Removing windows-sys v0.59.0
+    Removing windows-targets v0.52.6
+    Removing windows_aarch64_gnullvm v0.52.6
+    Removing windows_aarch64_msvc v0.52.6
+    Removing windows_i686_gnu v0.52.6
+    Removing windows_i686_gnullvm v0.52.6
+    Removing windows_i686_msvc v0.52.6
+    Removing windows_x86_64_gnu v0.52.6
+    Removing windows_x86_64_gnullvm v0.52.6
+    Removing windows_x86_64_msvc v0.52.6
+note: pass `--verbose` to see 9 unchanged dependencies behind latest

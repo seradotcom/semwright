@@ -1,0 +1,37 @@
+   Compiling syn v2.0.119
+   Compiling mio v1.2.3
+   Compiling tokio v1.53.1
+   Compiling enumflags2_derive v0.7.12
+   Compiling tokio-util v0.7.19
+   Compiling enumflags2 v0.7.12
+   Compiling semwright-protocol v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/protocol)
+   Compiling tracing-attributes v0.1.31
+   Compiling zvariant v5.15.0
+   Compiling tracing v0.1.44
+   Compiling zbus_names v4.3.4
+   Compiling semwright-backend-api v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backend-api)
+   Compiling zbus_macros v5.19.0
+   Compiling semwright-plugin-sdk v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-sdk)
+   Compiling landlock v0.4.7
+   Compiling tokio-stream v0.1.19
+   Compiling async-recursion v1.1.1
+   Compiling rmcp v3.4.0
+   Compiling zbus v5.19.0
+   Compiling semwright-plugin-host v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/plugin-host)
+   Compiling semwright-recipes v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/recipes)
+   Compiling tokio-tungstenite v0.28.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling semwright-adapters v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/adapters)
+   Compiling semwright-core v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/core)
+   Compiling semwright-mcp v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/mcp)
+   Compiling semwright-backends v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/backends)
+   Compiling semwright-daemon v0.9.0-dev.1 (/home/sergio/Documents/Projects/semwright/crates/daemon)
+    Finished `test` profile [unoptimized] target(s) in 27.22s
+     Running tests/sdk_e2e.rs (/tmp/semwright-target/debug/deps/sdk_e2e-613e2884dcd18420)
+
+running 2 tests
+test modern_discover_executes_and_invalidates_refs ... ok
+test legacy_initialization_preserves_read_only_policy ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
