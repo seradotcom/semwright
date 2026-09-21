@@ -63,10 +63,10 @@ async fn query(
                     &json!({"_target":tab,"selector":selector}),
                 )
                 .await;
-            if let Ok(value) = result {
-                if value["count"] == 1 {
-                    return target(&value["matches"][0]["ref"]);
-                }
+            if let Ok(value) = result
+                && value["count"] == 1
+            {
+                return target(&value["matches"][0]["ref"]);
             }
             tokio::time::sleep(Duration::from_millis(30)).await;
         }

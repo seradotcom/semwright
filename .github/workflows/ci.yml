@@ -1,4 +1,8 @@
 name: Quality gates
+# Explicit Bash enables pipefail so tee cannot mask a failing producer.
+defaults:
+  run:
+    shell: bash
 on:
   push:
     branches: [main]

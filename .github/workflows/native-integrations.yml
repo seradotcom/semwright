@@ -1,4 +1,7 @@
 name: Native application integration
+defaults:
+  run:
+    shell: bash
 on:
   push:
     branches: [main]

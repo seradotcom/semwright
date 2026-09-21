@@ -1,4 +1,8 @@
 name: Release artifacts (fail-closed)
+# Explicit Bash enables pipefail so tee cannot mask a failing producer.
+defaults:
+  run:
+    shell: bash
 on:
   workflow_dispatch:
   push:
