@@ -1,4 +1,6 @@
 //! Stable, transport-independent domain model. No operating-system side effects.
+pub mod provider;
+pub use provider::{InvocationProvenance, ProviderIdentity, SourceKind};
 use regex::RegexBuilder;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -178,6 +180,8 @@ pub struct Execution {
     pub duration_ms: u64,
     pub policy_decision: String,
     pub fallbacks_attempted: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<InvocationProvenance>,
     pub dry_run: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -223,6 +227,7 @@ impl Envelope {
                 duration_ms: elapsed.as_millis().min(u64::MAX as u128) as u64,
                 policy_decision: decision.into(),
                 fallbacks_attempted: vec![],
+                provenance: None,
                 dry_run,
             },
         }

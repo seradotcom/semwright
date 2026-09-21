@@ -4,15 +4,8 @@ use semwright_types::{CommandDescriptor, Error, ErrorCode, Result, Risk};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourceKind {
-    Builtin,
-    Plugin,
-    Driver,
-    ExternalMcp,
-    Recipe,
-}
+use semwright_types::ProviderIdentity;
+pub use semwright_types::SourceKind;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -32,44 +25,24 @@ pub struct Metadata {
     pub descriptor_sha256: String,
 }
 impl Metadata {
-    pub fn builtin(command: &CommandDescriptor) -> Self {
-        let parts: Vec<_> = command.name.split('.').collect();
-        let source = if parts[0] == "plugin" {
-            SourceKind::Plugin
-        } else {
-            SourceKind::Builtin
-        };
-        let provider = if source == SourceKind::Plugin {
-            format!("plugin:{}", parts.get(1).unwrap_or(&"invalid"))
-        } else {
-            match parts[0] {
-                "blender" => "blender-native".into(),
-                "browser" => "browser-cdp".into(),
-                _ => "semwright-core".into(),
-            }
-        };
+    /// Builtin provenance is an explicit checked-in registration manifest, never inferred from names.
+    pub fn builtin(command: &CommandDescriptor) -> Result<Self> {
+        let mut entries: std::collections::BTreeMap<String, Self> =
+            serde_json::from_str(include_str!("../../../schemas/builtin-provenance.json"))?;
+        entries
+            .remove(&command.name)
+            .ok_or_else(|| Error::invalid("Explicit builtin provenance is required"))
+    }
+    pub fn for_provider(identity: &ProviderIdentity) -> Self {
         Self {
-            source,
-            provider,
-            source_version: command.version.clone(),
-            app: match parts[0] {
-                "blender" => Some("org.blender.Blender".into()),
-                "browser" => Some("org.semwright.Chromium".into()),
-                _ => None,
-            },
+            source: identity.kind,
+            provider: identity.id.clone(),
+            source_version: identity.version.clone(),
+            app: identity.application.clone(),
             aliases: vec![],
-            tags: parts.iter().take(2).map(|s| (*s).to_owned()).collect(),
-            object_types: parts
-                .get(1)
-                .filter(|s| {
-                    matches!(
-                        **s,
-                        "object" | "window" | "node" | "material" | "scene" | "tab" | "collection"
-                    )
-                })
-                .map(|s| vec![(*s).into()])
-                .unwrap_or_default(),
-            untrusted_metadata: source != SourceKind::Builtin,
+            tags: vec![],
+            object_types: vec![],
+            untrusted_metadata: identity.kind != SourceKind::Builtin,
             descriptor_sha256: String::new(),
         }
     }
@@ -89,22 +62,46 @@ impl Metadata {
         {
             return Err(Error::invalid("Capability metadata exceeds its bounds"));
         }
+        if self.source == SourceKind::Builtin {
+            let expected = Self::builtin(command)?;
+            if self.provider != expected.provider
+                || self.source_version != expected.source_version
+                || self.app != expected.app
+                || self.untrusted_metadata
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Builtin provenance must match the explicit host registration",
+                ));
+            }
+        }
         if self.source != SourceKind::Builtin && !self.untrusted_metadata {
             return Err(Error::invalid(
                 "Third-party metadata must be labelled untrusted",
             ));
         }
-        let namespace = match self.source {
-            SourceKind::ExternalMcp => Some("external."),
-            SourceKind::Plugin => Some("plugin."),
-            SourceKind::Driver => Some("driver."),
-            SourceKind::Recipe => Some("recipe."),
-            SourceKind::Builtin => None,
-        };
-        if namespace.is_some_and(|prefix| !command.name.starts_with(prefix)) {
-            return Err(Error::invalid(
-                "Capability source cannot claim another source namespace",
-            ));
+        if self.source != SourceKind::Builtin {
+            let prefix = self
+                .source
+                .prefix()
+                .ok_or_else(|| Error::invalid("Invalid provider source"))?;
+            let slug = self
+                .provider
+                .strip_prefix(&format!("{prefix}:"))
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Provider identity cannot claim core authority",
+                    )
+                })?;
+            let identity = ProviderIdentity::external(self.source, slug, &self.source_version)?;
+            if !command.name.starts_with(&identity.namespace) || command.name == identity.namespace
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Capability is outside its provider's namespace",
+                ));
+            }
         }
         Ok(())
     }
@@ -124,6 +121,7 @@ pub struct CatalogQuery {
     #[serde(default)]
     pub query: String,
     pub provider: Option<String>,
+    pub source: Option<SourceKind>,
     pub app: Option<String>,
     pub category: Option<String>,
     pub risk: Option<Risk>,
@@ -143,6 +141,7 @@ impl Default for CatalogQuery {
         Self {
             query: String::new(),
             provider: None,
+            source: None,
             app: None,
             category: None,
             risk: None,
@@ -229,6 +228,7 @@ impl Registry {
                     .category
                     .as_ref()
                     .is_some_and(|p| descriptor.name.split('.').next() != Some(p.as_str()))
+                || query.source.is_some_and(|source| source != metadata.source)
                 || query.risk.is_some_and(|risk| risk != descriptor.risk)
                 || !query.tags.iter().all(|tag| metadata.tags.contains(tag))
                 || !query
@@ -359,7 +359,7 @@ mod tests {
     fn source_cannot_claim_core_or_trusted_metadata() {
         let registry = Registry::builtin().unwrap();
         let command = registry.describe("doctor").unwrap();
-        let mut metadata = Metadata::builtin(command);
+        let mut metadata = Metadata::builtin(command).unwrap();
         metadata.source = SourceKind::ExternalMcp;
         assert!(metadata.validate_for(command).is_err());
         metadata.untrusted_metadata = true;

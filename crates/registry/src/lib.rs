@@ -2,8 +2,11 @@
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Result};
 use serde_json::Value;
 use std::{collections::BTreeMap, sync::Arc};
+pub mod bounds;
 pub mod catalog;
+mod dynamic;
 pub use catalog::{CatalogQuery, Metadata, SourceKind};
+pub use dynamic::CapabilitySnapshot;
 
 pub const BUILTIN_COMMANDS: &str = include_str!("../../../schemas/commands.json");
 #[derive(Clone)]
@@ -12,13 +15,24 @@ pub struct Registry {
     metadata: BTreeMap<String, Metadata>,
     validators: BTreeMap<String, (Arc<jsonschema::Validator>, Arc<jsonschema::Validator>)>,
     revision: u64,
+    descriptor_bytes: usize,
 }
 impl Registry {
     pub fn builtin() -> Result<Self> {
         let descriptors: Vec<CommandDescriptor> = serde_json::from_str(BUILTIN_COMMANDS)?;
+        let mut provenance: BTreeMap<String, Metadata> =
+            serde_json::from_str(include_str!("../../../schemas/builtin-provenance.json"))?;
         let mut registry = Self::empty();
         for descriptor in descriptors {
-            registry.register(descriptor)?;
+            let metadata = provenance
+                .remove(&descriptor.name)
+                .ok_or_else(|| Error::invalid("Builtin descriptor has no explicit provenance"))?;
+            registry.register_with_metadata(descriptor, metadata)?;
+        }
+        if !provenance.is_empty() {
+            return Err(Error::invalid(
+                "Builtin provenance contains an unregistered capability",
+            ));
         }
         Ok(registry)
     }
@@ -28,6 +42,7 @@ impl Registry {
             metadata: BTreeMap::new(),
             validators: BTreeMap::new(),
             revision: 0,
+            descriptor_bytes: 0,
         }
     }
     pub fn revision(&self) -> u64 {
@@ -42,7 +57,7 @@ impl Registry {
         })
     }
     pub fn register(&mut self, descriptor: CommandDescriptor) -> Result<()> {
-        let metadata = Metadata::builtin(&descriptor);
+        let metadata = Metadata::builtin(&descriptor)?;
         self.register_with_metadata(descriptor, metadata)
     }
     /// Registration is a trusted host operation, never an authority granted by imported text.
@@ -51,6 +66,12 @@ impl Registry {
         descriptor: CommandDescriptor,
         mut metadata: Metadata,
     ) -> Result<()> {
+        if self.commands.len() >= 8192 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Capability catalog is full",
+            ));
+        }
         if descriptor.name.is_empty()
             || descriptor.name.len() > 128
             || !descriptor.name.bytes().all(|c| {
@@ -62,6 +83,24 @@ impl Registry {
             ));
         }
         if descriptor.requires.is_empty()
+            || descriptor.requires.len() > 32
+            || descriptor.requires.iter().any(|s| {
+                s.is_empty()
+                    || s.len() > 128
+                    || !s.bytes().all(|b| {
+                        b.is_ascii_lowercase()
+                            || b.is_ascii_digit()
+                            || matches!(b, b'.' | b':' | b'_' | b'-')
+                    })
+            })
+            || descriptor.backends.is_empty()
+            || descriptor.backends.len() > 16
+            || descriptor
+                .backends
+                .iter()
+                .any(|s| s.is_empty() || s.len() > 128 || s.chars().any(char::is_control))
+            || descriptor.version.is_empty()
+            || descriptor.version.len() > 80
             || descriptor.timeout_ms == 0
             || descriptor.timeout_ms > 300_000
         {
@@ -75,8 +114,9 @@ impl Registry {
                 "Capability descriptor exceeds its byte budget",
             ));
         }
+        metadata.validate_for(&descriptor)?;
         for schema in [&descriptor.input_schema, &descriptor.output_schema] {
-            reject_remote_refs(schema)?;
+            bounds::schema_budget(schema, metadata.untrusted_metadata)?;
         }
         let input = Arc::new(
             jsonschema::validator_for(&descriptor.input_schema)
@@ -86,7 +126,6 @@ impl Registry {
             jsonschema::validator_for(&descriptor.output_schema)
                 .map_err(|_| Error::invalid("Invalid command output JSON Schema"))?,
         );
-        metadata.validate_for(&descriptor)?;
         metadata.descriptor_sha256 = catalog::descriptor_digest(&descriptor)?;
 
         if self.commands.contains_key(&descriptor.name) {
@@ -95,26 +134,36 @@ impl Registry {
                 "A registered command cannot be overwritten",
             ));
         }
+        let bytes = serde_json::to_vec(&descriptor)?.len() + serde_json::to_vec(&metadata)?.len();
+        if self.descriptor_bytes.saturating_add(bytes) > 16 * 1024 * 1024 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Capability catalog exceeds its aggregate byte budget",
+            ));
+        }
+        let next_revision = self.revision.checked_add(1).ok_or_else(|| {
+            Error::new(ErrorCode::ResourceExhausted, "Catalog revision exhausted")
+        })?;
         self.validators
             .insert(descriptor.name.clone(), (input, output));
         self.metadata.insert(descriptor.name.clone(), metadata);
         self.commands.insert(descriptor.name.clone(), descriptor);
-        self.revision = self.revision.saturating_add(1);
+        self.revision = next_revision;
+        self.descriptor_bytes += bytes;
         Ok(())
     }
     pub fn remove_plugin_command(&mut self, name: &str) -> Result<()> {
-        if !name.starts_with("plugin.") {
+        if self.metadata(name)?.source != SourceKind::Plugin {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
-                "Built-in commands cannot be removed",
+                "Only registered plugin-owned commands can be removed",
             ));
         }
-        self.commands
-            .remove(name)
-            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Plugin command not registered"))?;
-        self.metadata.remove(name);
-        self.validators.remove(name);
-        self.revision = self.revision.saturating_add(1);
+        let next = self.revision.checked_add(1).ok_or_else(|| {
+            Error::new(ErrorCode::ResourceExhausted, "Catalog revision exhausted")
+        })?;
+        self.remove_owned(name)?;
+        self.revision = next;
         Ok(())
     }
     pub fn describe(&self, name: &str) -> Result<&CommandDescriptor> {
@@ -138,6 +187,7 @@ impl Registry {
             .collect()
     }
     pub fn validate_input(&self, command: &str, args: &Value) -> Result<()> {
+        bounds::value_budget(args)?;
         let validator = &self
             .validators
             .get(command)
@@ -152,6 +202,7 @@ impl Registry {
         }
     }
     pub fn validate_output(&self, command: &str, value: &Value) -> Result<()> {
+        bounds::value_budget(value)?;
         let validator = &self
             .validators
             .get(command)
@@ -166,27 +217,6 @@ impl Registry {
             ))
         }
     }
-}
-fn reject_remote_refs(value: &Value) -> Result<()> {
-    match value {
-        Value::Object(map) => {
-            for (key, v) in map {
-                if matches!(key.as_str(), "$ref" | "$dynamicRef" | "$recursiveRef")
-                    && !v.as_str().is_some_and(|s| s.starts_with('#'))
-                {
-                    return Err(Error::invalid("Remote schema references are disabled"));
-                }
-                reject_remote_refs(v)?;
-            }
-        }
-        Value::Array(values) => {
-            for v in values {
-                reject_remote_refs(v)?;
-            }
-        }
-        _ => (),
-    }
-    Ok(())
 }
 #[cfg(test)]
 mod tests {
@@ -224,8 +254,11 @@ mod tests {
     #[test]
     fn remote_schema_is_forbidden() {
         assert!(
-            reject_remote_refs(&serde_json::json!({"$ref":"https://untrusted.example/schema"}))
-                .is_err()
+            bounds::schema_budget(
+                &serde_json::json!({"$ref":"https://untrusted.example/schema"}),
+                true
+            )
+            .is_err()
         );
     }
     #[test]

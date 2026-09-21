@@ -1,5 +1,9 @@
 //! Backends know Linux/application protocols, never MCP or caller authorization.
+pub mod provider;
 use async_trait::async_trait;
+pub use provider::{
+    NativeProvider, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
+};
 use semwright_types::{Error, ErrorCode, Feature, NativeTarget, Result};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;

@@ -269,7 +269,13 @@ async fn connection(
                                 "Eight in-flight requests per connection are allowed",
                             )),
                         );
-                        if tx.send(ServerMessage::Result { envelope }).await.is_err() {
+                        if tx
+                            .send(ServerMessage::Result {
+                                envelope: Box::new(envelope),
+                            })
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                         continue;
@@ -285,7 +291,13 @@ async fn connection(
                         request.dry_run,
                         Err(error),
                     );
-                    if tx.send(ServerMessage::Result { envelope }).await.is_err() {
+                    if tx
+                        .send(ServerMessage::Result {
+                            envelope: Box::new(envelope),
+                        })
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                     continue;
@@ -304,7 +316,7 @@ async fn connection(
                         result=broker.execute(session,request_id.clone(),request.clone(),token)=>result,
                         _=tokio::time::sleep(Duration::from_secs(300))=>{deadline.cancel();Envelope::finish(request_id,request.command,"core".into(),Duration::from_secs(300),request.dry_run,Err(Error::new(ErrorCode::Timeout,"Broker request lifetime exceeded five minutes").uncertain()))},
                     };
-                    let _=tokio::time::timeout(Duration::from_secs(5),tx.send(ServerMessage::Result{envelope})).await;
+                    let _=tokio::time::timeout(Duration::from_secs(5),tx.send(ServerMessage::Result{envelope:Box::new(envelope)})).await;
                 });
             }
             ClientMessage::Cancel { id: request_id } => {

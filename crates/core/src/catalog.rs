@@ -1,6 +1,6 @@
 //! Catalog projection over the same registry and operation probes used by execution.
 use super::*;
-use semwright_registry::{CatalogQuery, Metadata, SourceKind};
+use semwright_registry::CatalogQuery;
 impl Broker {
     fn catalog_routes(&self, descriptor: &CommandDescriptor, features: &[Feature]) -> Vec<Value> {
         let command = if descriptor.name == "ui.find" {
@@ -8,12 +8,7 @@ impl Broker {
         } else {
             &descriptor.name
         };
-        let names = if self.fake
-            && self
-                .backends
-                .get("fake")
-                .is_some_and(|backend| backend.supports(command))
-        {
+        let names = if self.fake && self.provider("fake").is_some_and(|p| p.supports(command)) {
             vec!["fake".to_owned()]
         } else if descriptor.name == "ui.find" {
             self.describe("ui.snapshot")
@@ -23,12 +18,19 @@ impl Broker {
             descriptor.backends.clone()
         };
         names.iter().map(|name| {
-            if name=="core" {return json!({"provider":name,"status":"supported","available":true,"reason":"Implemented by the broker; policy and argument validation still apply"});}
-            if name=="plugin" {return json!({"provider":name,"status":"unverified","available":false,"reason":"Manifest presence is not proof of sandbox/handshake availability; driver doctor/conformance is required"});}
-            let feature=self.backends.get(name).and_then(|backend|backend.operation_feature(command)).and_then(|key|features.iter().find(|feature|feature.backend==*name && feature.capability==key));
+            if name == "core" {
+                return json!({"provider":name,"provider_id":"semwright-core","status":"supported","available":true,"reason":"Implemented by the broker; authorization still applies"});
+            }
+            if name == "plugin" {
+                return json!({"provider":name,"status":"unverified","available":false,"reason":"Manifest presence does not prove sandbox/handshake availability"});
+            }
+            let provider = self.provider(name);
+            let feature = provider.as_ref().filter(|p| p.active())
+                .and_then(|p| p.operation_feature(command))
+                .and_then(|key| features.iter().find(|f| f.backend == *name && f.capability == key));
             match feature {
-                Some(feature)=>json!({"provider":name,"status":feature.status,"available":feature.usable(),"probe_key":feature.capability,"reason":feature.reason,"remediation":feature.remediation}),
-                None=>json!({"provider":name,"status":"unavailable","available":false,"reason":"Provider absent, operation not implemented, or its exact operation probe is missing"}),
+                Some(f) => json!({"provider":name,"provider_id":provider.as_ref().map(|p| &p.identity.id),"status":f.status,"available":f.usable(),"probe_key":f.capability,"reason":f.reason,"remediation":f.remediation}),
+                None => json!({"provider":name,"status":"unavailable","available":false,"reason":"Provider inactive, operation unsupported, or exact probe absent"}),
             }
         }).collect()
     }
@@ -46,6 +48,12 @@ impl Broker {
             (registry.revision(), candidates)
         };
         let features = self.probe().await;
+        if self.catalog_revision()? != revision {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Catalog changed while probing availability; restart discovery",
+            ));
+        }
         let mut rows = vec![];
         for (command, metadata, score) in candidates {
             let routes = self.catalog_routes(&command, &features);
@@ -54,6 +62,12 @@ impl Broker {
                 continue;
             }
             rows.push(json!({"id":command.name,"summary":command.description,"version":command.version,"provenance":metadata,"risk":command.risk,"required_scopes":command.requires,"idempotency":command.idempotency,"dry_run":command.dry_run,"timeout_ms":command.timeout_ms,"available":available,"routes":routes,"score":score}));
+        }
+        if self.catalog_revision()? != revision {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Catalog changed while building the result page",
+            ));
         }
         let total = rows.len();
         let end = query.offset.saturating_add(query.limit).min(total);
@@ -75,43 +89,14 @@ impl Broker {
             )
         };
         let routes = self.catalog_routes(&command, &self.probe().await);
+        if self.catalog_revision()? != revision {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Catalog changed while describing the capability",
+            ));
+        }
         Ok(
             json!({"schema_version":1,"revision":revision,"capability":command,"provenance":metadata,"routes":routes,"availability_is_authorization":false,"transactions":"No generic rollback promise; only explicitly documented provider operations have undo support"}),
         )
-    }
-    /// Owner configuration / trusted driver bootstrap only. There is deliberately no
-    /// unauthenticated IPC registration method or imported-text policy upgrade.
-    pub fn register_provider(
-        &self,
-        backend: &str,
-        commands: Vec<(CommandDescriptor, Metadata)>,
-    ) -> Result<()> {
-        let provider = self
-            .backends
-            .get(backend)
-            .ok_or_else(|| Error::unavailable("Provider backend is not installed"))?;
-        if commands.is_empty() || commands.len() > 2048 {
-            return Err(Error::invalid("Provider catalog size is outside bounds"));
-        }
-        let mut registry = self
-            .registry
-            .write()
-            .map_err(|_| Error::new(ErrorCode::Internal, "Registry lock poisoned"))?;
-        let mut candidate = registry.clone();
-        for (command, metadata) in commands {
-            if metadata.source == SourceKind::Builtin
-                || command.backends != [backend]
-                || !provider.supports(&command.name)
-            {
-                return Err(Error::new(
-                    ErrorCode::PolicyDenied,
-                    "Provider registration cannot replace core authority or claim another backend",
-                ));
-            }
-            candidate.register_with_metadata(command, metadata)?;
-        }
-        *registry = candidate;
-        self.event(json!({"kind":"driver.capabilities.changed","source":backend,"revision":registry.revision()}));
-        Ok(())
     }
 }

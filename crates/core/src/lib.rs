@@ -1,7 +1,9 @@
 //! The single authorization and execution authority used by every frontend.
 pub mod audit;
 mod catalog;
+mod providers;
 use async_trait::async_trait;
+use providers::{Invocation, ProviderCatalog, ProviderLease};
 use semwright_backend_api::{Backend, Context};
 use semwright_plugin_host::Host;
 use semwright_plugin_sdk::Manifest;
@@ -51,15 +53,16 @@ struct Events {
     history: VecDeque<Event>,
 }
 pub struct Broker {
-    registry: StdRwLock<Registry>,
+    registry: StdRwLock<ProviderCatalog>,
     policy: Policy,
-    backends: BTreeMap<String, Arc<dyn Backend>>,
     references: StdMutex<RefStore>,
     audit: Arc<audit::Audit>,
     approver: Arc<dyn Approver>,
     plugins: Option<Arc<Host>>,
     execution_gate: RwLock<()>,
-    features: RwLock<Option<(Instant, Vec<Feature>)>>,
+    features: RwLock<Option<(u64, Instant, Vec<Feature>)>>,
+    runtime_stop: CancellationToken,
+    provider_tasks: tokio_util::task::TaskTracker,
     events: StdMutex<Events>,
     broadcast: broadcast::Sender<Event>,
     environment: Value,
@@ -97,16 +100,19 @@ impl Broker {
             ));
         }
         let (sender, _) = broadcast::channel(256);
+        let runtime_stop = CancellationToken::new();
+        let catalog = ProviderCatalog::bootstrap(Registry::builtin()?, map, &runtime_stop);
         Ok(Arc::new(Self {
-            registry: StdRwLock::new(Registry::builtin()?),
+            registry: StdRwLock::new(catalog),
             policy,
-            backends: map,
             references: StdMutex::new(RefStore::new(Duration::from_secs(60), 65536)),
             audit,
             approver,
             plugins,
             execution_gate: RwLock::new(()),
             features: RwLock::new(None),
+            runtime_stop,
+            provider_tasks: tokio_util::task::TaskTracker::new(),
             events: StdMutex::new(Events {
                 sequence: 0,
                 history: VecDeque::new(),
@@ -176,27 +182,54 @@ impl Broker {
         }
     }
     pub async fn probe(&self) -> Vec<Feature> {
-        if let Some((when, features)) = &*self.features.read().await
+        let revision = self.catalog_revision().unwrap_or(u64::MAX);
+        if let Some((cached_revision, when, features)) = &*self.features.read().await
+            && *cached_revision == revision
             && when.elapsed() < Duration::from_secs(5)
         {
             return features.clone();
         }
         let mut jobs = tokio::task::JoinSet::new();
-        for backend in self.backends.values() {
-            let backend = backend.clone();
+        for provider in self.providers() {
             jobs.spawn(async move {
-                let name = backend.name();
-                tokio::time::timeout(Duration::from_secs(3), backend.probe())
+                let name = provider.name().to_owned();
+                if !provider.active() {
+                    return vec![Feature {
+                        backend: name,
+                        capability: "provider".into(),
+                        status: CapabilityStatus::Unavailable,
+                        reason: "Provider generation is inactive".into(),
+                        remediation:
+                            "Reconnect or refresh the provider through owner configuration".into(),
+                    }];
+                }
+                let mut features = tokio::time::timeout(Duration::from_secs(3), provider.probe())
                     .await
                     .unwrap_or_else(|_| {
                         vec![Feature {
-                            backend: name.into(),
+                            backend: name.clone(),
                             capability: "probe".into(),
                             status: CapabilityStatus::Unavailable,
-                            reason: "Backend probe exceeded three seconds".into(),
-                            remediation: "Check the session service or application manually".into(),
+                            reason: "Provider probe exceeded three seconds".into(),
+                            remediation: "Run the provider health check".into(),
                         }]
-                    })
+                    });
+                features.truncate(2048);
+                for feature in &mut features {
+                    feature.backend = name.clone();
+                    if feature.capability.len() > 128 || !provider.active() {
+                        feature.status = CapabilityStatus::Unavailable;
+                    }
+                    if provider.identity.kind != SourceKind::Builtin {
+                        // Application-supplied error/health text is not a diagnostic log or instruction channel.
+                        feature.reason =
+                            "Owner-configured external provider operation probe".into();
+                        feature.remediation =
+                            "Inspect the provider connection; availability is not authorization"
+                                .into();
+                    }
+                }
+                features
             });
         }
         let mut features = vec![];
@@ -206,7 +239,9 @@ impl Broker {
             }
         }
         features.sort_by(|a, b| (&a.backend, &a.capability).cmp(&(&b.backend, &b.capability)));
-        *self.features.write().await = Some((Instant::now(), features.clone()));
+        if self.catalog_revision().ok() == Some(revision) {
+            *self.features.write().await = Some((revision, Instant::now(), features.clone()));
+        }
         features
     }
     async fn choose(
@@ -214,7 +249,43 @@ impl Broker {
         descriptor: &CommandDescriptor,
         request: &ExecuteRequest,
         reference: Option<&Reference>,
+        dynamic_provider: Option<&Arc<ProviderLease>>,
     ) -> Result<String> {
+        if let Some(provider) = dynamic_provider {
+            if request
+                .backend
+                .as_ref()
+                .is_some_and(|route| route != &provider.identity.id)
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Provider capabilities cannot select another execution route",
+                ));
+            }
+            if !provider.active() || !provider.supports(&descriptor.name) {
+                return Err(Error::unavailable(
+                    "Provider capability generation is inactive",
+                ));
+            }
+            let features = self.probe().await;
+            let key = provider
+                .operation_feature(&descriptor.name)
+                .ok_or_else(|| {
+                    Error::unavailable("Provider operation has no availability contract")
+                })?;
+            if !provider.active()
+                || !features.iter().any(|feature| {
+                    feature.backend == provider.identity.id
+                        && feature.capability == key
+                        && feature.usable()
+                })
+            {
+                return Err(Error::unavailable(
+                    "Provider operation is not currently available",
+                ));
+            }
+            return Ok(provider.identity.id.clone());
+        }
         if descriptor.backends == ["core"] && request.command != "ui.find" {
             if request
                 .backend
@@ -259,7 +330,7 @@ impl Broker {
                     "Reference is bound to its origin backend; migration is forbidden",
                 ));
             }
-            let backend = self.backends.get(&reference.backend).ok_or_else(|| {
+            let backend = self.provider(&reference.backend).ok_or_else(|| {
                 Error::new(ErrorCode::StaleReference, "Origin backend disappeared")
             })?;
             if !backend.supports(&request.command) {
@@ -282,8 +353,7 @@ impl Broker {
         };
         if self.fake
             && self
-                .backends
-                .get("fake")
+                .provider("fake")
                 .is_some_and(|b| b.supports(actual_command))
         {
             if request
@@ -308,12 +378,10 @@ impl Broker {
                 continue;
             }
             if self
-                .backends
-                .get(&name)
+                .provider(&name)
                 .is_some_and(|backend| backend.supports(actual_command))
                 && self
-                    .backends
-                    .get(&name)
+                    .provider(&name)
                     .and_then(|backend| backend.operation_feature(actual_command))
                     .is_some_and(|key| {
                         features.iter().any(|feature| {
@@ -345,24 +413,21 @@ impl Broker {
         &self,
         request: &'a ExecuteRequest,
         reference: Option<&'a Reference>,
+        metadata: &'a semwright_registry::Metadata,
     ) -> Option<&'a str> {
-        reference
-            .map(|r| r.target.app.as_str())
+        if metadata.untrusted_metadata {
+            return metadata.app.as_deref();
+        }
+        metadata
+            .app
+            .as_deref()
+            .or_else(|| reference.map(|r| r.target.app.as_str()))
             .or_else(|| request.args.get("app").and_then(Value::as_str))
             .or_else(|| {
                 request
                     .args
                     .pointer("/selector/app")
                     .and_then(Value::as_str)
-            })
-            .or_else(|| {
-                if request.command.starts_with("blender.") {
-                    Some("org.blender.Blender")
-                } else if request.command.starts_with("browser.") {
-                    Some("org.semwright.Chromium")
-                } else {
-                    None
-                }
             })
     }
     fn materialize(&self, session: &str, backend: &str, value: &mut Value) -> Result<()> {
@@ -457,12 +522,19 @@ impl Broker {
         cancellation: CancellationToken,
     ) -> Envelope {
         let started = Instant::now();
-        let descriptor = self.describe(&request.command);
+        let descriptor = self.invocation(&request.command);
         let safe_name = descriptor
             .as_ref()
-            .map(|d| d.name.clone())
+            .map(|d| d.capability.descriptor.name.clone())
             .unwrap_or_else(|_| "unregistered".into());
-        let mut audit = match self.audit.begin(&safe_name, &id, &session) {
+        let provenance = descriptor
+            .as_ref()
+            .ok()
+            .map(|invocation| invocation.capability.provenance());
+        let mut audit = match self
+            .audit
+            .begin_with_provenance(&safe_name, &id, &session, provenance)
+        {
             Ok(scope) => scope,
             Err(error) => {
                 return Envelope::finish(
@@ -505,33 +577,39 @@ impl Broker {
             result,
         );
         envelope.execution.policy_decision = audit.policy_decision().into();
+        envelope.execution.provenance = audit.provenance();
         envelope
     }
     async fn perform(
         self: &Arc<Self>,
         session: &str,
         request: &ExecuteRequest,
-        descriptor: Result<CommandDescriptor>,
+        invocation: Result<Invocation>,
         cancellation: CancellationToken,
         selected: &mut String,
         audit: &mut audit::Scope,
     ) -> Result<Value> {
-        let descriptor = descriptor?;
-        self.registry
-            .read()
-            .map_err(|_| Error::new(ErrorCode::Internal, "Registry lock poisoned"))?
-            .validate_input(&request.command, &request.args)?;
+        let Invocation {
+            capability,
+            dynamic_provider,
+        } = invocation?;
+        let descriptor = &capability.descriptor;
+        capability.validate_input(&request.args)?;
         if cancellation.is_cancelled() {
             return Err(Error::new(
                 ErrorCode::Cancelled,
                 "Cancelled before authorization",
             ));
         }
-        let reference = self.resolve_reference(session, &request.args)?;
+        let reference = if capability.metadata.source == SourceKind::Builtin {
+            self.resolve_reference(session, &request.args)?
+        } else {
+            None
+        };
         let needs_confirmation = match self.policy.enforce(
-            &descriptor,
+            descriptor,
             &request.args,
-            self.application(request, reference.as_ref()),
+            self.application(request, reference.as_ref(), &capability.metadata),
         ) {
             Ok(value) => value,
             Err(error) => {
@@ -548,6 +626,7 @@ impl Broker {
         if request.command == "recipe.run" {
             *selected = "core".into();
             audit.backend(selected);
+            audit.executed_provider("semwright-core", None);
             let recipe: Recipe = serde_json::from_value(request.args["recipe"].clone())?;
             let bridge = RecipeBridge {
                 broker: self.clone(),
@@ -567,9 +646,27 @@ impl Broker {
                 .await;
         }
         *selected = self
-            .choose(&descriptor, request, reference.as_ref())
+            .choose(
+                descriptor,
+                request,
+                reference.as_ref(),
+                dynamic_provider.as_ref(),
+            )
             .await?;
         audit.backend(selected);
+        let selected_provider = dynamic_provider.or_else(|| self.provider(selected));
+        let provider_stop = if let Some(provider) = &selected_provider {
+            if !provider.active() {
+                return Err(Error::unavailable(
+                    "Provider generation changed before queuing",
+                ));
+            }
+            audit.executed_provider(&provider.identity.id, Some(provider.generation));
+            provider.epoch.clone()
+        } else {
+            audit.executed_provider(&capability.metadata.provider, None);
+            self.runtime_stop.clone()
+        };
         // All broker I/O is blocked during an operator prompt. The model cannot inspect or type approval.
         let exclusive = descriptor.risk.mutates()
             || descriptor.risk == Risk::SecretAccess
@@ -578,12 +675,12 @@ impl Broker {
         let write_guard;
         if exclusive {
             write_guard = Some(
-                tokio::select! {_ = cancellation.cancelled()=>return Err(Error::new(ErrorCode::Cancelled,"Cancelled while queued")),guard=self.execution_gate.write()=>guard},
+                tokio::select! {biased; _=provider_stop.cancelled()=>return Err(Error::unavailable("Provider generation changed while queued")), _ = cancellation.cancelled()=>return Err(Error::new(ErrorCode::Cancelled,"Cancelled while queued")),guard=self.execution_gate.write()=>guard},
             );
             read_guard = None;
         } else {
             read_guard = Some(
-                tokio::select! {_ = cancellation.cancelled()=>return Err(Error::new(ErrorCode::Cancelled,"Cancelled while queued")),guard=self.execution_gate.read()=>guard},
+                tokio::select! {biased; _=provider_stop.cancelled()=>return Err(Error::unavailable("Provider generation changed while queued")), _ = cancellation.cancelled()=>return Err(Error::new(ErrorCode::Cancelled,"Cancelled while queued")),guard=self.execution_gate.read()=>guard},
             );
             write_guard = None;
         }
@@ -635,17 +732,21 @@ impl Broker {
         if needs_confirmation {
             audit.decision("allow_after_confirmation");
         }
-        let reference = self.resolve_reference(session, &request.args)?;
+        let reference = if capability.metadata.source == SourceKind::Builtin {
+            self.resolve_reference(session, &request.args)?
+        } else {
+            None
+        };
         self.policy.enforce(
-            &descriptor,
+            descriptor,
             &request.args,
-            self.application(request, reference.as_ref()),
+            self.application(request, reference.as_ref(), &capability.metadata),
         )?;
         let mut args = request.args.clone();
         let is_input =
             request.command.starts_with("input.") || request.command.starts_with("pointer.");
         if let Some(reference) = &reference {
-            let backend = self.backends.get(&reference.backend).ok_or_else(|| {
+            let backend = self.provider(&reference.backend).ok_or_else(|| {
                 Error::new(ErrorCode::StaleReference, "Origin backend disappeared")
             })?;
             tokio::time::timeout(Duration::from_secs(3), backend.validate(&reference.target))
@@ -693,6 +794,12 @@ impl Broker {
             cancellation: cancellation.child_token(),
         };
         let action = async {
+            context.check_cancelled()?;
+            if selected_provider.as_ref().is_some_and(|p| !p.active()) {
+                return Err(Error::unavailable(
+                    "Provider generation changed before dispatch",
+                ));
+            }
             let mut output = if request.command == "ui.find" {
                 self.find(session, selected, &context, &args).await?
             } else if selected == "core" {
@@ -714,18 +821,17 @@ impl Broker {
                     )
                     .await?
             } else {
-                self.backends
-                    .get(selected.as_str())
-                    .ok_or_else(|| Error::unavailable("Selected backend missing"))?
-                    .execute(&context, &request.command, &args)
+                selected_provider
+                    .as_ref()
+                    .ok_or_else(|| Error::unavailable("Selected provider missing"))?
+                    .execute(&context, descriptor, &args)
                     .await?
             };
-            if request.command != "ui.find" {
+            if request.command != "ui.find" && capability.metadata.source == SourceKind::Builtin {
                 self.filter_apps(&mut output);
-                if self
-                    .backends
-                    .get(selected.as_str())
-                    .is_some_and(|backend| backend.emits_native_refs())
+                if selected_provider
+                    .as_ref()
+                    .is_some_and(|provider| provider.emits_native_refs())
                 {
                     self.materialize(session, selected, &mut output)?;
                 }
@@ -736,15 +842,30 @@ impl Broker {
                     "Command output exceeds the broker frame budget; request a smaller snapshot",
                 ));
             }
-            self.registry
-                .read()
-                .map_err(|_| Error::new(ErrorCode::Internal, "Registry lock poisoned"))?
-                .validate_output(&request.command, &output)?;
+            capability.validate_output(&output)?;
             Ok(output)
         };
+        tokio::pin!(action);
+        // Signal cancellation before dropping a suspended provider invocation, including task aborts.
+        let _cancel_on_drop = context.cancellation.clone().drop_guard();
         let result = tokio::select! {
-            _=cancellation.cancelled()=>{context.cancellation.cancel();Err(Error::new(ErrorCode::Cancelled,"Command cancelled after dispatch; inspect state before another mutation").uncertain())},
-            result=tokio::time::timeout(Duration::from_millis(descriptor.timeout_ms),action)=>match result{Ok(result)=>result,Err(_)=>{context.cancellation.cancel();Err(Error::new(ErrorCode::Timeout,"Command exceeded its action timeout; no retry was attempted").uncertain())}},
+            biased;
+            _=provider_stop.cancelled()=>{
+                context.cancellation.cancel();
+                let _=tokio::time::timeout(Duration::from_millis(250), &mut action).await;
+                Err(Error::unavailable("Provider generation invalidated during execution; inspect state before retrying").uncertain())
+            },
+            _=cancellation.cancelled()=>{
+                context.cancellation.cancel();
+                let _=tokio::time::timeout(Duration::from_millis(250), &mut action).await;
+                Err(Error::new(ErrorCode::Cancelled,"Command cancelled; inspect target state before retrying").uncertain())
+            },
+            _=tokio::time::sleep(Duration::from_millis(descriptor.timeout_ms))=>{
+                context.cancellation.cancel();
+                let _=tokio::time::timeout(Duration::from_millis(250), &mut action).await;
+                Err(Error::new(ErrorCode::Timeout,"Command timed out; inspect target state before retrying").uncertain())
+            },
+            result=&mut action=>result,
         };
         if descriptor.risk.mutates() {
             *self.features.write().await = None;
@@ -775,10 +896,9 @@ impl Broker {
             snapshot_args["app"] = json!(app);
         }
         let mut output = self
-            .backends
-            .get(backend)
+            .provider(backend)
             .ok_or_else(|| Error::unavailable("UI backend missing"))?
-            .execute(context, "ui.snapshot", &snapshot_args)
+            .execute(context, &self.describe("ui.snapshot")?, &snapshot_args)
             .await?;
         self.filter_apps(&mut output);
         self.materialize(session, backend, &mut output)?;
@@ -912,15 +1032,23 @@ impl Broker {
             .write()
             .map_err(|_| Error::new(ErrorCode::Internal, "Registry lock poisoned"))?;
         let mut candidate = registry.clone();
+        let identity =
+            ProviderIdentity::external(SourceKind::Plugin, &manifest.name, &manifest.version)?;
         for command in &manifest.commands {
-            candidate.register(command.clone())?;
+            candidate.register_with_metadata(
+                command.clone(),
+                semwright_registry::Metadata::for_provider(&identity),
+            )?;
         }
         host.install(manifest)?;
         *registry = candidate;
         Ok(())
     }
     pub async fn shutdown(&self) {
-        for backend in self.backends.values() {
+        self.runtime_stop.cancel();
+        self.provider_tasks.close();
+        let _ = tokio::time::timeout(Duration::from_secs(3), self.provider_tasks.wait()).await;
+        for backend in self.providers() {
             let _ = tokio::time::timeout(Duration::from_secs(5), backend.shutdown()).await;
         }
     }
