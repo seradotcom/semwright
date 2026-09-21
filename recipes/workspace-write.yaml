@@ -1,0 +1,11 @@
+version: 1
+name: workspace-write
+inputs:
+  content: {kind: string, secret: true}
+steps:
+  - id: save
+    command: filesystem.write
+    args: {root: project, path: generated.txt, text: {$var: /inputs/content}}
+    timeout_ms: 10000
+outputs:
+  bytes: {kind: integer, value: {$var: /steps/save/bytes}}

@@ -1,0 +1,8 @@
+version: 1
+name: blender-inspect
+steps:
+  - id: scene
+    command: blender.scene.inspect
+    timeout_ms: 30000
+outputs:
+  scene: {kind: object, value: {$var: /steps/scene}}

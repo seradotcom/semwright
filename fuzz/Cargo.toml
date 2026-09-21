@@ -1,0 +1,52 @@
+[package]
+name = "semwright-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "MIT OR Apache-2.0"
+[package.metadata]
+cargo-fuzz = true
+[workspace]
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+semwright-types = { path = "../crates/types" }
+semwright-protocol = { path = "../crates/protocol" }
+semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
+semwright-policy = { path = "../crates/policy" }
+semwright-recipes = { path = "../crates/recipes" }
+
+[[bin]]
+name = "protocol"
+path = "fuzz_targets/protocol.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "plugin"
+path = "fuzz_targets/plugin.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "selector"
+path = "fuzz_targets/selector.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "recipe"
+path = "fuzz_targets/recipe.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "path"
+path = "fuzz_targets/path.rs"
+test = false
+doc = false
+bench = false

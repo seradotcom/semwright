@@ -1,0 +1,12 @@
+/target/
+/fuzz/target/
+/dist/
+/verification/local/
+__pycache__/
+*.pyc
+/node_modules/
+*.sock
+*.log
+.env
+*.profraw
+/coverage/

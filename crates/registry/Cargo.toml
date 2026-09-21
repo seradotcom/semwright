@@ -1,0 +1,21 @@
+[package]
+name = "semwright-registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Semwright registry: semantic Linux automation"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+jsonschema.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true

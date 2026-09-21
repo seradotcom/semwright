@@ -1,0 +1,6 @@
+Semwright — development source handoff, 2026.
+Original implementation source: MIT OR Apache-2.0, at your option.
+Third-party dependencies retain their own licenses. Full resolved dependency/license
+review is pending because no Cargo.lock or Rust build was produced in this environment.
+The supplied product requirements are preserved under docs/requirements for traceability.
+No third-party executable, toolchain, browser, font or screenshot is bundled.

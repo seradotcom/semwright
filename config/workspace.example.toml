@@ -1,0 +1,19 @@
+# Copy to a user-owned, mode-0600 config. Replace the project root before use.
+# Top-level settings MUST precede [policy] in TOML.
+# blender_socket = "/run/user/1000/semwright-blender/bridge.sock"
+# plugins = ["/home/YOUR_USER/.config/semwright/stats.json"]
+
+[policy]
+profile = "workspace"
+allow = ["blender.observe", "blender.modify", "browser.observe", "browser.modify"]
+
+[[policy.filesystem]]
+name = "project"
+path = "/home/YOUR_USER/projects/example"
+read = true
+write = true
+
+[browser]
+executable = "/usr/bin/chromium"
+allowed_origins = ["http://127.0.0.1:8000"]
+allow_downloads = false

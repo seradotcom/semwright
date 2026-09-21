@@ -1,0 +1,160 @@
+{
+  "type": "object",
+  "properties": {
+    "protocol": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "executable": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 16384
+          },
+          "input_schema": {
+            "type": "object"
+          },
+          "output_schema": {
+            "type": "object"
+          },
+          "requires": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          "risk": {
+            "enum": [
+              "code_execution",
+              "destructive",
+              "mutating",
+              "mutating_reversible",
+              "privilege_sensitive",
+              "read_only",
+              "secret_access"
+            ]
+          },
+          "idempotency": {
+            "enum": [
+              "read_only",
+              "idempotent",
+              "non_idempotent",
+              "destructive"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300000
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "interactive_consent": {
+            "type": "boolean"
+          },
+          "backends": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40
+            }
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "description",
+          "input_schema",
+          "output_schema",
+          "requires",
+          "risk",
+          "idempotency",
+          "timeout_ms",
+          "dry_run",
+          "interactive_consent",
+          "backends"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "mounts": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "read_only": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "root",
+          "read_only"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "network": {
+      "type": "boolean"
+    },
+    "timeout_ms": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "protocol",
+    "name",
+    "version",
+    "executable",
+    "sha256",
+    "commands"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

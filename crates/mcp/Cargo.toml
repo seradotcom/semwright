@@ -1,0 +1,31 @@
+[package]
+name = "semwright-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Semwright mcp: semantic Linux automation"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-protocol.workspace = true
+semwright-registry.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rmcp.workspace = true
+clap.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true
+
+[[bin]]
+name = "semwright-mcp"
+path = "src/semwright-mcp.rs"

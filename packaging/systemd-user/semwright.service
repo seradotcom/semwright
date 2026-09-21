@@ -1,0 +1,22 @@
+[Unit]
+Description=Semwright local semantic capability broker
+After=graphical-session.target
+PartOf=graphical-session.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/semwrightd --config %h/.config/semwright/daemon.toml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+LimitCORE=0
+# No approval console in a user service: sensitive commands fail ConsentRequired.
+# Do not enable PrivateTmp/ProtectHome blindly: session bus and explicit project
+# paths are needed. Plugin isolation is separate and fails closed without bwrap.
+
+[Install]
+WantedBy=graphical-session.target

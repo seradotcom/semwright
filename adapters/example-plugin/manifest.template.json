@@ -1,0 +1,68 @@
+{
+  "protocol": 1,
+  "name": "textstats",
+  "version": "1.0.0",
+  "executable": "/ABSOLUTE/PATH/semwright-example-plugin",
+  "sha256": "REPLACE_WITH_ACTUAL_64_CHARACTER_SHA256",
+  "mounts": [],
+  "network": false,
+  "commands": [
+    {
+      "name": "plugin.textstats.count",
+      "version": "1.0",
+      "description": "Count Unicode characters, words, lines and UTF-8 bytes.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 65536
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "characters": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "words": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lines": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "bytes",
+          "characters",
+          "words",
+          "lines"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "plugin:textstats"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 5000,
+      "dry_run": true,
+      "interactive_consent": false,
+      "backends": [
+        "plugin"
+      ]
+    }
+  ]
+}

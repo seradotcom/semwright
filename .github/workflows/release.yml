@@ -1,0 +1,39 @@
+name: Release artifacts (fail-closed)
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  release-admission:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/release/assert-ready.py
+  build:
+    needs: release-admission
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo install --locked cargo-audit cargo-deny
+      - run: scripts/ci/rust-gates.sh
+      - run: python3 scripts/release/package.py --bin-dir target/release --arch '${{ matrix.arch }}' --deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: semwright-${{ matrix.arch }}
+          path: dist/
+  # Publication/signing are intentionally absent until a real repository owner,
+  # immutable action SHAs, acceptance evidence and release keys are established.

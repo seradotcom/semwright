@@ -1,0 +1,32 @@
+version: 1
+name: fake-edit
+inputs:
+  filename:
+    kind: string
+    default: report.txt
+steps:
+  - id: find_entry
+    command: ui.find
+    args: {selector: {role: entry, name: {op: exact, value: Filename}}}
+    timeout_ms: 10000
+    assertions:
+      - {left: {$var: /steps/find_entry/count}, op: equals, right: 1}
+  - id: edit
+    command: ui.set_text
+    args:
+      ref: {$var: /steps/find_entry/nodes/0/ref}
+      text: {$var: /inputs/filename}
+    timeout_ms: 10000
+  # The edit invalidates the old snapshot. Discover again rather than reusing refs.
+  - id: find_export
+    command: ui.find
+    args: {selector: {role: button, name: {op: exact, value: Export}}}
+    timeout_ms: 10000
+    assertions:
+      - {left: {$var: /steps/find_export/count}, op: equals, right: 1}
+  - id: export
+    command: ui.invoke
+    args: {ref: {$var: /steps/find_export/nodes/0/ref}, action: click}
+    timeout_ms: 10000
+outputs:
+  changed: {kind: boolean, value: {$var: /steps/export/changed}}

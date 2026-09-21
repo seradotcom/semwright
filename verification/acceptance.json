@@ -1,0 +1,872 @@
+{
+  "verdict": "NOT_V1_0_ACCEPTED",
+  "legend": {
+    "PASS": "Artifact/presence or precisely scoped evidence requirement met; not an implicit runtime certification.",
+    "FAIL": "Full acceptance criterion is not met; may be blocked, unexecuted or implementation-incomplete.",
+    "LIVE_VERIFICATION_PENDING": "Reserved for a compiled path awaiting only live testing; deliberately unused while Rust is uncompiled.",
+    "NOT_APPLICABLE": "Optional facility intentionally not included."
+  },
+  "items": [
+    {
+      "id": "A001",
+      "section": "Repository",
+      "requirement": "Real Rust workspace, not pseudocode.",
+      "status": "PASS",
+      "evidence": "Cargo.toml; 15 Rust crates + example package; source present, not compiled."
+    },
+    {
+      "id": "A002",
+      "section": "Repository",
+      "requirement": "Builds from a clean checkout in the available environment.",
+      "status": "FAIL",
+      "evidence": "Requirement unmet: no Rust toolchain/dependency cache or build. Not an observed compiler error."
+    },
+    {
+      "id": "A003",
+      "section": "Repository",
+      "requirement": "`Cargo.lock` committed.",
+      "status": "FAIL",
+      "evidence": "No Cargo.lock fabricated; actual dependency resolution is required."
+    },
+    {
+      "id": "A004",
+      "section": "Repository",
+      "requirement": "Public license files.",
+      "status": "PASS",
+      "evidence": "LICENSE-MIT and LICENSE-APACHE; full texts included."
+    },
+    {
+      "id": "A005",
+      "section": "Repository",
+      "requirement": "README, contributing, security, changelog, code of conduct.",
+      "status": "PASS",
+      "evidence": "All requested governance/document files included."
+    },
+    {
+      "id": "A006",
+      "section": "Repository",
+      "requirement": "No credentials/secrets.",
+      "status": "PASS",
+      "evidence": "No real credentials intentionally included; scoped static artifact scan, not an exhaustive secret audit."
+    },
+    {
+      "id": "A007",
+      "section": "Repository",
+      "requirement": "No `target/` or bulky build outputs in final ZIP.",
+      "status": "PASS",
+      "evidence": "Source packager excludes build targets, caches and native executables."
+    },
+    {
+      "id": "A008",
+      "section": "Core architecture",
+      "requirement": "User-level broker daemon.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A009",
+      "section": "Core architecture",
+      "requirement": "Versioned local IPC.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A010",
+      "section": "Core architecture",
+      "requirement": "Typed command registry.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A011",
+      "section": "Core architecture",
+      "requirement": "Capability model.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A012",
+      "section": "Core architecture",
+      "requirement": "Policy engine.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A013",
+      "section": "Core architecture",
+      "requirement": "Structured errors.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A014",
+      "section": "Core architecture",
+      "requirement": "Reference/stale-reference system.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A015",
+      "section": "Core architecture",
+      "requirement": "Audit/redaction.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A016",
+      "section": "Core architecture",
+      "requirement": "Backend capability discovery.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A017",
+      "section": "Core architecture",
+      "requirement": "Cancellation/timeouts.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A018",
+      "section": "Core architecture",
+      "requirement": "Dry-run for appropriate commands.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/core, types, registry, policy, protocol and daemon; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A019",
+      "section": "Desktop",
+      "requirement": "Environment/desktop/session detector.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A020",
+      "section": "Desktop",
+      "requirement": "AT-SPI app enumeration.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A021",
+      "section": "Desktop",
+      "requirement": "Normalized accessibility tree.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A022",
+      "section": "Desktop",
+      "requirement": "Semantic selector engine.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A023",
+      "section": "Desktop",
+      "requirement": "UI action invocation.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A024",
+      "section": "Desktop",
+      "requirement": "Window listing.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A025",
+      "section": "Desktop",
+      "requirement": "At least one real Wayland window/control route.",
+      "status": "FAIL",
+      "evidence": "Native compositor/portal routes authored, but no Rust compilation or live Wayland exercise."
+    },
+    {
+      "id": "A026",
+      "section": "Desktop",
+      "requirement": "Portal RemoteDesktop integration or complete implemented path with contract tests if live portal unavailable.",
+      "status": "FAIL",
+      "evidence": "Native Notify path source present; Rust tests unrun and EIS/restore/stream gaps remain."
+    },
+    {
+      "id": "A027",
+      "section": "Desktop",
+      "requirement": "ScreenCast/screenshot integration or explicit capability state.",
+      "status": "PASS",
+      "evidence": "Source explicitly reports unavailable PipeWire pixels; Screenshot portal path authored, uncompiled."
+    },
+    {
+      "id": "A028",
+      "section": "Desktop",
+      "requirement": "X11 fallback.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A029",
+      "section": "Desktop",
+      "requirement": "GNOME backend/bridge.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A030",
+      "section": "Desktop",
+      "requirement": "KDE backend/bridge.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A031",
+      "section": "Desktop",
+      "requirement": "Sway and/or Hyprland support path.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A032",
+      "section": "Desktop",
+      "requirement": "Input fallback is explicit and policy-gated.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/backends + bridges; docs/compatibility.md; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A033",
+      "section": "Commands",
+      "requirement": "`doctor`.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A034",
+      "section": "Commands",
+      "requirement": "capabilities discovery.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A035",
+      "section": "Commands",
+      "requirement": "app commands.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A036",
+      "section": "Commands",
+      "requirement": "window commands.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A037",
+      "section": "Commands",
+      "requirement": "UI inspect/find/invoke/text/value operations.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A038",
+      "section": "Commands",
+      "requirement": "pointer/keyboard operations.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A039",
+      "section": "Commands",
+      "requirement": "screen capture.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A040",
+      "section": "Commands",
+      "requirement": "clipboard separation read/write.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A041",
+      "section": "Commands",
+      "requirement": "process metadata/control at safe scope.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A042",
+      "section": "Commands",
+      "requirement": "scoped filesystem operations if included.",
+      "status": "FAIL",
+      "evidence": "Source exists in schemas/commands.json + backend source; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A043",
+      "section": "Commands",
+      "requirement": "restricted shell disabled by default if included.",
+      "status": "NOT_APPLICABLE",
+      "evidence": "No shell execution command is implemented; shell.exec grant rejected."
+    },
+    {
+      "id": "A044",
+      "section": "Front ends",
+      "requirement": "CLI.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/cli, mcp, tui; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A045",
+      "section": "Front ends",
+      "requirement": "JSON CLI mode.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/cli, mcp, tui; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A046",
+      "section": "Front ends",
+      "requirement": "MCP using official Rust SDK.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/cli, mcp, tui; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A047",
+      "section": "Front ends",
+      "requirement": "TUI/inspector or equivalent high-quality debugging surface.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/cli, mcp, tui; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A048",
+      "section": "Front ends",
+      "requirement": "MCP does not bypass policy.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/cli, mcp, tui; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A049",
+      "section": "Front ends",
+      "requirement": "MCP tool discovery/context-control strategy.",
+      "status": "PASS",
+      "evidence": "Eight discovery/gateway tools documented and implemented in source; runtime remains blocked."
+    },
+    {
+      "id": "A050",
+      "section": "Extensibility",
+      "requirement": "Plugin manifest v1.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A051",
+      "section": "Extensibility",
+      "requirement": "Plugin protocol handshake.",
+      "status": "FAIL",
+      "evidence": "Protocol/name handshake authored; independent full version/schema attestation incomplete and untested."
+    },
+    {
+      "id": "A052",
+      "section": "Extensibility",
+      "requirement": "Sandboxed plugin host.",
+      "status": "FAIL",
+      "evidence": "Bubblewrap/Landlock source present; not compiled/executed or negative-tested. R10."
+    },
+    {
+      "id": "A053",
+      "section": "Extensibility",
+      "requirement": "Example plugin.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A054",
+      "section": "Extensibility",
+      "requirement": "Recipe schema v1.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A055",
+      "section": "Extensibility",
+      "requirement": "Recipe validation.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A056",
+      "section": "Extensibility",
+      "requirement": "Recipe runner.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A057",
+      "section": "Extensibility",
+      "requirement": "Recipe fake-backend tests.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A058",
+      "section": "Extensibility",
+      "requirement": "Scaffold commands/templates.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A059",
+      "section": "First-party adapters",
+      "requirement": "Blender adapter implemented to a useful depth.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/adapters + adapters/blender; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A060",
+      "section": "First-party adapters",
+      "requirement": "Browser/Chromium adapter implemented to a useful depth.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/adapters + adapters/blender; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A061",
+      "section": "First-party adapters",
+      "requirement": "Adapters have their own doctor/status.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/adapters + adapters/blender; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A062",
+      "section": "First-party adapters",
+      "requirement": "No arbitrary application scripting exposed by default without high-risk capability.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/adapters + adapters/blender; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A063",
+      "section": "Security",
+      "requirement": "No root requirement for core.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A064",
+      "section": "Security",
+      "requirement": "Unix socket permissions and peer UID checks.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A065",
+      "section": "Security",
+      "requirement": "Filesystem scoping robust against traversal.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A066",
+      "section": "Security",
+      "requirement": "Secrets redacted from logs.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A067",
+      "section": "Security",
+      "requirement": "Clipboard and screenshots treated as sensitive.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A068",
+      "section": "Security",
+      "requirement": "Plugin environment scrubbed.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A069",
+      "section": "Security",
+      "requirement": "Landlock integration where available.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A070",
+      "section": "Security",
+      "requirement": "Bubblewrap integration or documented optional hardening.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A071",
+      "section": "Security",
+      "requirement": "No implicit `sudo`.",
+      "status": "PASS",
+      "evidence": "No sudo/elevation execution path; core requires a normal login user."
+    },
+    {
+      "id": "A072",
+      "section": "Security",
+      "requirement": "Confirmation mechanism cannot be self-approved by the LLM.",
+      "status": "FAIL",
+      "evidence": "Source exists in crates/policy, protocol, core, daemon, plugin-host; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A073",
+      "section": "Security",
+      "requirement": "Threat model documented.",
+      "status": "PASS",
+      "evidence": "SECURITY.md; docs/security.md; residual same-UID/app-process risks explicit."
+    },
+    {
+      "id": "A074",
+      "section": "Tests",
+      "requirement": "Unit tests.",
+      "status": "FAIL",
+      "evidence": "71 Python and 20 Node tests pass; all Rust unit tests unexecuted. Full requirement not met."
+    },
+    {
+      "id": "A075",
+      "section": "Tests",
+      "requirement": "Property tests.",
+      "status": "FAIL",
+      "evidence": "Source exists in Rust/fixture/fuzz source and verification logs; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A076",
+      "section": "Tests",
+      "requirement": "Golden tests.",
+      "status": "FAIL",
+      "evidence": "Golden hello vector + Rust comparison authored; Rust comparison not executed."
+    },
+    {
+      "id": "A077",
+      "section": "Tests",
+      "requirement": "Fake desktop integration tests.",
+      "status": "FAIL",
+      "evidence": "Source exists in Rust/fixture/fuzz source and verification logs; behavior/complete acceptance unverified without Rust build and required live tests."
+    },
+    {
+      "id": "A078",
+      "section": "Tests",
+      "requirement": "Protocol fuzz targets.",
+      "status": "FAIL",
+      "evidence": "Five fuzz targets and seeds authored; not compiled or fuzzed. No claim of passed smoke runs."
+    },
+    {
+      "id": "A079",
+      "section": "Tests",
+      "requirement": "Selector fuzz target.",
+      "status": "FAIL",
+      "evidence": "Five fuzz targets and seeds authored; not compiled or fuzzed. No claim of passed smoke runs."
+    },
+    {
+      "id": "A080",
+      "section": "Tests",
+      "requirement": "Recipe fuzz target.",
+      "status": "FAIL",
+      "evidence": "Five fuzz targets and seeds authored; not compiled or fuzzed. No claim of passed smoke runs."
+    },
+    {
+      "id": "A081",
+      "section": "Tests",
+      "requirement": "Headless tests where feasible.",
+      "status": "PASS",
+      "evidence": "Python/Node/C and isolated real Chromium CDP executed; not Rust/desktop conformance."
+    },
+    {
+      "id": "A082",
+      "section": "Tests",
+      "requirement": "At least one full fake end-to-end workflow.",
+      "status": "FAIL",
+      "evidence": "Full fake-export recipe, broker test and smoke script authored; Rust E2E was not run."
+    },
+    {
+      "id": "A083",
+      "section": "Tests",
+      "requirement": "Adapter tests.",
+      "status": "FAIL",
+      "evidence": "Python mocked-Blender and live Python CDP tests passed; real Blender/Rust adapter paths untested."
+    },
+    {
+      "id": "A084",
+      "section": "Tests",
+      "requirement": "CI workflows.",
+      "status": "PASS",
+      "evidence": ".github/workflows contains source/Rust/security/coverage/release definitions; none executed on GitHub."
+    },
+    {
+      "id": "A085",
+      "section": "Quality gates",
+      "requirement": "fmt passes.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A086",
+      "section": "Quality gates",
+      "requirement": "check passes.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A087",
+      "section": "Quality gates",
+      "requirement": "clippy with warnings denied passes.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A088",
+      "section": "Quality gates",
+      "requirement": "tests pass.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A089",
+      "section": "Quality gates",
+      "requirement": "docs build.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A090",
+      "section": "Quality gates",
+      "requirement": "audit run.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A091",
+      "section": "Quality gates",
+      "requirement": "deny/license check run.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A092",
+      "section": "Quality gates",
+      "requirement": "relevant JS/Python/shell linters run.",
+      "status": "FAIL",
+      "evidence": "Syntax checks and language tests ran; Ruff/shellcheck/actionlint unavailable; no full linter pass."
+    },
+    {
+      "id": "A093",
+      "section": "Quality gates",
+      "requirement": "release build run.",
+      "status": "FAIL",
+      "evidence": "Required gate unavailable/unexecuted; see VERIFY.md. Python/JS passes are not substituted."
+    },
+    {
+      "id": "A094",
+      "section": "Packaging",
+      "requirement": "systemd user unit.",
+      "status": "PASS",
+      "evidence": "packaging/systemd-user/semwright.service included; no service enabled."
+    },
+    {
+      "id": "A095",
+      "section": "Packaging",
+      "requirement": "install/uninstall path.",
+      "status": "PASS",
+      "evidence": "packaging/install Python tools plus user documentation; real ELF install/uninstall not tested."
+    },
+    {
+      "id": "A096",
+      "section": "Packaging",
+      "requirement": "release workflow.",
+      "status": "PASS",
+      "evidence": "Fail-closed release definition and admission check; no publication/signing performed."
+    },
+    {
+      "id": "A097",
+      "section": "Packaging",
+      "requirement": "x86_64 artifact definition.",
+      "status": "PASS",
+      "evidence": "Native runner/package definition; no Rust binary built."
+    },
+    {
+      "id": "A098",
+      "section": "Packaging",
+      "requirement": "aarch64 artifact definition.",
+      "status": "PASS",
+      "evidence": "Native ARM runner/package definition; no build run."
+    },
+    {
+      "id": "A099",
+      "section": "Packaging",
+      "requirement": "checksums.",
+      "status": "PASS",
+      "evidence": "Source manifest and external ZIP SHA-256; not a binary release signature."
+    },
+    {
+      "id": "A100",
+      "section": "Packaging",
+      "requirement": "at least one distro packaging path plus tarball.",
+      "status": "PASS",
+      "evidence": "Tarball/.deb packager source; guarded, unexecuted with binaries."
+    },
+    {
+      "id": "A101",
+      "section": "Packaging",
+      "requirement": "Nix packaging/flake if feasible.",
+      "status": "PASS",
+      "evidence": "Nix package expression provided, no flake/lock/evaluation claimed."
+    },
+    {
+      "id": "A102",
+      "section": "Documentation",
+      "requirement": "Architecture.",
+      "status": "PASS",
+      "evidence": "docs/architecture.md"
+    },
+    {
+      "id": "A103",
+      "section": "Documentation",
+      "requirement": "Command reference.",
+      "status": "PASS",
+      "evidence": "docs/commands.md + schemas/commands.json"
+    },
+    {
+      "id": "A104",
+      "section": "Documentation",
+      "requirement": "MCP setup.",
+      "status": "PASS",
+      "evidence": "docs/mcp.md"
+    },
+    {
+      "id": "A105",
+      "section": "Documentation",
+      "requirement": "Plugin guide.",
+      "status": "PASS",
+      "evidence": "docs/plugins.md"
+    },
+    {
+      "id": "A106",
+      "section": "Documentation",
+      "requirement": "Recipe guide.",
+      "status": "PASS",
+      "evidence": "docs/recipes.md"
+    },
+    {
+      "id": "A107",
+      "section": "Documentation",
+      "requirement": "Security/permissions.",
+      "status": "PASS",
+      "evidence": "SECURITY.md + docs/permissions.md"
+    },
+    {
+      "id": "A108",
+      "section": "Documentation",
+      "requirement": "Wayland explanation.",
+      "status": "PASS",
+      "evidence": "docs/wayland.md"
+    },
+    {
+      "id": "A109",
+      "section": "Documentation",
+      "requirement": "Compatibility matrix.",
+      "status": "PASS",
+      "evidence": "docs/compatibility.md"
+    },
+    {
+      "id": "A110",
+      "section": "Documentation",
+      "requirement": "Troubleshooting.",
+      "status": "PASS",
+      "evidence": "docs/troubleshooting.md"
+    },
+    {
+      "id": "A111",
+      "section": "Documentation",
+      "requirement": "Manual testing matrix.",
+      "status": "PASS",
+      "evidence": "docs/manual-testing.md"
+    },
+    {
+      "id": "A112",
+      "section": "Documentation",
+      "requirement": "`VERIFY.md`.",
+      "status": "PASS",
+      "evidence": "VERIFY.md"
+    },
+    {
+      "id": "A113",
+      "section": "Honesty gate",
+      "requirement": "Every live-desktop feature not actually exercised is labeled as unverified.",
+      "status": "PASS",
+      "evidence": "README/VERIFY/compatibility explicitly distinguish source from live support."
+    },
+    {
+      "id": "A114",
+      "section": "Honesty gate",
+      "requirement": "No fabricated benchmark.",
+      "status": "PASS",
+      "evidence": "Benchmark source only; no invented measurements."
+    },
+    {
+      "id": "A115",
+      "section": "Honesty gate",
+      "requirement": "No fabricated screenshot/GIF.",
+      "status": "PASS",
+      "evidence": "No demo screenshot/GIF is included; browser PNG was checked in memory."
+    },
+    {
+      "id": "A116",
+      "section": "Honesty gate",
+      "requirement": "No claim of universal Wayland support.",
+      "status": "PASS",
+      "evidence": "Wayland gaps and per-backend validation are explicit."
+    },
+    {
+      "id": "A117",
+      "section": "Honesty gate",
+      "requirement": "No “production-ready” claim if critical compile/tests fail.",
+      "status": "PASS",
+      "evidence": "Version is development source; full acceptance/release is blocked."
+    },
+    {
+      "id": "A118",
+      "section": "Final handoff",
+      "requirement": "ZIP created.",
+      "status": "PASS",
+      "evidence": "Source archive generated; external archive-check records final SHA/path/CRC verification."
+    },
+    {
+      "id": "A119",
+      "section": "Final handoff",
+      "requirement": "ZIP opens and contains top-level repo.",
+      "status": "PASS",
+      "evidence": "Archive checked for CRC errors and exactly one semwright/ top-level directory."
+    },
+    {
+      "id": "A120",
+      "section": "Final handoff",
+      "requirement": "SHA-256 of ZIP reported.",
+      "status": "PASS",
+      "evidence": "External .sha256/check metadata accompanies the archive."
+    },
+    {
+      "id": "A121",
+      "section": "Final handoff",
+      "requirement": "Final response links ZIP.",
+      "status": "PASS",
+      "evidence": "Final handoff includes a verified sandbox link to the actual archive."
+    },
+    {
+      "id": "A122",
+      "section": "Final handoff",
+      "requirement": "Final response summarizes what was actually run.",
+      "status": "PASS",
+      "evidence": "Final handoff distinguishes Python/JS/C/CDP checks from uncompiled Rust."
+    },
+    {
+      "id": "A123",
+      "section": "Final handoff",
+      "requirement": "Remaining live Linux test steps are listed, not hidden.",
+      "status": "PASS",
+      "evidence": "docs/manual-testing.md plus RELEASE_BLOCKERS.md."
+    }
+  ]
+}

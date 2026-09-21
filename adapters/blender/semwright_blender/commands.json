@@ -1,0 +1,285 @@
+{
+  "blender.status": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "blender.scene.inspect": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "blender.object.list": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "blender.object.get": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "blender.object.create": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 128
+      },
+      "primitive": {
+        "type": "string",
+        "enum": [
+          "cube",
+          "uv_sphere",
+          "cylinder",
+          "plane",
+          "empty"
+        ]
+      },
+      "location": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": -1000000.0,
+          "maximum": 1000000.0
+        },
+        "maxItems": 3,
+        "minItems": 3
+      }
+    },
+    "required": [
+      "name",
+      "primitive"
+    ],
+    "additionalProperties": false
+  },
+  "blender.object.delete": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "blender.object.transform": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 128
+      },
+      "location": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": -1000000.0,
+          "maximum": 1000000.0
+        },
+        "maxItems": 3,
+        "minItems": 3
+      },
+      "rotation": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": -1000000.0,
+          "maximum": 1000000.0
+        },
+        "maxItems": 3,
+        "minItems": 3
+      },
+      "scale": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": -1000000.0,
+          "maximum": 1000000.0
+        },
+        "maxItems": 3,
+        "minItems": 3
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "blender.collection.list": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "blender.collection.create": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "blender.collection.link": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "maxLength": 128
+      },
+      "collection": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "required": [
+      "object",
+      "collection"
+    ],
+    "additionalProperties": false
+  },
+  "blender.material.list": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "blender.material.create": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "maxLength": 128
+      },
+      "color": {
+        "type": "array",
+        "items": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "maxItems": 4,
+        "minItems": 4
+      },
+      "roughness": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "metallic": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "additionalProperties": false
+  },
+  "blender.material.assign": {
+    "type": "object",
+    "properties": {
+      "object": {
+        "type": "string",
+        "maxLength": 128
+      },
+      "material": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "required": [
+      "object",
+      "material"
+    ],
+    "additionalProperties": false
+  },
+  "blender.render.settings": {
+    "type": "object",
+    "properties": {
+      "width": {
+        "type": "integer",
+        "minimum": 16,
+        "maximum": 8192
+      },
+      "height": {
+        "type": "integer",
+        "minimum": 16,
+        "maximum": 8192
+      },
+      "samples": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4096
+      },
+      "engine": {
+        "type": "string",
+        "enum": [
+          "CYCLES",
+          "BLENDER_EEVEE_NEXT"
+        ]
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "blender.render": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "maxLength": 4096
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "additionalProperties": false
+  },
+  "blender.file.save": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "maxLength": 4096
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "additionalProperties": false
+  },
+  "blender.file.open": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "maxLength": 4096
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "additionalProperties": false
+  }
+}

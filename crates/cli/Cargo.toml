@@ -1,0 +1,36 @@
+[package]
+name = "semwright-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Semwright cli: semantic Linux automation"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-protocol.workspace = true
+semwright-recipes.workspace = true
+semwright-plugin-sdk.workspace = true
+semwright-registry.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+toml.workspace = true
+clap_complete.workspace = true
+clap_mangen.workspace = true
+uuid.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true
+
+[[bin]]
+name = "computerctl"
+path = "src/computerctl.rs"

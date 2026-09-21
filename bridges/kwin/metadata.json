@@ -1,0 +1,17 @@
+{
+  "KPlugin": {
+    "Id": "semwright",
+    "Name": "Semwright semantic window bridge",
+    "Description": "A narrow broker-authenticated window control mailbox.",
+    "Version": "0.9.0",
+    "License": "MIT",
+    "Authors": [
+      {
+        "Name": "Semwright contributors"
+      }
+    ]
+  },
+  "X-Plasma-API": "javascript",
+  "X-Plasma-MainScript": "code/main.js",
+  "KPackageStructure": "KWin/Script"
+}

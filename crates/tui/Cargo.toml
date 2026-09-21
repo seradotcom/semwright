@@ -1,0 +1,28 @@
+[package]
+name = "semwright-tui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Semwright tui: semantic Linux automation"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-protocol.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+ratatui.workspace = true
+crossterm.workspace = true
+clap.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true
+
+[[bin]]
+name = "semwright-inspect"
+path = "src/semwright-inspect.rs"

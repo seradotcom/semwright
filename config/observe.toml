@@ -1,0 +1,3 @@
+# Owner-controlled daemon configuration. Agent requests cannot change this profile.
+[policy]
+profile = "observe"

@@ -1,0 +1,27 @@
+version: 1
+name: fake-export
+description: Find an exact semantic control, assert uniqueness, then invoke it.
+steps:
+  - id: find_export
+    command: ui.find
+    args:
+      selector:
+        app: org.semwright.Fixture
+        role: button
+        name: {op: exact, value: Export}
+    timeout_ms: 10000
+    retry: {attempts: 2, backoff_ms: 100}
+    assertions:
+      - left: {$var: /steps/find_export/count}
+        op: equals
+        right: 1
+  - id: invoke_export
+    command: ui.invoke
+    args:
+      ref: {$var: /steps/find_export/nodes/0/ref}
+      action: click
+    timeout_ms: 10000
+outputs:
+  changed:
+    kind: boolean
+    value: {$var: /steps/invoke_export/changed}

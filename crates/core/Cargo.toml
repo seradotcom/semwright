@@ -1,0 +1,38 @@
+[package]
+name = "semwright-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Semwright core: semantic Linux automation"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-protocol.workspace = true
+semwright-registry.workspace = true
+semwright-policy.workspace = true
+semwright-backend-api.workspace = true
+semwright-recipes.workspace = true
+semwright-plugin-sdk.workspace = true
+semwright-plugin-host.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true
+semwright-backends.workspace = true
+
+[[bench]]
+name = "core"
+harness = false

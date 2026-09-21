@@ -1,0 +1,247 @@
+{
+  "executed_at_utc": "2026-09-21T10:59:12.492731+00:00",
+  "results": [
+    {
+      "name": "source",
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "scripts/verify-source.py"
+      ],
+      "log": "verification/local-latest/source.log",
+      "status": "PASS",
+      "exit_code": 0
+    },
+    {
+      "name": "python",
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/python",
+        "-v"
+      ],
+      "log": "verification/local-latest/python.log",
+      "status": "PASS",
+      "exit_code": 0
+    },
+    {
+      "name": "javascript",
+      "command": [
+        "node",
+        "--test",
+        "tests/js/bridge.test.mjs"
+      ],
+      "log": "verification/local-latest/javascript.log",
+      "status": "PASS",
+      "exit_code": 0
+    },
+    {
+      "name": "native-compile",
+      "command": [
+        "gcc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "tests/native/openat2.c",
+        "-o",
+        "/tmp/semwright-native-qv97vr7f/openat2-check"
+      ],
+      "log": "verification/local-latest/native-compile.log",
+      "status": "PASS",
+      "exit_code": 0
+    },
+    {
+      "name": "native-kernel",
+      "command": [
+        "/tmp/semwright-native-qv97vr7f/openat2-check",
+        "/tmp/semwright-native-qv97vr7f/fixture"
+      ],
+      "log": "verification/local-latest/native-kernel.log",
+      "status": "PASS",
+      "exit_code": 0
+    },
+    {
+      "name": "chromium",
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "tests/python/cdp_live.py"
+      ],
+      "log": "verification/local-latest/chromium.log",
+      "status": "PASS",
+      "exit_code": 0
+    },
+    {
+      "name": "rustc",
+      "command": [
+        "rustc",
+        "--version"
+      ],
+      "log": "verification/local-latest/rustc.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "cargo",
+      "command": [
+        "cargo",
+        "--version"
+      ],
+      "log": "verification/local-latest/cargo.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "rustfmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log": "verification/local-latest/rustfmt.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "check",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "log": "verification/local-latest/check.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": "verification/local-latest/clippy.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "rust-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "log": "verification/local-latest/rust-tests.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "rust-doc",
+      "command": [
+        "cargo",
+        "doc",
+        "--locked",
+        "--workspace",
+        "--no-deps"
+      ],
+      "log": "verification/local-latest/rust-doc.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "release",
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--workspace",
+        "--release"
+      ],
+      "log": "verification/local-latest/release.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "audit",
+      "command": [
+        "cargo",
+        "audit"
+      ],
+      "log": "verification/local-latest/audit.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "deny",
+      "command": [
+        "cargo",
+        "deny",
+        "check"
+      ],
+      "log": "verification/local-latest/deny.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "shellcheck",
+      "command": [
+        "shellcheck",
+        "/mnt/data/semwright/scripts/ci/rust-gates.sh",
+        "/mnt/data/semwright/scripts/dev/bootstrap.sh",
+        "/mnt/data/semwright/scripts/dev/fake-smoke.sh"
+      ],
+      "log": "verification/local-latest/shellcheck.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "actionlint",
+      "command": [
+        "actionlint"
+      ],
+      "log": "verification/local-latest/actionlint.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    },
+    {
+      "name": "ruff",
+      "command": [
+        "ruff",
+        "check",
+        "adapters/blender",
+        "tests/python"
+      ],
+      "log": "verification/local-latest/ruff.log",
+      "status": "BLOCKED",
+      "reason": "Executable unavailable",
+      "exit_code": null
+    }
+  ],
+  "overall": "INCOMPLETE_OR_FAILED"
+}

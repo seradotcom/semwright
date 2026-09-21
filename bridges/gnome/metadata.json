@@ -1,0 +1,12 @@
+{
+  "uuid": "semwright@local",
+  "name": "Semwright semantic window bridge",
+  "description": "Narrow broker-authenticated window list/focus/move/resize/close API. No eval.",
+  "shell-version": [
+    "46",
+    "47",
+    "48",
+    "49"
+  ],
+  "version": 1
+}

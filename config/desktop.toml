@@ -1,0 +1,7 @@
+# Opt into this file explicitly. No clipboard, shell, screen capture or input grants.
+[policy]
+profile = "desktop"
+# Uncomment only after reading docs/permissions.md:
+# allow = ["input.keyboard", "input.pointer", "screen.capture"]
+# apps = ["org.gnome.TextEditor"]
+confirm_mutations = false

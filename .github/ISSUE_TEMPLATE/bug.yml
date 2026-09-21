@@ -1,0 +1,23 @@
+name: Reproducible bug
+description: Report a source, protocol, or desktop integration failure.
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and verification level
+      description: Distro, CPU, desktop/version, session type, Semwright commit; redact usernames/tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Minimal reproduction and expected outcome
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Actual result and safe diagnostics
+      description: Do not paste browser cookies, typed text, clipboard contents, session tickets or private screenshots.
+    validations:
+      required: true

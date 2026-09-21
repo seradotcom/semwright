@@ -1,0 +1,19 @@
+{
+  "status": "NOT_RUN",
+  "commit": null,
+  "test_case": null,
+  "environment": {
+    "distro": null,
+    "kernel": null,
+    "desktop": null,
+    "session": null,
+    "architecture": null,
+    "app_version": null,
+    "rust": null
+  },
+  "commands": [],
+  "expected": null,
+  "observed": null,
+  "artifact_hashes": {},
+  "redactions_reviewed": false
+}

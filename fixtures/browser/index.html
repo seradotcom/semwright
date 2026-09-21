@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Semwright browser fixture</title>
+<style>body{font:20px system-ui;max-width:800px;margin:40px auto}button,input,select{font:inherit;margin:8px;padding:10px}fieldset{margin:10px}</style>
+<h1>Disposable semantic fixture</h1>
+<p>No real files, cookies, remote resources or credentials are used.</p>
+<label>Name <input id="name" aria-label="Name"></label>
+<label>Secret fixture input <input type="password" aria-label="Secret fixture input"></label>
+<button id="export">Export</button>
+<fieldset><legend>Document A</legend><button id="save-a">Save</button></fieldset>
+<fieldset><legend>Document B</legend><button id="save-b">Save</button></fieldset>
+<label><input type="checkbox" checked>Enabled</label>
+<button disabled>Unavailable action</button>
+<label>Level <input type="range" min="0" max="100" value="25" aria-label="Level"></label>
+<select aria-label="Choice"><option>First</option><option>Second</option></select>
+<div id="dynamic"><button id="replaceable">Replaceable</button></div>
+<button id="replace">Replace control</button><button id="delay">Delayed status</button>
+<p id="status" role="status">Ready</p>
+<script>
+let count=0;const status=document.querySelector('#status');
+for(const id of ['export','save-a','save-b'])document.querySelector('#'+id).onclick=()=>status.textContent=id+': invocation '+(++count);
+document.querySelector('#replace').onclick=()=>{const button=document.createElement('button');button.id='replaceable';button.textContent='Replaceable';document.querySelector('#replaceable').replaceWith(button);status.textContent='Object replaced, same label';};
+document.querySelector('#delay').onclick=()=>{status.textContent='Working';setTimeout(()=>status.textContent='Delayed result ready',500);};
+</script></html>

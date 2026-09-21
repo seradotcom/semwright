@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "app": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "role": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "name": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "regex"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 80
+      },
+      "maxItems": 32
+    },
+    "action": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "ancestor": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+    },
+    "nth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1999
+    },
+    "query": {
+      "type": "string",
+      "maxLength": 256
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

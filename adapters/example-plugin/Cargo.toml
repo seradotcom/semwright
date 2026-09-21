@@ -1,0 +1,13 @@
+[package]
+name = "semwright-example-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+[lints]
+workspace = true
+[dependencies]
+semwright-plugin-sdk.workspace = true
+semwright-types.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

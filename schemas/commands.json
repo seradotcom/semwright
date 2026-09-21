@@ -1,0 +1,2945 @@
+[
+  {
+    "name": "doctor",
+    "version": "1.0",
+    "description": "Probe available backends, current policy, session and remediation instructions.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "capabilities.list",
+    "version": "1.0",
+    "description": "Return capabilities granted to this session, not merely installed APIs.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "commands.search",
+    "version": "1.0",
+    "description": "Search the shared typed command registry.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "commands.describe",
+    "version": "1.0",
+    "description": "Describe input/output schemas, risk and backend candidates.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "audit.tail",
+    "version": "1.0",
+    "description": "Return recent metadata-only audit records.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "plugin.list",
+    "version": "1.0",
+    "description": "List configured, digest-pinned plugins and sandbox status.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "plugins": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "plugins"
+      ]
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "plugin.describe",
+    "version": "1.0",
+    "description": "Describe a configured plugin manifest.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "recipe.list",
+    "version": "1.0",
+    "description": "List example recipes available in the repository.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "recipes": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "recipes"
+      ]
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "recipe.validate",
+    "version": "1.0",
+    "description": "Validate a versioned declarative recipe without executing it.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "recipe": {
+          "type": "object",
+          "maxProperties": 20
+        }
+      },
+      "required": [
+        "recipe"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "recipe.run",
+    "version": "1.0",
+    "description": "Execute a validated recipe; each step re-enters the broker.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "recipe": {
+          "type": "object",
+          "maxProperties": 20
+        },
+        "inputs": {
+          "type": "object",
+          "maxProperties": 64
+        }
+      },
+      "required": [
+        "recipe"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 300000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "app.list",
+    "version": "1.0",
+    "description": "Enumerate accessible applications; incomplete accessibility is reported.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "apps": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "apps"
+      ]
+    },
+    "requires": [
+      "app.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "app.launch",
+    "version": "1.0",
+    "description": "Launch only an administrator-configured application key, never arbitrary argv.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "application": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "application"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "app.launch"
+    ],
+    "risk": "code_execution",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "system"
+    ]
+  },
+  {
+    "name": "app.close",
+    "version": "1.0",
+    "description": "Close a referenced application window with external confirmation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "app.close",
+      "window.manage"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "sway",
+      "hyprland",
+      "gnome",
+      "kwin",
+      "x11"
+    ]
+  },
+  {
+    "name": "window.list",
+    "version": "1.0",
+    "description": "List compositor-native windows with opaque session references.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "windows": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "windows"
+      ]
+    },
+    "requires": [
+      "window.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "sway",
+      "hyprland",
+      "gnome",
+      "kwin",
+      "x11"
+    ]
+  },
+  {
+    "name": "window.focus",
+    "version": "1.0",
+    "description": "Focus the exact referenced window.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "window.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "sway",
+      "hyprland",
+      "gnome",
+      "kwin",
+      "x11"
+    ]
+  },
+  {
+    "name": "window.move",
+    "version": "1.0",
+    "description": "Move a referenced window in logical compositor coordinates.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "x": {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        }
+      },
+      "required": [
+        "ref",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "window.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "sway",
+      "hyprland",
+      "gnome",
+      "kwin",
+      "x11"
+    ]
+  },
+  {
+    "name": "window.resize",
+    "version": "1.0",
+    "description": "Resize a referenced window in logical compositor coordinates.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        }
+      },
+      "required": [
+        "ref",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "window.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "sway",
+      "hyprland",
+      "gnome",
+      "kwin",
+      "x11"
+    ]
+  },
+  {
+    "name": "window.close",
+    "version": "1.0",
+    "description": "Request application close; unsaved work may be lost.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "window.manage"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "sway",
+      "hyprland",
+      "gnome",
+      "kwin",
+      "x11"
+    ]
+  },
+  {
+    "name": "ui.snapshot",
+    "version": "1.0",
+    "description": "Bounded semantic accessibility snapshot. No screenshot or OCR.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "app": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "max_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "actionable": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "maxItems": 2000
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "partial": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "nodes",
+        "revision",
+        "partial"
+      ]
+    },
+    "requires": [
+      "ui.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.find",
+    "version": "1.0",
+    "description": "Exact or ranked discovery. Ambiguous matches are returned, never auto-invoked.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "object",
+          "properties": {
+            "app": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "role": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "name": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "exact",
+                    "regex"
+                  ]
+                },
+                "value": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "required": [
+                "op",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "states": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "maxItems": 32
+            },
+            "action": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "ancestor": {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+            },
+            "nth": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1999
+            },
+            "query": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "max_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        }
+      },
+      "required": [
+        "nodes",
+        "count"
+      ]
+    },
+    "requires": [
+      "ui.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "ui.invoke",
+    "version": "1.0",
+    "description": "Invoke an advertised accessibility Action on an exact live reference.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "action": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.invoke"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.set_text",
+    "version": "1.0",
+    "description": "Set editable text through AT-SPI, not through keyboard emulation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "ref",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.invoke"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.read_text",
+    "version": "1.0",
+    "description": "Read non-password accessible text with explicit permission.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "max_chars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.text.read"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.set_value",
+    "version": "1.0",
+    "description": "Set an accessible numeric value within the host-reported range.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "value": {
+          "type": "number",
+          "minimum": -1000000000.0,
+          "maximum": 1000000000.0
+        }
+      },
+      "required": [
+        "ref",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.invoke"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.get_value",
+    "version": "1.0",
+    "description": "Read the accessible numeric value and range.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.toggle",
+    "version": "1.0",
+    "description": "Invoke an explicitly advertised toggle action.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.invoke"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.select",
+    "version": "1.0",
+    "description": "Select a child through the AT-SPI Selection interface.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        }
+      },
+      "required": [
+        "ref",
+        "index"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.invoke"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "ui.expand",
+    "version": "1.0",
+    "description": "Invoke an explicitly advertised expand action.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "ui.invoke"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi"
+    ]
+  },
+  {
+    "name": "portal.start",
+    "version": "1.0",
+    "description": "Request an ephemeral RemoteDesktop session; the desktop presents native user consent.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "keyboard": {
+          "type": "boolean"
+        },
+        "pointer": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "input.keyboard",
+      "input.pointer"
+    ],
+    "risk": "privilege_sensitive",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 120000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "portal.stop",
+    "version": "1.0",
+    "description": "Revoke and close this broker RemoteDesktop session.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "portal.status",
+    "version": "1.0",
+    "description": "Inspect consent state and portal interface versions.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "input.key",
+    "version": "1.0",
+    "description": "Send a keysym through an explicitly enabled input backend with focus precondition.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "keysym": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "keysym",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "input.keyboard"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal",
+      "x11"
+    ]
+  },
+  {
+    "name": "input.type",
+    "version": "1.0",
+    "description": "Type Unicode using a consented portal or focused X11; semantic set_text is preferred.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "text",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "input.keyboard"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "pointer.move",
+    "version": "1.0",
+    "description": "Move pointer relative to its current location (logical delta), guarded by expected focus.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "dx": {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "dy": {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "dx",
+        "dy",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "input.pointer"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal",
+      "x11"
+    ]
+  },
+  {
+    "name": "pointer.click",
+    "version": "1.0",
+    "description": "Click the current pointer position; requires an explicit live window reference.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "button": {
+          "type": "string",
+          "enum": [
+            "left",
+            "middle",
+            "right"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "button",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "input.pointer"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal",
+      "x11"
+    ]
+  },
+  {
+    "name": "pointer.scroll",
+    "version": "1.0",
+    "description": "Scroll through the approved pointer backend; no raw coordinate fallback.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "dx": {
+          "type": "number",
+          "minimum": -1000,
+          "maximum": 1000
+        },
+        "dy": {
+          "type": "number",
+          "minimum": -1000,
+          "maximum": 1000
+        },
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "dx",
+        "dy",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "input.pointer"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.capture",
+    "version": "1.0",
+    "description": "Request an interactive screenshot and copy it to a private expiring artifact.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 120000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.stream_info",
+    "version": "1.0",
+    "description": "Describe portal ScreenCast support; this build does not decode PipeWire frames.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "clipboard.read",
+    "version": "1.0",
+    "description": "Read clipboard text only when explicitly granted; never audit its contents.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "clipboard.read"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "clipboard"
+    ]
+  },
+  {
+    "name": "clipboard.write",
+    "version": "1.0",
+    "description": "Set clipboard text using an explicit backend, without shell interpolation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "clipboard.write"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "clipboard"
+    ]
+  },
+  {
+    "name": "process.list",
+    "version": "1.0",
+    "description": "List current-user process metadata without command lines or environment variables.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "processes": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "processes"
+      ]
+    },
+    "requires": [
+      "process.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "system"
+    ]
+  },
+  {
+    "name": "process.signal",
+    "version": "1.0",
+    "description": "Signal only a process launched and retained by this broker.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "signal": {
+          "type": "string",
+          "enum": [
+            "term",
+            "int"
+          ]
+        }
+      },
+      "required": [
+        "ref",
+        "signal"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "process.manage"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "system"
+    ]
+  },
+  {
+    "name": "filesystem.read",
+    "version": "1.0",
+    "description": "Descriptor-relative, no-symlink read under an explicitly configured root.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      },
+      "required": [
+        "root",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text",
+        "bytes"
+      ]
+    },
+    "requires": [
+      "filesystem.read"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "filesystem"
+    ]
+  },
+  {
+    "name": "filesystem.write",
+    "version": "1.0",
+    "description": "Descriptor-relative, no-symlink write under an explicitly configured root.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 1048576
+        }
+      },
+      "required": [
+        "root",
+        "path",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "filesystem.write"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "filesystem"
+    ]
+  },
+  {
+    "name": "notifications.send",
+    "version": "1.0",
+    "description": "Send a desktop notification through the Notifications D-Bus interface.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "notifications.send"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "system"
+    ]
+  },
+  {
+    "name": "network.status",
+    "version": "1.0",
+    "description": "Read NetworkManager connectivity and state; no privileged reconfiguration.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "system"
+    ]
+  },
+  {
+    "name": "systemd.user.status",
+    "version": "1.0",
+    "description": "Inspect a named user service through systemd D-Bus.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-zA-Z0-9_.@:-]+\\.service$"
+        }
+      },
+      "required": [
+        "unit"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "system"
+    ]
+  },
+  {
+    "name": "blender.status",
+    "version": "1.0",
+    "description": "Connection and host version.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.scene.inspect",
+    "version": "1.0",
+    "description": "Inspect scene objects, collections, materials and render settings.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.object.list",
+    "version": "1.0",
+    "description": "List native objects without scraping the GUI.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "objects": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "objects"
+      ]
+    },
+    "requires": [
+      "blender.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.object.get",
+    "version": "1.0",
+    "description": "Read one object by exact name.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.object.create",
+    "version": "1.0",
+    "description": "Create an allowlisted primitive.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "primitive": {
+          "type": "string",
+          "enum": [
+            "cube",
+            "uv_sphere",
+            "cylinder",
+            "plane",
+            "empty"
+          ]
+        },
+        "location": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -1000000.0,
+            "maximum": 1000000.0
+          },
+          "maxItems": 3,
+          "minItems": 3
+        }
+      },
+      "required": [
+        "name",
+        "primitive"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.object.delete",
+    "version": "1.0",
+    "description": "Delete an exact named object.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.object.transform",
+    "version": "1.0",
+    "description": "Set absolute object transforms.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "location": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -1000000.0,
+            "maximum": 1000000.0
+          },
+          "maxItems": 3,
+          "minItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -1000000.0,
+            "maximum": 1000000.0
+          },
+          "maxItems": 3,
+          "minItems": 3
+        },
+        "scale": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -1000000.0,
+            "maximum": 1000000.0
+          },
+          "maxItems": 3,
+          "minItems": 3
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.collection.list",
+    "version": "1.0",
+    "description": "List collections.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "collections": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "collections"
+      ]
+    },
+    "requires": [
+      "blender.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.collection.create",
+    "version": "1.0",
+    "description": "Create a collection; conflicting names fail.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.collection.link",
+    "version": "1.0",
+    "description": "Link an object into an existing collection.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "object": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "collection": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "object",
+        "collection"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.material.list",
+    "version": "1.0",
+    "description": "List materials.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "materials": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "materials"
+      ]
+    },
+    "requires": [
+      "blender.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.material.create",
+    "version": "1.0",
+    "description": "Create a Principled material with typed color/roughness.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "color": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "maxItems": 4,
+          "minItems": 4
+        },
+        "roughness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "metallic": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.material.assign",
+    "version": "1.0",
+    "description": "Assign one existing material to an exact object.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "object": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "material": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "object",
+        "material"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.render.settings",
+    "version": "1.0",
+    "description": "Set bounded resolution and sample settings.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 8192
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "CYCLES",
+            "BLENDER_EEVEE_NEXT"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.render",
+    "version": "1.0",
+    "description": "Render to a path below the owner-configured Blender workspace.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 300000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.file.save",
+    "version": "1.0",
+    "description": "Save the current scene under the owner-configured workspace.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "blender.file.open",
+    "version": "1.0",
+    "description": "Open an existing .blend with automatic Python execution disabled.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "blender.modify"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "blender"
+    ]
+  },
+  {
+    "name": "browser.status",
+    "version": "1.0",
+    "description": "Inspect the project-owned Chromium instance.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.launch",
+    "version": "1.0",
+    "description": "Launch an isolated Chromium profile; no attachment to normal profiles.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "headless": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "code_execution",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.tab.list",
+    "version": "1.0",
+    "description": "List targets in the isolated browser.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "tabs": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "tabs"
+      ]
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.tab.open",
+    "version": "1.0",
+    "description": "Create an isolated browser tab.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.tab.close",
+    "version": "1.0",
+    "description": "Close one exact browser tab.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.tab.focus",
+    "version": "1.0",
+    "description": "Activate a browser tab.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.navigate",
+    "version": "1.0",
+    "description": "Navigate a tab to an http(s) URL; file URLs are denied.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      },
+      "required": [
+        "ref",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dom.snapshot",
+    "version": "1.0",
+    "description": "Get a bounded DOM tree without evaluating arbitrary JavaScript.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dom.query",
+    "version": "1.0",
+    "description": "Query DOM nodes using a CSS selector; return candidates, not an implicit click.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "selector": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "ref",
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dom.click",
+    "version": "1.0",
+    "description": "Click one exact DOM reference after document-generation validation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dom.fill",
+    "version": "1.0",
+    "description": "Replace a text field using DOM focus and typed CDP input.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "ref",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.screenshot",
+    "version": "1.0",
+    "description": "Capture an isolated tab into a private artifact.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.downloads.status",
+    "version": "1.0",
+    "description": "Inspect tracked download events for the isolated browser.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.diagnostics",
+    "version": "1.0",
+    "description": "Return bounded event counts, not network headers or console payloads.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "plugin.install",
+    "version": "1.0",
+    "description": "Install a digest-pinned manifest into this broker session after external approval",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "manifest": {
+          "type": "object",
+          "maxProperties": 20
+        }
+      },
+      "required": [
+        "manifest"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "plugin.manage"
+    ],
+    "risk": "code_execution",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "plugin.remove",
+    "version": "1.0",
+    "description": "Remove a plugin and its registered commands from this broker",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "plugin.manage"
+    ],
+    "risk": "destructive",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "plugin.doctor",
+    "version": "1.0",
+    "description": "Validate a plugin manifest, digest and sandbox prerequisites",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object"
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  }
+]
