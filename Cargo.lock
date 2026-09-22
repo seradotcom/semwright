@@ -2293,6 +2293,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-driver-blender"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "semwright-backend-api",
+ "semwright-driver-host",
+ "semwright-driver-sdk",
+ "semwright-policy",
+ "semwright-protocol",
+ "semwright-types",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "semwright-driver-host"
 version = "0.9.0-dev.1"
 dependencies = [
