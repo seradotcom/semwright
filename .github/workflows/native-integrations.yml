@@ -216,7 +216,7 @@ jobs:
           BLENDER_SHA256: 9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap fontconfig xz-utils
+          sudo apt-get install -y bubblewrap fontconfig xz-utils xvfb xauth
           curl --fail --location --retry 3 --output /tmp/blender.tar.xz "$BLENDER_URL"
           echo "$BLENDER_SHA256  /tmp/blender.tar.xz" | sha256sum --check -
           sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
@@ -318,6 +318,9 @@ jobs:
       - name: Broker, policy, CLI and Blender end-to-end
         run: |
           BIN_DIR=target/debug scripts/dev/blender-driver-smoke.sh 2>&1 | tee verification/native-ci/blender-broker-smoke.log
+      - name: Interactive add-on through Xvfb, broker and Blender main thread
+        run: |
+          BIN_DIR=target/debug BLENDER_BIN=/usr/local/bin/blender scripts/dev/blender-addon-live-smoke.sh 2>&1 | tee verification/native-ci/blender-addon-live.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
