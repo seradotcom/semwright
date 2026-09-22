@@ -218,12 +218,36 @@ def search_operators(args):
 
 
 def iter_types():
-    for attr_name in sorted(name for name in dir(bpy.types) if not name.startswith("_")):
-        candidate = getattr(bpy.types, attr_name, None)
+    # bpy.types exposes part of its RNA surface lazily, so dir(bpy.types) alone can omit
+    # valid classes such as Mesh on some Blender builds. Combine visible attributes with
+    # the actual bpy_struct subclass graph, then publish a deterministic identifier order.
+    candidates = {}
+
+    def remember(candidate):
         rna = getattr(candidate, "bl_rna", None)
-        if rna is None:
+        identifier = str(getattr(rna, "identifier", "")) if rna is not None else ""
+        if identifier:
+            candidates.setdefault(identifier, (candidate, rna))
+
+    for attr_name in sorted(name for name in dir(bpy.types) if not name.startswith("_")):
+        remember(getattr(bpy.types, attr_name, None))
+
+    root = getattr(bpy.types, "bpy_struct", None)
+    pending = [root] if root is not None else []
+    seen = set()
+    while pending and len(seen) < 100000:
+        candidate = pending.pop()
+        if candidate in seen:
             continue
-        yield candidate, rna
+        seen.add(candidate)
+        remember(candidate)
+        try:
+            pending.extend(candidate.__subclasses__())
+        except Exception:
+            pass
+
+    for identifier in sorted(candidates):
+        yield candidates[identifier]
 
 
 def search_types(args):
