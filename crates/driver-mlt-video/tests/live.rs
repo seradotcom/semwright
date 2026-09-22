@@ -256,7 +256,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     .unwrap();
     assert_eq!(doctor["capabilities"], 68);
     assert_eq!(doctor["network"], false);
-    assert_eq!(doctor["render_available"], true);
+    assert_eq!(doctor["render_available"], true, "MLT doctor: {doctor}");
     assert!(
         doctor["mlt_version"]
             .as_str()
