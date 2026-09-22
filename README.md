@@ -6,11 +6,11 @@
 > The accepted development line has a committed `Cargo.lock`, pins Rust 1.98.1, and has
 > passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
 > rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz and real Rust Chromium gates.
-> Provider Runtime and governed stdio MCP federation have both been merged after exact-SHA
-> green CI. The current development branch adds the persistent App Driver SDK, production
-> sandbox host and conformance tooling; those additions still require exact-SHA CI before
-> becoming a certified baseline. Live desktops, real Blender, broader driver applications,
-> packaging and independent security review remain incomplete. Read
+> Provider Runtime, governed stdio MCP federation, and the persistent App Driver SDK with
+> sandboxed conformance tooling are merged after exact-head green CI. The browser integration
+> also retires DOM references synchronously at Semwright-initiated mutation boundaries to avoid
+> event-order races. Live desktops, real Blender, broader driver applications, packaging and
+> independent security review remain incomplete. Read
 > [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
 > desktop access.
 
@@ -126,7 +126,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 
 | Component | Delivered | Evidence in this handoff |
 |---|---|---|
-| Rust core, broker, CLI, MCP, inspector | Source + Rust unit/property/integration tests | Hosted baseline compiled and executed on x86_64 + ARM64; current branch requires exact-SHA recertification |
+| Rust core, broker, CLI, MCP, inspector | Source + Rust unit/property/integration tests | Hosted development line compiles and executes on x86_64 + ARM64 under the exact-SHA quality matrix |
 | AT-SPI, Sway, Hyprland, X11, GNOME/KWin clients | Native backend source + Rust tests | Compiled/tested in hosted baseline; no live compositor matrix |
 | GNOME/KWin bridges | JavaScript source + shared-contract tests | Node contract tests; not a live shell/runtime test |
 | RemoteDesktop portal, interactive screenshot | Native D-Bus source + Rust lifecycle tests | Compiled/tested; no accepted live portal/EIS session |
@@ -136,7 +136,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | Scoped filesystem | Rust scoped implementation + native harness | Rust tests plus native openat2 checks in hosted baseline |
 | Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
 | MCP federation | Governed stdio provider + owner-only upstream registry | Merged after green x86_64/ARM64 CI with real fixture handshake/tool import, policy mediation, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
-| App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Current branch: local strict-Clippy/tests and a real bubblewrap+Landlock fixture conformance pass; hosted exact-SHA evidence pending |
+| App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Merged after hosted driver-conformance: pinned fixture handshake/catalog/health/execute/shutdown, broker smoke and generated-driver compile |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
 [acceptance resolution](ACCEPTANCE.md), [verification](VERIFY.md).
@@ -161,7 +161,7 @@ local MCP client configuration after installing:
 Start the broker separately in the same user session. The configuration above does not
 start it, authorize mutations, or approve portal dialogs. See [MCP](docs/mcp.md).
 
-Semwright also has an in-development [MCP federation](docs/mcp-federation.md) provider.
+Semwright also has a governed [MCP federation](docs/mcp-federation.md) provider.
 Owner-configured stdio servers are imported into the same capability registry and remain
 subject to normal broker policy, operator approval, provenance and audit. Operators manage
 definitions locally with `computerctl mcp upstream ...`; those local commands never add a

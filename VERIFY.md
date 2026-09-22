@@ -17,6 +17,7 @@ historical only and is not used to certify this baseline.
 | Dependency, coverage and fuzz / coverage | PASS | Commit checks: `Dependency, coverage and fuzz gates` |
 | Dependency, coverage and fuzz / bounded fuzz | PASS | Commit checks: `Dependency, coverage and fuzz gates` |
 | Native application integration / Chromium | PASS | Commit checks: `Native application integration` |
+| Native application integration / Driver conformance | PASS | Commit checks: `Native application integration` |
 
 The quality matrix uses Rust 1.98.1 and runs, with the locked dependency graph, `fmt`,
 `check`, debug build, Clippy with warnings denied, workspace/all-target tests, doctests,
@@ -44,16 +45,40 @@ is untrusted data and cannot claim builtin authority. Provider capabilities can 
 replaced and removed atomically against a catalog revision, and invocation provenance is preserved
 through execution and audit.
 
-The exact-commit quality suite exercises **11 Provider Runtime integration tests** and **10 dynamic
+The exact-commit quality suite exercises **12 Provider Runtime integration tests** and **10 dynamic
 provider catalog tests**. These include simultaneous registration, operation-level availability,
 atomic descriptor replacement, stale catalog revisions, schema/result validation, timeout and
 cancellation propagation, hostile metadata, provider-scoped events, definitive disconnect, and
 bounded external JSON Schema/value traversal including Draft 7 `dependencies`. The real Chromium
 hosted job also exercises the acknowledged-close stale-reference regression.
 
-This closes the Provider Runtime foundation only. `ExternalMcpProvider` federation, the public App
-Driver SDK/conformance surface, real Blender introspection, hostile plugin sandbox certification,
-and the remaining Linux-runtime blockers are separate acceptance work.
+Provider Runtime is the common authority boundary used by the federation and driver layers below.
+
+## MCP federation closure included in this development line
+
+Governed local stdio MCP federation is implemented as an `ExternalMcpProvider`, not as a bypass
+around the broker. Owner-pinned upstream definitions negotiate through the official MCP SDK,
+import bounded/namespaced tools as untrusted capabilities, and execute through the normal
+policy/approval/audit path. Integration tests exercise policy denial, cancellation, malformed
+descriptors/results, `tools/list_changed` refresh, crash invalidation and owner-registry lifecycle.
+
+This certifies the mediated federation path, not the upstream executable itself. A trusted stdio
+upstream still runs as the same Unix user and is not currently sandboxed against that UID. Remote
+MCP transports, task/job bridging and input-required rounds remain follow-on work.
+
+## App Driver SDK closure included in this development line
+
+The persistent App Driver SDK/host is implemented on the same Provider Runtime. A strict manifest
+binds owner-assigned identity, protocol/version, application metadata, requested resources and the
+SHA-256 of an owned/root ELF. The host stages the verified bytes and refuses unsandboxed execution;
+the conformance fixture runs through bubblewrap plus Semwright's Landlock helper with a scrubbed
+environment and isolated network by default.
+
+The hosted `driver-conformance` job executes a real persistent fixture through handshake,
+capability digest attestation, health, a safe read-only operation and clean shutdown. It also
+executes the broker smoke path and compiles a newly scaffolded driver. Protocol v1 deliberately
+rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
+are negotiated and tested.
 
 ## Verification hardening included in the baseline
 
@@ -69,10 +94,11 @@ and the remaining Linux-runtime blockers are separate acceptance work.
 ## Evidence boundaries
 
 This baseline does **not** claim live GNOME, Plasma, Sway, Hyprland, native X11, portal EIS,
-PipeWire pixel streaming, persistent portal restore tokens, real Blender, or executed plugin
-sandbox conformance. It does not establish an MSRV, reproducible binary packaging, installation,
-SBOM/signing, benchmark results, or an independent security review. The MCP tests exercise the
-Semwright server with an official client; they are not MCP federation tests.
+PipeWire pixel streaming, persistent portal restore tokens, real Blender, hostile plugin-sandbox
+certification, a sandbox for same-UID MCP upstream executables, or a distributed driver registry.
+It does not establish an MSRV, reproducible binary packaging, installation, SBOM/signing or an
+independent security review. Events/jobs breadth and negotiated dynamic driver interfaces also
+remain follow-on work.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See
