@@ -457,11 +457,11 @@ jobs:
       - name: Install isolated GTK and Qt accessibility fixtures
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity python3-pyqt5
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity python3-pyqt6
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-runtime"
           chmod 700 "$RUNNER_TEMP/atspi-runtime"
           zenity --version | tee verification/native-ci/zenity-version.log
-          python3 -c 'import PyQt5.QtCore as q; print("PyQt5=" + q.PYQT_VERSION_STR)' | tee verification/native-ci/pyqt-version.log
+          python3 -c 'import PyQt6.QtCore as q; print("PyQt6=" + q.PYQT_VERSION_STR)' | tee verification/native-ci/pyqt-version.log
           dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
       - name: Real AT-SPI delta, structural resync and stale-reference lifecycle
         run: |
