@@ -262,6 +262,7 @@ jobs:
           fi
           bwrap_args+=(--ro-bind /etc/fonts /etc/fonts)
           bwrap "${bwrap_args[@]}" -- /usr/local/bin/blender --version
+          bwrap "${bwrap_args[@]}" -- /usr/bin/bash -c 'ulimit -v 4194304; exec /usr/local/bin/blender --background --factory-startup --disable-autoexec --python-expr "import bpy; print(bpy.app.version_string)"' 2>&1 | tee verification/native-ci/blender-background-preflight.log
       - name: Build Blender driver surface
         run: |
           cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
