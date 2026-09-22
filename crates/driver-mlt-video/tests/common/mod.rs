@@ -25,7 +25,8 @@ pub fn apply(p: &Project, edit: Edit) -> Project {
         .result
 }
 pub fn temp() -> PrivateDir {
-    PrivateDir::new(Path::new("/tmp")).unwrap()
+    let base = std::fs::canonicalize(Path::new("/tmp")).unwrap();
+    PrivateDir::new(&base).unwrap()
 }
 pub fn color(id: &str) -> MediaAsset {
     MediaAsset {
