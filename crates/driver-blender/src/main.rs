@@ -363,7 +363,10 @@ impl BlenderDriver {
             .env("PYTHONNOUSERSITE", "1")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            // Normal DriverProvider execution discards the driver's stderr at the host boundary.
+            // Direct owner/CI probes may capture it, which preserves bounded Blender startup
+            // diagnostics without contaminating the framed stdout protocol.
+            .stderr(Stdio::inherit())
             .kill_on_drop(true);
         let mut child = command
             .spawn()
@@ -373,12 +376,6 @@ impl BlenderDriver {
                 let _ = tokio::io::copy(&mut stdout, &mut tokio::io::sink()).await;
             });
         }
-        if let Some(mut stderr) = child.stderr.take() {
-            tokio::spawn(async move {
-                let _ = tokio::io::copy(&mut stderr, &mut tokio::io::sink()).await;
-            });
-        }
-
         for _ in 0..240 {
             if child
                 .try_wait()
