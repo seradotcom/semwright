@@ -412,3 +412,33 @@ jobs:
           name: kicad-mlt-driver-evidence
           path: verification/native-ci
           retention-days: 14
+
+  x11-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: x11-backend
+      - name: Install isolated X11 server
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth
+          mkdir -p verification/native-ci
+          Xvfb -version 2>&1 | head -20 | tee verification/native-ci/xvfb-version.log || true
+      - name: Real X11 lifecycle and bounded backend
+        env:
+          XDG_SESSION_TYPE: x11
+          SEMWRIGHT_TEST_X11: "1"
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp"             cargo test --locked -p semwright-backends               real_x11_window_ref_is_focus_checked_and_stales_after_destroy               -- --ignored --nocapture 2>&1 | tee verification/native-ci/x11-backend.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: real-x11-backend-evidence
+          path: verification/native-ci
+          retention-days: 14
