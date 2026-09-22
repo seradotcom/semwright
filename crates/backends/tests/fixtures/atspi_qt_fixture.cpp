@@ -1,9 +1,12 @@
+#include <QAccessible>
 #include <QApplication>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
+
+#include <iostream>
 
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
@@ -29,5 +32,11 @@ int main(int argc, char **argv) {
 
     window.resize(360, 160);
     window.show();
+
+    QAccessible::setRootObject(&app);
+    auto *root = QAccessible::queryAccessibleInterface(&app);
+    std::cerr << "qt_accessibility_active=" << (QAccessible::isActive() ? "true" : "false")
+              << " root_interface=" << (root != nullptr ? "present" : "missing") << std::endl;
+
     return app.exec();
 }
