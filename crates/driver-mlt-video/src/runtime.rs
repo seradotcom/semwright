@@ -293,16 +293,40 @@ impl Tool {
         let m = file.metadata()?;
         // SAFETY: getuid has no arguments or memory preconditions.
         let uid = unsafe { getuid() };
-        if (m.uid() != 0 && m.uid() != uid)
-            || !m.is_file()
-            || m.nlink() != 1
-            || m.mode() & 0o022 != 0
-            || m.mode() & 0o111 == 0
-            || m.len() > 64 * 1024 * 1024
-        {
+        if m.uid() != 0 && m.uid() != uid {
             return Err(Error::new(
                 "PermissionDenied",
-                "Tool must be a non-writable regular executable ELF <=64MiB",
+                "Pinned tool owner must be root or the sandbox uid",
+            ));
+        }
+        if !m.is_file() {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must be a regular file",
+            ));
+        }
+        if m.nlink() != 1 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must have exactly one hard link",
+            ));
+        }
+        if m.mode() & 0o022 != 0 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must not be group- or other-writable",
+            ));
+        }
+        if m.mode() & 0o111 == 0 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must have an executable mode bit",
+            ));
+        }
+        if m.len() > 64 * 1024 * 1024 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must not exceed 64 MiB",
             ));
         }
         let mut elf = [0; 4];
