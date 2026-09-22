@@ -346,8 +346,10 @@ jobs:
       - name: Install native driver dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap python3
+          sudo apt-get install -y bubblewrap python3 melt ffmpeg
           mkdir -p verification/native-ci
+          melt -version | head -5 | tee verification/native-ci/mlt-version.log
+          ffprobe -version | head -3 | tee verification/native-ci/ffprobe-version.log
           go version | tee verification/native-ci/go-version.log
           bwrap --version | tee verification/native-ci/bwrap-version.log
       - name: Preflight unprivileged Bubblewrap
@@ -391,6 +393,9 @@ jobs:
       - name: Real DriverProvider sandbox conformance
         env:
           SEMWRIGHT_TEST_MLT_VIDEO: 1
+          SEMWRIGHT_TEST_MELT: /usr/bin/melt
+          SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
+          SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
           SEMWRIGHT_TEST_KICAD: 1
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
           GOCACHE: ${{ runner.temp }}/kicad-go-cache
