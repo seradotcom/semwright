@@ -189,7 +189,12 @@ async fn live_atspi_qt_delta_resync_and_stale_refs() {
     );
     assert!(fixture.is_file(), "native Qt fixture must exist");
     let child = tokio::process::Command::new(fixture)
+        .env("QT_ACCESSIBILITY", "1")
         .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
+        .env(
+            "QT_LOGGING_RULES",
+            "qt.accessibility.atspi=true;qt.accessibility.atspi.creation=true",
+        )
         .env("QT_QPA_PLATFORM", "xcb")
         .spawn()
         .expect("native Qt fixture must start");
