@@ -110,6 +110,11 @@ pub enum Command {
         #[command(subcommand)]
         command: Plugin,
     },
+    /// Owner/developer tooling for persistent application drivers.
+    Driver {
+        #[command(subcommand)]
+        command: DriverCommand,
+    },
     Audit {
         #[command(subcommand)]
         command: Audit,
@@ -440,6 +445,25 @@ pub enum Plugin {
     },
 }
 #[derive(Subcommand, Debug)]
+pub enum DriverCommand {
+    Validate {
+        manifest: PathBuf,
+    },
+    Inspect {
+        manifest: PathBuf,
+    },
+    /// Launch the pinned driver inside the production sandbox and verify protocol/health/shutdown.
+    Conformance {
+        manifest: PathBuf,
+    },
+    Scaffold {
+        name: String,
+        output: PathBuf,
+        #[arg(long)]
+        sdk_path: PathBuf,
+    },
+}
+#[derive(Subcommand, Debug)]
 pub enum Audit {
     Tail {
         #[arg(long, default_value_t = 20)]
@@ -718,6 +742,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             command: Audit::Tail { limit },
         } => ("audit.tail".into(), json!({"limit":limit})),
         Command::Watch { .. }
+        | Command::Driver { .. }
         | Command::Mcp { .. }
         | Command::Config { .. }
         | Command::Completions { .. }
@@ -806,6 +831,24 @@ mod tests {
                 command: Mcp::Upstream {
                     command: McpUpstream::Inspect { .. }
                 }
+            }
+        ));
+    }
+    #[test]
+    fn driver_management_is_local_not_a_broker_request() {
+        let c = Cli::try_parse_from([
+            "computerctl",
+            "--json",
+            "driver",
+            "validate",
+            "/tmp/fixture-driver.json",
+        ])
+        .unwrap();
+        assert!(request(&c).unwrap().is_none());
+        assert!(matches!(
+            c.command,
+            Command::Driver {
+                command: DriverCommand::Validate { .. }
             }
         ));
     }

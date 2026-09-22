@@ -15,6 +15,7 @@ use semwright_backends::{
 };
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
 use semwright_daemon::{config, console::Console, server};
+use semwright_driver_host::DriverProvider;
 use semwright_federation::{
     ExternalMcpProvider, default_upstream_registry_path, load_upstream_registry,
 };
@@ -124,7 +125,9 @@ async fn run(args: Args) -> Result<()> {
     }
     if args.fake
         && current_uid() == 0
-        && (!config.policy.filesystem.is_empty() || !config.plugins.is_empty())
+        && (!config.policy.filesystem.is_empty()
+            || !config.plugins.is_empty()
+            || !config.drivers.is_empty())
     {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
@@ -140,6 +143,11 @@ async fn run(args: Args) -> Result<()> {
         && path.exists()
     {
         protected.push(path.clone());
+    }
+    for path in config.plugins.iter().chain(&config.drivers) {
+        if path.exists() {
+            protected.push(path.clone());
+        }
     }
     if let Some(parent) = socket.parent() {
         private_directory(parent)?;
@@ -199,16 +207,16 @@ async fn run(args: Args) -> Result<()> {
     if !config.policy.filesystem.is_empty() {
         backends.push(Arc::new(Filesystem::new(&config.policy.filesystem)?));
     }
+    let sandbox_helper = std::env::current_exe()?
+        .parent()
+        .ok_or_else(|| Error::unavailable("Cannot locate sandbox helper directory"))?
+        .join("semwright-sandbox");
     let host = if args.fake {
         None
     } else {
-        let helper = std::env::current_exe()?
-            .parent()
-            .ok_or_else(|| Error::unavailable("Cannot locate sandbox helper directory"))?
-            .join("semwright-sandbox");
         Some(Arc::new(Host::new(
             state.join("plugins"),
-            helper,
+            sandbox_helper.clone(),
             config.policy.filesystem.clone(),
             config.plugin_network,
         )?))
@@ -229,6 +237,24 @@ async fn run(args: Args) -> Result<()> {
     )?;
     for path in &config.plugins {
         broker.install_manifest(config::manifest(path)?)?;
+    }
+    if args.fake && !config.drivers.is_empty() {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Fake mode cannot launch application drivers",
+        ));
+    }
+    for path in &config.drivers {
+        let manifest = config::driver_manifest(path)?;
+        let provider = DriverProvider::connect(
+            manifest,
+            &state.join("drivers"),
+            &sandbox_helper,
+            &config.policy.filesystem,
+            config.driver_network,
+        )
+        .await?;
+        broker.mount_provider(provider).await?;
     }
     if args.fake && !upstreams.is_empty() {
         return Err(Error::new(

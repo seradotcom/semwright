@@ -47,3 +47,40 @@ jobs:
           name: real-chromium-evidence
           path: verification/native-ci
           retention-days: 14
+
+  driver-conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-conformance
+      - name: Install sandbox dependency
+        run: |
+          if ! command -v bwrap >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+          bwrap --version | tee /tmp/bwrap-version.log
+      - name: Build driver conformance surface
+        run: |
+          cargo build --locked -p semwright-driver-host --bin semwright-driver-fixture \
+            -p semwright-plugin-host --bin semwright-sandbox \
+            -p semwright-cli --bin computerctl \
+            -p semwright-daemon --bin semwrightd
+      - name: Sandboxed persistent driver conformance
+        run: |
+          mkdir -p verification/native-ci
+          BIN_DIR=target/debug scripts/dev/driver-conformance.sh 2>&1 | tee verification/native-ci/driver-conformance.log
+          BIN_DIR=target/debug scripts/dev/driver-broker-smoke.sh 2>&1 | tee verification/native-ci/driver-broker-smoke.log
+          cp /tmp/bwrap-version.log verification/native-ci/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: driver-conformance-evidence
+          path: verification/native-ci
+          retention-days: 14

@@ -3,14 +3,14 @@
 **A local capability broker that turns Linux applications and desktops into typed commands—not a stream of guessed clicks.**
 
 > **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
-> The accepted development baseline has a committed `Cargo.lock`, pins Rust 1.98.1, and
+> The accepted development line has a committed `Cargo.lock`, pins Rust 1.98.1, and has
 > passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
-> rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz, and real Rust Chromium
-> integration gates. Provider Runtime is implemented and was certified on its merge line.
-> The current development branch adds stdio MCP federation and owner-only upstream lifecycle
-> management; those additions require exact-SHA recertification before they become part of the
-> accepted baseline. Live desktop, Blender, plugin-sandbox, packaging and
-> release evidence remain incomplete. Read
+> rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz and real Rust Chromium gates.
+> Provider Runtime and governed stdio MCP federation have both been merged after exact-SHA
+> green CI. The current development branch adds the persistent App Driver SDK, production
+> sandbox host and conformance tooling; those additions still require exact-SHA CI before
+> becoming a certified baseline. Live desktops, real Blender, broader driver applications,
+> packaging and independent security review remain incomplete. Read
 > [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
 > desktop access.
 
@@ -23,8 +23,9 @@ Agent intent                 Semwright authority                 Linux / applica
 ```
 
 The project contains source implementations of a Rust daemon, CLI, MCP frontend,
-terminal inspector, command registry, reference store, policy engine, metadata audit,
-recipe runner, sandboxed plugin host, desktop backends, and two application adapters.
+terminal inspector, command registry, Provider Runtime, MCP federation client, persistent
+App Driver SDK/host, reference store, policy engine, metadata audit, recipe runner,
+sandboxed plugin host, desktop backends, and application adapters.
 No model, cloud account, default shell, remote desktop service, arbitrary Python/JS
 command, telemetry client, or root daemon is part of the product.
 
@@ -42,6 +43,10 @@ computerctl recipe run recipes/fake-export.yaml
 
 # Owner-only MCP definition management; this does NOT grant broker policy authority:
 computerctl mcp upstream list
+
+# Driver authoring/verification remains local owner tooling:
+computerctl --json driver validate ./driver.json
+computerctl --json driver conformance ./driver.json
 ```
 
 References are opaque, session-scoped, short-lived values. Do not paste the illustrative
@@ -130,7 +135,8 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | Chromium | Isolated-profile Rust CDP adapter | Real Rust hosted integration passes on this development line, including close/stale-ref invalidation and owned-profile cleanup |
 | Scoped filesystem | Rust scoped implementation + native harness | Rust tests plus native openat2 checks in hosted baseline |
 | Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
-| MCP federation | Governed stdio provider + owner-only upstream registry | Real fixture handshake/tool import, policy denial/approval, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
+| MCP federation | Governed stdio provider + owner-only upstream registry | Merged after green x86_64/ARM64 CI with real fixture handshake/tool import, policy mediation, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
+| App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Current branch: local strict-Clippy/tests and a real bubblewrap+Landlock fixture conformance pass; hosted exact-SHA evidence pending |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
 [acceptance resolution](ACCEPTANCE.md), [verification](VERIFY.md).
@@ -170,8 +176,10 @@ checksums, uninstall, Debian packaging and the Nix expression. No installer sile
 uses `sudo`, enables a plugin, requests portal consent, or downloads an opaque binary.
 
 [Recipes](docs/recipes.md) replace repeated improvisation with typed bindings and explicit
-assertions. [Plugins](docs/plugins.md) add namespaced commands through a bounded process
-protocol. [The inspector](docs/inspector.md) is read-only and uses the same broker socket.
+assertions. [Plugins](docs/plugins.md) add narrow one-shot sandboxed commands. The
+[App Driver SDK](docs/drivers.md) adds persistent application providers with owner-assigned
+identity, digest-pinned capabilities and executable conformance. [The inspector](docs/inspector.md)
+is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
 [Chromium](adapters/chromium/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
 [KWin](bridges/kwin/README.md).

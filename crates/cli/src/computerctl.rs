@@ -1,13 +1,179 @@
 use clap::{CommandFactory, Parser};
 use semwright_cli::*;
+use semwright_driver_host::conformance as driver_conformance;
+use semwright_driver_sdk::Manifest as DriverManifest;
 use semwright_federation::{
     StdioUpstreamConfig, default_upstream_registry_path, doctor_stdio, load_upstream_registry,
     new_upstream, save_upstream_registry,
 };
 use semwright_protocol::{self as ipc, ClientMessage, ServerMessage};
+use semwright_types::provider::canonical_slug;
 use semwright_types::*;
 use serde_json::json;
 use std::{path::PathBuf, time::Duration};
+
+fn load_driver_manifest(path: &std::path::Path) -> Result<DriverManifest> {
+    let manifest: DriverManifest = serde_json::from_str(&read_file(path, 1_048_576)?)?;
+    manifest.validate()?;
+    Ok(manifest)
+}
+
+fn driver_view(manifest: &DriverManifest) -> Result<serde_json::Value> {
+    let identity = manifest.identity()?;
+    Ok(json!({
+        "identity": identity,
+        "manifest_version": manifest.manifest_version,
+        "protocol": manifest.protocol,
+        "publisher": manifest.publisher,
+        "application": manifest.application,
+        "transport": manifest.transport,
+        "executable": manifest.executable,
+        "sha256": manifest.sha256,
+        "network": manifest.network,
+        "mounts": manifest.mounts,
+        "interfaces": manifest.interfaces,
+        "request_timeout_ms": manifest.request_timeout_ms,
+        "executable_exists": manifest.executable.is_file(),
+        "policy_grants_changed": false
+    }))
+}
+
+async fn manage_driver(cli: &Cli, command: &DriverCommand) -> Result<()> {
+    match command {
+        DriverCommand::Validate { manifest } => {
+            let manifest = load_driver_manifest(manifest)?;
+            print_result(
+                &json!({"valid":true,"driver":driver_view(&manifest)?,"executed":false}),
+                cli.json,
+            )
+        }
+        DriverCommand::Inspect { manifest } => {
+            let manifest = load_driver_manifest(manifest)?;
+            print_result(&driver_view(&manifest)?, cli.json)
+        }
+        DriverCommand::Conformance { manifest } => {
+            let manifest = load_driver_manifest(manifest)?;
+            let helper = std::env::current_exe()?
+                .parent()
+                .ok_or_else(|| Error::unavailable("Cannot locate sandbox helper directory"))?
+                .join("semwright-sandbox");
+            let runtime = semwright_protocol::runtime_directory()?;
+            let state = runtime.join(format!("driver-conformance-{}", unique_id()));
+            semwright_protocol::private_directory(&state)?;
+            let result = driver_conformance(manifest, &state, &helper, &[], false).await;
+            let _ = std::fs::remove_dir_all(&state);
+            print_result(&serde_json::to_value(result?)?, cli.json)
+        }
+        DriverCommand::Scaffold {
+            name,
+            output,
+            sdk_path,
+        } => {
+            if !canonical_slug(name) {
+                return Err(Error::invalid(
+                    "Driver name must be a canonical lowercase slug",
+                ));
+            }
+            let sdk = sdk_path.canonicalize()?;
+            if !sdk.join("Cargo.toml").is_file() {
+                return Err(Error::invalid(
+                    "--sdk-path must be the semwright-driver-sdk crate directory",
+                ));
+            }
+            let crates = sdk
+                .parent()
+                .ok_or_else(|| Error::invalid("SDK path has no crates directory"))?;
+            std::fs::create_dir(output)?;
+            std::fs::create_dir(output.join("src"))?;
+            let package = format!("semwright-{}-driver", name);
+            let cargo = format!(
+                "[package]\nname = {}\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nsemwright-driver-sdk = {{ path = {} }}\nsemwright-types = {{ path = {} }}\nasync-trait = \"0.1\"\nserde_json = \"1\"\ntokio = {{ version = \"1\", features = [\"macros\",\"rt-multi-thread\"] }}\n",
+                serde_json::to_string(&package)?,
+                serde_json::to_string(&sdk)?,
+                serde_json::to_string(&crates.join("types"))?
+            );
+            create(&output.join("Cargo.toml"), &cargo)?;
+            let main = format!(
+                r#"use async_trait::async_trait;
+use semwright_driver_sdk::{{Capability, Driver, descriptor_digest, serve}};
+use semwright_types::{{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk}};
+use serde_json::{{Value, json}};
+
+fn capability() -> Capability {{
+    Capability {{
+        descriptor: CommandDescriptor {{
+            name: "driver.{name}.ping".into(),
+            version: "1".into(),
+            description: "Example read-only driver operation".into(),
+            input_schema: json!({{"type":"object","additionalProperties":false}}),
+            output_schema: json!({{"type":"object","properties":{{"ok":{{"const":true}}}},"required":["ok"],"additionalProperties":false}}),
+            requires: vec!["driver:{name}".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 2000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec!["driver:{name}".into()],
+        }},
+        aliases: vec!["ping".into()],
+        tags: vec!["example".into()],
+        object_types: vec![],
+    }}
+}}
+struct Example;
+#[async_trait]
+impl Driver for Example {{
+    fn id(&self) -> &str {{ "{name}" }}
+    fn version(&self) -> &str {{ env!("CARGO_PKG_VERSION") }}
+    async fn capabilities(&mut self) -> Result<Vec<Capability>> {{ Ok(vec![capability()]) }}
+    async fn execute(&mut self, command: &str, digest: &str, _args: Value) -> Result<Value> {{
+        let cap = capability();
+        if command != cap.descriptor.name || descriptor_digest(&cap.descriptor)? != digest {{
+            return Err(Error::new(ErrorCode::StaleReference, "Capability descriptor changed"));
+        }}
+        Ok(json!({{"ok":true}}))
+    }}
+}}
+#[tokio::main]
+async fn main() {{
+    if let Err(error) = serve(Example).await {{
+        eprintln!("{{error}}");
+        std::process::exit(error.exit_code());
+    }}
+}}
+"#
+            );
+            create(&output.join("src/main.rs"), &main)?;
+            let manifest = json!({
+                "manifest_version":1,
+                "protocol":1,
+                "id":name,
+                "version":"0.1.0",
+                "publisher":"REPLACE_WITH_PUBLISHER",
+                "executable":format!("/ABSOLUTE/PATH/TO/{package}"),
+                "sha256":"0".repeat(64),
+                "application":{"desktop_id":format!("org.example.{name}"),"process_names":[],"supported_versions":[]},
+                "transport":"stdio_v1",
+                "mounts":[],
+                "network":false,
+                "request_timeout_ms":30000,
+                "interfaces":{"dynamic_capabilities":false,"cooperative_cancellation":false,"events":false,"health":true}
+            });
+            create(
+                &output.join("driver.manifest.example.json"),
+                &(serde_json::to_string_pretty(&manifest)? + "\n"),
+            )?;
+            create(
+                &output.join("README.md"),
+                "# Semwright application driver\n\nBuild the binary, replace the absolute executable path and SHA-256 in driver.manifest.example.json, rename it to a protected owner manifest, then run computerctl driver validate and computerctl driver conformance. Scaffolding never installs or grants authority to the driver.\n",
+            )?;
+            print_result(
+                &json!({"created":output,"installed":false,"next":"build, pin SHA-256, validate, conformance"}),
+                cli.json,
+            )
+        }
+    }
+}
 
 fn upstream_registry_path(cli: &Cli) -> Result<PathBuf> {
     cli.mcp_upstreams
@@ -199,6 +365,9 @@ async fn local(cli: &Cli) -> Result<bool> {
             );
             create(output, &template)?;
             print_result(&json!({"created":output,"installed":false}), cli.json)?;
+        }
+        Command::Driver { command } => {
+            manage_driver(cli, command).await?;
         }
         Command::Plugin {
             command: Plugin::Scaffold { output, sdk_path },
