@@ -457,11 +457,15 @@ jobs:
       - name: Install isolated GTK and Qt accessibility fixtures
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity python3-pyqt6
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity g++ pkg-config qt6-base-dev
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-runtime"
           chmod 700 "$RUNNER_TEMP/atspi-runtime"
           zenity --version | tee verification/native-ci/zenity-version.log
-          python3 -c 'import PyQt6.QtCore as q; print("PyQt6=" + q.PYQT_VERSION_STR)' | tee verification/native-ci/pyqt-version.log
+          pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
+          g++ -std=c++17 -O2 crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
+            -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets)
+          chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
+          file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log
           dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
       - name: Real AT-SPI delta, structural resync and stale-reference lifecycle
         run: |
@@ -469,6 +473,7 @@ jobs:
           NO_AT_BRIDGE=0 \
           XDG_SESSION_TYPE=x11 \
           SEMWRIGHT_TEST_ATSPI=1 \
+          SEMWRIGHT_TEST_QT_FIXTURE="$RUNNER_TEMP/atspi-qt-fixture" \
             dbus-run-session -- bash -lc '
               set -euo pipefail
               gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \

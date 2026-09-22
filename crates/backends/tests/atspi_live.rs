@@ -178,19 +178,20 @@ async fn live_atspi_gtk_delta_resync_and_stale_refs() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live user AT-SPI bus and PyQt6"]
+#[ignore = "requires a live user AT-SPI bus and a native Qt 6 fixture"]
 async fn live_atspi_qt_delta_resync_and_stale_refs() {
     if std::env::var_os("SEMWRIGHT_TEST_ATSPI").is_none() {
         return;
     }
-    let fixture =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/atspi_qt_fixture.py");
-    let child = tokio::process::Command::new("/usr/bin/python3")
-        .arg(fixture)
-        .env("QT_ACCESSIBILITY", "1")
+    let fixture = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_QT_FIXTURE")
+            .expect("SEMWRIGHT_TEST_QT_FIXTURE must point to the native Qt fixture"),
+    );
+    assert!(fixture.is_file(), "native Qt fixture must exist");
+    let child = tokio::process::Command::new(fixture)
         .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
         .env("QT_QPA_PLATFORM", "xcb")
         .spawn()
-        .expect("PyQt5 fixture must start");
+        .expect("native Qt fixture must start");
     exercise_fixture(child, "semwright").await;
 }
