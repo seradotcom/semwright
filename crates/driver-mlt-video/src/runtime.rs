@@ -378,11 +378,11 @@ impl Runtime {
             return Err(Error::invalid("Render timeout must be 1..3600 seconds"));
         }
         let tools = PrivateDir::new(Path::new("/tmp"))?;
-        for (name, tool) in [
-            ("melt", &melt),
-            ("ffprobe", &ffprobe),
-            ("bubblewrap", &bubblewrap),
-        ] {
+        // Stage the media tools so the bytes executed later are exactly the pinned
+        // bytes we verified. Bubblewrap is different: Linux/AppArmor installations can
+        // grant user-namespace permission specifically to its canonical system path.
+        // Keep that root-owned, non-writable path and re-verify its digest before use.
+        for (name, tool) in [("melt", &melt), ("ffprobe", &ffprobe)] {
             let mut source = tool.verify()?;
             let mut destination = tools.create(name)?;
             let mut hash = crate::hash::Sha256::new();
@@ -501,7 +501,7 @@ impl Runtime {
         ]);
         argv.extend(args);
         Ok(ProcessSpec {
-            executable: self.tools.path().join("bubblewrap"),
+            executable: self.bubblewrap.path.clone(),
             args: argv,
             cwd: work.into(),
             timeout,

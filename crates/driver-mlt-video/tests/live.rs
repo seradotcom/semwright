@@ -125,7 +125,6 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
 
     let pinned_melt = copy_tool(&melt, runtime_tools.path(), "melt");
     let pinned_ffprobe = copy_tool(&ffprobe, runtime_tools.path(), "ffprobe");
-    let pinned_bwrap = copy_tool(&bwrap, runtime_tools.path(), "bwrap");
     let runtime_json = json!({
         "schema": 1,
         "melt": {
@@ -137,8 +136,8 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "sha256": digest(&pinned_ffprobe)
         },
         "bubblewrap": {
-            "path": "/workspace/runtime-tools/bwrap",
-            "sha256": digest(&pinned_bwrap)
+            "path": bwrap.to_string_lossy(),
+            "sha256": digest(&bwrap)
         },
         "timeout_seconds": 30
     });
