@@ -80,9 +80,28 @@ executes the broker smoke path and compiles a newly scaffolded driver. Protocol 
 rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
 are negotiated and tested.
 
+## Events and jobs closure included in this development line
+
+The broker now carries typed provider/source provenance on events while preserving the existing
+sequence/replay wire. Replay and live delivery enforce optional session audience, so private job
+lifecycle events are not visible to other broker sessions. Provider payload metadata remains
+explicitly untrusted and cannot overwrite reserved provenance fields.
+
+The built-in `jobs.start`, `jobs.get` and `jobs.cancel` commands implement bounded, session-scoped
+long-operation state. Nested requests re-enter the normal broker execution path and therefore keep
+schema validation, policy, confirmation, provider provenance and audit. Tests cover read-only
+completion, mutation denial from an observe-only session, cross-session privacy, revocation,
+idempotent cancellation and cancellation of a blocked dynamic provider without waiting behind its
+execution gate. Retention is bounded and oversized completed result bodies are omitted rather than
+stored indefinitely.
+
+This does not certify a universal provider progress percentage, artifact model, remote task
+persistence, automatic MCP Task mapping or negotiated driver job/event interfaces. Those remain
+follow-on compatibility work rather than implied capabilities of the core job store.
+
 ## Verification hardening included in the baseline
 
-- The command schema contract expects the current 83 descriptors (166 input/output schemas).
+- The command schema contract expects the current 86 descriptors (172 input/output schemas).
 - The local runner bounds time and output, records real exit codes and hashes, persists transitions,
   rejects contradictory PASS reports, and does not overwrite prior evidence.
 - Release admission has an independent required-gate set and rejects malformed/partial metadata,
@@ -97,8 +116,8 @@ This baseline does **not** claim live GNOME, Plasma, Sway, Hyprland, native X11,
 PipeWire pixel streaming, persistent portal restore tokens, real Blender, hostile plugin-sandbox
 certification, a sandbox for same-UID MCP upstream executables, or a distributed driver registry.
 It does not establish an MSRV, reproducible binary packaging, installation, SBOM/signing or an
-independent security review. Events/jobs breadth and negotiated dynamic driver interfaces also
-remain follow-on work.
+independent security review. Provider-specific progress/artifacts, MCP task mapping and negotiated
+dynamic driver job/event interfaces remain follow-on work.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

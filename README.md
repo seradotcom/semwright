@@ -137,6 +137,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
 | MCP federation | Governed stdio provider + owner-only upstream registry | Merged after green x86_64/ARM64 CI with real fixture handshake/tool import, policy mediation, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
 | App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Merged after hosted driver-conformance: pinned fixture handshake/catalog/health/execute/shutdown, broker smoke and generated-driver compile |
+| Events/jobs | Provenance-aware event stream + bounded session-scoped jobs | Job execution re-enters normal policy/audit; cancellation, session privacy and revocation are integration-tested; generic progress/artifact/task mapping remains follow-on work |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
 [acceptance resolution](ACCEPTANCE.md), [verification](VERIFY.md).
@@ -178,7 +179,8 @@ uses `sudo`, enables a plugin, requests portal consent, or downloads an opaque b
 [Recipes](docs/recipes.md) replace repeated improvisation with typed bindings and explicit
 assertions. [Plugins](docs/plugins.md) add narrow one-shot sandboxed commands. The
 [App Driver SDK](docs/drivers.md) adds persistent application providers with owner-assigned
-identity, digest-pinned capabilities and executable conformance. [The inspector](docs/inspector.md)
+identity, digest-pinned capabilities and executable conformance. [Events and jobs](docs/events-jobs.md)
+document source-bound event delivery and bounded long-operation lifecycle. [The inspector](docs/inspector.md)
 is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
 [Chromium](adapters/chromium/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
