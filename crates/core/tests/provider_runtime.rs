@@ -562,6 +562,48 @@ async fn provider_notifications_refresh_without_periodic_polling_and_events_are_
 }
 
 #[tokio::test]
+async fn successful_capability_refresh_does_not_cancel_an_already_dispatched_call() {
+    let fixture = Fixture::new(true);
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    fixture.mount().await;
+    let before = fixture.broker.catalog_revision().unwrap();
+    let executing = tokio::spawn(call(
+        fixture.broker.clone(),
+        "driver.fixture.count".into(),
+        json!({}),
+        CancellationToken::new(),
+    ));
+    fixture.provider.entered.notified().await;
+
+    fixture.provider.commands.lock().unwrap()[0].version = "2".into();
+    fixture
+        .provider
+        .signal
+        .send(ProviderSignal::CapabilitiesChanged)
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if fixture
+                .broker
+                .describe("driver.fixture.count")
+                .is_ok_and(|descriptor| descriptor.version == "2")
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(fixture.broker.catalog_revision().unwrap() > before);
+
+    fixture.provider.release.notify_waiters();
+    let completed = executing.await.unwrap();
+    assert!(completed.ok, "{completed:?}");
+    fixture.broker.shutdown().await;
+}
+
+#[tokio::test]
 async fn terminal_disconnect_cannot_be_reactivated_by_refresh() {
     let fixture = Fixture::new(true);
     fixture.mount().await;

@@ -20,6 +20,7 @@ semwright-backend-api.workspace = true
 semwright-backends.workspace = true
 semwright-adapters.workspace = true
 semwright-core.workspace = true
+semwright-federation.workspace = true
 semwright-plugin-host.workspace = true
 semwright-plugin-sdk.workspace = true
 tokio.workspace = true

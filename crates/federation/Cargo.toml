@@ -1,0 +1,33 @@
+[package]
+name = "semwright-federation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Governed MCP federation providers for Semwright"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-backend-api.workspace = true
+semwright-registry.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+rmcp.workspace = true
+sha2.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+semwright-core.workspace = true
+semwright-policy.workspace = true
+tempfile.workspace = true
+
+[[bin]]
+name = "semwright-mcp-fixture"
+path = "src/bin/fixture.rs"

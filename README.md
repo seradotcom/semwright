@@ -6,9 +6,10 @@
 > The accepted development baseline has a committed `Cargo.lock`, pins Rust 1.98.1, and
 > passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
 > rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz, and real Rust Chromium
-> integration gates. The Provider Runtime work on this development branch must be
-> re-certified on its exact commit before extending those claims. Live desktop, Blender,
-> plugin-sandbox, packaging and release evidence remain incomplete. Read
+> integration gates. Provider Runtime is implemented and was certified on its merge line;
+> MCP federation work on the current development branch must be certified on its own exact
+> commit before extending those claims. Live desktop, Blender, plugin-sandbox, packaging and
+> release evidence remain incomplete. Read
 > [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
 > desktop access.
 
@@ -148,6 +149,12 @@ local MCP client configuration after installing:
 
 Start the broker separately in the same user session. The configuration above does not
 start it, authorize mutations, or approve portal dialogs. See [MCP](docs/mcp.md).
+
+Semwright also has an in-development [MCP federation](docs/mcp-federation.md) provider.
+Owner-configured stdio servers are imported into the same capability registry and remain
+subject to normal broker policy, operator approval, provenance and audit. The initial
+launcher is digest-pinned and environment-scrubbed but is **not** a sandbox against a
+malicious same-UID executable.
 
 ## Install, extend, inspect
 

@@ -2,10 +2,11 @@
 
 ## Before installation
 
-No binary is included in this archive. The Rust source was not compiled here, and a
-reviewed Cargo.lock/toolchain pin are missing. Start with the developer instructions;
-resolve failures in a disposable account/VM before granting access to real work. There is
-no verified remote release URL and no `curl | sh` installer.
+No release binary is published yet. The accepted development baseline has a committed
+Cargo.lock, a pinned Rust 1.98.1 toolchain and green hosted build/test gates, but Semwright
+is still development software with live-desktop and security evidence outstanding. Start
+with the developer instructions in a disposable account/VM before granting access to real
+work. There is no verified release URL and no `curl | sh` installer.
 
 ```sh
 ./scripts/dev/bootstrap.sh
@@ -16,8 +17,9 @@ cargo build --locked --workspace --release
 BIN_DIR=target/release ./scripts/dev/fake-smoke.sh
 ```
 
-The bootstrap only generates/resolves the lockfile when absent. It does not install Rust,
-run sudo or launch desktop automation. Review dependency licenses/advisories and run all
+The bootstrap can generate/resolve a lockfile only when absent; the repository currently
+commits the reviewed development lockfile. It does not install Rust, run sudo or launch
+desktop automation. Review dependency licenses/advisories and run all
 [gates](../scripts/ci/rust-gates.sh) before treating the build as a release.
 
 ## Local user install

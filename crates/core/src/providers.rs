@@ -345,13 +345,20 @@ impl Broker {
         self.refresh_connection(id, &lease.connection).await
     }
     async fn refresh_connection(self: &Arc<Self>, id: &str, connection: &str) -> Result<u64> {
-        // Revoke existing execution leases before requesting/validating new descriptors.
-        self.invalidate_connection(id, connection)?;
+        // A catalog change is not a transport cancellation. Existing calls keep their pinned
+        // descriptor/lease; a successful refresh atomically publishes a new generation for future
+        // calls. Invalid replacement metadata still revokes the current generation fail-closed.
         let lease = self
             .provider(id)
-            .filter(|p| p.connection == connection)
+            .filter(|p| p.connection == connection && p.active())
             .ok_or_else(|| Error::new(ErrorCode::Conflict, "Provider connection changed"))?;
-        let rows = Self::provider_catalog(&lease.provider, &lease.identity).await?;
+        let rows = match Self::provider_catalog(&lease.provider, &lease.identity).await {
+            Ok(rows) => rows,
+            Err(error) => {
+                let _ = self.invalidate_connection(id, connection);
+                return Err(error);
+            }
+        };
         let mut candidate = self
             .registry
             .read()
@@ -369,7 +376,7 @@ impl Broker {
         }
         let expected = candidate.revision();
         let identity = lease.identity.clone();
-        let mut candidate = tokio::task::spawn_blocking(move || -> Result<ProviderCatalog> {
+        let validated = tokio::task::spawn_blocking(move || -> Result<ProviderCatalog> {
             candidate.replace_provider_catalog(&identity, rows, expected, true)?;
             Ok(candidate)
         })
@@ -379,7 +386,14 @@ impl Broker {
                 ErrorCode::Internal,
                 "Provider catalog validation task failed",
             )
-        })??;
+        })?;
+        let mut candidate = match validated {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                let _ = self.invalidate_connection(id, connection);
+                return Err(error);
+            }
+        };
         let updated = Arc::new(ProviderLease {
             provider: lease.provider.clone(),
             identity: lease.identity.clone(),

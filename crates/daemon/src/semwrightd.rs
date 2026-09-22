@@ -15,6 +15,7 @@ use semwright_backends::{
 };
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
 use semwright_daemon::{config, console::Console, server};
+use semwright_federation::ExternalMcpProvider;
 use semwright_plugin_host::Host;
 use semwright_policy::Policy;
 use semwright_protocol::{current_uid, private_directory, runtime_directory};
@@ -187,6 +188,16 @@ async fn run(args: Args) -> Result<()> {
     )?;
     for path in &config.plugins {
         broker.install_manifest(config::manifest(path)?)?;
+    }
+    if args.fake && !config.trusted_mcp_stdio_upstreams.is_empty() {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Fake mode cannot launch trusted MCP upstream processes",
+        ));
+    }
+    for upstream in config.trusted_mcp_stdio_upstreams.clone() {
+        let provider = ExternalMcpProvider::connect_trusted_stdio(upstream).await?;
+        broker.mount_provider(provider).await?;
     }
     let stop = CancellationToken::new();
     let signal = stop.clone();
