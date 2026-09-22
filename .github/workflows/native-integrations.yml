@@ -47,3 +47,75 @@ jobs:
           name: real-chromium-evidence
           path: verification/native-ci
           retention-days: 14
+
+  driver-conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-conformance
+      - name: Install and preflight sandbox dependency
+        run: |
+          if ! command -v bwrap >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          sandbox_setup=kernel-default
+          if [ "$current_apparmor" = "1" ]; then
+            sudo apt-get update
+            sudo apt-get install -y apparmor-profiles apparmor-utils
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
+              sandbox_setup=apparmor-bwrap-profile
+            else
+              # GitHub-hosted runners are ephemeral. This fallback changes only the
+              # disposable CI host; production Semwright never changes this sysctl.
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+              sandbox_setup=ephemeral-ci-userns-relaxation
+            fi
+          fi
+          {
+            bwrap --version
+            echo "sandbox_setup=$sandbox_setup"
+            echo "kernel.unprivileged_userns_clone=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)"
+            echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)"
+          } | tee /tmp/bwrap-version.log
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          for runtime in /usr /lib /lib64; do
+            if [ -e "$runtime" ]; then
+              bwrap_args+=(--ro-bind "$runtime" "$runtime")
+            fi
+          done
+          bwrap_args+=(--dir /etc)
+          if [ -e /etc/ld.so.cache ]; then
+            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          fi
+          bwrap "${bwrap_args[@]}" -- /usr/bin/true
+      - name: Build driver conformance surface
+        run: |
+          cargo build --locked -p semwright-driver-host --bin semwright-driver-fixture \
+            -p semwright-plugin-host --bin semwright-sandbox \
+            -p semwright-cli --bin computerctl \
+            -p semwright-daemon --bin semwrightd
+      - name: Sandboxed persistent driver conformance
+        run: |
+          mkdir -p verification/native-ci
+          BIN_DIR=target/debug scripts/dev/driver-conformance.sh 2>&1 | tee verification/native-ci/driver-conformance.log
+          BIN_DIR=target/debug scripts/dev/driver-broker-smoke.sh 2>&1 | tee verification/native-ci/driver-broker-smoke.log
+          cp /tmp/bwrap-version.log verification/native-ci/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: driver-conformance-evidence
+          path: verification/native-ci
+          retention-days: 14

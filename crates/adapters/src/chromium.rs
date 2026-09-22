@@ -553,6 +553,18 @@ impl Chromium {
             ));
         }
         let (tab, node) = Self::target_parts(target)?;
+        // Navigation invalidates a DOM ref semantically before target metadata necessarily
+        // settles on a parseable URL. Prefer the known generation mismatch over a transient
+        // URL/configuration error so stale identities never degrade into InvalidArgument.
+        if node.is_some()
+            && let Some(session) = instance.sessions.get(&tab)
+            && instance.cdp.generation(session)? != target.revision
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "DOM changed; obtain a fresh semantic reference",
+            ));
+        }
         instance.check_tab(&tab, &self.config).await?;
         let session = instance.session(&tab).await?;
         if let Some(node) = node {

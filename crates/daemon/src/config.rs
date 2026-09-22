@@ -1,5 +1,6 @@
 use semwright_adapters::chromium::BrowserConfig;
 use semwright_backends::system::Application;
+use semwright_driver_sdk::Manifest as DriverManifest;
 use semwright_federation::StdioUpstreamConfig;
 use semwright_plugin_sdk::Manifest;
 use semwright_policy::PolicyConfig;
@@ -28,6 +29,10 @@ pub struct Config {
     #[serde(default)]
     pub plugins: Vec<PathBuf>,
     #[serde(default)]
+    pub drivers: Vec<PathBuf>,
+    #[serde(default)]
+    pub driver_network: bool,
+    #[serde(default)]
     pub plugin_network: bool,
     #[serde(default = "audit_bytes")]
     pub audit_max_bytes: u64,
@@ -49,6 +54,8 @@ impl Default for Config {
             blender_socket: None,
             trusted_mcp_stdio_upstreams: vec![],
             plugins: vec![],
+            drivers: vec![],
+            driver_network: false,
             plugin_network: false,
             audit_max_bytes: audit_bytes(),
             audit_retention: retention(),
@@ -88,6 +95,11 @@ pub fn load(path: Option<&Path>) -> Result<Config> {
             .map_err(|_| Error::invalid("Invalid owner configuration; unknown keys are rejected")),
         None => Ok(Config::default()),
     }
+}
+pub fn driver_manifest(path: &Path) -> Result<DriverManifest> {
+    let manifest: DriverManifest = serde_json::from_str(&owner_text(path, 1_048_576)?)?;
+    manifest.validate()?;
+    Ok(manifest)
 }
 pub fn manifest(path: &Path) -> Result<Manifest> {
     let manifest: Manifest = serde_json::from_str(&owner_text(path, 1_048_576)?)?;
@@ -190,6 +202,27 @@ trust_everything = true
         );
     }
 
+    #[test]
+    fn driver_configuration_is_explicit_and_strict() {
+        let parsed: Config = toml::from_str(
+            r#"
+drivers = ["/tmp/fixture-driver.json"]
+driver_network = false
+"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.drivers.len(), 1);
+        assert!(!parsed.driver_network);
+        assert!(
+            toml::from_str::<Config>(
+                r#"
+drivers = ["/tmp/fixture-driver.json"]
+trust_driver_everything = true
+"#
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn root_scope_must_not_contain_broker_state() {
         let d = tempfile::tempdir().unwrap();

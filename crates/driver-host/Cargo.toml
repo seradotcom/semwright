@@ -1,0 +1,29 @@
+[package]
+name = "semwright-driver-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-protocol.workspace = true
+semwright-policy.workspace = true
+semwright-backend-api.workspace = true
+semwright-driver-sdk = { path = "../driver-sdk", version = "=0.9.0-dev.1" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+async-trait.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "semwright-driver-fixture"
+path = "src/bin/fixture.rs"

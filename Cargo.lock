@@ -2210,8 +2210,11 @@ dependencies = [
  "clap_mangen",
  "libc",
  "proptest",
+ "semwright-driver-host",
+ "semwright-driver-sdk",
  "semwright-federation",
  "semwright-plugin-sdk",
+ "semwright-policy",
  "semwright-protocol",
  "semwright-recipes",
  "semwright-registry",
@@ -2262,6 +2265,8 @@ dependencies = [
  "semwright-backend-api",
  "semwright-backends",
  "semwright-core",
+ "semwright-driver-host",
+ "semwright-driver-sdk",
  "semwright-federation",
  "semwright-plugin-host",
  "semwright-plugin-sdk",
@@ -2278,6 +2283,39 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "zbus",
+]
+
+[[package]]
+name = "semwright-driver-host"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "libc",
+ "semwright-backend-api",
+ "semwright-driver-sdk",
+ "semwright-policy",
+ "semwright-protocol",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "semwright-driver-sdk"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "schemars",
+ "semwright-protocol",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
 ]
 
 [[package]]
