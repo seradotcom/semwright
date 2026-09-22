@@ -217,10 +217,10 @@ def search_operators(args):
     return {"items": items, "truncated": matched > len(items)}
 
 
-def iter_types():
+def iter_types(exact_identifier=None):
     # bpy.types exposes part of its RNA surface lazily, so dir(bpy.types) alone can omit
-    # valid classes such as Mesh on some Blender builds. Combine visible attributes with
-    # the actual bpy_struct subclass graph, then publish a deterministic identifier order.
+    # valid classes such as Mesh on some Blender builds. Resolve an exact identifier first,
+    # then combine visible attributes with the actual bpy_struct subclass graph.
     candidates = {}
 
     def remember(candidate):
@@ -228,6 +228,21 @@ def iter_types():
         identifier = str(getattr(rna, "identifier", "")) if rna is not None else ""
         if identifier:
             candidates.setdefault(identifier, (candidate, rna))
+
+    if (
+        isinstance(exact_identifier, str)
+        and exact_identifier
+        and len(exact_identifier) <= 256
+        and exact_identifier.replace("_", "").isalnum()
+    ):
+        remember(getattr(bpy.types, exact_identifier, None))
+        root_type = getattr(bpy.types, "bpy_struct", None)
+        resolver = getattr(root_type, "bl_rna_get_subclass_py", None)
+        if callable(resolver):
+            try:
+                remember(resolver(exact_identifier, None))
+            except Exception:
+                pass
 
     for attr_name in sorted(name for name in dir(bpy.types) if not name.startswith("_")):
         remember(getattr(bpy.types, attr_name, None))
@@ -251,11 +266,12 @@ def iter_types():
 
 
 def search_types(args):
+    raw_query = args.get("query", "")
     query = query_arg(args)
     limit = limit_arg(args)
     items = []
     matched = 0
-    for _candidate, rna in iter_types():
+    for _candidate, rna in iter_types(raw_query):
         identifier = text(getattr(rna, "identifier", ""), 256)
         name = text(getattr(rna, "name", ""), 512)
         description = text(getattr(rna, "description", ""))
