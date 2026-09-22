@@ -578,7 +578,7 @@ fn render_worker(
                 ));
             }
         }
-        staged.insert(id.clone(), format!("/inputs/{name}"));
+        staged.insert(id.clone(), runtime.input_reference(inputs.path(), &name));
     }
     p.sequences = vec![seq];
     p.assets.retain(|id, _| asset_ids.contains(id));

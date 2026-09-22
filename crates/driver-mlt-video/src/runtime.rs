@@ -1,4 +1,5 @@
-//! Pinned ELF tools and bounded subprocesses. Production tools run through bubblewrap, never a shell.
+//! Pinned ELF tools and bounded subprocesses. Hosted drivers reuse DriverProvider isolation;
+//! standalone execution adds Bubblewrap. No production path invokes a shell.
 use crate::{
     Error, Result,
     fs::PrivateDir,
@@ -398,6 +399,7 @@ pub struct Runtime {
     pub timeout: Duration,
     pub catalog: ServiceCatalog,
     tools: PrivateDir,
+    host_sandboxed: bool,
 }
 impl Runtime {
     pub fn load(v: &Value) -> Result<Self> {
@@ -457,10 +459,46 @@ impl Runtime {
             timeout: Duration::from_secs(timeout),
             catalog: ServiceCatalog::default(),
             tools,
+            host_sandboxed: std::env::var("SEMWRIGHT_DRIVER_SANDBOX").as_deref()
+                == Ok("landlock-bwrap-v1")
+                && Path::new("/plugin/bin").is_file()
+                && Path::new("/plugin/sandbox").is_file(),
         };
         runtime.discover()?;
         Ok(runtime)
     }
+    fn environment() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("LC_ALL".into(), "C".into()),
+            ("HOME".into(), "/home".into()),
+            ("PATH".into(), "/usr/bin:/bin".into()),
+            ("QT_QPA_PLATFORM".into(), "offscreen".into()),
+            ("XDG_CONFIG_HOME".into(), "/tmp/config".into()),
+            ("XDG_CACHE_HOME".into(), "/tmp/cache".into()),
+            ("MLT_NO_VDPAU".into(), "1".into()),
+        ])
+    }
+
+    fn input_path(&self, inputs: &Path, name: &str) -> PathBuf {
+        if self.host_sandboxed {
+            inputs.join(name)
+        } else {
+            PathBuf::from(format!("/inputs/{name}"))
+        }
+    }
+
+    fn work_path(&self, work: &Path, name: &str) -> PathBuf {
+        if self.host_sandboxed {
+            work.join(name)
+        } else {
+            PathBuf::from(format!("/work/{name}"))
+        }
+    }
+
+    pub fn input_reference(&self, inputs: &Path, name: &str) -> String {
+        self.input_path(inputs, name).to_string_lossy().into_owned()
+    }
+
     fn spec(
         &self,
         tool: &str,
@@ -469,6 +507,17 @@ impl Runtime {
         work: &Path,
         timeout: Duration,
     ) -> Result<ProcessSpec> {
+        if self.host_sandboxed {
+            return Ok(ProcessSpec {
+                executable: self.tools.path().join(tool),
+                args,
+                cwd: work.into(),
+                timeout,
+                cpu_seconds: 120,
+                environment: Self::environment(),
+            });
+        }
+
         self.bubblewrap.verify()?;
         let mut argv: Vec<OsString> = [
             "--die-with-parent",
@@ -520,15 +569,7 @@ impl Runtime {
             work.as_os_str().into(),
             "/work".into(),
         ]);
-        for (key, value) in [
-            ("LC_ALL", "C"),
-            ("HOME", "/home"),
-            ("PATH", "/usr/bin:/bin"),
-            ("QT_QPA_PLATFORM", "offscreen"),
-            ("XDG_CONFIG_HOME", "/tmp/config"),
-            ("XDG_CACHE_HOME", "/tmp/cache"),
-            ("MLT_NO_VDPAU", "1"),
-        ] {
+        for (key, value) in Self::environment() {
             argv.extend(["--setenv".into(), key.into(), value.into()]);
         }
         argv.extend([
@@ -635,7 +676,9 @@ impl Runtime {
         ]
         .into_iter()
         .map(OsString::from)
-        .chain(std::iter::once(format!("/inputs/{name}").into()))
+        .chain(std::iter::once(
+            self.input_path(inputs, name).into_os_string(),
+        ))
         .collect();
         let r = run(
             &self.spec("ffprobe", args, inputs, work, Duration::from_secs(5))?,
@@ -652,10 +695,15 @@ impl Runtime {
         cancel: &AtomicBool,
     ) -> Result<ProcessResult> {
         let mut args: Vec<OsString> = vec![
-            "/inputs/project.mlt".into(),
+            self.input_path(inputs, "project.mlt").into_os_string(),
             "-silent".into(),
             "-consumer".into(),
-            format!("avformat:/work/partial.{}", profile.extension).into(),
+            format!(
+                "avformat:{}",
+                self.work_path(work, &format!("partial.{}", profile.extension))
+                    .to_string_lossy()
+            )
+            .into(),
             format!("f={}", profile.container).into(),
             "real_time=-1".into(),
             "threads=2".into(),
