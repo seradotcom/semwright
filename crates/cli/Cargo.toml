@@ -16,6 +16,7 @@ semwright-protocol.workspace = true
 semwright-recipes.workspace = true
 semwright-plugin-sdk.workspace = true
 semwright-registry.workspace = true
+semwright-federation.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 serde.workspace = true

@@ -1,5 +1,6 @@
 use semwright_adapters::chromium::BrowserConfig;
 use semwright_backends::system::Application;
+use semwright_federation::StdioUpstreamConfig;
 use semwright_plugin_sdk::Manifest;
 use semwright_policy::PolicyConfig;
 use semwright_protocol::{current_uid, private_directory};
@@ -21,6 +22,9 @@ pub struct Config {
     #[serde(default)]
     pub browser: BrowserConfig,
     pub blender_socket: Option<PathBuf>,
+    /// Trusted executables explicitly selected by the owner. Tool calls remain policy-gated.
+    #[serde(default)]
+    pub trusted_mcp_stdio_upstreams: Vec<StdioUpstreamConfig>,
     #[serde(default)]
     pub plugins: Vec<PathBuf>,
     #[serde(default)]
@@ -43,6 +47,7 @@ impl Default for Config {
             applications: BTreeMap::new(),
             browser: BrowserConfig::default(),
             blender_socket: None,
+            trusted_mcp_stdio_upstreams: vec![],
             plugins: vec![],
             plugin_network: false,
             audit_max_bytes: audit_bytes(),
@@ -149,6 +154,42 @@ mod tests {
     fn unknown_config_key_rejected() {
         assert!(toml::from_str::<Config>("enable_everything = true").is_err());
     }
+    #[test]
+    fn trusted_mcp_upstream_config_is_explicit_and_strict() {
+        let parsed: Config = toml::from_str(
+            r#"
+[policy]
+profile = "observe"
+allow = ["external-mcp:fixture"]
+
+[[trusted_mcp_stdio_upstreams]]
+slug = "fixture"
+program = "/usr/bin/true"
+sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+args = ["--fixture"]
+expected_name = "fixture-server"
+expected_version = "1.0.0"
+request_timeout_ms = 2500
+"#,
+        )
+        .unwrap();
+        assert_eq!(parsed.trusted_mcp_stdio_upstreams.len(), 1);
+        assert_eq!(parsed.trusted_mcp_stdio_upstreams[0].slug, "fixture");
+        assert!(parsed.policy.allow.contains("external-mcp:fixture"));
+        assert!(
+            toml::from_str::<Config>(
+                r#"
+[[trusted_mcp_stdio_upstreams]]
+slug = "fixture"
+program = "/usr/bin/true"
+sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+trust_everything = true
+"#
+            )
+            .is_err()
+        );
+    }
+
     #[test]
     fn root_scope_must_not_contain_broker_state() {
         let d = tempfile::tempdir().unwrap();

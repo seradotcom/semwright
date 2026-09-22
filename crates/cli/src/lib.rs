@@ -22,6 +22,13 @@ pub struct Cli {
     #[arg(
         long,
         global = true,
+        env = "SEMWRIGHT_MCP_UPSTREAMS",
+        help = "Owner-only MCP upstream registry; definitions never grant policy authority"
+    )]
+    pub mcp_upstreams: Option<PathBuf>,
+    #[arg(
+        long,
+        global = true,
         help = "Emit one machine-readable JSON result; no ANSI"
     )]
     pub json: bool,
@@ -89,6 +96,11 @@ pub enum Command {
     Clipboard {
         #[command(subcommand)]
         command: Clipboard,
+    },
+    /// Owner-facing configuration for federated MCP servers. Not an agent capability.
+    Mcp {
+        #[command(subcommand)]
+        command: Mcp,
     },
     Recipe {
         #[command(subcommand)]
@@ -338,6 +350,51 @@ pub enum Clipboard {
     Write {
         #[command(flatten)]
         text: Text,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum Mcp {
+    Upstream {
+        #[command(subcommand)]
+        command: McpUpstream,
+    },
+}
+#[derive(Subcommand, Debug)]
+pub enum McpUpstream {
+    List,
+    Inspect {
+        slug: String,
+    },
+    Add {
+        slug: String,
+        program: PathBuf,
+        #[arg(long = "arg", value_name = "ARG")]
+        args: Vec<String>,
+        #[arg(long)]
+        sha256: Option<String>,
+        #[arg(long)]
+        expected_name: Option<String>,
+        #[arg(long)]
+        expected_version: Option<String>,
+        #[arg(long, default_value_t = 30_000)]
+        request_timeout_ms: u64,
+        #[arg(long)]
+        disabled: bool,
+        #[arg(long)]
+        replace: bool,
+    },
+    Enable {
+        slug: String,
+    },
+    Disable {
+        slug: String,
+    },
+    Remove {
+        slug: String,
+    },
+    /// Launch the pinned executable, negotiate MCP and list its tools, then shut it down.
+    Doctor {
+        slug: String,
     },
 }
 #[derive(Subcommand, Debug)]
@@ -661,6 +718,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             command: Audit::Tail { limit },
         } => ("audit.tail".into(), json!({"limit":limit})),
         Command::Watch { .. }
+        | Command::Mcp { .. }
         | Command::Config { .. }
         | Command::Completions { .. }
         | Command::Man => return Ok(None),
@@ -729,6 +787,27 @@ mod tests {
             .unwrap()
             .validate_input(&r.command, &r.args)
             .unwrap();
+    }
+    #[test]
+    fn mcp_upstream_management_is_local_not_a_broker_request() {
+        let c = Cli::try_parse_from([
+            "computerctl",
+            "--json",
+            "mcp",
+            "upstream",
+            "inspect",
+            "playwright",
+        ])
+        .unwrap();
+        assert!(request(&c).unwrap().is_none());
+        assert!(matches!(
+            c.command,
+            Command::Mcp {
+                command: Mcp::Upstream {
+                    command: McpUpstream::Inspect { .. }
+                }
+            }
+        ));
     }
     #[test]
     fn no_permission_upgrade_flags() {

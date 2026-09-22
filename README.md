@@ -6,9 +6,11 @@
 > The accepted development baseline has a committed `Cargo.lock`, pins Rust 1.98.1, and
 > passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
 > rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz, and real Rust Chromium
-> integration gates. The Provider Runtime work on this development branch must be
-> re-certified on its exact commit before extending those claims. Live desktop, Blender,
-> plugin-sandbox, packaging and release evidence remain incomplete. Read
+> integration gates. Provider Runtime is implemented and was certified on its merge line.
+> The current development branch adds stdio MCP federation and owner-only upstream lifecycle
+> management; those additions require exact-SHA recertification before they become part of the
+> accepted baseline. Live desktop, Blender, plugin-sandbox, packaging and
+> release evidence remain incomplete. Read
 > [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
 > desktop access.
 
@@ -37,6 +39,9 @@ computerctl --json ui find --app org.gnome.TextEditor --role button --name Save
 computerctl commands describe ui.invoke
 computerctl ui invoke 'ui:<reference returned by this session>' --action click
 computerctl recipe run recipes/fake-export.yaml
+
+# Owner-only MCP definition management; this does NOT grant broker policy authority:
+computerctl mcp upstream list
 ```
 
 References are opaque, session-scoped, short-lived values. Do not paste the illustrative
@@ -125,6 +130,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | Chromium | Isolated-profile Rust CDP adapter | Real Rust hosted integration passes on this development line, including close/stale-ref invalidation and owned-profile cleanup |
 | Scoped filesystem | Rust scoped implementation + native harness | Rust tests plus native openat2 checks in hosted baseline |
 | Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
+| MCP federation | Governed stdio provider + owner-only upstream registry | Real fixture handshake/tool import, policy denial/approval, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
 [acceptance resolution](ACCEPTANCE.md), [verification](VERIFY.md).
@@ -148,6 +154,14 @@ local MCP client configuration after installing:
 
 Start the broker separately in the same user session. The configuration above does not
 start it, authorize mutations, or approve portal dialogs. See [MCP](docs/mcp.md).
+
+Semwright also has an in-development [MCP federation](docs/mcp-federation.md) provider.
+Owner-configured stdio servers are imported into the same capability registry and remain
+subject to normal broker policy, operator approval, provenance and audit. Operators manage
+definitions locally with `computerctl mcp upstream ...`; those local commands never add a
+policy grant, so registering a server is distinct from authorizing its tools. The initial
+launcher is digest-pinned and environment-scrubbed but is **not** a sandbox against a
+malicious same-UID executable.
 
 ## Install, extend, inspect
 

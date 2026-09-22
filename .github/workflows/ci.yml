@@ -66,3 +66,8 @@ jobs:
       - run: scripts/dev/fake-smoke.sh
         env:
           BIN_DIR: target/release
+      - name: Federated MCP daemon smoke
+        if: matrix.runner == 'ubuntu-24.04'
+        run: scripts/dev/federation-smoke.sh
+        env:
+          BIN_DIR: target/release
