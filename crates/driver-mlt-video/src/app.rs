@@ -90,7 +90,13 @@ impl App {
                     Some(r)
                 }
                 Err(e) => {
-                    reason = format!("Runtime unavailable: {}", e.code);
+                    let detail: String = e
+                        .message
+                        .chars()
+                        .filter(|ch| !ch.is_control())
+                        .take(512)
+                        .collect();
+                    reason = format!("Runtime unavailable: {}: {detail}", e.code);
                     None
                 }
             }
