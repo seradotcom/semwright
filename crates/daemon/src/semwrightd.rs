@@ -15,12 +15,14 @@ use semwright_backends::{
 };
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
 use semwright_daemon::{config, console::Console, server};
-use semwright_federation::ExternalMcpProvider;
+use semwright_federation::{
+    ExternalMcpProvider, default_upstream_registry_path, load_upstream_registry,
+};
 use semwright_plugin_host::Host;
 use semwright_policy::Policy;
 use semwright_protocol::{current_uid, private_directory, runtime_directory};
 use semwright_types::*;
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
 use tokio_util::sync::CancellationToken;
 #[derive(Parser)]
 #[command(
@@ -32,6 +34,9 @@ struct Args {
     config: Option<PathBuf>,
     #[arg(long)]
     socket: Option<PathBuf>,
+    /// Owner-managed MCP definitions. Definitions never grant policy authority.
+    #[arg(long, env = "SEMWRIGHT_MCP_UPSTREAMS")]
+    mcp_upstreams: Option<PathBuf>,
     /// Instantiate only deterministic fixtures. Never routes to the live desktop.
     #[arg(long)]
     fake: bool,
@@ -86,6 +91,37 @@ async fn run(args: Args) -> Result<()> {
         })
     });
     let config = config::load(args.config.as_deref())?;
+    let upstream_registry_path = if args.fake && args.mcp_upstreams.is_none() {
+        None
+    } else {
+        Some(
+            args.mcp_upstreams
+                .clone()
+                .map(Ok)
+                .unwrap_or_else(default_upstream_registry_path)?,
+        )
+    };
+    let registry = match &upstream_registry_path {
+        Some(path) => load_upstream_registry(path)?,
+        None => Default::default(),
+    };
+    let mut upstreams = config
+        .trusted_mcp_stdio_upstreams
+        .iter()
+        .filter(|entry| entry.enabled)
+        .cloned()
+        .collect::<Vec<_>>();
+    upstreams.extend(registry.upstreams.into_iter().filter(|entry| entry.enabled));
+    let mut upstream_slugs = BTreeSet::new();
+    if upstreams
+        .iter()
+        .any(|entry| !upstream_slugs.insert(entry.slug.clone()))
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "MCP upstream slug is defined more than once across owner configuration",
+        ));
+    }
     if args.fake
         && current_uid() == 0
         && (!config.policy.filesystem.is_empty() || !config.plugins.is_empty())
@@ -98,6 +134,11 @@ async fn run(args: Args) -> Result<()> {
     let state = config::state_directory(args.fake, &runtime)?;
     let mut protected = vec![runtime.clone(), state.clone()];
     if let Some(path) = &args.config {
+        protected.push(path.clone());
+    }
+    if let Some(path) = &upstream_registry_path
+        && path.exists()
+    {
         protected.push(path.clone());
     }
     if let Some(parent) = socket.parent() {
@@ -189,13 +230,13 @@ async fn run(args: Args) -> Result<()> {
     for path in &config.plugins {
         broker.install_manifest(config::manifest(path)?)?;
     }
-    if args.fake && !config.trusted_mcp_stdio_upstreams.is_empty() {
+    if args.fake && !upstreams.is_empty() {
         return Err(Error::new(
             ErrorCode::PolicyDenied,
             "Fake mode cannot launch trusted MCP upstream processes",
         ));
     }
-    for upstream in config.trusted_mcp_stdio_upstreams.clone() {
+    for upstream in upstreams {
         let provider = ExternalMcpProvider::connect_trusted_stdio(upstream).await?;
         broker.mount_provider(provider).await?;
     }

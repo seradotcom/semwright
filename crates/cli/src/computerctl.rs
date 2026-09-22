@@ -1,9 +1,150 @@
 use clap::{CommandFactory, Parser};
 use semwright_cli::*;
+use semwright_federation::{
+    StdioUpstreamConfig, default_upstream_registry_path, doctor_stdio, load_upstream_registry,
+    new_upstream, save_upstream_registry,
+};
 use semwright_protocol::{self as ipc, ClientMessage, ServerMessage};
 use semwright_types::*;
 use serde_json::json;
 use std::{path::PathBuf, time::Duration};
+
+fn upstream_registry_path(cli: &Cli) -> Result<PathBuf> {
+    cli.mcp_upstreams
+        .clone()
+        .map(Ok)
+        .unwrap_or_else(default_upstream_registry_path)
+}
+fn upstream_view(upstream: &StdioUpstreamConfig) -> serde_json::Value {
+    json!({
+        "slug":upstream.slug,
+        "enabled":upstream.enabled,
+        "program":upstream.program,
+        "sha256":upstream.sha256,
+        "arg_count":upstream.args.len(),
+        "expected_name":upstream.expected_name,
+        "expected_version":upstream.expected_version,
+        "request_timeout_ms":upstream.request_timeout_ms,
+        "required_policy_scope":format!("external-mcp:{}",upstream.slug),
+    })
+}
+async fn manage_upstream(cli: &Cli, command: &McpUpstream) -> Result<()> {
+    let path = upstream_registry_path(cli)?;
+    let mut registry = load_upstream_registry(&path)?;
+    let result = match command {
+        McpUpstream::List => json!({
+            "registry":path,
+            "upstreams":registry.upstreams.iter().map(upstream_view).collect::<Vec<_>>(),
+            "policy_grants_changed":false
+        }),
+        McpUpstream::Inspect { slug } => {
+            let upstream = registry
+                .find(slug)
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "MCP upstream not found"))?;
+            json!({"registry":path,"upstream":upstream_view(upstream),"policy_grants_changed":false})
+        }
+        McpUpstream::Add {
+            slug,
+            program,
+            args,
+            sha256,
+            expected_name,
+            expected_version,
+            request_timeout_ms,
+            disabled,
+            replace,
+        } => {
+            let program = std::fs::canonicalize(program)?;
+            let upstream = new_upstream(
+                slug.clone(),
+                program,
+                sha256.clone(),
+                args.clone(),
+                expected_name.clone(),
+                expected_version.clone(),
+                *request_timeout_ms,
+                !*disabled,
+            )?;
+            let view = upstream_view(&upstream);
+            registry.add(upstream, *replace)?;
+            if !cli.dry_run {
+                save_upstream_registry(&path, &registry)?;
+            }
+            json!({
+                "registry":path,
+                "upstream":view,
+                "saved":!cli.dry_run,
+                "dry_run":cli.dry_run,
+                "policy_grants_changed":false,
+                "restart_required":!cli.dry_run
+            })
+        }
+        McpUpstream::Enable { slug } => {
+            registry.set_enabled(slug, true)?;
+            if !cli.dry_run {
+                save_upstream_registry(&path, &registry)?;
+            }
+            json!({
+                "registry":path,"slug":slug,"enabled":true,"policy_grants_changed":false,
+                "dry_run":cli.dry_run,"saved":!cli.dry_run,"restart_required":!cli.dry_run
+            })
+        }
+        McpUpstream::Disable { slug } => {
+            registry.set_enabled(slug, false)?;
+            if !cli.dry_run {
+                save_upstream_registry(&path, &registry)?;
+            }
+            json!({
+                "registry":path,"slug":slug,"enabled":false,"policy_grants_changed":false,
+                "dry_run":cli.dry_run,"saved":!cli.dry_run,"restart_required":!cli.dry_run
+            })
+        }
+        McpUpstream::Remove { slug } => {
+            registry.remove(slug)?;
+            if !cli.dry_run {
+                save_upstream_registry(&path, &registry)?;
+            }
+            json!({
+                "registry":path,"slug":slug,"removed":true,"policy_grants_changed":false,
+                "dry_run":cli.dry_run,"saved":!cli.dry_run,"restart_required":!cli.dry_run
+            })
+        }
+        McpUpstream::Doctor { slug } => {
+            let upstream = registry
+                .find(slug)
+                .cloned()
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "MCP upstream not found"))?;
+            if cli.dry_run {
+                upstream.validate()?;
+                json!({
+                    "registry":path,
+                    "slug":slug,
+                    "dry_run":true,
+                    "executable_valid":true,
+                    "launched":false,
+                    "required_policy_scope":format!("external-mcp:{slug}"),
+                    "policy_grants_changed":false
+                })
+            } else {
+                let doctor = doctor_stdio(upstream).await?;
+                json!({
+                    "registry":path,
+                    "slug":slug,
+                    "healthy":true,
+                    "provider":doctor.provider,
+                    "namespace":doctor.namespace,
+                    "server_version":doctor.server_version,
+                    "capabilities":doctor.capabilities,
+                    "dry_run":false,
+                    "launched":true,
+                    "policy_grants_changed":false
+                })
+            }
+        }
+    };
+    print_result(&result, cli.json)
+}
+
 async fn local(cli: &Cli) -> Result<bool> {
     match &cli.command {
         Command::Completions { shell } => {
@@ -16,6 +157,11 @@ async fn local(cli: &Cli) -> Result<bool> {
         }
         Command::Man => {
             clap_mangen::Man::new(Cli::command()).render(&mut std::io::stdout())?;
+        }
+        Command::Mcp {
+            command: Mcp::Upstream { command },
+        } => {
+            manage_upstream(cli, command).await?;
         }
         Command::Config { .. } => {
             let runtime = ipc::runtime_directory()?;

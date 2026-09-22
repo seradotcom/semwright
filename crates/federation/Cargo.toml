@@ -12,6 +12,8 @@ workspace = true
 
 [dependencies]
 semwright-types.workspace = true
+toml.workspace = true
+semwright-protocol.workspace = true
 semwright-backend-api.workspace = true
 semwright-registry.workspace = true
 async-trait.workspace = true

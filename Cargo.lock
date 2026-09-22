@@ -2210,6 +2210,7 @@ dependencies = [
  "clap_mangen",
  "libc",
  "proptest",
+ "semwright-federation",
  "semwright-plugin-sdk",
  "semwright-protocol",
  "semwright-recipes",
@@ -2299,6 +2300,7 @@ dependencies = [
  "semwright-backend-api",
  "semwright-core",
  "semwright-policy",
+ "semwright-protocol",
  "semwright-registry",
  "semwright-types",
  "serde",
@@ -2307,6 +2309,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
+ "toml",
 ]
 
 [[package]]

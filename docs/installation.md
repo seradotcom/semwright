@@ -41,6 +41,12 @@ Use `config/observe.toml` as the initial daemon config, copied to
 replace an existing file without reviewing it. Start a foreground daemon to inspect
 startup failures and `doctor`; start with observe-only capabilities.
 
+Optional federated MCP server definitions live separately at
+`$HOME/.config/semwright/mcp-upstreams.toml` (or the XDG equivalent) and are managed by
+`computerctl mcp upstream ...`. Adding or enabling a definition never edits daemon policy;
+an `external-mcp:<slug>` grant must be reviewed separately. Registry changes currently take
+effect after restarting the broker. See [MCP federation](mcp-federation.md).
+
 ## Optional systemd user service
 
 Only after the foreground path succeeds:
@@ -67,9 +73,11 @@ and optional `.deb` via dpkg-deb. Release admission is deliberately blocked by
 The Debian path has no auto-enable maintainer scripts. Its runtime dependencies/ABI must
 be validated on intended distro versions before distribution. RPM is not provided.
 
-`packaging/nix/package.nix` is a guarded buildRustPackage expression. It requires the
-missing reviewed Cargo.lock and has not been evaluated; no flake.lock or Nix build is
-claimed. Release workflows select native x86_64/ARM runners, but were not run. Publication,
+`packaging/nix/package.nix` is a guarded buildRustPackage expression. The repository now
+has a reviewed development `Cargo.lock`, but the Nix expression itself has not been evaluated;
+no `flake.lock` or Nix build is claimed. Release workflows select native x86_64/ARM runners;
+their source/build gates have run, while package installation remains a separate blocker.
+Publication,
 cryptographic provenance, SBOMs and immutable Actions pinning remain release work.
 
 For future downloaded artifacts, verify the checksum file against an independently

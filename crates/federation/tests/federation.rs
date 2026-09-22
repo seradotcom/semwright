@@ -34,6 +34,7 @@ fn fixture_config(slug: &str) -> StdioUpstreamConfig {
         expected_name: Some("semwright-fixture-upstream".into()),
         expected_version: Some("1.0.0".into()),
         request_timeout_ms: 5_000,
+        enabled: true,
     }
 }
 
@@ -291,6 +292,7 @@ fn stdio_config_rejects_symlink_and_untrusted_identity() {
         expected_name: None,
         expected_version: None,
         request_timeout_ms: 1000,
+        enabled: true,
     };
     assert!(config.validate().is_err());
 }

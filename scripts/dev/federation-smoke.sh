@@ -47,23 +47,64 @@ cat >"$root/daemon.toml" <<EOF
 [policy]
 profile = "observe"
 allow = ["external-mcp:fixture"]
-
-[[trusted_mcp_stdio_upstreams]]
-slug = "fixture"
-program = "$fixture"
-sha256 = "$sha"
-expected_name = "semwright-fixture-upstream"
-expected_version = "1.0.0"
-request_timeout_ms = 5000
 EOF
 chmod 600 "$root/daemon.toml"
 
 export XDG_RUNTIME_DIR="$root/runtime"
 export XDG_STATE_HOME="$root/state"
+registry="$root/mcp-upstreams.toml"
 socket="$root/runtime/semwright.sock"
 session="$root/session.json"
 
-"$daemon" --config "$root/daemon.toml" --socket "$socket" --log-format json \
+"$client" --json --dry-run --mcp-upstreams "$registry" mcp upstream add fixture "$fixture" \
+  --expected-name semwright-fixture-upstream --expected-version 1.0.0 \
+  --request-timeout-ms 5000 >"$root/upstream-add-dry.json"
+test ! -e "$registry" || {
+  echo "dry-run unexpectedly created the owner registry" >&2
+  exit 1
+}
+
+"$client" --json --mcp-upstreams "$registry" mcp upstream add fixture "$fixture" \
+  --expected-name semwright-fixture-upstream --expected-version 1.0.0 \
+  --request-timeout-ms 5000 >"$root/upstream-add.json"
+"$client" --json --mcp-upstreams "$registry" mcp upstream list >"$root/upstream-list.json"
+"$client" --json --mcp-upstreams "$registry" mcp upstream inspect fixture >"$root/upstream-inspect.json"
+"$client" --json --mcp-upstreams "$registry" mcp upstream disable fixture >"$root/upstream-disable.json"
+"$client" --json --mcp-upstreams "$registry" mcp upstream enable fixture >"$root/upstream-enable.json"
+"$client" --json --dry-run --mcp-upstreams "$registry" mcp upstream doctor fixture >"$root/upstream-doctor-dry.json"
+"$client" --json --mcp-upstreams "$registry" mcp upstream doctor fixture >"$root/upstream-doctor.json"
+
+python3 - "$root/upstream-add-dry.json" "$root/upstream-add.json" "$root/upstream-list.json" "$root/upstream-inspect.json" \
+  "$root/upstream-disable.json" "$root/upstream-enable.json" "$root/upstream-doctor-dry.json" \
+  "$root/upstream-doctor.json" "$sha" <<'PY'
+import json
+import sys
+
+dry_add, add, listing, inspect, disable, enable, dry_doctor, doctor = [
+    json.load(open(path, encoding="utf-8")) for path in sys.argv[1:9]
+]
+sha = sys.argv[9]
+assert dry_add["dry_run"] is True and dry_add["saved"] is False
+assert dry_add["policy_grants_changed"] is False
+assert add["saved"] is True and add["policy_grants_changed"] is False
+assert add["upstream"]["sha256"] == sha
+assert listing["policy_grants_changed"] is False
+assert [row["slug"] for row in listing["upstreams"]] == ["fixture"]
+assert inspect["upstream"]["required_policy_scope"] == "external-mcp:fixture"
+assert disable["enabled"] is False and disable["restart_required"] is True
+assert enable["enabled"] is True and enable["restart_required"] is True
+assert dry_doctor["dry_run"] is True and dry_doctor["launched"] is False
+assert dry_doctor["executable_valid"] is True
+assert doctor["healthy"] is True and doctor["launched"] is True
+assert doctor["provider"] == "external-mcp:fixture"
+assert doctor["capabilities"] == 7
+print("federation owner management smoke: PASS")
+PY
+
+# Definition management and policy authority stay separate.
+! grep -q "policy" "$registry"
+
+"$daemon" --config "$root/daemon.toml" --mcp-upstreams "$registry" --socket "$socket" --log-format json \
   >"$root/daemon.log" 2>&1 &
 daemon_pid=$!
 
@@ -140,3 +181,16 @@ kill -0 "$child_pid" 2>/dev/null && {
   exit 1
 }
 child_pid=""
+
+
+"$client" --json --mcp-upstreams "$registry" mcp upstream remove fixture >"$root/upstream-remove.json"
+"$client" --json --mcp-upstreams "$registry" mcp upstream list >"$root/upstream-empty.json"
+python3 - "$root/upstream-remove.json" "$root/upstream-empty.json" <<'PY'
+import json
+import sys
+removed = json.load(open(sys.argv[1], encoding="utf-8"))
+empty = json.load(open(sys.argv[2], encoding="utf-8"))
+assert removed["removed"] is True and removed["policy_grants_changed"] is False
+assert empty["upstreams"] == []
+print("federation owner removal smoke: PASS")
+PY

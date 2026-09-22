@@ -1,4 +1,5 @@
 //! MCP federation as a Semwright Provider. Upstream metadata is untrusted data.
+pub mod upstreams;
 use async_trait::async_trait;
 use rmcp::{
     ClientHandler, RoleClient, ServiceExt,
@@ -20,7 +21,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::Read,
-    os::unix::fs::PermissionsExt,
+    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::PathBuf,
     process::Stdio,
     sync::{Arc, Mutex},
@@ -31,9 +32,16 @@ use tokio::{
     sync::{RwLock, broadcast},
 };
 use tokio_util::sync::CancellationToken;
+pub use upstreams::{
+    UpstreamRegistry, default_upstream_registry_path, load_upstream_registry, new_upstream,
+    save_upstream_registry,
+};
 
 fn default_timeout() -> u64 {
     30_000
+}
+fn default_enabled() -> bool {
+    true
 }
 
 /// Owner-controlled configuration for a trusted local stdio MCP executable.
@@ -53,52 +61,21 @@ pub struct StdioUpstreamConfig {
     pub expected_version: Option<String>,
     #[serde(default = "default_timeout")]
     pub request_timeout_ms: u64,
+    /// Definition state only. Enabling never grants the corresponding policy scope.
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
 }
 
 impl StdioUpstreamConfig {
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate_definition(&self) -> Result<()> {
         ProviderIdentity::external(SourceKind::ExternalMcp, &self.slug, "validation")?;
         if !self.program.is_absolute()
-            || std::fs::canonicalize(&self.program).ok().as_ref() != Some(&self.program)
-        {
-            return Err(Error::invalid(
-                "Federated stdio executable must be an absolute canonical path",
-            ));
-        }
-        let meta = std::fs::symlink_metadata(&self.program)?;
-        if !meta.is_file() || meta.permissions().mode() & 0o022 != 0 || meta.len() > 536_870_912 {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Federated stdio executable must be a bounded regular file not writable by group or others",
-            ));
-        }
-        if self.sha256.len() != 64
+            || self.sha256.len() != 64
             || !self
                 .sha256
                 .bytes()
                 .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        {
-            return Err(Error::invalid(
-                "Federated executable SHA-256 must be lowercase hex",
-            ));
-        }
-        let mut file = std::fs::File::open(&self.program)?;
-        let mut digest = Sha256::new();
-        let mut buffer = [0u8; 64 * 1024];
-        loop {
-            let read = file.read(&mut buffer)?;
-            if read == 0 {
-                break;
-            }
-            digest.update(&buffer[..read]);
-        }
-        if format!("{:x}", digest.finalize()) != self.sha256 {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Federated executable digest does not match owner configuration",
-            ));
-        }
-        if self.args.len() > 64
+            || self.args.len() > 64
             || self
                 .args
                 .iter()
@@ -119,6 +96,59 @@ impl StdioUpstreamConfig {
         }
         Ok(())
     }
+    pub fn validate(&self) -> Result<()> {
+        self.validate_definition()?;
+        if std::fs::canonicalize(&self.program).ok().as_ref() != Some(&self.program) {
+            return Err(Error::invalid(
+                "Federated stdio executable must be an absolute canonical path",
+            ));
+        }
+        let digest = executable_sha256(&self.program)?;
+        if digest != self.sha256 {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Federated executable digest does not match owner configuration",
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
+    if !program.is_absolute() || std::fs::canonicalize(program).ok().as_deref() != Some(program) {
+        return Err(Error::invalid(
+            "Federated stdio executable must be an absolute canonical path",
+        ));
+    }
+    let before = std::fs::symlink_metadata(program)?;
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(program)?;
+    let meta = file.metadata()?;
+    let uid = meta.uid();
+    if !meta.is_file()
+        || meta.permissions().mode() & 0o022 != 0
+        || meta.len() > 536_870_912
+        || (uid != 0 && uid != semwright_protocol::current_uid())
+        || meta.dev() != before.dev()
+        || meta.ino() != before.ino()
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Federated stdio executable must be stable, root/owner-owned, bounded and not writable by group or others",
+        ));
+    }
+    let mut digest = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        digest.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", digest.finalize()))
 }
 
 #[derive(Clone)]
@@ -346,6 +376,34 @@ impl ExternalMcpProvider {
 
     fn transport_error(message: &'static str) -> Error {
         Error::new(ErrorCode::BackendFailed, message).uncertain()
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UpstreamDoctor {
+    pub provider: String,
+    pub namespace: String,
+    pub server_version: String,
+    pub capabilities: usize,
+}
+
+pub async fn doctor_stdio(config: StdioUpstreamConfig) -> Result<UpstreamDoctor> {
+    let provider = ExternalMcpProvider::connect_trusted_stdio(config).await?;
+    let result = async {
+        let capabilities = Provider::capabilities(provider.as_ref()).await?;
+        Ok(UpstreamDoctor {
+            provider: provider.identity.id.clone(),
+            namespace: provider.identity.namespace.clone(),
+            server_version: provider.identity.version.clone(),
+            capabilities: capabilities.len(),
+        })
+    }
+    .await;
+    let shutdown = Provider::shutdown(provider.as_ref()).await;
+    match (result, shutdown) {
+        (Ok(result), Ok(())) => Ok(result),
+        (Err(error), _) => Err(error),
+        (Ok(_), Err(error)) => Err(error),
     }
 }
 

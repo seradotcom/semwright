@@ -4,7 +4,9 @@ Semwright can consume an external MCP server as a dynamic Provider while remaini
 authorization and audit boundary presented to the agent.
 
 The initial implementation deliberately supports **owner-configured local stdio upstreams**.
-It does not expose an agent-callable "install an MCP server" operation.
+Upstream definitions can be managed with local `computerctl mcp upstream ...` commands, but
+those commands are intentionally not broker/MCP capabilities and never grant authorization.
+There is no agent-callable "install or trust an MCP server" operation.
 
 ## Execution path
 
@@ -33,6 +35,51 @@ Execution requires both:
 This is intentionally restrictive until Semwright has an owner-reviewed per-tool policy
 override format.
 
+
+## Owner-managed upstream registry
+
+The preferred operator workflow stores upstream **definitions** in a separate owner-only file:
+
+```text
+$XDG_CONFIG_HOME/semwright/mcp-upstreams.toml
+```
+
+or `$HOME/.config/semwright/mcp-upstreams.toml` when `XDG_CONFIG_HOME` is unset. The parent
+directory must be owner-controlled mode `0700`; an existing registry must be a regular,
+single-link owner file with mode `0600`. Writes use a create-new temporary file, `fsync`,
+atomic rename and parent-directory sync. Symlinks, duplicate slugs, unknown TOML fields and
+oversized registries are rejected.
+
+The registry contains **definitions only**. It cannot change `policy.allow`. For example,
+adding `playwright` does not grant `external-mcp:playwright`; that scope must still be reviewed
+and granted separately in daemon policy.
+
+Typical lifecycle:
+
+```sh
+computerctl mcp upstream add playwright /absolute/canonical/path/to/server \
+  --arg=--stdio \
+  --expected-name playwright \
+  --expected-version 1.0.0
+
+computerctl mcp upstream list
+computerctl mcp upstream inspect playwright
+computerctl mcp upstream doctor playwright
+computerctl mcp upstream disable playwright
+computerctl mcp upstream enable playwright
+computerctl mcp upstream remove playwright
+```
+
+`add` computes the executable SHA-256 from the opened file unless `--sha256` is supplied.
+`doctor` launches that exact pinned executable, negotiates MCP, obtains the tool catalog and
+then shuts it down. `enable` revalidates the executable and digest; disabling/removing a stale
+definition remains possible so an operator cannot be locked out by a changed binary.
+
+Registry changes currently require a broker restart. The daemon can also be pointed at a
+specific file with `--mcp-upstreams` or `SEMWRIGHT_MCP_UPSTREAMS`. The older inline
+`[[trusted_mcp_stdio_upstreams]]` daemon configuration remains accepted for compatibility;
+duplicate slugs across the two owner-controlled sources are rejected.
+
 ## Trusted stdio configuration
 
 The daemon accepts an explicitly named configuration field:
@@ -58,7 +105,9 @@ Generate the digest from the exact executable you intend to trust:
 sha256sum /absolute/canonical/path/to/mcp-server
 ```
 
-The daemon configuration itself must remain owner-controlled and mode `0600`.
+The daemon configuration itself must remain owner-controlled and mode `0600`. Inline
+definitions do not receive precedence over the owner registry: duplicate slugs are rejected
+rather than silently shadowed.
 
 At startup Semwright verifies that the executable:
 
@@ -124,7 +173,7 @@ bounded generic backend failure and retains provenance/audit metadata.
 The first federation pass intentionally does not claim:
 
 - remote MCP transports;
-- an agent-callable upstream installer;
+- an agent-callable upstream installer or policy-grant operation;
 - sandboxing of arbitrary stdio upstream executables;
 - MCP input-required rounds;
 - MCP task-result bridging into Semwright jobs;
