@@ -179,6 +179,7 @@ async fn live_atspi_qt_delta_resync_and_stale_refs() {
     let child = tokio::process::Command::new("/usr/bin/python3")
         .arg(fixture)
         .env("QT_ACCESSIBILITY", "1")
+        .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
         .env("QT_QPA_PLATFORM", "xcb")
         .spawn()
         .expect("PyQt5 fixture must start");
