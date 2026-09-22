@@ -196,6 +196,13 @@ fn sandbox_command(
     if Path::new("/etc/ld.so.cache").exists() {
         process.args(["--ro-bind", "/etc/ld.so.cache", "/etc/ld.so.cache"]);
     }
+    // Debian/Ubuntu and other distributions may route shared-library ABI names
+    // through update-alternatives (for example libblas.so.3). /usr is already
+    // read-only inside the sandbox, but those symlinks resolve via /etc.
+    // Expose only the alternatives directory, read-only; arbitrary /etc remains hidden.
+    if Path::new("/etc/alternatives").is_dir() {
+        process.args(["--ro-bind", "/etc/alternatives", "/etc/alternatives"]);
+    }
     for mount in &manifest.system_config {
         let grant = roots
             .iter()
@@ -764,6 +771,36 @@ mod tests {
             write: false,
         };
         validate_owner_permissions(&candidate, &[readable], false).unwrap();
+    }
+
+    #[test]
+    fn sandbox_includes_read_only_system_alternatives_when_available() {
+        if !Path::new("/etc/alternatives").is_dir() || !Path::new("/usr/bin/bwrap").is_file() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let staged = dir.path().join("driver");
+        let helper = dir.path().join("sandbox");
+        std::fs::write(&staged, b"driver").unwrap();
+        std::fs::write(&helper, b"helper").unwrap();
+
+        let command = sandbox_command(&manifest(), &staged, &helper, &[]).unwrap();
+        let args: Vec<_> = command
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            args.windows(3).any(|window| {
+                window
+                    == [
+                        "--ro-bind".to_owned(),
+                        "/etc/alternatives".to_owned(),
+                        "/etc/alternatives".to_owned(),
+                    ]
+            }),
+            "sandbox must preserve read-only update-alternatives symlink resolution"
+        );
     }
 
     #[test]
