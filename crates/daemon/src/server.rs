@@ -336,7 +336,7 @@ async fn connection(
                 }
                 // Subscribe before replay so events produced during replay are not lost; dedupe by sequence.
                 let mut receiver = broker.subscribe();
-                let replay = match broker.replay(after) {
+                let replay = match broker.replay_for(&session, after) {
                     Ok(replay) => replay,
                     Err(error) => {
                         if tx.send(ServerMessage::Error { error }).await.is_err() {
@@ -347,6 +347,7 @@ async fn connection(
                 };
                 let tx = tx.clone();
                 let cancel = local_stop.clone();
+                let event_session = session.clone();
                 subscription = Some(tokio::spawn(async move {
                     let mut last = after;
                     for event in replay {
@@ -365,7 +366,13 @@ async fn connection(
                     loop {
                         let result = tokio::select! {_ = cancel.cancelled()=>return,result=receiver.recv()=>result};
                         match result {
-                            Ok(event) if event.sequence > last => {
+                            Ok(event)
+                                if event.sequence > last
+                                    && event
+                                        .audience
+                                        .as_deref()
+                                        .is_none_or(|audience| audience == event_session) =>
+                            {
                                 last = event.sequence;
                                 if tx
                                     .send(ServerMessage::Event {

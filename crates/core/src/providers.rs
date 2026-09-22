@@ -290,8 +290,13 @@ impl Broker {
         Ok(revision)
     }
     fn provider_lifecycle(&self, kind: &str, lease: &ProviderLease, revision: u64) {
-        self.event(json!({"kind":kind,"source":"semwright-core","provider":lease.identity.id,
-            "generation":lease.generation,"revision":revision,"timestamp_ms":provider_time(),"untrusted_payload":false}));
+        self.event(
+            EventEnvelope::new(kind, "semwright-core", event_time()).with_provider(
+                lease.identity.id.clone(),
+                Some(lease.generation),
+                Some(revision),
+            ),
+        );
     }
     pub fn invalidate_provider(&self, id: &str) -> Result<u64> {
         let lease = self
@@ -542,15 +547,11 @@ impl Broker {
             .ok_or_else(|| {
                 Error::new(ErrorCode::Conflict, "Event belongs to an inactive provider")
             })?;
-        self.event(json!({"kind":kind,"source":id,"provider":id,"timestamp_ms":provider_time(),
-            "generation":current.generation,"revision":catalog.revision(),"untrusted_payload":true,"payload":payload}));
+        self.event(
+            EventEnvelope::new(kind, id, event_time())
+                .with_provider(id, Some(current.generation), Some(catalog.revision()))
+                .with_untrusted_payload(payload),
+        );
         Ok(())
     }
-}
-fn provider_time() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .min(u64::MAX as u128) as u64
 }

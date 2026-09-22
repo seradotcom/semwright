@@ -273,6 +273,22 @@ MCP Federation expansion subtotal: **9 PASS, 1 FAIL**.
 
 App Driver SDK expansion subtotal: **8 PASS, 4 FAIL**.
 
+## Events and Jobs expansion acceptance
+
+| ID | Expansion requirement | Status | Evidence / limitation |
+|---|---|---|---|
+| J001 | Events preserve broker-bound source/provider provenance and reject reserved-field smuggling. | PASS | Typed event-envelope tests cover provenance serialization, reserved fields and untrusted payload labelling. |
+| J002 | Replay and live event delivery respect broker-session audience. | PASS | Broker/daemon integration filters private lifecycle events to the owning session. |
+| J003 | Jobs are bounded and session-scoped rather than an unbounded global task store. | PASS | JobStore limits broker/session/active counts and retained result size; cross-session reads fail. |
+| J004 | A nested job request re-enters normal schema, policy, confirmation, provenance and audit enforcement. | PASS | Read-only completion and observe-to-mutation denial integration tests. |
+| J005 | Cancellation is idempotent and can reach a blocked dynamic provider without waiting behind its execution gate. | PASS | Core and Provider Runtime cancellation regressions. |
+| J006 | Session revocation cancels and forgets only that session's active jobs. | PASS | Revocation regression covers ownership and cleanup. |
+| J007 | Job lifecycle events are source-tagged and private to the owning session. | PASS | Queued/started/cancel-requested/terminal event integration plus audience filtering. |
+| J008 | Providers expose a general, measured progress and artifact contract for long operations. | FAIL | Core lifecycle exists, but progress/artifact semantics are not yet a provider-wide contract. |
+| J009 | MCP Tasks and driver protocol job/event interfaces are negotiated and conformant. | FAIL | Mapping/negotiation remains follow-on work; protocol v1 does not imply these interfaces. |
+
+Events and Jobs expansion subtotal: **7 PASS, 2 FAIL**.
+
 The original 123-entry totals above are intentionally unchanged by these expansion tables.
-Events/jobs breadth, real Blender introspection, additional application drivers and the remaining
-universal Linux/runtime blockers stay tracked in RELEASE_BLOCKERS.md.
+Real Blender introspection, additional application drivers, richer long-operation contracts and the
+remaining universal Linux/runtime blockers stay tracked in RELEASE_BLOCKERS.md.

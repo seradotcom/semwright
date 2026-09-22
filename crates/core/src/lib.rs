@@ -1,6 +1,7 @@
 //! The single authorization and execution authority used by every frontend.
 pub mod audit;
 mod catalog;
+mod jobs;
 mod providers;
 use async_trait::async_trait;
 use providers::{Invocation, ProviderCatalog, ProviderLease};
@@ -46,7 +47,9 @@ impl Approver for NoApprover {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Event {
     pub sequence: u64,
-    pub event: Value,
+    pub event: EventEnvelope,
+    /// Internal delivery scope. Never serialized into the event payload.
+    pub audience: Option<String>,
 }
 struct Events {
     sequence: u64,
@@ -63,6 +66,8 @@ pub struct Broker {
     features: RwLock<Option<(u64, Instant, Vec<Feature>)>>,
     runtime_stop: CancellationToken,
     provider_tasks: tokio_util::task::TaskTracker,
+    job_tasks: tokio_util::task::TaskTracker,
+    jobs: StdMutex<jobs::JobStore>,
     events: StdMutex<Events>,
     broadcast: broadcast::Sender<Event>,
     environment: Value,
@@ -113,6 +118,8 @@ impl Broker {
             features: RwLock::new(None),
             runtime_stop,
             provider_tasks: tokio_util::task::TaskTracker::new(),
+            job_tasks: tokio_util::task::TaskTracker::new(),
+            jobs: StdMutex::new(jobs::JobStore::default()),
             events: StdMutex::new(Events {
                 sequence: 0,
                 history: VecDeque::new(),
@@ -135,11 +142,22 @@ impl Broker {
         if let Ok(mut store) = self.references.lock() {
             store.revoke_session(session);
         }
+        if let Ok(mut jobs) = self.jobs.lock() {
+            jobs.revoke_session(session);
+        }
     }
     pub fn subscribe(&self) -> broadcast::Receiver<Event> {
         self.broadcast.subscribe()
     }
     pub fn replay(&self, after: u64) -> Result<Vec<Event>> {
+        self.replay_visible(None, after)
+    }
+
+    pub fn replay_for(&self, session: &str, after: u64) -> Result<Vec<Event>> {
+        self.replay_visible(Some(session), after)
+    }
+
+    fn replay_visible(&self, session: Option<&str>, after: u64) -> Result<Vec<Event>> {
         let events = self
             .events
             .lock()
@@ -163,16 +181,43 @@ impl Broker {
         Ok(events
             .history
             .iter()
-            .filter(|event| event.sequence > after)
+            .filter(|event| {
+                event.sequence > after
+                    && event
+                        .audience
+                        .as_deref()
+                        .is_none_or(|audience| Some(audience) == session)
+            })
             .cloned()
             .collect())
     }
-    fn event(&self, value: Value) {
+
+    fn event(&self, event: EventEnvelope) {
+        self.publish_event(event, None);
+    }
+
+    fn session_event(&self, session: &str, event: EventEnvelope) {
+        self.publish_event(event, Some(session.to_owned()));
+    }
+
+    fn publish_event(&self, event: EventEnvelope, audience: Option<String>) {
+        if event.validate().is_err() {
+            return;
+        }
+        let Ok(value) = serde_json::to_value(&event) else {
+            return;
+        };
+        if semwright_registry::bounds::value_budget(&value).is_err()
+            || serde_json::to_vec(&value).is_ok_and(|bytes| bytes.len() > 65_536)
+        {
+            return;
+        }
         if let Ok(mut events) = self.events.lock() {
             events.sequence = events.sequence.saturating_add(1);
             let event = Event {
                 sequence: events.sequence,
-                event: value,
+                event,
+                audience,
             };
             if events.history.len() == 256 {
                 events.history.pop_front();
@@ -180,6 +225,10 @@ impl Broker {
             events.history.push_back(event.clone());
             let _ = self.broadcast.send(event);
         }
+    }
+
+    fn core_event(&self, kind: &str) -> EventEnvelope {
+        EventEnvelope::new(kind, "semwright-core", event_time())
     }
     pub async fn probe(&self) -> Vec<Feature> {
         let revision = self.catalog_revision().unwrap_or(u64::MAX);
@@ -547,7 +596,11 @@ impl Broker {
                 );
             }
         };
-        self.event(json!({"kind":"command_start","command":safe_name,"request_id":id}));
+        self.event(
+            self.core_event("command_start")
+                .with_attribute("command", json!(safe_name))
+                .with_attribute("request_id", json!(id)),
+        );
         let mut selected = "unselected".to_owned();
         let result = self
             .perform(
@@ -567,7 +620,14 @@ impl Broker {
             )
             .uncertain()),
         };
-        self.event(json!({"kind":"command_finish","command":safe_name,"request_id":id,"backend":selected,"ok":result.is_ok(),"error_code":result.as_ref().err().map(|e|e.code)}));
+        self.event(
+            self.core_event("command_finish")
+                .with_attribute("command", json!(safe_name))
+                .with_attribute("request_id", json!(id))
+                .with_attribute("backend", json!(selected))
+                .with_attribute("ok", json!(result.is_ok()))
+                .with_attribute("error_code", json!(result.as_ref().err().map(|e| e.code))),
+        );
         let mut envelope = Envelope::finish(
             id,
             request.command,
@@ -622,6 +682,41 @@ impl Broker {
         } else {
             "allow"
         });
+        // Job control must remain outside the execution gate: cancelling/observing a long
+        // mutation cannot wait behind the mutation it controls. The nested target is executed
+        // through Broker::execute again and therefore receives its own full policy/audit pass.
+        if request.command.starts_with("jobs.") {
+            *selected = "core".into();
+            audit.backend(selected);
+            audit.executed_provider("semwright-core", None);
+            if request.dry_run && !descriptor.dry_run {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "This job-control command has no dry-run contract",
+                ));
+            }
+            let output = match request.command.as_str() {
+                "jobs.start" => {
+                    let nested: ExecuteRequest =
+                        serde_json::from_value(request.args["request"].clone())?;
+                    json!({"job":self.start_job(session, nested)?})
+                }
+                "jobs.get" => {
+                    json!({"job":self.get_job(session, arg_str(&request.args, "job_id")?)?})
+                }
+                "jobs.cancel" => {
+                    json!({"job":self.cancel_job(session, arg_str(&request.args, "job_id")?)?})
+                }
+                _ => {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Unknown job-control command",
+                    ));
+                }
+            };
+            capability.validate_output(&output)?;
+            return Ok(output);
+        }
         // Nested recipes re-enter this method for each step; never hold a gate across that recursion.
         if request.command == "recipe.run" {
             *selected = "core".into();
@@ -997,7 +1092,7 @@ impl Broker {
             "plugin.install" => {
                 let manifest: Manifest = serde_json::from_value(args["manifest"].clone())?;
                 self.install_manifest(manifest)?;
-                self.event(json!({"kind":"registry_changed"}));
+                self.event(self.core_event("registry_changed"));
                 Ok(
                     json!({"installed":true,"persistence":"until broker shutdown; owner config is needed for subsequent starts"}),
                 )
@@ -1015,7 +1110,7 @@ impl Broker {
                 for command in &manifest.commands {
                     registry.remove_plugin_command(&command.name)?;
                 }
-                self.event(json!({"kind":"registry_changed"}));
+                self.event(self.core_event("registry_changed"));
                 Ok(json!({"removed":true}))
             }
             _ => Err(Error::new(ErrorCode::Unsupported, "Unknown core command")),
@@ -1046,6 +1141,8 @@ impl Broker {
     }
     pub async fn shutdown(&self) {
         self.runtime_stop.cancel();
+        self.job_tasks.close();
+        let _ = tokio::time::timeout(Duration::from_secs(5), self.job_tasks.wait()).await;
         self.provider_tasks.close();
         let _ = tokio::time::timeout(Duration::from_secs(3), self.provider_tasks.wait()).await;
         for backend in self.providers() {
@@ -1053,6 +1150,14 @@ impl Broker {
         }
     }
 }
+fn event_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(u64::MAX as u128) as u64
+}
+
 struct RecipeBridge {
     broker: Arc<Broker>,
     session: String,

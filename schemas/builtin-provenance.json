@@ -641,6 +641,51 @@
     ],
     "untrusted_metadata": false
   },
+  "jobs.cancel": {
+    "source": "builtin",
+    "provider": "semwright-core",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "tags": [
+      "jobs",
+      "cancel"
+    ],
+    "object_types": [
+      "job"
+    ],
+    "untrusted_metadata": false
+  },
+  "jobs.get": {
+    "source": "builtin",
+    "provider": "semwright-core",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "tags": [
+      "jobs",
+      "get"
+    ],
+    "object_types": [
+      "job"
+    ],
+    "untrusted_metadata": false
+  },
+  "jobs.start": {
+    "source": "builtin",
+    "provider": "semwright-core",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "tags": [
+      "jobs",
+      "start"
+    ],
+    "object_types": [
+      "job"
+    ],
+    "untrusted_metadata": false
+  },
   "network.status": {
     "aliases": [],
     "app": null,

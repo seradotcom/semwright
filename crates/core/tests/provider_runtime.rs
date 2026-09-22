@@ -540,16 +540,19 @@ async fn provider_notifications_refresh_without_periodic_polling_and_events_are_
     let event = tokio::time::timeout(Duration::from_secs(2), async {
         loop {
             let event = events.recv().await.unwrap();
-            if event.event["kind"] == "object.created" {
+            if event.event.kind == "object.created" {
                 break event;
             }
         }
     })
     .await
     .unwrap();
-    assert_eq!(event.event["source"], "driver:fixture");
-    assert_eq!(event.event["untrusted_payload"], true);
-    assert_eq!(event.event["payload"]["source"], "semwright-core");
+    assert_eq!(event.event.source, "driver:fixture");
+    assert!(event.event.untrusted_payload);
+    assert_eq!(
+        event.event.payload.as_ref().unwrap()["source"],
+        "semwright-core"
+    );
     fixture
         .provider
         .signal
@@ -626,4 +629,144 @@ async fn terminal_disconnect_cannot_be_reactivated_by_refresh() {
     );
     assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
     fixture.broker.shutdown().await;
+}
+
+#[tokio::test]
+async fn job_cancel_reaches_a_blocked_dynamic_provider_without_waiting_for_execution_gate() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let session = unique_id();
+    let started = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.start".into(),
+                args: json!({"request":{"command":"driver.fixture.count","args":{}}}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(started.ok, "{started:?}");
+    let id = started.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+
+    let cancelled = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.cancel".into(),
+                args: json!({"job_id":id}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(cancelled.ok, "{cancelled:?}");
+    assert_eq!(
+        cancelled.data.as_ref().unwrap()["job"]["cancellation_requested"],
+        true
+    );
+
+    let terminal = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let result = fixture
+                .broker
+                .clone()
+                .execute(
+                    session.clone(),
+                    unique_id(),
+                    ExecuteRequest {
+                        command: "jobs.get".into(),
+                        args: json!({"job_id":id}),
+                        dry_run: false,
+                        backend: None,
+                    },
+                    CancellationToken::new(),
+                )
+                .await;
+            let job = result.data.unwrap()["job"].clone();
+            if job["state"] == "cancelled" {
+                break job;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(terminal["result"]["error"]["code"], "Cancelled");
+    assert!(fixture.provider.cancelled.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn revoking_a_session_cancels_and_removes_its_running_job() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    fixture.provider.blocked.store(true, Ordering::SeqCst);
+    let session = unique_id();
+    let started = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.start".into(),
+                args: json!({"request":{"command":"driver.fixture.count","args":{}}}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(started.ok, "{started:?}");
+    let id = started.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    tokio::time::timeout(Duration::from_secs(2), fixture.provider.entered.notified())
+        .await
+        .unwrap();
+
+    fixture.broker.revoke_session(&session);
+
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !fixture.provider.cancelled.load(Ordering::SeqCst) {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+
+    let lookup = fixture
+        .broker
+        .clone()
+        .execute(
+            session,
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.get".into(),
+                args: json!({"job_id":id}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert_eq!(lookup.error.unwrap().code, ErrorCode::NotFound);
 }

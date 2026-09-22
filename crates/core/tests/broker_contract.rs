@@ -464,3 +464,131 @@ async fn one_working_probe_does_not_enable_unrelated_operations() {
     assert_eq!(capture["routes"][0]["available"], true);
     assert_eq!(input["routes"][0]["available"], false);
 }
+
+async fn wait_job(fixture: &Fixture, id: &str) -> Value {
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        loop {
+            let result = fixture.call("jobs.get", json!({"job_id":id})).await;
+            assert!(result.ok, "{result:?}");
+            let job = result.data.unwrap()["job"].clone();
+            if matches!(
+                job["state"].as_str(),
+                Some("succeeded" | "failed" | "cancelled")
+            ) {
+                break job;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn read_only_job_executes_through_the_normal_broker_and_retains_result() {
+    let fixture = Fixture::new(Profile::Observe);
+    let started = fixture
+        .call(
+            "jobs.start",
+            json!({"request":{"command":"app.list","args":{}}}),
+        )
+        .await;
+    assert!(started.ok, "{started:?}");
+    let id = started.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let job = wait_job(&fixture, &id).await;
+    assert_eq!(job["state"], "succeeded");
+    assert_eq!(job["command"], "app.list");
+    assert_eq!(job["result"]["ok"], true);
+    assert_eq!(job["result"]["command"], "app.list");
+}
+
+#[tokio::test]
+async fn job_wrapper_cannot_turn_observe_into_mutation_authority() {
+    let fixture = Fixture::new(Profile::Observe);
+    let node = fixture.find("Export").await;
+    let reference = node["nodes"][0]["ref"].clone();
+    let started = fixture
+        .call(
+            "jobs.start",
+            json!({"request":{"command":"ui.invoke","args":{"ref":reference,"action":"click"}}}),
+        )
+        .await;
+    assert!(started.ok, "{started:?}");
+    let id = started.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let job = wait_job(&fixture, &id).await;
+    assert_eq!(job["state"], "failed");
+    assert_eq!(job["result"]["error"]["code"], "PolicyDenied");
+    assert_eq!(fixture.desktop.invocations(), 0);
+}
+
+#[tokio::test]
+async fn jobs_are_not_visible_across_sessions() {
+    let fixture = Fixture::new(Profile::Observe);
+    let started = fixture
+        .call(
+            "jobs.start",
+            json!({"request":{"command":"app.list","args":{}}}),
+        )
+        .await;
+    let id = started.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let other_session = fixture
+        .broker
+        .clone()
+        .execute(
+            unique_id(),
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.get".into(),
+                args: json!({"job_id":id}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert_eq!(other_session.error.unwrap().code, ErrorCode::NotFound);
+}
+
+#[tokio::test]
+async fn job_events_are_visible_only_to_the_owning_session() {
+    let fixture = Fixture::new(Profile::Observe);
+    let started = fixture
+        .call(
+            "jobs.start",
+            json!({"request":{"command":"app.list","args":{}}}),
+        )
+        .await;
+    let id = started.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let _ = wait_job(&fixture, &id).await;
+
+    let owner_events = fixture.broker.replay_for(&fixture.session, 0).unwrap();
+    assert!(owner_events.iter().any(|event| {
+        event.event.kind == "job.succeeded"
+            && event.event.attributes.get("job_id") == Some(&json!(id))
+    }));
+
+    let stranger = unique_id();
+    let stranger_events = fixture.broker.replay_for(&stranger, 0).unwrap();
+    assert!(
+        !stranger_events
+            .iter()
+            .any(|event| event.event.kind.starts_with("job."))
+    );
+    assert!(
+        stranger_events
+            .iter()
+            .any(|event| event.event.kind == "command_start")
+    );
+}
