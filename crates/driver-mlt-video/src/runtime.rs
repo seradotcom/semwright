@@ -173,7 +173,9 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
                 (1, 1073741824),
                 (7, 128),
                 (9, 1073741824),
-                (6, 64),
+                // RLIMIT_NPROC is intentionally owned by the outer DriverProvider sandbox.
+                // Linux accounts it against the real UID, so imposing a second fixed limit here
+                // can reject legitimate child workers when the host UID already has many tasks.
             ] {
                 let mut current = Limit {
                     current: 0,

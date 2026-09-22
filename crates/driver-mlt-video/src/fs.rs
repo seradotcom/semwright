@@ -16,14 +16,14 @@ use std::{
 };
 #[cfg(not(target_os = "linux"))]
 compile_error!("The driver currently requires Linux openat2 and process containment");
-const O_CLOEXEC: i32 = 0o2000000;
-const O_NOFOLLOW: i32 = 0o400000;
-const O_NONBLOCK: i32 = 0o4000;
-const O_DIRECTORY: i32 = 0o200000;
-const O_CREAT: i32 = 0o100;
-const O_EXCL: i32 = 0o200;
-const O_WRONLY: i32 = 1;
-const SYS_OPENAT2: isize = 437;
+const O_CLOEXEC: i32 = libc::O_CLOEXEC;
+const O_NOFOLLOW: i32 = libc::O_NOFOLLOW;
+const O_NONBLOCK: i32 = libc::O_NONBLOCK;
+const O_DIRECTORY: i32 = libc::O_DIRECTORY;
+const O_CREAT: i32 = libc::O_CREAT;
+const O_EXCL: i32 = libc::O_EXCL;
+const O_WRONLY: i32 = libc::O_WRONLY;
+const SYS_OPENAT2: isize = libc::SYS_openat2 as isize;
 #[repr(C)]
 struct OpenHow {
     flags: u64,

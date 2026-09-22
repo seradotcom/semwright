@@ -2419,6 +2419,7 @@ name = "semwright-mlt-video-driver"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "libc",
  "semwright-backend-api",
  "semwright-driver-host",
  "semwright-driver-sdk",

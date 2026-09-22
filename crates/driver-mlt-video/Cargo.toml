@@ -24,6 +24,7 @@ test-tools = []
 
 [dependencies]
 async-trait.workspace = true
+libc.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-types.workspace = true
 serde_json.workspace = true
