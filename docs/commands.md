@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-83 built-in descriptors. A descriptor is not proof of live backend support.
+86 built-in descriptors. A descriptor is not proof of live backend support.
 Run `computerctl doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -94,6 +94,9 @@ for many backends in this development handoff; strengthening them is a release g
 | `plugin.doctor` | `desktop.observe` | read_only | 30000 ms | core |
 | `capabilities.search` | `desktop.observe` | read_only | 10000 ms | core |
 | `capabilities.describe` | `desktop.observe` | read_only | 10000 ms | core |
+| `jobs.start` | `desktop.observe` | read_only | 10000 ms | core |
+| `jobs.get` | `desktop.observe` | read_only | 10000 ms | core |
+| `jobs.cancel` | `desktop.observe` | read_only | 10000 ms | core |
 
 ## `doctor`
 
@@ -2205,5 +2208,95 @@ Idempotency: `read_only`. Dry run: `true`.
       "maxLength": 128
     }
   }
+}
+```
+
+## `jobs.start`
+
+Start a bounded session-scoped job; the nested command is independently authorized and audited.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "request"
+  ],
+  "properties": {
+    "request": {
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "args": {
+          "type": "object",
+          "maxProperties": 128
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## `jobs.get`
+
+Read one job owned by this broker session without exposing jobs from other sessions.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "job_id"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## `jobs.cancel`
+
+Request cancellation of one job owned by this broker session; repeated cancellation is idempotent.
+
+Idempotency: `idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "required": [
+    "job_id"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    }
+  },
+  "additionalProperties": false
 }
 ```

@@ -3171,5 +3171,341 @@
     "backends": [
       "core"
     ]
+  },
+  {
+    "version": "1.0",
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "timeout_ms": 10000,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ],
+    "name": "jobs.start",
+    "description": "Start a bounded session-scoped job; the nested command is independently authorized and audited.",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "request"
+      ],
+      "properties": {
+        "request": {
+          "type": "object",
+          "required": [
+            "command"
+          ],
+          "properties": {
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "args": {
+              "type": "object",
+              "maxProperties": 128
+            },
+            "dry_run": {
+              "type": "boolean"
+            },
+            "backend": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "required": [
+        "job"
+      ],
+      "properties": {
+        "job": {
+          "type": "object",
+          "required": [
+            "id",
+            "command",
+            "state",
+            "created_at_ms",
+            "cancellation_requested",
+            "cancellable",
+            "result_omitted"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "state": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "cancelled"
+              ]
+            },
+            "created_at_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "started_at_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "finished_at_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cancellation_requested": {
+              "type": "boolean"
+            },
+            "cancellable": {
+              "type": "boolean"
+            },
+            "result": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "result_omitted": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "idempotency": "non_idempotent",
+    "dry_run": false
+  },
+  {
+    "version": "1.0",
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "timeout_ms": 10000,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ],
+    "name": "jobs.get",
+    "description": "Read one job owned by this broker session without exposing jobs from other sessions.",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "job_id"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "required": [
+        "job"
+      ],
+      "properties": {
+        "job": {
+          "type": "object",
+          "required": [
+            "id",
+            "command",
+            "state",
+            "created_at_ms",
+            "cancellation_requested",
+            "cancellable",
+            "result_omitted"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "state": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "cancelled"
+              ]
+            },
+            "created_at_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "started_at_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "finished_at_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cancellation_requested": {
+              "type": "boolean"
+            },
+            "cancellable": {
+              "type": "boolean"
+            },
+            "result": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "result_omitted": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "idempotency": "read_only",
+    "dry_run": true
+  },
+  {
+    "version": "1.0",
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "read_only",
+    "timeout_ms": 10000,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ],
+    "name": "jobs.cancel",
+    "description": "Request cancellation of one job owned by this broker session; repeated cancellation is idempotent.",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "job_id"
+      ],
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "required": [
+        "job"
+      ],
+      "properties": {
+        "job": {
+          "type": "object",
+          "required": [
+            "id",
+            "command",
+            "state",
+            "created_at_ms",
+            "cancellation_requested",
+            "cancellable",
+            "result_omitted"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "state": {
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "cancelled"
+              ]
+            },
+            "created_at_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "started_at_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "finished_at_ms": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "cancellation_requested": {
+              "type": "boolean"
+            },
+            "cancellable": {
+              "type": "boolean"
+            },
+            "result": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "result_omitted": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "idempotency": "idempotent",
+    "dry_run": false
   }
 ]

@@ -1,7 +1,9 @@
 //! Stable, transport-independent domain model. No operating-system side effects.
 pub mod event;
+pub mod job;
 pub mod provider;
 pub use event::EventEnvelope;
+pub use job::{JobSnapshot, JobState};
 pub use provider::{InvocationProvenance, ProviderIdentity, SourceKind};
 use regex::RegexBuilder;
 use schemars::JsonSchema;
