@@ -77,6 +77,22 @@ fn page_ref(value: &Value, name: &str) -> String {
         .to_owned()
 }
 
+async fn sequence_ref(
+    provider: &DriverProvider,
+    capabilities: &[semwright_backend_api::ProvidedCapability],
+    project: &str,
+) -> String {
+    let sequences = call(
+        provider,
+        capabilities,
+        "driver.mlt-video.sequence.list",
+        json!({"project":project,"limit":100}),
+    )
+    .await
+    .unwrap();
+    page_ref(&sequences, "Main")
+}
+
 #[tokio::test]
 #[ignore = "requires bubblewrap, real melt and ffprobe on a Linux host"]
 async fn real_mlt_video_driver_runs_inside_sandbox() {
@@ -277,7 +293,8 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
-    let (sequence_id, _) = created(&sequence, "sequence");
+    let (_, initial_sequence_ref) = created(&sequence, "sequence");
+    assert!(initial_sequence_ref.starts_with("video:"));
     project_ref = sequence["project"].as_str().unwrap().to_owned();
     revision = sequence["resulting_revision"].as_str().unwrap().to_owned();
 
@@ -302,6 +319,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     }
 
     for (name, kind) in [("Video Track", "video"), ("Audio Track", "audio")] {
+        let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
         let value = call(
             provider.as_ref(),
             &capabilities,
@@ -309,7 +327,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             json!({
                 "project":project_ref,
                 "expected_revision":revision,
-                "sequence":sequence_id,
+                "sequence":current_sequence,
                 "name":name,
                 "kind":kind
             }),
@@ -328,11 +346,12 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
     let tracks = call(
         provider.as_ref(),
         &capabilities,
         "driver.mlt-video.track.list",
-        json!({"project":project_ref,"sequence":sequence_id,"limit":100}),
+        json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
     )
     .await
     .unwrap();
@@ -346,7 +365,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         json!({
             "project":project_ref,
             "expected_revision":revision,
-            "sequence":sequence_id,
+            "sequence":current_sequence,
             "track":video_track,
             "asset":video_asset,
             "start":0,
@@ -371,11 +390,12 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
     let tracks = call(
         provider.as_ref(),
         &capabilities,
         "driver.mlt-video.track.list",
-        json!({"project":project_ref,"sequence":sequence_id,"limit":100}),
+        json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
     )
     .await
     .unwrap();
@@ -389,7 +409,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         json!({
             "project":project_ref,
             "expected_revision":revision,
-            "sequence":sequence_id,
+            "sequence":current_sequence,
             "track":audio_track,
             "asset":audio_asset,
             "start":0,
@@ -422,13 +442,14 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             .any(|profile| { profile["id"] == "lossless" && profile["available"] == true })
     );
 
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
     let plan = call(
         provider.as_ref(),
         &capabilities,
         "driver.mlt-video.render.plan",
         json!({
             "project":project_ref,
-            "sequence":sequence_id,
+            "sequence":current_sequence,
             "profile":"lossless",
             "output":"real-runtime.mkv"
         }),
@@ -445,7 +466,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         json!({
             "project":project_ref,
             "expected_revision":revision,
-            "sequence":sequence_id,
+            "sequence":current_sequence,
             "profile":"lossless",
             "output":"real-runtime.mkv"
         }),
