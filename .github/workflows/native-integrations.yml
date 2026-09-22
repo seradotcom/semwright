@@ -442,3 +442,40 @@ jobs:
           name: real-x11-backend-evidence
           path: verification/native-ci
           retention-days: 14
+
+  atspi-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: atspi-backend
+      - name: Install isolated GTK accessibility fixture
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity
+          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-runtime"
+          chmod 700 "$RUNNER_TEMP/atspi-runtime"
+          zenity --version | tee verification/native-ci/zenity-version.log
+          dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
+      - name: Real AT-SPI delta, structural resync and stale-reference lifecycle
+        run: |
+          XDG_RUNTIME_DIR="$RUNNER_TEMP/atspi-runtime" \
+          NO_AT_BRIDGE=0 \
+          XDG_SESSION_TYPE=x11 \
+          SEMWRIGHT_TEST_ATSPI=1 \
+            dbus-run-session -- \
+            xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" \
+            cargo test --locked -p semwright-backends \
+              live_atspi_window_close_forces_resync_and_stales_refs \
+              -- --ignored --nocapture 2>&1 | tee verification/native-ci/atspi-backend.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: real-atspi-backend-evidence
+          path: verification/native-ci
+          retention-days: 14

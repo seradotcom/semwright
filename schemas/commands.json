@@ -628,7 +628,7 @@
   {
     "name": "ui.snapshot",
     "version": "1.0",
-    "description": "Bounded semantic accessibility snapshot. No screenshot or OCR.",
+    "description": "Bounded semantic accessibility snapshot with conservative revision deltas. No screenshot or OCR.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -648,6 +648,10 @@
         },
         "actionable": {
           "type": "boolean"
+        },
+        "since_revision": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [],
@@ -665,12 +669,40 @@
         },
         "partial": {
           "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "full",
+            "delta"
+          ]
+        },
+        "base_revision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "removed_node_ids": {
+          "type": "array",
+          "maxItems": 2000,
+          "items": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "resync_required": {
+          "type": "boolean"
         }
       },
       "required": [
         "nodes",
         "revision",
-        "partial"
+        "partial",
+        "mode",
+        "removed_node_ids",
+        "resync_required"
       ]
     },
     "requires": [
