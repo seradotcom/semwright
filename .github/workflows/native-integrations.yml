@@ -197,3 +197,87 @@ jobs:
           name: libreoffice-driver-evidence
           path: verification/native-ci
           retention-days: 14
+
+
+  blender-driver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: blender-driver
+      - name: Install verified Blender 4.5.14 LTS and sandbox dependencies
+        env:
+          BLENDER_URL: https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
+          BLENDER_SHA256: 9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap fontconfig xz-utils
+          curl --fail --location --retry 3 --output /tmp/blender.tar.xz "$BLENDER_URL"
+          echo "$BLENDER_SHA256  /tmp/blender.tar.xz" | sha256sum --check -
+          sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
+          sudo ln -sf /usr/local/blender-4.5.14-linux-x64/blender /usr/local/bin/blender
+          mkdir -p verification/native-ci
+          printf '%s  %s\n' "$BLENDER_SHA256" "$BLENDER_URL" | tee verification/native-ci/blender-download.log
+          /usr/local/bin/blender --version | head -5 | tee verification/native-ci/blender-version.log
+          test "$(/usr/local/bin/blender --version | head -1)" = "Blender 4.5.14 LTS"
+          bwrap --version | tee verification/native-ci/blender-bwrap-version.log
+      - name: Preflight unprivileged Bubblewrap
+        run: |
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          sandbox_setup=kernel-default
+          if [ "$current_apparmor" = "1" ]; then
+            sudo apt-get install -y apparmor-profiles apparmor-utils
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
+              sandbox_setup=apparmor-bwrap-profile
+            else
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+              sandbox_setup=ephemeral-ci-userns-relaxation
+            fi
+          fi
+          test -d /etc/fonts
+          {
+            echo "sandbox_setup=$sandbox_setup"
+            echo "kernel.unprivileged_userns_clone=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)"
+            echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)"
+          } | tee verification/native-ci/blender-sandbox-setup.log
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          for runtime in /usr /lib /lib64; do
+            if [ -e "$runtime" ]; then
+              bwrap_args+=(--ro-bind "$runtime" "$runtime")
+            fi
+          done
+          bwrap_args+=(--dir /etc)
+          if [ -e /etc/ld.so.cache ]; then
+            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          fi
+          bwrap_args+=(--ro-bind /etc/fonts /etc/fonts)
+          bwrap "${bwrap_args[@]}" -- /usr/local/bin/blender --version
+      - name: Build Blender driver surface
+        run: |
+          cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
+            -p semwright-plugin-host --bin semwright-sandbox \
+            -p semwright-cli --bin computerctl \
+            -p semwright-daemon --bin semwrightd
+      - name: Real sandboxed DriverProvider against Blender 4.5.14 LTS
+        run: |
+          SEMWRIGHT_TEST_BLENDER=1 SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox" \
+            cargo test --locked -p semwright-driver-blender real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/blender-driver-live.log
+      - name: Broker, policy, CLI and Blender end-to-end
+        run: |
+          BIN_DIR=target/debug scripts/dev/blender-driver-smoke.sh 2>&1 | tee verification/native-ci/blender-broker-smoke.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: blender-driver-evidence
+          path: verification/native-ci
+          retention-days: 14
