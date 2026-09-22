@@ -24,7 +24,7 @@ fn app_identity(value: &Value, needle: &str) -> Option<String> {
 async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     let backend = Atspi::default();
     let ctx = context();
-    let app = tokio::time::timeout(Duration::from_secs(8), async {
+    let app = match tokio::time::timeout(Duration::from_secs(8), async {
         loop {
             if let Ok(value) = backend.execute(&ctx, "app.list", &json!({})).await
                 && let Some(app) = app_identity(&value, needle)
@@ -35,7 +35,16 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
         }
     })
     .await
-    .expect("fixture must appear on AT-SPI");
+    {
+        Ok(app) => app,
+        Err(_) => {
+            let observed = backend
+                .execute(&ctx, "app.list", &json!({}))
+                .await
+                .unwrap_or_else(|error| json!({"error":error.to_string()}));
+            panic!("fixture must appear on AT-SPI; observed apps: {observed}");
+        }
+    };
 
     let snapshot = tokio::time::timeout(Duration::from_secs(8), async {
         loop {
