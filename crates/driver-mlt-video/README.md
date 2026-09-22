@@ -15,6 +15,13 @@ The production binary uses `semwright-driver-sdk`; `fake-melt` is compiled only 
 `runtime/runtime.json` containing exact SHA-256 pins for `melt`, `ffprobe` and `bwrap`.
 Project/media roots are read-only and the output root is the only writable mount.
 
+When launched by `DriverProvider`, the driver reuses the already-established Bubblewrap +
+Landlock sandbox instead of attempting a nested user namespace, which Linux may reject after the
+outer sandbox has dropped capabilities. Pinned media tools are still copied byte-for-byte into
+private driver scratch, re-hashed, made non-writable, and supervised with explicit environment,
+RLIMIT, process-group, timeout, cancellation and output budgets. Standalone driver execution keeps
+the additional internal Bubblewrap layer; it is not the broker authorization boundary.
+
 ```sh
 cargo test -p semwright-mlt-video-driver --all-features
 cargo clippy -p semwright-mlt-video-driver --all-targets --all-features -- -D warnings

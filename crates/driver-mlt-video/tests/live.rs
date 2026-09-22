@@ -9,11 +9,30 @@ use sha2::{Digest, Sha256};
 use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
+    time::Duration,
 };
 use tokio_util::sync::CancellationToken;
 
 fn digest(path: &Path) -> String {
     format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+}
+
+fn configured_tool(variable: &str) -> PathBuf {
+    std::fs::canonicalize(
+        std::env::var_os(variable)
+            .unwrap_or_else(|| panic!("{variable} must point to the real executable")),
+    )
+    .unwrap()
+}
+
+fn find<'a>(
+    capabilities: &'a [semwright_backend_api::ProvidedCapability],
+    name: &str,
+) -> &'a semwright_backend_api::ProvidedCapability {
+    capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == name)
+        .unwrap_or_else(|| panic!("missing capability {name}"))
 }
 
 async fn call(
@@ -22,45 +41,125 @@ async fn call(
     name: &str,
     args: Value,
 ) -> semwright_types::Result<Value> {
-    let descriptor = &capabilities
-        .iter()
-        .find(|capability| capability.descriptor.name == name)
-        .unwrap()
-        .descriptor;
     Provider::execute(
         provider,
         &Context {
             session: "mlt-video-live".into(),
             cancellation: CancellationToken::new(),
         },
-        descriptor,
+        &find(capabilities, name).descriptor,
         &args,
     )
     .await
 }
 
+fn created(value: &Value, kind: &str) -> (String, String) {
+    let row = value["created_refs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["kind"].as_str() == Some(kind))
+        .unwrap_or_else(|| panic!("missing created {kind} ref"));
+    (
+        row["id"].as_str().unwrap().to_owned(),
+        row["reference"].as_str().unwrap().to_owned(),
+    )
+}
+
+fn page_ref(value: &Value, name: &str) -> String {
+    value["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["name"].as_str() == Some(name))
+        .and_then(|row| row["reference"].as_str())
+        .unwrap_or_else(|| panic!("missing live ref for {name}"))
+        .to_owned()
+}
+
+async fn sequence_ref(
+    provider: &DriverProvider,
+    capabilities: &[semwright_backend_api::ProvidedCapability],
+    project: &str,
+) -> String {
+    let sequences = call(
+        provider,
+        capabilities,
+        "driver.mlt-video.sequence.list",
+        json!({"project":project,"limit":100}),
+    )
+    .await
+    .unwrap();
+    page_ref(&sequences, "Main")
+}
+
 #[tokio::test]
-#[ignore = "requires bubblewrap on a Linux host"]
+#[ignore = "requires bubblewrap, real melt and ffprobe on a Linux host"]
 async fn real_mlt_video_driver_runs_inside_sandbox() {
     if std::env::var_os("SEMWRIGHT_TEST_MLT_VIDEO").is_none() {
         return;
     }
+
     let cargo_executable = PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-video-driver"));
     let binary_dir = tempfile::tempdir().unwrap();
     std::fs::set_permissions(binary_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let executable = binary_dir.path().join("semwright-mlt-video-driver");
     std::fs::copy(&cargo_executable, &executable).unwrap();
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+
     let helper = PathBuf::from(
         std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
             .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
     );
+    let melt = configured_tool("SEMWRIGHT_TEST_MELT");
+    let ffprobe = configured_tool("SEMWRIGHT_TEST_FFPROBE");
+    let bwrap = configured_tool("SEMWRIGHT_TEST_BWRAP");
 
     let project = tempfile::tempdir().unwrap();
     let media = tempfile::tempdir().unwrap();
     let output = tempfile::tempdir().unwrap();
+    let runtime = tempfile::tempdir().unwrap();
     let state = tempfile::tempdir().unwrap();
-    std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    for directory in [
+        project.path(),
+        media.path(),
+        output.path(),
+        runtime.path(),
+        state.path(),
+    ] {
+        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+
+    // /usr is mounted read-only by DriverProvider. Pin the canonical host tools directly:
+    // copying them into a user-owned bind mount can change ownership presentation across
+    // Bubblewrap user namespaces even though the bytes and mode are unchanged.
+    let runtime_json = json!({
+        "schema": 1,
+        "melt": {
+            "path": melt,
+            "sha256": digest(&melt)
+        },
+        "ffprobe": {
+            "path": ffprobe,
+            "sha256": digest(&ffprobe)
+        },
+        "bubblewrap": {
+            "path": bwrap.to_string_lossy(),
+            "sha256": digest(&bwrap)
+        },
+        "timeout_seconds": 30
+    });
+    let runtime_file = runtime.path().join("runtime.json");
+    std::fs::write(
+        &runtime_file,
+        serde_json::to_vec_pretty(&runtime_json).unwrap(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&runtime_file, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/media");
+    std::fs::copy(fixtures.join("red.mkv"), media.path().join("red.mkv")).unwrap();
+    std::fs::copy(fixtures.join("sine.wav"), media.path().join("sine.wav")).unwrap();
 
     let manifest = Manifest {
         manifest_version: 1,
@@ -89,14 +188,19 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 root: "output".into(),
                 read_only: false,
             },
+            DriverMount {
+                root: "runtime".into(),
+                read_only: true,
+            },
         ],
         system_config: vec![],
         network: false,
         resources: DriverResources {
-            address_space_bytes: 1_073_741_824,
+            address_space_bytes: 2_147_483_648,
             cpu_seconds: 120,
             file_size_bytes: 1_073_741_824,
-            ..DriverResources::default()
+            processes: 64,
+            open_files: 256,
         },
         request_timeout_ms: 30_000,
         interfaces: DriverInterfaces::default(),
@@ -120,7 +224,14 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             read: true,
             write: true,
         },
+        FilesystemGrant {
+            name: "runtime".into(),
+            path: runtime.path().canonicalize().unwrap(),
+            read: true,
+            write: false,
+        },
     ];
+
     let provider = DriverProvider::connect(manifest, state.path(), &helper, &grants, false)
         .await
         .unwrap();
@@ -142,23 +253,264 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     .unwrap();
     assert_eq!(doctor["capabilities"], 68);
     assert_eq!(doctor["network"], false);
-    let created = call(
+    assert_eq!(doctor["render_available"], true, "MLT doctor: {doctor}");
+    assert!(
+        doctor["mlt_version"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty())
+    );
+
+    let created_project = call(
         provider.as_ref(),
         &capabilities,
         "driver.mlt-video.project.create",
+        json!({
+            "profile": {
+                "width": 160,
+                "height": 90,
+                "fps_num": 25,
+                "fps_den": 1,
+                "progressive": true,
+                "sample_aspect_num": 1,
+                "sample_aspect_den": 1,
+                "display_aspect_num": 16,
+                "display_aspect_den": 9,
+                "colorspace": 709,
+                "audio_channels": 2
+            }
+        }),
+    )
+    .await
+    .unwrap();
+    let mut project_ref = created_project["project"].as_str().unwrap().to_owned();
+    let mut revision = created_project["revision"].as_str().unwrap().to_owned();
+
+    let sequence = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.sequence.create",
+        json!({"project":project_ref,"expected_revision":revision,"name":"Main"}),
+    )
+    .await
+    .unwrap();
+    let (_, initial_sequence_ref) = created(&sequence, "sequence");
+    assert!(initial_sequence_ref.starts_with("video:"));
+    project_ref = sequence["project"].as_str().unwrap().to_owned();
+    revision = sequence["resulting_revision"].as_str().unwrap().to_owned();
+
+    for (name, path) in [("Video", "red.mkv"), ("Audio", "sine.wav")] {
+        let value = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.asset.import",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "kind":"file",
+                "name":name,
+                "root":"media",
+                "path":path
+            }),
+        )
+        .await
+        .unwrap();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
+    }
+
+    for (name, kind) in [("Video Track", "video"), ("Audio Track", "audio")] {
+        let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+        let value = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.track.create",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":current_sequence,
+                "name":name,
+                "kind":kind
+            }),
+        )
+        .await
+        .unwrap();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
+    }
+
+    let assets = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.asset.list",
+        json!({"project":project_ref,"limit":100}),
+    )
+    .await
+    .unwrap();
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+    let tracks = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.track.list",
+        json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
+    )
+    .await
+    .unwrap();
+    let video_asset = page_ref(&assets, "Video");
+    let video_track = page_ref(&tracks, "Video Track");
+
+    let video_clip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.clip.insert",
+        json!({
+            "project":project_ref,
+            "expected_revision":revision,
+            "sequence":current_sequence,
+            "track":video_track,
+            "asset":video_asset,
+            "start":0,
+            "source_in":0,
+            "source_out":50,
+            "name":"Video Clip"
+        }),
+    )
+    .await
+    .unwrap();
+    project_ref = video_clip["project"].as_str().unwrap().to_owned();
+    revision = video_clip["resulting_revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let assets = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.asset.list",
+        json!({"project":project_ref,"limit":100}),
+    )
+    .await
+    .unwrap();
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+    let tracks = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.track.list",
+        json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
+    )
+    .await
+    .unwrap();
+    let audio_asset = page_ref(&assets, "Audio");
+    let audio_track = page_ref(&tracks, "Audio Track");
+
+    let audio_clip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.clip.insert",
+        json!({
+            "project":project_ref,
+            "expected_revision":revision,
+            "sequence":current_sequence,
+            "track":audio_track,
+            "asset":audio_asset,
+            "start":0,
+            "source_in":0,
+            "source_out":50,
+            "name":"Audio Clip"
+        }),
+    )
+    .await
+    .unwrap();
+    project_ref = audio_clip["project"].as_str().unwrap().to_owned();
+    revision = audio_clip["resulting_revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let profiles = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.profiles",
         json!({}),
     )
     .await
     .unwrap();
-    let project_ref = created["project"].as_str().unwrap();
-    let inspected = call(
+    assert!(
+        profiles["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|profile| { profile["id"] == "lossless" && profile["available"] == true })
+    );
+
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+    let plan = call(
         provider.as_ref(),
         &capabilities,
-        "driver.mlt-video.project.inspect",
-        json!({"project": project_ref}),
+        "driver.mlt-video.render.plan",
+        json!({
+            "project":project_ref,
+            "sequence":current_sequence,
+            "profile":"lossless",
+            "output":"real-runtime.mkv"
+        }),
     )
     .await
     .unwrap();
-    assert_eq!(inspected["deep_editable"], true);
+    assert_eq!(plan["runnable"], true);
+    assert_eq!(plan["frames"], 50);
+
+    let started = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.start",
+        json!({
+            "project":project_ref,
+            "expected_revision":revision,
+            "sequence":current_sequence,
+            "profile":"lossless",
+            "output":"real-runtime.mkv"
+        }),
+    )
+    .await
+    .unwrap();
+    let job = started["job"].as_str().unwrap().to_owned();
+
+    let terminal = loop {
+        let status = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.status",
+            json!({"job":job}),
+        )
+        .await
+        .unwrap();
+        match status["state"].as_str().unwrap() {
+            "succeeded" | "failed" | "cancelled" | "unknown" => break status,
+            _ => tokio::time::sleep(Duration::from_millis(50)).await,
+        }
+    };
+    assert_eq!(terminal["state"], "succeeded", "{terminal:#}");
+
+    let result = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.result",
+        json!({"job":job}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result["state"], "succeeded");
+    assert_eq!(result["artifact"]["root"], "output");
+    assert_eq!(result["artifact"]["path"], "real-runtime.mkv");
+    assert!(result["artifact"]["bytes"].as_u64().unwrap() > 100);
+    assert_eq!(result["media"]["video"], true);
+    assert_eq!(result["media"]["audio"], true);
+    assert_eq!(result["media"]["width"], 160);
+    assert_eq!(result["media"]["height"], 90);
+
+    let artifact = output.path().join("real-runtime.mkv");
+    assert!(artifact.is_file());
+    assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
+
     Provider::shutdown(provider.as_ref()).await.unwrap();
 }

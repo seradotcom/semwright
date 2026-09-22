@@ -1,4 +1,5 @@
-//! Pinned ELF tools and bounded subprocesses. Production tools run through bubblewrap, never a shell.
+//! Pinned ELF tools and bounded subprocesses. Hosted drivers reuse DriverProvider isolation;
+//! standalone execution adds Bubblewrap. No production path invokes a shell.
 use crate::{
     Error, Result,
     fs::PrivateDir,
@@ -261,6 +262,20 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         output_exceeded: overflow.load(Ordering::Acquire),
     })
 }
+fn overflow_uid() -> Option<u32> {
+    std::fs::read_to_string("/proc/sys/kernel/overflowuid")
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+}
+
+fn trusted_tool_owner(path: &Path, owner: u32, current: u32, overflow: Option<u32>) -> bool {
+    owner == 0
+        || owner == current
+        || (overflow == Some(owner) && path.starts_with(Path::new("/usr")))
+}
+
 #[derive(Clone, Debug)]
 pub struct Tool {
     pub path: PathBuf,
@@ -293,16 +308,40 @@ impl Tool {
         let m = file.metadata()?;
         // SAFETY: getuid has no arguments or memory preconditions.
         let uid = unsafe { getuid() };
-        if (m.uid() != 0 && m.uid() != uid)
-            || !m.is_file()
-            || m.nlink() != 1
-            || m.mode() & 0o022 != 0
-            || m.mode() & 0o111 == 0
-            || m.len() > 64 * 1024 * 1024
-        {
+        if !trusted_tool_owner(&self.path, m.uid(), uid, overflow_uid()) {
             return Err(Error::new(
                 "PermissionDenied",
-                "Tool must be a non-writable regular executable ELF <=64MiB",
+                "Pinned tool owner must be root, the sandbox uid, or the kernel overflow uid for read-only /usr",
+            ));
+        }
+        if !m.is_file() {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must be a regular file",
+            ));
+        }
+        if m.nlink() != 1 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must have exactly one hard link",
+            ));
+        }
+        if m.mode() & 0o022 != 0 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must not be group- or other-writable",
+            ));
+        }
+        if m.mode() & 0o111 == 0 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must have an executable mode bit",
+            ));
+        }
+        if m.len() > 64 * 1024 * 1024 {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned tool must not exceed 64 MiB",
             ));
         }
         let mut elf = [0; 4];
@@ -360,6 +399,7 @@ pub struct Runtime {
     pub timeout: Duration,
     pub catalog: ServiceCatalog,
     tools: PrivateDir,
+    host_sandboxed: bool,
 }
 impl Runtime {
     pub fn load(v: &Value) -> Result<Self> {
@@ -378,11 +418,11 @@ impl Runtime {
             return Err(Error::invalid("Render timeout must be 1..3600 seconds"));
         }
         let tools = PrivateDir::new(Path::new("/tmp"))?;
-        for (name, tool) in [
-            ("melt", &melt),
-            ("ffprobe", &ffprobe),
-            ("bubblewrap", &bubblewrap),
-        ] {
+        // Stage the media tools so the bytes executed later are exactly the pinned
+        // bytes we verified. Bubblewrap is different: Linux/AppArmor installations can
+        // grant user-namespace permission specifically to its canonical system path.
+        // Keep that root-owned, non-writable path and re-verify its digest before use.
+        for (name, tool) in [("melt", &melt), ("ffprobe", &ffprobe)] {
             let mut source = tool.verify()?;
             let mut destination = tools.create(name)?;
             let mut hash = crate::hash::Sha256::new();
@@ -419,10 +459,46 @@ impl Runtime {
             timeout: Duration::from_secs(timeout),
             catalog: ServiceCatalog::default(),
             tools,
+            host_sandboxed: std::env::var("SEMWRIGHT_DRIVER_SANDBOX").as_deref()
+                == Ok("landlock-bwrap-v1")
+                && Path::new("/plugin/bin").is_file()
+                && Path::new("/plugin/sandbox").is_file(),
         };
         runtime.discover()?;
         Ok(runtime)
     }
+    fn environment() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("LC_ALL".into(), "C".into()),
+            ("HOME".into(), "/home".into()),
+            ("PATH".into(), "/usr/bin:/bin".into()),
+            ("QT_QPA_PLATFORM".into(), "offscreen".into()),
+            ("XDG_CONFIG_HOME".into(), "/tmp/config".into()),
+            ("XDG_CACHE_HOME".into(), "/tmp/cache".into()),
+            ("MLT_NO_VDPAU".into(), "1".into()),
+        ])
+    }
+
+    fn input_path(&self, inputs: &Path, name: &str) -> PathBuf {
+        if self.host_sandboxed {
+            inputs.join(name)
+        } else {
+            PathBuf::from(format!("/inputs/{name}"))
+        }
+    }
+
+    fn work_path(&self, work: &Path, name: &str) -> PathBuf {
+        if self.host_sandboxed {
+            work.join(name)
+        } else {
+            PathBuf::from(format!("/work/{name}"))
+        }
+    }
+
+    pub fn input_reference(&self, inputs: &Path, name: &str) -> String {
+        self.input_path(inputs, name).to_string_lossy().into_owned()
+    }
+
     fn spec(
         &self,
         tool: &str,
@@ -431,6 +507,17 @@ impl Runtime {
         work: &Path,
         timeout: Duration,
     ) -> Result<ProcessSpec> {
+        if self.host_sandboxed {
+            return Ok(ProcessSpec {
+                executable: self.tools.path().join(tool),
+                args,
+                cwd: work.into(),
+                timeout,
+                cpu_seconds: 120,
+                environment: Self::environment(),
+            });
+        }
+
         self.bubblewrap.verify()?;
         let mut argv: Vec<OsString> = [
             "--die-with-parent",
@@ -482,15 +569,7 @@ impl Runtime {
             work.as_os_str().into(),
             "/work".into(),
         ]);
-        for (key, value) in [
-            ("LC_ALL", "C"),
-            ("HOME", "/home"),
-            ("PATH", "/usr/bin:/bin"),
-            ("QT_QPA_PLATFORM", "offscreen"),
-            ("XDG_CONFIG_HOME", "/tmp/config"),
-            ("XDG_CACHE_HOME", "/tmp/cache"),
-            ("MLT_NO_VDPAU", "1"),
-        ] {
+        for (key, value) in Self::environment() {
             argv.extend(["--setenv".into(), key.into(), value.into()]);
         }
         argv.extend([
@@ -501,7 +580,7 @@ impl Runtime {
         ]);
         argv.extend(args);
         Ok(ProcessSpec {
-            executable: self.tools.path().join("bubblewrap"),
+            executable: self.bubblewrap.path.clone(),
             args: argv,
             cwd: work.into(),
             timeout,
@@ -523,7 +602,13 @@ impl Runtime {
             )?,
             &cancel,
         )?
-        .checked()?;
+        .checked()
+        .map_err(|error| {
+            Error::new(
+                error.code,
+                format!("melt -version discovery failed: {}", error.message),
+            )
+        })?;
         let text = format!(
             "{} {}",
             String::from_utf8_lossy(&result.stdout),
@@ -552,7 +637,13 @@ impl Runtime {
                 )?,
                 &cancel,
             )?
-            .checked()?;
+            .checked()
+            .map_err(|error| {
+                Error::new(
+                    error.code,
+                    format!("melt -query {group} discovery failed: {}", error.message),
+                )
+            })?;
             let text = format!(
                 "{}\n{}",
                 String::from_utf8_lossy(&result.stdout),
@@ -585,7 +676,9 @@ impl Runtime {
         ]
         .into_iter()
         .map(OsString::from)
-        .chain(std::iter::once(format!("/inputs/{name}").into()))
+        .chain(std::iter::once(
+            self.input_path(inputs, name).into_os_string(),
+        ))
         .collect();
         let r = run(
             &self.spec("ffprobe", args, inputs, work, Duration::from_secs(5))?,
@@ -602,10 +695,15 @@ impl Runtime {
         cancel: &AtomicBool,
     ) -> Result<ProcessResult> {
         let mut args: Vec<OsString> = vec![
-            "/inputs/project.mlt".into(),
+            self.input_path(inputs, "project.mlt").into_os_string(),
             "-silent".into(),
             "-consumer".into(),
-            format!("avformat:/work/partial.{}", profile.extension).into(),
+            format!(
+                "avformat:{}",
+                self.work_path(work, &format!("partial.{}", profile.extension))
+                    .to_string_lossy()
+            )
+            .into(),
             format!("f={}", profile.container).into(),
             "real_time=-1".into(),
             "threads=2".into(),
@@ -891,5 +989,57 @@ impl MediaInfo {
             ("video", self.video.into()),
             ("codecs", array(self.codecs.iter().cloned().map(Into::into))),
         ])
+    }
+}
+
+#[cfg(test)]
+mod tool_owner_tests {
+    use super::trusted_tool_owner;
+    use std::path::Path;
+
+    #[test]
+    fn owner_policy_allows_only_explicit_trust_cases() {
+        assert!(trusted_tool_owner(
+            Path::new("/workspace/tool"),
+            1000,
+            1000,
+            Some(65534)
+        ));
+        assert!(trusted_tool_owner(
+            Path::new("/workspace/tool"),
+            0,
+            1000,
+            Some(65534)
+        ));
+        assert!(trusted_tool_owner(
+            Path::new("/usr/bin/melt"),
+            65534,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/workspace/tool"),
+            65534,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/opt/tool"),
+            65534,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/usr/bin/melt"),
+            4242,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/usr/bin/melt"),
+            65534,
+            1000,
+            None
+        ));
     }
 }
