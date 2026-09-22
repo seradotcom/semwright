@@ -523,7 +523,13 @@ impl Runtime {
             )?,
             &cancel,
         )?
-        .checked()?;
+        .checked()
+        .map_err(|error| {
+            Error::new(
+                error.code,
+                format!("melt -version discovery failed: {}", error.message),
+            )
+        })?;
         let text = format!(
             "{} {}",
             String::from_utf8_lossy(&result.stdout),
@@ -552,7 +558,13 @@ impl Runtime {
                 )?,
                 &cancel,
             )?
-            .checked()?;
+            .checked()
+            .map_err(|error| {
+                Error::new(
+                    error.code,
+                    format!("melt -query {group} discovery failed: {}", error.message),
+                )
+            })?;
             let text = format!(
                 "{}\n{}",
                 String::from_utf8_lossy(&result.stdout),
