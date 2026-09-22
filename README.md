@@ -7,10 +7,11 @@
 > passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
 > rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz and real Rust Chromium gates.
 > Provider Runtime, governed stdio MCP federation, and the persistent App Driver SDK with
-> sandboxed conformance tooling are merged after exact-head green CI. The browser integration
-> also retires DOM references synchronously at Semwright-initiated mutation boundaries to avoid
-> event-order races. Live desktops, real Blender, broader driver applications, packaging and
-> independent security review remain incomplete. Read
+> sandboxed conformance tooling are merged after exact-head green CI. A real LibreOffice/UNO
+> deep driver now exercises that SDK through the normal CLI/broker/policy path, while Chromium
+> has a hosted real-browser integration with bounded handling of transient target metadata. Live
+> desktops, real Blender, broader driver coverage, packaging and independent security review
+> remain incomplete. Read
 > [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
 > desktop access.
 
@@ -137,6 +138,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
 | MCP federation | Governed stdio provider + owner-only upstream registry | Merged after green x86_64/ARM64 CI with real fixture handshake/tool import, policy mediation, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
 | App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Merged after hosted driver-conformance: pinned fixture handshake/catalog/health/execute/shutdown, broker smoke and generated-driver compile |
+| LibreOffice | Sandboxed persistent UNO DriverProvider | Real hosted Writer create/read, Calc create/get/set and PDF export through CLI -> daemon -> broker -> driver; curated seven-capability surface, not full UNO |
 | Events/jobs | Provenance-aware event stream + bounded session-scoped jobs | Job execution re-enters normal policy/audit; cancellation, session privacy and revocation are integration-tested; generic progress/artifact/task mapping remains follow-on work |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
@@ -183,7 +185,7 @@ identity, digest-pinned capabilities and executable conformance. [Events and job
 document source-bound event delivery and bounded long-operation lifecycle. [The inspector](docs/inspector.md)
 is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
-[Chromium](adapters/chromium/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
+[Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
 [KWin](bridges/kwin/README.md).
 
 ## Security boundary

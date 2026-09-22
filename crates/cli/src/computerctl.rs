@@ -31,6 +31,8 @@ fn driver_view(manifest: &DriverManifest) -> Result<serde_json::Value> {
         "sha256": manifest.sha256,
         "network": manifest.network,
         "mounts": manifest.mounts,
+        "system_config": manifest.system_config,
+        "resources": manifest.resources,
         "interfaces": manifest.interfaces,
         "request_timeout_ms": manifest.request_timeout_ms,
         "executable_exists": manifest.executable.is_file(),
@@ -155,7 +157,15 @@ async fn main() {{
                 "application":{"desktop_id":format!("org.example.{name}"),"process_names":[],"supported_versions":[]},
                 "transport":"stdio_v1",
                 "mounts":[],
+                "system_config":[],
                 "network":false,
+                "resources":{
+                    "open_files":128,
+                    "processes":32,
+                    "cpu_seconds":20,
+                    "address_space_bytes":536870912,
+                    "file_size_bytes":16777216
+                },
                 "request_timeout_ms":30000,
                 "interfaces":{"dynamic_capabilities":false,"cooperative_cancellation":false,"events":false,"health":true}
             });

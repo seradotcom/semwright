@@ -269,9 +269,23 @@ MCP Federation expansion subtotal: **9 PASS, 1 FAIL**.
 | D009 | Hostile sandbox escape matrix covers filesystem/network/process/environment attacks. | FAIL | Happy-path sandbox is real; the adversarial negative matrix is still R10. |
 | D010 | Driver protocol negotiates dynamic capabilities, events and cooperative cancellation. | FAIL | Protocol v1 intentionally rejects these interfaces until implemented/tested. |
 | D011 | Driver registry/distribution supports safe search/install/update/removal. | FAIL | R12 remains open; no package/index installation surface is certified. |
-| D012 | A second non-browser/non-Blender application has a real deep driver integration. | FAIL | Driver SDK exists, but application-specific showcase expansion is follow-on work. |
+| D012 | A second non-browser/non-Blender application has a real deep driver integration. | PASS | Sandboxed LibreOffice/UNO executes real Writer/Calc/PDF operations through CLI -> broker -> DriverProvider in hosted CI. |
 
-App Driver SDK expansion subtotal: **8 PASS, 4 FAIL**.
+App Driver SDK expansion subtotal: **9 PASS, 3 FAIL**.
+
+## LibreOffice deep-driver expansion acceptance
+
+| ID | Expansion requirement | Status | Evidence / limitation |
+|---|---|---|---|
+| L001 | A real LibreOffice process executes through the persistent DriverProvider sandbox. | PASS | Hosted ignored integration test launches real UNO inside Bubblewrap + Landlock. |
+| L002 | The full public path reaches LibreOffice without a core-specific execution bypass. | PASS | Hosted smoke covers CLI -> daemon -> broker policy/provenance -> DriverProvider -> UNO. |
+| L003 | Writer create/read is round-tripped inside a scoped workspace. | PASS | ODT content is created, reopened and checked through UNO plus archive content validation. |
+| L004 | Calc preserves typed numeric zero and supports bounded cell mutation. | PASS | ODS create/get/set smoke verifies `0` as numeric and a subsequent text mutation. |
+| L005 | PDF export creates a new artifact and refuses silent overwrite. | PASS | Hosted/local smoke checks `%PDF-` output and a conflicting create fails. |
+| L006 | LibreOffice runtime configuration is narrow and resource-bounded. | PASS | `/etc/libreoffice` and `/etc/fonts` are explicit read-only grants; process/FD/CPU/address-space/file-size limits are validated and enforced by the sandbox helper. |
+| L007 | LibreOffice exposes the complete UNO surface or arbitrary macros/scripts. | FAIL | The driver intentionally exposes seven curated capabilities; full UNO introspection/coverage remains future scope. |
+
+LibreOffice deep-driver expansion subtotal: **6 PASS, 1 FAIL**.
 
 ## Events and Jobs expansion acceptance
 
@@ -290,5 +304,5 @@ App Driver SDK expansion subtotal: **8 PASS, 4 FAIL**.
 Events and Jobs expansion subtotal: **7 PASS, 2 FAIL**.
 
 The original 123-entry totals above are intentionally unchanged by these expansion tables.
-Real Blender introspection, additional application drivers, richer long-operation contracts and the
+Real Blender introspection, broader application coverage, richer long-operation contracts and the
 remaining universal Linux/runtime blockers stay tracked in RELEASE_BLOCKERS.md.

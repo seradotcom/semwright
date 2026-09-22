@@ -18,6 +18,7 @@ historical only and is not used to certify this baseline.
 | Dependency, coverage and fuzz / bounded fuzz | PASS | Commit checks: `Dependency, coverage and fuzz gates` |
 | Native application integration / Chromium | PASS | Commit checks: `Native application integration` |
 | Native application integration / Driver conformance | PASS | Commit checks: `Native application integration` |
+| Native application integration / LibreOffice driver | PASS | Commit checks: `Native application integration` |
 
 The quality matrix uses Rust 1.98.1 and runs, with the locked dependency graph, `fmt`,
 `check`, debug build, Clippy with warnings denied, workspace/all-target tests, doctests,
@@ -30,12 +31,14 @@ produces workspace LCOV and JSON artifacts; no percentage is asserted here. The 
 the `protocol`, `selector`, `recipe`, `plugin`, and `path` targets for bounded intervals. Workflows
 use explicit Bash, so a producer failure cannot be hidden by `tee`.
 
-The native job launches the Rust Chromium adapter against the hosted runner's real Chrome binary
+The native Chromium job launches the Rust adapter against the hosted runner's real Chrome binary
 using a disposable owned profile and loopback fixture. It exercises launch, operation-specific
 availability, tab navigation, native input, DOM snapshot, screenshot artifact metadata, stale refs,
-origin denial, download denial, and profile cleanup. The runner normalizes the overly permissive
-mode of its ephemeral Chrome installation; production validation continues to reject executables
-writable by group or others.
+origin denial, download denial, and profile cleanup. A Chrome 152 target-metadata race discovered
+during this pass is covered by a bounded stabilization regression: transient unparsable target
+metadata may be retried, while malformed user URLs and disallowed origins remain fail-closed. The
+runner normalizes the overly permissive mode of its ephemeral Chrome installation; production
+validation continues to reject executables writable by group or others.
 
 ## Provider Runtime closure included in this development line
 
@@ -79,6 +82,22 @@ capability digest attestation, health, a safe read-only operation and clean shut
 executes the broker smoke path and compiles a newly scaffolded driver. Protocol v1 deliberately
 rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
 are negotiated and tested.
+
+## LibreOffice deep-driver closure included in this development line
+
+LibreOffice is the first accepted deep application driver built on the public App Driver SDK that
+is neither the browser adapter nor the Blender prototype. The owner-pinned driver runs persistently
+inside Semwright's Bubblewrap + Landlock path, launches a private headless LibreOffice/UNO process,
+and receives only the workspace plus explicitly granted read-only `/etc/libreoffice` and `/etc/fonts`
+configuration mounts. Driver-requested RLIMITs are bounded again by the sandbox helper.
+
+The hosted `libreoffice-driver` job installs real Writer/Calc and `python3-uno`, preflights
+unprivileged Bubblewrap/AppArmor behavior, and executes both the direct sandbox integration and the
+full CLI -> daemon -> broker -> `DriverProvider` -> UNO path. The verified capability set covers
+status, Writer create/read, Calc create/get/set, and PDF export. Evidence includes Writer roundtrip,
+numeric zero preservation, Calc mutation, PDF structure and refusal to overwrite an existing target.
+This certifies the listed operations against the hosted LibreOffice version; it is not a claim that
+the entire UNO object model is exposed or that arbitrary macros/scripts are permitted.
 
 ## Events and jobs closure included in this development line
 

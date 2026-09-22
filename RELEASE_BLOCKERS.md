@@ -2,10 +2,11 @@
 
 **Baseline for all statements below: the exact Git commit containing this document.**
 
-The hosted source, Rust, dependency, coverage, bounded-fuzz, fake-E2E, real Chromium and
-sandboxed driver-conformance jobs are green on the certified development line. Provider Runtime,
-governed stdio MCP federation and the persistent App Driver SDK foundation have executed
-integration evidence. Those foundation gates are closed; this is still not a release candidate.
+The hosted source, Rust, dependency, coverage, bounded-fuzz, fake-E2E, real Chromium, sandboxed
+driver-conformance and real LibreOffice/UNO jobs are green on the certified development line.
+Provider Runtime, governed stdio MCP federation, the persistent App Driver SDK and a second deep
+application driver have executed integration evidence. Those development gates are closed; this
+is still not a release candidate.
 
 | ID | Remaining blocker | Completion evidence needed |
 |---|---|---|
@@ -18,7 +19,7 @@ integration evidence. Those foundation gates are closed; this is still not a rel
 | R07 | X11 still needs a bounded blocking boundary and lifecycle epochs. | Unresponsive-server tests and create/destroy/reuse tracking. |
 | R08 | Blender has mocked Python coverage but no accepted real Blender/RNA/addon execution. | Background and GUI Blender runs, introspection/addon discovery, refs, render/export and cleanup. |
 | R09 | Chromium now has a real Rust happy/negative integration, but quotas, crash recovery, multi-frame races and artifact lifecycle need deeper coverage. | Quota and crash matrices with deterministic cleanup and stale-ref tests. |
-| R10 | The App Driver happy-path sandbox/conformance is executed, but hostile plugin/driver sandbox escape coverage and plugin handshake attestation remain incomplete. | Filesystem/network/process/env escape tests, plugin schema/version digest attestation and watchdog/adversarial sandbox tests. |
+| R10 | App Driver conformance and real LibreOffice execute inside the sandbox with bounded resources, but hostile plugin/driver escape coverage and plugin handshake attestation remain incomplete. | Filesystem/network/process/env escape tests, plugin schema/version digest attestation and watchdog/adversarial sandbox tests. |
 | R12 | Driver registry/distribution, safe install/update packages and application-version compatibility resolution are incomplete. | Checksummed safe extraction, no install-time execution, compatibility fixtures and a static/local index implementation. |
 | R13 | Core event provenance, session-private job lifecycle, revocation and cancellation are implemented and integration-tested; provider progress/artifacts, MCP task mapping, negotiated driver job/event interfaces and richer inspector workflows remain incomplete. | Cross-provider progress/artifact contracts, MCP/driver task conformance and inspector/reference workflow evidence. |
 | R14 | Several outputs and availability signals remain too generic or backend-wide. | Tight output schemas and operation-specific probing/compatibility fixtures. |
@@ -29,6 +30,11 @@ Closed development blocker: **R11** (governed local stdio MCP federation) now ha
 fixture sessions, namespaced untrusted capability import, central policy mediation, cancellation,
 dynamic catalog refresh, crash invalidation and owner-registry tests. Same-UID upstream process
 sandboxing remains explicitly open under the security boundary rather than being hidden by R11.
+
+Closed development milestone: the App Driver SDK now has a real non-browser/non-Blender showcase.
+LibreOffice Writer/Calc/PDF operations execute through the normal broker and a persistent sandboxed
+DriverProvider. This closes the SDK generalization demonstration, not R10's hostile sandbox matrix,
+R12's driver distribution work, or any claim of complete UNO application coverage.
 
 Additional limitations remain: recipe taint/redaction is not formal information-flow security;
 runtime discovery is not certification; application names do not automatically inherit desktop-ref
