@@ -283,6 +283,18 @@ impl Cdp {
             .get(session)
             .unwrap_or(&0))
     }
+    /// Invalidate semantic DOM references synchronously before a Semwright-initiated
+    /// mutation. CDP events may advance the generation again; generation equality, not
+    /// adjacency, is the contract.
+    fn invalidate_session(&self, session: &str) -> Result<u64> {
+        let mut generations = self
+            .generations
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP generation lock poisoned"))?;
+        let generation = generations.entry(session.to_owned()).or_insert(0);
+        *generation = generation.saturating_add(1);
+        Ok(*generation)
+    }
     fn metadata(&self) -> Result<Vec<Value>> {
         Ok(self
             .events
@@ -836,6 +848,9 @@ impl Backend for Chromium {
                 }
                 let url = arg_str(args, "url")?;
                 self.config.check_url(url)?;
+                // Navigation is a known identity boundary. Invalidate current DOM refs
+                // before dispatch so a partial/late navigation cannot leave them reusable.
+                cdp.invalidate_session(&session)?;
                 let result = cdp
                     .call("Page.navigate", json!({"url":url}), Some(&session))
                     .await?;
@@ -971,6 +986,9 @@ impl Backend for Chromium {
                     ));
                 }
                 ctx.check_cancelled()?;
+                // A click may synchronously mutate or navigate before CDP emits its
+                // corresponding event. Conservatively retire all current DOM refs first.
+                cdp.invalidate_session(&session)?;
                 for kind in ["mousePressed", "mouseReleased"] {
                     cdp.call(
                         "Input.dispatchMouseEvent",
@@ -1041,6 +1059,9 @@ impl Backend for Chromium {
                     ));
                 }
                 ctx.check_cancelled()?;
+                // Input changes application-visible DOM state. Retire the discovery
+                // generation before dispatch instead of depending on event scheduling.
+                cdp.invalidate_session(&session)?;
                 for kind in ["keyDown", "keyUp"] {
                     cdp.call("Input.dispatchKeyEvent",json!({"type":kind,"modifiers":2,"key":"a","code":"KeyA","windowsVirtualKeyCode":65,"nativeVirtualKeyCode":65}),Some(&session)).await?;
                 }
