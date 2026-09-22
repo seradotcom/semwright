@@ -261,7 +261,11 @@ def iter_types(exact_identifier=None):
         except Exception:
             pass
 
-    for identifier in sorted(candidates):
+    identifiers = sorted(candidates)
+    if exact_identifier in candidates:
+        yield candidates[exact_identifier]
+        identifiers.remove(exact_identifier)
+    for identifier in identifiers:
         yield candidates[identifier]
 
 
