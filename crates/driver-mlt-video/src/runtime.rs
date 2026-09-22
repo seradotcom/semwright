@@ -261,6 +261,20 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         output_exceeded: overflow.load(Ordering::Acquire),
     })
 }
+fn overflow_uid() -> Option<u32> {
+    std::fs::read_to_string("/proc/sys/kernel/overflowuid")
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
+}
+
+fn trusted_tool_owner(path: &Path, owner: u32, current: u32, overflow: Option<u32>) -> bool {
+    owner == 0
+        || owner == current
+        || (overflow == Some(owner) && path.starts_with(Path::new("/usr")))
+}
+
 #[derive(Clone, Debug)]
 pub struct Tool {
     pub path: PathBuf,
@@ -293,10 +307,10 @@ impl Tool {
         let m = file.metadata()?;
         // SAFETY: getuid has no arguments or memory preconditions.
         let uid = unsafe { getuid() };
-        if m.uid() != 0 && m.uid() != uid {
+        if !trusted_tool_owner(&self.path, m.uid(), uid, overflow_uid()) {
             return Err(Error::new(
                 "PermissionDenied",
-                "Pinned tool owner must be root or the sandbox uid",
+                "Pinned tool owner must be root, the sandbox uid, or the kernel overflow uid for read-only /usr",
             ));
         }
         if !m.is_file() {
@@ -927,5 +941,57 @@ impl MediaInfo {
             ("video", self.video.into()),
             ("codecs", array(self.codecs.iter().cloned().map(Into::into))),
         ])
+    }
+}
+
+#[cfg(test)]
+mod tool_owner_tests {
+    use super::trusted_tool_owner;
+    use std::path::Path;
+
+    #[test]
+    fn owner_policy_allows_only_explicit_trust_cases() {
+        assert!(trusted_tool_owner(
+            Path::new("/workspace/tool"),
+            1000,
+            1000,
+            Some(65534)
+        ));
+        assert!(trusted_tool_owner(
+            Path::new("/workspace/tool"),
+            0,
+            1000,
+            Some(65534)
+        ));
+        assert!(trusted_tool_owner(
+            Path::new("/usr/bin/melt"),
+            65534,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/workspace/tool"),
+            65534,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/opt/tool"),
+            65534,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/usr/bin/melt"),
+            4242,
+            1000,
+            Some(65534)
+        ));
+        assert!(!trusted_tool_owner(
+            Path::new("/usr/bin/melt"),
+            65534,
+            1000,
+            None
+        ));
     }
 }
