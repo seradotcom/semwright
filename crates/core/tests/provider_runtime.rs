@@ -540,16 +540,19 @@ async fn provider_notifications_refresh_without_periodic_polling_and_events_are_
     let event = tokio::time::timeout(Duration::from_secs(2), async {
         loop {
             let event = events.recv().await.unwrap();
-            if event.event["kind"] == "object.created" {
+            if event.event.kind == "object.created" {
                 break event;
             }
         }
     })
     .await
     .unwrap();
-    assert_eq!(event.event["source"], "driver:fixture");
-    assert_eq!(event.event["untrusted_payload"], true);
-    assert_eq!(event.event["payload"]["source"], "semwright-core");
+    assert_eq!(event.event.source, "driver:fixture");
+    assert!(event.event.untrusted_payload);
+    assert_eq!(
+        event.event.payload.as_ref().unwrap()["source"],
+        "semwright-core"
+    );
     fixture
         .provider
         .signal

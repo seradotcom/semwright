@@ -1,6 +1,6 @@
 //! Bounded length-prefixed JSON protocol. Unix only; TCP is deliberately absent.
 use semwright_types::{
-    Envelope, Error, ErrorCode, ExecuteRequest, MAX_FRAME, PROTOCOL_VERSION, Result,
+    Envelope, Error, ErrorCode, EventEnvelope, ExecuteRequest, MAX_FRAME, PROTOCOL_VERSION, Result,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -30,20 +30,10 @@ pub enum ClientMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ServerMessage {
-    Welcome {
-        version: u32,
-        session: String,
-    },
-    Result {
-        envelope: Box<Envelope>,
-    },
-    Event {
-        sequence: u64,
-        event: serde_json::Value,
-    },
-    Error {
-        error: Error,
-    },
+    Welcome { version: u32, session: String },
+    Result { envelope: Box<Envelope> },
+    Event { sequence: u64, event: EventEnvelope },
+    Error { error: Error },
     Pong,
 }
 pub fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>> {

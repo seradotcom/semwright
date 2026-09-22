@@ -46,7 +46,7 @@ impl Approver for NoApprover {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Event {
     pub sequence: u64,
-    pub event: Value,
+    pub event: EventEnvelope,
 }
 struct Events {
     sequence: u64,
@@ -167,12 +167,23 @@ impl Broker {
             .cloned()
             .collect())
     }
-    fn event(&self, value: Value) {
+    fn event(&self, event: EventEnvelope) {
+        if event.validate().is_err() {
+            return;
+        }
+        let Ok(value) = serde_json::to_value(&event) else {
+            return;
+        };
+        if semwright_registry::bounds::value_budget(&value).is_err()
+            || serde_json::to_vec(&value).is_ok_and(|bytes| bytes.len() > 65_536)
+        {
+            return;
+        }
         if let Ok(mut events) = self.events.lock() {
             events.sequence = events.sequence.saturating_add(1);
             let event = Event {
                 sequence: events.sequence,
-                event: value,
+                event,
             };
             if events.history.len() == 256 {
                 events.history.pop_front();
@@ -180,6 +191,10 @@ impl Broker {
             events.history.push_back(event.clone());
             let _ = self.broadcast.send(event);
         }
+    }
+
+    fn core_event(&self, kind: &str) -> EventEnvelope {
+        EventEnvelope::new(kind, "semwright-core", event_time())
     }
     pub async fn probe(&self) -> Vec<Feature> {
         let revision = self.catalog_revision().unwrap_or(u64::MAX);
@@ -547,7 +562,11 @@ impl Broker {
                 );
             }
         };
-        self.event(json!({"kind":"command_start","command":safe_name,"request_id":id}));
+        self.event(
+            self.core_event("command_start")
+                .with_attribute("command", json!(safe_name))
+                .with_attribute("request_id", json!(id)),
+        );
         let mut selected = "unselected".to_owned();
         let result = self
             .perform(
@@ -567,7 +586,14 @@ impl Broker {
             )
             .uncertain()),
         };
-        self.event(json!({"kind":"command_finish","command":safe_name,"request_id":id,"backend":selected,"ok":result.is_ok(),"error_code":result.as_ref().err().map(|e|e.code)}));
+        self.event(
+            self.core_event("command_finish")
+                .with_attribute("command", json!(safe_name))
+                .with_attribute("request_id", json!(id))
+                .with_attribute("backend", json!(selected))
+                .with_attribute("ok", json!(result.is_ok()))
+                .with_attribute("error_code", json!(result.as_ref().err().map(|e| e.code))),
+        );
         let mut envelope = Envelope::finish(
             id,
             request.command,
@@ -997,7 +1023,7 @@ impl Broker {
             "plugin.install" => {
                 let manifest: Manifest = serde_json::from_value(args["manifest"].clone())?;
                 self.install_manifest(manifest)?;
-                self.event(json!({"kind":"registry_changed"}));
+                self.event(self.core_event("registry_changed"));
                 Ok(
                     json!({"installed":true,"persistence":"until broker shutdown; owner config is needed for subsequent starts"}),
                 )
@@ -1015,7 +1041,7 @@ impl Broker {
                 for command in &manifest.commands {
                     registry.remove_plugin_command(&command.name)?;
                 }
-                self.event(json!({"kind":"registry_changed"}));
+                self.event(self.core_event("registry_changed"));
                 Ok(json!({"removed":true}))
             }
             _ => Err(Error::new(ErrorCode::Unsupported, "Unknown core command")),
@@ -1053,6 +1079,14 @@ impl Broker {
         }
     }
 }
+fn event_time() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(u64::MAX as u128) as u64
+}
+
 struct RecipeBridge {
     broker: Arc<Broker>,
     session: String,
