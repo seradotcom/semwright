@@ -1,0 +1,9 @@
+{
+  "generated": true,
+  "generator": "scripts/generate_fixtures.py",
+  "user_media_used": false,
+  "app_generated": false,
+  "gui_reopen_verified": false,
+  "copyrighted_source_media_used": false,
+  "notes": "All native XML is explicitly synthetic. ffmpeg generated media only; this is NOT MLT execution."
+}

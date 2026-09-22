@@ -1,0 +1,1 @@
+<!DOCTYPE mlt [<!ENTITY x SYSTEM "file:///DENIED">]><mlt>&x;</mlt>

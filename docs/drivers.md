@@ -125,6 +125,24 @@ BIN_DIR=target/debug scripts/dev/driver-conformance.sh
 
 That path is exercised locally and by the Native application integration workflow.
 
+## Included application drivers
+
+The workspace includes two larger integration surfaces in addition to the existing examples:
+
+- `crates/driver-mlt-video` provides 68 bounded offline timeline, metadata, render-plan and
+  job capabilities. Deep mutation is limited to the driver's normalized MLT form; arbitrary
+  Kdenlive and Shotcut projects remain conservative/read-mostly inputs. Its fixtures and
+  semantic tests do not by themselves certify a real editor round trip.
+- `integrations/kicad-driver` is a separately licensed GPL-3.0-or-later integration. It links
+  a Rust SDK client to a bounded Go/C ABI IPC core and supports the curated KiCad 9/10 PCB
+  surface described in its own compatibility documentation. The deterministic fake IPC gate
+  is not evidence of interoperability with a real KiCad process.
+
+Both integrations use the normal owner-assigned DriverProvider identity, digest pinning,
+policy grants, bubblewrap/Landlock sandbox and descriptor-pinned execution. They add no
+ambient authority or unsandboxed fallback. Consult each directory's README and security
+notes before enabling it.
+
 ## Loading drivers in the daemon
 
 Owner configuration may list protected manifest files:

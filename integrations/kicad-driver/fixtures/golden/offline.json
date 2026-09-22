@@ -1,0 +1,356 @@
+{
+  "profile": "offline",
+  "flags": [
+    false,
+    false,
+    false
+  ],
+  "capability_count": 3,
+  "catalog_sha256": "f6a33e40a4de006149578fbbbcb370d5ec5d1c235c5f142607ba7136fe7e136b",
+  "capabilities": [
+    {
+      "descriptor": {
+        "name": "driver.kicad.instance.reconnect",
+        "version": "1.0.0",
+        "description": "Explicitly reconnect to an owner-allowed instance. Invalidates every old object reference; never retries a mutation.",
+        "input_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "instance_id": {
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9-]{0,38}[a-z0-9]$|^[a-z]$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "instance_id"
+          ],
+          "type": "object"
+        },
+        "output_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "cached_observation": {
+              "const": true
+            },
+            "capability_count": {
+              "maximum": 32,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "connection_state": {
+              "enum": [
+                "connected",
+                "disconnected"
+              ],
+              "type": "string"
+            },
+            "driver_version": {
+              "const": "0.1.0"
+            },
+            "editor": {
+              "const": "pcb"
+            },
+            "generation": {
+              "maxLength": 32,
+              "type": "string"
+            },
+            "instance_count": {
+              "maximum": 16,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "last_error_code": {
+              "maxLength": 32,
+              "type": "string"
+            },
+            "reconciliation_required": {
+              "type": "boolean"
+            },
+            "restart_required": {
+              "type": "boolean"
+            },
+            "selected_instance": {
+              "maxLength": 40,
+              "type": "string"
+            },
+            "version": {
+              "additionalProperties": false,
+              "properties": {
+                "full": {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                "major": {
+                  "maximum": 999,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "minor": {
+                  "maximum": 999,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "patch": {
+                  "maximum": 999,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "supported": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "major",
+                "minor",
+                "patch",
+                "full",
+                "supported"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "driver_version",
+            "version",
+            "instance_count",
+            "selected_instance",
+            "connection_state",
+            "generation",
+            "capability_count",
+            "editor",
+            "reconciliation_required",
+            "restart_required",
+            "last_error_code",
+            "cached_observation"
+          ],
+          "type": "object"
+        },
+        "requires": [
+          "driver:kicad"
+        ],
+        "risk": "read_only",
+        "idempotency": "read_only",
+        "timeout_ms": 25000,
+        "dry_run": false,
+        "interactive_consent": false,
+        "backends": [
+          "driver:kicad"
+        ]
+      },
+      "aliases": [],
+      "tags": [
+        "kicad",
+        "ipc",
+        "curated"
+      ],
+      "object_types": [
+        "pcb"
+      ]
+    },
+    {
+      "descriptor": {
+        "name": "driver.kicad.instances.list",
+        "version": "1.0.0",
+        "description": "Inspect only the owner-configured IPC allowlist, without opening extra connections.",
+        "input_schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "output_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "instances": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "maxLength": 40,
+                    "type": "string"
+                  },
+                  "inspection_error_code": {
+                    "maxLength": 32,
+                    "type": "string"
+                  },
+                  "selected": {
+                    "type": "boolean"
+                  },
+                  "socket_present": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "socket_present",
+                  "selected",
+                  "inspection_error_code"
+                ],
+                "type": "object"
+              },
+              "maxItems": 16,
+              "type": "array"
+            }
+          },
+          "required": [
+            "instances"
+          ],
+          "type": "object"
+        },
+        "requires": [
+          "driver:kicad"
+        ],
+        "risk": "read_only",
+        "idempotency": "read_only",
+        "timeout_ms": 25000,
+        "dry_run": false,
+        "interactive_consent": false,
+        "backends": [
+          "driver:kicad"
+        ]
+      },
+      "aliases": [],
+      "tags": [
+        "kicad",
+        "ipc",
+        "curated"
+      ],
+      "object_types": [
+        "pcb"
+      ]
+    },
+    {
+      "descriptor": {
+        "name": "driver.kicad.status",
+        "version": "1.0.0",
+        "description": "Report cached non-secret driver health; does not contact KiCad.",
+        "input_schema": {
+          "additionalProperties": false,
+          "properties": {},
+          "required": [],
+          "type": "object"
+        },
+        "output_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "cached_observation": {
+              "const": true
+            },
+            "capability_count": {
+              "maximum": 32,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "connection_state": {
+              "enum": [
+                "connected",
+                "disconnected"
+              ],
+              "type": "string"
+            },
+            "driver_version": {
+              "const": "0.1.0"
+            },
+            "editor": {
+              "const": "pcb"
+            },
+            "generation": {
+              "maxLength": 32,
+              "type": "string"
+            },
+            "instance_count": {
+              "maximum": 16,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "last_error_code": {
+              "maxLength": 32,
+              "type": "string"
+            },
+            "reconciliation_required": {
+              "type": "boolean"
+            },
+            "restart_required": {
+              "type": "boolean"
+            },
+            "selected_instance": {
+              "maxLength": 40,
+              "type": "string"
+            },
+            "version": {
+              "additionalProperties": false,
+              "properties": {
+                "full": {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                "major": {
+                  "maximum": 999,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "minor": {
+                  "maximum": 999,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "patch": {
+                  "maximum": 999,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "supported": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "major",
+                "minor",
+                "patch",
+                "full",
+                "supported"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "driver_version",
+            "version",
+            "instance_count",
+            "selected_instance",
+            "connection_state",
+            "generation",
+            "capability_count",
+            "editor",
+            "reconciliation_required",
+            "restart_required",
+            "last_error_code",
+            "cached_observation"
+          ],
+          "type": "object"
+        },
+        "requires": [
+          "driver:kicad"
+        ],
+        "risk": "read_only",
+        "idempotency": "read_only",
+        "timeout_ms": 25000,
+        "dry_run": true,
+        "interactive_consent": false,
+        "backends": [
+          "driver:kicad"
+        ]
+      },
+      "aliases": [],
+      "tags": [
+        "kicad",
+        "ipc",
+        "curated"
+      ],
+      "object_types": [
+        "pcb"
+      ]
+    }
+  ]
+}

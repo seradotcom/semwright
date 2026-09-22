@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "adapters/example-plugin"]
+members = [
+    "crates/*",
+    "adapters/example-plugin",
+    "integrations/kicad-driver/driver",
+    "integrations/kicad-driver/kicad-ipc",
+]
 exclude = ["fuzz"]
 
 [workspace.package]

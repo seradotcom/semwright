@@ -1,0 +1,1 @@
+<!DOCTYPE mlt [<!ENTITY a "aaa"><!ENTITY b "&a;&a;">]><mlt>&b;</mlt>

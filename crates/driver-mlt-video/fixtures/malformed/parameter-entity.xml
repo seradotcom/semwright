@@ -1,0 +1,1 @@
+<!DOCTYPE mlt [<!ENTITY % x SYSTEM "https://invalid.example/test">%x;]><mlt/>

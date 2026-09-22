@@ -139,6 +139,8 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | MCP federation | Governed stdio provider + owner-only upstream registry | Merged after green x86_64/ARM64 CI with real fixture handshake/tool import, policy mediation, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
 | App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Merged after hosted driver-conformance: pinned fixture handshake/catalog/health/execute/shutdown, broker smoke and generated-driver compile |
 | LibreOffice | Sandboxed persistent UNO DriverProvider | Real hosted Writer create/read, Calc create/get/set and PDF export through CLI -> daemon -> broker -> driver; curated seven-capability surface, not full UNO |
+| MLT video | Sandboxed persistent semantic timeline DriverProvider | 68-capability bounded model with 206 Rust tests and host-sandbox conformance; real MLT/Kdenlive/Shotcut round-trip certification remains pending |
+| KiCad | Separately licensed GPL IPC DriverProvider integration | Rust/Go build, native protocol tests and fake IPC host-sandbox conformance; real KiCad interoperability remains pending |
 | Events/jobs | Provenance-aware event stream + bounded session-scoped jobs | Job execution re-enters normal policy/audit; cancellation, session privacy and revocation are integration-tested; generic progress/artifact/task mapping remains follow-on work |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
@@ -185,7 +187,9 @@ identity, digest-pinned capabilities and executable conformance. [Events and job
 document source-bound event delivery and bounded long-operation lifecycle. [The inspector](docs/inspector.md)
 is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
-[Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
+[Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md),
+[MLT video](crates/driver-mlt-video/README.md), and
+[KiCad](integrations/kicad-driver/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
 [KWin](bridges/kwin/README.md).
 
 ## Security boundary
@@ -204,7 +208,9 @@ and [permissions](docs/permissions.md) before granting access.
 
 Semwright is a working name; namespace/trademark clearance and publication are unfinished.
 This archive does not represent an existing public GitHub release or a promised popularity
-outcome. Original source is dual-licensed **MIT OR Apache-2.0**. Dependency license resolution
-is not complete without a lockfile. [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md),
+outcome. Original core source is dual-licensed **MIT OR Apache-2.0**. The isolated
+`integrations/kicad-driver` subtree is **GPL-3.0-or-later** and carries its own notices; it is
+not relicensed as core source. Dependency license resolution is not complete without a lockfile.
+[Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md),
 [changelog](CHANGELOG.md), and [the original requirements](docs/requirements/START_HERE.md)
 make the requested scope and unfinished work explicit.

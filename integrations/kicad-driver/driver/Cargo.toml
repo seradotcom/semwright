@@ -1,0 +1,25 @@
+[package]
+name = "semwright-kicad-driver"
+version.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later"
+publish = false
+
+[dependencies]
+semwright-driver-sdk = { path = "../../../crates/driver-sdk", version = "=0.9.0-dev.1" }
+semwright-types = { path = "../../../crates/types", version = "=0.9.0-dev.1" }
+serde_json.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+kicad-ipc = { path = "../kicad-ipc", version = "=0.9.0-dev.1" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+semwright-backend-api = { path = "../../../crates/backend-api", version = "=0.9.0-dev.1" }
+semwright-driver-host = { path = "../../../crates/driver-host", version = "=0.9.0-dev.1" }
+semwright-policy = { path = "../../../crates/policy", version = "=0.9.0-dev.1" }
+sha2.workspace = true
+tempfile.workspace = true
+tokio-util.workspace = true
