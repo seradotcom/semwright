@@ -24,7 +24,7 @@ del ejecutable. Pasar ese fake no equivale a demostrar compatibilidad con KiCad 
 | Núcleo nativo y referencia ELF | Compilados y ejecutados |
 | Unit tests Go | 35 aprobados; además 6 funciones fuzz con sus seeds |
 | Python | 45 aprobados: 33 integración/fake/C ABI y 12 contratos/goldens/negativos |
-| Race detector Go / go vet / gofmt | Aprobados en el alcance descrito en VERIFY.md |
+| Race detector Go / go vet / gofmt | Aprobados en el paquete de procedencia; CI vuelve a ejecutar los tests nativos |
 | Fuzzing Go | 6 targets, 209,967 ejecuciones observadas, sin crashes encontrados |
 | Cobertura de caja negra | 79.5% de sentencias Go instrumentadas; no incluye Rust ni el entrypoint C ABI |
 | Cliente Rust / Cargo / Clippy | Integrado y ejecutado con el lock del workspace |
@@ -58,7 +58,10 @@ de lock provisional del paquete original.
 
 ## Lecturas esenciales
 
-[VERIFY.md](VERIFY.md) separa evidencia ejecutada de pendientes. [INTEGRATION.md](INTEGRATION.md) explica montaje, permisos, compilación y conformance. [SDK_GAPS.md](SDK_GAPS.md) identifica restricciones genéricas sin inventar interfaces. [SECURITY.md](SECURITY.md) enumera límites y riesgos residuales. [REAL_KICAD_TEST_PLAN.md](REAL_KICAD_TEST_PLAN.md) contiene el procedimiento de validación pendiente.
+[SECURITY.md](SECURITY.md) enumera límites y riesgos residuales;
+[COMPATIBILITY.md](COMPATIBILITY.md) documenta las versiones estudiadas y
+[CAPABILITIES.md](CAPABILITIES.md) describe la superficie curada. La prueba con KiCad real
+continúa siendo un gate pendiente y no se sustituye con el servidor fake.
 
 No se exponen movimiento/rotación de footprints, eliminación, ejecución arbitraria, guardado, exportación ni schematic IPC. Sí existen movimiento acotado de track/via y selección. Mover pistas o vías puede romper conectividad eléctrica: no se ejecuta DRC ni se garantiza un diseño eléctricamente válido.
 

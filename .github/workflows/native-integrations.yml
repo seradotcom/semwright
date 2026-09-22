@@ -239,8 +239,13 @@ jobs:
             fi
           fi
           echo "sandbox_setup=$sandbox_setup" | tee verification/native-ci/extended-driver-sandbox.log
-          bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL \
-            --proc /proc --dev /dev --tmpfs /tmp --dir /home -- /usr/bin/true
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home)
+          for runtime in /usr /lib /lib64; do
+            if [ -e "$runtime" ]; then
+              bwrap_args+=(--ro-bind "$runtime" "$runtime")
+            fi
+          done
+          bwrap "${bwrap_args[@]}" -- /usr/bin/true
       - name: Build and test MLT semantic driver
         run: |
           cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/native-ci/mlt-tests.log
