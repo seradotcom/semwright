@@ -46,6 +46,7 @@ pub struct ProcessSpec {
     pub cwd: PathBuf,
     pub timeout: Duration,
     pub cpu_seconds: u64,
+    pub process_limit: u64,
     pub environment: BTreeMap<String, String>,
 }
 #[derive(Clone, Debug)]
@@ -142,6 +143,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         || !spec.cwd.is_absolute()
         || spec.timeout.is_zero()
         || spec.timeout > Duration::from_secs(3600)
+        || !(1..=1024).contains(&spec.process_limit)
     {
         return Err(Error::invalid("Invalid process specification"));
     }
@@ -160,6 +162,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .process_group(0);
     let parent = std::process::id() as i32;
     let cpu = spec.cpu_seconds.clamp(1, 300);
+    let processes = spec.process_limit;
     // SAFETY: the closure only uses async-signal-safe Linux syscalls and stack values after fork.
     unsafe {
         command.pre_exec(move || {
@@ -173,7 +176,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
                 (1, 1073741824),
                 (7, 128),
                 (9, 1073741824),
-                (6, 64),
+                (6, processes),
             ] {
                 let mut current = Limit {
                     current: 0,
@@ -504,6 +507,7 @@ impl Runtime {
             cwd: work.into(),
             timeout,
             cpu_seconds: 120,
+            process_limit: 64,
             environment: BTreeMap::from([("LC_ALL".into(), "C".into())]),
         })
     }

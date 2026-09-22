@@ -17,6 +17,7 @@ fn spec(mode: &str, dir: &std::path::Path) -> ProcessSpec {
         cwd: dir.into(),
         timeout: Duration::from_secs(3),
         cpu_seconds: 5,
+        process_limit: 64,
         environment: BTreeMap::new(),
     }
 }
@@ -141,6 +142,9 @@ fn process_failed_partial_not_success() {
 fn process_cancellation_kills_same_group_descendant() {
     let d = common::temp();
     let mut s = spec("descendant", d.path());
+    // RLIMIT_NPROC counts every process owned by the runner UID, not just this
+    // process tree. Keep production at 64 while leaving headroom for shared CI.
+    s.process_limit = 1024;
     // Emulated and instrumented CI runners need longer to start the nested process.
     s.timeout = Duration::from_secs(1);
     let r = runtime::run(&s, &AtomicBool::new(false)).unwrap();
