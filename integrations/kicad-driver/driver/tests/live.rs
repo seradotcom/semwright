@@ -168,7 +168,11 @@ async fn fake_kicad_ipc_runs_through_real_sandboxed_driver_host() {
     )
     .await
     .unwrap();
-    assert_eq!(version["text"], "10.0.6");
+    assert_eq!(version["major"], 10);
+    assert_eq!(version["minor"], 0);
+    assert_eq!(version["patch"], 6);
+    assert_eq!(version["full"], "10.0.6");
+    assert_eq!(version["supported"], true);
     let summary = call(
         provider.as_ref(),
         &capabilities,
