@@ -188,6 +188,7 @@ async fn live_atspi_qt_delta_resync_and_stale_refs() {
             .expect("SEMWRIGHT_TEST_QT_FIXTURE must point to the native Qt fixture"),
     );
     assert!(fixture.is_file(), "native Qt fixture must exist");
+    let platform = std::env::var("SEMWRIGHT_TEST_QT_PLATFORM").unwrap_or_else(|_| "xcb".into());
     let child = tokio::process::Command::new(fixture)
         .env("QT_ACCESSIBILITY", "1")
         .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
@@ -195,7 +196,7 @@ async fn live_atspi_qt_delta_resync_and_stale_refs() {
             "QT_LOGGING_RULES",
             "qt.accessibility.atspi=true;qt.accessibility.atspi.creation=true",
         )
-        .env("QT_QPA_PLATFORM", "xcb")
+        .env("QT_QPA_PLATFORM", platform)
         .spawn()
         .expect("native Qt fixture must start");
     exercise_fixture(child, "semwright").await;

@@ -457,7 +457,7 @@ jobs:
       - name: Install isolated GTK and Qt accessibility fixtures
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity g++ pkg-config qt6-base-dev
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity g++ pkg-config qt6-base-dev qt6-wayland weston
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-runtime"
           chmod 700 "$RUNNER_TEMP/atspi-runtime"
           zenity --version | tee verification/native-ci/zenity-version.log
@@ -493,8 +493,30 @@ jobs:
                 | tee verification/native-ci/atspi-status.log
               xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" \
                 cargo test --locked -p semwright-backends \
-                  live_atspi_ -- --ignored --nocapture --test-threads=1 \
-                2>&1 | tee verification/native-ci/atspi-backend.log
+                  live_atspi_gtk_delta_resync_and_stale_refs -- --ignored --nocapture --test-threads=1 \
+                2>&1 | tee verification/native-ci/atspi-gtk.log
+
+              weston --backend=headless-backend.so --socket=semwright-wayland --idle-time=0 \
+                > verification/native-ci/weston.log 2>&1 &
+              weston_pid=$!
+              trap "kill -TERM $weston_pid 2>/dev/null || true; wait $weston_pid 2>/dev/null || true" EXIT
+              for _ in $(seq 1 120); do
+                if [ -S "$XDG_RUNTIME_DIR/semwright-wayland" ]; then
+                  break
+                fi
+                kill -0 "$weston_pid"
+                sleep 0.05
+              done
+              test -S "$XDG_RUNTIME_DIR/semwright-wayland"
+              WAYLAND_DISPLAY=semwright-wayland \
+              XDG_SESSION_TYPE=wayland \
+              SEMWRIGHT_TEST_QT_PLATFORM=wayland \
+                cargo test --locked -p semwright-backends \
+                  live_atspi_qt_delta_resync_and_stale_refs -- --ignored --nocapture --test-threads=1 \
+                2>&1 | tee verification/native-ci/atspi-qt.log
+              kill -TERM "$weston_pid"
+              wait "$weston_pid" || true
+              trap - EXIT
             '
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
