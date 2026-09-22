@@ -269,6 +269,48 @@ jobs:
             -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-cli --bin computerctl \
             -p semwright-daemon --bin semwrightd
+      - name: Landlock driver startup reaches protocol handshake
+        run: |
+          probe=$(mktemp -d)
+          chmod 700 "$probe"
+          cleanup() { rm -rf "$probe"; }
+          trap cleanup EXIT
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          for runtime in /usr /lib /lib64; do
+            if [ -e "$runtime" ]; then
+              bwrap_args+=(--ro-bind "$runtime" "$runtime")
+            fi
+          done
+          bwrap_args+=(--dir /etc)
+          if [ -e /etc/ld.so.cache ]; then
+            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          fi
+          bwrap_args+=(
+            --ro-bind /etc/fonts /etc/fonts
+            --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-blender-driver" /plugin/bin
+            --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox
+            --bind "$probe" /workspace/workspace
+            --setenv HOME /home
+            --setenv PATH /usr/bin:/bin
+            --setenv LANG C.UTF-8
+            --setenv XDG_CACHE_HOME /tmp/cache
+            --setenv XDG_CONFIG_HOME /tmp/config
+            --setenv XDG_DATA_HOME /tmp/data
+            --chdir /tmp
+          )
+          set +e
+          bwrap "${bwrap_args[@]}" -- /plugin/sandbox \
+            --limit-nofile 256 --limit-nproc 64 --limit-cpu 300 \
+            --limit-as 4294967296 --limit-fsize 1073741824 \
+            --write-root /workspace/workspace -- /plugin/bin \
+            </dev/null >/dev/null 2>verification/native-ci/blender-driver-handshake.log
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          if ! grep -q 'UnexpectedEof' verification/native-ci/blender-driver-handshake.log; then
+            cat verification/native-ci/blender-driver-handshake.log
+            exit 1
+          fi
       - name: Real sandboxed DriverProvider against Blender 4.5.14 LTS
         run: |
           SEMWRIGHT_TEST_BLENDER=1 SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox" \
