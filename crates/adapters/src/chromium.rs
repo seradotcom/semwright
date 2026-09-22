@@ -105,6 +105,13 @@ impl BrowserConfig {
         Ok(())
     }
 }
+fn target_url_ready(config: &BrowserConfig, text: &str) -> Result<bool> {
+    match config.check_url(text) {
+        Ok(()) => Ok(true),
+        Err(error) if error.code == ErrorCode::InvalidArgument => Ok(false),
+        Err(error) => Err(error),
+    }
+}
 struct Cdp {
     writer: Arc<Mutex<SplitSink<Socket, Message>>>,
     pending: Pending,
@@ -340,18 +347,30 @@ impl Instance {
                 "Browser tab was closed",
             ));
         }
-        let row = self
-            .targets()
-            .await?
-            .into_iter()
-            .find(|row| row["targetId"] == target)
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::StaleReference,
-                    "Isolated browser tab no longer exists",
-                )
-            })?;
-        config.check_url(row["url"].as_str().unwrap_or(""))
+        for attempt in 0..=50 {
+            let row = self
+                .targets()
+                .await?
+                .into_iter()
+                .find(|row| row["targetId"] == target)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::StaleReference,
+                        "Isolated browser tab no longer exists",
+                    )
+                })?;
+            if target_url_ready(config, row["url"].as_str().unwrap_or(""))? {
+                return Ok(());
+            }
+            if attempt == 50 {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Browser target URL did not stabilize",
+                ));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        unreachable!("bounded browser target stabilization loop")
     }
     async fn session(&mut self, target: &str) -> Result<String> {
         if let Some(session) = self.sessions.get(target) {
@@ -1177,6 +1196,26 @@ mod tests {
             };
             assert!(c.validate().is_err());
         }
+    }
+    #[test]
+    fn transient_target_metadata_is_retryable_without_relaxing_url_policy() {
+        let c = BrowserConfig {
+            allowed_origins: vec!["http://127.0.0.1:1234".into()],
+            ..Default::default()
+        };
+        assert!(!target_url_ready(&c, "").unwrap());
+        assert!(target_url_ready(&c, "about:blank").unwrap());
+        assert!(target_url_ready(&c, "http://127.0.0.1:1234/path").unwrap());
+        assert_eq!(
+            target_url_ready(&c, "https://example.org/")
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        assert_eq!(
+            c.check_url("").unwrap_err().code,
+            ErrorCode::InvalidArgument
+        );
     }
     #[test]
     fn sensitive_attributes_are_not_selected_by_helper() {
