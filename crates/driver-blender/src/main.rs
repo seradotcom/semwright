@@ -26,6 +26,8 @@ const DRIVER_SCOPE: &str = "driver:blender";
 const WORKSPACE: &str = "/workspace/workspace";
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 const COMMANDS_PY: &str = include_str!("../../../adapters/blender/semwright_blender/commands.py");
+const COMMANDS_JSON: &str =
+    include_str!("../../../adapters/blender/semwright_blender/commands.json");
 const VALIDATION_PY: &str =
     include_str!("../../../adapters/blender/semwright_blender/validation.py");
 const BRIDGE_PY: &str = include_str!("bridge.py");
@@ -266,6 +268,23 @@ fn private_runtime() -> Result<PathBuf> {
         .map_err(|error| io_step("Blender runtime permissions", error))?;
     Ok(path)
 }
+
+fn stage_runtime(runtime: &Path) -> Result<(PathBuf, PathBuf)> {
+    let package = runtime.join("semwright_blender_runtime");
+    fs::create_dir(&package).map_err(|error| io_step("Blender package creation", error))?;
+    fs::write(package.join("__init__.py"), b"")
+        .map_err(|error| io_step("Blender package init", error))?;
+    fs::write(package.join("commands.py"), COMMANDS_PY)
+        .map_err(|error| io_step("Blender commands staging", error))?;
+    fs::write(package.join("commands.json"), COMMANDS_JSON)
+        .map_err(|error| io_step("Blender command schemas staging", error))?;
+    fs::write(package.join("validation.py"), VALIDATION_PY)
+        .map_err(|error| io_step("Blender validation staging", error))?;
+    let bridge = runtime.join("bridge.py");
+    fs::write(&bridge, BRIDGE_PY).map_err(|error| io_step("Blender bridge staging", error))?;
+    Ok((bridge, runtime.join("bridge.sock")))
+}
+
 async fn request(socket: &Path, command: &str, args: Value, seconds: u64) -> Result<Value> {
     let mut stream = UnixStream::connect(socket)
         .await
@@ -316,17 +335,7 @@ impl BlenderDriver {
         }
 
         let runtime = private_runtime()?;
-        let package = runtime.join("semwright_blender_runtime");
-        fs::create_dir(&package).map_err(|error| io_step("Blender package creation", error))?;
-        fs::write(package.join("__init__.py"), b"")
-            .map_err(|error| io_step("Blender package init", error))?;
-        fs::write(package.join("commands.py"), COMMANDS_PY)
-            .map_err(|error| io_step("Blender commands staging", error))?;
-        fs::write(package.join("validation.py"), VALIDATION_PY)
-            .map_err(|error| io_step("Blender validation staging", error))?;
-        let bridge = runtime.join("bridge.py");
-        fs::write(&bridge, BRIDGE_PY).map_err(|error| io_step("Blender bridge staging", error))?;
-        let socket = runtime.join("bridge.sock");
+        let (bridge, socket) = stage_runtime(&runtime)?;
 
         let version_output = timeout(
             Duration::from_secs(5),
@@ -506,5 +515,28 @@ mod tests {
             assert!(!serialized.contains("additionalProperties\":true"));
             assert!(capability.descriptor.risk == Risk::ReadOnly);
         }
+    }
+
+    #[test]
+    fn staged_runtime_contains_all_embedded_support_files() {
+        let runtime = tempfile::tempdir().unwrap();
+        let (bridge, socket) = stage_runtime(runtime.path()).unwrap();
+        let package = runtime.path().join("semwright_blender_runtime");
+
+        for file in [
+            "__init__.py",
+            "commands.py",
+            "commands.json",
+            "validation.py",
+        ] {
+            assert!(package.join(file).is_file(), "missing staged file {file}");
+        }
+        assert_eq!(bridge, runtime.path().join("bridge.py"));
+        assert_eq!(socket, runtime.path().join("bridge.sock"));
+
+        let schemas: Value =
+            serde_json::from_slice(&std::fs::read(package.join("commands.json")).unwrap()).unwrap();
+        assert!(schemas.get("blender.status").is_some());
+        assert!(schemas.get("blender.render").is_some());
     }
 }
