@@ -235,4 +235,44 @@ These criteria extend the original 123-entry checklist; they do not replace or r
 | P011 | Duplicate/simultaneous provider ownership cannot overwrite an existing owner. | PASS | Atomic duplicate-registration regression. |
 | P012 | Provider Runtime is exercised under the required hosted exact-commit gates. | PASS | Quality x86_64/ARM64, source contracts, dependency, coverage, fuzz and real Chromium checks on the commit containing this document. |
 
-Provider Runtime expansion subtotal: **12 PASS, 0 FAIL**. MCP federation, public App Driver SDK/conformance, events/jobs breadth and application-specific deep drivers remain tracked separately in RELEASE_BLOCKERS.md.
+Provider Runtime expansion subtotal: **12 PASS, 0 FAIL**.
+
+## MCP Federation expansion acceptance
+
+| ID | Expansion requirement | Status | Evidence / limitation |
+|---|---|---|---|
+| F001 | External MCP identity/namespace is owner-assigned and cannot claim builtin authority. | PASS | `ExternalMcpProvider` uses ProviderIdentity plus namespace/authority rejection tests. |
+| F002 | Upstream `tools/list` becomes bounded, namespaced, untrusted Semwright capabilities. | PASS | Real stdio fixture import and malformed/duplicate descriptor tests. |
+| F003 | Federated execution always traverses broker policy/approval/audit. | PASS | Integration covers allowed execution and explicit policy denial. |
+| F004 | Hostile descriptions/errors/results remain untrusted data and cannot grant authority. | PASS | Metadata/policy regressions plus bounded generic upstream errors. |
+| F005 | Cancellation/timeouts propagate to an outstanding upstream request. | PASS | Federation cancellation integration test. |
+| F006 | `tools/list_changed` refreshes the catalog transactionally without granting policy. | PASS | Dynamic refresh integration test. |
+| F007 | Upstream crash/disconnect invalidates its provider generation fail-closed. | PASS | Crash invalidation integration test. |
+| F008 | Owner upstream definitions are digest-pinned and managed independently of policy grants. | PASS | Atomic registry lifecycle/symlink/digest tests and local CLI management. |
+| F009 | Federation executes under hosted exact-SHA workspace/coverage/fuzz gates. | PASS | Federation integration tests are part of the locked hosted workspace suite. |
+| F010 | Spawned upstream MCP executables are sandboxed against the same Unix UID. | FAIL | Current stdio launcher is digest-pinned/environment-scrubbed but explicitly not a same-UID sandbox. |
+
+MCP Federation expansion subtotal: **9 PASS, 1 FAIL**.
+
+## App Driver SDK expansion acceptance
+
+| ID | Expansion requirement | Status | Evidence / limitation |
+|---|---|---|---|
+| D001 | Driver manifest/protocol are versioned, strict and owner-assigned. | PASS | Driver SDK strict manifest/protocol tests. |
+| D002 | Driver executable is owned/root, immutable to group/others and SHA-256 pinned. | PASS | Host verification plus wrong-digest/writable-executable negative tests. |
+| D003 | Persistent handshake attests identity/version and capability catalog digest. | PASS | Real conformance fixture through DriverProvider. |
+| D004 | Driver capabilities execute through the Provider Runtime and broker policy/audit. | PASS | Driver broker smoke and provider registration path. |
+| D005 | Production driver host refuses unsandboxed launch and runs the fixture through bubblewrap + Landlock. | PASS | Hosted `driver-conformance` check plus local conformance. |
+| D006 | Network/filesystem requests cannot exceed owner configuration. | PASS | Manifest/grant validation and network/interface fail-closed tests. |
+| D007 | Driver conformance executes health, safe read-only capability and clean shutdown. | PASS | Hosted conformance fixture. |
+| D008 | Scaffolded driver project compiles against the public SDK. | PASS | Conformance script creates and `cargo check`s a generated driver. |
+| D009 | Hostile sandbox escape matrix covers filesystem/network/process/environment attacks. | FAIL | Happy-path sandbox is real; the adversarial negative matrix is still R10. |
+| D010 | Driver protocol negotiates dynamic capabilities, events and cooperative cancellation. | FAIL | Protocol v1 intentionally rejects these interfaces until implemented/tested. |
+| D011 | Driver registry/distribution supports safe search/install/update/removal. | FAIL | R12 remains open; no package/index installation surface is certified. |
+| D012 | A second non-browser/non-Blender application has a real deep driver integration. | FAIL | Driver SDK exists, but application-specific showcase expansion is follow-on work. |
+
+App Driver SDK expansion subtotal: **8 PASS, 4 FAIL**.
+
+The original 123-entry totals above are intentionally unchanged by these expansion tables.
+Events/jobs breadth, real Blender introspection, additional application drivers and the remaining
+universal Linux/runtime blockers stay tracked in RELEASE_BLOCKERS.md.
