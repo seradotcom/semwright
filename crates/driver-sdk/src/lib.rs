@@ -6,7 +6,10 @@ use semwright_types::{CommandDescriptor, Error, ErrorCode, ProviderIdentity, Res
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{
+    collections::BTreeSet,
+    path::{Component, Path, PathBuf},
+};
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_VERSION: u32 = 1;
@@ -74,6 +77,90 @@ pub struct DriverMount {
     pub read_only: bool,
 }
 
+/// Owner-granted configuration exposed read-only at its canonical system location.
+///
+/// Protocol v1 deliberately supports only one normal child directly below /etc.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SystemConfigMount {
+    pub root: String,
+    pub destination: PathBuf,
+}
+impl SystemConfigMount {
+    fn validate(&self) -> Result<()> {
+        if !canonical_slug(&self.root)
+            || self.destination.as_os_str().len() > 256
+            || self.destination.parent() != Some(Path::new("/etc"))
+            || self.destination.file_name().is_none()
+            || self
+                .destination
+                .components()
+                .any(|component| !matches!(component, Component::RootDir | Component::Normal(_)))
+        {
+            return Err(Error::invalid(
+                "Driver system config mounts must map a canonical grant to one direct /etc child",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DriverResources {
+    #[serde(default = "default_open_files")]
+    pub open_files: u64,
+    #[serde(default = "default_processes")]
+    pub processes: u64,
+    #[serde(default = "default_cpu_seconds")]
+    pub cpu_seconds: u64,
+    #[serde(default = "default_address_space_bytes")]
+    pub address_space_bytes: u64,
+    #[serde(default = "default_file_size_bytes")]
+    pub file_size_bytes: u64,
+}
+fn default_open_files() -> u64 {
+    128
+}
+fn default_processes() -> u64 {
+    32
+}
+fn default_cpu_seconds() -> u64 {
+    20
+}
+fn default_address_space_bytes() -> u64 {
+    536_870_912
+}
+fn default_file_size_bytes() -> u64 {
+    16_777_216
+}
+impl Default for DriverResources {
+    fn default() -> Self {
+        Self {
+            open_files: default_open_files(),
+            processes: default_processes(),
+            cpu_seconds: default_cpu_seconds(),
+            address_space_bytes: default_address_space_bytes(),
+            file_size_bytes: default_file_size_bytes(),
+        }
+    }
+}
+impl DriverResources {
+    fn validate(&self) -> Result<()> {
+        if !(32..=1024).contains(&self.open_files)
+            || !(8..=256).contains(&self.processes)
+            || !(5..=300).contains(&self.cpu_seconds)
+            || !(134_217_728..=4_294_967_296).contains(&self.address_space_bytes)
+            || !(1_048_576..=1_073_741_824).contains(&self.file_size_bytes)
+        {
+            return Err(Error::invalid(
+                "Driver resource request exceeds sandbox bounds",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
@@ -89,7 +176,11 @@ pub struct Manifest {
     #[serde(default)]
     pub mounts: Vec<DriverMount>,
     #[serde(default)]
+    pub system_config: Vec<SystemConfigMount>,
+    #[serde(default)]
     pub network: bool,
+    #[serde(default)]
+    pub resources: DriverResources,
     #[serde(default = "default_timeout")]
     pub request_timeout_ms: u64,
     #[serde(default)]
@@ -117,6 +208,7 @@ impl Manifest {
         }
         self.identity()?;
         self.application.validate()?;
+        self.resources.validate()?;
         if self.publisher.is_empty()
             || self.publisher.len() > 128
             || self.publisher.chars().any(char::is_control)
@@ -124,6 +216,7 @@ impl Manifest {
             || self.sha256.len() != 64
             || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
             || self.mounts.len() > 16
+            || self.system_config.len() > 8
             || self.request_timeout_ms == 0
             || self.request_timeout_ms > 300_000
         {
@@ -134,6 +227,15 @@ impl Manifest {
             if !canonical_slug(&mount.root) || !roots.insert(&mount.root) {
                 return Err(Error::invalid(
                     "Driver mount roots must be unique canonical policy-grant names",
+                ));
+            }
+        }
+        let mut destinations = BTreeSet::new();
+        for mount in &self.system_config {
+            mount.validate()?;
+            if !roots.insert(&mount.root) || !destinations.insert(&mount.destination) {
+                return Err(Error::invalid(
+                    "Driver system config roots and destinations must be unique",
                 ));
             }
         }
@@ -370,7 +472,9 @@ mod tests {
             },
             transport: Transport::StdioV1,
             mounts: vec![],
+            system_config: vec![],
             network: false,
+            resources: DriverResources::default(),
             request_timeout_ms: 1000,
             interfaces: DriverInterfaces::default(),
         }
@@ -404,6 +508,54 @@ mod tests {
             .is_err()
         );
     }
+    #[test]
+    fn resource_requests_are_bounded_and_default_to_existing_sandbox_limits() {
+        let resources = DriverResources::default();
+        assert_eq!(resources.address_space_bytes, 536_870_912);
+        assert!(resources.validate().is_ok());
+
+        let mut manifest = manifest();
+        manifest.resources.address_space_bytes = 2_147_483_648;
+        manifest.resources.cpu_seconds = 120;
+        manifest.validate().unwrap();
+
+        manifest.resources.address_space_bytes = 4_294_967_297;
+        assert!(manifest.validate().is_err());
+        manifest.resources.address_space_bytes = 2_147_483_648;
+        manifest.resources.processes = 257;
+        assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn system_config_mounts_are_narrow_unique_and_owner_named() {
+        let mut valid = manifest();
+        valid.system_config = vec![SystemConfigMount {
+            root: "libreoffice-config".into(),
+            destination: "/etc/libreoffice".into(),
+        }];
+        valid.validate().unwrap();
+
+        for bad in ["/etc", "/etc/libreoffice/share", "/home/user", "relative"] {
+            let mut candidate = manifest();
+            candidate.system_config = vec![SystemConfigMount {
+                root: "config".into(),
+                destination: bad.into(),
+            }];
+            assert!(candidate.validate().is_err(), "{bad}");
+        }
+
+        let mut duplicate_root = manifest();
+        duplicate_root.mounts.push(DriverMount {
+            root: "same".into(),
+            read_only: true,
+        });
+        duplicate_root.system_config.push(SystemConfigMount {
+            root: "same".into(),
+            destination: "/etc/example".into(),
+        });
+        assert!(duplicate_root.validate().is_err());
+    }
+
     #[test]
     fn capability_cannot_escape_driver_namespace_or_scope() {
         let identity = manifest().identity().unwrap();

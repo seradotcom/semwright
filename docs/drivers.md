@@ -48,7 +48,15 @@ A v1 JSON manifest contains the driver identity and execution constraints:
   },
   "transport": "stdio_v1",
   "mounts": [],
+  "system_config": [],
   "network": false,
+  "resources": {
+    "open_files": 128,
+    "processes": 32,
+    "cpu_seconds": 20,
+    "address_space_bytes": 536870912,
+    "file_size_bytes": 16777216
+  },
   "request_timeout_ms": 30000,
   "interfaces": {
     "dynamic_capabilities": false,
@@ -69,6 +77,19 @@ The v1 host refuses unsandboxed execution. It stages the exact verified bytes an
 them through bubblewrap plus Semwright's Landlock helper. Environment variables are cleared,
 network is isolated unless both manifest and owner configuration allow it, and named
 filesystem mounts can only refer to existing policy grants.
+
+Ordinary `mounts` are exposed below `/workspace/<grant>`. A writable mount requires a matching
+owner grant with write authority. `system_config` is narrower: it may expose only a direct
+child of `/etc`, always read-only, and only when the owner explicitly granted that canonical
+host directory. This supports packaged applications whose runtime data is split between
+`/usr` and distribution configuration such as `/etc/libreoffice` without granting arbitrary
+host configuration access.
+
+Each driver also declares bounded resource limits. The defaults preserve the original sandbox
+limits (128 file descriptors, 32 processes, 20 CPU seconds, 512 MiB virtual address space and
+16 MiB output files); the manifest may request larger values only inside hard SDK/helper
+ceilings. Scratch/cache/config state is redirected into the sandbox-private `/tmp`, not the
+user's real home directory.
 
 The manifest defines what the driver needs; it never creates a policy grant. Capability calls
 still pass through the broker's normal risk, confirmation, cancellation and audit path.

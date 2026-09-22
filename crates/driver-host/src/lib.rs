@@ -106,6 +106,23 @@ fn validate_owner_permissions(
             ));
         }
     }
+    for mount in &manifest.system_config {
+        let grant = roots
+            .iter()
+            .find(|grant| grant.name == mount.root)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Driver system config mount has no owner grant",
+                )
+            })?;
+        if !grant.read || std::fs::canonicalize(&grant.path)? != grant.path {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver system config mount requires a canonical readable owner grant",
+            ));
+        }
+    }
     if manifest.interfaces.dynamic_capabilities
         || manifest.interfaces.cooperative_cancellation
         || manifest.interfaces.events
@@ -179,6 +196,21 @@ fn sandbox_command(
     if Path::new("/etc/ld.so.cache").exists() {
         process.args(["--ro-bind", "/etc/ld.so.cache", "/etc/ld.so.cache"]);
     }
+    for mount in &manifest.system_config {
+        let grant = roots
+            .iter()
+            .find(|root| root.name == mount.root)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Driver system config grant was removed",
+                )
+            })?;
+        process
+            .arg("--ro-bind")
+            .arg(&grant.path)
+            .arg(&mount.destination);
+    }
     process.arg("--ro-bind").arg(staged).arg("/plugin/bin");
     process.arg("--ro-bind").arg(helper).arg("/plugin/sandbox");
     let mut writable = vec![];
@@ -210,11 +242,29 @@ fn sandbox_command(
         "--setenv",
         "LANG",
         "C.UTF-8",
+        "--setenv",
+        "XDG_CACHE_HOME",
+        "/tmp/cache",
+        "--setenv",
+        "XDG_CONFIG_HOME",
+        "/tmp/config",
+        "--setenv",
+        "XDG_DATA_HOME",
+        "/tmp/data",
         "--chdir",
         "/tmp",
         "--",
         "/plugin/sandbox",
     ]);
+    for (flag, value) in [
+        ("--limit-nofile", manifest.resources.open_files),
+        ("--limit-nproc", manifest.resources.processes),
+        ("--limit-cpu", manifest.resources.cpu_seconds),
+        ("--limit-as", manifest.resources.address_space_bytes),
+        ("--limit-fsize", manifest.resources.file_size_bytes),
+    ] {
+        process.arg(flag).arg(value.to_string());
+    }
     for path in writable {
         process.arg("--write-root").arg(path);
     }
@@ -652,7 +702,9 @@ mod tests {
             },
             transport: semwright_driver_sdk::Transport::StdioV1,
             mounts: vec![],
+            system_config: vec![],
             network: false,
+            resources: semwright_driver_sdk::DriverResources::default(),
             request_timeout_ms: 1000,
             interfaces: semwright_driver_sdk::DriverInterfaces::default(),
         }
@@ -674,6 +726,41 @@ mod tests {
             validate_owner_permissions(&dynamic, &[], false),
             Err(error) if error.code == ErrorCode::Unsupported
         ));
+    }
+
+    #[test]
+    fn system_config_requires_an_explicit_readable_owner_grant() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(dir.path()).unwrap();
+        let mut candidate = manifest();
+        candidate.system_config = vec![semwright_driver_sdk::SystemConfigMount {
+            root: "app-config".into(),
+            destination: "/etc/example-app".into(),
+        }];
+
+        assert!(matches!(
+            validate_owner_permissions(&candidate, &[], false),
+            Err(error) if error.code == ErrorCode::PolicyDenied
+        ));
+
+        let unreadable = FilesystemGrant {
+            name: "app-config".into(),
+            path: canonical.clone(),
+            read: false,
+            write: false,
+        };
+        assert!(matches!(
+            validate_owner_permissions(&candidate, &[unreadable], false),
+            Err(error) if error.code == ErrorCode::PolicyDenied
+        ));
+
+        let readable = FilesystemGrant {
+            name: "app-config".into(),
+            path: canonical,
+            read: true,
+            write: false,
+        };
+        validate_owner_permissions(&candidate, &[readable], false).unwrap();
     }
 
     #[test]
