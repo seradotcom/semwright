@@ -1,0 +1,46 @@
+{
+  "manifest_version": 1,
+  "protocol": 1,
+  "id": "kicad",
+  "version": "0.9.0-dev.1",
+  "publisher": "semwright-kicad-gpl-integration",
+  "executable": "/REPLACE_WITH_OWNER_PINNED_ELF/semwright-kicad-driver",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "application": {
+    "desktop_id": null,
+    "process_names": [
+      "pcbnew"
+    ],
+    "supported_versions": [
+      "9",
+      "10"
+    ]
+  },
+  "transport": "stdio_v1",
+  "mounts": [
+    {
+      "root": "kicad-config",
+      "read_only": true
+    },
+    {
+      "root": "kicad-ipc",
+      "read_only": true
+    }
+  ],
+  "system_config": [],
+  "network": false,
+  "resources": {
+    "open_files": 128,
+    "processes": 32,
+    "cpu_seconds": 20,
+    "address_space_bytes": 2147483648,
+    "file_size_bytes": 16777216
+  },
+  "request_timeout_ms": 30000,
+  "interfaces": {
+    "dynamic_capabilities": false,
+    "cooperative_cancellation": false,
+    "events": false,
+    "health": true
+  }
+}
