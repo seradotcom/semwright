@@ -2,7 +2,7 @@ use semwright_backend_api::{Backend, Context};
 use semwright_backends::atspi::Atspi;
 use semwright_types::{ErrorCode, NativeTarget};
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 fn context() -> Context {
@@ -12,34 +12,22 @@ fn context() -> Context {
     }
 }
 
-fn app_identity(value: &Value) -> Option<String> {
+fn app_identity(value: &Value, needle: &str) -> Option<String> {
+    let needle = needle.to_lowercase();
     value["apps"].as_array()?.iter().find_map(|row| {
         let name = row["name"].as_str().unwrap_or_default().to_lowercase();
         let app = row["app"].as_str().unwrap_or_default();
-        (name.contains("zenity") || app.to_lowercase().contains("zenity")).then(|| app.to_owned())
+        (name.contains(&needle) || app.to_lowercase().contains(&needle)).then(|| app.to_owned())
     })
 }
-#[tokio::test]
-#[ignore = "requires a live user AT-SPI bus and zenity"]
-async fn live_atspi_window_close_forces_resync_and_stales_refs() {
-    if std::env::var_os("SEMWRIGHT_TEST_ATSPI").is_none() {
-        return;
-    }
-    let mut child = tokio::process::Command::new("/usr/bin/zenity")
-        .args([
-            "--entry",
-            "--title=Semwright AT-SPI Fixture",
-            "--text=Disposable accessibility fixture",
-        ])
-        .spawn()
-        .expect("zenity must start");
 
+async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     let backend = Atspi::default();
     let ctx = context();
     let app = tokio::time::timeout(Duration::from_secs(8), async {
         loop {
             if let Ok(value) = backend.execute(&ctx, "app.list", &json!({})).await
-                && let Some(app) = app_identity(&value)
+                && let Some(app) = app_identity(&value, needle)
             {
                 break app;
             }
@@ -47,7 +35,8 @@ async fn live_atspi_window_close_forces_resync_and_stales_refs() {
         }
     })
     .await
-    .expect("zenity must appear on AT-SPI");
+    .expect("fixture must appear on AT-SPI");
+
     let snapshot = tokio::time::timeout(Duration::from_secs(8), async {
         loop {
             let value = backend
@@ -69,7 +58,7 @@ async fn live_atspi_window_close_forces_resync_and_stales_refs() {
         }
     })
     .await
-    .expect("complete zenity snapshot");
+    .expect("complete fixture snapshot");
 
     let revision = snapshot["revision"].as_u64().unwrap();
     let target: NativeTarget =
@@ -83,10 +72,11 @@ async fn live_atspi_window_close_forces_resync_and_stales_refs() {
                 .as_array()
                 .is_some_and(|states| states.iter().any(|state| state == "editable"))
         })
-        .expect("zenity entry should be editable");
+        .expect("fixture entry should be editable");
     let editable_id = editable["node_id"].as_str().unwrap().to_owned();
     let editable_target: NativeTarget =
         serde_json::from_value(editable["ref"]["$ref"].clone()).unwrap();
+
     backend
         .execute(
             &ctx,
@@ -159,4 +149,38 @@ async fn live_atspi_window_close_forces_resync_and_stales_refs() {
     assert_eq!(after["resync_required"], true);
     let stale = backend.validate(&target).await.unwrap_err();
     assert_eq!(stale.code, ErrorCode::StaleReference);
+}
+
+#[tokio::test]
+#[ignore = "requires a live user AT-SPI bus and zenity"]
+async fn live_atspi_gtk_delta_resync_and_stale_refs() {
+    if std::env::var_os("SEMWRIGHT_TEST_ATSPI").is_none() {
+        return;
+    }
+    let child = tokio::process::Command::new("/usr/bin/zenity")
+        .args([
+            "--entry",
+            "--title=Semwright AT-SPI Fixture",
+            "--text=Disposable accessibility fixture",
+        ])
+        .spawn()
+        .expect("zenity must start");
+    exercise_fixture(child, "zenity").await;
+}
+
+#[tokio::test]
+#[ignore = "requires a live user AT-SPI bus and PyQt5"]
+async fn live_atspi_qt_delta_resync_and_stale_refs() {
+    if std::env::var_os("SEMWRIGHT_TEST_ATSPI").is_none() {
+        return;
+    }
+    let fixture =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/atspi_qt_fixture.py");
+    let child = tokio::process::Command::new("/usr/bin/python3")
+        .arg(fixture)
+        .env("QT_ACCESSIBILITY", "1")
+        .env("QT_QPA_PLATFORM", "xcb")
+        .spawn()
+        .expect("PyQt5 fixture must start");
+    exercise_fixture(child, "semwright").await;
 }
