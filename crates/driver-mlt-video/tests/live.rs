@@ -17,13 +17,6 @@ fn digest(path: &Path) -> String {
     format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
 }
 
-fn copy_tool(source: &Path, directory: &Path, name: &str) -> PathBuf {
-    let target = directory.join(name);
-    std::fs::copy(source, &target).unwrap();
-    std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o555)).unwrap();
-    target
-}
-
 fn configured_tool(variable: &str) -> PathBuf {
     std::fs::canonicalize(
         std::env::var_os(variable)
@@ -110,30 +103,29 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let media = tempfile::tempdir().unwrap();
     let output = tempfile::tempdir().unwrap();
     let runtime = tempfile::tempdir().unwrap();
-    let runtime_tools = tempfile::tempdir().unwrap();
     let state = tempfile::tempdir().unwrap();
     for directory in [
         project.path(),
         media.path(),
         output.path(),
         runtime.path(),
-        runtime_tools.path(),
         state.path(),
     ] {
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
 
-    let pinned_melt = copy_tool(&melt, runtime_tools.path(), "melt");
-    let pinned_ffprobe = copy_tool(&ffprobe, runtime_tools.path(), "ffprobe");
+    // /usr is mounted read-only by DriverProvider. Pin the canonical host tools directly:
+    // copying them into a user-owned bind mount can change ownership presentation across
+    // Bubblewrap user namespaces even though the bytes and mode are unchanged.
     let runtime_json = json!({
         "schema": 1,
         "melt": {
-            "path": "/workspace/runtime-tools/melt",
-            "sha256": digest(&pinned_melt)
+            "path": melt,
+            "sha256": digest(&melt)
         },
         "ffprobe": {
-            "path": "/workspace/runtime-tools/ffprobe",
-            "sha256": digest(&pinned_ffprobe)
+            "path": ffprobe,
+            "sha256": digest(&ffprobe)
         },
         "bubblewrap": {
             "path": bwrap.to_string_lossy(),
@@ -184,10 +176,6 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 root: "runtime".into(),
                 read_only: true,
             },
-            DriverMount {
-                root: "runtime-tools".into(),
-                read_only: true,
-            },
         ],
         system_config: vec![],
         network: false,
@@ -223,12 +211,6 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         FilesystemGrant {
             name: "runtime".into(),
             path: runtime.path().canonicalize().unwrap(),
-            read: true,
-            write: false,
-        },
-        FilesystemGrant {
-            name: "runtime-tools".into(),
-            path: runtime_tools.path().canonicalize().unwrap(),
             read: true,
             write: false,
         },
