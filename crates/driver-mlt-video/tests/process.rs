@@ -1,7 +1,6 @@
 #![cfg(feature = "test-tools")]
 mod common;
 use semwright_mlt_video::{
-    fs::Root,
     jobs,
     runtime::{self, MediaInfo, ProcessSpec, RenderProfile, ServiceCatalog},
 };
@@ -142,7 +141,8 @@ fn process_failed_partial_not_success() {
 fn process_cancellation_kills_same_group_descendant() {
     let d = common::temp();
     let mut s = spec("descendant", d.path());
-    s.timeout = Duration::from_millis(250);
+    // Emulated and instrumented CI runners need longer to start the nested process.
+    s.timeout = Duration::from_secs(1);
     let r = runtime::run(&s, &AtomicBool::new(false)).unwrap();
     assert!(r.timed_out);
     let pid = std::fs::read_to_string(d.path().join("descendant.pid")).unwrap();
@@ -184,13 +184,10 @@ fn media_probe_rational_duration() {
 }
 #[test]
 fn native_project_cannot_reach_render_runtime() {
-    let d = common::temp();
     let p =
         semwright_mlt_video::adapters::load(&common::fixture("kdenlive/simple.kdenlive")).unwrap();
-    let roots = BTreeMap::from([(
-        "output".into(),
-        Arc::new(Root::open(d.path(), true, true).unwrap()),
-    )]);
+    // Native projects must be rejected before mounts or a render runtime are touched.
+    let roots = BTreeMap::new();
     assert!(
         jobs::render_plan(
             &p,
