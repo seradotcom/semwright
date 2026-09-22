@@ -69,7 +69,7 @@ PY
 
 BLENDER_LOG="$TMP/blender.log"
 setsid xvfb-run -a -s "-screen 0 1280x720x24" \
-  "$BLENDER_BIN" --factory-startup --disable-autoexec --no-splash \
+  "$BLENDER_BIN" --factory-startup --disable-autoexec \
   --python "$TMP/bootstrap.py" >"$BLENDER_LOG" 2>&1 &
 BLENDER_PID=$!
 
