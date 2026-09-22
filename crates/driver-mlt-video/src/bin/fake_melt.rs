@@ -55,6 +55,10 @@ fn main() {
                 .unwrap();
             std::fs::write("descendant.pid", child.id().to_string()).unwrap();
             let _ = child.wait();
+            // Keep the fixture alive if an emulator or constrained CI runner reaps the
+            // descendant early. The runtime must still take its timeout path and clean
+            // the complete process group.
+            std::thread::sleep(std::time::Duration::from_secs(60));
         }
         "query" => {
             println!("---\nfilters:\n  - volume\n  - brightness\n  - bad service\n...");
