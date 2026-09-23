@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import motionCanvasModule from '@motion-canvas/vite-plugin';
 const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
-import {chromium} from 'playwright';
+import {firefox} from 'playwright';
 
 function fail(message) { throw new Error(message); }
 function args() {
@@ -87,8 +87,9 @@ async function main() {
     // Chromium's user-namespace sandbox is unavailable inside the outer bwrap namespace.
     // The browser is still confined by Driver Host bubblewrap + Landlock + no-network policy.
     const launch = {headless:true,chromiumSandbox:false,args:['--disable-background-networking','--disable-component-update','--no-first-run']};
+    launch.args = [];
     if (a.browser) launch.executablePath = a.browser;
-    browser = await chromium.launch(launch);
+    browser = await firefox.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});
     page = await context.newPage();
     const written = new Set();

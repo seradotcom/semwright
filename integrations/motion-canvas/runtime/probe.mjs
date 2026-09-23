@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {firefox} from 'playwright';
 import {readFile, writeFile, mkdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import process from 'node:process';
@@ -10,12 +10,12 @@ for (const name of ['@motion-canvas/core', '@motion-canvas/2d', '@motion-canvas/
 }
 let browser;
 try {
-  browser = await chromium.launch({headless: true, chromiumSandbox: true, timeout: 30000});
+  browser = await firefox.launch({headless: true, chromiumSandbox: true, timeout: 30000});
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.setContent('<canvas width="32" height="32"></canvas>');
   versions.browser = browser.version();
-  versions.chromiumSandbox = true;
+  versions.browserFamily = true;
   versions.canvas = await page.evaluate(() => document.querySelector('canvas').getContext('2d') !== null);
 } catch (error) {
   versions.browser_probe_error = String(error).slice(0, 8000);
