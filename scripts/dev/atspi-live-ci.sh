@@ -65,6 +65,11 @@ case "$PHASE" in
     # qspiaccessiblebridge}.cpp. Keep the real Qt bridge and all live assertions.
     unset AT_SPI_BUS_ADDRESS
     xprop -root -remove AT_SPI_BUS
+    QT_LOGGING_RULES='qt.accessibility.atspi=true;qt.accessibility.atspi.creation=true' \
+      timeout --signal=INT --kill-after=5s 5s gdb -batch \
+        -ex run -ex 'thread apply all bt' --args "$SEMWRIGHT_TEST_QT_FIXTURE" \
+        > verification/native-ci/qt-logging-stack.log 2>&1 || true
+    cat verification/native-ci/qt-logging-stack.log
     # Inspect the actual child started by the Rust test, including its environment.
     (
       for _ in $(seq 1 100); do

@@ -26,6 +26,9 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     let ctx = context();
     let app = match tokio::time::timeout(Duration::from_secs(8), async {
         loop {
+            if let Some(status) = child.try_wait().expect("query fixture status") {
+                panic!("accessibility fixture exited before registration: {status}");
+            }
             if let Ok(value) = backend.execute(&ctx, "app.list", &json!({})).await
                 && let Some(app) = app_identity(&value, needle)
             {
