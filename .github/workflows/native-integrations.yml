@@ -463,7 +463,7 @@ jobs:
           zenity --version | tee verification/native-ci/zenity-version.log
           pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
           g++ -std=c++17 -O2 -fPIC crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
-            -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets Qt6DBus)
+            -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets)
           chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
           file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log
           dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log

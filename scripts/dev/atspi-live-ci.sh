@@ -56,7 +56,9 @@ case "$PHASE" in
   qt)
     : "${SEMWRIGHT_TEST_QT_FIXTURE:?SEMWRIGHT_TEST_QT_FIXTURE is required for qt}"
     export SEMWRIGHT_TEST_QT_PLATFORM=${SEMWRIGHT_TEST_QT_PLATFORM:-xcb}
-    # Qt 6 consumes the explicit fresh AT-SPI bus address exported above.
+    # Exercise Qt's normal desktop path: resolve org.a11y.Bus on the session bus,
+    # then let Qt fetch the accessibility-bus address itself.
+    unset AT_SPI_BUS_ADDRESS
     test_name=live_atspi_qt_delta_resync_and_stale_refs
     ;;
 esac

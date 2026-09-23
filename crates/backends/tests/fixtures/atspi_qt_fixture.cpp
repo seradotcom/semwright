@@ -1,7 +1,5 @@
 #include <QAccessible>
 #include <QApplication>
-#include <QDBusConnection>
-#include <QDBusError>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -39,15 +37,6 @@ int main(int argc, char **argv) {
     // QApplication publishes its accessibility root when entering exec(). Keep the
     // fixture on the same initialization path as a real Qt desktop application.
     QTimer::singleShot(250, [&app, &window]() {
-        const QByteArray address = qgetenv("AT_SPI_BUS_ADDRESS");
-        auto probe = QDBusConnection::connectToBus(
-            QString::fromLocal8Bit(address), "semwright_atspi_fixture_probe");
-        const auto probe_error = probe.lastError();
-        std::cerr << "qt_dbus_probe_connected=" << (probe.isConnected() ? "true" : "false")
-                  << " qt_dbus_probe_error="
-                  << probe_error.name().toStdString() << ":"
-                  << probe_error.message().toStdString() << std::endl;
-        QDBusConnection::disconnectFromBus("semwright_atspi_fixture_probe");
         auto *app_root = QAccessible::queryAccessibleInterface(&app);
         auto *window_root = QAccessible::queryAccessibleInterface(&window);
         std::cerr << "qt_accessibility_active="
