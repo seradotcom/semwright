@@ -1,0 +1,7 @@
+{
+  "fixture_only": true,
+  "password": "fixture-only",
+  "salt": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "challenge": "Hx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCAQA=",
+  "authentication": "09dV4j50aTIjTg69VqzYRFMLN5x/RRthnAhe1zh72Tw="
+}

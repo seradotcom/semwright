@@ -1,0 +1,12 @@
+{
+  "op": 7,
+  "d": {
+    "requestId": "g1:r1",
+    "requestType": "GetStats",
+    "requestStatus": {
+      "result": false,
+      "code": 207,
+      "comment": "fixture-only not ready"
+    }
+  }
+}

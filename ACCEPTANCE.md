@@ -303,6 +303,21 @@ LibreOffice deep-driver expansion subtotal: **6 PASS, 1 FAIL**.
 
 Events and Jobs expansion subtotal: **7 PASS, 2 FAIL**.
 
+## OBS deep-driver expansion acceptance
+
+| ID | Expansion requirement | Status | Evidence / limitation |
+|---|---|---|---|
+| O001 | OBS integration exposes a curated, strict capability surface rather than arbitrary upstream requests. | PASS | 65 descriptor-pinned capabilities with strict schemas; no generic raw request gateway is registered. |
+| O002 | Production Rust client negotiates/authenticates obs-websocket 5.x with bounded correlation and generations. | PASS | Protocol/unit matrix plus independent fake-server integration exercises auth, request IDs, reconnects, late/duplicate responses and malformed wire input. |
+| O003 | Event ingestion is bounded and stale state is invalidated after loss/reconnect. | PASS | Event-flood integration and regression tests cover queue bounds, dropped-event accounting, generation invalidation and cache/ref staleness. |
+| O004 | OBS driver executes through the real Semwright Driver Host and broker policy path. | PASS | Hosted conformance runs the release driver through Bubblewrap + Landlock and a full broker/policy/CLI smoke against the independent fake OBS server. |
+| O005 | OBS-specific fuzz targets execute in hosted CI. | PASS | Six bounded targets cover messages, events, responses, refs, bounded JSON and capability mapping. |
+| O006 | Production Rust transport executes against a real isolated OBS Studio instance. | PASS | Hosted `real-obs` runs OBS Studio 30.0.2 + obs-websocket 5.3.4 in private namespaces/Xvfb and passes authenticated read-only `GetVersion`/`GetSceneList`; recording and streaming remain off. |
+| O007 | Driver child can emit broker-native events/jobs/progress through Driver Protocol v1. | FAIL | Internal event/lifecycle state exists, but v1 intentionally does not negotiate child events, cooperative cancellation, dynamic capabilities or generic progress/artifact transport. |
+| O008 | OBS secrets/network authority are least-privilege production contracts. | FAIL | Loopback is the driver default and owner network opt-in is enforced, but generic secure secret references and port-scoped network grants remain future Driver SDK work. |
+
+OBS deep-driver expansion subtotal: **6 PASS, 2 FAIL**.
+
 The original 123-entry totals above are intentionally unchanged by these expansion tables.
 Real Blender introspection, broader application coverage, richer long-operation contracts and the
 remaining universal Linux/runtime blockers stay tracked in RELEASE_BLOCKERS.md.

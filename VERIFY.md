@@ -142,6 +142,32 @@ This does not certify a universal provider progress percentage, artifact model, 
 persistence, automatic MCP Task mapping or negotiated driver job/event interfaces. Those remain
 follow-on compatibility work rather than implied capabilities of the core job store.
 
+## OBS deep-driver closure included in this development line
+
+The workspace now includes a curated OBS Studio driver over obs-websocket 5.x with **65**
+strict Semwright capabilities covering status, scenes, scene items, inputs/audio, filters,
+transitions, recording, streaming, replay buffer, virtual camera, media and Studio Mode.
+The driver maintains bounded connection generations, request correlation, local refs,
+preconditions, reconnect state, event backpressure and output lifecycle state without exposing
+an arbitrary raw obs-websocket request gateway.
+
+The dedicated `OBS driver integration` workflow executes the production Rust client against an
+independent Python WebSocket fixture, including authentication, out-of-order/late/duplicate
+responses, reconnect generations, bounded event floods, malformed wire data, concurrency and
+shutdown. It also runs the driver through the real Semwright Driver Host, Bubblewrap + Landlock,
+broker policy and CLI path, and executes six bounded OBS fuzz targets.
+
+The hosted `real-obs` job additionally starts a disposable OBS Studio 30.0.2 instance with
+obs-websocket 5.3.4 inside a private user/network namespace and Bubblewrap filesystem view. It uses
+a temporary HOME/XDG tree, an isolated Xvfb display, loopback networking only, no camera/microphone,
+no user profile and no external streaming target. The production Rust probe authenticates and
+successfully executes read-only `GetVersion` and `GetSceneList`; the accepted evidence explicitly
+records `recording_started=false` and `streaming_started=false`.
+
+This does **not** imply that Driver Protocol v1 transports driver-child events, cooperative
+cancellation, dynamic capability changes or provider-wide progress/artifacts. Those generic
+protocol gaps remain fail-closed/follow-on work rather than being simulated by the OBS driver.
+
 ## Verification hardening included in the baseline
 
 - The command schema contract expects the current 86 descriptors (172 input/output schemas).

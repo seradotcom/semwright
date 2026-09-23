@@ -4,9 +4,12 @@ version = "0.0.0"
 publish = false
 edition = "2024"
 license = "MIT OR Apache-2.0"
+
 [package.metadata]
 cargo-fuzz = true
+
 [workspace]
+
 [dependencies]
 semwright-platform-macos-sys = { path = "../crates/platform-macos-sys" }
 semwright-platform-api = { path = "../crates/platform-api" }
@@ -17,6 +20,7 @@ semwright-protocol = { path = "../crates/protocol" }
 semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
 semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
+semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
 
 [[bin]]
 name = "protocol"
@@ -31,7 +35,6 @@ path = "fuzz_targets/plugin.rs"
 test = false
 doc = false
 bench = false
-
 [[bin]]
 name = "selector"
 path = "fuzz_targets/selector.rs"
@@ -63,6 +66,48 @@ bench = false
 [[bin]]
 name = "macho_headers"
 path = "fuzz_targets/macho_headers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "obs_message"
+path = "fuzz_targets/obs_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "obs_event"
+path = "fuzz_targets/obs_event.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "obs_response"
+path = "fuzz_targets/obs_response.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "obs_reference"
+path = "fuzz_targets/obs_reference.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "obs_bounded_json"
+path = "fuzz_targets/obs_bounded_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "obs_capability_mapping"
+path = "fuzz_targets/obs_capability_mapping.rs"
 test = false
 doc = false
 bench = false

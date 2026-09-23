@@ -1,0 +1,14 @@
+{
+  "op": 7,
+  "d": {
+    "requestId": "g1:r1",
+    "requestType": "GetStats",
+    "requestStatus": {
+      "result": true,
+      "code": 100
+    },
+    "responseData": {
+      "cpuUsage": 2.0
+    }
+  }
+}

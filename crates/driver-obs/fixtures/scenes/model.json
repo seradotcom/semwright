@@ -1,0 +1,26 @@
+{
+  "fixture_only": true,
+  "scenes": [
+    "Main",
+    "Break",
+    "Starting Soon"
+  ],
+  "inputs": [
+    "Mic",
+    "Desktop Audio",
+    "Camera",
+    "Browser"
+  ],
+  "filters": [
+    "Noise Suppression",
+    "Compressor"
+  ],
+  "outputs": {
+    "record": false,
+    "stream": false,
+    "replay": false,
+    "virtual_camera": false
+  },
+  "real_hardware_opened": false,
+  "source": "fixtures/fake-obs/server.py owns the full deterministic state"
+}

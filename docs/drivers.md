@@ -130,7 +130,7 @@ That path is exercised locally and by the Native application integration workflo
 
 ## Included application drivers
 
-The workspace includes two larger integration surfaces in addition to the existing examples:
+The workspace includes several larger integration surfaces in addition to the existing examples:
 
 - `crates/driver-mlt-video` provides 68 bounded offline timeline, metadata, render-plan and
   job capabilities. Deep mutation is limited to the driver's normalized MLT form; arbitrary
@@ -140,11 +140,17 @@ The workspace includes two larger integration surfaces in addition to the existi
   a Rust SDK client to a bounded Go/C ABI IPC core and supports the curated KiCad 9/10 PCB
   surface described in its own compatibility documentation. The deterministic fake IPC gate
   is not evidence of interoperability with a real KiCad process.
+- `crates/driver-obs` provides a curated obs-websocket 5.x integration with 65 capabilities,
+  connection generations, bounded reconnects, driver-local refs, event backpressure and output
+  lifecycle tracking. Its dedicated CI exercises the production Rust client against an
+  independent fake server, the real Semwright Driver Host sandbox, bounded fuzz targets and a
+  disposable read-only OBS Studio instance. Driver Protocol v1 still does not transport child
+  events, cooperative cancellation or dynamic capability changes into the broker.
 
-Both integrations use the normal owner-assigned DriverProvider identity, digest pinning,
-policy grants, bubblewrap/Landlock sandbox and descriptor-pinned execution. They add no
-ambient authority or unsandboxed fallback. Consult each directory's README and security
-notes before enabling it.
+These integrations use the normal owner-assigned DriverProvider identity, digest pinning,
+policy grants, bubblewrap/Landlock sandbox and descriptor-pinned execution where applicable.
+They add no ambient authority or unsandboxed fallback. Consult each directory's README and
+security notes before enabling it.
 
 ## Distribution
 
@@ -174,7 +180,8 @@ capability catalog, and mounts it with `Broker::mount_provider`.
 
 ## Scope
 
-Driver SDK v1 is the foundation for deeper first-party and community integrations such as
-Blender, KiCad, LibreOffice, Krita/GIMP and OBS. Those applications are not automatically
-certified merely because the protocol exists. Each driver still needs application-specific
-implementation and real conformance/integration evidence.
+Driver SDK v1 is the foundation for deeper first-party and community integrations. The presence
+of a driver in the workspace does not by itself certify every application version or runtime
+path: each integration still needs application-specific conformance and real execution evidence.
+Further drivers such as Krita/GIMP can reuse the same provider, policy and sandbox contracts
+without adding application-specific branches to the broker.

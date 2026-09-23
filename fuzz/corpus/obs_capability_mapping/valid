@@ -1,0 +1,1 @@
+{"command":"driver.obs.input.volume.set","args":{"expected_generation":1,"input_ref":"obs-input:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","volume_db":-6}}

@@ -43,6 +43,13 @@ LibreOffice Writer/Calc/PDF operations execute through the normal broker and a p
 DriverProvider. This closes the SDK generalization demonstration, not R10's hostile sandbox matrix,
 remote/signed driver publishing, or any claim of complete UNO application coverage.
 
+Closed development milestone: the OBS deep driver now has real runtime evidence. The production
+Rust client executes its curated protocol/conformance matrix, six hosted fuzz targets, the real
+Semwright Driver Host/broker path, and an isolated OBS Studio 30.0.2 + obs-websocket 5.3.4
+read-only smoke. No external stream, recording, camera, microphone or user profile is used.
+This does not close R13: Driver Protocol v1 still lacks negotiated child events/cancellation and
+generic progress/artifact transport, and scoped network/secret delivery remain future SDK work.
+
 Additional limitations remain: recipe taint/redaction is not formal information-flow security;
 runtime discovery is not certification; application names do not automatically inherit desktop-ref
 generation semantics. `release-readiness.json` must remain blocked until the corresponding gates are

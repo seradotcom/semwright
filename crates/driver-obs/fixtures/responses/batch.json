@@ -1,0 +1,15 @@
+{
+  "op": 8,
+  "d": {
+    "requestId": "g1:b1",
+    "executionType": 0,
+    "haltOnFailure": true,
+    "requests": [
+      {
+        "requestType": "GetStats",
+        "requestId": "g1:b1:0",
+        "requestData": {}
+      }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "address": "127.0.0.1",
+  "port": 4455,
+  "connect_timeout_ms": 2000,
+  "request_timeout_ms": 3000,
+  "reconnect_limit": 5,
+  "event_capacity": 256,
+  "secret_socket": false,
+  "allow_stream_start": false
+}
