@@ -42,7 +42,8 @@ try {
     resolutionScale:1,
     colorSpace:config.colorSpace,
     background:config.alpha?null:config.background,
-    range:[config.firstFrame/config.fps,config.endFrameExclusive/config.fps],
+    // Motion Canvas 3.17.2 treats the range end as inclusive; Semwright profiles are half-open.
+    range:[config.firstFrame/config.fps,(config.endFrameExclusive-1)/config.fps],
     fps:config.fps,
     exporter:{name:'@semwright/driver/image-sequence',options:{}},
   }).catch(error=>{state.error=String(error);state.done=true;});
