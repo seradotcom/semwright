@@ -1040,6 +1040,17 @@ mod driver_tests {
         });
         p
     }
+    fn png_asset() -> Vec<u8> {
+        let mut bytes = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut bytes, 1, 1);
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().unwrap();
+            writer.write_image_data(&[0x23, 0x42, 0x61, 0xff]).unwrap();
+        }
+        bytes
+    }
     async fn call(driver: &mut MotionDriver, name: &str, args: Value) -> Result<Value> {
         let cap = driver
             .capabilities()
@@ -1163,6 +1174,109 @@ mod driver_tests {
         .await
         .unwrap_err();
         assert_eq!(stale.code, ErrorCode::StaleReference);
+    }
+
+    #[tokio::test]
+    async fn asset_import_is_bounded_atomic_and_dry_run_is_pure() {
+        let project_dir = tempfile::tempdir().unwrap();
+        let media_dir = tempfile::tempdir().unwrap();
+        let project_root = std::fs::canonicalize(project_dir.path()).unwrap();
+        let media_root = std::fs::canonicalize(media_dir.path()).unwrap();
+        let bytes = png_asset();
+        std::fs::write(media_root.join("pixel.png"), &bytes).unwrap();
+        std::fs::write(
+            media_root.join("active.svg"),
+            b"<svg><script>alert(1)</script></svg>",
+        )
+        .unwrap();
+        let mut driver =
+            MotionDriver::for_project_and_media_roots(&project_root, &media_root).unwrap();
+        call(
+            &mut driver,
+            "driver.motion-canvas.project.create",
+            json!({"project":fixture(),"dry_run":false}),
+        )
+        .await
+        .unwrap();
+        let inspected = call(
+            &mut driver,
+            "driver.motion-canvas.project.inspect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        let fingerprint = inspected["fingerprint"].as_str().unwrap().to_owned();
+        let dry = call(&mut driver, "driver.motion-canvas.asset.import", json!({
+            "expected_fingerprint":fingerprint,"id":"pixel","kind":"image","source":"pixel.png","dry_run":true
+        })).await.unwrap();
+        assert_eq!(dry["applied"], false);
+        assert!(!project_root.join("assets/pixel.png").exists());
+        let saved = call(&mut driver, "driver.motion-canvas.asset.import", json!({
+            "expected_fingerprint":fingerprint,"id":"pixel","kind":"image","source":"pixel.png","dry_run":false
+        })).await.unwrap();
+        assert_eq!(saved["applied"], true);
+        assert_eq!(
+            std::fs::read(project_root.join("assets/pixel.png")).unwrap(),
+            bytes
+        );
+        let list = call(&mut driver, "driver.motion-canvas.asset.list", json!({}))
+            .await
+            .unwrap();
+        assert_eq!(list["items"].as_array().unwrap().len(), 1);
+        assert_eq!(list["items"][0]["sha256"], security::sha256(&png_asset()));
+        let stale = call(&mut driver, "driver.motion-canvas.asset.import", json!({
+            "expected_fingerprint":fingerprint,"id":"second","kind":"image","source":"pixel.png","dry_run":false
+        })).await.unwrap_err();
+        assert_eq!(stale.code, ErrorCode::StaleReference);
+        let current = call(
+            &mut driver,
+            "driver.motion-canvas.project.inspect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        let current_fp = current["fingerprint"].as_str().unwrap();
+        let traversal = call(&mut driver, "driver.motion-canvas.asset.import", json!({
+            "expected_fingerprint":current_fp,"id":"escape","kind":"image","source":"../pixel.png","dry_run":true
+        })).await.unwrap_err();
+        assert_eq!(traversal.code, ErrorCode::InvalidArgument);
+        let active_svg = call(&mut driver, "driver.motion-canvas.asset.import", json!({
+            "expected_fingerprint":current_fp,"id":"active","kind":"svg","source":"active.svg","dry_run":true
+        })).await.unwrap_err();
+        assert_eq!(active_svg.code, ErrorCode::InvalidArgument);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn asset_import_rejects_media_symlink_escape() {
+        use std::os::unix::fs::symlink;
+        let project_dir = tempfile::tempdir().unwrap();
+        let media_dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(outside.path(), png_asset()).unwrap();
+        symlink(outside.path(), media_dir.path().join("outside.png")).unwrap();
+        let project_root = std::fs::canonicalize(project_dir.path()).unwrap();
+        let media_root = std::fs::canonicalize(media_dir.path()).unwrap();
+        let mut driver =
+            MotionDriver::for_project_and_media_roots(&project_root, &media_root).unwrap();
+        call(
+            &mut driver,
+            "driver.motion-canvas.project.create",
+            json!({"project":fixture(),"dry_run":false}),
+        )
+        .await
+        .unwrap();
+        let inspected = call(
+            &mut driver,
+            "driver.motion-canvas.project.inspect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        let error = call(&mut driver, "driver.motion-canvas.asset.import", json!({
+            "expected_fingerprint":inspected["fingerprint"],"id":"outside","kind":"image","source":"outside.png","dry_run":true
+        })).await.unwrap_err();
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
     }
 
     #[tokio::test]
