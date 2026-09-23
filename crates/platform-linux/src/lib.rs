@@ -4,6 +4,7 @@ pub mod atspi;
 mod bootstrap;
 pub mod bridge;
 pub mod clipboard;
+pub mod eis;
 pub mod hyprland;
 pub mod portal;
 pub mod sway;

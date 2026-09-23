@@ -11,7 +11,7 @@ is still not a release candidate.
 | ID | Remaining blocker | Completion evidence needed |
 |---|---|---|
 | R01 | No MSRV policy or compatibility range has been established; Rust 1.98.1 is the tested pin, not an MSRV. | Document a supported range and execute its lower bound. |
-| R02 | EIS/libei input transport is incomplete. | Real portal-granted sessions, revocation, cancellation, coordinate and lifecycle tests. |
+| R02 | EIS/libei sender transport is implemented and protocol-tested, but the real portal-granted `ConnectToEIS` path is not yet certified. | Real portal-granted sessions, revocation, cancellation, coordinate/focus and lifecycle tests on supported desktops. |
 | R03 | PipeWire ScreenCast pixel decoding and robust stream lifecycle are incomplete. | Real frames, format negotiation, damage/resize, cancellation and resource cleanup tests. |
 | R04 | Portal restore-token persistence and clipboard/session integration are incomplete. | Durable scoped storage plus consent/revocation and stale-token tests. |
 | R05 | AT-SPI delta snapshots, event-loss recovery and object-reuse coverage are incomplete. | Private D-Bus fixtures and GTK/Qt live conformance. |

@@ -28,8 +28,10 @@ libc.workspace = true
 zbus.workspace = true
 x11rb.workspace = true
 futures-util.workspace = true
+reis.workspace = true
 url.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
+calloop.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
