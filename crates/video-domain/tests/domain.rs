@@ -407,3 +407,18 @@ fn shared_conformance_rejects_backend_semantic_drift() {
     .unwrap_err();
     assert_eq!(error.code, "BackendFailed");
 }
+
+#[test]
+fn model_v1_rejects_unknown_fields_instead_of_dropping_them() {
+    let project = fixture();
+    let mut value = serde_json::to_value(project).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .insert("future_backend_state".into(), serde_json::json!({"x": 1}));
+    assert!(serde_json::from_value::<Project>(value).is_err());
+
+    let mut nested = serde_json::to_value(fixture()).unwrap();
+    nested["sequences"][0]["tracks"][0]["future_field"] = serde_json::json!(true);
+    assert!(serde_json::from_value::<Project>(nested).is_err());
+}

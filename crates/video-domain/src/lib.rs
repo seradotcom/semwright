@@ -5,6 +5,7 @@
 //! render executables. Backends translate their native representation into
 //! these types and keep round-trip metadata outside the semantic model.
 
+pub mod backend;
 pub mod conformance;
 pub mod edit;
 pub mod error;

@@ -38,3 +38,15 @@ The repository test suite covers unit, property, differential-domain, round-trip
 protocol and security cases. Hosted native CI also launches the binary through the real Semwright
 DriverProvider and sandbox. Those gates do not certify native round trips through real Kdenlive or
 Shotcut, which remain explicit release evidence gaps.
+
+## Shared video-domain contract
+
+The driver now implements the shared backend projection contract in `src/domain.rs`.
+Mutation preflight and format-level support reporting consume the resulting `BackendContract`;
+the older adapter support methods remain the single native source of truth used to construct that
+contract.
+
+Native/application warnings no longer enter the portable semantic `Project`. They are emitted as
+structured `ProjectionReport` losses, alongside read-only losses for opaque native assets,
+tracks, effects, sequences and transitions. This keeps MLT round-trip metadata in the MLT layer
+while preserving an adapter-neutral semantic core for future video backends.

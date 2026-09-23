@@ -396,7 +396,7 @@ impl App {
                 ]))
             }
             "project.format" => {
-                let adapter = adapters::adapter(p.format);
+                let contract = crate::domain::contract(p)?;
                 Ok(obj([
                     ("format", p.format.name().into()),
                     (
@@ -425,7 +425,7 @@ impl App {
                                     let support = operation
                                         .parse::<VideoOperation>()
                                         .map_or(adapters::Support::Unsupported, |operation| {
-                                            adapter.supported_mutation(p, operation)
+                                            contract.support(operation)
                                         });
                                     obj([
                                         ("operation", operation.into()),

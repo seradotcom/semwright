@@ -43,6 +43,7 @@ impl Editability {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Profile {
     pub width: u32,
     pub height: u32,
@@ -109,6 +110,7 @@ impl Resource {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MediaAsset {
     pub id: String,
     pub name: String,
@@ -127,6 +129,7 @@ pub enum Interpolation {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Keyframe {
     pub frame: u64,
     pub value: i64,
@@ -134,6 +137,7 @@ pub struct Keyframe {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Effect {
     pub id: String,
     /// Stable semantic effect identifier, for example volume or brightness.
@@ -251,6 +255,7 @@ pub fn validate_effect_value(kind: &str, parameter: &str, value: i64) -> Result<
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Clip {
     pub id: String,
     pub name: String,
@@ -275,12 +280,14 @@ impl Clip {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Gap {
     pub start: u64,
     pub duration: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Timeline {
     pub id: String,
     pub clips: Vec<Clip>,
@@ -312,6 +319,7 @@ impl Timeline {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Track {
     pub id: String,
     pub name: String,
@@ -331,6 +339,7 @@ impl Track {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Transition {
     pub id: String,
     pub kind: String,
@@ -343,6 +352,7 @@ pub struct Transition {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Marker {
     pub id: String,
     pub frame: u64,
@@ -351,12 +361,14 @@ pub struct Marker {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SubtitleReference {
     pub resource: String,
     pub representation: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Sequence {
     pub id: String,
     pub name: String,
@@ -376,6 +388,7 @@ impl Sequence {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Project {
     pub model_version: u32,
     pub id: String,

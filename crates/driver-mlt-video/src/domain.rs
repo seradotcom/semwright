@@ -3,8 +3,15 @@
 //! XML/MLT details stop at this boundary. Native structures that cannot be
 //! edited semantically project as read-only objects.
 
-use crate::{edit as mlt_edit, model as mlt};
-use semwright_video_domain::{edit as video_edit, model as video};
+use crate::{adapters, edit as mlt_edit, model as mlt};
+use semwright_video_domain::{
+    backend::{
+        BackendContract, BackendIdentity, ProjectionFidelity, ProjectionLoss, ProjectionLossImpact,
+        ProjectionLossKind, ProjectionReport, SemanticVideoProjection,
+    },
+    edit as video_edit, model as video,
+    support::MutationSupport,
+};
 
 fn access(read_only: bool, reason: &str) -> video::Editability {
     if read_only {
@@ -168,7 +175,8 @@ pub fn project(v: &mlt::Project) -> video::Project {
             .map(|(id, item)| (id.clone(), asset(item)))
             .collect(),
         sequences: v.sequences.iter().map(sequence).collect(),
-        warnings: v.warnings.clone(),
+        // Native/application warnings belong to ProjectionReport, not the portable model.
+        warnings: vec![],
     }
 }
 
@@ -434,4 +442,213 @@ pub fn edit(v: &mlt_edit::Edit) -> video_edit::Edit {
             fade_in: *fade_in,
         },
     }
+}
+
+pub struct MltSemanticProjection;
+
+fn backend_id(format: mlt::Format) -> &'static str {
+    match format {
+        mlt::Format::GenericMlt => "mlt",
+        mlt::Format::Kdenlive => "kdenlive",
+        mlt::Format::Shotcut | mlt::Format::ShotcutExport | mlt::Format::ShotcutVirtual => {
+            "shotcut"
+        }
+    }
+}
+
+fn support_reason(support: MutationSupport) -> Option<String> {
+    match support {
+        MutationSupport::SafeRoundtrip => None,
+        MutationSupport::MetadataRisk => {
+            Some("native metadata round-trip risk requires explicit acknowledgement".into())
+        }
+        MutationSupport::RenderOnly => {
+            Some("backend exposes observation/render semantics but not this mutation".into())
+        }
+        MutationSupport::Unsupported => {
+            Some("semantic mutation unsupported for this project/version".into())
+        }
+    }
+}
+fn push_loss(
+    losses: &mut Vec<ProjectionLoss>,
+    kind: ProjectionLossKind,
+    impact: ProjectionLossImpact,
+    code: &str,
+    semantic_path: Option<String>,
+    detail: impl Into<String>,
+) {
+    losses.push(ProjectionLoss {
+        kind,
+        impact,
+        code: code.into(),
+        semantic_path,
+        detail: detail.into(),
+    });
+}
+
+fn opaque_losses(project: &video::Project) -> Vec<ProjectionLoss> {
+    let mut losses = Vec::new();
+    for asset in project.assets.values() {
+        if asset.editability.is_read_only() {
+            push_loss(
+                &mut losses,
+                ProjectionLossKind::OpaqueNativeObject,
+                ProjectionLossImpact::ReadOnly,
+                "native.opaque_asset",
+                Some(format!("asset/{}", asset.id)),
+                "native media producer is represented conservatively as read-only",
+            );
+        }
+    }
+    for sequence in &project.sequences {
+        if sequence.editability.is_read_only() {
+            push_loss(
+                &mut losses,
+                ProjectionLossKind::OpaqueNativeObject,
+                ProjectionLossImpact::ReadOnly,
+                "native.opaque_sequence",
+                Some(format!("sequence/{}", sequence.id)),
+                "native sequence graph is represented conservatively as read-only",
+            );
+        }
+        for track in &sequence.tracks {
+            if track.editability.is_read_only() {
+                push_loss(
+                    &mut losses,
+                    ProjectionLossKind::OpaqueNativeObject,
+                    ProjectionLossImpact::ReadOnly,
+                    "native.opaque_track",
+                    Some(format!("sequence/{}/track/{}", sequence.id, track.id)),
+                    "native track graph is represented conservatively as read-only",
+                );
+            }
+            for effect in &track.effects {
+                if effect.editability.is_read_only() {
+                    push_loss(
+                        &mut losses,
+                        ProjectionLossKind::OpaqueNativeObject,
+                        ProjectionLossImpact::ReadOnly,
+                        "native.opaque_effect",
+                        Some(format!(
+                            "sequence/{}/track/{}/effect/{}",
+                            sequence.id, track.id, effect.id
+                        )),
+                        "native track effect is represented conservatively as read-only",
+                    );
+                }
+            }
+            for lane in &track.lanes {
+                for clip in &lane.clips {
+                    for effect in &clip.effects {
+                        if effect.editability.is_read_only() {
+                            push_loss(
+                                &mut losses,
+                                ProjectionLossKind::OpaqueNativeObject,
+                                ProjectionLossImpact::ReadOnly,
+                                "native.opaque_effect",
+                                Some(format!(
+                                    "sequence/{}/clip/{}/effect/{}",
+                                    sequence.id, clip.id, effect.id
+                                )),
+                                "native clip effect is represented conservatively as read-only",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        for transition in &sequence.transitions {
+            if transition.editability.is_read_only() {
+                push_loss(
+                    &mut losses,
+                    ProjectionLossKind::OpaqueNativeObject,
+                    ProjectionLossImpact::ReadOnly,
+                    "native.opaque_transition",
+                    Some(format!(
+                        "sequence/{}/transition/{}",
+                        sequence.id, transition.id
+                    )),
+                    "native transition is represented conservatively as read-only",
+                );
+            }
+        }
+    }
+    losses
+}
+
+fn projection_report(native: &mlt::Project) -> crate::Result<ProjectionReport> {
+    let portable = project(native);
+    let mut losses = opaque_losses(&portable);
+    for warning in &native.warnings {
+        let kind = if warning.to_ascii_lowercase().contains("version") {
+            ProjectionLossKind::UnknownNativeVersion
+        } else if warning.to_ascii_lowercase().contains("risk") {
+            ProjectionLossKind::RoundTripRisk
+        } else {
+            ProjectionLossKind::NativeMetadataOnly
+        };
+        push_loss(
+            &mut losses,
+            kind,
+            ProjectionLossImpact::Advisory,
+            "native.warning",
+            None,
+            warning.clone(),
+        );
+    }
+
+    let fidelity = if losses
+        .iter()
+        .any(|loss| loss.impact == ProjectionLossImpact::ReadOnly)
+    {
+        ProjectionFidelity::LossyReadOnly
+    } else if losses.is_empty() {
+        ProjectionFidelity::Exact
+    } else {
+        ProjectionFidelity::SemanticallyEquivalent
+    };
+    let report = ProjectionReport {
+        project: portable,
+        fidelity,
+        losses,
+    };
+    report.validate().map_err(crate::Error::from)?;
+    Ok(report)
+}
+fn backend_contract(native: &mlt::Project) -> crate::Result<BackendContract> {
+    let adapter = adapters::adapter(native.format);
+    let fidelity = projection_report(native)?.fidelity;
+    BackendContract::from_support(
+        BackendIdentity {
+            backend_id: backend_id(native.format).into(),
+            backend_version: native.format_version.clone(),
+            adapter_id: adapter.name().into(),
+        },
+        fidelity,
+        |operation| {
+            let support = adapter.supported_mutation(native, operation);
+            (support, support_reason(support))
+        },
+    )
+    .map_err(crate::Error::from)
+}
+impl SemanticVideoProjection<mlt::Project> for MltSemanticProjection {
+    fn contract(&self, native: &mlt::Project) -> semwright_video_domain::Result<BackendContract> {
+        backend_contract(native)
+            .map_err(|error| semwright_video_domain::Error::new(error.code, error.message))
+    }
+
+    fn project(&self, native: &mlt::Project) -> semwright_video_domain::Result<ProjectionReport> {
+        projection_report(native)
+            .map_err(|error| semwright_video_domain::Error::new(error.code, error.message))
+    }
+}
+
+pub fn contract(native: &mlt::Project) -> crate::Result<BackendContract> {
+    backend_contract(native)
+}
+
+pub fn report(native: &mlt::Project) -> crate::Result<ProjectionReport> {
+    projection_report(native)
 }
