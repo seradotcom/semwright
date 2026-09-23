@@ -46,9 +46,9 @@ Output is bounded, timeouts kill the child, resource limits are applied and inhe
 secrets are not passed through.
 
 Missing bubblewrap/user namespace/Landlock enforcement causes `SandboxDenied`; there is
-no direct-exec fallback. The hosted adversarial sandbox gate executes a hostile fixture and
+no direct-exec fallback. The hosted adversarial sandbox gate executes hostile plugin and DriverProvider fixtures and
 checks read-only/write mount boundaries, host-file invisibility, host PID isolation, loopback
-network isolation, environment scrubbing, timeout/watchdog descendant cleanup and manifest/
-child version+descriptor attestation. These tests exercise the configured Linux boundary;
+network isolation, environment scrubbing, driver resource limits, descendant cleanup and plugin
+manifest/child version+descriptor attestation. These tests exercise the configured Linux boundary;
 they are not a formal proof against kernel, Bubblewrap, Landlock or native-code vulnerabilities.
 See [SECURITY.md](../SECURITY.md) and [manual testing](manual-testing.md).
