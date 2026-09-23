@@ -5,7 +5,7 @@ use semwright_backend_api::{Backend, Context, feature};
 use semwright_types::*;
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -202,8 +202,38 @@ struct MailboxState {
     queue: mpsc::Sender<Value>,
     receiver: Mutex<mpsc::Receiver<Value>>,
     pending: std::sync::Mutex<BTreeMap<String, oneshot::Sender<Value>>>,
+    retired: std::sync::Mutex<VecDeque<(String, String)>>,
     heartbeat: std::sync::Mutex<Instant>,
     published: std::sync::atomic::AtomicBool,
+}
+impl MailboxState {
+    fn retired(&self, target: &NativeTarget) -> Result<bool> {
+        Ok(self
+            .retired
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "KWin retired-target lock poisoned"))?
+            .iter()
+            .any(|(identity, fingerprint)| {
+                identity == &target.identity && fingerprint == &target.fingerprint
+            }))
+    }
+
+    fn retire(&self, target: &NativeTarget) -> Result<()> {
+        let mut retired = self
+            .retired
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "KWin retired-target lock poisoned"))?;
+        if retired.iter().any(|(identity, fingerprint)| {
+            identity == &target.identity && fingerprint == &target.fingerprint
+        }) {
+            return Ok(());
+        }
+        if retired.len() == 256 {
+            retired.pop_front();
+        }
+        retired.push_back((target.identity.clone(), target.fingerprint.clone()));
+        Ok(())
+    }
 }
 struct PendingKwin {
     state: Arc<MailboxState>,
@@ -324,6 +354,7 @@ impl Kwin {
             queue,
             receiver: Mutex::new(receiver),
             pending: std::sync::Mutex::new(BTreeMap::new()),
+            retired: std::sync::Mutex::new(VecDeque::new()),
             heartbeat: std::sync::Mutex::new(Instant::now() - Duration::from_secs(3600)),
             published: std::sync::atomic::AtomicBool::new(false),
         });
@@ -357,7 +388,14 @@ impl Kwin {
                 "KWin bridge has not published a window snapshot",
             ));
         }
-        Ok(snapshot.1.clone())
+        let mut windows = Vec::with_capacity(snapshot.1.len());
+        for row in &snapshot.1 {
+            let current = target(row)?;
+            if !self.state.retired(&current)? {
+                windows.push(row.clone());
+            }
+        }
+        Ok(windows)
     }
 }
 #[async_trait]
@@ -385,7 +423,8 @@ impl Backend for Kwin {
         if c == "window.list" {
             return window_result(&self.windows().await?);
         }
-        self.validate(&native_target(args)?).await?;
+        let target = native_target(args)?;
+        self.validate(&target).await?;
         let request = instruction(c, args)?;
         let id = arg_str(&request, "id")?.to_owned();
         let (sender, receiver) = oneshot::channel();
@@ -410,9 +449,18 @@ impl Backend for Kwin {
                 Error::new(ErrorCode::BackendFailed, "KWin rejected operation").uncertain(),
             );
         }
+        if matches!(c, "window.close" | "app.close") {
+            self.state.retire(&target)?;
+        }
         Ok(response)
     }
     async fn validate(&self, t: &NativeTarget) -> Result<()> {
+        if self.state.retired(t)? {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "KWin window was closed",
+            ));
+        }
         for v in self.windows().await? {
             let now = target(&v)?;
             if now.identity == t.identity && now.fingerprint == t.fingerprint {
@@ -425,6 +473,9 @@ impl Backend for Kwin {
         ))
     }
     async fn is_focused(&self, t: &NativeTarget) -> Result<bool> {
+        if self.state.retired(t)? {
+            return Ok(false);
+        }
         for v in self.windows().await? {
             let now = target(&v)?;
             if now.identity == t.identity && now.fingerprint == t.fingerprint {
@@ -446,5 +497,45 @@ mod tests {
         let out = window_result(&[json!({"id":"1","app":"a","fingerprint":"epoch:1"})]).unwrap();
         assert!(out["windows"][0].get("id").is_none());
         assert!(out["windows"][0]["ref"]["$ref"].is_object());
+    }
+
+    #[test]
+    fn kwin_retired_targets_are_exact_and_bounded() {
+        let (queue, receiver) = mpsc::channel(1);
+        let state = MailboxState {
+            snapshot: RwLock::new((Instant::now(), vec![])),
+            queue,
+            receiver: Mutex::new(receiver),
+            pending: std::sync::Mutex::new(BTreeMap::new()),
+            retired: std::sync::Mutex::new(VecDeque::new()),
+            heartbeat: std::sync::Mutex::new(Instant::now()),
+            published: std::sync::atomic::AtomicBool::new(true),
+        };
+        let first = NativeTarget {
+            kind: "win".into(),
+            identity: "window-1".into(),
+            revision: 0,
+            fingerprint: "epoch:1".into(),
+            app: "fixture".into(),
+        };
+        state.retire(&first).unwrap();
+        assert!(state.retired(&first).unwrap());
+
+        let fresh = NativeTarget {
+            fingerprint: "epoch:2".into(),
+            ..first.clone()
+        };
+        assert!(!state.retired(&fresh).unwrap());
+
+        for index in 0..300 {
+            state
+                .retire(&NativeTarget {
+                    identity: format!("window-{index}"),
+                    fingerprint: format!("epoch:{index}"),
+                    ..first.clone()
+                })
+                .unwrap();
+        }
+        assert_eq!(state.retired.lock().unwrap().len(), 256);
     }
 }
