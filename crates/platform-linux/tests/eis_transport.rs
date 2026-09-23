@@ -1,3 +1,5 @@
+#![cfg(target_os = "linux")]
+
 use reis::{
     PendingRequestResult,
     eis::{self, device::DeviceType},
