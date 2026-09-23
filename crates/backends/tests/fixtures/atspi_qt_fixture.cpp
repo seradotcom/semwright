@@ -34,8 +34,13 @@ int main(int argc, char **argv) {
     window.resize(360, 160);
     window.show();
 
-    // QApplication installs its accessibility root when the event loop starts. Diagnose
-    // after startup rather than forcing a root before the platform AT-SPI bridge initializes.
+    // A normal desktop screen reader activates the platform accessibility bridge. This
+    // headless conformance fixture has no AT client, so activate the same Qt platform path
+    // explicitly and publish the standard QApplication root before entering the event loop.
+    QAccessible::setActive(true);
+    QAccessible::setRootObject(&app);
+
+    // Diagnose after startup, once queued bridge initialization has had a chance to run.
     QTimer::singleShot(250, [&app, &window]() {
         auto *app_root = QAccessible::queryAccessibleInterface(&app);
         auto *window_root = QAccessible::queryAccessibleInterface(&window);
