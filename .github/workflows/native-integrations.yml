@@ -125,6 +125,12 @@ jobs:
             --bin semwright-sandbox --bin semwright-adversarial-plugin-fixture
           cargo test --locked -p semwright-plugin-host --features test-tools \
             --test adversarial -- --ignored --nocapture 2>&1 | tee verification/native-ci/plugin-adversarial.log
+          cargo build --locked -p semwright-driver-host --features test-tools \
+            --bin semwright-adversarial-driver-fixture
+          SEMWRIGHT_TEST_DRIVER_SANDBOX=1 \
+            SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
+            cargo test --locked -p semwright-driver-host --features test-tools \
+            --test adversarial_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-adversarial.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
