@@ -1,0 +1,145 @@
+name: Platformization and macOS
+defaults:
+  run:
+    shell: bash
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: platformization-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  linux-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: platformization-linux
+      - name: Full noninteractive Linux regression
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          cargo metadata --locked --format-version 1 >/tmp/metadata.json
+          cargo fmt --all -- --check
+          cargo check --locked --workspace --all-targets --all-features
+          cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+          cargo test --locked --workspace --all-targets --all-features
+          cargo test --locked --workspace --all-features --doc
+          RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+
+  darwin:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            native: aarch64-apple-darwin
+            other: x86_64-apple-darwin
+          - runner: macos-15-intel
+            native: x86_64-apple-darwin
+            other: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: platformization-${{ matrix.native }}
+      - name: Record native environment
+        run: |
+          set -euo pipefail
+          mkdir -p verification/platformization
+          {
+            sw_vers
+            uname -a
+            uname -m
+            xcodebuild -version
+            xcrun swiftc --version
+            rustc --version
+            cargo --version
+          } | tee verification/platformization/environment.log
+          rustup target add "${{ matrix.native }}" "${{ matrix.other }}"
+      - name: Cross-check shared contracts for the other Darwin architecture
+        run: |
+          set -euo pipefail
+          cargo check --locked --target "${{ matrix.other }}" \
+            -p semwright-types \
+            -p semwright-protocol \
+            -p semwright-backend-api \
+            -p semwright-platform-api \
+            -p semwright-registry \
+            -p semwright-policy \
+            -p semwright-recipes \
+            -p semwright-core \
+            -p semwright-federation \
+            -p semwright-driver-sdk \
+            -p semwright-driver-host \
+            -p semwright-plugin-sdk \
+            -p semwright-plugin-host
+      - name: Native workspace compile
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo check --locked --workspace --all-targets
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Native platform and portable tests
+        run: |
+          set -euo pipefail
+          cargo test --locked \
+            -p semwright-types \
+            -p semwright-protocol \
+            -p semwright-registry \
+            -p semwright-policy \
+            -p semwright-recipes \
+            -p semwright-core \
+            -p semwright-platform-api \
+            -p semwright-platform-macos-sys \
+            -p semwright-platform-macos
+      - name: Link actual host and frontends
+        run: |
+          set -euo pipefail
+          cargo build --locked --release \
+            -p semwright-daemon \
+            -p semwright-cli \
+            -p semwright-mcp \
+            -p semwright-plugin-host
+          file target/release/semwrightd target/release/computerctl target/release/semwright-mcp
+      - name: Safe native Apple-framework smoke
+        run: |
+          set -euo pipefail
+          bash platforms/macos/tests/run-native-smoke.sh 2>&1 | tee verification/platformization/native-smoke.log
+      - name: Record live-test boundary
+        run: |
+          cat > verification/platformization/live-boundary.txt <<'EOF'
+          Hosted CI does not certify Accessibility TCC, CGEvent delivery to arbitrary apps,
+          Screen Recording consent/capture, installed SMAppService lifecycle, code signing,
+          notarization, sleep/wake, multi-display Retina behavior, or arbitrary driver/plugin isolation.
+          EOF
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: platformization-${{ matrix.native }}
+          path: verification/platformization
+          retention-days: 14

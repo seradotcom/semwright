@@ -1,0 +1,35 @@
+[package]
+name = "semwright-platform-linux"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+semwright-types.workspace = true
+semwright-policy.workspace = true
+semwright-protocol.workspace = true
+semwright-backend-api.workspace = true
+semwright-platform-api = { path = "../platform-api", version = "=0.9.0-dev.1" }
+semwright-platform-common = { path = "../platform-common", version = "=0.9.0-dev.1" }
+semwright-adapters.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+libc.workspace = true
+zbus.workspace = true
+x11rb.workspace = true
+futures-util.workspace = true
+url.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true

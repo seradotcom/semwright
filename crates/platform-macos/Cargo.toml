@@ -1,0 +1,29 @@
+[package]
+name = "semwright-platform-macos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-platform-api = { path = "../platform-api", version = "=0.9.0-dev.1" }
+semwright-platform-services = { path = "../platform-services", version = "=0.9.0-dev.1" }
+semwright-backend-api.workspace = true
+semwright-types.workspace = true
+semwright-protocol.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+[features]
+default = ["native"]
+native = []
+
+[dev-dependencies]
+tempfile.workspace = true
+proptest.workspace = true

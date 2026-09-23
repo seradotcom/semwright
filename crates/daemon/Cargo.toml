@@ -11,7 +11,9 @@ publish = false
 workspace = true
 
 [dependencies]
-zbus.workspace = true
+semwright-platform-host = { path = "../platform-host", version = "=0.9.0-dev.1" }
+semwright-platform-common = { path = "../platform-common", version = "=0.9.0-dev.1" }
+semwright-platform-services = { path = "../platform-services", version = "=0.9.0-dev.1" }
 async-trait.workspace = true
 semwright-types.workspace = true
 semwright-protocol.workspace = true

@@ -1,0 +1,23 @@
+[package]
+name = "semwright-platform-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-adapters.workspace = true
+semwright-platform-api = { path = "../platform-api", version = "=0.9.0-dev.1" }
+semwright-platform-common = { path = "../platform-common", version = "=0.9.0-dev.1" }
+semwright-platform-services = { path = "../platform-services", version = "=0.9.0-dev.1" }
+serde_json.workspace = true
+tokio.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+semwright-platform-linux = { path = "../platform-linux", version = "=0.9.0-dev.1" }
+[target.'cfg(target_os = "macos")'.dependencies]
+semwright-platform-macos = { path = "../platform-macos", version = "=0.9.0-dev.1" }

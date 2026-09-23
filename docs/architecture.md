@@ -15,11 +15,16 @@ computerctl / semwright-mcp / semwright-inspect
                 │
           Provider Runtime
       ┌─────────┼──────────┐
- native Linux   drivers   external MCP
- / app APIs     │          │
+ platform host  drivers   external MCP
+      │          │          │
       └─────────┼──────────┘
                 ▼
-        Linux / applications
+       platform contracts
+          ┌─────┴─────┐
+        Linux       macOS
+          │           │
+          └─────┬─────┘
+            applications
 ```
 
 The Provider Runtime is the common execution boundary. A provider has explicit owner-assigned
@@ -29,9 +34,11 @@ pagination or capability descriptors fail rather than silently retargeting an op
 
 ## Provider classes
 
-Built-in providers adapt existing Linux and application backends without rewriting them. Current
-native routes include AT-SPI, compositor/window backends, portal/clipboard/system/filesystem,
-Blender and private Chromium.
+Built-in providers adapt platform and application backends without rewriting the broker. Linux
+currently provides the mature AT-SPI, compositor/window, portal, clipboard, system and filesystem
+routes. The macOS host is implemented behind the same contracts and remains under native/live
+verification; see [macOS host status](macos.md). Application-native providers such as Blender and
+private Chromium remain separate from generic desktop semantics.
 
 Federated MCP servers are dynamic `ExternalMcpProvider` instances. Their tool descriptions,
 schemas and results are untrusted data. Semwright assigns the namespace, imports descriptors,
@@ -66,9 +73,11 @@ not create its corresponding policy grant.
 `types` owns the transport-independent domain model. `registry` validates and indexes command
 descriptors. `policy` owns authorization and filesystem grants. `backend-api` owns the
 Provider/Backend traits. `core` owns provider leases, broker orchestration, refs and audit.
-`federation` implements MCP providers. `driver-sdk` is application-author facing and has no
-broker authority; `driver-host` adapts that protocol into a sandboxed Provider. Frontends depend
-on the broker/protocol contract rather than backend implementation details.
+`platform-api` defines narrow operating-system contracts; `platform-linux`/`platform-linux-sys`
+and `platform-macos`/`platform-macos-sys` implement them, while `platform-host` is the composition
+boundary. `federation` implements MCP providers. `driver-sdk` is application-author facing and has
+no broker authority; `driver-host` adapts that protocol into a platform launcher and Provider.
+Frontends depend on broker/protocol semantics rather than concrete OS backends.
 
 The daemon is the composition root. It creates trusted builtin providers and explicitly loads
 owner-configured external providers. No root daemon, default TCP listener or automatic elevated

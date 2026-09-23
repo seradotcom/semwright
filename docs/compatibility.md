@@ -1,8 +1,9 @@
 # Compatibility and verification levels
 
-The columns distinguish delivered source from execution evidence. **None of the Rust
-backends is “compiled only”: compilation itself did not run.** Runtime doctor statuses
-are reachability/capability observations, not a replacement for this evidence table.
+The columns distinguish delivered source from execution evidence. The accepted Linux
+development line has real Rust CI, and the platformized tree has a separate Linux regression
+and Darwin verification matrix. Runtime doctor statuses are reachability/capability observations,
+not a replacement for this evidence table.
 
 | Environment or route | Implementation boundary | Verified here | Remaining |
 |---|---|---|---|
@@ -13,6 +14,7 @@ are reachability/capability observations, not a replacement for this evidence ta
 | Native X11 | EWMH + explicit XTEST fallback | No Rust/Xvfb route executed | Bound synchronous I/O; lifecycle identity; real WM/XTEST tests |
 | AT-SPI | Dedicated accessibility bus; bounded tree and semantic actions | Rust normalization/selector test sources | Private bus + GTK/Qt app tests, live event invalidation |
 | Portal | Native Notify input + interactive Screenshot | Rust state/URI test sources | Consent, cancellation, session revocation on actual desktop |
+| macOS host | AXUIElement + CoreGraphics + ScreenCaptureKit + NSPasteboard behind platform contracts | Linux regression + Darwin cross-target checks; native ARM64/Intel CI is a separate gate | Live TCC/AX/input/capture, Retina/multi-display, service/signing and driver isolation acceptance |
 | Blender | Python typed host; Rust Unix client | Python fake-bpy/host tests | Live bpy, Blender background and GUI, Rust client |
 | Chromium | Broker-launched private profile + CDP | Separate live Python CDP contract probe | Rust adapter and broker path, quotas/crash cleanup |
 | Plugins | Bubblewrap + Landlock isolated ELF process | No sandbox execution | Negative tests on real kernels/user namespaces |
@@ -21,7 +23,8 @@ are reachability/capability observations, not a replacement for this evidence ta
 | Nix | Guarded package expression | Text source only | Lockfile, evaluation, build; no flake lock |
 
 Bridge manifests list candidate GNOME API versions 46–49, not a tested support guarantee.
-Do not broaden that list for newer versions without testing. COSMIC, Windows and macOS
-have no backend here. No low-level uinput/root helper is implemented. Chromium downloads
+Do not broaden that list for newer versions without testing. COSMIC and Windows have no
+backend here. The macOS backend foundation is under verification and is not yet a support claim.
+No low-level uinput/root helper is implemented. Chromium downloads
 are disabled by default. Browser navigation defaults to `about:blank` until origins are
 explicitly granted. This source is not a universal “works on Wayland” implementation.

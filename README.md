@@ -1,6 +1,6 @@
 # Semwright
 
-**A local capability broker that turns Linux applications and desktops into typed commands—not a stream of guessed clicks.**
+**A local semantic capability broker that turns applications and desktops into typed commands—not a stream of guessed clicks.**
 
 > **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
 > The accepted development line has a committed `Cargo.lock`, pins Rust 1.98.1, and has
@@ -14,6 +14,11 @@
 > remain incomplete. Read
 > [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
 > desktop access.
+
+Linux is the currently mature host. The repository is being platformized around shared
+semantic contracts; a macOS host foundation is under native verification and must not be
+treated as supported until its live TCC/desktop acceptance matrix is complete. See
+[macOS host status](docs/macos.md).
 
 ```text
 Agent intent                 Semwright authority                 Linux / application
