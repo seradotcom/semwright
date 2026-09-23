@@ -38,8 +38,14 @@ The shared edit engine currently covers project/profile, sequence creation, asse
 track lifecycle/state/order, clip insert/move/trim/split/remove/duplicate, transitions, effects,
 keyframes, markers and audio volume/fades.
 
-These are semantic operations. A concrete driver remains free to expose additional native
-read-only information or application-specific capabilities.
+These are semantic operations. `VideoOperation` provides the canonical typed identity for
+every shared mutation and round-trips to the stable dotted spelling used at capability
+boundaries (for example `clip.trim` or `audio.fade_in`). Concrete drivers use the enum
+internally so support matrices cannot drift through ad-hoc strings.
+
+A concrete driver remains free to expose additional native read-only information or
+application-specific capabilities. A second backend must map equivalent mutations to the
+existing `VideoOperation` value rather than inventing a backend-specific synonym.
 
 ## Backend capability snapshots
 
@@ -126,9 +132,13 @@ backend-specific fields into generic types.
 
 ## Verification
 
-The domain is included in normal Cargo workspace quality gates. The MLT driver's existing
-round-trip, security, property, conformance and edit-engine suites remain in place; its native
-live test still requires the external real MLT toolchain and sandbox prerequisites.
+The domain is included in normal Cargo workspace quality gates. Its model and edit engine also
+have dedicated bounded libFuzzer targets. The security workflow runs those targets alongside
+the core protocol/path/plugin/recipe fuzzers with the pinned nightly toolchain.
+
+The MLT driver's existing round-trip, security, property, conformance and edit-engine suites
+remain in place; its native live test still requires the external real MLT toolchain and
+sandbox prerequisites.
 
 See also [architecture](architecture.md), [drivers](drivers.md) and the
 [MLT driver](../crates/driver-mlt-video/README.md).

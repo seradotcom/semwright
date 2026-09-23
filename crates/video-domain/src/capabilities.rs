@@ -5,49 +5,16 @@
 //! every shared mutation explicitly. Missing entries are an error rather than
 //! an implicit claim of support.
 
-use crate::{Error, Result, model::MODEL_VERSION, support::MutationSupport};
+use crate::{
+    Error, Result,
+    model::MODEL_VERSION,
+    support::{MutationSupport, VideoOperation},
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Stable operation identifiers implemented by the shared semantic edit engine.
-///
-/// New operations are appended deliberately and require every backend
-/// capability snapshot to classify them. Domain growth therefore fails closed
-/// for existing adapters instead of silently assuming support.
-pub const SEMANTIC_OPERATIONS: [&str; 32] = [
-    "project.profile.set",
-    "sequence.create",
-    "asset.import",
-    "asset.relink",
-    "track.create",
-    "track.remove",
-    "track.rename",
-    "track.mute",
-    "track.hide",
-    "track.reorder",
-    "clip.insert",
-    "clip.move",
-    "clip.trim",
-    "clip.split",
-    "clip.remove",
-    "clip.duplicate",
-    "transition.add",
-    "transition.patch",
-    "transition.remove",
-    "effect.add",
-    "effect.patch",
-    "effect.remove",
-    "effect.enable",
-    "effect.disable",
-    "keyframe.set",
-    "keyframe.remove",
-    "marker.add",
-    "marker.patch",
-    "marker.remove",
-    "audio.volume.set",
-    "audio.fade_in",
-    "audio.fade_out",
-];
+/// Canonical shared operation set. VideoOperation is the single source of truth.
+pub const SEMANTIC_OPERATIONS: &[VideoOperation] = VideoOperation::ALL;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -72,7 +39,7 @@ pub struct BackendCapabilities {
     pub backend: String,
     pub model_version: u32,
     /// Exhaustive support classification for every shared semantic mutation.
-    pub operations: BTreeMap<String, MutationSupport>,
+    pub operations: BTreeMap<VideoOperation, MutationSupport>,
     #[serde(default)]
     pub guarantees: BTreeSet<BackendGuarantee>,
 }
@@ -81,14 +48,15 @@ impl BackendCapabilities {
     pub fn from_supports(
         backend: impl Into<String>,
         guarantees: impl IntoIterator<Item = BackendGuarantee>,
-        mut support: impl FnMut(&str) -> MutationSupport,
+        mut support: impl FnMut(VideoOperation) -> MutationSupport,
     ) -> Result<Self> {
         let capabilities = Self {
             backend: backend.into(),
             model_version: MODEL_VERSION,
             operations: SEMANTIC_OPERATIONS
                 .iter()
-                .map(|operation| ((*operation).to_owned(), support(operation)))
+                .copied()
+                .map(|operation| (operation, support(operation)))
                 .collect(),
             guarantees: guarantees.into_iter().collect(),
         };
@@ -100,14 +68,9 @@ impl BackendCapabilities {
         Self::from_supports(backend, [], |_| MutationSupport::Unsupported)
     }
 
-    pub fn support(&self, operation: &str) -> Result<MutationSupport> {
-        if !SEMANTIC_OPERATIONS.contains(&operation) {
-            return Err(Error::unsupported(
-                "Operation is outside the shared semantic video mutation contract",
-            ));
-        }
+    pub fn support(&self, operation: VideoOperation) -> Result<MutationSupport> {
         self.operations
-            .get(operation)
+            .get(&operation)
             .copied()
             .ok_or_else(|| Error::new("BackendFailed", "Backend capability snapshot is incomplete"))
     }
@@ -139,16 +102,6 @@ impl BackendCapabilities {
                     "Backend capability snapshot is missing a shared operation",
                 ));
             }
-        }
-        if self
-            .operations
-            .keys()
-            .any(|operation| !SEMANTIC_OPERATIONS.contains(&operation.as_str()))
-        {
-            return Err(Error::new(
-                "BackendFailed",
-                "Backend capability snapshot contains an unknown shared operation",
-            ));
         }
         Ok(())
     }

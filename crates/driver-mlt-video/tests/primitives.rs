@@ -331,7 +331,10 @@ fn reference_decode_length_and_alphabet() {
 
 #[test]
 fn mlt_exports_complete_backend_capability_snapshot() {
-    use semwright_video_domain::capabilities::{BackendGuarantee, SEMANTIC_OPERATIONS};
+    use semwright_video_domain::{
+        capabilities::{BackendGuarantee, SEMANTIC_OPERATIONS},
+        support::VideoOperation,
+    };
 
     let project = common::sample();
     let capabilities = semwright_mlt_video::domain::capabilities(&project).unwrap();
@@ -348,7 +351,7 @@ fn mlt_exports_complete_backend_capability_snapshot() {
     );
 
     let adapter = semwright_mlt_video::adapters::adapter(project.format);
-    for operation in SEMANTIC_OPERATIONS {
+    for operation in VideoOperation::ALL.iter().copied() {
         assert_eq!(
             capabilities.support(operation).unwrap(),
             adapter.supported_mutation(&project, operation),

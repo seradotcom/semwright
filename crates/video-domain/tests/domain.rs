@@ -6,7 +6,7 @@ use semwright_video_domain::{
         Timeline, Track, Transition,
     },
     refs::RefStore,
-    support::MutationSupport,
+    support::{MutationSupport, VideoOperation},
     time::FrameRange,
 };
 
@@ -68,6 +68,29 @@ fn model_roundtrips_as_backend_neutral_json() {
     let text = String::from_utf8(encoded).unwrap();
     assert!(!text.contains("mlt_service"));
     assert!(!text.contains("XmlBinding"));
+}
+
+#[test]
+fn video_operation_contract_is_unique_typed_and_serializable() {
+    let mut names = std::collections::BTreeSet::new();
+    assert_eq!(VideoOperation::ALL.len(), 32);
+    for operation in VideoOperation::ALL {
+        assert!(names.insert(operation.as_str()));
+        assert_eq!(
+            operation.as_str().parse::<VideoOperation>().unwrap(),
+            *operation
+        );
+        let encoded = serde_json::to_string(operation).unwrap();
+        assert_eq!(
+            serde_json::from_str::<VideoOperation>(&encoded).unwrap(),
+            *operation
+        );
+    }
+    assert!("unknown.operation".parse::<VideoOperation>().is_err());
+    assert_eq!(
+        serde_json::to_string(&MutationSupport::SafeRoundtrip).unwrap(),
+        "\"safe_roundtrip\""
+    );
 }
 
 #[test]
@@ -395,7 +418,7 @@ fn backend_capabilities_are_exhaustive_versioned_and_serializable() {
             BackendGuarantee::DifferentialSemanticConformance,
         ],
         |operation| {
-            if operation == "clip.insert" {
+            if operation == VideoOperation::ClipInsert {
                 MutationSupport::SafeRoundtrip
             } else {
                 MutationSupport::Unsupported
@@ -406,11 +429,11 @@ fn backend_capabilities_are_exhaustive_versioned_and_serializable() {
 
     assert_eq!(capabilities.operations.len(), SEMANTIC_OPERATIONS.len());
     assert_eq!(
-        capabilities.support("clip.insert").unwrap(),
+        capabilities.support(VideoOperation::ClipInsert).unwrap(),
         MutationSupport::SafeRoundtrip
     );
     assert_eq!(
-        capabilities.support("transition.add").unwrap(),
+        capabilities.support(VideoOperation::TransitionAdd).unwrap(),
         MutationSupport::Unsupported
     );
     assert!(
@@ -428,18 +451,12 @@ fn backend_capabilities_are_exhaustive_versioned_and_serializable() {
 #[test]
 fn backend_capability_snapshot_fails_closed_when_incomplete_or_unknown() {
     let mut capabilities = BackendCapabilities::unsupported("fixture").unwrap();
-    capabilities.operations.remove("clip.insert");
-    assert_eq!(capabilities.validate().unwrap_err().code, "BackendFailed");
-
-    let mut capabilities = BackendCapabilities::unsupported("fixture").unwrap();
-    capabilities
-        .operations
-        .insert("vendor.magic".into(), MutationSupport::SafeRoundtrip);
+    capabilities.operations.remove(&VideoOperation::ClipInsert);
     assert_eq!(capabilities.validate().unwrap_err().code, "BackendFailed");
 
     let capabilities = BackendCapabilities::unsupported("fixture").unwrap();
-    assert_eq!(
-        capabilities.support("vendor.magic").unwrap_err().code,
-        "Unsupported"
-    );
+    let mut encoded = serde_json::to_value(&capabilities).unwrap();
+    encoded["operations"]["vendor.magic"] =
+        serde_json::to_value(MutationSupport::SafeRoundtrip).unwrap();
+    assert!(serde_json::from_value::<BackendCapabilities>(encoded).is_err());
 }
