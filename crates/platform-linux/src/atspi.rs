@@ -329,7 +329,15 @@ impl Atspi {
         o: &'a Object,
         interface: &'a str,
     ) -> Result<Proxy<'a>> {
-        dbus(Proxy::new(c, o.0.as_str(), o.1.as_str(), interface).await)
+        let builder = dbus(zbus::proxy::Builder::<Proxy<'a>>::new(c).destination(o.0.as_str()))?;
+        let builder = dbus(builder.path(o.1.as_str()))?;
+        let builder = dbus(builder.interface(interface))?;
+        dbus(
+            builder
+                .cache_properties(zbus::proxy::CacheProperties::No)
+                .build()
+                .await,
+        )
     }
     async fn apps(&self, c: &Connection) -> Result<Vec<Object>> {
         let root = dbus(Proxy::new(c, "org.a11y.atspi.Registry", ROOT, ACCESSIBLE).await)?;
