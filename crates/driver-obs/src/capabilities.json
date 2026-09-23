@@ -3133,7 +3133,7 @@
     "descriptor": {
       "name": "driver.obs.input.volume.set",
       "version": "1.0.0",
-      "description": "Input volume set using the selected OBS instance; metadata is untrusted.",
+      "description": "Set audio volume in dB, -100 through 0. No implicit multiplier conversion or amplification.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5920,7 +5920,7 @@
     "descriptor": {
       "name": "driver.obs.output.status",
       "version": "1.0.0",
-      "description": "Output status using the selected OBS instance; metadata is untrusted.",
+      "description": "Fresh serial-realtime batch of output statuses. Not an atomic snapshot or transaction.",
       "input_schema": {
         "type": "object",
         "properties": {},
@@ -6995,7 +6995,7 @@
     "descriptor": {
       "name": "driver.obs.events.poll",
       "version": "1.0.0",
-      "description": "Events poll using the selected OBS instance; metadata is untrusted.",
+      "description": "Poll a bounded local journal through v1 request/response. This does NOT enable asynchronous Semwright events.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -7157,7 +7157,7 @@
     "descriptor": {
       "name": "driver.obs.operations.get",
       "version": "1.0.0",
-      "description": "Operations get using the selected OBS instance; metadata is untrusted.",
+      "description": "Inspect an external-output operation observation, not a Semwright broker job or a cancellation handle.",
       "input_schema": {
         "type": "object",
         "properties": {

@@ -77,7 +77,7 @@ add("input.inspect","GetInputList",target="input",mode="input_inspect",out=INPUT
 add("input.mute.get","GetInputMute",target="input",out=obj({"muted":BOOL}),response={"muted":"inputMuted"})
 add("input.mute.set","SetInputMute",target="input",ins={"muted":BOOL,"expected_muted":BOOL},mapping={"muted":"inputMuted"},risk="mutating",idem="idempotent")
 add("input.volume.get","GetInputVolume",target="input",out=obj({"multiplier":number(0,20),"volume_db":number(-200,100)}),response={"multiplier":"inputVolumeMul","volume_db":"inputVolumeDb"})
-add("input.volume.set","SetInputVolume",target="input",ins={"volume_db":number(-100,0)},mapping={"volume_db":"inputVolumeDb"},risk="mutating",idem="idempotent")
+add("input.volume.set","SetInputVolume",target="input",ins={"volume_db":number(-100,0)},mapping={"volume_db":"inputVolumeDb"},risk="mutating",idem="idempotent",description="Set audio volume in dB, -100 through 0. No implicit multiplier conversion or amplification.")
 add("input.settings.get","GetInputSettings",target="input",out=obj({"settings":OPAQUE,"input_kind":text(516)}),response={"settings":"inputSettings","input_kind":"inputKind"},risk="secret_access")
 add("input.settings.patch","SetInputSettings",target="input",ins={"patch":OPAQUE},mapping={"patch":"inputSettings"},fixed={"overlay":True},risk="privilege_sensitive",idem="idempotent")
 add("filter.list","GetSourceFilterList",target="input",mode="filters",out=obj({"filters":array(FILTER,128)}))
@@ -93,23 +93,49 @@ for prefix,base in [("record","Record"),("stream","Stream"),("replay","ReplayBuf
     for action in ["start","stop"]: add(prefix+"."+action,action.capitalize()+base,mode="output_mutation",risk="privilege_sensitive",ins={"expected_active":BOOL})
 for action in ["pause","resume"]:add("record."+action,("Pause" if action=="pause" else "Resume")+"Record",mode="output_mutation",risk="privilege_sensitive",ins={"expected_active":BOOL})
 add("replay.save","SaveReplayBuffer",mode="output_mutation",risk="privilege_sensitive",ins={"expected_active":BOOL})
-add("output.status",mode="outputs",out=obj({k:OUTPUT for k in ["record","stream","replay","virtual_camera"]}))
+add("output.status",mode="outputs",out=obj({k:OUTPUT for k in ["record","stream","replay","virtual_camera"]}),description="Fresh serial-realtime batch of output statuses. Not an atomic snapshot or transaction.")
 add("media.status","GetMediaInputStatus",target="input",out=obj({"state":text(80),"duration_ms":integer(0,2147483647),"cursor_ms":integer(0,2147483647)}),response={"state":"mediaState","duration_ms":"mediaDuration","cursor_ms":"mediaCursor"})
 for action in ["play","pause","restart","stop"]:add("media."+action,"TriggerMediaInputAction",target="input",fixed={"mediaAction":"OBS_WEBSOCKET_MEDIA_INPUT_ACTION_"+action.upper()},risk="mutating")
 add("media.seek","SetMediaInputCursor",target="input",ins={"position_ms":integer(0,2147483647)},mapping={"position_ms":"mediaCursor"},risk="mutating",idem="idempotent")
 add("studio_mode.status","GetStudioModeEnabled",out=obj({"enabled":BOOL}),response={"enabled":"studioModeEnabled"})
 for action,enabled in [("enable",True),("disable",False)]:add("studio_mode."+action,"SetStudioModeEnabled",fixed={"studioModeEnabled":enabled},risk="mutating",idem="idempotent")
-add("events.poll",mode="events",ins={"after":integer(),"limit":integer(1,64)},out=obj({"events":array(EVENT,64),"cursor":integer(),"gap":BOOL,"dropped_total":integer(),"cache_stale":BOOL}))
-add("operations.get",mode="operations",ins={"operation_ref":{**text(96),"pattern":"^op:[0-9]+:[0-9]+$"}},out=OP)
+add("events.poll",mode="events",ins={"after":integer(),"limit":integer(1,64)},out=obj({"events":array(EVENT,64),"cursor":integer(),"gap":BOOL,"dropped_total":integer(),"cache_stale":BOOL}),description="Poll a bounded local journal through v1 request/response. This does NOT enable asynchronous Semwright events.")
+add("operations.get",mode="operations",ins={"operation_ref":{**text(96),"pattern":"^op:[0-9]+:[0-9]+$"}},out=OP,description="Inspect an external-output operation observation, not a Semwright broker job or a cancellation handle.")
 
-def generate():
-    caps=[s["capability"] for s in SPECS]
-    plans=[s["plan"] for s in SPECS]
+def generate(check=False):
+    caps=[row["capability"] for row in SPECS]
+    plans=[row["plan"] for row in SPECS]
     assert len({c["descriptor"]["name"] for c in caps})==len(caps)
     dst=ROOT/"crates/driver-obs/src"
     dst.mkdir(parents=True,exist_ok=True)
-    (dst/"capabilities.json").write_text(json.dumps(caps,indent=2,ensure_ascii=False)+"\n")
-    (dst/"plans.json").write_text(json.dumps(plans,indent=2,ensure_ascii=False)+"\n")
-    print(f"{len(caps)} curated descriptors written")
+    outputs={dst/"capabilities.json":caps,dst/"plans.json":plans}
+    for path,data in outputs.items():
+        contents=json.dumps(data,indent=2,ensure_ascii=False)+"\n"
+        if check and (not path.exists() or path.read_text()!=contents):
+            raise SystemExit(f"generated output differs: {path}")
+        if not check:
+            path.write_text(contents)
+    def ordered_descriptor(descriptor):
+        return {
+            key:(json.loads(json.dumps(value,sort_keys=True)) if key in ("input_schema","output_schema") else value)
+            for key,value in descriptor.items()
+        }
+    digests={
+        c["descriptor"]["name"]:hashlib.sha256(
+            json.dumps(ordered_descriptor(c["descriptor"]),ensure_ascii=False,separators=(",",":")).encode()
+        ).hexdigest()
+        for c in caps
+    }
+    digest_path=ROOT/"crates/driver-obs/fixtures/responses/descriptor-digests.json"
+    digest_path.parent.mkdir(parents=True,exist_ok=True)
+    digest_contents=json.dumps(digests,indent=2)+"\n"
+    if check and (not digest_path.exists() or digest_path.read_text()!=digest_contents):
+        raise SystemExit(f"descriptor digests differ: {digest_path}")
+    if not check:
+        digest_path.write_text(digest_contents)
+    print(f"{len(caps)} curated descriptors; generated files "+("match" if check else "written"))
+
 if __name__=="__main__":
-    generate()
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--check",action="store_true")
+    generate(parser.parse_args().check)
