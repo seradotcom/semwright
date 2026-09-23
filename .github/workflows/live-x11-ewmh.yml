@@ -1,0 +1,111 @@
+name: Native X11 EWMH live
+defaults:
+  run:
+    shell: bash
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: x11-ewmh-live-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  openbox-ewmh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: x11-openbox-live
+
+      - name: Install isolated EWMH desktop
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            openbox xvfb xauth x11-utils libpipewire-0.3-dev
+          mkdir -p verification/live-x11-ewmh "$RUNNER_TEMP/x11-home"
+          chmod 700 "$RUNNER_TEMP/x11-home"
+          openbox --version | tee verification/live-x11-ewmh/openbox-version.log
+          Xvfb -version 2>&1 | head -20 | tee verification/live-x11-ewmh/xvfb-version.log || true
+
+      - name: Real Openbox EWMH lifecycle
+        env:
+          DISPLAY: :99
+          XDG_SESSION_TYPE: x11
+          XDG_CONFIG_HOME: ${{ runner.temp }}/x11-home/config
+          HOME: ${{ runner.temp }}/x11-home
+          SEMWRIGHT_TEST_X11_EWMH: "1"
+        run: |
+          set -euo pipefail
+          cleanup() {
+            local status=$?
+            for pid in "${openbox_pid:-}" "${xvfb_pid:-}"; do
+              [ -n "$pid" ] || continue
+              kill -TERM "$pid" 2>/dev/null || true
+              for _ in $(seq 1 50); do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.05
+              done
+              kill -KILL "$pid" 2>/dev/null || true
+              wait "$pid" 2>/dev/null || true
+            done
+            exit "$status"
+          }
+          trap cleanup EXIT INT TERM
+
+          Xvfb "$DISPLAY" -screen 0 1280x720x24 -nolisten tcp \
+            > verification/live-x11-ewmh/xvfb.log 2>&1 &
+          xvfb_pid=$!
+          for _ in $(seq 1 100); do
+            xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 && break
+            kill -0 "$xvfb_pid" 2>/dev/null || {
+              cat verification/live-x11-ewmh/xvfb.log
+              exit 1
+            }
+            sleep 0.05
+          done
+          xdpyinfo -display "$DISPLAY" >/dev/null
+
+          openbox --sm-disable \
+            > verification/live-x11-ewmh/openbox.log 2>&1 &
+          openbox_pid=$!
+          for _ in $(seq 1 100); do
+            if xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id'; then
+              break
+            fi
+            kill -0 "$openbox_pid" 2>/dev/null || {
+              cat verification/live-x11-ewmh/openbox.log
+              exit 1
+            }
+            sleep 0.05
+          done
+          xprop -root _NET_SUPPORTING_WM_CHECK \
+            | tee verification/live-x11-ewmh/ewmh-root.log \
+            | grep -q 'window id'
+
+          timeout --signal=TERM --kill-after=5s 90s \
+            cargo test --locked -p semwright-platform-linux \
+              real_openbox_ewmh_controls_focus_geometry_close_and_stale_ref \
+              -- --ignored --nocapture --test-threads=1 \
+            2>&1 | tee verification/live-x11-ewmh/x11-ewmh-test.log
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: live-x11-ewmh-evidence
+          path: verification/live-x11-ewmh
+          retention-days: 14
