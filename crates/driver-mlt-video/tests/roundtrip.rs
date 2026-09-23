@@ -4,6 +4,7 @@ use semwright_mlt_video::{
     edit::{self, Edit},
     model::Format,
 };
+use semwright_video_domain::support::VideoOperation;
 fn roundtrip(path: &str) {
     let bytes = common::fixture(path);
     let p = adapters::load(&bytes).unwrap();
@@ -200,7 +201,7 @@ fn shotcut_track_rename_keeps_annotations() {
 fn future_kdenlive_version_is_read_only() {
     let p = adapters::load(&common::fixture("kdenlive/future.kdenlive")).unwrap();
     assert_eq!(
-        adapters::adapter(p.format).supported_mutation(&p, "track.rename"),
+        adapters::adapter(p.format).supported_mutation(&p, VideoOperation::TrackRename),
         adapters::Support::Unsupported
     );
 }
@@ -208,7 +209,7 @@ fn future_kdenlive_version_is_read_only() {
 fn future_shotcut_version_is_read_only() {
     let p = adapters::load(&common::fixture("shotcut/future.mlt")).unwrap();
     assert_eq!(
-        adapters::adapter(p.format).supported_mutation(&p, "track.rename"),
+        adapters::adapter(p.format).supported_mutation(&p, VideoOperation::TrackRename),
         adapters::Support::Unsupported
     );
 }
@@ -217,7 +218,7 @@ fn native_frame_mutation_not_advertised() {
     for file in ["kdenlive/simple.kdenlive", "shotcut/simple.mlt"] {
         let p = adapters::load(&common::fixture(file)).unwrap();
         assert_eq!(
-            adapters::adapter(p.format).supported_mutation(&p, "clip.trim"),
+            adapters::adapter(p.format).supported_mutation(&p, VideoOperation::ClipTrim),
             adapters::Support::Unsupported
         );
     }
