@@ -65,12 +65,19 @@ case "$PHASE" in
     # qspiaccessiblebridge}.cpp. Keep the real Qt bridge and all live assertions.
     unset AT_SPI_BUS_ADDRESS
     xprop -root -remove AT_SPI_BUS
-    # Capture startup stacks independently of the Rust client if Qt stalls.
-    QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 QT_QPA_PLATFORM=xcb \
-      timeout --signal=INT --kill-after=5s 5s gdb -batch \
-        -ex run -ex 'thread apply all bt' --args "$SEMWRIGHT_TEST_QT_FIXTURE" \
-        > verification/native-ci/qt-startup-stack.log 2>&1 || diagnostic_rc=$?
-    cat verification/native-ci/qt-startup-stack.log
+    # Inspect the actual child started by the Rust test, including its environment.
+    (
+      for _ in $(seq 1 100); do
+        qt_pid=$(pgrep -n -x atspi-qt-fixtur || true)
+        if [[ -n "$qt_pid" ]]; then
+          sleep 2
+          sudo -n timeout 4s gdb -batch -p "$qt_pid" -ex 'thread apply all bt' \
+            -ex detach > verification/native-ci/qt-startup-stack.log 2>&1 || true
+          break
+        fi
+        sleep 0.1
+      done
+    ) &
     test_name=live_atspi_qt_delta_resync_and_stale_refs
     ;;
 esac
@@ -82,6 +89,9 @@ timeout --signal=TERM --kill-after=5s 90s \
     -- --ignored --nocapture --test-threads=1 \
   > "verification/native-ci/atspi-${PHASE}.log" 2>&1 || rc=$?
 cat "verification/native-ci/atspi-${PHASE}.log"
+if [[ "$PHASE" == qt && -f verification/native-ci/qt-startup-stack.log ]]; then
+  cat verification/native-ci/qt-startup-stack.log
+fi
 if [[ "$rc" -ne 0 ]]; then
   echo "phase=${PHASE}_failed rc=$rc" | tee -a verification/native-ci/atspi-phases.log
   exit "$rc"
