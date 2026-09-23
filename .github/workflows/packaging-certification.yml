@@ -1,0 +1,61 @@
+name: Packaging certification
+defaults:
+  run:
+    shell: bash
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: packaging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: packaging-${{ matrix.arch }}
+      - name: Install native packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev dpkg-dev
+      - name: Build release executables
+        run: |
+          cargo build --locked --release \
+            -p semwright-cli --bin semwright \
+            -p semwright-daemon --bin semwrightd \
+            -p semwright-mcp --bin semwright-mcp \
+            -p semwright-tui --bin semwright-inspect \
+            -p semwright-plugin-host --bin semwright-sandbox
+      - name: Certify deterministic packages and user install lifecycle
+        run: |
+          python3 scripts/release/certify-packaging.py \
+            --bin-dir target/release \
+            --arch "${{ matrix.arch }}" \
+            --report "$RUNNER_TEMP/packaging-${{ matrix.arch }}.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: packaging-certification-${{ matrix.arch }}-${{ github.sha }}
+          path: ${{ runner.temp }}/packaging-${{ matrix.arch }}.json
+          retention-days: 14
