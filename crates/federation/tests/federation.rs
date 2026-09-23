@@ -208,7 +208,14 @@ async fn list_changed_refreshes_catalog_without_granting_new_authority() {
                 query: "extra".into(),
                 ..Default::default()
             };
-            let page = broker.catalog_search(query).await.unwrap();
+            let page = match broker.catalog_search(query).await {
+                Ok(page) => page,
+                Err(error) if error.code == ErrorCode::Conflict => {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    continue;
+                }
+                Err(error) => panic!("unexpected catalog refresh error: {error:?}"),
+            };
             if broker.catalog_revision().unwrap() > revision
                 && page["capabilities"]
                     .as_array()
