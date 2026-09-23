@@ -55,11 +55,12 @@ import Darwin
     private var finished=false
     func pick(_ r:SWRequest)async throws->SCContentFilter{
         let picker=SCContentSharingPicker.shared
+        let requestID=r.id
         picker.add(self);picker.isActive=true
         return try await withCheckedThrowingContinuation{continuation in
             self.continuation=continuation
             self.timer=Timer.scheduledTimer(withTimeInterval:0.1,repeats:true){[weak self]_ in
-                Task{@MainActor in do{try r.checkpoint()}catch{self?.finish(.failure(error))}}
+                Task{@MainActor in do{try CancellationRegistry.shared.check(requestID)}catch{self?.finish(.failure(error))}}
             }
             picker.present()
         }

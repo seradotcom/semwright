@@ -54,6 +54,7 @@ fn main() {
     c.args([
         "-swift-version",
         "5",
+        "-warnings-as-errors",
         "-parse-as-library",
         "-emit-library",
         "-module-name",
