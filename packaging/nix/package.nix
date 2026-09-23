@@ -1,6 +1,6 @@
 { lib, rustPlatform }:
 assert lib.assertMsg (builtins.pathExists ../../Cargo.lock)
-  "Semwright handoff has no Cargo.lock; resolve/review dependencies before Nix builds";
+  "Semwright Nix builds require the committed Cargo.lock";
 rustPlatform.buildRustPackage {
   pname = "semwright";
   version = "0.9.0-dev.1";
@@ -8,7 +8,7 @@ rustPlatform.buildRustPackage {
   cargoLock.lockFile = ../../Cargo.lock;
   doCheck = true;
   meta = {
-    description = "Policy-scoped semantic Linux automation (unverified development source)";
+    description = "Policy-scoped semantic automation runtime (development snapshot)";
     license = with lib.licenses; [ mit asl20 ];
     platforms = lib.platforms.linux;
   };

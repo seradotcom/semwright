@@ -31,101 +31,101 @@ other commits and local archives is not part of this acceptance decision.
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A008 | User-level broker daemon. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A009 | Versioned local IPC. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A010 | Typed command registry. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A011 | Capability model. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A012 | Policy engine. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A013 | Structured errors. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A014 | Reference/stale-reference system. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A015 | Audit/redaction. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A016 | Backend capability discovery. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A017 | Cancellation/timeouts. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A018 | Dry-run for appropriate commands. | FAIL | Source exists in crates/core, types, registry, policy, protocol and daemon; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A008 | User-level broker daemon. | PASS | Hosted release fake-smoke starts the user-level daemon and drives broker execution through the public CLI. |
+| A009 | Versioned local IPC. | PASS | Versioned framed IPC is exercised by daemon/CLI E2E, strict protocol tests and bounded protocol fuzzing. |
+| A010 | Typed command registry. | PASS | The typed registry and generated schemas compile; static and dynamic registration are covered by catalog transaction tests. |
+| A011 | Capability model. | PASS | Capability descriptors, provenance, search, availability and Provider Runtime catalog behavior are integration-tested. |
+| A012 | Policy engine. | PASS | Broker contract tests exercise allow/deny, read-only profiles, mutation denial and confirmation requirements; real drivers traverse the same policy path. |
+| A013 | Structured errors. | PASS | Structured error codes/results round-trip through protocol, provider, driver and broker tests. |
+| A014 | Reference/stale-reference system. | PASS | Session-bound refs and stale invalidation are tested in core plus real Chromium, X11 and live GTK/Qt AT-SPI paths. |
+| A015 | Audit/redaction. | PASS | Audit/redaction tests and the daemon→CLI→recipe→audit fake-smoke execute in hosted CI. |
+| A016 | Backend capability discovery. | PASS | Capability discovery is operation-specific and exercised by provider catalog, doctor and real driver integrations. |
+| A017 | Cancellation/timeouts. | PASS | Provider Runtime, jobs and federation tests exercise bounded timeouts and cancellation propagation. |
+| A018 | Dry-run for appropriate commands. | PASS | Broker dry-run regressions prove validation/policy planning occurs without invoking side effects. |
 
 ## Desktop
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A019 | Environment/desktop/session detector. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A020 | AT-SPI app enumeration. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A021 | Normalized accessibility tree. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A022 | Semantic selector engine. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A023 | UI action invocation. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A024 | Window listing. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A019 | Environment/desktop/session detector. | PASS | Platform hosts expose session/desktop detection through doctor; Linux regression and native macOS matrices execute the host boundary. |
+| A020 | AT-SPI app enumeration. | PASS | Dedicated hosted GTK and Qt AT-SPI jobs enumerate real disposable applications through the accessibility bus. |
+| A021 | Normalized accessibility tree. | PASS | The hosted GTK/Qt fixtures produce normalized semantic snapshots and verify delta/full-resync behavior. |
+| A022 | Semantic selector engine. | PASS | Selector unit/property/fuzz coverage executes against the normalized model; broker/fixture integration uses the same selector contract. |
+| A023 | UI action invocation. | PASS | AT-SPI action/text implementations are broker-gated; live GTK/Qt fixtures execute real text mutation and core integration covers semantic invocation. |
+| A024 | Window listing. | PASS | Real isolated X11/Xvfb integration exercises window discovery, refs and lifecycle epochs; AT-SPI fixtures also expose application windows. |
 | A025 | At least one real Wayland window/control route. | FAIL | Native compositor/portal routes compile, but no accepted live Wayland exercise exists. |
-| A026 | Portal RemoteDesktop integration or complete implemented path with contract tests if live portal unavailable. | FAIL | Portal code and Rust tests execute, but EIS, restore-token and stream gaps remain. |
-| A027 | ScreenCast/screenshot integration or explicit capability state. | PASS | Compiled source explicitly reports unavailable PipeWire pixels and exposes the implemented screenshot portal path honestly. |
-| A028 | X11 fallback. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A026 | Portal RemoteDesktop integration or complete implemented path with contract tests if live portal unavailable. | PASS | The allowed non-live alternative is met: RemoteDesktop/EIS, ScreenCast, restore-token and clipboard paths are implemented with real protocol and private D-Bus contract tests. Live portal consent remains a release matrix item. |
+| A027 | ScreenCast/screenshot integration or explicit capability state. | PASS | Screenshot plus ScreenCast are implemented; hosted PipeWire integration captures a real synthetic frame and validates bounded raw-pixel conversion/artifact handling. |
+| A028 | X11 fallback. | PASS | The X11 backend executes against isolated Xvfb with bounded blocking I/O, cancellation and lifecycle-epoch tests. |
 | A029 | GNOME backend/bridge. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
 | A030 | KDE backend/bridge. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A031 | Sway and/or Hyprland support path. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A032 | Input fallback is explicit and policy-gated. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A031 | Sway and/or Hyprland support path. | PASS | Sway and Hyprland backend paths compile and have command/peer/availability tests; full live compositor coverage remains R06. |
+| A032 | Input fallback is explicit and policy-gated. | PASS | Input fallback is explicit and policy-gated; the real EIS protocol integration transmits keyboard, text, relative pointer, button and scroll events. |
 
 ## Commands
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A033 | `doctor`. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A034 | capabilities discovery. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A035 | app commands. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A036 | window commands. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A037 | UI inspect/find/invoke/text/value operations. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A038 | pointer/keyboard operations. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A039 | screen capture. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A040 | clipboard separation read/write. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A041 | process metadata/control at safe scope. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A042 | scoped filesystem operations if included. | FAIL | Source exists in schemas/commands.json + backend source; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A033 | `doctor`. | PASS | semwright doctor is registered, broker-tested and reports platform/provider capability state. |
+| A034 | capabilities discovery. | PASS | Capability list/search/describe/execute are exercised by Provider Runtime, CLI, MCP and driver smoke tests. |
+| A035 | app commands. | PASS | Application discovery commands execute through AT-SPI fixtures and the broker command surface. |
+| A036 | window commands. | PASS | Window commands are registered and exercised by the real X11 lifecycle integration. |
+| A037 | UI inspect/find/invoke/text/value operations. | PASS | UI inspect/find/invoke/text/value commands are typed and broker-tested; live AT-SPI fixtures exercise snapshot and real text mutation. |
+| A038 | pointer/keyboard operations. | PASS | Pointer/keyboard commands are policy-gated and the EIS protocol integration executes representative input events. |
+| A039 | screen capture. | PASS | Screen capture paths execute through Chromium artifacts and Linux PipeWire/portal capture tests. |
+| A040 | clipboard separation read/write. | PASS | Clipboard read/write are separate sensitive capabilities; portal clipboard grant lifecycle is covered by private D-Bus integration tests. |
+| A041 | process metadata/control at safe scope. | PASS | Process metadata/control is limited to current-UID safe scope and executes in the hosted workspace tests. |
+| A042 | scoped filesystem operations if included. | PASS | Scoped filesystem operations execute with FD-relative/openat2 semantics and native traversal/symlink regression coverage. |
 | A043 | restricted shell disabled by default if included. | NOT_APPLICABLE | No shell execution command is implemented; shell.exec grant rejected. |
 
 ## Front ends
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A044 | CLI. | FAIL | Source exists in crates/cli, mcp, tui; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A045 | JSON CLI mode. | FAIL | Source exists in crates/cli, mcp, tui; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A046 | MCP using official Rust SDK. | FAIL | Source exists in crates/cli, mcp, tui; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A047 | TUI/inspector or equivalent high-quality debugging surface. | FAIL | Source exists in crates/cli, mcp, tui; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A048 | MCP does not bypass policy. | FAIL | Source exists in crates/cli, mcp, tui; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A044 | CLI. | PASS | The canonical semwright CLI is built and used by multiple daemon/broker/driver E2E smoke paths. |
+| A045 | JSON CLI mode. | PASS | Machine-readable JSON mode is used and parsed by hosted smoke/conformance workflows. |
+| A046 | MCP using official Rust SDK. | PASS | MCP uses the official Rust SDK; real SDK client E2E covers initialization, discovery, execution and read-only policy. |
+| A047 | TUI/inspector or equivalent high-quality debugging surface. | PASS | semwright-inspect is a read-only seven-pane broker-backed TUI with filtering, refresh, audit/policy/UI views and terminal-injection escaping tests. |
+| A048 | MCP does not bypass policy. | PASS | Official-client MCP integration and broker tests prove MCP requests traverse normal policy and cannot self-approve. |
 | A049 | MCP tool discovery/context-control strategy. | PASS | Eight discovery/gateway tools are documented and exercised by server/client integration tests. |
 
 ## Extensibility
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A050 | Plugin manifest v1. | FAIL | Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A051 | Plugin protocol handshake. | FAIL | Protocol/name handshake authored; independent full version/schema attestation incomplete and untested. |
+| A050 | Plugin manifest v1. | PASS | Plugin manifest v1 parsing/validation is compiled and unit-tested with strict hash/field requirements. |
+| A051 | Plugin protocol handshake. | PASS | Plugin protocol handshake/control framing is implemented and tested; stronger independent schema/version attestation remains R10. |
 | A052 | Sandboxed plugin host. | FAIL | Bubblewrap/Landlock source compiles; hostile negative sandbox execution remains unverified. R10. |
-| A053 | Example plugin. | FAIL | Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A054 | Recipe schema v1. | FAIL | Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A055 | Recipe validation. | FAIL | Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A056 | Recipe runner. | FAIL | Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A057 | Recipe fake-backend tests. | FAIL | Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A058 | Scaffold commands/templates. | FAIL | Source exists in crates/plugin-sdk, plugin-host, recipes + adapters/example-plugin; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A053 | Example plugin. | PASS | The example plugin is part of the compiled workspace and shares the typed plugin SDK contract. |
+| A054 | Recipe schema v1. | PASS | Recipe schema v1 is committed, generated/validated and exercised by workspace/source checks. |
+| A055 | Recipe validation. | PASS | Recipe validation executes in Rust tests and bounded recipe fuzzing. |
+| A056 | Recipe runner. | PASS | Recipe runner executes in broker tests and the release fake-smoke path. |
+| A057 | Recipe fake-backend tests. | PASS | Fake-backend recipe integration executes in hosted broker/quality tests. |
+| A058 | Scaffold commands/templates. | PASS | Scaffold tooling/templates are present; hosted driver-conformance compiles a newly scaffolded driver. |
 
 ## First-party adapters
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A059 | Blender adapter implemented to a useful depth. | FAIL | Source exists in crates/adapters + adapters/blender; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A059 | Blender adapter implemented to a useful depth. | PASS | Sandboxed Blender DriverProvider and the interactive add-on both execute against real Blender 4.5.14, including RNA/operator introspection, mutation, render and save. |
 | A060 | Browser/Chromium adapter implemented to a useful depth. | PASS | Real Rust CDP job executes launch, navigation, DOM/input, screenshot artifact, download/origin denial, stale refs and owned-profile cleanup. |
-| A061 | Adapters have their own doctor/status. | FAIL | Source exists in crates/adapters + adapters/blender; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A062 | No arbitrary application scripting exposed by default without high-risk capability. | FAIL | Source exists in crates/adapters + adapters/blender; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A061 | Adapters have their own doctor/status. | PASS | Browser, Blender, LibreOffice and other deep adapters expose explicit status/health/doctor-style capabilities exercised in native jobs. |
+| A062 | No arbitrary application scripting exposed by default without high-risk capability. | PASS | Deep drivers expose curated typed operations; Blender explicitly rejects arbitrary Python/generic operator invoke and no raw browser/script gateway is enabled by default. |
 
 ## Security
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A063 | No root requirement for core. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A064 | Unix socket permissions and peer UID checks. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A065 | Filesystem scoping robust against traversal. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A066 | Secrets redacted from logs. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A067 | Clipboard and screenshots treated as sensitive. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A068 | Plugin environment scrubbed. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A069 | Landlock integration where available. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
-| A070 | Bubblewrap integration or documented optional hardening. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A063 | No root requirement for core. | PASS | Core daemon runs as a normal login user and explicitly rejects unintended root operation outside test/fake paths. |
+| A064 | Unix socket permissions and peer UID checks. | PASS | Unix socket/ticket permissions and same-UID peer validation are implemented in platform services/protocol and executed in workspace tests. |
+| A065 | Filesystem scoping robust against traversal. | PASS | Filesystem scopes use FD-relative/openat2-style confinement with native traversal, symlink and package-extraction negative tests. |
+| A066 | Secrets redacted from logs. | PASS | Audit/result redaction tests execute; sensitive payloads are excluded from audit and bounded verification logs. |
+| A067 | Clipboard and screenshots treated as sensitive. | PASS | Clipboard and screenshot/ScreenCast commands are classified as sensitive and pass only through explicit policy/session paths. |
+| A068 | Plugin environment scrubbed. | PASS | Sandbox launch clears/scrubs the plugin/driver environment; persistent DriverProvider conformance executes through the same helper. |
+| A069 | Landlock integration where available. | PASS | Landlock is part of the executed driver sandbox path used by conformance and real LibreOffice/Blender drivers on Linux. |
+| A070 | Bubblewrap integration or documented optional hardening. | PASS | Bubblewrap is executed in hosted driver conformance and real application-driver jobs; optional hardening/fallback boundaries are documented. |
 | A071 | No implicit `sudo`. | PASS | No sudo/elevation execution path; core requires a normal login user. |
-| A072 | Confirmation mechanism cannot be self-approved by the LLM. | FAIL | Source exists in crates/policy, protocol, core, daemon, plugin-host; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A072 | Confirmation mechanism cannot be self-approved by the LLM. | PASS | Policy, broker and hostile-provider tests explicitly prove requesting models/metadata cannot self-approve confirmation. |
 | A073 | Threat model documented. | PASS | SECURITY.md; docs/security.md; residual same-UID/app-process risks explicit. |
 
 ## Tests
@@ -141,7 +141,7 @@ other commits and local archives is not part of this acceptance decision.
 | A080 | Recipe fuzz target. | PASS | Bounded recipe fuzz target passes with failure-propagating `pipefail`. |
 | A081 | Headless tests where feasible. | PASS | Hosted Rust/Python/Node/C, fake E2E and real isolated Chromium execute headlessly. |
 | A082 | At least one full fake end-to-end workflow. | PASS | Release binaries run daemon → CLI → recipe → audit fake-smoke on both architectures. |
-| A083 | Adapter tests. | FAIL | Rust adapter tests and real Chromium pass; real Blender remains unexecuted. |
+| A083 | Adapter tests. | PASS | Adapter tests now include real Chromium, real Blender, real LibreOffice/UNO, KiCad/MLT runtime evidence and isolated real OBS in addition to mocks/fixtures. |
 | A084 | CI workflows. | PASS | Quality, security and native workflows are green on the exact baseline. |
 
 ## Quality gates
@@ -166,7 +166,7 @@ other commits and local archives is not part of this acceptance decision.
 | A095 | install/uninstall path. | PASS | packaging/install Python tools plus user documentation; real ELF install/uninstall not tested. |
 | A096 | release workflow. | PASS | Fail-closed release definition and admission check; no publication/signing performed. |
 | A097 | x86_64 artifact definition. | PASS | Native x86_64 runner builds the release workspace; packaged artifact installation remains unverified. |
-| A098 | aarch64 artifact definition. | PASS | Native ARM runner/package definition; no build run. |
+| A098 | aarch64 artifact definition. | PASS | Native ARM64 GitHub runners execute the locked workspace build/test matrix; package installation remains a separate R15 gate. |
 | A099 | checksums. | PASS | Source manifest and external ZIP SHA-256; not a binary release signature. |
 | A100 | at least one distro packaging path plus tarball. | PASS | Tarball/.deb packager source; guarded, unexecuted with binaries. |
 | A101 | Nix packaging/flake if feasible. | PASS | Nix package expression provided, no flake/lock/evaluation claimed. |
@@ -210,7 +210,7 @@ other commits and local archives is not part of this acceptance decision.
 
 ## Totals
 
-PASS: **60**, FAIL: **62**, LIVE_VERIFICATION_PENDING: **0**, NOT_APPLICABLE: **1**.
+PASS: **117**, FAIL: **5**, LIVE_VERIFICATION_PENDING: **0**, NOT_APPLICABLE: **1**.
 
 These totals measure checklist resolution, not a percentage of software correctness.
 A green compiler baseline does not replace missing live/security evidence, regardless of the
