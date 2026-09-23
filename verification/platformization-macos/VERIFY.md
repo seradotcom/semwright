@@ -77,15 +77,40 @@ The Linux Driver Host still executes through bubblewrap + Landlock. Real driver 
 
 ## Native macOS evidence
 
-Native ARM64 and Intel jobs are defined in `.github/workflows/platformization-macos.yml`. They are required to:
+PR #29 (`Platformize runtime and add native macOS host foundation`) was merged as
+`70c409fc619411b6ecb5fb3f723e27d00cac634e`. Its platformization workflow run
+`35815672055` completed successfully on both native Apple architectures:
 
-- compile the macOS-capable workspace against a real Apple SDK, explicitly excluding the currently Linux-only `semwright-mlt-video-driver`;
-- compile/link the Swift/C native host bridge;
-- run native platform contract tests;
-- link the daemon and frontends;
-- execute the noninteractive native smoke.
+- ARM64: `macos-15`, job `107036553094`, SUCCESS;
+- Intel x86_64: `macos-15-intel`, job `107036552873`, SUCCESS;
+- Linux regression: job `107036553060`, SUCCESS.
 
-This section must be updated with exact run URLs/results after the branch is pushed.
+Run: <https://github.com/seradotcom/semwright/actions/runs/35815672055>
+
+Both macOS jobs:
+
+- cross-checked the Rust-only portable contracts for the opposite Darwin architecture;
+- compiled the macOS-capable workspace against the native Apple SDK, explicitly excluding
+  the currently Linux-only MLT/KiCad surfaces;
+- compiled and linked the Swift/C native host bridge;
+- ran the native platform contract tests;
+- linked the daemon, CLI, MCP, Plugin Host and Driver Host in release mode;
+- executed the noninteractive native smoke.
+
+The native smoke reported on both architectures:
+
+```json
+{"native_smoke":"PASS","unique_pasteboard":true,"workspace":true,"getpeereid":true,"live_ax":"NOT_RUN","capture":"NOT_RUN"}
+```
+
+The jobs deliberately reported Accessibility consent, live CGEvent control,
+ScreenCaptureKit capture, TCC grant/revocation, installed service lifecycle,
+codesign/notarization and live multi-display acceptance as `NOT_RUN`.
+
+A follow-up closeout found a Swift concurrency warning in the capture picker caused by
+capturing the non-Sendable `SWRequest` in a timer closure. The closeout patch captures
+only the immutable request ID and checks cancellation through `CancellationRegistry`.
+That change requires a fresh native macOS CI run before this warning can be considered closed.
 
 ## Still not certified
 
