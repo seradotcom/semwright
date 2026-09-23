@@ -36,9 +36,16 @@ int main(int argc, char **argv) {
 
     // QApplication installs its accessibility root when the event loop starts. Diagnose
     // after startup rather than forcing a root before the platform AT-SPI bridge initializes.
-    QTimer::singleShot(250, [&app, &window]() {
+    QTimer::singleShot(0, [&app, &window]() {
+        // The CI fixture has no screen reader process to issue the platform activation
+        // callback. Activate only this disposable test process after its event dispatcher
+        // exists, then republish the normal QApplication accessibility root.
+        QAccessible::setActive(true);
+        QAccessible::setRootObject(&app);
         auto *app_root = QAccessible::queryAccessibleInterface(&app);
         auto *window_root = QAccessible::queryAccessibleInterface(&window);
+        QAccessibleEvent shown(&window, QAccessible::ObjectShow);
+        QAccessible::updateAccessibility(&shown);
         std::cerr << "qt_accessibility_active="
                   << (QAccessible::isActive() ? "true" : "false")
                   << " app_root=" << (app_root != nullptr ? "present" : "missing")

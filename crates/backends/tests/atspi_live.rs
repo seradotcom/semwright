@@ -167,6 +167,8 @@ async fn live_atspi_gtk_delta_resync_and_stale_refs() {
         return;
     }
     let child = tokio::process::Command::new("/usr/bin/zenity")
+        .env("GTK_A11Y", "atspi")
+        .env_remove("NO_AT_BRIDGE")
         .args([
             "--entry",
             "--title=Semwright AT-SPI Fixture",
@@ -192,6 +194,7 @@ async fn live_atspi_qt_delta_resync_and_stale_refs() {
     let child = tokio::process::Command::new(fixture)
         .env("QT_ACCESSIBILITY", "1")
         .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
+        .env_remove("NO_AT_BRIDGE")
         .env(
             "QT_LOGGING_RULES",
             "qt.accessibility.atspi=true;qt.accessibility.atspi.creation=true",
