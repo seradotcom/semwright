@@ -1,5 +1,6 @@
+#![cfg(target_os = "linux")]
 use semwright_backend_api::{Backend, Context};
-use semwright_backends::x11::X11;
+use semwright_platform_linux::x11::X11;
 use semwright_types::{ErrorCode, NativeTarget};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;

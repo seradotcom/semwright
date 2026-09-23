@@ -1,12 +1,10 @@
 # Architecture
 
-Semwright keeps the public command model independent of D-Bus, X11, Blender, MCP and any
-particular application API. CLI, MCP, recipes and the inspector all converge on the same broker;
-choosing a frontend never creates a more privileged execution path.
+Semwright keeps its public capability model independent of the operating-system mechanism that fulfils a request. CLI, MCP, recipes and the inspector converge on the same broker; choosing a frontend never creates a more privileged execution path.
 
 ```text
 computerctl / semwright-mcp / semwright-inspect
-                │ bounded Unix IPC; session identity
+                │ bounded local IPC; session identity
                 ▼
              Broker
       policy / refs / audit
@@ -15,62 +13,52 @@ computerctl / semwright-mcp / semwright-inspect
                 │
           Provider Runtime
       ┌─────────┼──────────┐
- native Linux   drivers   external MCP
- / app APIs     │          │
+      │         │          │
+ platform    drivers   external MCP
+   host         │          │
+      │         │          │
+ ┌────┴────┐    │          │
+ Linux   macOS  │          │
+ └────┬────┘    │          │
       └─────────┼──────────┘
                 ▼
-        Linux / applications
+        OS / applications
 ```
 
-The Provider Runtime is the common execution boundary. A provider has explicit owner-assigned
-identity, capability provenance, lifecycle and operation-level availability. Dynamic providers
-cannot claim the builtin namespace. Catalog replacement is revisioned and atomic; stale catalog
-pagination or capability descriptors fail rather than silently retargeting an operation.
+Linux is the currently verified host. The macOS host foundation is experimental: source and cross-platform contracts are present, but Apple-framework linking, TCC behaviour and live desktop automation require native evidence before support is claimed.
 
-## Provider classes
+## Platform boundary
 
-Built-in providers adapt existing Linux and application backends without rewriting them. Current
-native routes include AT-SPI, compositor/window backends, portal/clipboard/system/filesystem,
-Blender and private Chromium.
+`platform-api` contains semantic contracts and data that do not expose AT-SPI, X11, AXUIElement, Mach-O handles or other native types. `platform-common` holds reusable backend-facing logic. `platform-host` is the daemon composition boundary. `platform-services` selects OS-specific filesystem, executable-verification, IPC/path and sandbox services. Linux and macOS mechanics live under `platform-linux[-sys]` and `platform-macos[-sys]`.
 
-Federated MCP servers are dynamic `ExternalMcpProvider` instances. Their tool descriptions,
-schemas and results are untrusted data. Semwright assigns the namespace, imports descriptors,
-and still applies broker policy, operator approval, cancellation, provenance and audit before
-delegating an invocation.
+The boundary is deliberately not a weakest-common-denominator sandbox. Linux retains openat2, bubblewrap and Landlock enforcement. macOS is allowed to expose a different confinement level and must fail closed where the platform cannot provide an equivalent supported primitive.
 
-Application drivers use the same Provider Runtime. The Driver SDK defines a versioned persistent
-stdio contract and the Driver Host stages a digest-pinned ELF inside bubblewrap + Landlock.
-Driver manifests cannot grant themselves policy authority. Unlike the existing plugin model,
-which starts one sandboxed process per invocation, a driver persists for its provider lifetime
-and can maintain an application connection.
+High-level packages should depend on semantic contracts rather than native APIs. Platform code may depend inward on shared contracts; shared contracts must not depend on AT-SPI, X11, AppKit, ApplicationServices, ScreenCaptureKit or private OS APIs.
 
-Recipes and plugins remain separate composition mechanisms: recipes re-enter broker execution
-for every step; plugins provide narrow sandboxed one-shot commands.
+## Provider Runtime
 
-## Execution
+The Provider Runtime is the common execution boundary. A provider has explicit owner-assigned identity, capability provenance, lifecycle and operation-level availability. Dynamic providers cannot claim the builtin namespace. Catalog replacement is revisioned and atomic; stale catalog pagination or capability descriptors fail rather than silently retargeting an operation.
 
-The broker snapshots the selected capability descriptor and provenance before dispatch. It
-evaluates capability/risk/scope, obtains the execution gate, requests human approval when
-required, validates current references, and invokes the selected provider with cancellation and
-deadline semantics. A provider failure does not trigger an implicit retry or a hidden fallback.
+Platform-native providers, application drivers and federated MCP servers all enter the same broker path. Their implementation mechanism does not grant authority.
 
-References are opaque and session-scoped. Provider generations and backend fingerprints prevent
-known stale objects from silently becoming newly-created objects. Dynamic provider disconnects
-invalidate their catalog generation.
+Federated MCP servers are dynamic `ExternalMcpProvider` instances. Their tool descriptions, schemas and results are untrusted data. Semwright assigns their namespace and still applies normal broker policy, operator approval, cancellation, provenance and audit.
 
-Provider capability discovery is not authorization. Registering a driver or MCP upstream does
-not create its corresponding policy grant.
+Application drivers use the same Provider Runtime. Driver Protocol semantics are shared; process launch, executable verification and isolation are platform responsibilities. On Linux, the Driver Host stages a digest-pinned ELF and requires bubblewrap plus Landlock. macOS driver/plugin execution remains fail-closed until a supported isolation model is proven; the portable Driver SDK does not weaken Linux to manufacture parity.
+
+Recipes and plugins remain separate composition mechanisms: recipes re-enter broker execution for every step; plugins provide narrow one-shot commands.
+
+## Execution and references
+
+The broker snapshots the selected capability descriptor and provenance before dispatch. It evaluates capability/risk/scope, obtains the execution gate, requests human approval when required, validates current references, and invokes the selected provider with cancellation and deadline semantics. A provider failure does not trigger an implicit retry or hidden fallback.
+
+References are opaque and session-scoped. Provider generations and backend fingerprints prevent known stale objects from silently becoming newly-created objects. Dynamic provider disconnects invalidate their catalog generation. Platform-native identifiers are implementation details, not agent authority.
+
+Provider discovery is not authorization. Registering a driver or MCP upstream does not create its policy grant.
 
 ## Dependency direction
 
-`types` owns the transport-independent domain model. `registry` validates and indexes command
-descriptors. `policy` owns authorization and filesystem grants. `backend-api` owns the
-Provider/Backend traits. `core` owns provider leases, broker orchestration, refs and audit.
-`federation` implements MCP providers. `driver-sdk` is application-author facing and has no
-broker authority; `driver-host` adapts that protocol into a sandboxed Provider. Frontends depend
-on the broker/protocol contract rather than backend implementation details.
+`types` owns transport-independent domain data. `registry` validates/indexes capability descriptors. `policy` owns authorization intent. `backend-api` owns Provider/Backend contracts. `core` owns provider leases, broker orchestration, refs and audit. `federation` implements MCP providers. `driver-sdk` is application-author facing and has no broker authority. `driver-host` adapts that protocol into a platform-specific sandboxed Provider.
 
-The daemon is the composition root. It creates trusted builtin providers and explicitly loads
-owner-configured external providers. No root daemon, default TCP listener or automatic elevated
-helper is part of the architecture. Current verification status and live-system gaps are tracked
-in [VERIFY.md](../VERIFY.md) and [RELEASE_BLOCKERS.md](../RELEASE_BLOCKERS.md).
+The daemon is the composition root. It selects the compiled platform host and loads owner-configured providers. No root daemon, default TCP listener or automatic elevated helper is part of the architecture.
+
+See [platforms](platforms.md), [compatibility](compatibility.md), [security](security.md), [VERIFY](../VERIFY.md) and [release blockers](../RELEASE_BLOCKERS.md).

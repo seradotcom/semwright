@@ -57,3 +57,19 @@ partial mutation on disconnect, duplicate JSON keys, plugin filesystem/network e
 output flooding, audit failure before/after effect, poisoned text in every rendering
 surface, artifact cleanup after abnormal termination, and configuration TOCTOU boundaries.
 No independent security review has been performed in this handoff.
+
+## Platform-specific enforcement
+
+Platformization does not reduce Linux enforcement to a portable lowest common denominator.
+Linux filesystem access continues to use pinned-directory/openat2 semantics and Linux
+driver/plugin execution continues to require its sandbox path.
+
+The macOS host uses public Apple APIs and treats TCC as an external user-consent boundary.
+Accessibility, input and screen capture must never be enabled by modifying TCC databases,
+disabling SIP or using private entitlements. App Sandbox is not represented as an equivalent to
+Linux bubblewrap/Landlock for an accessibility host.
+
+The macOS Driver/Plugin Host therefore fails closed where arbitrary third-party executable
+isolation has not been proven with a supported Apple mechanism. Digest/Mach-O validation is an
+identity check, not a sandbox. Native CI can establish compilation/linking and noninteractive
+tests; Accessibility/Input/Screen Recording acceptance requires a real authorized Mac session.

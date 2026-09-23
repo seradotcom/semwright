@@ -1,0 +1,121 @@
+name: Platformization and macOS
+
+on:
+  push:
+    branches: [feat/platformization-macos-integration-sol]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platformization-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  linux-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Platformized Linux regression
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo check --locked --workspace --all-targets --all-features
+          cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+          cargo test --locked --workspace --all-targets --all-features
+          cargo test --locked --workspace --all-features --doc
+          RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --all-features --no-deps
+          python3 scripts/verify-source.py
+
+  macos-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            native: aarch64-apple-darwin
+            other: x86_64-apple-darwin
+            arch: arm64
+          - runner: macos-15-intel
+            native: x86_64-apple-darwin
+            other: aarch64-apple-darwin
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Record native Apple environment
+        run: |
+          set -euo pipefail
+          mkdir -p verification/platform-ci
+          {
+            sw_vers
+            uname -a
+            uname -m
+            xcodebuild -version
+            xcrun --sdk macosx --show-sdk-version
+            rustc --version --verbose
+            cargo --version
+          } | tee "verification/platform-ci/environment-${{ matrix.arch }}.log"
+          test "$(uname -m)" = "${{ matrix.arch }}"
+          rustup target add "${{ matrix.native }}" "${{ matrix.other }}"
+
+      - name: Cross-check Rust-only portable contracts
+        run: |
+          set -euo pipefail
+          cargo check --locked --target "${{ matrix.other }}"             -p semwright-types             -p semwright-backend-api             -p semwright-platform-api             -p semwright-registry             -p semwright-recipes
+      - name: Compile complete workspace against native macOS SDK
+        run: |
+          set -euo pipefail
+          cargo check --locked --workspace --all-targets --all-features             2>&1 | tee "verification/platform-ci/workspace-check-${{ matrix.arch }}.log"
+
+      - name: Run native platform contract tests
+        run: |
+          set -euo pipefail
+          cargo test --locked             -p semwright-platform-api             -p semwright-platform-macos             -p semwright-platform-macos-sys             -p semwright-platform-services             -p semwright-platform-host             --all-features             2>&1 | tee "verification/platform-ci/platform-tests-${{ matrix.arch }}.log"
+
+      - name: Link daemon and frontends
+        run: |
+          set -euo pipefail
+          cargo build --locked --release             -p semwright-daemon             -p semwright-cli             -p semwright-mcp             -p semwright-plugin-host             -p semwright-driver-host             2>&1 | tee "verification/platform-ci/native-build-${{ matrix.arch }}.log"
+      - name: Safe native smoke without TCC prompts
+        run: |
+          set -euo pipefail
+          bash platforms/macos/tests/run-native-smoke.sh             2>&1 | tee "verification/platform-ci/native-smoke-${{ matrix.arch }}.log"
+
+      - name: State live-acceptance boundary
+        run: |
+          {
+            echo "PASS: native SDK compile/link and noninteractive smoke are exercised by this job."
+            echo "NOT_RUN: Accessibility consent, CGEvent control, ScreenCaptureKit capture,"
+            echo "TCC grant/revocation, installed service, codesign/notarization and live multi-display acceptance."
+          } | tee "verification/platform-ci/live-boundary-${{ matrix.arch }}.log"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: platform-macos-${{ matrix.arch }}-evidence
+          path: verification/platform-ci
+          retention-days: 14

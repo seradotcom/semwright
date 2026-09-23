@@ -1,18 +1,33 @@
+//! One shared filesystem Backend, parameterized by an enforcing native factory.
 use async_trait::async_trait;
 use semwright_backend_api::{Backend, Context, feature};
-use semwright_policy::{FilesystemGrant, Root};
+use semwright_platform_api::filesystem::{ScopedFilesystem, ScopedRoot};
+use semwright_policy::FilesystemGrant;
 use semwright_types::*;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 pub struct Filesystem {
-    roots: BTreeMap<String, Root>,
+    roots: BTreeMap<String, Box<dyn ScopedRoot>>,
 }
 impl Filesystem {
     pub fn new(grants: &[FilesystemGrant]) -> Result<Self> {
+        Self::with_factory(grants, &semwright_platform_services::filesystem())
+    }
+    pub fn with_factory(
+        grants: &[FilesystemGrant],
+        factory: &dyn ScopedFilesystem,
+    ) -> Result<Self> {
         let mut roots = BTreeMap::new();
-        for g in grants {
-            roots.insert(g.name.clone(), Root::open(&g.path, g.read, g.write)?);
+        for grant in grants {
+            if roots
+                .insert(
+                    grant.name.clone(),
+                    factory.open_root(&grant.path, grant.read, grant.write)?,
+                )
+                .is_some()
+            {
+                return Err(Error::invalid("Duplicate filesystem root"));
+            }
         }
         Ok(Self { roots })
     }
@@ -25,17 +40,22 @@ impl Backend for Filesystem {
     fn supports(&self, c: &str) -> bool {
         matches!(c, "filesystem.read" | "filesystem.write")
     }
-    fn operation_feature(&self, command: &str) -> Option<String> {
-        self.supports(command)
-            .then(|| "filesystem.scoped".to_owned())
+    fn operation_feature(&self, c: &str) -> Option<String> {
+        self.supports(c).then(|| "filesystem.scoped".to_owned())
     }
     async fn probe(&self) -> Vec<Feature> {
+        let strength = self
+            .roots
+            .values()
+            .next()
+            .map(|r| format!("{:?}", r.confinement()))
+            .unwrap_or_else(|| "no configured roots".into());
         vec![feature(
-            self.name(),
+            "filesystem",
             "filesystem.scoped",
             !self.roots.is_empty(),
-            "Requires explicit root grants and Linux openat2",
-            "Configure named filesystem roots in the owner-controlled policy",
+            &format!("Explicit root grants; confinement: {strength}"),
+            "Use named owner grants. Mac roots accept only an immediate child, not nested paths.",
         )]
     }
     async fn execute(&self, ctx: &Context, c: &str, args: &Value) -> Result<Value> {

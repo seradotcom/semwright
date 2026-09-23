@@ -68,13 +68,16 @@ A v1 JSON manifest contains the driver identity and execution constraints:
 ```
 
 Unknown fields, noncanonical IDs, namespace escape, unpinned executables and over-broad
-resource declarations are rejected. The executable must be an owned/root regular ELF file,
-must not be writable by group/others, and must match the manifest SHA-256.
+resource declarations are rejected. Executable trust and process isolation are platform-host
+responsibilities; they are not part of Driver Protocol authority.
 
 ## Sandbox and permissions
 
-The v1 host refuses unsandboxed execution. It stages the exact verified bytes and launches
-them through bubblewrap plus Semwright's Landlock helper. Environment variables are cleared,
+The v1 host refuses an unsupported unsandboxed execution path. On Linux it verifies an owned/root
+regular ELF, stages the exact digest-pinned bytes and launches them through bubblewrap plus
+Semwright's Landlock helper. The macOS host foundation can validate executable identity/formats,
+but arbitrary driver/plugin launch remains fail-closed until a supported isolation model provides
+the required guarantees. Environment variables are cleared,
 network is isolated unless both manifest and owner configuration allow it, and named
 filesystem mounts can only refer to existing policy grants.
 

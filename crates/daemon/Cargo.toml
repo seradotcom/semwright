@@ -11,7 +11,9 @@ publish = false
 workspace = true
 
 [dependencies]
-zbus.workspace = true
+semwright-platform-host.workspace = true
+semwright-platform-common.workspace = true
+semwright-platform-services.workspace = true
 async-trait.workspace = true
 semwright-types.workspace = true
 semwright-protocol.workspace = true

@@ -2189,23 +2189,9 @@ dependencies = [
 name = "semwright-backends"
 version = "0.9.0-dev.1"
 dependencies = [
- "async-trait",
- "futures-util",
- "libc",
- "proptest",
- "semwright-backend-api",
- "semwright-policy",
- "semwright-protocol",
- "semwright-types",
- "serde",
+ "semwright-platform-common",
+ "semwright-platform-linux",
  "serde_json",
- "tempfile",
- "tokio",
- "tokio-util",
- "url",
- "uuid",
- "x11rb",
- "zbus",
 ]
 
 [[package]]
@@ -2276,6 +2262,9 @@ dependencies = [
  "semwright-driver-host",
  "semwright-driver-sdk",
  "semwright-federation",
+ "semwright-platform-common",
+ "semwright-platform-host",
+ "semwright-platform-services",
  "semwright-plugin-host",
  "semwright-plugin-sdk",
  "semwright-policy",
@@ -2290,7 +2279,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "zbus",
 ]
 
 [[package]]
@@ -2319,6 +2307,8 @@ dependencies = [
  "libc",
  "semwright-backend-api",
  "semwright-driver-sdk",
+ "semwright-platform-api",
+ "semwright-platform-services",
  "semwright-policy",
  "semwright-protocol",
  "semwright-types",
@@ -2467,12 +2457,148 @@ dependencies = [
 ]
 
 [[package]]
-name = "semwright-plugin-host"
+name = "semwright-platform-api"
+version = "0.9.0-dev.1"
+dependencies = [
+ "semwright-backend-api",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "semwright-platform-common"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "libc",
+ "proptest",
+ "semwright-backend-api",
+ "semwright-platform-api",
+ "semwright-platform-services",
+ "semwright-policy",
+ "semwright-protocol",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
+name = "semwright-platform-host"
+version = "0.9.0-dev.1"
+dependencies = [
+ "semwright-adapters",
+ "semwright-platform-api",
+ "semwright-platform-common",
+ "semwright-platform-linux",
+ "semwright-platform-macos",
+ "semwright-platform-services",
+ "semwright-types",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "semwright-platform-linux"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "futures-util",
+ "libc",
+ "proptest",
+ "semwright-adapters",
+ "semwright-backend-api",
+ "semwright-platform-api",
+ "semwright-platform-common",
+ "semwright-policy",
+ "semwright-protocol",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "url",
+ "uuid",
+ "x11rb",
+ "zbus",
+]
+
+[[package]]
+name = "semwright-platform-linux-sys"
 version = "0.9.0-dev.1"
 dependencies = [
  "landlock",
  "libc",
  "proptest",
+ "semwright-platform-api",
+ "semwright-types",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "semwright-platform-macos"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "proptest",
+ "semwright-backend-api",
+ "semwright-platform-api",
+ "semwright-platform-services",
+ "semwright-protocol",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "uuid",
+]
+
+[[package]]
+name = "semwright-platform-macos-sys"
+version = "0.9.0-dev.1"
+dependencies = [
+ "libc",
+ "proptest",
+ "semwright-platform-api",
+ "semwright-types",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "semwright-platform-services"
+version = "0.9.0-dev.1"
+dependencies = [
+ "libc",
+ "semwright-platform-api",
+ "semwright-platform-linux-sys",
+ "semwright-platform-macos-sys",
+ "semwright-types",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "semwright-plugin-host"
+version = "0.9.0-dev.1"
+dependencies = [
+ "libc",
+ "proptest",
+ "semwright-platform-api",
+ "semwright-platform-services",
  "semwright-plugin-sdk",
  "semwright-policy",
  "semwright-protocol",
@@ -2503,8 +2629,9 @@ dependencies = [
 name = "semwright-policy"
 version = "0.9.0-dev.1"
 dependencies = [
- "libc",
  "proptest",
+ "semwright-platform-api",
+ "semwright-platform-services",
  "semwright-types",
  "serde",
  "serde_json",
@@ -2519,6 +2646,7 @@ version = "0.9.0-dev.1"
 dependencies = [
  "libc",
  "proptest",
+ "semwright-platform-services",
  "semwright-types",
  "serde",
  "serde_json",

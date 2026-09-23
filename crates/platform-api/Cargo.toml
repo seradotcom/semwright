@@ -1,0 +1,16 @@
+[package]
+name = "semwright-platform-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+semwright-types.workspace = true
+semwright-backend-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
