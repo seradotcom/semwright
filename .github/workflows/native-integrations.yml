@@ -453,39 +453,76 @@ jobs:
           toolchain: 1.98.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          key: atspi-backend
-      - name: Install isolated GTK and Qt accessibility fixtures
+          key: atspi-gtk-backend
+      - name: Install isolated GTK accessibility fixture
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity g++ pkg-config qt6-base-dev
-          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-runtime"
-          chmod 700 "$RUNNER_TEMP/atspi-runtime"
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity
+          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-gtk"
+          chmod 700 "$RUNNER_TEMP/atspi-gtk"
           zenity --version | tee verification/native-ci/zenity-version.log
-          pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
-          g++ -std=c++17 -O0 -g -fno-omit-frame-pointer -rdynamic -fPIC \
-            crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
-            -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets Qt6DBus)
-          chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
-          file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log
           dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
-      - name: Real AT-SPI delta, structural resync and stale-reference lifecycle
-        run: |
-          rm -rf "$RUNNER_TEMP/atspi-gtk" "$RUNNER_TEMP/atspi-qt"
-          mkdir -p "$RUNNER_TEMP/atspi-gtk" "$RUNNER_TEMP/atspi-qt"
-          chmod 700 "$RUNNER_TEMP/atspi-gtk" "$RUNNER_TEMP/atspi-qt"
-          XDG_RUNTIME_DIR="$RUNNER_TEMP/atspi-gtk" \
-          XDG_SESSION_TYPE=x11 \
-          SEMWRIGHT_TEST_ATSPI=1 \
-            scripts/dev/atspi-live-ci.sh gtk
-          XDG_RUNTIME_DIR="$RUNNER_TEMP/atspi-qt" \
-          XDG_SESSION_TYPE=x11 \
-          SEMWRIGHT_TEST_ATSPI=1 \
-          SEMWRIGHT_TEST_QT_FIXTURE="$RUNNER_TEMP/atspi-qt-fixture" \
-          SEMWRIGHT_TEST_QT_PLATFORM=xcb \
-            scripts/dev/atspi-live-ci.sh qt
+      - name: Real GTK AT-SPI delta, structural resync and stale-reference lifecycle
+        env:
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/atspi-gtk
+          XDG_SESSION_TYPE: x11
+          SEMWRIGHT_TEST_ATSPI: "1"
+        run: scripts/dev/atspi-live-ci.sh gtk
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: real-atspi-backend-evidence
+          name: real-atspi-gtk-evidence
+          path: verification/native-ci
+          retention-days: 14
+
+  atspi-qt-backend:
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:43
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install Qt 6.10 accessibility runtime and build dependencies
+        run: |
+          dnf -y install \
+            at-spi2-core dbus-daemon dbus-x11 glib2 \
+            gcc-c++ file pkgconf-pkg-config \
+            qt6-qtbase-devel \
+            xorg-x11-server-Xvfb xorg-x11-xauth xorg-x11-utils
+          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
+          chmod 700 "$RUNNER_TEMP/atspi-qt"
+          pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
+          rpm -q at-spi2-core qt6-qtbase qt6-qtbase-gui | tee verification/native-ci/atspi-qt-packages.log
+          g++ -std=c++17 -O2 -fPIC crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
+            -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets Qt6DBus)
+          chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
+          file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Real Qt AT-SPI delta, structural resync and stale-reference lifecycle
+        env:
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/atspi-qt
+          XDG_SESSION_TYPE: x11
+          SEMWRIGHT_TEST_ATSPI: "1"
+          SEMWRIGHT_TEST_QT_FIXTURE: ${{ runner.temp }}/atspi-qt-fixture
+          SEMWRIGHT_TEST_QT_PLATFORM: xcb
+        run: |
+          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp > verification/native-ci/xvfb-qt.log 2>&1 &
+          xvfb_pid=$!
+          trap 'kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true' EXIT
+          export DISPLAY=:99
+          for _ in $(seq 1 100); do
+            if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 0.05
+          done
+          xdpyinfo -display "$DISPLAY" >/dev/null
+          SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- scripts/dev/atspi-live-ci.sh qt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: real-atspi-qt-evidence
           path: verification/native-ci
           retention-days: 14
