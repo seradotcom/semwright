@@ -51,7 +51,16 @@ def config_tree(root:pathlib.Path,port:int):
     scenes=config/'basic/scenes';scenes.mkdir(parents=True)
     plugin=config/'plugin_config/obs-websocket';plugin.mkdir(parents=True)
     (root/'runtime').mkdir(mode=0o700)
-    (config/'global.ini').write_text('[General]\nFirstRun=false\n\n[Basic]\nProfile=SemwrightFixture\nProfileDir=SemwrightFixture\nSceneCollection=SemwrightFixture\nSceneCollectionFile=SemwrightFixture\n')
+    # OBS 30's bundled obs-websocket starts disabled unless ServerEnabled is
+    # loaded. Seed its officially supported legacy migration section too;
+    # the plugin consumes/removes these keys and persists the modern config.
+    (config/'global.ini').write_text(
+        '[General]\nFirstRun=false\n\n'
+        '[Basic]\nProfile=SemwrightFixture\nProfileDir=SemwrightFixture\n'
+        'SceneCollection=SemwrightFixture\nSceneCollectionFile=SemwrightFixture\n\n'
+        '[OBSWebSocket]\nFirstLoad=false\nServerEnabled=true\n'
+        'AlertsEnabled=false\nAuthRequired=true\n'
+    )
     (profile/'basic.ini').write_text('[General]\nName=SemwrightFixture\n[Video]\nBaseCX=320\nBaseCY=180\nOutputCX=320\nOutputCY=180\nFPSType=0\nFPSCommon=10\n[Audio]\nSampleRate=48000\nChannelSetup=Stereo\n[Output]\nMode=Simple\n')
     # Empty synthetic scene; no input, camera, microphone, browser or display source.
     scene={'name':'SemwrightFixture','current_scene':'Synthetic','current_program_scene':'Synthetic','scene_order':[{'name':'Synthetic'}],
