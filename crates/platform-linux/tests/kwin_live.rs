@@ -12,6 +12,7 @@ use zbus::{Connection, Proxy};
 fn context() -> Context {
     Context {
         session: "kwin-live".into(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     }
 }
