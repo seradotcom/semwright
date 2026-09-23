@@ -1,6 +1,6 @@
 # Capability catalog
 
-`computerctl capabilities search "material" --provider blender-native --risk read_only`
+`semwright capabilities search "material" --provider blender-native --risk read_only`
 returns a compact, deterministic catalog page. Quoted phrases are supported. Exact IDs
 rank first; aliases, identifier tokens, tags and descriptions have fixed integer weights.
 Ties use the capability ID, not hash-map order. No model, embeddings or network search
@@ -8,9 +8,9 @@ is required. Filters include provider, application, category, risk, tags, object
 and route availability. Limits are 1–100 items; revision-bound pagination rejects stale
 catalog cursors rather than silently mixing provider generations.
 
-`computerctl capabilities describe blender.material.create` adds full input/output schemas.
-`computerctl capabilities execute <id> --args-json '{...}'` uses the existing broker
-execution path, exactly like `computerctl execute`. There is no independent permission
+`semwright capabilities describe blender.material.create` adds full input/output schemas.
+`semwright capabilities execute <id> --args-json '{...}'` uses the existing broker
+execution path, exactly like `semwright execute`. There is no independent permission
 system in discovery. MCP keeps all eight original gateway tools and adds only
 `capabilities_search` and `capabilities_describe`; the total is ten, not one tool per
 application command. Original `commands search/describe` remain compatible.

@@ -87,13 +87,13 @@ async fn exercise(discover: bool, profile: Profile) {
     assert_eq!(catalog["data"]["capabilities"][0]["id"], "ui.find");
     assert_eq!(catalog["data"]["availability_is_authorization"], false);
     let doctor = client
-        .call_tool(CallToolRequestParams::new("computer_doctor"))
+        .call_tool(CallToolRequestParams::new("semwright_doctor"))
         .await
         .unwrap();
     assert_eq!(doctor.structured_content.unwrap()["data"]["fake"], true);
     let find = client
         .call_tool(
-            CallToolRequestParams::new("computer_find").with_arguments(
+            CallToolRequestParams::new("semwright_find").with_arguments(
                 json!({"selector":{"name":{"op":"exact","value":"Export"}}})
                     .as_object()
                     .unwrap()
@@ -109,7 +109,7 @@ async fn exercise(discover: bool, profile: Profile) {
     let invoke_args = json!({"command":"ui.invoke","args":{"ref":reference,"action":"click"}});
     let invoke = client
         .call_tool(
-            CallToolRequestParams::new("computer_execute")
+            CallToolRequestParams::new("semwright_execute")
                 .with_arguments(invoke_args.as_object().unwrap().clone()),
         )
         .await
@@ -125,7 +125,7 @@ async fn exercise(discover: bool, profile: Profile) {
         assert_eq!(desktop.invocations(), 1);
         let stale = client
             .call_tool(
-                CallToolRequestParams::new("computer_execute")
+                CallToolRequestParams::new("semwright_execute")
                     .with_arguments(invoke_args.as_object().unwrap().clone()),
             )
             .await
@@ -137,7 +137,7 @@ async fn exercise(discover: bool, profile: Profile) {
     let invalid = json!({"command":"ui.invoke","args":{"ref":reference,"confirmed":true}});
     let rejected = client
         .call_tool(
-            CallToolRequestParams::new("computer_execute")
+            CallToolRequestParams::new("semwright_execute")
                 .with_arguments(invalid.as_object().unwrap().clone()),
         )
         .await
@@ -145,7 +145,7 @@ async fn exercise(discover: bool, profile: Profile) {
     assert_eq!(rejected.is_error, Some(true));
     let audit = client
         .call_tool(
-            CallToolRequestParams::new("computer_audit_tail")
+            CallToolRequestParams::new("semwright_audit_tail")
                 .with_arguments(json!({"limit":100}).as_object().unwrap().clone()),
         )
         .await

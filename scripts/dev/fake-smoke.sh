@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 BIN_DIR="${BIN_DIR:-$PWD/target/debug}"
-[[ -x "$BIN_DIR/semwrightd" && -x "$BIN_DIR/computerctl" ]] || { echo 'Build the workspace first.' >&2; exit 2; }
+[[ -x "$BIN_DIR/semwrightd" && -x "$BIN_DIR/semwright" ]] || { echo 'Build the workspace first.' >&2; exit 2; }
 WORK=$(mktemp -d)
 BROKER_PID=''
 cleanup() {
@@ -24,7 +24,7 @@ for _ in {1..100}; do
     sleep 0.05
 done
 [[ -S "$SOCKET" ]] || { cat "$WORK/daemon.log" >&2; exit 1; }
-"$BIN_DIR/computerctl" --socket "$SOCKET" --json doctor
-"$BIN_DIR/computerctl" --socket "$SOCKET" --json ui find --name Save
-"$BIN_DIR/computerctl" --socket "$SOCKET" --json recipe run recipes/fake-export.yaml
-"$BIN_DIR/computerctl" --socket "$SOCKET" --json audit tail
+"$BIN_DIR/semwright" --socket "$SOCKET" --json doctor
+"$BIN_DIR/semwright" --socket "$SOCKET" --json ui find --name Save
+"$BIN_DIR/semwright" --socket "$SOCKET" --json recipe run recipes/fake-export.yaml
+"$BIN_DIR/semwright" --socket "$SOCKET" --json audit tail

@@ -24,8 +24,8 @@ compatible Semwright runtime. Both the package and executable are SHA-256 pinned
 Create and inspect a package:
 
 ```sh
-computerctl --json driver package create ./driver.json ./my-driver.swdp
-computerctl --json driver package inspect ./my-driver.swdp
+semwright --json driver package create ./driver.json ./my-driver.swdp
+semwright --json driver package inspect ./my-driver.swdp
 ```
 
 Package creation copies bytes; it does not execute the driver.
@@ -38,8 +38,8 @@ optional exact application versions. Duplicate ID/version entries, traversal pat
 hashes and invalid compatibility expressions are rejected.
 
 ```sh
-computerctl --json driver index validate ./registry/index.json
-computerctl --json driver index search ./registry/index.json libreoffice   --application-version 24.2
+semwright --json driver index validate ./registry/index.json
+semwright --json driver index search ./registry/index.json libreoffice   --application-version 24.2
 ```
 
 The first implementation intentionally resolves only local/static indexes. Remote catalog
@@ -49,11 +49,11 @@ inside index resolution.
 ## Installation and updates
 
 ```sh
-computerctl --json --dry-run driver install ./registry/index.json libreoffice   --application-version 24.2
+semwright --json --dry-run driver install ./registry/index.json libreoffice   --application-version 24.2
 
-computerctl --json driver install ./registry/index.json libreoffice   --application-version 24.2
+semwright --json driver install ./registry/index.json libreoffice   --application-version 24.2
 
-computerctl --json driver update ./registry/index.json libreoffice   --application-version 24.2
+semwright --json driver update ./registry/index.json libreoffice   --application-version 24.2
 ```
 
 Installation verifies the index, package digest and size, package/entry identity, compatibility,
@@ -67,7 +67,7 @@ version from arbitrary process output during installation.
 Remove one receipt-bound version:
 
 ```sh
-computerctl --json driver remove libreoffice 1.0.0
+semwright --json driver remove libreoffice 1.0.0
 ```
 
 Removal validates the canonical driver ID and SemVer before constructing paths, reads the

@@ -5,9 +5,9 @@ logic: all tool calls go through a broker Unix session. The official SDK owns ne
 framing and cancellation reception; the adapter propagates cancellation to broker work.
 This source/API mapping has not been compiled or exercised by an MCP client here.
 
-Always-visible tools are `computer_doctor`, `computer_capabilities`,
-`computer_search_commands`, `computer_describe_command`, `computer_execute`,
-`computer_snapshot`, `computer_find`, and `computer_audit_tail`. Discovery returns complete
+Always-visible tools are `semwright_doctor`, `semwright_capabilities`,
+`semwright_search_commands`, `semwright_describe_command`, `semwright_execute`,
+`semwright_snapshot`, `semwright_find`, and `semwright_audit_tail`. Discovery returns complete
 command descriptors. The universal execution gateway validates again inside the broker.
 Risk annotations are informational and do not substitute for authorization.
 

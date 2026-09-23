@@ -9,7 +9,7 @@ import stat
 import tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-BINS=('computerctl','semwrightd','semwright-mcp','semwright-inspect','semwright-sandbox')
+BINS=('semwright','semwrightd','semwright-mcp','semwright-inspect','semwright-sandbox')
 def private(path):
     path.mkdir(parents=True,exist_ok=True,mode=0o700)
     m=path.lstat()
@@ -18,6 +18,8 @@ def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--bin-dir',type=Path,required=True);a=p.parse_args()
     if os.getuid()==0:p.error('Do not install or run Semwright as root')
     home=Path.home();bindir=home/'.local/bin';state=home/'.local/share/semwright-install';private(bindir);private(state)
+    legacy=bindir/'computerctl'
+    if legacy.exists() or legacy.is_symlink():p.error('Legacy ~/.local/bin/computerctl exists; uninstall or review the previous Semwright installation before installing the renamed CLI')
     if (state/'manifest.json').exists():p.error('An install manifest exists; uninstall or review it before replacing files')
     validated={}
     for name in BINS:

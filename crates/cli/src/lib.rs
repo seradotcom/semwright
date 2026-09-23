@@ -1,4 +1,4 @@
-//! User-facing parsing and rendering only. Every computer operation goes over broker IPC.
+//! User-facing parsing and rendering only. Every Semwright operation goes over broker IPC.
 use clap::{Args, Parser, Subcommand};
 use semwright_types::*;
 use serde_json::{Value, json};
@@ -9,7 +9,7 @@ use std::{
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "computerctl",
+    name = "semwright",
     version,
     about = "Typed, policy-scoped Linux automation",
     long_about = "Inspect and control a Linux desktop through one local capability broker. Start semwrightd first. Use commands search/describe to discover application adapters. JSON results go to stdout; diagnostics go to stderr. No shell/eval/confirmation approval command exists."
@@ -868,7 +868,7 @@ mod tests {
     #[test]
     fn invoke_uses_registry_command() {
         let c = Cli::try_parse_from([
-            "computerctl",
+            "semwright",
             "--json",
             "ui",
             "invoke",
@@ -887,7 +887,7 @@ mod tests {
     #[test]
     fn mcp_upstream_management_is_local_not_a_broker_request() {
         let c = Cli::try_parse_from([
-            "computerctl",
+            "semwright",
             "--json",
             "mcp",
             "upstream",
@@ -908,7 +908,7 @@ mod tests {
     #[test]
     fn driver_management_is_local_not_a_broker_request() {
         let c = Cli::try_parse_from([
-            "computerctl",
+            "semwright",
             "--json",
             "driver",
             "validate",
@@ -927,7 +927,7 @@ mod tests {
     fn driver_distribution_commands_are_local_owner_tools() {
         for args in [
             vec![
-                "computerctl",
+                "semwright",
                 "--json",
                 "driver",
                 "package",
@@ -935,7 +935,7 @@ mod tests {
                 "/tmp/fixture.swdp",
             ],
             vec![
-                "computerctl",
+                "semwright",
                 "--json",
                 "driver",
                 "index",
@@ -943,7 +943,7 @@ mod tests {
                 "/tmp/index.json",
             ],
             vec![
-                "computerctl",
+                "semwright",
                 "--json",
                 "--dry-run",
                 "driver",
@@ -961,15 +961,15 @@ mod tests {
 
     #[test]
     fn no_permission_upgrade_flags() {
-        assert!(Cli::try_parse_from(["computerctl", "--approve", "doctor"]).is_err());
+        assert!(Cli::try_parse_from(["semwright", "--approve", "doctor"]).is_err());
     }
     #[test]
     fn known_examples_match_schemas() {
         for args in [
-            vec!["computerctl", "doctor"],
-            vec!["computerctl", "window", "list"],
+            vec!["semwright", "doctor"],
+            vec!["semwright", "window", "list"],
             vec![
-                "computerctl",
+                "semwright",
                 "ui",
                 "find",
                 "--role",
@@ -977,7 +977,7 @@ mod tests {
                 "--name",
                 "Save",
             ],
-            vec!["computerctl", "ui", "snapshot", "--actionable"],
+            vec!["semwright", "ui", "snapshot", "--actionable"],
         ] {
             let c = Cli::try_parse_from(args).unwrap();
             let r = request(&c).unwrap().unwrap();

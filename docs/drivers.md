@@ -105,13 +105,13 @@ preferable to advertising semantics the host cannot enforce.
 ## Developer workflow
 
 ```sh
-computerctl driver scaffold myapp ./semwright-myapp \
+semwright driver scaffold myapp ./semwright-myapp \
   --sdk-path /absolute/path/to/semwright/crates/driver-sdk
 
 # Build the generated project, pin its absolute path + SHA-256 in the manifest:
-computerctl --json driver validate ./driver.json
-computerctl --json driver inspect ./driver.json
-computerctl --json driver conformance ./driver.json
+semwright --json driver validate ./driver.json
+semwright --json driver inspect ./driver.json
+semwright --json driver conformance ./driver.json
 ```
 
 Scaffolding does not install the driver or grant it authority.

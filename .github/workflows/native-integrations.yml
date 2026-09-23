@@ -105,7 +105,7 @@ jobs:
         run: |
           cargo build --locked -p semwright-driver-host --bin semwright-driver-fixture \
             -p semwright-plugin-host --bin semwright-sandbox \
-            -p semwright-cli --bin computerctl \
+            -p semwright-cli --bin semwright \
             -p semwright-daemon --bin semwrightd
       - name: Sandboxed persistent driver conformance
         run: |
@@ -138,7 +138,7 @@ jobs:
           cargo clippy --locked -p semwright-driver-registry -p semwright-cli --all-targets -- -D warnings 2>&1 | tee verification/native-ci/driver-registry-clippy.log
       - name: Non-executing package install/update/remove smoke
         run: |
-          cargo build --locked -p semwright-cli --bin computerctl
+          cargo build --locked -p semwright-cli --bin semwright
           BIN_DIR=target/debug scripts/dev/driver-registry-smoke.sh 2>&1 | tee verification/native-ci/driver-distribution-smoke.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
@@ -211,7 +211,7 @@ jobs:
         run: |
           cargo build --locked -p semwright-driver-libreoffice --bin semwright-libreoffice-driver \
             -p semwright-plugin-host --bin semwright-sandbox \
-            -p semwright-cli --bin computerctl \
+            -p semwright-cli --bin semwright \
             -p semwright-daemon --bin semwrightd
       - name: Real sandboxed DriverProvider against LibreOffice UNO
         run: |
@@ -296,7 +296,7 @@ jobs:
         run: |
           cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
             -p semwright-plugin-host --bin semwright-sandbox \
-            -p semwright-cli --bin computerctl \
+            -p semwright-cli --bin semwright \
             -p semwright-daemon --bin semwrightd
       - name: Landlock driver startup reaches protocol handshake
         run: |

@@ -7,7 +7,7 @@ interface exists.
 
 Operations cover status/scene inspection, object listing/get/create/delete/transform,
 collections, materials, render settings, render and scoped open/save. Consult
-`../../schemas/commands.json` or `computerctl commands search blender` for exact names.
+`../../schemas/commands.json` or `semwright commands search blender` for exact names.
 Only allowlisted primitive kinds and constrained numeric/path inputs are accepted.
 Duplicate/non-finite JSON, oversized frames and unknown command fields are rejected.
 
@@ -33,9 +33,9 @@ is configured by top-level `blender_socket` in the broker's owner TOML. Allow
 additional capability or sensitive-action confirmation according to their descriptors.
 
 ```sh
-computerctl execute blender.status
-computerctl execute blender.scene.inspect
-computerctl execute blender.object.create --args-json '{"name":"FixtureCube","primitive":"cube"}'
+semwright execute blender.status
+semwright execute blender.scene.inspect
+semwright execute blender.object.create --args-json '{"name":"FixtureCube","primitive":"cube"}'
 ```
 
 ## Path and privilege limitations

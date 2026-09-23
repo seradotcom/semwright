@@ -88,7 +88,7 @@ jobs:
           SEMWRIGHT_TEST_OBS=1 SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"             cargo test --locked -p semwright-driver-obs --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/obs-ci/host-conformance.log
       - name: Broker, policy and CLI end-to-end against fake OBS
         run: |
-          cargo build --locked             -p semwright-driver-obs --bin semwright-obs-driver             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-cli --bin computerctl             -p semwright-daemon --bin semwrightd
+          cargo build --locked             -p semwright-driver-obs --bin semwright-obs-driver             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-cli --bin semwright             -p semwright-daemon --bin semwrightd
           BIN_DIR=target/debug scripts/dev/obs-driver-smoke.sh 2>&1 | tee verification/obs-ci/broker-smoke.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

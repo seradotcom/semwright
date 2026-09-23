@@ -5,7 +5,7 @@
 | `cargo` not found | Toolchain actually installed and in PATH | Install an official toolchain; no binary is bundled here |
 | `--locked` fails | Cargo.lock is absent in this development archive | Run the explicit bootstrap, review lock/toolchain, retry full gates |
 | Root startup rejected | UID and whether a real or fake daemon was requested | Run as the graphical login user; do not remove the safety check |
-| IPC unavailable | Broker running, XDG runtime, exact socket, UID/mode | Use `computerctl config paths`; start foreground broker and inspect stderr |
+| IPC unavailable | Broker running, XDG runtime, exact socket, UID/mode | Use `semwright config paths`; start foreground broker and inspect stderr |
 | Socket already exists | Another live broker/session bus owner | Stop your own prior broker; do not blindly delete the socket |
 | Configuration denied | Regular single-link file, owner and `0600`; correct top-level keys | Fix your explicit config; unknown keys are rejected |
 | Read works, mutation fails | `policy.allow`, application scope and risk | Review owner configuration, not model-provided confirmation fields |

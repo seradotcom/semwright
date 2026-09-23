@@ -79,6 +79,12 @@ class ContractTests(unittest.TestCase):
             with self.subTest(path=str(path.relative_to(ROOT))):
                 tomllib.loads(path.read_text())
 
+    def test_canonical_cli_is_semwright(self):
+        manifest = tomllib.loads((ROOT / "crates" / "cli" / "Cargo.toml").read_text())
+        binaries = {entry["name"]: entry["path"] for entry in manifest.get("bin", [])}
+        self.assertEqual(binaries, {"semwright": "src/semwright.rs"})
+        self.assertFalse((ROOT / "crates" / "cli" / "src" / "computerctl.rs").exists())
+
     def test_workspace_local_paths_exist(self):
         cargo = tomllib.loads((ROOT / "Cargo.toml").read_text())
         for dependency in cargo["workspace"]["dependencies"].values():

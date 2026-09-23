@@ -4,9 +4,9 @@
 
 A local-first, open-source **agentic computer interface for Linux**: a capability broker, CLI and MCP server that turn a Linux desktop into a typed, semantic command surface.
 
-Working command name in this blueprint: `computerctl`.
+Canonical command name: `semwright`.
 
-The final implementation should choose a short, memorable project/repository name only after checking obvious collisions in GitHub, crates.io, npm and package ecosystems. Do not block implementation on naming.
+The project and canonical CLI name are now fixed as `Semwright` / `semwright`; future companion tools should preserve that namespace.
 
 ## Problem
 
@@ -136,12 +136,12 @@ Sensitive fields must be redacted.
 Fast, scriptable, JSON-capable:
 
 ```bash
-computerctl doctor
-computerctl window list --json
-computerctl ui snapshot --app org.gnome.Nautilus
-computerctl ui find --role button --name Save
-computerctl ui invoke ui:17
-computerctl recipe run export-assets
+semwright doctor
+semwright window list --json
+semwright ui snapshot --app org.gnome.Nautilus
+semwright ui find --role button --name Save
+semwright ui invoke ui:17
+semwright recipe run export-assets
 ```
 
 ### MCP

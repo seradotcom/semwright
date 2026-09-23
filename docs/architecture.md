@@ -3,7 +3,7 @@
 Semwright keeps its public capability model independent of the operating-system mechanism that fulfils a request. CLI, MCP, recipes and the inspector converge on the same broker; choosing a frontend never creates a more privileged execution path.
 
 ```text
-computerctl / semwright-mcp / semwright-inspect
+semwright / semwright-mcp / semwright-inspect
                 │ bounded local IPC; session identity
                 ▼
              Broker

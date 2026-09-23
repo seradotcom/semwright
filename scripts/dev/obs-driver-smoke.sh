@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
 DAEMON="$BIN_DIR/semwrightd"
-CTL="$BIN_DIR/computerctl"
+CTL="$BIN_DIR/semwright"
 DRIVER="$BIN_DIR/semwright-obs-driver"
 SANDBOX="$BIN_DIR/semwright-sandbox"
 FAKE_SERVER="$ROOT/crates/driver-obs/fixtures/fake-obs/server.py"

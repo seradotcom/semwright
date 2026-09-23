@@ -86,7 +86,7 @@ async fn run() -> Result<()> {
     let args = Args::parse();
     if !io::stdout().is_terminal() || !io::stdin().is_terminal() {
         return Err(Error::invalid(
-            "Inspector requires a terminal; use computerctl --json for pipes",
+            "Inspector requires a terminal; use semwright --json for pipes",
         ));
     }
     let socket = args.socket.map(Ok).unwrap_or_else(default_socket)?;

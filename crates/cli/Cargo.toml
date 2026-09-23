@@ -37,5 +37,5 @@ proptest.workspace = true
 tempfile.workspace = true
 
 [[bin]]
-name = "computerctl"
-path = "src/computerctl.rs"
+name = "semwright"
+path = "src/semwright.rs"

@@ -224,7 +224,7 @@ Follow XDG paths:
 - cache: `$XDG_CACHE_HOME/<project>/`
 - runtime: `$XDG_RUNTIME_DIR/<project>/`
 
-Provide `computerctl config paths`.
+Provide `semwright config paths`.
 
 ## Public docs
 

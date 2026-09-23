@@ -22,12 +22,12 @@ at startup. Runtime installs last until broker shutdown. There is no automatic p
 marketplace, dependency installer, agent-approved trust grant or durable install wizard.
 
 ```sh
-computerctl plugin install ./textstats.json
-computerctl plugin doctor textstats
-computerctl commands describe plugin.textstats.count
-computerctl execute plugin.textstats.count --args-json '{"text":"Hello local tools"}'
-computerctl plugin remove textstats
-computerctl plugin scaffold ./my-plugin --sdk-path /absolute/path/to/semwright/crates/plugin-sdk
+semwright plugin install ./textstats.json
+semwright plugin doctor textstats
+semwright commands describe plugin.textstats.count
+semwright execute plugin.textstats.count --args-json '{"text":"Hello local tools"}'
+semwright plugin remove textstats
+semwright plugin scaffold ./my-plugin --sdk-path /absolute/path/to/semwright/crates/plugin-sdk
 ```
 
 Stdio begins with a protocol/name hello; execution has request IDs and structured results.

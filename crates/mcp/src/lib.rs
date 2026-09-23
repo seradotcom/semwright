@@ -18,13 +18,13 @@ use std::{
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 const MAPPINGS: [(&str, &str); 9] = [
-    ("computer_doctor", "doctor"),
-    ("computer_capabilities", "capabilities.list"),
-    ("computer_search_commands", "commands.search"),
-    ("computer_describe_command", "commands.describe"),
-    ("computer_snapshot", "ui.snapshot"),
-    ("computer_find", "ui.find"),
-    ("computer_audit_tail", "audit.tail"),
+    ("semwright_doctor", "doctor"),
+    ("semwright_capabilities", "capabilities.list"),
+    ("semwright_search_commands", "commands.search"),
+    ("semwright_describe_command", "commands.describe"),
+    ("semwright_snapshot", "ui.snapshot"),
+    ("semwright_find", "ui.find"),
+    ("semwright_audit_tail", "audit.tail"),
     ("capabilities_search", "capabilities.search"),
     ("capabilities_describe", "capabilities.describe"),
 ];
@@ -148,7 +148,7 @@ fn tools() -> Result<Vec<Tool>> {
         );
     }
     let execute = json!({"type":"object","additionalProperties":false,"required":["command"],"properties":{"command":{"type":"string","minLength":1,"maxLength":128},"args":{"type":"object"},"dry_run":{"type":"boolean"},"backend":{"type":["string","null"]}}});
-    list.push(Tool::new("computer_execute","Execute a typed command through broker policy. First describe its input schema. Does not approve its own confirmation, execute arbitrary code, or retry uncertain actions.",Arc::new(execute.as_object().ok_or_else(||Error::invalid("Gateway schema must be an object"))?.clone())).with_raw_output_schema(output).with_annotations(ToolAnnotations::new().read_only(false).destructive(true).idempotent(false).open_world(true)));
+    list.push(Tool::new("semwright_execute","Execute a typed command through broker policy. First describe its input schema. Does not approve its own confirmation, execute arbitrary code, or retry uncertain actions.",Arc::new(execute.as_object().ok_or_else(||Error::invalid("Gateway schema must be an object"))?.clone())).with_raw_output_schema(output).with_annotations(ToolAnnotations::new().read_only(false).destructive(true).idempotent(false).open_world(true)));
     Ok(list)
 }
 impl ServerHandler for Server {
@@ -175,7 +175,7 @@ impl ServerHandler for Server {
     ) -> std::result::Result<CallToolResponse, ErrorData> {
         let name = request.name.as_ref();
         let args = Value::Object(request.arguments.unwrap_or_default());
-        let execute = if name == "computer_execute" {
+        let execute = if name == "semwright_execute" {
             serde_json::from_value::<ExecuteRequest>(args)
                 .map_err(|_| Error::invalid("Invalid execution envelope"))
         } else {
@@ -214,9 +214,18 @@ impl ServerHandler for Server {
 mod tests {
     use super::*;
     #[test]
-    fn discovery_is_small_and_typed() {
+    fn discovery_is_small_typed_and_semwright_branded() {
         let list = tools().unwrap();
         assert_eq!(list.len(), 10);
+        assert!(
+            list.iter()
+                .any(|tool| tool.name.as_ref() == "semwright_execute")
+        );
+        assert!(
+            list.iter()
+                .any(|tool| tool.name.as_ref() == "semwright_doctor")
+        );
+        assert!(!list.iter().any(|tool| tool.name.starts_with("computer_")));
         for tool in list {
             assert_eq!(tool.input_schema.get("type"), Some(&json!("object")));
             assert!(tool.output_schema.is_some());
