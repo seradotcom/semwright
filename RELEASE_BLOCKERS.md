@@ -15,7 +15,6 @@ This remains a development snapshot and is not a release candidate.
 | R02 | EIS/libei sender transport is implemented and protocol-tested, but a real user-approved portal ConnectToEIS session is not yet certified. | Live portal-granted sessions with consent, revocation, cancellation, coordinate/focus and lifecycle evidence on supported Wayland desktops. |
 | R06 | The cross-desktop live matrix is incomplete. X11 executes under Xvfb and AT-SPI executes against real GTK/Qt fixtures, but GNOME Wayland, Plasma Wayland, Sway, Hyprland and a native desktop X11 session are not all certified. | Versioned session matrix with negative cases, focus drift, scaling/multi-monitor where available, cancellation and cleanup. |
 | R09 | Chromium has substantial real Rust integration, but download quotas, crash recovery, multi-frame races and complete artifact lifecycle still need deeper coverage. | Quota/crash/frame-race matrices with deterministic cleanup, stale refs and bounded artifacts. |
-| R10 | Driver sandboxing is executed with Bubblewrap + Landlock and scrubbed environments, but hostile plugin/driver escape coverage and stronger plugin handshake attestation remain incomplete. | Filesystem/network/process/env escape tests, schema/version digest attestation, watchdog behavior and adversarial sandbox regression jobs. |
 | R13 | Core event provenance and session-private jobs are implemented; provider progress/artifacts, MCP task mapping, negotiated driver child events/cancellation and richer inspector workflows remain incomplete. | Cross-provider progress/artifact contracts, MCP/driver task conformance and inspector/reference workflow evidence. |
 | R14 | Some outputs and availability signals remain broader/generic than the final semantic API should expose. | Tight output schemas and operation-specific probing/compatibility fixtures across representative providers. |
 | R15 | Semwright binary packaging/install/uninstall, Nix evaluation, reproducibility, SBOM/signing and publishing provenance are not fully certified. | Clean hosted artifact matrix, installation/removal tests, reproducibility receipts and release provenance. |
@@ -55,6 +54,14 @@ Closed development blocker **R12**: static/local driver distribution uses a boun
 SHA-256-pinned ELF payload, compatibility resolution and safe install/update/remove without
 install-time execution or implicit policy grants. Remote marketplace transport and cryptographic
 publisher identity are explicitly outside this closure.
+
+Closed development blocker **R10**: Plugin Protocol v2 mutually attests plugin name, version and
+complete ordered command-descriptor SHA-256 before execution. Hosted hostile plugin and
+DriverProvider fixtures execute through the production Bubblewrap + Landlock launcher and verify
+read-only/write mount boundaries, host-file/PID/loopback isolation, scrubbed environments, driver
+RLIMIT enforcement, watchdog/child cleanup and fail-closed descriptor/version mismatch handling.
+This is executed regression evidence for the configured Linux sandbox boundary, not a formal proof
+against kernel, Bubblewrap, Landlock or native-code vulnerabilities; independent review remains R16.
 
 Closed development milestones also include real deep-driver evidence for Chromium, LibreOffice,
 Blender, KiCad/MLT and OBS. These demonstrate Driver SDK generality; they do not imply complete

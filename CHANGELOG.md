@@ -8,6 +8,11 @@
   `semwright_*`; `capabilities_search` and `capabilities_describe` remain protocol-neutral.
 - New installations publish only `semwright`; the uninstaller still recognizes historical
   `computerctl` manifests so pre-1.0 installs can be removed safely.
+- Plugin Protocol v2 now mutually attests plugin name, version and the SHA-256 digest of
+  the complete command descriptors before execution. Pre-v1-release Plugin Protocol v1
+  manifests/children are rejected rather than silently accepted without schema attestation.
+- Added a hosted hostile-plugin sandbox regression matrix covering filesystem grants,
+  network/PID isolation, environment scrubbing and timeout descendant cleanup.
 
 
 ## 0.9.0-dev.1 — 2026-09-21 — source handoff, unreleased
