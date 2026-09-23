@@ -24,16 +24,16 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
 jobs:
   runtime-probe:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22.22.0'
-      - name: Resolve exact bootstrap lock (no project scripts)
+      - name: Install the committed dependency lock (no project scripts)
         working-directory: integrations/motion-canvas/runtime
-        run: npm install --package-lock-only --ignore-scripts && npm ci --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Install pinned browser on the runner only
         working-directory: integrations/motion-canvas/runtime
         run: npx --no-install playwright install --with-deps chromium
@@ -56,4 +56,40 @@ jobs:
           path: |
             integrations/motion-canvas/runtime/evidence
             integrations/motion-canvas/runtime/package-lock.json
+          retention-days: 14
+
+  domain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: motion-canvas-domain
+      - name: Compile semantic model and compiler
+        run: |
+          mkdir -p verification/motion-canvas
+          cargo check -p semwright-driver-motion-canvas --lib 2>&1 | tee verification/motion-canvas/check.log
+      - name: Domain and property tests
+        run: cargo test --locked -p semwright-driver-motion-canvas --lib 2>&1 | tee verification/motion-canvas/tests.log
+      - name: Lints
+        run: cargo clippy --locked -p semwright-driver-motion-canvas --lib -- -D warnings 2>&1 | tee verification/motion-canvas/clippy.log
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Preserve exact lock and formatting evidence
+        if: always()
+        run: |
+          mkdir -p verification/motion-canvas
+          cp Cargo.lock verification/motion-canvas/Cargo.lock
+          cargo fmt --all
+          git diff -- crates/driver-motion-canvas > verification/motion-canvas/format.patch
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: motion-canvas-domain-evidence
+          path: verification/motion-canvas
           retention-days: 14

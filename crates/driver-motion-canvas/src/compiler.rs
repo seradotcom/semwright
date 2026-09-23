@@ -1,0 +1,238 @@
+//! Deterministic TSX generation from validated semantic data.
+use crate::{Error, Result, model::*, security, validate};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
+use std::collections::BTreeMap;
+
+pub const COMPILER_VERSION: u32 = 1;
+#[derive(Debug, Clone)]
+pub struct Generated { pub files: BTreeMap<String, Vec<u8>> }
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct GeneratedFile { pub path: String, pub sha256: String, pub bytes: u64 }
+impl Generated {
+    pub fn inventory(&self) -> Vec<GeneratedFile> {
+        self.files.iter().map(|(path, bytes)| GeneratedFile {
+            path: path.clone(), sha256: security::sha256(bytes), bytes: bytes.len() as u64,
+        }).collect()
+    }
+    pub fn fingerprint(&self) -> Result<String> {
+        Ok(security::sha256(&serde_json::to_vec(&self.inventory())?))
+    }
+}
+fn class(kind: NodeKind) -> &'static str {
+    match kind {
+        NodeKind::Group => "Node", NodeKind::Layout => "Layout", NodeKind::Rect => "Rect",
+        NodeKind::Circle => "Circle", NodeKind::Line => "Line", NodeKind::Text => "Txt",
+        NodeKind::Code => "Code", NodeKind::Svg => "SVG", NodeKind::Image => "Img",
+        NodeKind::Video => "Video", NodeKind::Latex => "Latex", NodeKind::Camera => "Camera",
+    }
+}
+fn expression(value: &Value) -> Result<String> {
+    if let Value::String(s) = value { Ok(security::js_string(s)) }
+    else { Ok(serde_json::to_string(value)?) }
+}
+fn attr(out: &mut String, name: &str, value: Value) -> Result<()> {
+    out.push_str(&format!(" {name}={{{}}}", expression(&value)?));
+    Ok(())
+}
+fn easing(value: Easing) -> &'static str {
+    match value {
+        Easing::Linear => "linear", Easing::EaseInOutCubic => "easeInOutCubic",
+        Easing::EaseOutCubic => "easeOutCubic", Easing::EaseOutQuint => "easeOutQuint",
+        Easing::EaseInOutSine => "easeInOutSine", Easing::EaseOutBack => "easeOutBack",
+    }
+}
+fn signal(property: AnimatedProperty) -> &'static str {
+    use AnimatedProperty::*;
+    match property {
+        Position => "position", X => "x", Y => "y", Scale => "scale",
+        Rotation => "rotation", Opacity => "opacity", Fill => "fill", Stroke => "stroke",
+        Width => "width", Height => "height", Radius => "radius", Text | Counter => "text",
+        Code => "code", LineStart => "start", LineEnd => "end", FontSize => "fontSize",
+        LetterSpacing => "letterSpacing", CameraZoom => "zoom", CameraFocus => "centerOn",
+    }
+}
+fn language(value: Language) -> &'static str {
+    match value { Language::Javascript | Language::Typescript => "jsParser",
+        Language::Python => "pythonParser", Language::Rust => "rustParser", Language::Plain => "" }
+}
+fn animated(value: &AnimatedValue, property: AnimatedProperty, theme: &Theme) -> Result<String> {
+    if matches!(property, AnimatedProperty::Fill | AnimatedProperty::Stroke) {
+        let AnimatedValue::Text(s) = value else { return Err(Error::invalid("Expected animated color")); };
+        return Ok(security::js_string(&validate::color(s, theme)?));
+    }
+    expression(&serde_json::to_value(value)?)
+}
+fn node_source(scene: &Scene, node: &Node, project: &Project, indices: &BTreeMap<&str, usize>, assets: &BTreeMap<&str, usize>, indent: usize) -> Result<String> {
+    let p = &node.properties;
+    let index = indices[node.id.as_str()];
+    let mut out = format!("{}<{} ref={{n{index}}}", " ".repeat(indent), class(node.kind));
+    let values = serde_json::to_value(p)?;
+    for (key, value) in values.as_object().expect("property object") {
+        let mapped = match key.as_str() {
+            "position" => "position", "scale" => "scale", "rotation" => "rotation", "opacity" => "opacity",
+            "width" => "width", "height" => "height", "stroke_width" => "lineWidth", "radius" => "radius",
+            "font_family" => "fontFamily", "font_size" => "fontSize", "font_weight" => "fontWeight", "letter_spacing" => "letterSpacing",
+            "text_align" => "textAlign", "wrap" => "textWrap", "text" => "text", "code" => "code",
+            "points" => "points", "start" => "start", "end" => "end", "start_arrow" => "startArrow", "end_arrow" => "endArrow",
+            "arrow_size" => "arrowSize", "dash" => "lineDash", "svg" => "svg", "latex" => "tex", "loop_media" => "loop",
+            "playback_rate" => "playbackRate", "clip" => "clip", "zoom" => "zoom", _ => continue,
+        };
+        attr(&mut out, mapped, value.clone())?;
+    }
+    for (key, value) in [("fill", &p.fill), ("stroke", &p.stroke)] {
+        if let Some(value) = value { attr(&mut out, key, json!(validate::color(value, &project.theme)?))?; }
+    }
+    if matches!(node.kind, NodeKind::Text | NodeKind::Code) {
+        if p.font_family.is_none() { attr(&mut out, "fontFamily", json!(if node.kind == NodeKind::Code { &project.theme.mono_family } else { &project.theme.font_family }))?; }
+        if p.font_size.is_none() { attr(&mut out, "fontSize", json!(project.theme.font_size))?; }
+        if p.font_weight.is_none() { attr(&mut out, "fontWeight", json!(project.theme.font_weight))?; }
+        if p.fill.is_none() { attr(&mut out, "fill", json!(project.theme.colors["ink"]))?; }
+        if let Some(v) = p.line_height { attr(&mut out, "lineHeight", json!(v * p.font_size.unwrap_or(project.theme.font_size)))?; }
+    }
+    if let Some(selection) = &p.selection {
+        let selection = match selection {
+            CodeSelection::Lines { start, end } => format!("lines({start},{end})"),
+            CodeSelection::Word { line, start, length } => format!("word({line},{start},{length})"),
+        };
+        out.push_str(&format!(" selection={{{selection}}}"));
+    }
+    if let Some(lang) = p.language.filter(|l| *l != Language::Plain) {
+        out.push_str(&format!(" highlighter={{new LezerHighlighter({})}}", language(lang)));
+    }
+    if let Some(l) = &p.layout {
+        attr(&mut out, "layout", json!(true))?;
+        attr(&mut out, "direction", json!(match l.direction { LayoutDirection::Row => "row", LayoutDirection::Column => "column" }))?;
+        attr(&mut out, "gap", json!(l.gap))?;
+        attr(&mut out, "padding", json!(l.padding))?;
+        attr(&mut out, "alignItems", json!(match l.align { Align::Start => "start", Align::Center => "center", Align::End => "end", Align::Stretch => "stretch" }))?;
+        attr(&mut out, "justifyContent", json!(match l.justify { Justify::Start => "start", Justify::Center => "center", Justify::End => "end", Justify::SpaceBetween => "space-between", Justify::SpaceAround => "space-around" }))?;
+        attr(&mut out, "grow", json!(l.grow))?;
+        if let Some(v) = l.basis { attr(&mut out, "basis", json!(v))?; }
+    }
+    if let Some(edge) = &p.edge {
+        let a = indices[edge.from.as_str()];
+        let b = indices[edge.to.as_str()];
+        out.push_str(&format!(" points={{() => [n{a}().position(), n{b}().position()]}}"));
+    }
+    if let Some(id) = &p.asset {
+        let asset = assets[id.as_str()];
+        out.push_str(&format!(" {}={{a{asset}}}", if node.kind == NodeKind::Svg { "svg" } else { "src" }));
+    }
+    if node.kind == NodeKind::Video {
+        out.push_str(" play={true}");
+        if let Some(offset) = p.media_offset_ms { out.push_str(&format!(" time={{{}}}", validate::seconds(offset))); }
+    }
+    let children = scene.nodes.iter().filter(|n| n.parent.as_deref() == Some(node.id.as_str())).collect::<Vec<_>>();
+    if children.is_empty() { out.push_str(" />\n"); } else {
+        out.push_str(">\n");
+        for child in children { out.push_str(&node_source(scene, child, project, indices, assets, indent + 2)?); }
+        out.push_str(&format!("{}</{}>\n", " ".repeat(indent), class(node.kind)));
+    }
+    Ok(out)
+}
+fn scene_source(scene: &Scene, project: &Project) -> Result<String> {
+    let indices = scene.nodes.iter().enumerate().map(|(i, n)| (n.id.as_str(), i)).collect::<BTreeMap<_, _>>();
+    let assets = project.assets.iter().enumerate().map(|(i, a)| (a.id.as_str(), i)).collect::<BTreeMap<_, _>>();
+    let mut out = String::from("// Generated by Semwright motion compiler v1. Edit semwright-motion.json.\n");
+    out.push_str("import {makeScene2D,Node,Layout,Rect,Circle,Line,Txt,Code,SVG,Img,Video,Latex,Camera,LezerHighlighter,lines,word} from '@motion-canvas/2d';\n");
+    out.push_str("import {all,delay,waitFor,createRef,linear,easeInOutCubic,easeOutCubic,easeOutQuint,easeInOutSine,easeOutBack,tween,lerp,fadeTransition,slideTransition,Direction} from '@motion-canvas/core';\n");
+    out.push_str("import {parser as jsParser} from '@lezer/javascript';\nimport {parser as pythonParser} from '@lezer/python';\nimport {parser as rustParser} from '@lezer/rust';\n");
+    for (index, asset) in project.assets.iter().enumerate() {
+        let query = if asset.kind == AssetKind::Svg { "raw" } else { "url" };
+        out.push_str(&format!("import a{index} from {};\n", security::js_string(&format!("../../{}?{query}", asset.path))));
+    }
+    out.push_str("export default makeScene2D(function* (view) {\n");
+    for (index, node) in scene.nodes.iter().enumerate() {
+        out.push_str(&format!("  const n{index} = createRef<{}>();\n", class(node.kind)));
+    }
+    out.push_str("  view.add(<>\n");
+    for node in scene.nodes.iter().filter(|n| n.parent.is_none()) {
+        out.push_str(&node_source(scene, node, project, &indices, &assets, 4)?);
+    }
+    out.push_str("  </>);\n  yield* all(\n");
+    out.push_str(&format!("    waitFor({}),\n", validate::seconds(scene.duration_ms)));
+    if let Some(t) = &scene.transition {
+        let duration = validate::seconds(t.duration_ms);
+        let expr = match t.kind {
+            TransitionKind::Fade => format!("fadeTransition({duration})"),
+            TransitionKind::SlideLeft => format!("slideTransition(Direction.Left,{duration})"),
+            TransitionKind::SlideRight => format!("slideTransition(Direction.Right,{duration})"),
+            TransitionKind::SlideUp => format!("slideTransition(Direction.Top,{duration})"),
+            TransitionKind::SlideDown => format!("slideTransition(Direction.Bottom,{duration})"),
+        };
+        out.push_str(&format!("    {expr},\n"));
+    }
+    for animation in &scene.animations {
+        let (start, end) = validate::animation_times(scene, animation)?;
+        let target = indices[animation.target.as_str()];
+        let property = signal(animation.property);
+        let duration = validate::seconds(end - start);
+        let timing = easing(animation.easing);
+        out.push_str(&format!("    delay({}, (function* () {{\n", validate::seconds(start)));
+        match animation.property {
+            AnimatedProperty::CameraFocus => {
+                let AnimatedValue::Text(id) = &animation.to else {
+                    return Err(Error::invalid("Camera focus target must be a node id"));
+                };
+                out.push_str(&format!("      yield* n{target}().centerOn(n{}(),{duration},{timing});\n", indices[id.as_str()]));
+            }
+            AnimatedProperty::Counter => {
+                let default_from = AnimatedValue::Number(0.0);
+                let from = animation.from.as_ref().unwrap_or(&default_from);
+                out.push_str(&format!("      yield* tween({duration}, v => n{target}().text(Math.round(lerp({},{},{timing}(v))).toString()));\n", animated(from, animation.property, &project.theme)?, animated(&animation.to, animation.property, &project.theme)?));
+            }
+            _ => {
+                if let Some(from) = &animation.from {
+                    out.push_str(&format!("      n{target}().{property}({});\n", animated(from, animation.property, &project.theme)?));
+                }
+                out.push_str(&format!("      yield* n{target}().{property}({},{duration},{timing});\n", animated(&animation.to, animation.property, &project.theme)?));
+            }
+        }
+        out.push_str("    })()),\n");
+    }
+    out.push_str("  );\n});\n");
+    Ok(out)
+}
+pub fn compile(project: &Project) -> Result<Generated> {
+    validate::project_valid(project)?;
+    let mut files = BTreeMap::new();
+    let mut source = String::from("// Generated by Semwright motion compiler v1.\nimport {makeProject} from '@motion-canvas/core';\n");
+    for (i, scene) in project.scenes.iter().enumerate() {
+        source.push_str(&format!("import s{i} from {};\n", security::js_string(&format!("./scenes/{}?scene", scene.id))));
+        files.insert(format!("src/scenes/{}.tsx", scene.id), scene_source(scene, project)?.into_bytes());
+        files.insert(format!("src/scenes/{}.meta", scene.id), b"{}\n".to_vec());
+    }
+    if let Some(audio) = project.audio.first() {
+        let asset = project.assets.iter().find(|a| a.id == audio.asset).ok_or_else(|| Error::invalid("Missing audio asset"))?;
+        source.push_str(&format!("import audio from {};\n", security::js_string(&format!("../{}?url", asset.path))));
+    }
+    source.push_str(&format!("export default makeProject({{name:{},scenes:[{}]{} }});\n", security::js_string(&project.id),
+        (0..project.scenes.len()).map(|i| format!("s{i}")).collect::<Vec<_>>().join(","), if project.audio.is_empty() { "" } else { ",audio" }));
+    files.insert("src/project.ts".into(), source.into_bytes());
+    files.insert("src/project.meta".into(), serde_json::to_vec_pretty(&json!({"version":0,
+        "shared":{"size":[project.settings.width,project.settings.height],"background":project.settings.background,
+            "colorSpace":match project.settings.color_space { ColorSpace::Srgb => "srgb", ColorSpace::DisplayP3 => "display-p3" },
+            "audioOffset":project.audio.first().map_or(0.0, |a| a.offset_ms as f64 / 1000.0)},
+        "preview":{"fps":project.settings.fps,"resolutionScale":1},
+        "rendering":{"fps":project.settings.fps,"resolutionScale":1}}))?);
+    files.insert("src/modules.d.ts".into(), b"declare module '*?scene' { const scene: import('@motion-canvas/core').FullSceneDescription; export default scene; }\ndeclare module '*?url' { const url: string; export default url; }\ndeclare module '*?raw' { const text: string; export default text; }\n".to_vec());
+    files.insert("tsconfig.json".into(), serde_json::to_vec_pretty(&json!({"compilerOptions":{
+        "target":"ES2022","module":"ESNext","moduleResolution":"Bundler","strict":true,"skipLibCheck":true,
+        "jsx":"react-jsx","jsxImportSource":"@motion-canvas/2d/lib","allowSyntheticDefaultImports":true,
+        "resolveJsonModule":true},"include":["src"]}))?);
+    files.insert("vite.config.ts".into(), b"import {defineConfig} from 'vite';\nimport motionCanvas from '@motion-canvas/vite-plugin';\nexport default defineConfig({plugins:[motionCanvas({project:'./src/project.ts'})]});\n".to_vec());
+    let mut package: Value = serde_json::from_str(include_str!("../../../integrations/motion-canvas/runtime/package.json"))?;
+    package["scripts"] = json!({"typecheck":"tsc --noEmit","build":"vite build","serve":"vite --host 127.0.0.1"});
+    files.insert("package.json".into(), serde_json::to_vec_pretty(&package)?);
+    files.insert("package-lock.json".into(), include_bytes!("../../../integrations/motion-canvas/runtime/package-lock.json").to_vec());
+    files.insert("semwright-compiler.json".into(), serde_json::to_vec_pretty(&json!({
+        "schema_version":1,"compiler_version":COMPILER_VERSION,"motion_canvas_version":MOTION_CANVAS_VERSION,
+        "semantic_sha256":security::sha256(&serde_json::to_vec(project)?)}))?);
+    if files.values().map(Vec::len).sum::<usize>() > 8_388_608 {
+        return Err(Error::invalid("Generated source exceeds byte budget"));
+    }
+    Ok(Generated { files })
+}
