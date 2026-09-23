@@ -110,7 +110,13 @@ codesign/notarization and live multi-display acceptance as `NOT_RUN`.
 A follow-up closeout found a Swift concurrency warning in the capture picker caused by
 capturing the non-Sendable `SWRequest` in a timer closure. The closeout patch captures
 only the immutable request ID and checks cancellation through `CancellationRegistry`.
-That change requires a fresh native macOS CI run before this warning can be considered closed.
+
+Closeout workflow run `35817562324` validated that patch on the exact integration branch:
+Linux regression, ARM64 macOS (job `107042263252`) and Intel macOS
+(job `107042263460`) all completed SUCCESS. Both macOS native smokes remained PASS, and
+the full logs contain neither the previous `non-Sendable` warning nor
+`warning: capture of ... SWRequest`. Live TCC-dependent acceptance remains outside this
+hosted-CI evidence boundary.
 
 ## Still not certified
 
