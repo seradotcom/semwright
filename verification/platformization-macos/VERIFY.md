@@ -77,15 +77,32 @@ The Linux Driver Host still executes through bubblewrap + Landlock. Real driver 
 
 ## Native macOS evidence
 
-Native ARM64 and Intel jobs are defined in `.github/workflows/platformization-macos.yml`. They are required to:
+Platformization was integrated by PR #29 at head `411414b4682f3de0b2fb8ce5535e029ebc1156a1`
+and merged as `70c409fc619411b6ecb5fb3f723e27d00cac634e`. Workflow run
+`35815672055` passed the native Apple-SDK matrix on both architectures:
 
-- compile the macOS-capable workspace against a real Apple SDK, explicitly excluding the currently Linux-only `semwright-mlt-video-driver`;
-- compile/link the Swift/C native host bridge;
-- run native platform contract tests;
-- link the daemon and frontends;
-- execute the noninteractive native smoke.
+- ARM64 / `macos-15`, job `107036553094`: PASS.
+- Intel x86_64 / `macos-15-intel`, job `107036552873`: PASS.
 
-This section must be updated with exact run URLs/results after the branch is pushed.
+Both jobs cross-checked portable contracts, compiled the macOS-capable workspace against the
+native SDK, ran platform contract tests, linked the daemon/frontends and executed the
+noninteractive native smoke.
+
+Closeout PR #34 at `02a0650b3875f9518a1b3e6a821d2f8dea061b9f` then removed a Swift
+concurrency warning without using unchecked Sendable and made native Swift warnings fatal.
+Workflow run `35817231070` again passed Linux regression plus ARM64 job `107041259302`
+and Intel job `107041259454`. Both captured macOS logs contain no `warning:` or
+`error:` diagnostics and report:
+
+```json
+{"native_smoke":"PASS","unique_pasteboard":true,"workspace":true,"getpeereid":true,"live_ax":"NOT_RUN","capture":"NOT_RUN"}
+```
+
+The general ARM64 quality matrix also exposed an intermittent Federation discovery race:
+dynamic catalog replacement may intentionally return `Conflict` while availability is being
+probed. A same-SHA rerun passed that workspace test gate. The closeout branch therefore makes
+the polling test follow the public contract and retry only `ErrorCode::Conflict`; all other
+errors still fail.
 
 ## Still not certified
 

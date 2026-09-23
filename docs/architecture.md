@@ -25,7 +25,7 @@ computerctl / semwright-mcp / semwright-inspect
         OS / applications
 ```
 
-Linux is the currently verified host. The macOS host foundation is experimental: source and cross-platform contracts are present, but Apple-framework linking, TCC behaviour and live desktop automation require native evidence before support is claimed.
+Linux is the currently verified live host. The macOS host foundation is experimental: native ARM64 and Intel CI compile/link the Apple-framework bridge and pass noninteractive smoke, while TCC behaviour and live desktop automation still require an authorized interactive Mac before support is claimed.
 
 ## Platform boundary
 
