@@ -1,0 +1,32 @@
+{
+  "manifest_version": 1,
+  "protocol": 1,
+  "id": "obs",
+  "version": "0.9.0-dev.1",
+  "publisher": "owner-reviewed",
+  "executable": "<ABSOLUTE_RELEASE_ELF_PATH>",
+  "sha256": "<COMPUTE_FROM_INSTALLED_ELF>",
+  "application": {
+    "desktop_id": "com.obsproject.Studio",
+    "process_names": ["obs"],
+    "supported_versions": []
+  },
+  "transport": "stdio_v1",
+  "mounts": [],
+  "system_config": [],
+  "network": true,
+  "resources": {
+    "open_files": 128,
+    "processes": 32,
+    "cpu_seconds": 300,
+    "address_space_bytes": 536870912,
+    "file_size_bytes": 16777216
+  },
+  "request_timeout_ms": 30000,
+  "interfaces": {
+    "dynamic_capabilities": false,
+    "cooperative_cancellation": false,
+    "events": false,
+    "health": true
+  }
+}
