@@ -462,7 +462,8 @@ jobs:
           chmod 700 "$RUNNER_TEMP/atspi-runtime"
           zenity --version | tee verification/native-ci/zenity-version.log
           pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
-          g++ -std=c++17 -O2 -fPIC crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
+          g++ -std=c++17 -O0 -g -fno-omit-frame-pointer -rdynamic -fPIC \
+            crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
             -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets Qt6DBus)
           chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
           file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log

@@ -7,9 +7,25 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <csignal>
+#include <execinfo.h>
 #include <iostream>
+#include <unistd.h>
+
+namespace {
+void crash_handler(int signal_number) {
+    static constexpr char marker[] = "qt_fixture_fatal_signal\n";
+    (void)!write(STDERR_FILENO, marker, sizeof(marker) - 1);
+    void *frames[64];
+    const int count = backtrace(frames, 64);
+    backtrace_symbols_fd(frames, count, STDERR_FILENO);
+    _exit(128 + signal_number);
+}
+} // namespace
 
 int main(int argc, char **argv) {
+    std::signal(SIGSEGV, crash_handler);
+    std::signal(SIGABRT, crash_handler);
     QCoreApplication::setApplicationName("SemwrightQtFixture");
     QApplication app(argc, argv);
     QApplication::setApplicationDisplayName("Semwright Qt AT-SPI Fixture");
