@@ -14,8 +14,8 @@ and above their native project/runtime layers.
                       |
                       v
             semwright-video-domain
-       model / edit / time / refs / diff
-                 / conformance
+    model / edit / render / time / refs
+             diff / conformance
                       |
           +-----------+-----------+
           |                       |
@@ -32,7 +32,8 @@ and above their native project/runtime layers.
 Version 1 contains the common NLE concepts already demonstrated by the current backend:
 `Project`, `Profile`, `MediaAsset`, `Sequence`, `Track`, `Timeline`, `Clip`,
 `Transition`, `Effect`, `Keyframe`, `Marker`, `SubtitleReference`, rational
-`FrameRate` and half-open `FrameRange`.
+`FrameRate`, half-open `FrameRange`, and backend-neutral `RenderIntent` /
+`RenderPreset` export contracts.
 
 The shared edit engine currently covers project/profile, sequence creation, asset import/relink,
 track lifecycle/state/order, clip insert/move/trim/split/remove/duplicate, transitions, effects,
@@ -46,6 +47,12 @@ internally so support matrices cannot drift through ad-hoc strings.
 A concrete driver remains free to expose additional native read-only information or
 application-specific capabilities. A second backend must map equivalent mutations to the
 existing `VideoOperation` value rather than inventing a backend-specific synonym.
+
+Render/export is also semantic at the planning boundary. `RenderPreset` carries stable codec
+and container identities, optional dimensions and no executable/path information. `RenderIntent`
+binds a sequence and exact frame range to that preset. Backend encoder names and process flags
+stay private; for example the MLT backend maps its native `libx264` encoder to semantic `h264`.
+The intent digest is bound to the normalized project so render planning drift can fail closed.
 
 ## Native envelope rule
 
@@ -106,6 +113,8 @@ A future video backend should:
 - project unsupported or unknown structures conservatively;
 - never turn loss of fidelity into an editable semantic approximation;
 - use native revisions for optimistic concurrency when available;
+- map native export presets into the shared render contract without leaking encoder details;
+- validate semantic render intent before native render work begins;
 - run the shared differential conformance gate before native publication;
 - retain independent real-application/round-trip tests;
 - extend the shared model only for concepts demonstrated to be cross-backend.
@@ -116,9 +125,9 @@ backend-specific fields into generic types.
 
 ## Verification
 
-The domain is included in normal Cargo workspace quality gates. Its model and edit engine also
-have dedicated bounded libFuzzer targets. The security workflow runs those targets alongside
-the core protocol/path/plugin/recipe fuzzers with the pinned nightly toolchain.
+The domain is included in normal Cargo workspace quality gates. Its model, edit engine and
+render contract have dedicated bounded libFuzzer targets. The security workflow runs those
+targets alongside the core protocol/path/plugin/recipe fuzzers with the pinned nightly toolchain.
 
 The MLT driver's existing round-trip, security, property, conformance and edit-engine suites
 remain in place; its native live test still requires the external real MLT toolchain and

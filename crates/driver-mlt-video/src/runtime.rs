@@ -831,6 +831,27 @@ impl RenderProfile {
             },
         ]
     }
+
+    /// Project this backend profile into the shared semantic render contract.
+    /// Native encoder names stay private to this driver.
+    pub fn semantic(&self) -> semwright_video_domain::render::RenderPreset {
+        semwright_video_domain::render::RenderPreset {
+            id: self.id.to_owned(),
+            width: self.width,
+            height: self.height,
+            video_codec: self.video_codec.map(|codec| {
+                if codec == "libx264" {
+                    "h264".to_owned()
+                } else {
+                    codec.to_owned()
+                }
+            }),
+            audio_codec: Some(self.audio_codec.to_owned()),
+            container: self.container.to_owned(),
+            extension: self.extension.to_owned(),
+        }
+    }
+
     pub fn get(id: &str) -> Result<Self> {
         Self::all()
             .into_iter()

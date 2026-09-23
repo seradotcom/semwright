@@ -17,6 +17,13 @@ created/affected identities and durations must match exactly or the operation fa
 Native XML bindings, service metadata and Kdenlive/Shotcut round-trip state remain private to
 this driver.
 
+Render planning follows the same boundary. Native encoder/runtime details such as `libx264`,
+`melt`, service discovery, process supervision and output publication stay here, while the
+driver projects each curated native render profile into the shared `RenderPreset` contract
+(for example `libx264` becomes semantic `h264`). `render.plan` validates a shared
+`RenderIntent` against the projected project before native preflight, so a future video backend
+can share export intent without emulating MLT.
+
 The production binary uses `semwright-driver-sdk`; `fake-melt` is compiled only with the
 `test-tools` feature. A real render runtime additionally requires an owner-provided read-only
 `runtime/runtime.json` containing exact SHA-256 pins for `melt`, `ffprobe` and `bwrap`.
