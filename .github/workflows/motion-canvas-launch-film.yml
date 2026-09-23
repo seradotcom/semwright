@@ -61,7 +61,9 @@ jobs:
           mkdir -p .semwright-tools
           cp "$(command -v node)" .semwright-tools/node
           chmod 0755 .semwright-tools/node
-          BROWSER=$(node --input-type=module -e "import {chromium} from 'playwright'; process.stdout.write(chromium.executablePath())")
+          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell' -type f -perm -111 -print)
+          test "${#BROWSERS[@]}" -eq 1
+          BROWSER="${BROWSERS[0]}"
           BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
           NODE_SHA=$(sha256sum .semwright-tools/node | awk '{print $1}')
           HELPER_SHA=$(sha256sum render.mjs | awk '{print $1}')

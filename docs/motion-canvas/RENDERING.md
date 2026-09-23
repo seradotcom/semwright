@@ -13,7 +13,7 @@ The Vite plugin is configured with the documented project import path `./src/pro
 1. Rust validates `semwright-motion.json` and a bounded RenderProfile.
 2. Deterministic generated source is materialized in a content-addressed project tree.
 3. Driver Host supplies an owner-approved read-only runtime mount.
-4. Rust verifies SHA-256 pins for Node, `render.mjs` and Chromium.
+4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Chrome Headless Shell executable.
 5. A render job starts the pinned Node helper only inside the Driver Host sandbox.
    Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` so Vite/Undici remain compatible with the existing 4 GiB Driver Host address-space ceiling instead of raising that generic limit.
 6. The helper copies the generated project to a private temporary directory and runs a Vite build with an absolute project entry.
@@ -30,7 +30,7 @@ The Rust job owns a new process group. Cancellation or timeout terminates the gr
 
 ## Chromium sandbox layering
 
-GitHub Ubuntu 24.04 rejects Chromium's nested user-namespace sandbox. The helper therefore permits `chromiumSandbox:false` only when it inherits `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1`. That marker is created by the Driver Host path, not by an agent request. The outer Bubblewrap + Landlock sandbox remains active and the driver manifest has `network=false`.
+GitHub Ubuntu 24.04 rejects Chromium's nested user-namespace sandbox. The CI/runtime package therefore selects the exact Playwright-installed Chrome Headless Shell (not an ambient system browser), requires exactly one matching executable and pins its SHA-256 before Driver Host launch. The helper therefore permits `chromiumSandbox:false` only when it inherits `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1`. That marker is created by the Driver Host path, not by an agent request. The outer Bubblewrap + Landlock sandbox remains active and the driver manifest has `network=false`.
 
 Running `render.mjs` directly outside that boundary fails closed.
 
