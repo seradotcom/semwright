@@ -35,8 +35,8 @@ int main(int argc, char **argv) {
     window.show();
 
     // Let Qt initialize and publish its accessibility bridge through its normal
-    // platform path. The harness toggles org.a11y.Status after startup so older Qt
-    // releases cannot lose the initial enabledChanged notification during construction.
+    // platform path. The harness leaves org.a11y.Bus dormant until this process is
+    // running, so service registration occurs after Qt installs its bridge handlers.
     QTimer::singleShot(250, [&app, &window]() {
         auto *app_root = QAccessible::queryAccessibleInterface(&app);
         auto *window_root = QAccessible::queryAccessibleInterface(&window);

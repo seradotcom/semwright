@@ -20,35 +20,44 @@ fi
 cd "$ROOT"
 mkdir -p verification/native-ci
 
-gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-  --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled "<true>" >/dev/null
-gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-  --method org.freedesktop.DBus.Properties.Set org.a11y.Status ScreenReaderEnabled "<true>" >/dev/null
-raw_address=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-  --method org.a11y.Bus.GetAddress)
-AT_SPI_BUS_ADDRESS=${raw_address:2:${#raw_address}-5}
-[[ "$AT_SPI_BUS_ADDRESS" == unix:* ]]
-export AT_SPI_BUS_ADDRESS
+if [[ "$PHASE" == gtk ]]; then
+  gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+    --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled "<true>" >/dev/null
+  gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+    --method org.freedesktop.DBus.Properties.Set org.a11y.Status ScreenReaderEnabled "<true>" >/dev/null
+  raw_address=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+    --method org.a11y.Bus.GetAddress)
+  AT_SPI_BUS_ADDRESS=${raw_address:2:${#raw_address}-5}
+  [[ "$AT_SPI_BUS_ADDRESS" == unix:* ]]
+  export AT_SPI_BUS_ADDRESS
 
-printf "%s_AT_SPI_BUS_ADDRESS=%s\n" "$PHASE" "$AT_SPI_BUS_ADDRESS" \
-  | sed -E "s/guid=[^, ]+/guid=<redacted>/" \
-  | tee -a verification/native-ci/atspi-address.log
+  printf "%s_AT_SPI_BUS_ADDRESS=%s\n" "$PHASE" "$AT_SPI_BUS_ADDRESS" \
+    | sed -E "s/guid=[^, ]+/guid=<redacted>/" \
+    | tee -a verification/native-ci/atspi-address.log
 
-registry_ready=0
-for _ in $(seq 1 100); do
-  if timeout 2s gdbus call --address "$AT_SPI_BUS_ADDRESS" \
-    --dest org.a11y.atspi.Registry \
-    --object-path /org/a11y/atspi/registry \
-    --method org.a11y.atspi.Registry.GetRegisteredEvents \
-    > "verification/native-ci/atspi-${PHASE}-registry.log" 2>&1; then
-    registry_ready=1
-    break
-  fi
-  sleep 0.1
-done
-cat "verification/native-ci/atspi-${PHASE}-registry.log"
-test "$registry_ready" -eq 1
-echo "phase=${PHASE}_registry_ready" | tee -a verification/native-ci/atspi-phases.log
+  registry_ready=0
+  for _ in $(seq 1 100); do
+    if timeout 2s gdbus call --address "$AT_SPI_BUS_ADDRESS" \
+      --dest org.a11y.atspi.Registry \
+      --object-path /org/a11y/atspi/registry \
+      --method org.a11y.atspi.Registry.GetRegisteredEvents \
+      > "verification/native-ci/atspi-${PHASE}-registry.log" 2>&1; then
+      registry_ready=1
+      break
+    fi
+    sleep 0.1
+  done
+  cat "verification/native-ci/atspi-${PHASE}-registry.log"
+  test "$registry_ready" -eq 1
+  echo "phase=${PHASE}_registry_ready" | tee -a verification/native-ci/atspi-phases.log
+else
+  # Leave org.a11y.Bus dormant until the Qt child has installed its service
+  # watcher. Semwright's first app.list auto-activates the bus, exercising
+  # Qt's normal serviceRegistered -> checkEnabledState -> registerApplication path.
+  unset AT_SPI_BUS_ADDRESS
+  xprop -root -remove AT_SPI_BUS 2>/dev/null || true
+  echo "phase=qt_bus_deferred" | tee -a verification/native-ci/atspi-phases.log
+fi
 case "$PHASE" in
   gtk)
     test_name=live_atspi_gtk_delta_resync_and_stale_refs
@@ -56,36 +65,6 @@ case "$PHASE" in
   qt)
     : "${SEMWRIGHT_TEST_QT_FIXTURE:?SEMWRIGHT_TEST_QT_FIXTURE is required for qt}"
     export SEMWRIGHT_TEST_QT_PLATFORM=${SEMWRIGHT_TEST_QT_PLATFORM:-xcb}
-    # Qt 6.4 can lose the initial enabledChanged transition while constructing
-    # QAtSpiDBusConnection. Exercise the normal runtime activation path instead:
-    # start disabled, let the Qt child install its bridge signal handlers, then
-    # publish the same org.a11y.Status transition a screen reader would cause.
-    unset AT_SPI_BUS_ADDRESS
-    xprop -root -remove AT_SPI_BUS
-    gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-      --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled "<false>" >/dev/null
-    gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-      --method org.freedesktop.DBus.Properties.Set org.a11y.Status ScreenReaderEnabled "<false>" >/dev/null
-    (
-      reactivated=0
-      for _ in $(seq 1 100); do
-        qt_pid=$(pgrep -n -x atspi-qt-fixtur || true)
-        if [[ -n "$qt_pid" ]]; then
-          sleep 0.2
-          gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-            --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled "<true>" >/dev/null
-          gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-            --method org.freedesktop.DBus.Properties.Set org.a11y.Status ScreenReaderEnabled "<true>" >/dev/null
-          echo "phase=qt_accessibility_reactivated pid=$qt_pid" \
-            | tee verification/native-ci/qt-activation.log
-          reactivated=1
-          break
-        fi
-        sleep 0.05
-      done
-      test "$reactivated" -eq 1
-    ) &
-    activation_pid=$!
     test_name=live_atspi_qt_delta_resync_and_stale_refs
     ;;
 esac
@@ -97,13 +76,6 @@ timeout --signal=TERM --kill-after=5s 90s \
     -- --ignored --nocapture --test-threads=1 \
   > "verification/native-ci/atspi-${PHASE}.log" 2>&1 || rc=$?
 cat "verification/native-ci/atspi-${PHASE}.log"
-if [[ "$PHASE" == qt ]]; then
-  if ! wait "$activation_pid"; then
-    echo "phase=qt_activation_failed" | tee -a verification/native-ci/atspi-phases.log
-    rc=1
-  fi
-  cat verification/native-ci/qt-activation.log 2>/dev/null || true
-fi
 if [[ "$rc" -ne 0 ]]; then
   echo "phase=${PHASE}_failed rc=$rc" | tee -a verification/native-ci/atspi-phases.log
   exit "$rc"

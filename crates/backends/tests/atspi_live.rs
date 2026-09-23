@@ -196,7 +196,7 @@ async fn live_atspi_qt_delta_resync_and_stale_refs() {
     let platform = std::env::var("SEMWRIGHT_TEST_QT_PLATFORM").unwrap_or_else(|_| "xcb".into());
     let child = tokio::process::Command::new(fixture)
         .env("QT_ACCESSIBILITY", "1")
-        .env_remove("QT_LINUX_ACCESSIBILITY_ALWAYS_ON")
+        .env("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1")
         .env_remove("NO_AT_BRIDGE")
         .env(
             "QT_LOGGING_RULES",
