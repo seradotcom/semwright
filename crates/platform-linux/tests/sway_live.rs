@@ -4,7 +4,7 @@ use semwright_backend_api::{Backend, Context};
 use semwright_platform_linux::sway::Sway;
 use semwright_types::{CapabilityStatus, ErrorCode, NativeTarget};
 use serde_json::{Value, json};
-use std::{os::unix::fs::FileTypeExt, time::Duration};
+use std::{os::unix::fs::FileTypeExt, process::Stdio, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 fn context() -> Context {
@@ -57,6 +57,14 @@ async fn real_sway_window_lifecycle_uses_native_ipc() {
 
     let mut child = tokio::process::Command::new("/usr/bin/zenity")
         .env("GDK_BACKEND", "wayland")
+        // Headless wlroots has no GPU. Force GTK4 onto its software renderer so
+        // the fixture exercises Sway IPC instead of failing in EGL/Zink setup.
+        .env("GSK_RENDERER", "cairo")
+        .env("LIBGL_ALWAYS_SOFTWARE", "1")
+        // A panic must not leave the GUI process holding the Actions tee pipe.
+        .kill_on_drop(true)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .args([
             "--entry",
             "--title=Semwright Sway Fixture",
