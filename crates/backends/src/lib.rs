@@ -2,6 +2,7 @@
 pub mod atspi;
 pub mod bridge;
 pub mod clipboard;
+pub mod eis;
 pub mod fake;
 pub mod filesystem;
 pub mod hyprland;

@@ -22,6 +22,7 @@ serde.workspace = true
 serde_json.workspace = true
 zbus.workspace = true
 futures-util.workspace = true
+reis.workspace = true
 x11rb.workspace = true
 libc.workspace = true
 uuid.workspace = true
@@ -30,3 +31,4 @@ url.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 tempfile.workspace = true
+calloop.workspace = true
