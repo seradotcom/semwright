@@ -488,7 +488,7 @@ jobs:
             at-spi2-core dbus-daemon dbus-x11 glib2 \
             gcc-c++ file pkgconf-pkg-config \
             qt6-qtbase-devel \
-            xorg-x11-server-Xvfb xorg-x11-xauth xorg-x11-utils
+            xorg-x11-server-Xvfb xorg-x11-xauth xdpyinfo
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
           chmod 700 "$RUNNER_TEMP/atspi-qt"
           pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
