@@ -1,0 +1,103 @@
+name: macOS platform verification
+defaults:
+  run:
+    shell: bash
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: macos-platform-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  darwin:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            native: aarch64-apple-darwin
+            other: x86_64-apple-darwin
+          - runner: macos-15-intel
+            native: x86_64-apple-darwin
+            other: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: macos-platform-${{ matrix.native }}
+      - name: Record native Apple environment
+        run: |
+          set -euo pipefail
+          sw_vers
+          uname -a
+          uname -m
+          xcodebuild -version
+          xcrun --show-sdk-path
+          swiftc --version
+          rustc --version
+          cargo --version
+          rustup target add '${{ matrix.native }}' '${{ matrix.other }}'
+      - name: Check cross-architecture portable surface
+        run: |
+          set -euo pipefail
+          cargo check --locked --target '${{ matrix.other }}' \
+            -p semwright-types -p semwright-protocol \
+            -p semwright-backend-api -p semwright-platform-api \
+            -p semwright-registry -p semwright-policy \
+            -p semwright-recipes -p semwright-core \
+            -p semwright-federation -p semwright-driver-sdk \
+            -p semwright-driver-host -p semwright-plugin-host
+      - name: Native formatting and workspace check
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo check --locked --workspace --all-targets --all-features
+      - name: Native Clippy
+        run: |
+          set -euo pipefail
+          cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - name: Native workspace tests
+        run: |
+          set -euo pipefail
+          cargo test --locked --workspace --all-targets --all-features
+          cargo test --locked --workspace --all-features --doc
+      - name: Link macOS host and frontends
+        run: |
+          set -euo pipefail
+          cargo build --locked --release \
+            -p semwright-daemon -p semwright-cli -p semwright-mcp \
+            -p semwright-driver-host -p semwright-plugin-host
+      - name: Native Swift and public-framework smoke
+        run: |
+          set -euo pipefail
+          bash platforms/macos/tests/run-native-smoke.sh
+      - name: Explicit live-verification boundary
+        run: |
+          set -euo pipefail
+          {
+            echo 'Hosted CI verified compilation/linking and noninteractive native smoke.'
+            echo 'NOT_RUN: interactive AX authorization and real app actions.'
+            echo 'NOT_RUN: Screen Recording consent/capture acceptance.'
+            echo 'NOT_RUN: CGEvent actions against user applications.'
+            echo 'NOT_RUN: installed service, Developer ID signing, notarization.'
+          } | tee macos-live-boundary.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: macos-platform-${{ matrix.native }}-evidence
+          path: macos-live-boundary.txt
+          retention-days: 14
