@@ -659,7 +659,16 @@ jobs:
           sway --unsupported-gpu --config "$RUNNER_TEMP/sway-config" --debug \
             > verification/native-ci/sway.log 2>&1 &
           sway_pid=$!
-          trap 'kill "$sway_pid" 2>/dev/null || true; wait "$sway_pid" 2>/dev/null || true' EXIT
+          cleanup_sway() {
+            kill -TERM "$sway_pid" 2>/dev/null || true
+            for _ in $(seq 1 50); do
+              kill -0 "$sway_pid" 2>/dev/null || break
+              sleep 0.05
+            done
+            kill -KILL "$sway_pid" 2>/dev/null || true
+            wait "$sway_pid" 2>/dev/null || true
+          }
+          trap cleanup_sway EXIT
           for _ in $(seq 1 160); do
             SWAYSOCK=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'sway-ipc.*.sock' -print -quit)
             WAYLAND_DISPLAY=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' -quit)
