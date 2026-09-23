@@ -625,3 +625,79 @@ jobs:
           name: real-atspi-qt-evidence
           path: verification/native-ci
           retention-days: 14
+
+  sway-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: sway-live
+      - name: Install real headless Sway fixture
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            sway zenity dbus-x11 libpipewire-0.3-dev
+          mkdir -p verification/native-ci "$RUNNER_TEMP/sway-runtime"
+          chmod 700 "$RUNNER_TEMP/sway-runtime"
+          sway --version | tee verification/native-ci/sway-version.log
+      - name: Real Sway IPC window lifecycle
+        env:
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/sway-runtime
+          XDG_SESSION_TYPE: wayland
+          WLR_BACKENDS: headless
+          WLR_RENDERER: pixman
+          WLR_LIBINPUT_NO_DEVICES: "1"
+          SEMWRIGHT_TEST_SWAY: "1"
+        run: |
+          cat > "$RUNNER_TEMP/sway-config" <<'EOF'
+          output * resolution 1280x720
+          seat seat0 fallback true
+          for_window [title="Semwright Sway Fixture"] floating enable
+          EOF
+          dbus-run-session -- bash -euo pipefail <<'EOF'
+          sway --unsupported-gpu --config "$RUNNER_TEMP/sway-config" --debug \
+            > verification/native-ci/sway.log 2>&1 &
+          sway_pid=$!
+          cleanup_sway() {
+            kill -TERM "$sway_pid" 2>/dev/null || true
+            for _ in $(seq 1 50); do
+              kill -0 "$sway_pid" 2>/dev/null || break
+              sleep 0.05
+            done
+            kill -KILL "$sway_pid" 2>/dev/null || true
+            wait "$sway_pid" 2>/dev/null || true
+          }
+          trap cleanup_sway EXIT
+          for _ in $(seq 1 160); do
+            SWAYSOCK=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'sway-ipc.*.sock' -print -quit)
+            WAYLAND_DISPLAY=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' -quit)
+            if [ -n "${SWAYSOCK:-}" ] && [ -n "${WAYLAND_DISPLAY:-}" ]; then
+              export SWAYSOCK WAYLAND_DISPLAY
+              break
+            fi
+            if ! kill -0 "$sway_pid" 2>/dev/null; then
+              cat verification/native-ci/sway.log
+              exit 1
+            fi
+            sleep 0.05
+          done
+          test -S "${SWAYSOCK:?Sway IPC socket was not created}"
+          test -S "$XDG_RUNTIME_DIR/${WAYLAND_DISPLAY:?Wayland socket was not created}"
+          swaymsg -s "$SWAYSOCK" -t get_version | tee verification/native-ci/sway-get-version.json
+          timeout --signal=TERM --kill-after=5s 90s \
+            cargo test --locked -p semwright-platform-linux \
+              real_sway_window_lifecycle_uses_native_ipc \
+              -- --ignored --nocapture --test-threads=1 \
+            2>&1 | tee verification/native-ci/sway-backend.log
+          EOF
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: real-sway-backend-evidence
+          path: verification/native-ci
+          retention-days: 14
