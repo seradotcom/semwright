@@ -6,10 +6,24 @@ use serde_json::json;
 fn fixture() -> Project {
     let mut p = Project::empty("fixture".into());
     p.generation = "0123456789abcdef0123456789abcdef".into();
-    p.scenes.push(Scene { id: "main".into(), name: "Main".into(), duration_ms: 2000,
-        nodes: vec![Node { id: "title".into(), name: "Title".into(), kind: NodeKind::Text,
-            parent: None, properties: Properties { text: Some("Semwright".into()), ..Default::default() } }],
-        animations: vec![], cues: vec![], transition: None });
+    p.scenes.push(Scene {
+        id: "main".into(),
+        name: "Main".into(),
+        duration_ms: 2000,
+        nodes: vec![Node {
+            id: "title".into(),
+            name: "Title".into(),
+            kind: NodeKind::Text,
+            parent: None,
+            properties: Properties {
+                text: Some("Semwright".into()),
+                ..Default::default()
+            },
+        }],
+        animations: vec![],
+        cues: vec![],
+        transition: None,
+    });
     p
 }
 #[test]
@@ -34,12 +48,13 @@ fn strict_semantic_fields() {
     v["unknown"] = json!(true);
     assert!(serde_json::from_value::<Project>(v).is_err());
     assert!(serde_json::from_value::<Properties>(json!({"unknown": "data"})).is_err());
-    assert!(serde_json::from_value::<NodeKind>(json!("custom" )).is_err());
+    assert!(serde_json::from_value::<NodeKind>(json!("custom")).is_err());
 }
 #[test]
 fn project_version_is_explicit() {
     for version in [0, 2, u32::MAX] {
-        let mut p = fixture(); p.schema_version = version;
+        let mut p = fixture();
+        p.schema_version = version;
         assert!(validate::project_valid(&p).is_err());
     }
 }
@@ -60,50 +75,72 @@ fn graph_cycle_is_not_a_diagram_cycle() {
 #[test]
 fn duplicate_ids_are_not_display_names() {
     let mut p = fixture();
-    p.scenes[0].nodes.push(p.scenes[0].nodes[0].clone());
+    let duplicate = p.scenes[0].nodes[0].clone();
+    p.scenes[0].nodes.push(duplicate);
     assert!(validate::project_valid(&p).is_err());
 }
 #[test]
 fn unknown_parent_is_rejected() {
-    let mut p = fixture(); p.scenes[0].nodes[0].parent = Some("missing".into());
+    let mut p = fixture();
+    p.scenes[0].nodes[0].parent = Some("missing".into());
     assert!(validate::project_valid(&p).is_err());
 }
 #[test]
 fn bounded_dimensions_and_fps() {
     for fps in [0, 121, u32::MAX] {
-        let mut p = fixture(); p.settings.fps = fps;
+        let mut p = fixture();
+        p.settings.fps = fps;
         assert!(validate::project_valid(&p).is_err());
     }
-    let mut p = fixture(); p.settings.width = u32::MAX;
+    let mut p = fixture();
+    p.settings.width = u32::MAX;
     assert!(validate::project_valid(&p).is_err());
 }
 #[test]
 fn duration_overflow_is_an_error_not_a_panic() {
-    let mut p = fixture(); p.scenes[0].duration_ms = u64::MAX;
+    let mut p = fixture();
+    p.scenes[0].duration_ms = u64::MAX;
     p.scenes.push(p.scenes[0].clone());
     assert!(validate::project_valid(&p).is_err());
 }
 #[test]
 fn stale_reference_revision_generation_and_hash() {
-    let mut p = fixture(); let hash = security::sha256(&serde_json::to_vec(&p).unwrap());
+    let mut p = fixture();
+    let hash = security::sha256(&serde_json::to_vec(&p).unwrap());
     let reference = refs::Reference::new(&p, &hash, refs::Kind::Node, "title");
-    assert_eq!(refs::Reference::decode(&reference.encode()).unwrap(), reference);
+    assert_eq!(
+        refs::Reference::decode(&reference.encode()).unwrap(),
+        reference
+    );
     reference.check(&p, &hash, refs::Kind::Node).unwrap();
     p.revision += 1;
-    assert_eq!(reference.check(&p, &hash, refs::Kind::Node).unwrap_err().code, ErrorCode::StaleReference);
-    p.revision -= 1; p.generation = "f".repeat(32);
+    assert_eq!(
+        reference
+            .check(&p, &hash, refs::Kind::Node)
+            .unwrap_err()
+            .code,
+        ErrorCode::StaleReference
+    );
+    p.revision -= 1;
+    p.generation = "f".repeat(32);
     assert!(reference.check(&p, &hash, refs::Kind::Node).is_err());
 }
 #[test]
 fn removed_node_ref_is_stale() {
-    let mut p = fixture(); let hash = "a".repeat(64);
+    let mut p = fixture();
+    let hash = "a".repeat(64);
     let r = refs::Reference::new(&p, &hash, refs::Kind::Node, "title");
     p.scenes[0].nodes.clear();
-    assert_eq!(r.check(&p, &hash, refs::Kind::Node).unwrap_err().code, ErrorCode::StaleReference);
+    assert_eq!(
+        r.check(&p, &hash, refs::Kind::Node).unwrap_err().code,
+        ErrorCode::StaleReference
+    );
 }
 #[test]
 fn semantic_diff_identifies_properties_without_revision_noise() {
-    let p = fixture(); let mut q = p.clone(); q.revision += 1;
+    let p = fixture();
+    let mut q = p.clone();
+    q.revision += 1;
     assert!(diff::between(&p, &q).unwrap().is_empty());
     q.scenes[0].nodes[0].properties.text = Some("Meaning, not pixels.".into());
     let d = diff::between(&p, &q).unwrap();
@@ -113,9 +150,20 @@ fn semantic_diff_identifies_properties_without_revision_noise() {
 #[test]
 fn render_range_is_half_open() {
     let p = fixture();
-    let plan = validate::render_plan(&p, &RenderProfile { first_frame: 5, end_frame_exclusive: 6,
-        scale: RenderScale::Full, transparent: true, timeout_ms: 10000 }).unwrap();
-    assert_eq!(plan.frame_count, 1); assert!(plan.alpha); assert_eq!(plan.width, 1920);
+    let plan = validate::render_plan(
+        &p,
+        &RenderProfile {
+            first_frame: 5,
+            end_frame_exclusive: 6,
+            scale: RenderScale::Full,
+            transparent: true,
+            timeout_ms: 10000,
+        },
+    )
+    .unwrap();
+    assert_eq!(plan.frame_count, 1);
+    assert!(plan.alpha);
+    assert_eq!(plan.width, 1920);
 }
 #[test]
 fn rounding_boundaries_are_integer_based() {
@@ -127,7 +175,12 @@ fn rounding_boundaries_are_integer_based() {
 }
 #[test]
 fn local_svg_subset_is_structural() {
-    assert!(security::validate_svg(r##"<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#fff"/></svg>"##).is_ok());
+    assert!(
+        security::validate_svg(
+            r##"<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#fff"/></svg>"##
+        )
+        .is_ok()
+    );
     assert!(security::validate_svg("<svg><unknown/></svg>").is_err());
     assert!(security::validate_svg("<svg><path unexpected='1'/></svg>").is_err());
 }
@@ -139,9 +192,20 @@ fn math_vocabulary_is_bounded() {
 #[test]
 fn render_profile_is_bounded() {
     let p = fixture();
-    for (first,end) in [(0,0),(2,1),(0,61),(u64::MAX,u64::MAX)] {
-        assert!(validate::render_plan(&p, &RenderProfile { first_frame:first,end_frame_exclusive:end,
-            scale:RenderScale::Full,transparent:false,timeout_ms:10000 }).is_err());
+    for (first, end) in [(0, 0), (2, 1), (0, 61), (u64::MAX, u64::MAX)] {
+        assert!(
+            validate::render_plan(
+                &p,
+                &RenderProfile {
+                    first_frame: first,
+                    end_frame_exclusive: end,
+                    scale: RenderScale::Full,
+                    transparent: false,
+                    timeout_ms: 10000
+                }
+            )
+            .is_err()
+        );
     }
 }
 proptest! {

@@ -54,7 +54,9 @@ impl Project {
         }
     }
     pub fn duration_ms(&self) -> u64 {
-        self.scenes.iter().fold(0u64, |total, s| total.saturating_add(s.duration_ms))
+        self.scenes
+            .iter()
+            .fold(0u64, |total, s| total.saturating_add(s.duration_ms))
     }
 }
 
@@ -253,10 +255,20 @@ pub struct Properties {
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum TextAlign { Left, Center, Right }
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Language { Plain, Javascript, Typescript, Python, Rust }
+pub enum Language {
+    Plain,
+    Javascript,
+    Typescript,
+    Python,
+    Rust,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CodeSelection {
@@ -282,16 +294,35 @@ pub struct Layout {
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum LayoutDirection { Row, Column }
+pub enum LayoutDirection {
+    Row,
+    Column,
+}
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Align { Start, #[default] Center, End, Stretch }
+pub enum Align {
+    Start,
+    #[default]
+    Center,
+    End,
+    Stretch,
+}
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum Justify { Start, #[default] Center, End, SpaceBetween, SpaceAround }
+pub enum Justify {
+    Start,
+    #[default]
+    Center,
+    End,
+    SpaceBetween,
+    SpaceAround,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct Edge { pub from: String, pub to: String }
+pub struct Edge {
+    pub from: String,
+    pub to: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -320,12 +351,36 @@ pub struct TimeAnchor {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(untagged)]
-pub enum AnimatedValue { Number(f64), Vector([f64; 2]), Text(String) }
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AnimatedValue {
+    Number(f64),
+    Vector([f64; 2]),
+    Text(String),
+}
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimatedProperty {
-    Position, X, Y, Scale, Rotation, Opacity, Fill, Stroke, Width, Height,
-    Radius, Text, Code, LineStart, LineEnd, FontSize, LetterSpacing, CameraZoom, CameraFocus, Counter,
+    Position,
+    X,
+    Y,
+    Scale,
+    Rotation,
+    Opacity,
+    Fill,
+    Stroke,
+    Width,
+    Height,
+    Radius,
+    Text,
+    Code,
+    LineStart,
+    LineEnd,
+    FontSize,
+    LetterSpacing,
+    CameraZoom,
+    CameraFocus,
+    Counter,
 }
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -340,13 +395,27 @@ pub enum Easing {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct Cue { pub id: String, pub name: String, pub time_ms: u64, pub duration_ms: u64 }
+pub struct Cue {
+    pub id: String,
+    pub name: String,
+    pub time_ms: u64,
+    pub duration_ms: u64,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct Transition { pub kind: TransitionKind, pub duration_ms: u64 }
+pub struct Transition {
+    pub kind: TransitionKind,
+    pub duration_ms: u64,
+}
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum TransitionKind { Fade, SlideLeft, SlideRight, SlideUp, SlideDown }
+pub enum TransitionKind {
+    Fade,
+    SlideLeft,
+    SlideRight,
+    SlideUp,
+    SlideDown,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -367,7 +436,12 @@ pub struct Asset {
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum AssetKind { Image, Svg, Video, Audio }
+pub enum AssetKind {
+    Image,
+    Svg,
+    Video,
+    Audio,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct AudioTrack {
@@ -381,15 +455,39 @@ pub struct AudioTrack {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Component {
-    Title, Subtitle, Badge, Panel, TerminalWindow, CodePanel, ArchitectureNode,
-    ArchitectureEdge, CapabilityChip, MetricCounter, BrowserFrame, AppCard, Callout, LogoLockup,
+    Title,
+    Subtitle,
+    Badge,
+    Panel,
+    TerminalWindow,
+    CodePanel,
+    ArchitectureNode,
+    ArchitectureEdge,
+    CapabilityChip,
+    MetricCounter,
+    BrowserFrame,
+    AppCard,
+    Callout,
+    LogoLockup,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum AnimationPreset { Fade, Slide, Reveal, ScalePunch, TrackingExpansion, WordReveal, LineReveal, Counter }
+pub enum AnimationPreset {
+    Fade,
+    Slide,
+    Reveal,
+    ScalePunch,
+    TrackingExpansion,
+    WordReveal,
+    LineReveal,
+    Counter,
+}
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum GroupMode { Parallel, Sequence }
+pub enum GroupMode {
+    Parallel,
+    Sequence,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -404,9 +502,20 @@ pub struct RenderProfile {
 }
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum RenderScale { Quarter, Half, #[default] Full, Double }
+pub enum RenderScale {
+    Quarter,
+    Half,
+    #[default]
+    Full,
+    Double,
+}
 impl RenderScale {
     pub fn ratio(self) -> (u32, u32) {
-        match self { Self::Quarter => (1,4), Self::Half => (1,2), Self::Full => (1,1), Self::Double => (2,1) }
+        match self {
+            Self::Quarter => (1, 4),
+            Self::Half => (1, 2),
+            Self::Full => (1, 1),
+            Self::Double => (2, 1),
+        }
     }
 }

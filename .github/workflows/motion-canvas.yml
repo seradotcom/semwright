@@ -6,8 +6,10 @@ on:
     paths:
       - 'crates/driver-motion-canvas/**'
       - 'integrations/motion-canvas/**'
+      - 'fixtures/motion-canvas/**'
       - 'demos/launch-film/**'
       - 'docs/motion-canvas/**'
+      - 'fuzz/**'
       - '.github/workflows/motion-canvas.yml'
       - 'Cargo.lock'
 permissions:
@@ -22,42 +24,8 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
-jobs:
-  runtime-probe:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: '22.22.0'
-      - name: Install the committed dependency lock (no project scripts)
-        working-directory: integrations/motion-canvas/runtime
-        run: npm ci --ignore-scripts
-      - name: Install pinned browser on the runner only
-        working-directory: integrations/motion-canvas/runtime
-        run: npx --no-install playwright install --with-deps chromium
-      - name: Record current runtime compatibility
-        working-directory: integrations/motion-canvas/runtime
-        run: npm run probe
-      - name: Record virtual-address-space compatibility
-        working-directory: integrations/motion-canvas/runtime
-        run: |
-          mkdir -p evidence
-          set +e
-          (ulimit -v 4194304; node --disable-wasm-trap-handler --max-old-space-size=256 -p 'process.version') >evidence/node-4g-address-space.log 2>&1
-          rc=$?
-          echo "exit_code=$rc" >>evidence/node-4g-address-space.log
-          cat evidence/node-4g-address-space.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: motion-bootstrap-evidence
-          path: |
-            integrations/motion-canvas/runtime/evidence
-            integrations/motion-canvas/runtime/package-lock.json
-          retention-days: 14
 
+jobs:
   domain:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -70,26 +38,148 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: motion-canvas-domain
-      - name: Compile semantic model and compiler
+      - name: Compile complete driver
         run: |
           mkdir -p verification/motion-canvas
-          cargo check -p semwright-driver-motion-canvas --lib 2>&1 | tee verification/motion-canvas/check.log
-      - name: Domain and property tests
-        run: cargo test --locked -p semwright-driver-motion-canvas --lib 2>&1 | tee verification/motion-canvas/tests.log
-      - name: Lints
-        run: cargo clippy --locked -p semwright-driver-motion-canvas --lib -- -D warnings 2>&1 | tee verification/motion-canvas/clippy.log
-      - name: Formatting
-        run: cargo fmt --all -- --check
-      - name: Preserve exact lock and formatting evidence
-        if: always()
+          cargo check --locked -p semwright-driver-motion-canvas --all-targets 2>&1 | tee verification/motion-canvas/check.log
+      - name: Unit, property and security tests
+        run: cargo test --locked -p semwright-driver-motion-canvas --all-targets 2>&1 | tee verification/motion-canvas/tests.log
+      - name: Clippy
+        run: cargo clippy --locked -p semwright-driver-motion-canvas --all-targets -- -D warnings 2>&1 | tee verification/motion-canvas/clippy.log
+      - name: Formatting and whitespace
         run: |
-          mkdir -p verification/motion-canvas
-          cp Cargo.lock verification/motion-canvas/Cargo.lock
-          cargo fmt --all
-          git diff -- crates/driver-motion-canvas > verification/motion-canvas/format.patch
+          cargo fmt --all -- --check
+          git diff --check
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: motion-canvas-domain-evidence
           path: verification/motion-canvas
+          retention-days: 14
+
+  real-render-and-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: '0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: motion-canvas-render-host
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Install exact runtime without package scripts
+        working-directory: integrations/motion-canvas/runtime
+        run: npm ci --ignore-scripts
+      - name: Install pinned Chromium only on ephemeral runner
+        working-directory: integrations/motion-canvas/runtime
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Probe exact runtime
+        working-directory: integrations/motion-canvas/runtime
+        run: npm run probe
+      - name: Materialize deterministic managed fixture
+        run: |
+          rm -rf "$RUNNER_TEMP/motion-generated"
+          cargo run --locked -q -p semwright-driver-motion-canvas --example materialize -- fixtures/motion-canvas/hello-text/semwright-motion.json "$RUNNER_TEMP/motion-generated"
+          ln -s "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules" "$RUNNER_TEMP/motion-generated/node_modules"
+      - name: Typecheck and Vite-build generated Motion Canvas project
+        run: |
+          cd "$RUNNER_TEMP/motion-generated"
+          "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/tsc" --noEmit
+          "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/vite" build
+      - name: Real Motion Canvas 30-frame render without HTTP listener
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          mkdir -p "$RUNNER_TEMP/motion-render" verification
+          CFG=$(node -e "process.stdout.write(Buffer.from(JSON.stringify({name:'frames',width:640,height:360,fps:30,firstFrame:0,endFrameExclusive:30,colorSpace:'srgb',background:'#f7f5ee',alpha:false,timeoutMs:120000})).toString('base64url'))")
+          node render.mjs --project "$RUNNER_TEMP/motion-generated" --output "$RUNNER_TEMP/motion-render" --config "$CFG" | tee verification/real-render.json
+          test "$(find "$RUNNER_TEMP/motion-render/frames" -maxdepth 1 -type f -name '*.png' | wc -l)" -eq 30
+          FIRST=$(find "$RUNNER_TEMP/motion-render/frames" -maxdepth 1 -type f -name '*.png' | sort | head -1)
+          FIRST="$FIRST" node --input-type=module -e "import fs from 'node:fs'; import {PNG} from 'pngjs'; const p=PNG.sync.read(fs.readFileSync(process.env.FIRST)); if(p.width!==640||p.height!==360) process.exit(2); console.log(JSON.stringify({width:p.width,height:p.height,bytes:fs.statSync(process.env.FIRST).size}))" | tee verification/first-frame.json
+      - name: Transparent image-sequence smoke
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          mkdir -p "$RUNNER_TEMP/motion-alpha"
+          CFG=$(node -e "process.stdout.write(Buffer.from(JSON.stringify({name:'frames',width:640,height:360,fps:30,firstFrame:0,endFrameExclusive:2,colorSpace:'srgb',background:'#f7f5ee',alpha:true,timeoutMs:120000})).toString('base64url'))")
+          node render.mjs --project "$RUNNER_TEMP/motion-generated" --output "$RUNNER_TEMP/motion-alpha" --config "$CFG" | tee verification/alpha-render.json
+          FIRST=$(find "$RUNNER_TEMP/motion-alpha/frames" -maxdepth 1 -type f -name '*.png' | sort | head -1)
+          FIRST="$FIRST" node --input-type=module -e "import fs from 'node:fs'; import {PNG} from 'pngjs'; const p=PNG.sync.read(fs.readFileSync(process.env.FIRST)); let min=255,max=0; for(let i=3;i<p.data.length;i+=4){min=Math.min(min,p.data[i]);max=Math.max(max,p.data[i]);} if(min===255) process.exit(3); console.log(JSON.stringify({min_alpha:min,max_alpha:max}))" | tee verification/alpha-frame.json
+      - name: Build owner-pinned runtime manifest for Driver Host
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          mkdir -p .semwright-tools
+          cp "$(command -v node)" .semwright-tools/node
+          chmod 0755 .semwright-tools/node
+          BROWSER=$(node --input-type=module -e "import {chromium} from 'playwright'; process.stdout.write(chromium.executablePath())")
+          BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
+          BROWSER_REL="$BROWSER_REL" node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('runtime.json', JSON.stringify({node:'.semwright-tools/node',helper:'render.mjs',browser:process.env.BROWSER_REL},null,2))"
+          cat runtime.json
+      - name: Real Driver Host conformance and sandboxed render/cancellation
+        env:
+          SEMWRIGHT_TEST_MOTION_CANVAS: '1'
+          SEMWRIGHT_TEST_MOTION_CANVAS_RENDER: '1'
+          SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          mkdir -p verification/motion-canvas-host
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
+          cargo test --locked -p semwright-driver-motion-canvas motion_driver_runs_through_real_driver_host_without_network -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/conformance.log
+          cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
+      - name: Record 4 GiB address-space ceiling compatibility
+        working-directory: integrations/motion-canvas/runtime
+        if: always()
+        run: |
+          mkdir -p verification
+          set +e
+          (ulimit -v 4194304; ./.semwright-tools/node --disable-wasm-trap-handler --max-old-space-size=256 -p 'process.version') >verification/node-4g-address-space.log 2>&1
+          rc=$?
+          echo "exit_code=$rc" >>verification/node-4g-address-space.log
+          cat verification/node-4g-address-space.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: motion-canvas-real-render-evidence
+          path: |
+            integrations/motion-canvas/runtime/evidence
+            integrations/motion-canvas/runtime/verification
+            verification/motion-canvas-host
+            ${{ runner.temp }}/motion-render
+            ${{ runner.temp }}/motion-alpha
+          retention-days: 14
+
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: nightly-2026-09-18
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: motion-canvas-fuzz
+          workspaces: fuzz
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - run: cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Bounded Motion Canvas fuzz smoke
+        run: |
+          set -o pipefail
+          mkdir -p verification/motion-canvas-fuzz
+          for target in motion_project motion_reference motion_animation motion_path motion_svg motion_codegen; do
+            cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=5 -timeout=3 -rss_limit_mb=1024 -max_len=131072 2>&1 | tee "verification/motion-canvas-fuzz/$target.log"
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: motion-canvas-fuzz-evidence
+          path: |
+            verification/motion-canvas-fuzz
+            fuzz/artifacts
           retention-days: 14

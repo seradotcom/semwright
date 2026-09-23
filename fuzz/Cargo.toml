@@ -21,6 +21,7 @@ semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
 semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
+semwright-driver-motion-canvas = { path = "../crates/driver-motion-canvas" }
 
 [[bin]]
 name = "protocol"
@@ -108,6 +109,48 @@ bench = false
 [[bin]]
 name = "obs_capability_mapping"
 path = "fuzz_targets/obs_capability_mapping.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "motion_project"
+path = "fuzz_targets/motion_project.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "motion_reference"
+path = "fuzz_targets/motion_reference.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "motion_animation"
+path = "fuzz_targets/motion_animation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "motion_path"
+path = "fuzz_targets/motion_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "motion_svg"
+path = "fuzz_targets/motion_svg.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "motion_codegen"
+path = "fuzz_targets/motion_codegen.rs"
 test = false
 doc = false
 bench = false
