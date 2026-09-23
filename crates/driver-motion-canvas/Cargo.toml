@@ -37,10 +37,7 @@ tempfile.workspace = true
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 semwright-backend-api.workspace = true
 semwright-driver-host.workspace = true
-semwright-platform-api.workspace = true
-semwright-platform-services.workspace = true
 semwright-policy.workspace = true
-semwright-protocol.workspace = true
 
 [lints]
 workspace = true

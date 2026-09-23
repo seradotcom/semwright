@@ -41,6 +41,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y bubblewrap melt ffmpeg
+      - name: Enable unprivileged user namespaces for Bubblewrap on hosted Ubuntu
+        run: |
+          if sysctl -a 2>/dev/null | grep -q '^kernel.apparmor_restrict_unprivileged_userns'; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if sysctl -a 2>/dev/null | grep -q '^kernel.unprivileged_userns_clone'; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          bwrap --unshare-all --ro-bind /usr /usr --proc /proc --dev /dev -- /usr/bin/true
       - name: Install exact Motion Canvas runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: |
