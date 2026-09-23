@@ -469,84 +469,19 @@ jobs:
           dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
       - name: Real AT-SPI delta, structural resync and stale-reference lifecycle
         run: |
-          XDG_RUNTIME_DIR="$RUNNER_TEMP/atspi-runtime" \
+          rm -rf "$RUNNER_TEMP/atspi-gtk" "$RUNNER_TEMP/atspi-qt"
+          mkdir -p "$RUNNER_TEMP/atspi-gtk" "$RUNNER_TEMP/atspi-qt"
+          chmod 700 "$RUNNER_TEMP/atspi-gtk" "$RUNNER_TEMP/atspi-qt"
+          XDG_RUNTIME_DIR="$RUNNER_TEMP/atspi-gtk" \
+          XDG_SESSION_TYPE=x11 \
+          SEMWRIGHT_TEST_ATSPI=1 \
+            scripts/dev/atspi-live-ci.sh gtk
+          XDG_RUNTIME_DIR="$RUNNER_TEMP/atspi-qt" \
           XDG_SESSION_TYPE=x11 \
           SEMWRIGHT_TEST_ATSPI=1 \
           SEMWRIGHT_TEST_QT_FIXTURE="$RUNNER_TEMP/atspi-qt-fixture" \
-            dbus-run-session -- bash -lc '
-              set -euo pipefail
-              gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-                --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled "<true>"
-              gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-                --method org.freedesktop.DBus.Properties.Set org.a11y.Status ScreenReaderEnabled "<true>"
-              raw_address=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-                --method org.a11y.Bus.GetAddress)
-              AT_SPI_BUS_ADDRESS=$(printf "%s" "$raw_address" | sed -E "s/^\\('"'"'([^'"'"']+)'"'"',\\)$/\\1/")
-              test -n "$AT_SPI_BUS_ADDRESS"
-              # Keep the direct address local to the readiness probe. Real applications and
-              # Semwright resolve org.a11y.Bus dynamically, which also survives bus recycling.
-              printf "AT_SPI_BUS_ADDRESS=%s\n" "$AT_SPI_BUS_ADDRESS" \
-                | sed -E "s/guid=[^, ]+/guid=<redacted>/" \
-                | tee verification/native-ci/atspi-address.log
-              gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-                --method org.freedesktop.DBus.Properties.GetAll org.a11y.Status \
-                | tee verification/native-ci/atspi-status.log
-              registry_ready=0
-              for _ in $(seq 1 100); do
-                if timeout 2s gdbus call --address "$AT_SPI_BUS_ADDRESS" \
-                  --dest org.a11y.atspi.Registry \
-                  --object-path /org/a11y/atspi/registry \
-                  --method org.a11y.atspi.Registry.GetRegisteredEvents \
-                  > verification/native-ci/atspi-registry-events.log 2>&1; then
-                  registry_ready=1
-                  break
-                fi
-                sleep 0.1
-              done
-              cat verification/native-ci/atspi-registry-events.log
-              test "$registry_ready" -eq 1
-              echo "phase=registry_ready" | tee verification/native-ci/atspi-phases.log
-              echo "phase=gtk_start" | tee -a verification/native-ci/atspi-phases.log
-              gtk_rc=0
-              timeout --signal=TERM --kill-after=5s 90s \
-                xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" \
-                cargo test --locked -p semwright-backends \
-                  live_atspi_gtk_delta_resync_and_stale_refs -- --ignored --nocapture --test-threads=1 \
-                > verification/native-ci/atspi-gtk.log 2>&1 || gtk_rc=$?
-              cat verification/native-ci/atspi-gtk.log
-              if [ "$gtk_rc" -ne 0 ]; then
-                echo "phase=gtk_failed rc=$gtk_rc" | tee -a verification/native-ci/atspi-phases.log
-                exit "$gtk_rc"
-              fi
-              echo "phase=gtk_done" | tee -a verification/native-ci/atspi-phases.log
-
-              echo "phase=qt_start" | tee -a verification/native-ci/atspi-phases.log
-              # Qt 5 caches the direct accessibility bus address during bridge startup and,
-              # unlike GTK, does not reliably re-resolve org.a11y.Bus after the first fixture
-              # disconnects. Ask the session bus for a fresh address immediately before Qt.
-              qt_raw_address=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
-                --method org.a11y.Bus.GetAddress)
-              QT_AT_SPI_BUS_ADDRESS=${qt_raw_address:2:${#qt_raw_address}-5}
-              [[ "$QT_AT_SPI_BUS_ADDRESS" == unix:* ]]
-              test -n "$QT_AT_SPI_BUS_ADDRESS"
-              printf "QT_AT_SPI_BUS_ADDRESS=%s\n" "$QT_AT_SPI_BUS_ADDRESS" \
-                | sed -E "s/guid=[^, ]+/guid=<redacted>/" \
-                | tee -a verification/native-ci/atspi-address.log
-              qt_rc=0
-              timeout --signal=TERM --kill-after=5s 90s \
-                xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" \
-                env XDG_SESSION_TYPE=x11 SEMWRIGHT_TEST_QT_PLATFORM=xcb \
-                  AT_SPI_BUS_ADDRESS="$QT_AT_SPI_BUS_ADDRESS" \
-                cargo test --locked -p semwright-backends \
-                  live_atspi_qt_delta_resync_and_stale_refs -- --ignored --nocapture --test-threads=1 \
-                > verification/native-ci/atspi-qt.log 2>&1 || qt_rc=$?
-              cat verification/native-ci/atspi-qt.log
-              if [ "$qt_rc" -ne 0 ]; then
-                echo "phase=qt_failed rc=$qt_rc" | tee -a verification/native-ci/atspi-phases.log
-                exit "$qt_rc"
-              fi
-              echo "phase=qt_done" | tee -a verification/native-ci/atspi-phases.log
-            '
+          SEMWRIGHT_TEST_QT_PLATFORM=xcb \
+            scripts/dev/atspi-live-ci.sh qt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
