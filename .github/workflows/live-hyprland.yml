@@ -1,0 +1,117 @@
+name: Hyprland Wayland live
+defaults:
+  run:
+    shell: bash
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hyprland-live-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  FEDORA_IMAGE: fedora@sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42
+  HYPRLAND_NEVRA: hyprland-0.56.2-11.fc43.x86_64
+
+jobs:
+  hyprland-wayland:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: hyprland-wayland-live
+
+      - name: Build production Hyprland backend integration test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+          mkdir -p verification/live-hyprland-ci
+          cargo test --locked -p semwright-platform-linux --test hyprland_live \
+            --no-run --message-format=json \
+            > verification/live-hyprland-ci/rust-build.jsonl
+          test_bin=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          matches = []
+          for line in Path("verification/live-hyprland-ci/rust-build.jsonl").read_text().splitlines():
+              try:
+                  row = json.loads(line)
+              except json.JSONDecodeError:
+                  continue
+              target = row.get("target", {})
+              if (
+                  row.get("reason") == "compiler-artifact"
+                  and target.get("name") == "hyprland_live"
+                  and "test" in target.get("kind", [])
+                  and row.get("executable")
+              ):
+                  matches.append(row["executable"])
+          if len(matches) != 1:
+              raise SystemExit(f"expected one hyprland_live test executable, got {matches!r}")
+          print(matches[0])
+          PY
+          )
+          cp "$test_bin" verification/live-hyprland-ci/hyprland-live-test
+          chmod 0755 verification/live-hyprland-ci/hyprland-live-test
+          ldd verification/live-hyprland-ci/hyprland-live-test \
+            | tee verification/live-hyprland-ci/hyprland-live-test-ldd.log
+          chmod 0777 verification/live-hyprland-ci
+
+      - name: Pull pinned Fedora runtime
+        run: |
+          docker pull "$FEDORA_IMAGE"
+          docker image inspect "$FEDORA_IMAGE" --format "{{json .RepoDigests}}" \
+            | tee verification/live-hyprland-ci/container-image.log
+          grep -q "sha256:a651ddf48ea28a06ed4e1e6519f51c9f47e7a5a138722ade87369b8fbb7e5b42" \
+            verification/live-hyprland-ci/container-image.log
+
+      - name: Real Hyprland native-socket lifecycle
+        run: |
+          docker run --rm --init \
+            --security-opt seccomp=unconfined \
+            --cap-add SYS_NICE \
+            -e SEMWRIGHT_HYPRLAND_TEST_BIN=/test/hyprland-live \
+            -e SEMWRIGHT_HYPRLAND_EVIDENCE_DIR=/evidence \
+            -e HYPRLAND_NEVRA="$HYPRLAND_NEVRA" \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -v "$GITHUB_WORKSPACE/verification/live-hyprland-ci:/evidence" \
+            -v "$GITHUB_WORKSPACE/verification/live-hyprland-ci/hyprland-live-test:/test/hyprland-live:ro" \
+            "$FEDORA_IMAGE" bash -euo pipefail -c '
+              cat >/etc/yum.repos.d/semwright-hyprland.repo <<REPO
+          [semwright-hyprland]
+          name=Semwright pinned Hyprland COPR runtime
+          baseurl=https://download.copr.fedorainfracloud.org/results/nett00n/hyprland/fedora-43-x86_64/
+          enabled=1
+          gpgcheck=0
+          repo_gpgcheck=0
+          REPO
+              dnf -y --setopt=install_weak_deps=False install \
+                "$HYPRLAND_NEVRA" zenity dbus-daemon pipewire-libs mesa-dri-drivers util-linux python3
+              test "$(rpm -q hyprland)" = "$HYPRLAND_NEVRA"
+              rpm -q hyprland | tee /evidence/hyprland-rpm.log
+              Hyprland --version | tee /evidence/hyprland-version.log
+              useradd --uid 1000 --create-home semwright
+              chmod 0777 /evidence
+              runuser -u semwright -- dbus-run-session -- \
+                /usr/bin/bash /workspace/scripts/dev/hyprland-live-ci.sh
+            '
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: live-hyprland-wayland-evidence
+          path: verification/live-hyprland-ci
+          retention-days: 14
