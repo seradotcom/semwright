@@ -485,7 +485,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             at-spi2-core dbus-x11 file \
-            python3-venv libegl1 libxcb-cursor0 \
+            python3-venv libegl1 libgl1 libx11-xcb1 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 \
+            libxkbcommon-x11-0 \
             xvfb xauth x11-utils
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
           chmod 700 "$RUNNER_TEMP/atspi-qt"
@@ -498,8 +501,12 @@ jobs:
           print(f"PyQt6={PYQT_VERSION_STR}")
           print(f"Qt6={QT_VERSION_STR}")
           PY
+          qt_xcb=$(find "$RUNNER_TEMP/qt-venv" -path '*/PyQt6/Qt6/plugins/platforms/libqxcb.so' -print -quit)
+          test -f "$qt_xcb"
+          ldd "$qt_xcb" | tee verification/native-ci/qt-xcb-ldd.log
+          ! grep -q 'not found' verification/native-ci/qt-xcb-ldd.log
           dpkg-query -W -f='${binary:Package}=${Version}\n' \
-            at-spi2-core libxcb-cursor0 \
+            at-spi2-core libxcb-cursor0 libxkbcommon-x11-0 \
             | tee verification/native-ci/atspi-qt-packages.log
           cat > "$RUNNER_TEMP/atspi-qt-fixture" <<EOF
           #!/usr/bin/env bash
