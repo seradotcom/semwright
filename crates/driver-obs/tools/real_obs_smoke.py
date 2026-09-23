@@ -43,7 +43,10 @@ def loopback_port_open(port:int):
         return False
 
 def config_tree(root:pathlib.Path,port:int):
-    config=root/'config'/'obs-studio'
+    # Keep HOME and XDG config roots unified. OBS core follows XDG_CONFIG_HOME,
+    # while some bundled plugins resolve their config through the home-derived
+    # default. A single private tree avoids split-brain fixture state.
+    config=root/'home'/'.config'/'obs-studio'
     profile=config/'basic/profiles/SemwrightFixture';profile.mkdir(parents=True)
     scenes=config/'basic/scenes';scenes.mkdir(parents=True)
     plugin=config/'plugin_config/obs-websocket';plugin.mkdir(parents=True)
@@ -100,7 +103,7 @@ def sandbox(probe:pathlib.Path):
         root=pathlib.Path(directory);home=root/'home';home.mkdir()
         with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
         config_tree(root,port)
-        env={'PATH':'/usr/bin:/bin','HOME':str(home),'XDG_CONFIG_HOME':str(root/'config'),'XDG_DATA_HOME':str(root/'data'),
+        env={'PATH':'/usr/bin:/bin','HOME':str(home),'XDG_CONFIG_HOME':str(home/'.config'),'XDG_DATA_HOME':str(root/'data'),
              'XDG_CACHE_HOME':str(root/'cache'),'XDG_RUNTIME_DIR':str(root/'runtime'),'QT_QPA_PLATFORM':'xcb','LIBGL_ALWAYS_SOFTWARE':'1',
              'PULSE_SERVER':'unix:/nonexistent','PIPEWIRE_REMOTE':'nonexistent','DBUS_SESSION_BUS_ADDRESS':'unix:path=/nonexistent','LANG':'C.UTF-8'}
         children=[]
@@ -123,7 +126,7 @@ def sandbox(probe:pathlib.Path):
                 obs=subprocess.Popen([
                     '/usr/bin/obs','--multi','--only-bundled-plugins','--disable-missing-files-check',
                     '--profile','SemwrightFixture','--collection','SemwrightFixture',
-                    f'--websocket_port={port}',f'--websocket_password={TEST_PASSWORD}','--websocket_ipv4_only'
+                    f'--websocket_port={port}',f'--websocket_password={TEST_PASSWORD}','--websocket_ipv4_only','--websocket_debug'
                 ],stdout=olog,stderr=olog,env=env)
                 children.append(obs)
                 deadline=time.monotonic()+35
