@@ -379,6 +379,87 @@ jobs:
           path: verification/native-ci
           retention-days: 14
 
+  figma-driver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/driver-figma/plugin/package-lock.json
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: figma-driver
+      - name: Install sandbox dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/native-ci
+      - name: Preflight unprivileged Bubblewrap
+        run: |
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          sandbox_setup=kernel-default
+          if [ "$current_apparmor" = "1" ]; then
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
+              sandbox_setup=apparmor-bwrap-profile
+            else
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+              sandbox_setup=ephemeral-ci-userns-relaxation
+            fi
+          fi
+          bwrap --version | tee verification/native-ci/figma-bwrap-version.log
+          echo "sandbox_setup=$sandbox_setup" | tee verification/native-ci/figma-sandbox-setup.log
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          for runtime in /usr /lib /lib64; do
+            if [ -e "$runtime" ]; then
+              bwrap_args+=(--ro-bind "$runtime" "$runtime")
+            fi
+          done
+          bwrap_args+=(--dir /etc)
+          if [ -e /etc/ld.so.cache ]; then
+            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          fi
+          bwrap "${bwrap_args[@]}" -- /usr/bin/true
+      - name: Build Figma driver and sandbox surface
+        run: |
+          cargo build --locked -p semwright-driver-figma --features test-tools --bins \
+            -p semwright-plugin-host --bin semwright-sandbox
+          python3 crates/driver-figma/tools/catalog_consistency.py | tee verification/native-ci/figma-catalog.log
+      - name: Production Driver Protocol to fake Figma E2E
+        run: |
+          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
+            python3 crates/driver-figma/tools/e2e_driver.py | tee verification/native-ci/figma-e2e.log
+      - name: Build and test the Figma Plugin API bridge
+        working-directory: crates/driver-figma/plugin
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build
+      - name: Sandboxed DriverProvider to fake Figma
+        env:
+          SEMWRIGHT_TEST_FIGMA: "1"
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-figma --features test-tools \
+            --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/native-ci/figma-host-conformance.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: figma-driver-evidence
+          path: verification/native-ci/figma-*
+          retention-days: 14
+
   kicad-mlt-drivers:
     runs-on: ubuntu-24.04
     timeout-minutes: 35

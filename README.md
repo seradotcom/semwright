@@ -155,6 +155,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | LibreOffice | Sandboxed persistent UNO DriverProvider | Real hosted Writer create/read, Calc create/get/set and PDF export through CLI -> daemon -> broker -> driver; curated seven-capability surface, not full UNO |
 | MLT video | Sandboxed persistent semantic timeline DriverProvider | 68-capability MLT backend differentially checked against the backend-neutral semantic video domain, plus host-sandbox conformance; real MLT/Kdenlive/Shotcut round-trip certification remains pending |
 | KiCad | Separately licensed GPL IPC DriverProvider integration | Rust/Go build, native protocol tests and fake IPC host-sandbox conformance; real KiCad interoperability remains pending |
+| Figma | Authenticated loopback DriverProvider + official Figma Plugin API bridge | 91 typed capabilities, fake-Figma production-protocol E2E, plugin runtime tests and host-sandbox CI; real disposable-file Figma acceptance remains pending |
 | Events/jobs | Provenance-aware event stream + bounded session-scoped jobs | Job execution re-enters normal policy/audit; cancellation, session privacy and revocation are integration-tested; generic progress/artifact/task mapping remains follow-on work |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
@@ -205,7 +206,7 @@ edit and conformance core reused by concrete video drivers. [The inspector](docs
 is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
 [Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md),
-[MLT video](crates/driver-mlt-video/README.md), and
+[MLT video](crates/driver-mlt-video/README.md), [Figma](crates/driver-figma/README.md), and
 [KiCad](integrations/kicad-driver/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
 [KWin](bridges/kwin/README.md).
 
