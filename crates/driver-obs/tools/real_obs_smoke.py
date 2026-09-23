@@ -4,7 +4,7 @@ No external stream, recording, source capture, existing profile or user session 
 This is NOT a Semwright Driver Host conformance run.
 """
 from __future__ import annotations
-import argparse,json,os,pathlib,select,selectors,shutil,signal,socket,subprocess,sys,tempfile,time
+import argparse,json,os,pathlib,selectors,shutil,signal,socket,subprocess,sys,tempfile,time
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 
 class Missing(RuntimeError):pass
@@ -13,7 +13,7 @@ def report(status,**fields):print(json.dumps({'status':status,'scope':'real OBS 
 
 SAFE_RUNTIME_DETAILS=frozenset({
     'child output exceeded evidence budget','real hardware unexpectedly visible','non-loopback interface visible',
-    'virtual display timeout','invalid virtual display','OBS exited before readiness','invalid probe evidence',
+    'virtual display timeout','virtual display exited','invalid virtual display','OBS exited before readiness','invalid probe evidence',
     'unexpected scene graph; refuse existing or contaminated profile','OBS WebSocket did not become ready',
     'network namespace isolation failed',
 })
@@ -92,17 +92,20 @@ def sandbox(probe:pathlib.Path):
         children=[]
         try:
             with (root/'xvfb.log').open('wb') as xlog,(root/'obs.log').open('wb') as olog:
-                readfd,writefd=os.pipe()
-                try:
-                    xvfb=subprocess.Popen(['/usr/bin/Xvfb','-displayfd',str(writefd),'-screen','0','640x360x24','-nolisten','tcp'],pass_fds=(writefd,),stdout=xlog,stderr=xlog,env=env)
-                    children.append(xvfb);os.close(writefd);writefd=-1
-                    if not select.select([readfd],[],[],5)[0]:raise RuntimeError('virtual display timeout')
-                    number=os.read(readfd,16).strip()
-                    if not number.isdigit():raise RuntimeError('invalid virtual display')
-                finally:
-                    os.close(readfd)
-                    if writefd>=0:os.close(writefd)
-                env['DISPLAY']=':'+number.decode('ascii')
+                # /tmp is a private tmpfs inside bubblewrap, so a fixed display cannot
+                # collide with the host or another test.  Creating the socket directory
+                # explicitly avoids Xvfb startup differences across distro images.
+                x11_dir=pathlib.Path('/tmp/.X11-unix');x11_dir.mkdir(mode=0o1777,exist_ok=True);os.chmod(x11_dir,0o1777)
+                display=':99';x11_socket=x11_dir/'X99'
+                xvfb=subprocess.Popen(['/usr/bin/Xvfb',display,'-screen','0','640x360x24','-nolisten','tcp'],stdout=xlog,stderr=xlog,env=env)
+                children.append(xvfb)
+                display_deadline=time.monotonic()+5
+                while time.monotonic()<display_deadline:
+                    if xvfb.poll() is not None:raise RuntimeError('virtual display exited')
+                    if x11_socket.exists():break
+                    time.sleep(.05)
+                else:raise RuntimeError('virtual display timeout')
+                env['DISPLAY']=display
                 obs=subprocess.Popen(['/usr/bin/obs','--multi','--only-bundled-plugins','--disable-missing-files-check','--profile','SemwrightFixture','--collection','SemwrightFixture'],stdout=olog,stderr=olog,env=env)
                 children.append(obs)
                 deadline=time.monotonic()+35
