@@ -483,7 +483,8 @@ jobs:
                 --method org.a11y.Bus.GetAddress)
               AT_SPI_BUS_ADDRESS=$(printf "%s" "$raw_address" | sed -E "s/^\\('"'"'([^'"'"']+)'"'"',\\)$/\\1/")
               test -n "$AT_SPI_BUS_ADDRESS"
-              export AT_SPI_BUS_ADDRESS
+              # Keep the direct address local to the readiness probe. Real applications and
+              # Semwright resolve org.a11y.Bus dynamically, which also survives bus recycling.
               printf "AT_SPI_BUS_ADDRESS=%s\n" "$AT_SPI_BUS_ADDRESS" \
                 | sed -E "s/guid=[^, ]+/guid=<redacted>/" \
                 | tee verification/native-ci/atspi-address.log
