@@ -457,7 +457,7 @@ jobs:
       - name: Install isolated GTK and Qt accessibility fixtures
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity g++ gdb pkg-config qt6-base-dev
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity g++ pkg-config qt6-base-dev
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-runtime"
           chmod 700 "$RUNNER_TEMP/atspi-runtime"
           zenity --version | tee verification/native-ci/zenity-version.log

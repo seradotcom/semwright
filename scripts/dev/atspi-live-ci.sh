@@ -56,33 +56,36 @@ case "$PHASE" in
   qt)
     : "${SEMWRIGHT_TEST_QT_FIXTURE:?SEMWRIGHT_TEST_QT_FIXTURE is required for qt}"
     export SEMWRIGHT_TEST_QT_PLATFORM=${SEMWRIGHT_TEST_QT_PLATFORM:-xcb}
-    # Qt 6.4 DBusConnection emits enabledChanged synchronously in its constructor
-    # for both AT_SPI_BUS_ADDRESS and the X11 AT_SPI_BUS atom. Its bridge connects
-    # that signal only AFTER construction, losing activation on those paths.
-    # Use org.a11y.Bus.GetAddress on the session bus instead: its asynchronous
-    # reply arrives after the bridge has installed its signal handler.
-    # Source: qtbase v6.4.2 src/gui/accessible/linux/{dbusconnection,
-    # qspiaccessiblebridge}.cpp. Keep the real Qt bridge and all live assertions.
+    # Qt 6.4 can lose the initial enabledChanged transition while constructing
+    # QAtSpiDBusConnection. Exercise the normal runtime activation path instead:
+    # start disabled, let the Qt child install its bridge signal handlers, then
+    # publish the same org.a11y.Status transition a screen reader would cause.
     unset AT_SPI_BUS_ADDRESS
     xprop -root -remove AT_SPI_BUS
-    QT_LOGGING_RULES='qt.accessibility.atspi=true;qt.accessibility.atspi.creation=true' \
-      timeout --signal=INT --kill-after=5s 5s gdb -batch \
-        -ex run -ex 'thread apply all bt' --args "$SEMWRIGHT_TEST_QT_FIXTURE" \
-        > verification/native-ci/qt-logging-stack.log 2>&1 || true
-    cat verification/native-ci/qt-logging-stack.log
-    # Inspect the actual child started by the Rust test, including its environment.
+    gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+      --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled "<false>" >/dev/null
+    gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+      --method org.freedesktop.DBus.Properties.Set org.a11y.Status ScreenReaderEnabled "<false>" >/dev/null
     (
+      reactivated=0
       for _ in $(seq 1 100); do
         qt_pid=$(pgrep -n -x atspi-qt-fixtur || true)
         if [[ -n "$qt_pid" ]]; then
-          sleep 2
-          sudo -n timeout 4s gdb -batch -p "$qt_pid" -ex 'thread apply all bt' \
-            -ex detach > verification/native-ci/qt-startup-stack.log 2>&1 || true
+          sleep 0.2
+          gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+            --method org.freedesktop.DBus.Properties.Set org.a11y.Status IsEnabled "<true>" >/dev/null
+          gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
+            --method org.freedesktop.DBus.Properties.Set org.a11y.Status ScreenReaderEnabled "<true>" >/dev/null
+          echo "phase=qt_accessibility_reactivated pid=$qt_pid" \
+            | tee verification/native-ci/qt-activation.log
+          reactivated=1
           break
         fi
-        sleep 0.1
+        sleep 0.05
       done
+      test "$reactivated" -eq 1
     ) &
+    activation_pid=$!
     test_name=live_atspi_qt_delta_resync_and_stale_refs
     ;;
 esac
@@ -94,8 +97,12 @@ timeout --signal=TERM --kill-after=5s 90s \
     -- --ignored --nocapture --test-threads=1 \
   > "verification/native-ci/atspi-${PHASE}.log" 2>&1 || rc=$?
 cat "verification/native-ci/atspi-${PHASE}.log"
-if [[ "$PHASE" == qt && -f verification/native-ci/qt-startup-stack.log ]]; then
-  cat verification/native-ci/qt-startup-stack.log
+if [[ "$PHASE" == qt ]]; then
+  if ! wait "$activation_pid"; then
+    echo "phase=qt_activation_failed" | tee -a verification/native-ci/atspi-phases.log
+    rc=1
+  fi
+  cat verification/native-ci/qt-activation.log 2>/dev/null || true
 fi
 if [[ "$rc" -ne 0 ]]; then
   echo "phase=${PHASE}_failed rc=$rc" | tee -a verification/native-ci/atspi-phases.log

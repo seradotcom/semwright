@@ -10,10 +10,6 @@
 #include <iostream>
 
 int main(int argc, char **argv) {
-    // Set the test-only accessibility policy before Qt creates its platform
-    // integration. The real backend never mutates another application's state.
-    qputenv("QT_ACCESSIBILITY", "1");
-    qputenv("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1");
     QCoreApplication::setApplicationName("SemwrightQtFixture");
     QApplication app(argc, argv);
     QApplication::setApplicationDisplayName("Semwright Qt AT-SPI Fixture");
@@ -38,15 +34,9 @@ int main(int argc, char **argv) {
     window.resize(360, 160);
     window.show();
 
-    // Force creation of QXcbIntegration's accessibility bridge only in this
-    // conformance fixture. Qt exposes setActive/setRootObject as static accessibility
-    // hooks; production applications remain completely untouched by Semwright.
-    QAccessible::setActive(true);
-    QAccessible::setRootObject(&app);
-    QAccessibleEvent shown(&window, QAccessible::ObjectShow);
-    QAccessible::updateAccessibility(&shown);
-
-    // Keep the fixture on the same event-loop path as a real Qt desktop application.
+    // Let Qt initialize and publish its accessibility bridge through its normal
+    // platform path. The harness toggles org.a11y.Status after startup so older Qt
+    // releases cannot lose the initial enabledChanged notification during construction.
     QTimer::singleShot(250, [&app, &window]() {
         auto *app_root = QAccessible::queryAccessibleInterface(&app);
         auto *window_root = QAccessible::queryAccessibleInterface(&window);
