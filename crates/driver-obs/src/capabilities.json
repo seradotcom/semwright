@@ -1,0 +1,7273 @@
+[
+  {
+    "descriptor": {
+      "name": "driver.obs.doctor",
+      "version": "1.0.0",
+      "description": "Doctor using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "driver_version": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "connected": {
+                "type": "boolean"
+              },
+              "authenticated": {
+                "type": "boolean"
+              },
+              "connection": {
+                "enum": [
+                  "disconnected",
+                  "connecting",
+                  "authenticating",
+                  "identified",
+                  "ready",
+                  "reconnecting",
+                  "closing",
+                  "closed",
+                  "failed"
+                ]
+              },
+              "obs_version": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              },
+              "websocket_version": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              },
+              "rpc_version": {
+                "enum": [
+                  1,
+                  null
+                ]
+              },
+              "generation": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "graph_revision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "subscriptions": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1535
+              },
+              "event_queue_length": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 512
+              },
+              "event_metrics": {
+                "type": "object",
+                "properties": {
+                  "received": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "dropped": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "malformed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "old_generation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "unknown_responses": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "timeouts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "received",
+                  "dropped",
+                  "malformed",
+                  "old_generation",
+                  "unknown_responses",
+                  "timeouts"
+                ],
+                "additionalProperties": false
+              },
+              "cache_stale": {
+                "type": "boolean"
+              },
+              "last_error": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              },
+              "reconnect_attempts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "driver_version",
+              "connected",
+              "authenticated",
+              "connection",
+              "obs_version",
+              "websocket_version",
+              "rpc_version",
+              "generation",
+              "graph_revision",
+              "subscriptions",
+              "event_queue_length",
+              "event_metrics",
+              "cache_stale",
+              "last_error",
+              "reconnect_attempts"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "doctor"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.status",
+      "version": "1.0.0",
+      "description": "Status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "driver_version": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "connected": {
+                "type": "boolean"
+              },
+              "authenticated": {
+                "type": "boolean"
+              },
+              "connection": {
+                "enum": [
+                  "disconnected",
+                  "connecting",
+                  "authenticating",
+                  "identified",
+                  "ready",
+                  "reconnecting",
+                  "closing",
+                  "closed",
+                  "failed"
+                ]
+              },
+              "obs_version": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              },
+              "websocket_version": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              },
+              "rpc_version": {
+                "enum": [
+                  1,
+                  null
+                ]
+              },
+              "generation": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "graph_revision": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "subscriptions": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1535
+              },
+              "event_queue_length": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 512
+              },
+              "event_metrics": {
+                "type": "object",
+                "properties": {
+                  "received": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "dropped": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "malformed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "old_generation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "unknown_responses": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "timeouts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "received",
+                  "dropped",
+                  "malformed",
+                  "old_generation",
+                  "unknown_responses",
+                  "timeouts"
+                ],
+                "additionalProperties": false
+              },
+              "cache_stale": {
+                "type": "boolean"
+              },
+              "last_error": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              },
+              "reconnect_attempts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "driver_version",
+              "connected",
+              "authenticated",
+              "connection",
+              "obs_version",
+              "websocket_version",
+              "rpc_version",
+              "generation",
+              "graph_revision",
+              "subscriptions",
+              "event_queue_length",
+              "event_metrics",
+              "cache_stale",
+              "last_error",
+              "reconnect_attempts"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "status"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.version",
+      "version": "1.0.0",
+      "description": "Version using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "obs_version": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "websocket_version": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "rpc_version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1024
+              },
+              "available_requests": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "maxItems": 2048
+              }
+            },
+            "required": [
+              "obs_version",
+              "websocket_version",
+              "rpc_version",
+              "available_requests"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "version"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.stats",
+      "version": "1.0.0",
+      "description": "Stats using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "cpuUsage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "memoryUsage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "availableDiskSpace": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "activeFps": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "averageFrameRenderTime": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "renderSkippedFrames": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "renderTotalFrames": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "outputSkippedFrames": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "outputTotalFrames": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "webSocketSessionIncomingMessages": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              },
+              "webSocketSessionOutgoingMessages": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000.0
+              }
+            },
+            "required": [
+              "cpuUsage",
+              "memoryUsage",
+              "availableDiskSpace",
+              "activeFps",
+              "averageFrameRenderTime",
+              "renderSkippedFrames",
+              "renderTotalFrames",
+              "outputSkippedFrames",
+              "outputTotalFrames",
+              "webSocketSessionIncomingMessages",
+              "webSocketSessionOutgoingMessages"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "stats"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene.list",
+      "version": "1.0.0",
+      "description": "Scene list using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "scenes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 516
+                    },
+                    "uuid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-fA-F-]{36}$"
+                    },
+                    "mutable": {
+                      "type": "boolean"
+                    },
+                    "identity_strength": {
+                      "enum": [
+                        "uuid",
+                        "name_only",
+                        "watched_parent_name",
+                        "parent_uuid_item_id_source_uuid"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ref",
+                    "name",
+                    "uuid",
+                    "mutable",
+                    "identity_strength"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 256
+              },
+              "current_program_uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 36,
+                "pattern": "^[0-9a-fA-F-]{36}$"
+              },
+              "current_preview_uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 36,
+                "pattern": "^[0-9a-fA-F-]{36}$"
+              }
+            },
+            "required": [
+              "scenes",
+              "current_program_uuid",
+              "current_preview_uuid"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene.current.get",
+      "version": "1.0.0",
+      "description": "Scene current get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "ref": {
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 516
+              },
+              "uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 36,
+                "pattern": "^[0-9a-fA-F-]{36}$"
+              },
+              "mutable": {
+                "type": "boolean"
+              },
+              "identity_strength": {
+                "enum": [
+                  "uuid",
+                  "name_only",
+                  "watched_parent_name",
+                  "parent_uuid_item_id_source_uuid"
+                ]
+              }
+            },
+            "required": [
+              "ref",
+              "name",
+              "uuid",
+              "mutable",
+              "identity_strength"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.preview_scene.get",
+      "version": "1.0.0",
+      "description": "Preview_scene get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "ref": {
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 516
+              },
+              "uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 36,
+                "pattern": "^[0-9a-fA-F-]{36}$"
+              },
+              "mutable": {
+                "type": "boolean"
+              },
+              "identity_strength": {
+                "enum": [
+                  "uuid",
+                  "name_only",
+                  "watched_parent_name",
+                  "parent_uuid_item_id_source_uuid"
+                ]
+              }
+            },
+            "required": [
+              "ref",
+              "name",
+              "uuid",
+              "mutable",
+              "identity_strength"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "preview_scene"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene.current.set",
+      "version": "1.0.0",
+      "description": "Scene current set using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_current_scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "scene_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene"
+    ],
+    "object_types": [
+      "obs-scene"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.preview_scene.set",
+      "version": "1.0.0",
+      "description": "Preview_scene set using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_current_scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "scene_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "preview_scene"
+    ],
+    "object_types": [
+      "obs-scene"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene.inspect",
+      "version": "1.0.0",
+      "description": "Scene inspect using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "scene_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 516
+                    },
+                    "uuid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-fA-F-]{36}$"
+                    },
+                    "mutable": {
+                      "type": "boolean"
+                    },
+                    "identity_strength": {
+                      "enum": [
+                        "uuid",
+                        "name_only",
+                        "watched_parent_name",
+                        "parent_uuid_item_id_source_uuid"
+                      ]
+                    },
+                    "scene_item_id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4095
+                    },
+                    "is_group": {
+                      "type": "boolean"
+                    },
+                    "source_kind": {
+                      "type": "string",
+                      "maxLength": 516
+                    }
+                  },
+                  "required": [
+                    "ref",
+                    "name",
+                    "uuid",
+                    "mutable",
+                    "identity_strength",
+                    "scene_item_id",
+                    "enabled",
+                    "index",
+                    "is_group",
+                    "source_kind"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 512
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene"
+    ],
+    "object_types": [
+      "obs-scene"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene_item.list",
+      "version": "1.0.0",
+      "description": "Scene_item list using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "scene_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 516
+                    },
+                    "uuid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-fA-F-]{36}$"
+                    },
+                    "mutable": {
+                      "type": "boolean"
+                    },
+                    "identity_strength": {
+                      "enum": [
+                        "uuid",
+                        "name_only",
+                        "watched_parent_name",
+                        "parent_uuid_item_id_source_uuid"
+                      ]
+                    },
+                    "scene_item_id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4095
+                    },
+                    "is_group": {
+                      "type": "boolean"
+                    },
+                    "source_kind": {
+                      "type": "string",
+                      "maxLength": 516
+                    }
+                  },
+                  "required": [
+                    "ref",
+                    "name",
+                    "uuid",
+                    "mutable",
+                    "identity_strength",
+                    "scene_item_id",
+                    "enabled",
+                    "index",
+                    "is_group",
+                    "source_kind"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 512
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene_item"
+    ],
+    "object_types": [
+      "obs-scene"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene.create",
+      "version": "1.0.0",
+      "description": "Scene create using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f\\u202a-\\u202e\\u2066-\\u2069]+$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene.remove",
+      "version": "1.0.0",
+      "description": "Scene remove using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "scene_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "destructive",
+      "idempotency": "destructive",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene"
+    ],
+    "object_types": [
+      "obs-scene"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene.rename",
+      "version": "1.0.0",
+      "description": "Scene rename using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "new_name": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f\\u202a-\\u202e\\u2066-\\u2069]+$"
+          },
+          "scene_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "new_name",
+          "scene_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene"
+    ],
+    "object_types": [
+      "obs-scene"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene_item.inspect",
+      "version": "1.0.0",
+      "description": "Scene_item inspect using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_item_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "scene_item_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "transform": {
+                "type": "object",
+                "properties": {
+                  "positionX": {
+                    "type": "number",
+                    "minimum": -100000,
+                    "maximum": 100000
+                  },
+                  "positionY": {
+                    "type": "number",
+                    "minimum": -100000,
+                    "maximum": 100000
+                  },
+                  "rotation": {
+                    "type": "number",
+                    "minimum": -36000,
+                    "maximum": 36000
+                  },
+                  "scaleX": {
+                    "type": "number",
+                    "minimum": -100,
+                    "maximum": 100
+                  },
+                  "scaleY": {
+                    "type": "number",
+                    "minimum": -100,
+                    "maximum": 100
+                  },
+                  "alignment": {
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      4,
+                      5,
+                      6,
+                      8,
+                      9,
+                      10
+                    ]
+                  },
+                  "boundsAlignment": {
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      4,
+                      5,
+                      6,
+                      8,
+                      9,
+                      10
+                    ]
+                  },
+                  "boundsType": {
+                    "enum": [
+                      "OBS_BOUNDS_NONE",
+                      "OBS_BOUNDS_STRETCH",
+                      "OBS_BOUNDS_SCALE_INNER",
+                      "OBS_BOUNDS_SCALE_OUTER",
+                      "OBS_BOUNDS_SCALE_TO_WIDTH",
+                      "OBS_BOUNDS_SCALE_TO_HEIGHT",
+                      "OBS_BOUNDS_MAX_ONLY"
+                    ]
+                  },
+                  "boundsWidth": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "boundsHeight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropLeft": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropRight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropTop": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropBottom": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropToBounds": {
+                    "type": "boolean"
+                  }
+                },
+                "maxProperties": 64,
+                "additionalProperties": true,
+                "description": "Full OBS transform, unknown read fields retained. Patch schema is narrower and explicitly typed."
+              }
+            },
+            "required": [
+              "transform"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene_item"
+    ],
+    "object_types": [
+      "obs-scene-item"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene_item.transform.get",
+      "version": "1.0.0",
+      "description": "Scene_item transform get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_item_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "scene_item_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "transform": {
+                "type": "object",
+                "properties": {
+                  "positionX": {
+                    "type": "number",
+                    "minimum": -100000,
+                    "maximum": 100000
+                  },
+                  "positionY": {
+                    "type": "number",
+                    "minimum": -100000,
+                    "maximum": 100000
+                  },
+                  "rotation": {
+                    "type": "number",
+                    "minimum": -36000,
+                    "maximum": 36000
+                  },
+                  "scaleX": {
+                    "type": "number",
+                    "minimum": -100,
+                    "maximum": 100
+                  },
+                  "scaleY": {
+                    "type": "number",
+                    "minimum": -100,
+                    "maximum": 100
+                  },
+                  "alignment": {
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      4,
+                      5,
+                      6,
+                      8,
+                      9,
+                      10
+                    ]
+                  },
+                  "boundsAlignment": {
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      4,
+                      5,
+                      6,
+                      8,
+                      9,
+                      10
+                    ]
+                  },
+                  "boundsType": {
+                    "enum": [
+                      "OBS_BOUNDS_NONE",
+                      "OBS_BOUNDS_STRETCH",
+                      "OBS_BOUNDS_SCALE_INNER",
+                      "OBS_BOUNDS_SCALE_OUTER",
+                      "OBS_BOUNDS_SCALE_TO_WIDTH",
+                      "OBS_BOUNDS_SCALE_TO_HEIGHT",
+                      "OBS_BOUNDS_MAX_ONLY"
+                    ]
+                  },
+                  "boundsWidth": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "boundsHeight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropLeft": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropRight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropTop": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropBottom": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32768
+                  },
+                  "cropToBounds": {
+                    "type": "boolean"
+                  }
+                },
+                "maxProperties": 64,
+                "additionalProperties": true,
+                "description": "Full OBS transform, unknown read fields retained. Patch schema is narrower and explicitly typed."
+              }
+            },
+            "required": [
+              "transform"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene_item"
+    ],
+    "object_types": [
+      "obs-scene-item"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene_item.enable",
+      "version": "1.0.0",
+      "description": "Scene_item enable using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_item_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "scene_item_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene_item"
+    ],
+    "object_types": [
+      "obs-scene-item"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene_item.disable",
+      "version": "1.0.0",
+      "description": "Scene_item disable using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "scene_item_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "scene_item_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene_item"
+    ],
+    "object_types": [
+      "obs-scene-item"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene_item.transform.set",
+      "version": "1.0.0",
+      "description": "Scene_item transform set using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "patch": {
+            "type": "object",
+            "properties": {
+              "positionX": {
+                "type": "number",
+                "minimum": -100000,
+                "maximum": 100000
+              },
+              "positionY": {
+                "type": "number",
+                "minimum": -100000,
+                "maximum": 100000
+              },
+              "rotation": {
+                "type": "number",
+                "minimum": -36000,
+                "maximum": 36000
+              },
+              "scaleX": {
+                "type": "number",
+                "minimum": -100,
+                "maximum": 100
+              },
+              "scaleY": {
+                "type": "number",
+                "minimum": -100,
+                "maximum": 100
+              },
+              "alignment": {
+                "enum": [
+                  0,
+                  1,
+                  2,
+                  4,
+                  5,
+                  6,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "boundsAlignment": {
+                "enum": [
+                  0,
+                  1,
+                  2,
+                  4,
+                  5,
+                  6,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "boundsType": {
+                "enum": [
+                  "OBS_BOUNDS_NONE",
+                  "OBS_BOUNDS_STRETCH",
+                  "OBS_BOUNDS_SCALE_INNER",
+                  "OBS_BOUNDS_SCALE_OUTER",
+                  "OBS_BOUNDS_SCALE_TO_WIDTH",
+                  "OBS_BOUNDS_SCALE_TO_HEIGHT",
+                  "OBS_BOUNDS_MAX_ONLY"
+                ]
+              },
+              "boundsWidth": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 32768
+              },
+              "boundsHeight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 32768
+              },
+              "cropLeft": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32768
+              },
+              "cropRight": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32768
+              },
+              "cropTop": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32768
+              },
+              "cropBottom": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32768
+              },
+              "cropToBounds": {
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "additionalProperties": false,
+            "minProperties": 1,
+            "maxProperties": 15
+          },
+          "scene_item_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "patch",
+          "scene_item_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene_item"
+    ],
+    "object_types": [
+      "obs-scene-item"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.scene_item.reorder",
+      "version": "1.0.0",
+      "description": "Scene_item reorder using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4095
+          },
+          "scene_item_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "index",
+          "scene_item_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "scene_item"
+    ],
+    "object_types": [
+      "obs-scene-item"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.list",
+      "version": "1.0.0",
+      "description": "Input list using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "inputs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 516
+                    },
+                    "uuid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-fA-F-]{36}$"
+                    },
+                    "mutable": {
+                      "type": "boolean"
+                    },
+                    "identity_strength": {
+                      "enum": [
+                        "uuid",
+                        "name_only",
+                        "watched_parent_name",
+                        "parent_uuid_item_id_source_uuid"
+                      ]
+                    },
+                    "input_kind": {
+                      "type": "string",
+                      "maxLength": 516
+                    }
+                  },
+                  "required": [
+                    "ref",
+                    "name",
+                    "uuid",
+                    "mutable",
+                    "identity_strength",
+                    "input_kind"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 1024
+              }
+            },
+            "required": [
+              "inputs"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.inspect",
+      "version": "1.0.0",
+      "description": "Input inspect using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "input_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "ref": {
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 516
+              },
+              "uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 36,
+                "pattern": "^[0-9a-fA-F-]{36}$"
+              },
+              "mutable": {
+                "type": "boolean"
+              },
+              "identity_strength": {
+                "enum": [
+                  "uuid",
+                  "name_only",
+                  "watched_parent_name",
+                  "parent_uuid_item_id_source_uuid"
+                ]
+              },
+              "input_kind": {
+                "type": "string",
+                "maxLength": 516
+              }
+            },
+            "required": [
+              "ref",
+              "name",
+              "uuid",
+              "mutable",
+              "identity_strength",
+              "input_kind"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.mute.get",
+      "version": "1.0.0",
+      "description": "Input mute get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "input_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "muted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "muted"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.mute.set",
+      "version": "1.0.0",
+      "description": "Input mute set using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "muted": {
+            "type": "boolean"
+          },
+          "expected_muted": {
+            "type": "boolean"
+          },
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "muted",
+          "expected_muted",
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.volume.get",
+      "version": "1.0.0",
+      "description": "Input volume get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "input_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "multiplier": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 20
+              },
+              "volume_db": {
+                "type": "number",
+                "minimum": -200,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "multiplier",
+              "volume_db"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.volume.set",
+      "version": "1.0.0",
+      "description": "Input volume set using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "volume_db": {
+            "type": "number",
+            "minimum": -100,
+            "maximum": 0
+          },
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "volume_db",
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.settings.get",
+      "version": "1.0.0",
+      "description": "Input settings get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "input_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "settings": {
+                "type": "object",
+                "maxProperties": 64,
+                "description": "Application/plugin-defined, untrusted. Runtime also bounds depth, nodes, bytes and all strings.",
+                "additionalProperties": true
+              },
+              "input_kind": {
+                "type": "string",
+                "maxLength": 516
+              }
+            },
+            "required": [
+              "settings",
+              "input_kind"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "secret_access",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.input.settings.patch",
+      "version": "1.0.0",
+      "description": "Input settings patch using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "patch": {
+            "type": "object",
+            "maxProperties": 64,
+            "description": "Application/plugin-defined, untrusted. Runtime also bounds depth, nodes, bytes and all strings.",
+            "additionalProperties": true
+          },
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "patch",
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "input"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.filter.list",
+      "version": "1.0.0",
+      "description": "Filter list using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "input_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "filters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 516
+                    },
+                    "uuid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-fA-F-]{36}$"
+                    },
+                    "mutable": {
+                      "type": "boolean"
+                    },
+                    "identity_strength": {
+                      "enum": [
+                        "uuid",
+                        "name_only",
+                        "watched_parent_name",
+                        "parent_uuid_item_id_source_uuid"
+                      ]
+                    },
+                    "filter_kind": {
+                      "type": "string",
+                      "maxLength": 516
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 127
+                    }
+                  },
+                  "required": [
+                    "ref",
+                    "name",
+                    "uuid",
+                    "mutable",
+                    "identity_strength",
+                    "filter_kind",
+                    "enabled",
+                    "index"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 128
+              }
+            },
+            "required": [
+              "filters"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "filter"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.filter.inspect",
+      "version": "1.0.0",
+      "description": "Filter inspect using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filter_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "filter_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "settings": {
+                "type": "object",
+                "maxProperties": 64,
+                "description": "Application/plugin-defined, untrusted. Runtime also bounds depth, nodes, bytes and all strings.",
+                "additionalProperties": true
+              },
+              "filter_kind": {
+                "type": "string",
+                "maxLength": 516
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "settings",
+              "filter_kind",
+              "enabled"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "secret_access",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "filter"
+    ],
+    "object_types": [
+      "obs-filter"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.filter.settings.get",
+      "version": "1.0.0",
+      "description": "Filter settings get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filter_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "filter_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "settings": {
+                "type": "object",
+                "maxProperties": 64,
+                "description": "Application/plugin-defined, untrusted. Runtime also bounds depth, nodes, bytes and all strings.",
+                "additionalProperties": true
+              },
+              "filter_kind": {
+                "type": "string",
+                "maxLength": 516
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "settings",
+              "filter_kind",
+              "enabled"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "secret_access",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "filter"
+    ],
+    "object_types": [
+      "obs-filter"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.filter.enable",
+      "version": "1.0.0",
+      "description": "Filter enable using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filter_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "filter_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "filter"
+    ],
+    "object_types": [
+      "obs-filter"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.filter.disable",
+      "version": "1.0.0",
+      "description": "Filter disable using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filter_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "filter_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "filter"
+    ],
+    "object_types": [
+      "obs-filter"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.filter.settings.patch",
+      "version": "1.0.0",
+      "description": "Filter settings patch using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "patch": {
+            "type": "object",
+            "maxProperties": 64,
+            "description": "Application/plugin-defined, untrusted. Runtime also bounds depth, nodes, bytes and all strings.",
+            "additionalProperties": true
+          },
+          "filter_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "patch",
+          "filter_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "filter"
+    ],
+    "object_types": [
+      "obs-filter"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.transition.list",
+      "version": "1.0.0",
+      "description": "Transition list using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "transitions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 516
+                    },
+                    "uuid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 36,
+                      "pattern": "^[0-9a-fA-F-]{36}$"
+                    },
+                    "mutable": {
+                      "type": "boolean"
+                    },
+                    "identity_strength": {
+                      "enum": [
+                        "uuid",
+                        "name_only",
+                        "watched_parent_name",
+                        "parent_uuid_item_id_source_uuid"
+                      ]
+                    },
+                    "transition_kind": {
+                      "type": "string",
+                      "maxLength": 516
+                    }
+                  },
+                  "required": [
+                    "ref",
+                    "name",
+                    "uuid",
+                    "mutable",
+                    "identity_strength",
+                    "transition_kind"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 128
+              }
+            },
+            "required": [
+              "transitions"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "transition"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.transition.current.get",
+      "version": "1.0.0",
+      "description": "Transition current get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 516
+              },
+              "uuid": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 36,
+                "pattern": "^[0-9a-fA-F-]{36}$"
+              },
+              "kind": {
+                "type": "string",
+                "maxLength": 516
+              },
+              "fixed": {
+                "type": "boolean"
+              },
+              "duration_ms": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            },
+            "required": [
+              "name",
+              "uuid",
+              "kind",
+              "fixed",
+              "duration_ms"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "transition"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.transition.current.set",
+      "version": "1.0.0",
+      "description": "Transition current set using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "transition_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "transition_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "transition"
+    ],
+    "object_types": [
+      "obs-transition"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.transition.trigger",
+      "version": "1.0.0",
+      "description": "Transition trigger using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "transition"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.record.status",
+      "version": "1.0.0",
+      "description": "Record status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "paused": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "duration_ms": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "timecode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              }
+            },
+            "required": [
+              "active",
+              "paused",
+              "duration_ms",
+              "timecode"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "record"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.record.start",
+      "version": "1.0.0",
+      "description": "Record start using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "record"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.record.stop",
+      "version": "1.0.0",
+      "description": "Record stop using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "record"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.stream.status",
+      "version": "1.0.0",
+      "description": "Stream status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "paused": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "duration_ms": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "timecode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              }
+            },
+            "required": [
+              "active",
+              "paused",
+              "duration_ms",
+              "timecode"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "stream"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.stream.start",
+      "version": "1.0.0",
+      "description": "Stream start using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "stream"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.stream.stop",
+      "version": "1.0.0",
+      "description": "Stream stop using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "stream"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.replay.status",
+      "version": "1.0.0",
+      "description": "Replay status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "paused": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "duration_ms": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "timecode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              }
+            },
+            "required": [
+              "active",
+              "paused",
+              "duration_ms",
+              "timecode"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "replay"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.replay.start",
+      "version": "1.0.0",
+      "description": "Replay start using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "replay"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.replay.stop",
+      "version": "1.0.0",
+      "description": "Replay stop using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "replay"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.virtual_camera.status",
+      "version": "1.0.0",
+      "description": "Virtual_camera status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean"
+              },
+              "paused": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "duration_ms": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "timecode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 80
+              }
+            },
+            "required": [
+              "active",
+              "paused",
+              "duration_ms",
+              "timecode"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "virtual_camera"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.virtual_camera.start",
+      "version": "1.0.0",
+      "description": "Virtual_camera start using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "virtual_camera"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.virtual_camera.stop",
+      "version": "1.0.0",
+      "description": "Virtual_camera stop using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "virtual_camera"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.record.pause",
+      "version": "1.0.0",
+      "description": "Record pause using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "record"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.record.resume",
+      "version": "1.0.0",
+      "description": "Record resume using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "record"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.replay.save",
+      "version": "1.0.0",
+      "description": "Replay save using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_active": {
+            "type": "boolean"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_active",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "privilege_sensitive",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "replay"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.output.status",
+      "version": "1.0.0",
+      "description": "Output status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "record": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "paused": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "duration_ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "timecode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "active",
+                  "paused",
+                  "duration_ms",
+                  "timecode"
+                ],
+                "additionalProperties": false
+              },
+              "stream": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "paused": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "duration_ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "timecode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "active",
+                  "paused",
+                  "duration_ms",
+                  "timecode"
+                ],
+                "additionalProperties": false
+              },
+              "replay": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "paused": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "duration_ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "timecode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "active",
+                  "paused",
+                  "duration_ms",
+                  "timecode"
+                ],
+                "additionalProperties": false
+              },
+              "virtual_camera": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "paused": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "duration_ms": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "timecode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "active",
+                  "paused",
+                  "duration_ms",
+                  "timecode"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "record",
+              "stream",
+              "replay",
+              "virtual_camera"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "output"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.media.status",
+      "version": "1.0.0",
+      "description": "Media status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "input_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "duration_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2147483647
+              },
+              "cursor_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2147483647
+              }
+            },
+            "required": [
+              "state",
+              "duration_ms",
+              "cursor_ms"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "media"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.media.play",
+      "version": "1.0.0",
+      "description": "Media play using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "media"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.media.pause",
+      "version": "1.0.0",
+      "description": "Media pause using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "media"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.media.restart",
+      "version": "1.0.0",
+      "description": "Media restart using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "media"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.media.stop",
+      "version": "1.0.0",
+      "description": "Media stop using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "media"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.media.seek",
+      "version": "1.0.0",
+      "description": "Media seek using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "position_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "input_ref": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^obs-[a-z-]+:[0-9a-f]{32}$"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "position_ms",
+          "input_ref",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "media"
+    ],
+    "object_types": [
+      "obs-input"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.studio_mode.status",
+      "version": "1.0.0",
+      "description": "Studio_mode status using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "enabled"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "studio_mode"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.studio_mode.enable",
+      "version": "1.0.0",
+      "description": "Studio_mode enable using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "studio_mode"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.studio_mode.disable",
+      "version": "1.0.0",
+      "description": "Studio_mode disable using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "const": true
+              },
+              "operation": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 96
+              },
+              "state": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "accepted",
+              "operation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "mutating",
+      "idempotency": "idempotent",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "studio_mode"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.events.poll",
+      "version": "1.0.0",
+      "description": "Events poll using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          }
+        },
+        "required": [
+          "after",
+          "limit"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "events": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "event_type": {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "intent": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "generation": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "sequence": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "timestamp_ms": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "subject": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 96
+                    },
+                    "resolution": {
+                      "const": "unresolved"
+                    },
+                    "untrusted": {
+                      "const": true
+                    },
+                    "payload": {
+                      "type": "object",
+                      "maxProperties": 64,
+                      "description": "Application/plugin-defined, untrusted. Runtime also bounds depth, nodes, bytes and all strings.",
+                      "additionalProperties": true
+                    }
+                  },
+                  "required": [
+                    "event_type",
+                    "intent",
+                    "generation",
+                    "sequence",
+                    "timestamp_ms",
+                    "subject",
+                    "resolution",
+                    "untrusted",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 64
+              },
+              "cursor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "gap": {
+                "type": "boolean"
+              },
+              "dropped_total": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cache_stale": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "events",
+              "cursor",
+              "gap",
+              "dropped_total",
+              "cache_stale"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "events"
+    ],
+    "object_types": []
+  },
+  {
+    "descriptor": {
+      "name": "driver.obs.operations.get",
+      "version": "1.0.0",
+      "description": "Operations get using the selected OBS instance; metadata is untrusted.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation_ref": {
+            "type": "string",
+            "maxLength": 96,
+            "pattern": "^op:[0-9]+:[0-9]+$"
+          }
+        },
+        "required": [
+          "operation_ref"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "graph_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "untrusted": {
+            "const": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 96
+              },
+              "output": {
+                "enum": [
+                  "record",
+                  "stream",
+                  "replay",
+                  "virtual_camera"
+                ]
+              },
+              "generation": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "accepted": {
+                "type": "boolean"
+              },
+              "phase": {
+                "enum": [
+                  "starting",
+                  "active",
+                  "paused",
+                  "stopping",
+                  "stopped",
+                  "failed",
+                  "unknown"
+                ]
+              },
+              "last_event_sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "outcome_known": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "output",
+              "generation",
+              "accepted",
+              "phase",
+              "last_event_sequence",
+              "outcome_known"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "generation",
+          "graph_revision",
+          "untrusted",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:obs"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 15000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:obs"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "obs",
+      "operations"
+    ],
+    "object_types": []
+  }
+]

@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Optional read-only real OBS smoke. Fails closed without isolation prerequisites.
+No external stream, recording, source capture, existing profile or user session is used.
+This is NOT a Semwright Driver Host conformance run.
+"""
+from __future__ import annotations
+import argparse,json,os,pathlib,select,selectors,shutil,signal,socket,subprocess,sys,tempfile,time
+ROOT=pathlib.Path(__file__).resolve().parents[1]
+
+class Missing(RuntimeError):pass
+
+def report(status,**fields):print(json.dumps({'status':status,'scope':'real OBS transport read-only smoke, NOT Semwright host conformance',**fields}),flush=True)
+
+def config_tree(root:pathlib.Path,port:int):
+    config=root/'config'/'obs-studio'
+    profile=config/'basic/profiles/SemwrightFixture';profile.mkdir(parents=True)
+    scenes=config/'basic/scenes';scenes.mkdir(parents=True)
+    plugin=config/'plugin_config/obs-websocket';plugin.mkdir(parents=True)
+    (root/'runtime').mkdir(mode=0o700)
+    (config/'global.ini').write_text('[General]\nFirstRun=false\n\n[Basic]\nProfile=SemwrightFixture\nProfileDir=SemwrightFixture\nSceneCollection=SemwrightFixture\nSceneCollectionFile=SemwrightFixture\n')
+    (profile/'basic.ini').write_text('[General]\nName=SemwrightFixture\n[Video]\nBaseCX=320\nBaseCY=180\nOutputCX=320\nOutputCY=180\nFPSType=0\nFPSCommon=10\n[Audio]\nSampleRate=48000\nChannelSetup=Stereo\n[Output]\nMode=Simple\n')
+    # Empty synthetic scene; no input, camera, microphone, browser or display source.
+    scene={'name':'SemwrightFixture','current_scene':'Synthetic','current_program_scene':'Synthetic','scene_order':[{'name':'Synthetic'}],
+      'sources':[{'name':'Synthetic','uuid':'00000000-0000-0000-0000-000000000001','id':'scene','versioned_id':'scene','settings':{'items':[]}}],
+      'transitions':[],'current_transition':'Fade','transition_duration':300,
+      'DesktopAudioDevice1':None,'DesktopAudioDevice2':None,'AuxAudioDevice1':None,'AuxAudioDevice2':None,'AuxAudioDevice3':None,'AuxAudioDevice4':None}
+    (scenes/'SemwrightFixture.json').write_text(json.dumps(scene))
+    # Anonymous fixture endpoint only inside an isolated network namespace. No password
+    # is written, and no host interface or endpoint is reachable from this namespace.
+    (plugin/'config.json').write_text(json.dumps({'first_load':False,'server_enabled':True,'server_port':port,'alerts_enabled':False,'auth_required':False}))
+    return config
+
+def bounded_process(command,timeout,env=None):
+    proc=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,env=env)
+    end=time.monotonic()+timeout
+    selector=selectors.DefaultSelector()
+    output=[bytearray(),bytearray()]
+    selector.register(proc.stdout,selectors.EVENT_READ,0)
+    selector.register(proc.stderr,selectors.EVENT_READ,1)
+    try:
+        while selector.get_map():
+            remaining=end-time.monotonic()
+            if remaining<=0:raise subprocess.TimeoutExpired(command,timeout)
+            for key,_ in selector.select(min(.1,remaining)):
+                chunk=os.read(key.fileobj.fileno(),65536)
+                if not chunk:selector.unregister(key.fileobj);continue
+                if len(output[key.data])+len(chunk)>1048576:raise RuntimeError('child output exceeded evidence budget')
+                output[key.data].extend(chunk)
+        code=proc.wait(timeout=max(.001,end-time.monotonic()))
+        return code,bytes(output[0]),bytes(output[1])
+    except BaseException:
+        try:os.killpg(proc.pid,signal.SIGTERM)
+        except ProcessLookupError:pass
+        try:proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            try:os.killpg(proc.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+            proc.wait()
+        raise
+    finally:
+        selector.close()
+        proc.stdout.close();proc.stderr.close()
+
+def sandbox(probe:pathlib.Path):
+    # bwrap created /dev from scratch and hid host home, /run, X11 and device nodes.
+    if pathlib.Path('/dev/video0').exists() or pathlib.Path('/dev/snd').exists():raise RuntimeError('real hardware unexpectedly visible')
+    if any(name!='lo' for _,name in socket.if_nameindex()):raise RuntimeError('non-loopback interface visible')
+    with tempfile.TemporaryDirectory(prefix='obs-fixture-') as directory:
+        root=pathlib.Path(directory);home=root/'home';home.mkdir()
+        with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
+        config_tree(root,port)
+        env={'PATH':'/usr/bin:/bin','HOME':str(home),'XDG_CONFIG_HOME':str(root/'config'),'XDG_DATA_HOME':str(root/'data'),
+             'XDG_CACHE_HOME':str(root/'cache'),'XDG_RUNTIME_DIR':str(root/'runtime'),'QT_QPA_PLATFORM':'xcb','LIBGL_ALWAYS_SOFTWARE':'1',
+             'PULSE_SERVER':'unix:/nonexistent','PIPEWIRE_REMOTE':'nonexistent','DBUS_SESSION_BUS_ADDRESS':'unix:path=/nonexistent','LANG':'C.UTF-8'}
+        children=[]
+        try:
+            with (root/'xvfb.log').open('wb') as xlog,(root/'obs.log').open('wb') as olog:
+                readfd,writefd=os.pipe()
+                try:
+                    xvfb=subprocess.Popen(['/usr/bin/Xvfb','-displayfd',str(writefd),'-screen','0','640x360x24','-nolisten','tcp'],pass_fds=(writefd,),stdout=xlog,stderr=xlog,env=env)
+                    children.append(xvfb);os.close(writefd);writefd=-1
+                    if not select.select([readfd],[],[],5)[0]:raise RuntimeError('virtual display timeout')
+                    number=os.read(readfd,16).strip()
+                    if not number.isdigit():raise RuntimeError('invalid virtual display')
+                finally:
+                    os.close(readfd)
+                    if writefd>=0:os.close(writefd)
+                env['DISPLAY']=':'+number.decode('ascii')
+                obs=subprocess.Popen(['/usr/bin/obs','--multi','--only-bundled-plugins','--disable-missing-files-check','--profile','SemwrightFixture','--collection','SemwrightFixture'],stdout=olog,stderr=olog,env=env)
+                children.append(obs)
+                deadline=time.monotonic()+35
+                while time.monotonic()<deadline:
+                    if obs.poll() is not None:raise RuntimeError('OBS exited before readiness')
+                    code,out,_=bounded_process([str(probe),str(port)],8,env)
+                    if code==0:
+                        data=json.loads(out)
+                        if not isinstance(data,dict) or 'version' not in data or 'scenes' not in data:raise RuntimeError('invalid probe evidence')
+                        names=[s.get('sceneName') for s in data['scenes'].get('scenes',[])]
+                        if names!=['Synthetic']:raise RuntimeError('unexpected scene graph; refuse existing or contaminated profile')
+                        report('PASS_READ_ONLY',obs_version=data['version'].get('obsVersion'),websocket_version=data['version'].get('obsWebSocketVersion'),scene_names=names,recording_started=False,streaming_started=False)
+                        return
+                    time.sleep(.2)
+                raise RuntimeError('OBS WebSocket did not become ready')
+        finally:
+            for proc in reversed(children):
+                if proc.poll() is None:proc.terminate()
+                try:proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:proc.kill();proc.wait()
+
+def namespace(probe:pathlib.Path,parent_netns:str):
+    if os.readlink('/proc/self/ns/net')==parent_netns:raise RuntimeError('network namespace isolation failed')
+    subprocess.run(['ip','link','set','lo','up'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    # Only system runtime, pack source, and the explicitly supplied probe are visible.
+    command=['bwrap','--unshare-all','--share-net','--die-with-parent','--new-session','--clearenv','--ro-bind','/usr','/usr']
+    for path in ['/bin','/lib','/lib64']:
+        if pathlib.Path(path).exists():command+=['--ro-bind',path,path]
+    command+=['--proc','/proc','--dev','/dev','--tmpfs','/tmp','--dir','/run','--dir','/etc','--ro-bind',str(ROOT),'/pack','--ro-bind',str(probe),'/probe','--setenv','PATH','/usr/bin:/bin','--chdir','/tmp','/usr/bin/python3','/pack/tools/real_obs_smoke.py','--sandbox','/probe']
+    code,out,err=bounded_process(command,55)
+    if out:sys.stdout.buffer.write(out);sys.stdout.flush()
+    if code!=0:
+        report('FAILED_ISOLATED_LAUNCH',exit_code=code,diagnostic_bytes=len(err));raise SystemExit(code or 1)
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--probe',type=pathlib.Path,default=ROOT/'driver/target/release/obs-probe');p.add_argument('--namespace',type=pathlib.Path);p.add_argument('--parent-netns');p.add_argument('--sandbox',type=pathlib.Path);a=p.parse_args()
+    if a.sandbox:return sandbox(a.sandbox)
+    if a.namespace:return namespace(a.namespace,a.parent_netns)
+    missing=[x for x in ['obs','Xvfb','unshare','bwrap','ip'] if shutil.which(x) is None]
+    probe=a.probe.resolve()
+    if not probe.is_file() or not os.access(probe,os.X_OK):missing.append('compiled obs-probe')
+    if missing:report('SKIPPED_PREREQUISITES',missing=missing);return 77
+    parent=os.readlink('/proc/self/ns/net')
+    command=['unshare','--user','--map-root-user','--net','--pid','--fork','--kill-child=KILL','--',sys.executable,str(pathlib.Path(__file__).resolve()),'--namespace',str(probe),'--parent-netns',parent]
+    code,out,err=bounded_process(command,65)
+    if out:sys.stdout.buffer.write(out);sys.stdout.flush()
+    if code!=0:report('FAILED_ISOLATION_OR_SMOKE',exit_code=code,diagnostic_bytes=len(err))
+    return code
+if __name__=='__main__':
+    try:raise SystemExit(main() or 0)
+    except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+        report('FAIL',error_category=type(error).__name__);raise SystemExit(1)

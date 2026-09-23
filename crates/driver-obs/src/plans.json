@@ -1,0 +1,743 @@
+[
+  {
+    "command": "doctor",
+    "request": "",
+    "target": null,
+    "mode": "health",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "status",
+    "request": "",
+    "target": null,
+    "mode": "health",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "version",
+    "request": "GetVersion",
+    "target": null,
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "obs_version": "obsVersion",
+      "websocket_version": "obsWebSocketVersion",
+      "rpc_version": "rpcVersion",
+      "available_requests": "availableRequests"
+    },
+    "mutation": false
+  },
+  {
+    "command": "stats",
+    "request": "GetStats",
+    "target": null,
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "cpuUsage": "cpuUsage",
+      "memoryUsage": "memoryUsage",
+      "availableDiskSpace": "availableDiskSpace",
+      "activeFps": "activeFps",
+      "averageFrameRenderTime": "averageFrameRenderTime",
+      "renderSkippedFrames": "renderSkippedFrames",
+      "renderTotalFrames": "renderTotalFrames",
+      "outputSkippedFrames": "outputSkippedFrames",
+      "outputTotalFrames": "outputTotalFrames",
+      "webSocketSessionIncomingMessages": "webSocketSessionIncomingMessages",
+      "webSocketSessionOutgoingMessages": "webSocketSessionOutgoingMessages"
+    },
+    "mutation": false
+  },
+  {
+    "command": "scene.list",
+    "request": "GetSceneList",
+    "target": null,
+    "mode": "scenes",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "scene.current.get",
+    "request": "GetCurrentProgramScene",
+    "target": null,
+    "mode": "scene_current",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "preview_scene.get",
+    "request": "GetCurrentPreviewScene",
+    "target": null,
+    "mode": "scene_current",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "scene.current.set",
+    "request": "SetCurrentProgramScene",
+    "target": "scene",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "preview_scene.set",
+    "request": "SetCurrentPreviewScene",
+    "target": "scene",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "scene.inspect",
+    "request": "GetSceneItemList",
+    "target": "scene",
+    "mode": "items",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "scene_item.list",
+    "request": "GetSceneItemList",
+    "target": "scene",
+    "mode": "items",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "scene.create",
+    "request": "CreateScene",
+    "target": null,
+    "mode": "mapped",
+    "fields": {
+      "name": "sceneName"
+    },
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "scene.remove",
+    "request": "RemoveScene",
+    "target": "scene",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "scene.rename",
+    "request": "SetSceneName",
+    "target": "scene",
+    "mode": "mapped",
+    "fields": {
+      "new_name": "newSceneName"
+    },
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "scene_item.inspect",
+    "request": "GetSceneItemTransform",
+    "target": "scene_item",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "transform": "sceneItemTransform"
+    },
+    "mutation": false
+  },
+  {
+    "command": "scene_item.transform.get",
+    "request": "GetSceneItemTransform",
+    "target": "scene_item",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "transform": "sceneItemTransform"
+    },
+    "mutation": false
+  },
+  {
+    "command": "scene_item.enable",
+    "request": "SetSceneItemEnabled",
+    "target": "scene_item",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "sceneItemEnabled": true
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "scene_item.disable",
+    "request": "SetSceneItemEnabled",
+    "target": "scene_item",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "sceneItemEnabled": false
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "scene_item.transform.set",
+    "request": "SetSceneItemTransform",
+    "target": "scene_item",
+    "mode": "mapped",
+    "fields": {
+      "patch": "sceneItemTransform"
+    },
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "scene_item.reorder",
+    "request": "SetSceneItemIndex",
+    "target": "scene_item",
+    "mode": "mapped",
+    "fields": {
+      "index": "sceneItemIndex"
+    },
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "input.list",
+    "request": "GetInputList",
+    "target": null,
+    "mode": "inputs",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "input.inspect",
+    "request": "GetInputList",
+    "target": "input",
+    "mode": "input_inspect",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "input.mute.get",
+    "request": "GetInputMute",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "muted": "inputMuted"
+    },
+    "mutation": false
+  },
+  {
+    "command": "input.mute.set",
+    "request": "SetInputMute",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {
+      "muted": "inputMuted"
+    },
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "input.volume.get",
+    "request": "GetInputVolume",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "multiplier": "inputVolumeMul",
+      "volume_db": "inputVolumeDb"
+    },
+    "mutation": false
+  },
+  {
+    "command": "input.volume.set",
+    "request": "SetInputVolume",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {
+      "volume_db": "inputVolumeDb"
+    },
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "input.settings.get",
+    "request": "GetInputSettings",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "settings": "inputSettings",
+      "input_kind": "inputKind"
+    },
+    "mutation": false
+  },
+  {
+    "command": "input.settings.patch",
+    "request": "SetInputSettings",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {
+      "patch": "inputSettings"
+    },
+    "fixed": {
+      "overlay": true
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "filter.list",
+    "request": "GetSourceFilterList",
+    "target": "input",
+    "mode": "filters",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "filter.inspect",
+    "request": "GetSourceFilter",
+    "target": "filter",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "settings": "filterSettings",
+      "filter_kind": "filterKind",
+      "enabled": "filterEnabled"
+    },
+    "mutation": false
+  },
+  {
+    "command": "filter.settings.get",
+    "request": "GetSourceFilter",
+    "target": "filter",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "settings": "filterSettings",
+      "filter_kind": "filterKind",
+      "enabled": "filterEnabled"
+    },
+    "mutation": false
+  },
+  {
+    "command": "filter.enable",
+    "request": "SetSourceFilterEnabled",
+    "target": "filter",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "filterEnabled": true
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "filter.disable",
+    "request": "SetSourceFilterEnabled",
+    "target": "filter",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "filterEnabled": false
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "filter.settings.patch",
+    "request": "SetSourceFilterSettings",
+    "target": "filter",
+    "mode": "mapped",
+    "fields": {
+      "patch": "filterSettings"
+    },
+    "fixed": {
+      "overlay": true
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "transition.list",
+    "request": "GetSceneTransitionList",
+    "target": null,
+    "mode": "transitions",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "transition.current.get",
+    "request": "GetCurrentSceneTransition",
+    "target": null,
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "name": "transitionName",
+      "uuid": "transitionUuid",
+      "kind": "transitionKind",
+      "fixed": "transitionFixed",
+      "duration_ms": "transitionDuration"
+    },
+    "mutation": false
+  },
+  {
+    "command": "transition.current.set",
+    "request": "SetCurrentSceneTransition",
+    "target": "transition",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "transition.trigger",
+    "request": "TriggerStudioModeTransition",
+    "target": null,
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "record.status",
+    "request": "GetRecordStatus",
+    "target": null,
+    "mode": "output_status",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "record.start",
+    "request": "StartRecord",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "record.stop",
+    "request": "StopRecord",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "stream.status",
+    "request": "GetStreamStatus",
+    "target": null,
+    "mode": "output_status",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "stream.start",
+    "request": "StartStream",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "stream.stop",
+    "request": "StopStream",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "replay.status",
+    "request": "GetReplayBufferStatus",
+    "target": null,
+    "mode": "output_status",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "replay.start",
+    "request": "StartReplayBuffer",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "replay.stop",
+    "request": "StopReplayBuffer",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "virtual_camera.status",
+    "request": "GetVirtualCamStatus",
+    "target": null,
+    "mode": "output_status",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "virtual_camera.start",
+    "request": "StartVirtualCam",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "virtual_camera.stop",
+    "request": "StopVirtualCam",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "record.pause",
+    "request": "PauseRecord",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "record.resume",
+    "request": "ResumeRecord",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "replay.save",
+    "request": "SaveReplayBuffer",
+    "target": null,
+    "mode": "output_mutation",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "output.status",
+    "request": "",
+    "target": null,
+    "mode": "outputs",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "media.status",
+    "request": "GetMediaInputStatus",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "state": "mediaState",
+      "duration_ms": "mediaDuration",
+      "cursor_ms": "mediaCursor"
+    },
+    "mutation": false
+  },
+  {
+    "command": "media.play",
+    "request": "TriggerMediaInputAction",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "mediaAction": "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PLAY"
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "media.pause",
+    "request": "TriggerMediaInputAction",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "mediaAction": "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_PAUSE"
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "media.restart",
+    "request": "TriggerMediaInputAction",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "mediaAction": "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART"
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "media.stop",
+    "request": "TriggerMediaInputAction",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "mediaAction": "OBS_WEBSOCKET_MEDIA_INPUT_ACTION_STOP"
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "media.seek",
+    "request": "SetMediaInputCursor",
+    "target": "input",
+    "mode": "mapped",
+    "fields": {
+      "position_ms": "mediaCursor"
+    },
+    "fixed": {},
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "studio_mode.status",
+    "request": "GetStudioModeEnabled",
+    "target": null,
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {},
+    "response": {
+      "enabled": "studioModeEnabled"
+    },
+    "mutation": false
+  },
+  {
+    "command": "studio_mode.enable",
+    "request": "SetStudioModeEnabled",
+    "target": null,
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "studioModeEnabled": true
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "studio_mode.disable",
+    "request": "SetStudioModeEnabled",
+    "target": null,
+    "mode": "mapped",
+    "fields": {},
+    "fixed": {
+      "studioModeEnabled": false
+    },
+    "response": {},
+    "mutation": true
+  },
+  {
+    "command": "events.poll",
+    "request": "",
+    "target": null,
+    "mode": "events",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  },
+  {
+    "command": "operations.get",
+    "request": "",
+    "target": null,
+    "mode": "operations",
+    "fields": {},
+    "fixed": {},
+    "response": {},
+    "mutation": false
+  }
+]
