@@ -52,48 +52,7 @@ impl ProjectStore {
     }
 
     fn read_bounded(&self, relative: &str, limit: usize) -> Result<Vec<u8>> {
-        security::relative_path(relative)?;
-        let path = self.root.join(relative);
-        let canonical = fs::canonicalize(&path).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                Error::new(ErrorCode::NotFound, "Managed project file is missing")
-            } else {
-                Error::from(e)
-            }
-        })?;
-        if !canonical.starts_with(&self.root) {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Project path escapes the granted root",
-            ));
-        }
-        let meta = fs::symlink_metadata(&path)?;
-        if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len() > limit as u64
-        {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Project input must be a bounded regular non-symlink file",
-            ));
-        }
-        #[cfg(unix)]
-        let file = {
-            use std::os::unix::fs::OpenOptionsExt;
-            OpenOptions::new()
-                .read(true)
-                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-                .open(&path)?
-        };
-        #[cfg(not(unix))]
-        let mut file = File::open(&path)?;
-        let mut bytes = Vec::with_capacity(meta.len() as usize);
-        file.take(limit as u64 + 1).read_to_end(&mut bytes)?;
-        if bytes.len() > limit {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "Project input exceeds byte budget",
-            ));
-        }
-        Ok(bytes)
+        read_granted_file(&self.root, relative, limit)
     }
 
     pub fn load(&self) -> Result<Snapshot> {
@@ -198,6 +157,52 @@ impl ProjectStore {
         })
     }
 
+    pub fn install_asset(&self, relative: &str, bytes: &[u8]) -> Result<()> {
+        security::relative_path(relative)?;
+        if !relative.starts_with("assets/") || bytes.is_empty() || bytes.len() > MAX_ASSET_BYTES {
+            return Err(Error::invalid("Managed asset path or byte size is invalid"));
+        }
+        let path = self.root.join(relative);
+        if path.try_exists()? {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Managed asset destination already exists",
+            ));
+        }
+        write_owned(&self.root, relative, bytes)?;
+        if let Some(parent) = path.parent() {
+            File::open(parent)?.sync_all()?;
+        }
+        File::open(&self.root)?.sync_all()?;
+        Ok(())
+    }
+
+    pub fn remove_asset_if_matches(&self, relative: &str, sha256: &str) -> Result<()> {
+        security::relative_path(relative)?;
+        if !relative.starts_with("assets/") || !security::digest(sha256) {
+            return Err(Error::invalid(
+                "Managed asset rollback parameters are invalid",
+            ));
+        }
+        let path = self.root.join(relative);
+        if !path.try_exists()? {
+            return Ok(());
+        }
+        let bytes = self.read_bounded(relative, MAX_ASSET_BYTES)?;
+        if security::sha256(&bytes) != sha256 {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Managed asset changed before rollback",
+            ));
+        }
+        fs::remove_file(&path)?;
+        if let Some(parent) = path.parent() {
+            File::open(parent)?.sync_all()?;
+        }
+        File::open(&self.root)?.sync_all()?;
+        Ok(())
+    }
+
     pub fn materialize(&self, snapshot: &Snapshot) -> Result<PathBuf> {
         self.materialize_generated(&snapshot.project, &snapshot.generated)
     }
@@ -273,6 +278,63 @@ impl ProjectStore {
         }
         Ok(())
     }
+}
+
+pub(crate) fn read_granted_file(root: &Path, relative: &str, limit: usize) -> Result<Vec<u8>> {
+    security::relative_path(relative)?;
+    let root = fs::canonicalize(root).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            Error::new(ErrorCode::NotFound, "Granted filesystem root is missing")
+        } else {
+            Error::from(error)
+        }
+    })?;
+    if !root.is_dir() {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Granted filesystem root is not a directory",
+        ));
+    }
+    let path = root.join(relative);
+    let canonical = fs::canonicalize(&path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            Error::new(ErrorCode::NotFound, "Granted file is missing")
+        } else {
+            Error::from(error)
+        }
+    })?;
+    if !canonical.starts_with(&root) {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Granted file escapes its filesystem root",
+        ));
+    }
+    let meta = fs::symlink_metadata(&path)?;
+    if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len() > limit as u64 {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Granted input must be a bounded regular non-symlink file",
+        ));
+    }
+    #[cfg(unix)]
+    let file = {
+        use std::os::unix::fs::OpenOptionsExt;
+        OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(&path)?
+    };
+    #[cfg(not(unix))]
+    let file = File::open(&path)?;
+    let mut bytes = Vec::with_capacity(meta.len() as usize);
+    file.take(limit as u64 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > limit {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Granted file exceeds byte budget",
+        ));
+    }
+    Ok(bytes)
 }
 
 fn checked_parts(relative: &str) -> Result<Vec<&str>> {

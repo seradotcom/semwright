@@ -44,6 +44,20 @@ struct ApplyArgs {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+struct AssetImportArgs {
+    expected_fingerprint: String,
+    id: String,
+    kind: AssetKind,
+    source: String,
+    #[serde(default)]
+    provenance: Option<String>,
+    #[serde(default)]
+    license: Option<String>,
+    #[serde(default)]
+    dry_run: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct SceneScopeArgs {
     #[serde(default)]
     scene_ref: Option<String>,
@@ -75,6 +89,7 @@ struct DoctorOutput {
     renderer_mode: String,
     network: bool,
     project_mounted: bool,
+    media_mounted: bool,
     output_mounted: bool,
     runtime_mounted: bool,
     render_available: bool,
@@ -160,6 +175,91 @@ struct ListOutput<T> {
     items: Vec<T>,
 }
 
+fn imported_asset(
+    id: &str,
+    kind: AssetKind,
+    source: &str,
+    bytes: &[u8],
+    provenance: Option<String>,
+    license: Option<String>,
+) -> Result<Asset> {
+    if bytes.is_empty() || bytes.len() > MAX_ASSET_BYTES {
+        return Err(Error::invalid("Imported asset byte size is invalid"));
+    }
+    let extension = Path::new(source)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| Error::invalid("Imported asset requires a supported file extension"))?;
+    let dimensions = match kind {
+        AssetKind::Image if extension == "png" => {
+            let evidence = security::inspect_png(bytes)?;
+            Some([evidence.width, evidence.height])
+        }
+        AssetKind::Svg if extension == "svg" => {
+            let text = std::str::from_utf8(bytes)
+                .map_err(|_| Error::invalid("SVG asset must be UTF-8"))?;
+            security::validate_svg(text)?;
+            None
+        }
+        AssetKind::Video if extension == "mp4" => {
+            if bytes.len() < 12 || &bytes[4..8] != b"ftyp" {
+                return Err(Error::invalid(
+                    "MP4 asset has an invalid container signature",
+                ));
+            }
+            None
+        }
+        AssetKind::Video if extension == "webm" => {
+            if !bytes.starts_with(&[0x1a, 0x45, 0xdf, 0xa3]) {
+                return Err(Error::invalid(
+                    "WebM asset has an invalid container signature",
+                ));
+            }
+            None
+        }
+        AssetKind::Audio if extension == "wav" => {
+            if bytes.len() < 12 || !bytes.starts_with(b"RIFF") || &bytes[8..12] != b"WAVE" {
+                return Err(Error::invalid(
+                    "WAV asset has an invalid container signature",
+                ));
+            }
+            None
+        }
+        AssetKind::Audio if extension == "ogg" => {
+            if !bytes.starts_with(b"OggS") {
+                return Err(Error::invalid(
+                    "Ogg asset has an invalid container signature",
+                ));
+            }
+            None
+        }
+        AssetKind::Audio if extension == "mp3" => {
+            let frame_sync = bytes.len() >= 2 && bytes[0] == 0xff && bytes[1] & 0xe0 == 0xe0;
+            if !bytes.starts_with(b"ID3") && !frame_sync {
+                return Err(Error::invalid("MP3 asset has an invalid stream signature"));
+            }
+            None
+        }
+        _ => {
+            return Err(Error::invalid(
+                "Asset kind and extension are not in the managed import allowlist",
+            ));
+        }
+    };
+    Ok(Asset {
+        id: id.into(),
+        kind,
+        path: format!("assets/{id}.{extension}"),
+        sha256: security::sha256(bytes),
+        bytes: bytes.len() as u64,
+        dimensions,
+        duration_ms: None,
+        provenance,
+        license,
+    })
+}
+
 pub struct MotionDriver {
     roots: BTreeMap<String, PathBuf>,
     store: Option<ProjectStore>,
@@ -224,6 +324,12 @@ impl MotionDriver {
             renderer,
             renderer_reason: "Test harness has no owner-approved render runtime".into(),
         })
+    }
+    #[cfg(test)]
+    pub fn for_project_and_media_roots(project: &Path, media: &Path) -> Result<Self> {
+        let mut driver = Self::for_project_root(project)?;
+        driver.roots.insert("media".into(), media.to_path_buf());
+        Ok(driver)
     }
     fn store(&self) -> Result<&ProjectStore> {
         self.store
@@ -322,6 +428,13 @@ impl MotionDriver {
                 "List managed nodes, optionally scoped to a scene ref",
                 Risk::ReadOnly,
                 Idempotency::ReadOnly,
+                true,
+            )?,
+            Self::cap::<AssetImportArgs, MutationOutput>(
+                "driver.motion-canvas.asset.import",
+                "Import a bounded local media file from the owner-granted media root into the managed project",
+                Risk::MutatingReversible,
+                Idempotency::NonIdempotent,
                 true,
             )?,
             Self::cap::<EmptyArgs, ListOutput<AssetItem>>(
@@ -431,6 +544,7 @@ impl MotionDriver {
                     renderer_mode: "pinned_vite_playwright_harness".into(),
                     network: false,
                     project_mounted: self.roots.contains_key("project"),
+                    media_mounted: self.roots.contains_key("media"),
                     output_mounted: self.roots.contains_key("output"),
                     runtime_mounted: self.roots.contains_key("runtime"),
                     render_available: self.renderer.available(),
@@ -462,6 +576,11 @@ impl MotionDriver {
             "driver.motion-canvas.project.create" => {
                 let input: CreateArgs = Self::parse(args)?;
                 validate::project_valid(&input.project)?;
+                if !input.project.assets.is_empty() || !input.project.audio.is_empty() {
+                    return Err(Error::invalid(
+                        "Create projects without media; import bounded media through asset.import before attaching audio",
+                    ));
+                }
                 let generated = crate::compiler::compile(&input.project)?;
                 let fingerprint = security::sha256(&serde_json::to_vec_pretty(&input.project)?);
                 let provisional = Snapshot {
@@ -547,6 +666,107 @@ impl MotionDriver {
                     revision: s.project.revision,
                     items,
                 })?)
+            }
+            "driver.motion-canvas.asset.import" => {
+                let input: AssetImportArgs = Self::parse(args)?;
+                let current = self.load()?;
+                if input.expected_fingerprint != current.source_sha256 {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Managed project fingerprint changed; inspect again",
+                    ));
+                }
+                if !security::identifier(&input.id) {
+                    return Err(Error::invalid("Asset ID is not canonical"));
+                }
+                security::relative_path(&input.source)?;
+                let media = self.roots.get("media").ok_or_else(|| {
+                    Error::new(ErrorCode::Unavailable, "Media grant is not mounted")
+                })?;
+                let bytes = crate::store::read_granted_file(media, &input.source, MAX_ASSET_BYTES)?;
+                let asset = imported_asset(
+                    &input.id,
+                    input.kind,
+                    &input.source,
+                    &bytes,
+                    input.provenance,
+                    input.license,
+                )?;
+                if current
+                    .project
+                    .assets
+                    .iter()
+                    .any(|existing| existing.id == asset.id || existing.path == asset.path)
+                {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Managed asset ID or destination already exists",
+                    ));
+                }
+                if self.store()?.root().join(&asset.path).try_exists()? {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Managed asset destination already exists on disk",
+                    ));
+                }
+                let mut project = current.project.clone();
+                project.assets.push(asset.clone());
+                project.revision = project.revision.checked_add(1).ok_or_else(|| {
+                    Error::new(ErrorCode::ResourceExhausted, "Project revision exhausted")
+                })?;
+                validate::project_valid(&project)?;
+                let generated = crate::compiler::compile(&project)?;
+                let diff = crate::diff::between(&current.project, &project)?;
+                if input.dry_run {
+                    return Self::prospective_output(
+                        Some(current.source_sha256),
+                        edit::PreparedTransaction {
+                            project,
+                            diff,
+                            generated,
+                            render_invalidated: true,
+                        },
+                    );
+                }
+                let source = current.source_sha256;
+                self.store()?.install_asset(&asset.path, &bytes)?;
+                match self.store()?.commit(&source, &project) {
+                    Ok(saved) => Self::mutation_output(Some(source), &saved, diff, true),
+                    Err(error) => match self.store()?.load() {
+                        Ok(observed)
+                            if observed.project.revision == project.revision
+                                && observed.project.assets.iter().any(|existing| {
+                                    existing.id == asset.id
+                                        && existing.path == asset.path
+                                        && existing.sha256 == asset.sha256
+                                }) =>
+                        {
+                            Err(error.uncertain())
+                        }
+                        Ok(observed)
+                            if !observed
+                                .project
+                                .assets
+                                .iter()
+                                .any(|existing| existing.path == asset.path) =>
+                        {
+                            match self
+                                .store()?
+                                .remove_asset_if_matches(&asset.path, &asset.sha256)
+                            {
+                                Ok(()) => Err(error),
+                                Err(rollback_error) => Err(Error::new(
+                                    ErrorCode::Conflict,
+                                    format!(
+                                        "Asset import failed and rollback could not be proven: {rollback_error}"
+                                    ),
+                                )
+                                .uncertain()),
+                            }
+                        }
+                        Ok(_) | Err(_) => Err(error.uncertain()),
+                    },
+                }
             }
             "driver.motion-canvas.asset.list" => {
                 let _: EmptyArgs = Self::parse(args)?;
@@ -747,7 +967,7 @@ mod tests {
     #[test]
     fn catalog_is_curated_and_descriptor_names_are_owned() {
         let catalog = MotionDriver::catalog().unwrap();
-        assert_eq!(catalog.len(), 16);
+        assert_eq!(catalog.len(), 17);
         assert!(
             catalog
                 .iter()
@@ -837,7 +1057,7 @@ mod driver_tests {
         let mut driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
         let caps = driver.capabilities().await.unwrap();
-        assert_eq!(caps.len(), 16);
+        assert_eq!(caps.len(), 17);
         let mut names = std::collections::BTreeSet::new();
         for cap in caps {
             assert!(cap.descriptor.name.starts_with("driver.motion-canvas."));
@@ -858,7 +1078,7 @@ mod driver_tests {
         assert_eq!(out["node_version"], NODE_VERSION);
         assert_eq!(out["network"], false);
         assert_eq!(out["render_available"], false);
-        assert_eq!(out["capability_count"], 16);
+        assert_eq!(out["capability_count"], 17);
     }
 
     #[tokio::test]
