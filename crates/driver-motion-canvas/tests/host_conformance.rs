@@ -80,7 +80,7 @@ async fn direct_sandbox_protocol_probe(
     let mut child = command.spawn().map_err(|e| format!("sandbox spawn: {e}"))?;
     let mut input = child.stdin.take().ok_or("diagnostic stdin missing")?;
     let mut output = child.stdout.take().ok_or("diagnostic stdout missing")?;
-    let mut stderr = child.stderr.take().ok_or("diagnostic stderr missing")?;
+    let stderr = child.stderr.take().ok_or("diagnostic stderr missing")?;
     let identity = manifest.identity().map_err(|e| e.to_string())?;
     let hello = semwright_driver_sdk::Request::Hello {
         protocol: 1,
