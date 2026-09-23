@@ -6,6 +6,7 @@ This is NOT a Semwright Driver Host conformance run.
 from __future__ import annotations
 import argparse,json,os,pathlib,selectors,shutil,signal,socket,subprocess,sys,tempfile,time
 ROOT=pathlib.Path(__file__).resolve().parents[1]
+TEST_PASSWORD='semwright-fixture-only-password'
 
 class Missing(RuntimeError):pass
 
@@ -42,9 +43,9 @@ def config_tree(root:pathlib.Path,port:int):
       'transitions':[],'current_transition':'Fade','transition_duration':300,
       'DesktopAudioDevice1':None,'DesktopAudioDevice2':None,'AuxAudioDevice1':None,'AuxAudioDevice2':None,'AuxAudioDevice3':None,'AuxAudioDevice4':None}
     (scenes/'SemwrightFixture.json').write_text(json.dumps(scene))
-    # Anonymous fixture endpoint only inside an isolated network namespace. No password
-    # is written, and no host interface or endpoint is reachable from this namespace.
-    (plugin/'config.json').write_text(json.dumps({'first_load':False,'server_enabled':True,'server_port':port,'alerts_enabled':False,'auth_required':False}))
+    # The password is a fixed non-secret test fixture. The endpoint still exists only
+    # inside an isolated network namespace and no host interface is reachable.
+    (plugin/'config.json').write_text(json.dumps({'first_load':False,'server_enabled':True,'server_port':port,'alerts_enabled':False,'auth_required':True,'server_password':TEST_PASSWORD}))
     return config
 
 def bounded_process(command,timeout,env=None):
@@ -106,12 +107,16 @@ def sandbox(probe:pathlib.Path):
                     time.sleep(.05)
                 else:raise RuntimeError('virtual display timeout')
                 env['DISPLAY']=display
-                obs=subprocess.Popen(['/usr/bin/obs','--multi','--only-bundled-plugins','--disable-missing-files-check','--profile','SemwrightFixture','--collection','SemwrightFixture'],stdout=olog,stderr=olog,env=env)
+                obs=subprocess.Popen([
+                    '/usr/bin/obs','--multi','--only-bundled-plugins','--disable-missing-files-check',
+                    '--profile','SemwrightFixture','--collection','SemwrightFixture',
+                    f'--websocket_port={port}',f'--websocket_password={TEST_PASSWORD}','--websocket_ipv4_only'
+                ],stdout=olog,stderr=olog,env=env)
                 children.append(obs)
                 deadline=time.monotonic()+35
                 while time.monotonic()<deadline:
                     if obs.poll() is not None:raise RuntimeError('OBS exited before readiness')
-                    code,out,_=bounded_process([str(probe),str(port)],8,env)
+                    code,out,_=bounded_process([str(probe),str(port),TEST_PASSWORD],8,env)
                     if code==0:
                         data=json.loads(out)
                         if not isinstance(data,dict) or 'version' not in data or 'scenes' not in data:raise RuntimeError('invalid probe evidence')

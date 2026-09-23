@@ -1,4 +1,4 @@
-use semwright_obs_driver::{client::Client, config::Config};
+use semwright_obs_driver::{auth::Secret, client::Client, config::Config};
 use serde_json::json;
 use tokio_util::sync::CancellationToken;
 
@@ -9,6 +9,11 @@ async fn main() {
         .and_then(|value| value.parse::<u16>().ok())
         .filter(|port| *port > 0)
         .unwrap_or(4455);
+    let password = std::env::args()
+        .nth(2)
+        .map(|value| Secret::new(value.into_bytes()))
+        .transpose()
+        .unwrap_or_else(|_| std::process::exit(5));
     let config = Config {
         port,
         connect_timeout_ms: 2500,
@@ -19,7 +24,7 @@ async fn main() {
         allow_stream_start: false,
         ..Config::default()
     };
-    let client = match Client::start(config, None) {
+    let client = match Client::start(config, password) {
         Ok(client) => client,
         Err(_) => std::process::exit(2),
     };
