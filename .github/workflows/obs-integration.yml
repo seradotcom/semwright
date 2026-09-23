@@ -138,7 +138,7 @@ jobs:
       - name: Install isolated OBS prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y obs-studio xvfb xauth bubblewrap iproute2 util-linux
+          sudo apt-get install -y obs-studio xvfb xauth bubblewrap iproute2 util-linux libblas3
           mkdir -p verification/obs-real-ci
           obs --version 2>&1 | head -5 | tee verification/obs-real-ci/obs-version.log
           bwrap --version | tee verification/obs-real-ci/bwrap-version.log
