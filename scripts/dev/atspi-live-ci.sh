@@ -13,7 +13,8 @@ if [[ ${SEMWRIGHT_ATSPI_INNER:-0} != 1 ]]; then
   [[ -n "$runtime" ]]
   mkdir -p "$runtime"
   chmod 700 "$runtime"
-  exec env SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- "$0" "$PHASE"
+  exec xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" \
+    env SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- "$0" "$PHASE"
 fi
 
 cd "$ROOT"
@@ -55,6 +56,9 @@ case "$PHASE" in
   qt)
     : "${SEMWRIGHT_TEST_QT_FIXTURE:?SEMWRIGHT_TEST_QT_FIXTURE is required for qt}"
     export SEMWRIGHT_TEST_QT_PLATFORM=${SEMWRIGHT_TEST_QT_PLATFORM:-xcb}
+    # Qt 5 on Ubuntu Noble has a fragile direct-address initialization path.
+    # With X already present, let it resolve org.a11y.Bus/the X11 AT-SPI resource.
+    unset AT_SPI_BUS_ADDRESS
     test_name=live_atspi_qt_delta_resync_and_stale_refs
     ;;
 esac
@@ -62,7 +66,6 @@ esac
 echo "phase=${PHASE}_start" | tee -a verification/native-ci/atspi-phases.log
 rc=0
 timeout --signal=TERM --kill-after=5s 90s \
-  xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" \
   cargo test --locked -p semwright-backends "$test_name" \
     -- --ignored --nocapture --test-threads=1 \
   > "verification/native-ci/atspi-${PHASE}.log" 2>&1 || rc=$?
