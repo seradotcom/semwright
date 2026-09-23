@@ -1,10 +1,19 @@
 # Platformization + macOS integration verification
 
-Baseline:
+Pack baseline:
 
 ```text
 963f0ceecb22ccfadf66b0937524fb30a6269030
 ```
+
+Latest integration base after rebasing onto current `origin/main`:
+
+```text
+059d997e93fb72c248f8b111929d24acb7f0f7ae
+```
+
+The final rebase delta after the full post-registry test pass was documentation-only
+(`README.md`, `VERIFY.md`, `RELEASE_BLOCKERS.md`); no Rust source changed.
 
 Branch under verification:
 
@@ -33,6 +42,7 @@ Executed successfully on the transformed tree:
 - `cargo deny check`: PASS; existing duplicate/license-not-encountered warnings remain warnings
 - `scripts/dev/driver-conformance.sh`: PASS with `sandboxed=true`
 - `scripts/dev/driver-broker-smoke.sh`: PASS
+- `scripts/dev/driver-registry-smoke.sh`: PASS after rebasing onto the Driver Registry/Distribution mainline
 - `scripts/dev/fake-smoke.sh`: PASS
 - `git diff --check`: PASS
 
