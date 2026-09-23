@@ -1,15 +1,16 @@
 # MCP frontend
 
-`semwright-mcp` uses `rmcp` 3.4.0 and stdio. It contains no independent desktop execution
-logic: all tool calls go through a broker Unix session. The official SDK owns negotiation,
-framing and cancellation reception; the adapter propagates cancellation to broker work.
-This source/API mapping has not been compiled or exercised by an MCP client here.
+`semwright-mcp` uses the official `rmcp` 3.4.0 SDK over stdio. It contains no independent
+desktop execution logic: all tool calls go through a broker Unix session. The SDK owns protocol
+negotiation, framing, cancellation reception and the MCP Tasks wire contract; Semwright maps those
+requests back to its session-scoped broker jobs.
 
-Always-visible tools are `semwright_doctor`, `semwright_capabilities`,
-`semwright_search_commands`, `semwright_describe_command`, `semwright_execute`,
-`semwright_snapshot`, `semwright_find`, and `semwright_audit_tail`. Discovery returns complete
-command descriptors. The universal execution gateway validates again inside the broker.
-Risk annotations are informational and do not substitute for authorization.
+The always-visible surface remains deliberately small: doctor/capability discovery, command
+search/describe, snapshot/find/audit, `capabilities_search`, `capabilities_describe`, and two
+execution gateways. `semwright_execute` is synchronous. `semwright_execute_task` is explicit
+asynchronous execution and is usable only by clients that negotiated
+`io.modelcontextprotocol/tasks`. Both validate again inside broker policy. Risk annotations are
+informational and do not substitute for authorization.
 
 ```json
 {"mcpServers":{"semwright":{"command":"/home/YOUR_USER/.local/bin/semwright-mcp","args":["--socket","/run/user/YOUR_UID/semwright/broker.sock"]}}}
@@ -25,9 +26,11 @@ commands. Do not put tickets or browser debug endpoints in model prompts. Stdio 
 reserved for MCP; human diagnostics go to stderr.
 
 The current implementation does not advertise arbitrary evaluation, approval, shell,
-roots-based grant escalation or a tool for turning policy off. It does not implement
-per-session dynamic registration of all application commands, a full task persistence API,
-or MCP-driven privileged elicitation. Search/describe/execute is the deliberate small
-surface. The read-only inspector and CLI use the same registry, errors and policy.
+roots-based grant escalation or a tool for turning policy off. MCP Tasks are an adapter over
+Semwright's bounded in-memory JobStore: task IDs remain broker-session scoped, are not durable
+across daemon restarts, and never self-approve work. Semwright tasks currently never enter
+`input_required`, so `tasks/update` rejects updates unless a future negotiated provider contract
+adds an outstanding input request. Search/describe/execute remains the deliberate small surface.
+The read-only inspector and CLI use the same registry, errors and policy.
 
 The compatible catalog additions are `capabilities_search` and `capabilities_describe`. See [capability discovery](capabilities.md).
