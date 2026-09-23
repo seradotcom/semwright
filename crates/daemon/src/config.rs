@@ -1,7 +1,7 @@
 use semwright_adapters::chromium::BrowserConfig;
-use semwright_backends::system::Application;
 use semwright_driver_sdk::Manifest as DriverManifest;
 use semwright_federation::StdioUpstreamConfig;
+use semwright_platform_common::Application;
 use semwright_plugin_sdk::Manifest;
 use semwright_policy::PolicyConfig;
 use semwright_protocol::{current_uid, private_directory};
@@ -112,22 +112,14 @@ pub fn state_directory(fake: bool, runtime: &Path) -> Result<PathBuf> {
         private_directory(&path)?;
         return Ok(path);
     }
-    let base = match std::env::var_os("XDG_STATE_HOME") {
-        Some(path) => PathBuf::from(path),
-        None => PathBuf::from(
-            std::env::var_os("HOME")
-                .ok_or_else(|| Error::unavailable("HOME or XDG_STATE_HOME required"))?,
-        )
-        .join(".local/state"),
-    };
-    if !base.is_absolute() {
-        return Err(Error::invalid("XDG_STATE_HOME must be absolute"));
-    }
+    let directory = semwright_platform_services::paths()?.state;
+    let base = directory
+        .parent()
+        .ok_or_else(|| Error::invalid("State directory requires a parent"))?;
     std::fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)
-        .create(&base)?;
-    let directory = base.join("semwright");
+        .create(base)?;
     private_directory(&directory)?;
     Ok(directory)
 }

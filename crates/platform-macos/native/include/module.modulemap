@@ -1,0 +1,4 @@
+module CSemwrightNative {
+  header "SemwrightNative.h"
+  export *
+}

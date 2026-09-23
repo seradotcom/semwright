@@ -1,9 +1,11 @@
+#![cfg(target_os = "linux")]
+
 use reis::{
     PendingRequestResult,
     eis::{self, device::DeviceType},
     request::{Connection, DeviceCapability, EisRequest, EisRequestConverter},
 };
-use semwright_backends::eis::{EisClient, Requested};
+use semwright_platform_linux::eis::{EisClient, Requested};
 use std::{
     os::unix::net::UnixStream,
     sync::{Arc, Mutex},
