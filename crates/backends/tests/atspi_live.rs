@@ -180,7 +180,7 @@ async fn live_atspi_gtk_delta_resync_and_stale_refs() {
 }
 
 #[tokio::test]
-#[ignore = "requires a live user AT-SPI bus and a native Qt 6 fixture"]
+#[ignore = "requires a live user AT-SPI bus and a native Qt fixture"]
 async fn live_atspi_qt_delta_resync_and_stale_refs() {
     if std::env::var_os("SEMWRIGHT_TEST_ATSPI").is_none() {
         return;
