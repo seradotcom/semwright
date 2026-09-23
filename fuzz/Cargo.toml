@@ -20,7 +20,7 @@ semwright-protocol = { path = "../crates/protocol" }
 semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
 semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
-semwright-obs-driver = { path = "../crates/driver-obs" }
+semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
 
 [[bin]]
 name = "protocol"
