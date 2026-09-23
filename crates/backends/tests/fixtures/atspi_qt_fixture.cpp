@@ -1,5 +1,7 @@
 #include <QAccessible>
 #include <QApplication>
+#include <QDBusConnection>
+#include <QDBusError>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -11,6 +13,17 @@
 
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
+    const QByteArray atspi_address = qgetenv("AT_SPI_BUS_ADDRESS");
+    auto atspi_connection = QDBusConnection::connectToBus(
+        QString::fromLocal8Bit(atspi_address), "a11y");
+    if (!atspi_connection.isConnected()) {
+        const auto error = atspi_connection.lastError();
+        std::cerr << "qt_atspi_preconnect=false error="
+                  << error.name().toStdString() << ":"
+                  << error.message().toStdString() << std::endl;
+        return 3;
+    }
+    std::cerr << "qt_atspi_preconnect=true" << std::endl;
     QCoreApplication::setApplicationName("SemwrightQtFixture");
     QApplication::setApplicationDisplayName("Semwright Qt AT-SPI Fixture");
 
