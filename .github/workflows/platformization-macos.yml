@@ -89,10 +89,10 @@ jobs:
       - name: Compile macOS-capable workspace against native SDK
         run: |
           set -euo pipefail
-          # driver-mlt-video deliberately rejects non-Linux builds until its
-          # openat2/process-containment layer is ported. Keep that limitation
-          # explicit instead of deleting its fail-closed compile guard.
-          cargo check --locked --workspace             --exclude semwright-mlt-video-driver             --all-targets --all-features             2>&1 | tee "verification/platform-ci/workspace-check-${{ matrix.arch }}.log"
+          # These drivers deliberately reject non-Linux builds until their
+          # native containment/IPC layers are ported. Keep those boundaries
+          # explicit instead of weakening their fail-closed compile guards.
+          cargo check --locked --workspace             --exclude semwright-mlt-video-driver             --exclude semwright-kicad-driver             --exclude kicad-ipc             --all-targets --all-features             2>&1 | tee "verification/platform-ci/workspace-check-${{ matrix.arch }}.log"
 
       - name: Run native platform contract tests
         run: |
