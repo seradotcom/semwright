@@ -168,8 +168,8 @@ fn zero_rate_rejected() {
 #[test]
 fn mlt_millisecond_quantization() {
     let r = FrameRate::new(25, 1).unwrap();
-    assert_eq!(r.parse_mlt("00:00:00.040").unwrap(), 1);
-    assert_eq!(r.parse_mlt("49").unwrap(), 49);
+    assert_eq!(r.parse_clock_or_frame("00:00:00.040").unwrap(), 1);
+    assert_eq!(r.parse_clock_or_frame("49").unwrap(), 49);
 }
 #[test]
 fn timecode_non_drop() {

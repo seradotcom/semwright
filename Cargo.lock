@@ -2769,6 +2769,7 @@ dependencies = [
  "semwright-driver-sdk",
  "semwright-policy",
  "semwright-types",
+ "semwright-video-domain",
  "serde_json",
  "sha2",
  "tempfile",
@@ -3035,6 +3036,16 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
+ "uuid",
+]
+
+[[package]]
+name = "semwright-video-domain"
+version = "0.9.0-dev.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
  "uuid",
 ]
 

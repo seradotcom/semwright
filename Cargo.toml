@@ -54,6 +54,7 @@ proptest = "1"
 tempfile = "3"
 semver = "1"
 semwright-types = { path = "crates/types", version = "=0.9.0-dev.1" }
+semwright-video-domain = { path = "crates/video-domain", version = "=0.9.0-dev.1" }
 semwright-protocol = { path = "crates/protocol", version = "=0.9.0-dev.1" }
 semwright-registry = { path = "crates/registry", version = "=0.9.0-dev.1" }
 semwright-policy = { path = "crates/policy", version = "=0.9.0-dev.1" }
