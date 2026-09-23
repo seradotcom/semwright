@@ -66,7 +66,7 @@ def safe_tar_members(path: Path, epoch: int) -> list[str]:
 
 def user_install_roundtrip(bin_dir: Path, root: Path) -> dict[str, bool]:
     home = root / "home"
-    home.mkdir(mode=0o700)
+    home.mkdir(parents=True, mode=0o700)
     environment = dict(os.environ)
     environment["HOME"] = str(home)
     install = ROOT / "packaging/install/install.py"
@@ -101,7 +101,7 @@ def user_install_roundtrip(bin_dir: Path, root: Path) -> dict[str, bool]:
 
 def tamper_refusal(bin_dir: Path, root: Path) -> bool:
     home = root / "tamper-home"
-    home.mkdir(mode=0o700)
+    home.mkdir(parents=True, mode=0o700)
     environment = dict(os.environ)
     environment["HOME"] = str(home)
     install = ROOT / "packaging/install/install.py"
