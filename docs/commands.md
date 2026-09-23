@@ -489,7 +489,7 @@ Idempotency: `destructive`. Dry run: `true`.
 
 ## `ui.snapshot`
 
-Bounded semantic accessibility snapshot. No screenshot or OCR.
+Bounded semantic accessibility snapshot with conservative revision deltas. No screenshot or OCR.
 
 Idempotency: `read_only`. Dry run: `true`.
 
@@ -513,6 +513,10 @@ Idempotency: `read_only`. Dry run: `true`.
     },
     "actionable": {
       "type": "boolean"
+    },
+    "since_revision": {
+      "type": "integer",
+      "minimum": 0
     }
   },
   "required": [],
