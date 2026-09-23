@@ -3,6 +3,12 @@
 Status: accepted for this development snapshot, **not accepted as completed v1.0 scope**.
 Date: 2026-09-21.
 
+**Supersession note (2026-09-23):** this ADR records the constraints of the initial source handoff,
+not the current verification state. Subsequent merged work produced a real Cargo.lock, Rust
+x86_64/ARM64 CI, dependency/license gates, real application integrations, EIS transport, PipeWire
+frame capture, portal restore-token/clipboard persistence and AT-SPI delta recovery. Current
+acceptance authority is VERIFY.md, ACCEPTANCE.md and RELEASE_BLOCKERS.md.
+
 The requirements ask for a fully verified release candidate. The authoring environment
 had no Rust/Cargo/cache and terminal downloads could not obtain a toolchain. Source and
 available language/kernel/browser contract checks were therefore built, but no Rust pass,

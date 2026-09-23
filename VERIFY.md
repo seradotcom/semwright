@@ -20,6 +20,15 @@ historical only and is not used to certify this baseline.
 | Native application integration / Driver conformance | PASS | Commit checks: `Native application integration` |
 | Native application integration / Driver distribution | PASS | Commit checks: `Native application integration` |
 | Native application integration / LibreOffice driver | PASS | Commit checks: `Native application integration` |
+| Native application integration / Blender driver | PASS | Commit checks: Native application integration |
+| Native application integration / KiCad + MLT drivers | PASS | Commit checks: Native application integration |
+| Native application integration / X11 backend | PASS | Commit checks: Native application integration |
+| Native application integration / AT-SPI GTK | PASS | Commit checks: Native application integration |
+| Native application integration / AT-SPI Qt | PASS | Commit checks: Native application integration |
+| Native application integration / PipeWire ScreenCast | PASS | Commit checks: Native application integration |
+| Platformization / Linux regression | PASS | Commit checks: Platformization and macOS |
+| Platformization / native macOS ARM64 | PASS | Commit checks: Platformization and macOS |
+| Platformization / native macOS Intel | PASS | Commit checks: Platformization and macOS |
 
 The quality matrix uses Rust 1.98.1 and runs, with the locked dependency graph, `fmt`,
 `check`, debug build, Clippy with warnings denied, workspace/all-target tests, doctests,
@@ -157,7 +166,7 @@ responses, reconnect generations, bounded event floods, malformed wire data, con
 shutdown. It also runs the driver through the real Semwright Driver Host, Bubblewrap + Landlock,
 broker policy and CLI path, and executes six bounded OBS fuzz targets.
 
-The hosted `real-obs` job additionally starts a disposable OBS Studio 30.0.2 instance with
+The feature-introduction real-obs job additionally starts a disposable OBS Studio 30.0.2 instance with
 obs-websocket 5.3.4 inside a private user/network namespace and Bubblewrap filesystem view. It uses
 a temporary HOME/XDG tree, an isolated Xvfb display, loopback networking only, no camera/microphone,
 no user profile and no external streaming target. The production Rust probe authenticates and
@@ -168,9 +177,66 @@ This does **not** imply that Driver Protocol v1 transports driver-child events, 
 cancellation, dynamic capability changes or provider-wide progress/artifacts. Those generic
 protocol gaps remain fail-closed/follow-on work rather than being simulated by the OBS driver.
 
+## Blender, KiCad and MLT deep-driver closure included in this development line
+
+The sandboxed Blender DriverProvider executes against real Blender 4.5.14 with bounded curated
+operations plus RNA/operator/add-on introspection. Hosted integration mutates objects/materials,
+renders a deterministic small image and saves a real .blend. A separate Xvfb-backed interactive
+add-on smoke exercises the legacy in-process bridge through the broker and Blender main-thread
+timer. Neither path exposes arbitrary Python or generic operator execution by default.
+
+KiCad and MLT provide two additional integration shapes over the same Driver SDK. KiCad exercises
+structured project/document semantics and compatibility fixtures; the MLT driver models timelines,
+tracks, clips, transitions/effects, frame-rational timing, Kdenlive/Shotcut compatibility and
+round-trip preservation. The certified MLT line executes against a real melt runtime, not only XML
+fixtures.
+
+## Universal Linux runtime closure included in this development line
+
+The X11 fallback no longer performs unbounded synchronous x11rb work on the async executor.
+Operations cross a bounded blocking boundary with timeout/cancellation semantics, and window refs
+carry lifecycle epochs. Hosted Xvfb integration exercises discovery, create/destroy/reuse and stale
+identity behavior.
+
+AT-SPI now supports revisioned semantic snapshots, deltas, structural resync and targeted
+stale-reference invalidation. Dedicated hosted jobs execute real disposable GTK and native Qt
+fixtures through an accessibility bus, mutate editable text, observe deltas, terminate the
+application and prove old refs become stale. These jobs certify the toolkit bridge behavior, not a
+complete GNOME/Plasma/Sway/Hyprland desktop matrix.
+
+The RemoteDesktop EIS sender is implemented in the platformized Linux host and a real EIS protocol
+fixture negotiates a sender session and transmits keysym, UTF-8 text, relative pointer motion,
+buttons and scrolling. A real user-approved desktop-portal ConnectToEIS session is still pending
+and remains a release blocker.
+
+## PipeWire ScreenCast closure included in this development line
+
+The Linux platform host implements owner-scoped XDG ScreenCast sessions plus bounded PipeWire raw
+frame capture. The exact-commit native job publishes a real synthetic PipeWire source, negotiates
+the stream, copies a frame through the production capture code, validates supported packed formats,
+stride/bounds behavior and writes a private PNG artifact. Stream cancellation, timeout and cleanup
+are bounded. This closes the missing pixel-decoder implementation gap but does not claim that every
+desktop/compositor portal path has been exercised live.
+
+## Portal persistence and clipboard closure included in this development line
+
+RemoteDesktop restore-token state supports private process and durable modes, atomic owner-only
+storage, token rotation/single-use semantics and explicit clearing without exposing token contents.
+Clipboard read/write is integrated into the consented RemoteDesktop session rather than a separate
+implicit authority path. Private D-Bus portal fixtures execute restore rotation and clipboard grant
+lifecycle, including cleanup. Real user-facing portal consent/revocation across the desktop matrix
+remains part of the live-session release gate.
+
+## Platform host and macOS foundation included in this development line
+
+The portable-core/platform-host split now executes Linux regression jobs and native macOS jobs on
+both Apple Silicon and Intel hosted runners. The macOS foundation includes native host plumbing and
+cross-architecture compilation without weakening Linux-only driver behavior. This is a platform
+foundation, not a claim that macOS has feature parity with the Linux semantic host.
+
 ## Verification hardening included in the baseline
 
-- The command schema contract expects the current 86 descriptors (172 input/output schemas).
+- The command schema contract expects the current 90 descriptors (180 input/output schemas).
 - The local runner bounds time and output, records real exit codes and hashes, persists transitions,
   rejects contradictory PASS reports, and does not overwrite prior evidence.
 - Release admission has an independent required-gate set and rejects malformed/partial metadata,
@@ -181,13 +247,14 @@ protocol gaps remain fail-closed/follow-on work rather than being simulated by t
 
 ## Evidence boundaries
 
-This baseline does **not** claim live GNOME, Plasma, Sway, Hyprland, native X11, portal EIS,
-PipeWire pixel streaming, persistent portal restore tokens, real Blender, hostile plugin-sandbox
-certification, a sandbox for same-UID MCP upstream executables, a remote driver marketplace or
-cryptographic driver-publisher authentication. It does not establish an MSRV, reproducible Semwright
-binary packaging, system installation, SBOM/signing or an
-independent security review. Provider-specific progress/artifacts, MCP task mapping and negotiated
-dynamic driver job/event interfaces remain follow-on work.
+This baseline does **not** claim live GNOME Wayland, Plasma Wayland, Sway, Hyprland or a complete
+native-desktop X11 matrix, nor a real user-approved portal ConnectToEIS session. It does not certify
+hostile plugin/driver sandbox escape resistance, a sandbox for same-UID MCP upstream executables, a
+remote signed driver marketplace or cryptographic publisher identity. Chromium quota/crash/frame-race
+hardening remains incomplete. It does not establish an MSRV, reproducible Semwright binary
+packaging/installation, SBOM/signing or an independent security review. Provider-specific
+progress/artifacts, MCP task mapping and negotiated dynamic driver job/event interfaces remain
+follow-on work.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

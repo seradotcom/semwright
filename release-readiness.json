@@ -1,15 +1,15 @@
 {
   "status": "BLOCKED_DEVELOPMENT_SOURCE",
   "gates": {
-    "rust_build_and_tests": false,
-    "reviewed_lockfile": false,
-    "pinned_toolchain": false,
-    "clippy_and_fmt": false,
-    "dependency_audit_and_licenses": false,
-    "rust_broker_integration": false,
+    "rust_build_and_tests": true,
+    "reviewed_lockfile": true,
+    "pinned_toolchain": true,
+    "clippy_and_fmt": true,
+    "dependency_audit_and_licenses": true,
+    "rust_broker_integration": true,
     "plugin_sandbox_negative_tests": false,
     "live_desktop_matrix": false,
-    "application_adapter_validation": false,
+    "application_adapter_validation": true,
     "release_packaging_validation": false,
     "security_review": false
   }
