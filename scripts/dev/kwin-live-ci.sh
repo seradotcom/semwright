@@ -37,8 +37,7 @@ export LIBGL_ALWAYS_SOFTWARE=1
   kpackagetool6 --version
   # kdialog is a GUI binary and initializes Qt/Wayland even for --version.
   # Record the installed package version before KWin starts without invoking it.
-  dpkg-query -W -f=kdialog=
- kdialog
+  dpkg-query -W kdialog
 } | tee "$EVIDENCE_DIR/plasma-versions.log"
 
 kpackagetool6 --type=KWin/Script -i /workspace/bridges/kwin   2>&1 | tee "$EVIDENCE_DIR/kwin-package-install.log"
