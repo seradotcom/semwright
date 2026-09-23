@@ -37,21 +37,23 @@ const state={done:false,result:null,frame:config.firstFrame,error:null};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;});
 const finished=new Promise(resolve=>renderer.onFinished.subscribe(resolve));
-try {
-  renderer.render({
-    name:'frames',
-    size:new Vector2(config.width,config.height),
-    resolutionScale:1,
-    colorSpace:config.colorSpace,
-    background:config.alpha?null:config.background,
-    // Motion Canvas 3.17.2 treats the range end as inclusive; Semwright profiles are half-open.
-    range:[config.firstFrame/config.fps,(config.endFrameExclusive-1)/config.fps],
-    fps:config.fps,
-    exporter:{name:'@semwright/driver/image-sequence',options:{}},
-  }).catch(error=>{state.error=String(error);state.done=true;});
-  state.result=await finished;
-  state.done=true;
-} catch(error) { state.error=String(error); state.done=true; }
+(async()=>{
+  try {
+    renderer.render({
+      name:'frames',
+      size:new Vector2(config.width,config.height),
+      resolutionScale:1,
+      colorSpace:config.colorSpace,
+      background:config.alpha?null:config.background,
+      // Motion Canvas 3.17.2 treats the range end as inclusive; Semwright profiles are half-open.
+      range:[config.firstFrame/config.fps,(config.endFrameExclusive-1)/config.fps],
+      fps:config.fps,
+      exporter:{name:'@semwright/driver/image-sequence',options:{}},
+    }).catch(error=>{state.error=String(error);state.done=true;});
+    state.result=await finished;
+    state.done=true;
+  } catch(error) { state.error=String(error); state.done=true; }
+})();
 `;
     },
   };
