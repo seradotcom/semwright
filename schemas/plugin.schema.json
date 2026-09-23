@@ -2,7 +2,7 @@
   "type": "object",
   "properties": {
     "protocol": {
-      "const": 1
+      "const": 2
     },
     "name": {
       "type": "string",

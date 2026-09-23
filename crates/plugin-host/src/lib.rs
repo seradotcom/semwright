@@ -1,5 +1,7 @@
 //! Sandboxed, digest-pinned, out-of-process plugin host. No unsandboxed fallback.
-use semwright_plugin_sdk::{Manifest, Request, Response};
+#[cfg(feature = "test-tools")]
+pub mod adversarial_fixture;
+use semwright_plugin_sdk::{Manifest, PLUGIN_PROTOCOL_VERSION, Request, Response, commands_digest};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{private_directory, read_frame, write_frame};
 use semwright_types::*;
@@ -194,20 +196,27 @@ impl Host {
             .take()
             .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "Plugin stdout missing"))?;
         let id = unique_id();
+        let expected_commands_sha256 = commands_digest(&manifest.commands)?;
         let conversation = async {
             write_frame(
                 &mut input,
                 &Request::Hello {
-                    protocol: 1,
+                    protocol: PLUGIN_PROTOCOL_VERSION,
                     name: name.into(),
+                    version: manifest.version.clone(),
+                    commands_sha256: expected_commands_sha256.clone(),
                 },
             )
             .await?;
             match read_frame::<_, Response>(&mut output).await? {
                 Response::Ready {
-                    protocol: 1,
+                    protocol: PLUGIN_PROTOCOL_VERSION,
                     name: reported,
-                } if reported == name => (),
+                    version,
+                    commands_sha256,
+                } if reported == name
+                    && version == manifest.version
+                    && commands_sha256 == expected_commands_sha256 => {}
                 _ => {
                     return Err(Error::new(
                         ErrorCode::PluginProtocolError,

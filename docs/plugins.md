@@ -30,10 +30,12 @@ semwright plugin remove textstats
 semwright plugin scaffold ./my-plugin --sdk-path /absolute/path/to/semwright/crates/plugin-sdk
 ```
 
-Stdio begins with a protocol/name hello; execution has request IDs and structured results.
-The current runtime handshake checks protocol and identity. The broker validates schemas
-from the manifest, but the child does **not** independently attest the complete schema/
-version digest; that is a recorded release gap, not full conformance.
+Stdio uses **Plugin Protocol v2**. The owner manifest and child mutually bind the plugin
+name, plugin version and SHA-256 digest of the complete ordered command descriptors before
+execution. A v1 child, a different plugin version, or a binary whose embedded descriptors
+do not match the reviewed manifest fails the handshake. Execution then uses request IDs and
+structured results. This attestation proves descriptor identity; it does not make plugin
+metadata trusted or grant policy authority.
 
 The host stages and hashes an owned ELF file. A scrubbed child runs through bubblewrap
 and `semwright-sandbox`, which adds a required Landlock ruleset before executing the
@@ -44,6 +46,9 @@ Output is bounded, timeouts kill the child, resource limits are applied and inhe
 secrets are not passed through.
 
 Missing bubblewrap/user namespace/Landlock enforcement causes `SandboxDenied`; there is
-no direct-exec fallback. Sandbox execution, crash containment and malicious-plugin negative
-tests remain unexecuted. Do not treat the mere presence of hardening flags as a verified
-confinement guarantee. See [SECURITY.md](../SECURITY.md) and [manual testing](manual-testing.md).
+no direct-exec fallback. The hosted adversarial sandbox gate executes a hostile fixture and
+checks read-only/write mount boundaries, host-file invisibility, host PID isolation, loopback
+network isolation, environment scrubbing, timeout/watchdog descendant cleanup and manifest/
+child version+descriptor attestation. These tests exercise the configured Linux boundary;
+they are not a formal proof against kernel, Bubblewrap, Landlock or native-code vulnerabilities.
+See [SECURITY.md](../SECURITY.md) and [manual testing](manual-testing.md).
