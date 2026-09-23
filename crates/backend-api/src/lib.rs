@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Clone)]
 pub struct Context {
     pub session: String,
+    pub request_id: String,
     pub cancellation: CancellationToken,
 }
 impl Context {

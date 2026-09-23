@@ -38,6 +38,7 @@ async fn call(
         provider,
         &Context {
             session: "blender-live".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         },
         &find(capabilities, name).descriptor,

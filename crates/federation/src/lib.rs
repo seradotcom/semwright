@@ -453,6 +453,8 @@ impl Provider for ExternalMcpProvider {
             dynamic_capabilities: true,
             cooperative_cancellation: true,
             events: true,
+            progress: false,
+            artifacts: false,
             health: true,
         }
     }

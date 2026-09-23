@@ -116,6 +116,10 @@ jobs:
           mkdir -p verification/native-ci
           BIN_DIR=target/debug scripts/dev/driver-conformance.sh 2>&1 | tee verification/native-ci/driver-conformance.log
           BIN_DIR=target/debug scripts/dev/driver-broker-smoke.sh 2>&1 | tee verification/native-ci/driver-broker-smoke.log
+          SEMWRIGHT_TEST_DRIVER_V2=1 \
+            SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
+            cargo test --locked -p semwright-driver-host --test protocol_v2 \
+            -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-protocol-v2.log
           cp /tmp/bwrap-version.log verification/native-ci/
       - name: Adversarial plugin sandbox and handshake attestation
         env:

@@ -177,6 +177,7 @@ mod tests {
         let b = Macos::with_transport(Arc::new(Fake));
         let c = Context {
             session: "test".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         };
         assert_eq!(
@@ -194,6 +195,7 @@ mod tests {
         stop.cancel();
         let c = Context {
             session: "test".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: stop,
         };
         assert_eq!(

@@ -42,6 +42,7 @@ async fn call(
         provider,
         &Context {
             session: "kicad-live".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         },
         descriptor,
