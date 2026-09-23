@@ -332,34 +332,35 @@ async fn private_portal_fixture_rotates_restore_token_and_grants_clipboard() {
         .unwrap();
     assert_eq!(write["written"], true);
 
-    let snapshot = fixture.lock().unwrap();
-    assert_eq!(
-        snapshot.events,
-        vec![
-            "create",
-            "select",
-            "clipboard_request",
-            "start",
-            "create",
-            "select",
-            "clipboard_request",
-            "start",
-            "set_selection",
-        ]
-    );
-    assert_eq!(snapshot.persist_modes, vec![2, 2]);
-    assert_eq!(snapshot.restore_tokens[0], None);
-    assert_eq!(
-        snapshot.restore_tokens[1].as_deref(),
-        Some("fixture-token-1")
-    );
-    assert!(
-        snapshot
-            .selection_mime_types
-            .iter()
-            .any(|mime| mime == "text/plain;charset=utf-8")
-    );
-    drop(snapshot);
+    {
+        let snapshot = fixture.lock().unwrap();
+        assert_eq!(
+            snapshot.events,
+            vec![
+                "create",
+                "select",
+                "clipboard_request",
+                "start",
+                "create",
+                "select",
+                "clipboard_request",
+                "start",
+                "set_selection",
+            ]
+        );
+        assert_eq!(snapshot.persist_modes, vec![2, 2]);
+        assert_eq!(snapshot.restore_tokens[0], None);
+        assert_eq!(
+            snapshot.restore_tokens[1].as_deref(),
+            Some("fixture-token-1")
+        );
+        assert!(
+            snapshot
+                .selection_mime_types
+                .iter()
+                .any(|mime| mime == "text/plain;charset=utf-8")
+        );
+    }
 
     let cleared = second.clear_restore().await.unwrap();
     assert_eq!(cleared["durable_token_cleared"], true);
