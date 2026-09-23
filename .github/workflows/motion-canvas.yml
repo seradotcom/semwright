@@ -47,9 +47,7 @@ jobs:
           set +e
           (ulimit -v 4194304; node --disable-wasm-trap-handler --max-old-space-size=256 -p 'process.version') >evidence/node-4g-address-space.log 2>&1
           rc=$?
-          printf '
-exit_code=%s
-' "$rc" >>evidence/node-4g-address-space.log
+          echo "exit_code=$rc" >>evidence/node-4g-address-space.log
           cat evidence/node-4g-address-space.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
