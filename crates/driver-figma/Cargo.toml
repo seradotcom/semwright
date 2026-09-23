@@ -22,12 +22,12 @@ required-features = ["test-tools"]
 
 [features]
 default = []
-test-tools = []
+test-tools = ["dep:anyhow"]
 
 [dependencies]
 semwright-driver-sdk.workspace = true
 semwright-types.workspace = true
-anyhow.workspace = true
+anyhow = { workspace = true, optional = true }
 async-trait.workspace = true
 futures-util.workspace = true
 hex.workspace = true
