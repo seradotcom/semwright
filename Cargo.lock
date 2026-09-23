@@ -2218,6 +2218,7 @@ dependencies = [
  "libc",
  "proptest",
  "semwright-driver-host",
+ "semwright-driver-registry",
  "semwright-driver-sdk",
  "semwright-federation",
  "semwright-plugin-sdk",
@@ -2344,6 +2345,21 @@ dependencies = [
  "tempfile",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "semwright-driver-registry"
+version = "0.9.0-dev.1"
+dependencies = [
+ "libc",
+ "semver",
+ "semwright-driver-sdk",
+ "semwright-protocol",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
 ]
 
 [[package]]

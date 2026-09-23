@@ -143,6 +143,13 @@ policy grants, bubblewrap/Landlock sandbox and descriptor-pinned execution. They
 ambient authority or unsandboxed fallback. Consult each directory's README and security
 notes before enabling it.
 
+## Distribution
+
+The App Driver SDK also has a non-executing local distribution layer for versioned packages and
+static indexes. See [Driver distribution](driver-distribution.md) for package/index formats,
+compatibility resolution and install/update/remove security semantics. Distribution never creates
+policy grants and does not replace explicit `driver conformance`.
+
 ## Loading drivers in the daemon
 
 Owner configuration may list protected manifest files:

@@ -1,6 +1,11 @@
 use clap::{CommandFactory, Parser};
 use semwright_cli::*;
 use semwright_driver_host::conformance as driver_conformance;
+use semwright_driver_registry::{
+    Index as DriverIndex, InstallRoots, create_package as create_driver_package,
+    inspect_package as inspect_driver_package, install_from_index as install_driver_from_index,
+    remove_installed as remove_installed_driver,
+};
 use semwright_driver_sdk::Manifest as DriverManifest;
 use semwright_federation::{
     StdioUpstreamConfig, default_upstream_registry_path, doctor_stdio, load_upstream_registry,
@@ -181,6 +186,252 @@ async fn main() {{
                 &json!({"created":output,"installed":false,"next":"build, pin SHA-256, validate, conformance"}),
                 cli.json,
             )
+        }
+        DriverCommand::Package { command } => match command {
+            DriverPackageCommand::Create {
+                manifest,
+                output,
+                semwright,
+            } => {
+                let manifest = load_driver_manifest(manifest)?;
+                let requirement = semwright
+                    .clone()
+                    .unwrap_or_else(|| format!("={}", env!("CARGO_PKG_VERSION")));
+                if cli.dry_run {
+                    print_result(
+                        &json!({
+                            "valid": true,
+                            "created": false,
+                            "output": output,
+                            "semwright": requirement,
+                            "executed": false
+                        }),
+                        cli.json,
+                    )
+                } else {
+                    let digest = create_driver_package(&manifest, &requirement, output)?;
+                    print_result(
+                        &json!({
+                            "created": true,
+                            "output": output,
+                            "package_sha256": digest,
+                            "semwright": requirement,
+                            "executed": false
+                        }),
+                        cli.json,
+                    )
+                }
+            }
+            DriverPackageCommand::Inspect { package } => {
+                let (metadata, executable, digest) = inspect_driver_package(package)?;
+                print_result(
+                    &json!({
+                        "package": package,
+                        "package_sha256": digest,
+                        "executable_bytes": executable.len(),
+                        "metadata": metadata,
+                        "executed": false
+                    }),
+                    cli.json,
+                )
+            }
+        },
+        DriverCommand::Index { command } => match command {
+            DriverIndexCommand::Validate { index } => {
+                let registry = DriverIndex::load(index)?;
+                print_result(
+                    &json!({
+                        "valid": true,
+                        "index": index,
+                        "entries": registry.drivers.len(),
+                        "executed": false
+                    }),
+                    cli.json,
+                )
+            }
+            DriverIndexCommand::Search {
+                index,
+                query,
+                application_version,
+            } => {
+                let registry = DriverIndex::load(index)?;
+                let query = query.to_ascii_lowercase();
+                let mut rows = vec![];
+                for entry in &registry.drivers {
+                    if !query.is_empty()
+                        && !entry.id.to_ascii_lowercase().contains(&query)
+                        && !entry.publisher.to_ascii_lowercase().contains(&query)
+                        && !entry.version.to_ascii_lowercase().contains(&query)
+                    {
+                        continue;
+                    }
+                    rows.push(json!({
+                        "id": entry.id,
+                        "version": entry.version,
+                        "publisher": entry.publisher,
+                        "package": entry.package,
+                        "package_sha256": entry.package_sha256,
+                        "package_bytes": entry.package_bytes,
+                        "semwright": entry.semwright,
+                        "application_versions": entry.application_versions,
+                        "compatible": entry.compatible(
+                            env!("CARGO_PKG_VERSION"),
+                            application_version.as_deref()
+                        )?,
+                        "application_version_required":
+                            !entry.application_versions.is_empty() && application_version.is_none()
+                    }));
+                }
+                print_result(
+                    &json!({
+                        "index": index,
+                        "query": query,
+                        "application_version": application_version,
+                        "drivers": rows,
+                        "executed": false
+                    }),
+                    cli.json,
+                )
+            }
+        },
+        DriverCommand::Install {
+            index,
+            id,
+            version,
+            application_version,
+            data_dir,
+            config_dir,
+        } => {
+            let registry = DriverIndex::load(index)?;
+            let entry = registry.resolve(
+                id,
+                version.as_deref(),
+                application_version.as_deref(),
+                env!("CARGO_PKG_VERSION"),
+            )?;
+            let defaults = InstallRoots::defaults()?;
+            let roots = InstallRoots {
+                data: data_dir.clone().unwrap_or(defaults.data),
+                config: config_dir.clone().unwrap_or(defaults.config),
+            };
+            if cli.dry_run {
+                print_result(
+                    &json!({
+                        "resolved": entry,
+                        "installed": false,
+                        "dry_run": true,
+                        "data_root": roots.data,
+                        "config_root": roots.config,
+                        "policy_grants_changed": false,
+                        "executed": false
+                    }),
+                    cli.json,
+                )
+            } else {
+                let receipt = install_driver_from_index(
+                    index,
+                    entry,
+                    application_version.as_deref(),
+                    &roots,
+                )?;
+                print_result(
+                    &json!({
+                        "installed": true,
+                        "receipt": receipt,
+                        "policy_grants_changed": false,
+                        "executed": false,
+                        "restart_required": true
+                    }),
+                    cli.json,
+                )
+            }
+        }
+        DriverCommand::Update {
+            index,
+            id,
+            application_version,
+            data_dir,
+            config_dir,
+        } => {
+            let registry = DriverIndex::load(index)?;
+            let entry = registry.resolve(
+                id,
+                None,
+                application_version.as_deref(),
+                env!("CARGO_PKG_VERSION"),
+            )?;
+            let defaults = InstallRoots::defaults()?;
+            let roots = InstallRoots {
+                data: data_dir.clone().unwrap_or(defaults.data),
+                config: config_dir.clone().unwrap_or(defaults.config),
+            };
+            if cli.dry_run {
+                print_result(
+                    &json!({
+                        "resolved": entry,
+                        "updated": false,
+                        "dry_run": true,
+                        "policy_grants_changed": false,
+                        "executed": false
+                    }),
+                    cli.json,
+                )
+            } else {
+                let receipt = install_driver_from_index(
+                    index,
+                    entry,
+                    application_version.as_deref(),
+                    &roots,
+                )?;
+                print_result(
+                    &json!({
+                        "updated": true,
+                        "receipt": receipt,
+                        "policy_grants_changed": false,
+                        "executed": false,
+                        "restart_required": true
+                    }),
+                    cli.json,
+                )
+            }
+        }
+        DriverCommand::Remove {
+            id,
+            version,
+            data_dir,
+            config_dir,
+        } => {
+            let defaults = InstallRoots::defaults()?;
+            let roots = InstallRoots {
+                data: data_dir.clone().unwrap_or(defaults.data),
+                config: config_dir.clone().unwrap_or(defaults.config),
+            };
+            if cli.dry_run {
+                print_result(
+                    &json!({
+                        "id": id,
+                        "version": version,
+                        "removed": false,
+                        "dry_run": true,
+                        "policy_grants_changed": false,
+                        "executed": false
+                    }),
+                    cli.json,
+                )
+            } else {
+                remove_installed_driver(id, version, &roots)?;
+                print_result(
+                    &json!({
+                        "id": id,
+                        "version": version,
+                        "removed": true,
+                        "policy_grants_changed": false,
+                        "executed": false,
+                        "restart_required": true
+                    }),
+                    cli.json,
+                )
+            }
         }
     }
 }
