@@ -476,7 +476,7 @@ export const semwrightExporterPlugin: Plugin={name:'semwright-driver-exporter-v1
         "target":"ES2022","module":"ESNext","moduleResolution":"Bundler","strict":true,"skipLibCheck":true,
         "jsx":"react-jsx","jsxImportSource":"@motion-canvas/2d/lib","allowSyntheticDefaultImports":true,
         "resolveJsonModule":true},"include":["src"]}))?);
-    files.insert("vite.config.ts".into(), b"import {defineConfig} from 'vite';\nimport motionCanvas from '@motion-canvas/vite-plugin';\nexport default defineConfig({plugins:[motionCanvas({project:'./src/project.ts'})]});\n".to_vec());
+    files.insert("vite.config.ts".into(), b"import {defineConfig} from 'vite';\nimport motionCanvasModule from '@motion-canvas/vite-plugin';\nconst motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : (motionCanvasModule as unknown as {default: typeof motionCanvasModule}).default;\nexport default defineConfig({plugins:[motionCanvas({project:'./src/project.ts'})]});\n".to_vec());
     let mut package: Value = serde_json::from_str(include_str!(
         "../../../integrations/motion-canvas/runtime/package.json"
     ))?;

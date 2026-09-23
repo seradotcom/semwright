@@ -4,7 +4,8 @@ import os from 'node:os';
 import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
-import motionCanvas from '@motion-canvas/vite-plugin';
+import motionCanvasModule from '@motion-canvas/vite-plugin';
+const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
 import {chromium} from 'playwright';
 
 function fail(message) { throw new Error(message); }
