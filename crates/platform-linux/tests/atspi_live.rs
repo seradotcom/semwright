@@ -1,3 +1,4 @@
+#![cfg(target_os = "linux")]
 use semwright_backend_api::{Backend, Context};
 use semwright_platform_linux::atspi::Atspi;
 use semwright_types::{ErrorCode, NativeTarget};
