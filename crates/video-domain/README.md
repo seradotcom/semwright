@@ -43,8 +43,10 @@ MLT/Kdenlive/Shotcut graph needed for lossless and conservative round trips, whi
 
 ## Mutation contract
 
-The edit engine applies a bounded `Edit` to a clone and returns an `EditOutcome`. It does not
-authorize the operation and it does not decide whether a backend can safely persist it.
+The edit engine applies a bounded `Edit` to a clone and returns an `EditOutcome`. Every shared
+mutation has a canonical `VideoOperation` identity with stable string/serde round-tripping, so
+backends cannot silently diverge on operation names. The engine does not authorize the operation
+and it does not decide whether a backend can safely persist it.
 
 A concrete backend must perform, in order:
 

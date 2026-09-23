@@ -54,13 +54,13 @@ impl ProjectAdapter for ShotcutAdapter {
                 .ok_or_else(|| Error::invalid("Shotcut original graph missing"))?,
         )
     }
-    fn supported_mutation(&self, p: &Project, op: &str) -> Support {
+    fn supported_mutation(&self, p: &Project, op: VideoOperation) -> Support {
         // No real Shotcut version was executed here. Explicit metadata-risk acknowledgement is
         // still insufficient for unknown/future versions: only the synthetic fixture contract
         // is editable. Native application files remain read-only pending real version evidence.
         if p.format == Format::Shotcut
             && p.format_version.as_deref() == Some("synthetic-fixture-1")
-            && op == "track.rename"
+            && op == VideoOperation::TrackRename
         {
             Support::MetadataRisk
         } else {

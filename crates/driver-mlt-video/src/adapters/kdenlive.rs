@@ -47,8 +47,8 @@ impl ProjectAdapter for KdenliveAdapter {
                 .ok_or_else(|| Error::invalid("Kdenlive original graph missing"))?,
         )
     }
-    fn supported_mutation(&self, p: &Project, op: &str) -> Support {
-        if p.format_version.as_deref() == Some("1.1") && op == "track.rename" {
+    fn supported_mutation(&self, p: &Project, op: VideoOperation) -> Support {
+        if p.format_version.as_deref() == Some("1.1") && op == VideoOperation::TrackRename {
             Support::MetadataRisk
         } else {
             Support::Unsupported
