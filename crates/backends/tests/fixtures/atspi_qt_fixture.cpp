@@ -33,6 +33,9 @@ int main(int argc, char **argv) {
     window.resize(360, 160);
     window.show();
 
+    // CI has no assistive-technology client to trigger Qt's platform bridge. Activate
+    // accessibility explicitly in this disposable fixture, then exercise the real AT-SPI bus.
+    QAccessible::setActive(true);
     QAccessible::setRootObject(&app);
     auto *root = QAccessible::queryAccessibleInterface(&app);
     std::cerr << "qt_accessibility_active=" << (QAccessible::isActive() ? "true" : "false")
