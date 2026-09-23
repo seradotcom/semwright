@@ -146,7 +146,7 @@ The workspace includes several larger integration surfaces in addition to the ex
   independent fake server, the real Semwright Driver Host sandbox, bounded fuzz targets and a
   disposable read-only OBS Studio instance. Driver Protocol v1 still does not transport child
   events, cooperative cancellation or dynamic capability changes into the broker.
-- `crates/driver-motion-canvas` provides 16 curated Driver Protocol capabilities over a versioned
+- `crates/driver-motion-canvas` provides 17 curated Driver Protocol capabilities over a versioned
   `semwright-motion.json` model, deterministic Motion Canvas 3.17.2 generation, revision-bound
   refs, atomic semantic transactions and bounded render jobs. Its browser renderer remains
   inside Driver Host confinement and the full launch-film build runs only on ephemeral Actions

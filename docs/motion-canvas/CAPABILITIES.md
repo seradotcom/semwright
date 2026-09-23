@@ -1,6 +1,6 @@
 # Motion Canvas capabilities
 
-Driver identity: `driver:motion-canvas`. Protocol catalog count: **16**. The catalog is intentionally compact: type-specific creation and patching are expressed as bounded `project.apply` operations instead of dozens of redundant setters.
+Driver identity: `driver:motion-canvas`. Protocol catalog count: **17**. The catalog is intentionally compact: type-specific creation and patching are expressed as bounded `project.apply` operations instead of dozens of redundant setters.
 
 | Capability | Risk / idempotency | Purpose |
 |---|---|---|
@@ -12,6 +12,7 @@ Driver identity: `driver:motion-canvas`. Protocol catalog count: **16**. The cat
 | `project.apply` | mutating_reversible / non_idempotent | Atomically apply a bounded semantic transaction; supports dry-run. |
 | `scene.list` | read_only / read_only | List scenes and stable refs. |
 | `node.list` | read_only / read_only | List nodes, optionally scoped by scene ref. |
+| `asset.import` | mutating_reversible / non_idempotent | Import a bounded local PNG/SVG/MP4/WebM/WAV/Ogg/MP3 from the explicit read-only media grant into the managed project; supports dry-run. |
 | `asset.list` | read_only / read_only | List managed local assets and hashes. |
 | `cue.list` | read_only / read_only | List named timing cues. |
 | `animation.list` | read_only / read_only | List declarative animations. |
