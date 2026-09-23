@@ -102,7 +102,7 @@ async fn exercise(discover: bool, profile: Profile) {
     let task_args = json!({"command":"app.list","args":{}});
     if discover {
         let task = client
-            .call_tool(
+            .call_tool_once(
                 CallToolRequestParams::new("semwright_execute_task")
                     .with_arguments(task_args.as_object().unwrap().clone()),
             )
