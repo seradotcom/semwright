@@ -208,16 +208,24 @@ fn detailed_task(job: &JobSnapshot) -> DetailedTask {
         iso_timestamp(updated),
     )
     .with_poll_interval_ms(250);
-    task.status_message = Some(
-        match job.state {
-            JobState::Queued => "Queued by the Semwright broker",
-            JobState::Running => "Running through Semwright policy and provider routing",
-            JobState::Succeeded => "Semwright operation completed",
-            JobState::Failed => "Semwright operation completed with a tool error",
-            JobState::Cancelled => "Semwright operation cancelled",
+    task.status_message = Some(if let Some(progress) = &job.progress {
+        let base = progress
+            .message
+            .clone()
+            .unwrap_or_else(|| "Semwright provider reported progress".into());
+        match progress.total {
+            Some(total) => format!("{base} ({}/{total})", progress.completed),
+            None => format!("{base} ({})", progress.completed),
         }
-        .into(),
-    );
+    } else {
+        match job.state {
+            JobState::Queued => "Queued by the Semwright broker".into(),
+            JobState::Running => "Running through Semwright policy and provider routing".into(),
+            JobState::Succeeded => "Semwright operation completed".into(),
+            JobState::Failed => "Semwright operation completed with a tool error".into(),
+            JobState::Cancelled => "Semwright operation cancelled".into(),
+        }
+    });
     let payload = match job.state {
         JobState::Queued | JobState::Running => TaskPayload::Working,
         JobState::Cancelled => TaskPayload::Cancelled,
@@ -544,6 +552,8 @@ mod tests {
             finished_at_ms: Some(3),
             cancellation_requested: false,
             cancellable: false,
+            progress: None,
+            artifacts: vec![],
             result: Some(Box::new(envelope)),
             result_omitted: false,
         };
@@ -566,6 +576,8 @@ mod tests {
             finished_at_ms: None,
             cancellation_requested: false,
             cancellable: true,
+            progress: None,
+            artifacts: vec![],
             result: None,
             result_omitted: false,
         };

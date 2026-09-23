@@ -79,6 +79,8 @@ impl JobStore {
             finished_at_ms: None,
             cancellation_requested: false,
             cancellable: true,
+            progress: None,
+            artifacts: vec![],
             result: None,
             result_omitted: false,
         };
@@ -131,6 +133,60 @@ impl JobStore {
             entry.snapshot.result_omitted = true;
         }
         Ok(entry.snapshot.clone())
+    }
+
+    pub fn correlation(&self, id: &str) -> Option<(String, String)> {
+        self.entries
+            .get(id)
+            .map(|entry| (entry.owner.clone(), entry.snapshot.command.clone()))
+    }
+
+    pub fn update_progress(
+        &mut self,
+        id: &str,
+        progress: JobProgress,
+        artifacts: Vec<JobArtifact>,
+    ) -> Result<(String, JobSnapshot)> {
+        progress.validate()?;
+        if artifacts.len() > 32 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Job artifact update exceeds its bounded count",
+            ));
+        }
+        for artifact in &artifacts {
+            artifact.validate()?;
+        }
+        let entry = self
+            .entries
+            .get_mut(id)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Job not found"))?;
+        if entry.snapshot.state.terminal() {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Terminal jobs cannot accept progress updates",
+            ));
+        }
+        entry.snapshot.progress = Some(progress);
+        for artifact in artifacts {
+            if let Some(existing) = entry
+                .snapshot
+                .artifacts
+                .iter_mut()
+                .find(|existing| existing.reference == artifact.reference)
+            {
+                *existing = artifact;
+            } else {
+                if entry.snapshot.artifacts.len() >= 32 {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Job artifact retention limit reached",
+                    ));
+                }
+                entry.snapshot.artifacts.push(artifact);
+            }
+        }
+        Ok((entry.owner.clone(), entry.snapshot.clone()))
     }
 
     pub fn get(&self, owner: &str, id: &str) -> Result<JobSnapshot> {
@@ -248,7 +304,7 @@ impl Broker {
         Ok(snapshot)
     }
 
-    fn job_event(&self, session: &str, kind: &str, job: &JobSnapshot) {
+    pub(super) fn job_event(&self, session: &str, kind: &str, job: &JobSnapshot) {
         self.session_event(
             session,
             self.core_event(kind)
@@ -256,7 +312,9 @@ impl Broker {
                 .with_attribute("command", json!(job.command))
                 .with_attribute("state", json!(job.state))
                 .with_attribute("cancellation_requested", json!(job.cancellation_requested))
-                .with_attribute("result_omitted", json!(job.result_omitted)),
+                .with_attribute("result_omitted", json!(job.result_omitted))
+                .with_attribute("progress", json!(job.progress))
+                .with_attribute("artifacts", json!(job.artifacts)),
         );
     }
 }
@@ -310,6 +368,50 @@ mod tests {
         assert_eq!(terminal.state, JobState::Succeeded);
         assert!(!terminal.cancellable);
         assert!(terminal.result.as_ref().is_some_and(|result| result.ok));
+    }
+
+    #[test]
+    fn progress_and_artifacts_are_bounded_and_correlated() {
+        let mut jobs = JobStore::default();
+        let job = jobs
+            .reserve("session-a", "driver.fixture.long", CancellationToken::new())
+            .unwrap();
+        jobs.mark_running(&job.id).unwrap();
+        let progress = JobProgress {
+            completed: 2,
+            total: Some(4),
+            message: Some("halfway".into()),
+        };
+        let artifact = JobArtifact {
+            name: "preview".into(),
+            reference: "artifact:preview-1".into(),
+            media_type: Some("image/png".into()),
+            sha256: Some("a".repeat(64)),
+            bytes: Some(128),
+        };
+        let (owner, updated) = jobs
+            .update_progress(&job.id, progress.clone(), vec![artifact.clone()])
+            .unwrap();
+        assert_eq!(owner, "session-a");
+        assert_eq!(updated.progress, Some(progress));
+        assert_eq!(updated.artifacts, vec![artifact]);
+        assert_eq!(
+            jobs.correlation(&job.id),
+            Some(("session-a".into(), "driver.fixture.long".into()))
+        );
+
+        assert!(
+            jobs.update_progress(
+                &job.id,
+                JobProgress {
+                    completed: 5,
+                    total: Some(4),
+                    message: None,
+                },
+                vec![],
+            )
+            .is_err()
+        );
     }
 
     #[test]

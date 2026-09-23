@@ -45,6 +45,7 @@ async fn execute(
         provider,
         &Context {
             session: "adversarial-driver".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         },
         &descriptor.descriptor,

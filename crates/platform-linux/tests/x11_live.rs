@@ -109,6 +109,7 @@ async fn real_x11_window_ref_is_focus_checked_and_stales_after_destroy() {
     let backend = X11::default();
     let context = Context {
         session: "x11-live".into(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     };
 

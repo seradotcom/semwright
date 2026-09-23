@@ -605,6 +605,7 @@ impl Broker {
         let result = self
             .perform(
                 &session,
+                &id,
                 &request,
                 descriptor,
                 cancellation,
@@ -643,6 +644,7 @@ impl Broker {
     async fn perform(
         self: &Arc<Self>,
         session: &str,
+        request_id: &str,
         request: &ExecuteRequest,
         invocation: Result<Invocation>,
         cancellation: CancellationToken,
@@ -886,6 +888,7 @@ impl Broker {
         }
         let context = Context {
             session: session.into(),
+            request_id: request_id.into(),
             cancellation: cancellation.child_token(),
         };
         let action = async {
