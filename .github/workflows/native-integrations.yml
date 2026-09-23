@@ -446,6 +446,33 @@ jobs:
           path: verification/native-ci
           retention-days: 14
 
+  pipewire-screencast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: pipewire-screencast
+      - name: Install private PipeWire video fixture
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             libpipewire-0.3-dev pipewire pipewire-bin wireplumber             dbus-x11 gstreamer1.0-tools gstreamer1.0-pipewire             gstreamer1.0-plugins-base
+      - name: Real synthetic PipeWire frame capture
+        run: |
+          mkdir -p verification/native-ci
+          bash -n scripts/dev/pipewire-screencast-smoke.sh
+          dbus-run-session -- bash scripts/dev/pipewire-screencast-smoke.sh             2>&1 | tee verification/native-ci/pipewire-screencast.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pipewire-screencast-evidence
+          path: verification/native-ci
+          retention-days: 14
+
   x11-backend:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
