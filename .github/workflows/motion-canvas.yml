@@ -1,0 +1,61 @@
+name: Motion Canvas driver
+on:
+  push:
+    branches: [feat/motion-canvas-driver]
+  pull_request:
+    paths:
+      - 'crates/driver-motion-canvas/**'
+      - 'integrations/motion-canvas/**'
+      - 'demos/launch-film/**'
+      - 'docs/motion-canvas/**'
+      - '.github/workflows/motion-canvas.yml'
+      - 'Cargo.lock'
+permissions:
+  contents: read
+concurrency:
+  group: motion-canvas-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  runtime-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.22.0'
+      - name: Resolve exact bootstrap lock (no project scripts)
+        working-directory: integrations/motion-canvas/runtime
+        run: npm install --package-lock-only --ignore-scripts && npm ci --ignore-scripts
+      - name: Install pinned browser on the runner only
+        working-directory: integrations/motion-canvas/runtime
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Record current runtime compatibility
+        working-directory: integrations/motion-canvas/runtime
+        run: npm run probe
+      - name: Record virtual-address-space compatibility
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          mkdir -p evidence
+          set +e
+          (ulimit -v 4194304; node --disable-wasm-trap-handler --max-old-space-size=256 -p 'process.version') >evidence/node-4g-address-space.log 2>&1
+          rc=$?
+          printf '
+exit_code=%s
+' "$rc" >>evidence/node-4g-address-space.log
+          cat evidence/node-4g-address-space.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: motion-bootstrap-evidence
+          path: |
+            integrations/motion-canvas/runtime/evidence
+            integrations/motion-canvas/runtime/package-lock.json
+          retention-days: 14

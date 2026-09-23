@@ -11,3 +11,10 @@ __pycache__/
 *.profraw
 /coverage/
 /dummy-docs/
+
+# Motion Canvas build products (CI only)
+.integrations-motion-work/
+integrations/motion-canvas/runtime/node_modules/
+integrations/motion-canvas/runtime/evidence/
+integrations/motion-canvas/runtime/dist/
+demos/launch-film/output/
