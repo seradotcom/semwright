@@ -1,0 +1,22 @@
+[package]
+name = "semwright-driver-registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Static/local driver index and non-executing verified package installer"
+
+[dependencies]
+semwright-driver-sdk.workspace = true
+semwright-protocol.workspace = true
+semwright-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+semver.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
