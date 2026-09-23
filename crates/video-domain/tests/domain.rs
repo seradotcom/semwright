@@ -5,7 +5,7 @@ use semwright_video_domain::{
         Timeline, Track, Transition,
     },
     refs::RefStore,
-    support::MutationSupport,
+    support::{MutationSupport, VideoOperation},
     time::FrameRange,
 };
 
@@ -67,6 +67,29 @@ fn model_roundtrips_as_backend_neutral_json() {
     let text = String::from_utf8(encoded).unwrap();
     assert!(!text.contains("mlt_service"));
     assert!(!text.contains("XmlBinding"));
+}
+
+#[test]
+fn video_operation_contract_is_unique_typed_and_serializable() {
+    let mut names = std::collections::BTreeSet::new();
+    assert_eq!(VideoOperation::ALL.len(), 32);
+    for operation in VideoOperation::ALL {
+        assert!(names.insert(operation.as_str()));
+        assert_eq!(
+            operation.as_str().parse::<VideoOperation>().unwrap(),
+            *operation
+        );
+        let encoded = serde_json::to_string(operation).unwrap();
+        assert_eq!(
+            serde_json::from_str::<VideoOperation>(&encoded).unwrap(),
+            *operation
+        );
+    }
+    assert!("unknown.operation".parse::<VideoOperation>().is_err());
+    assert_eq!(
+        serde_json::to_string(&MutationSupport::SafeRoundtrip).unwrap(),
+        "\"safe_roundtrip\""
+    );
 }
 
 #[test]

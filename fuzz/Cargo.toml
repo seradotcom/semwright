@@ -21,6 +21,7 @@ semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
 semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
+semwright-video-domain = { path = "../crates/video-domain" }
 
 [[bin]]
 name = "protocol"
@@ -108,6 +109,20 @@ bench = false
 [[bin]]
 name = "obs_capability_mapping"
 path = "fuzz_targets/obs_capability_mapping.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "video_domain_model"
+path = "fuzz_targets/video_domain_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "video_domain_edit"
+path = "fuzz_targets/video_domain_edit.rs"
 test = false
 doc = false
 bench = false

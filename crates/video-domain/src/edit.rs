@@ -3,7 +3,7 @@
 //! Backend policy, native revision checks, serialization and round-trip
 //! validation intentionally live outside this module.
 
-use crate::{Error, Result, hash::sha256, model::*, time::FrameRange};
+use crate::{Error, Result, hash::sha256, model::*, support::VideoOperation, time::FrameRange};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
@@ -165,40 +165,40 @@ pub enum Edit {
     },
 }
 impl Edit {
-    pub fn operation(&self) -> &'static str {
+    pub fn operation(&self) -> VideoOperation {
         match self {
-            Self::Profile(_) => "project.profile.set",
-            Self::SequenceCreate { .. } => "sequence.create",
-            Self::AssetImport { .. } => "asset.import",
-            Self::AssetRelink { .. } => "asset.relink",
-            Self::TrackCreate { .. } => "track.create",
-            Self::TrackRemove { .. } => "track.remove",
-            Self::TrackRename { .. } => "track.rename",
-            Self::TrackMute { .. } => "track.mute",
-            Self::TrackHide { .. } => "track.hide",
-            Self::TrackReorder { .. } => "track.reorder",
-            Self::Insert { .. } => "clip.insert",
-            Self::Move { .. } => "clip.move",
-            Self::Trim { .. } => "clip.trim",
-            Self::Split { .. } => "clip.split",
-            Self::Remove { .. } => "clip.remove",
-            Self::Duplicate { .. } => "clip.duplicate",
-            Self::TransitionAdd { .. } => "transition.add",
-            Self::TransitionPatch { .. } => "transition.patch",
-            Self::TransitionRemove { .. } => "transition.remove",
-            Self::EffectAdd { .. } => "effect.add",
-            Self::EffectPatch { .. } => "effect.patch",
-            Self::EffectRemove { .. } => "effect.remove",
-            Self::EffectEnable { value: true, .. } => "effect.enable",
-            Self::EffectEnable { .. } => "effect.disable",
-            Self::KeyframeSet { .. } => "keyframe.set",
-            Self::KeyframeRemove { .. } => "keyframe.remove",
-            Self::MarkerAdd { .. } => "marker.add",
-            Self::MarkerPatch { .. } => "marker.patch",
-            Self::MarkerRemove { .. } => "marker.remove",
-            Self::AudioVolume { .. } => "audio.volume.set",
-            Self::AudioFade { fade_in: true, .. } => "audio.fade_in",
-            Self::AudioFade { .. } => "audio.fade_out",
+            Self::Profile(_) => VideoOperation::ProjectProfileSet,
+            Self::SequenceCreate { .. } => VideoOperation::SequenceCreate,
+            Self::AssetImport { .. } => VideoOperation::AssetImport,
+            Self::AssetRelink { .. } => VideoOperation::AssetRelink,
+            Self::TrackCreate { .. } => VideoOperation::TrackCreate,
+            Self::TrackRemove { .. } => VideoOperation::TrackRemove,
+            Self::TrackRename { .. } => VideoOperation::TrackRename,
+            Self::TrackMute { .. } => VideoOperation::TrackMute,
+            Self::TrackHide { .. } => VideoOperation::TrackHide,
+            Self::TrackReorder { .. } => VideoOperation::TrackReorder,
+            Self::Insert { .. } => VideoOperation::ClipInsert,
+            Self::Move { .. } => VideoOperation::ClipMove,
+            Self::Trim { .. } => VideoOperation::ClipTrim,
+            Self::Split { .. } => VideoOperation::ClipSplit,
+            Self::Remove { .. } => VideoOperation::ClipRemove,
+            Self::Duplicate { .. } => VideoOperation::ClipDuplicate,
+            Self::TransitionAdd { .. } => VideoOperation::TransitionAdd,
+            Self::TransitionPatch { .. } => VideoOperation::TransitionPatch,
+            Self::TransitionRemove { .. } => VideoOperation::TransitionRemove,
+            Self::EffectAdd { .. } => VideoOperation::EffectAdd,
+            Self::EffectPatch { .. } => VideoOperation::EffectPatch,
+            Self::EffectRemove { .. } => VideoOperation::EffectRemove,
+            Self::EffectEnable { value: true, .. } => VideoOperation::EffectEnable,
+            Self::EffectEnable { .. } => VideoOperation::EffectDisable,
+            Self::KeyframeSet { .. } => VideoOperation::KeyframeSet,
+            Self::KeyframeRemove { .. } => VideoOperation::KeyframeRemove,
+            Self::MarkerAdd { .. } => VideoOperation::MarkerAdd,
+            Self::MarkerPatch { .. } => VideoOperation::MarkerPatch,
+            Self::MarkerRemove { .. } => VideoOperation::MarkerRemove,
+            Self::AudioVolume { .. } => VideoOperation::AudioVolumeSet,
+            Self::AudioFade { fade_in: true, .. } => VideoOperation::AudioFadeIn,
+            Self::AudioFade { .. } => VideoOperation::AudioFadeOut,
         }
     }
 }
@@ -282,7 +282,7 @@ pub fn apply_with_identity_base(
             }
             if matches!(a.resource, Resource::Color(_) | Resource::Opaque(_)) {
                 return Err(Error::unsupported(
-                    "Cannot relink generator or opaque producer",
+                    "Cannot relink generator or opaque resource",
                 ));
             }
             a.resource = resource;
@@ -798,7 +798,7 @@ pub fn apply_with_identity_base(
     }
     result.validate()?;
     Ok(EditOutcome {
-        operation: operation.into(),
+        operation: operation.as_str().into(),
         affected,
         created,
         before_frames: project.duration(),
