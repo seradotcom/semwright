@@ -271,7 +271,7 @@ pub fn plan(
         return Err(Error::stale());
     }
     let operation = edit.operation();
-    let support = adapters::adapter(project.format).supported_mutation(project, operation);
+    let support = crate::domain::contract(project)?.support(operation);
     if support == Support::Unsupported || support == Support::RenderOnly {
         return Err(Error::unsupported(
             "Mutation is not available for this project graph/format",
