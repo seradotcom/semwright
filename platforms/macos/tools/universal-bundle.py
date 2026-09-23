@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Merge matching UNSIGNED ARM64 and Intel bundles. Never reuse a signature after lipo."""
-import argparse,pathlib,platform,plistlib,shutil,subprocess,json
+import argparse,pathlib,platform,shutil,subprocess,json
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--arm64',type=pathlib.Path,required=True);p.add_argument('--intel',type=pathlib.Path,required=True);p.add_argument('--output',type=pathlib.Path,required=True)
 a=p.parse_args()

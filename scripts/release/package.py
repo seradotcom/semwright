@@ -2,8 +2,6 @@
 """Build a local tarball and optional Debian package from already-built ELF binaries."""
 import argparse
 import hashlib
-import json
-import os
 import shutil
 import stat
 import subprocess
