@@ -2,6 +2,7 @@ use crate::model::{BRIDGE_PROTOCOL_VERSION, MAX_MESSAGE_BYTES};
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use hmac::{Hmac, Mac};
 use rand::RngCore;
+use semwright_driver_sdk::DriverChildEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::Sha256;
@@ -184,16 +185,21 @@ pub struct BridgeHub {
 }
 
 impl BridgeHub {
-    pub async fn start() -> Result<Self, BridgeError> {
+    pub async fn start(
+        events: mpsc::UnboundedSender<DriverChildEvent>,
+    ) -> Result<Self, BridgeError> {
         let port = std::env::var("SEMWRIGHT_FIGMA_BRIDGE_PORT")
             .ok()
             .map(|raw| raw.parse::<u16>().map_err(|_| BridgeError::Protocol))
             .transpose()?
             .unwrap_or(DEFAULT_PORT);
-        Self::start_on(port).await
+        Self::start_on(port, Some(events)).await
     }
 
-    async fn start_on(port: u16) -> Result<Self, BridgeError> {
+    async fn start_on(
+        port: u16,
+        events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
+    ) -> Result<Self, BridgeError> {
         let listener = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
             .await
             .map_err(|_| BridgeError::Io)?;
@@ -202,6 +208,7 @@ impl BridgeHub {
         let state = Arc::new(RwLock::new(HubState::default()));
         let accept_state = Arc::clone(&state);
         let accept_secret = secret.clone();
+        let accept_events = events.clone();
         let task = tokio::spawn(async move {
             while let Ok((stream, peer)) = listener.accept().await {
                 if !peer.ip().is_loopback() {
@@ -209,8 +216,9 @@ impl BridgeHub {
                 }
                 let state = Arc::clone(&accept_state);
                 let secret = accept_secret.clone();
+                let events = accept_events.clone();
                 tokio::spawn(async move {
-                    let _ = serve_connection(stream, state, secret).await;
+                    let _ = serve_connection(stream, state, secret, events).await;
                 });
             }
         });
@@ -352,6 +360,7 @@ async fn serve_connection(
     stream: TcpStream,
     state: Arc<RwLock<HubState>>,
     secret: PairingSecret,
+    events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
 ) -> Result<(), BridgeError> {
     let ws = accept_async(stream)
         .await
@@ -505,14 +514,37 @@ async fn serve_connection(
                         session_id: event_session,
                         generation: event_generation,
                         revision,
-                        ..
+                        kind,
+                        payload,
                     } => {
                         if event_session != &session_id || *event_generation != generation {
                             return Err(BridgeError::Stale);
                         }
-                        let mut guard = state.write().await;
-                        if let Some(active) = guard.sessions.get_mut(&session_id) {
-                            active.info.revision = (*revision).max(active.info.revision);
+                        if !matches!(
+                            kind.as_str(),
+                            "selectionchange"
+                                | "currentpagechange"
+                                | "documentchange"
+                                | "documentchange_unavailable"
+                        ) {
+                            return Err(BridgeError::Protocol);
+                        }
+                        {
+                            let mut guard = state.write().await;
+                            if let Some(active) = guard.sessions.get_mut(&session_id) {
+                                active.info.revision = (*revision).max(active.info.revision);
+                            }
+                        }
+                        if let Some(events) = &events {
+                            let _ = events.send(DriverChildEvent::Event {
+                                kind: format!("figma.{kind}"),
+                                payload: json!({
+                                    "session_id": session_id,
+                                    "generation": generation,
+                                    "revision": revision,
+                                    "data": payload,
+                                }),
+                            });
                         }
                     }
                     Message::Pong { .. } => {}
@@ -648,7 +680,7 @@ mod tests {
 
     #[tokio::test]
     async fn wrong_hmac_never_registers_a_session() {
-        let hub = BridgeHub::start_on(0).await.expect("start bridge");
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
         let (mut ws, _) = hello(&hub, "wrong-auth", 1).await;
         send_client(
             &mut ws,
@@ -676,7 +708,7 @@ mod tests {
 
     #[tokio::test]
     async fn valid_server_challenge_registers_the_session() {
-        let hub = BridgeHub::start_on(0).await.expect("start bridge");
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
         let (mut ws, nonce) = hello(&hub, "valid-auth", 4).await;
         let proof = hub.secret.proof(&nonce, "valid-auth", 4);
         send_client(
@@ -707,8 +739,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn plugin_events_are_forwarded_as_driver_child_events() {
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+        let hub = BridgeHub::start_on(0, Some(event_tx))
+            .await
+            .expect("start bridge");
+        let (mut ws, nonce) = hello(&hub, "events", 2).await;
+        let proof = hub.secret.proof(&nonce, "events", 2);
+        send_client(
+            &mut ws,
+            &Message::Authenticate {
+                session_id: "events".into(),
+                generation: 2,
+                proof,
+            },
+        )
+        .await;
+        assert!(matches!(recv_client(&mut ws).await, Message::Ready { .. }));
+
+        send_client(
+            &mut ws,
+            &Message::Event {
+                session_id: "events".into(),
+                generation: 2,
+                revision: 3,
+                kind: "selectionchange".into(),
+                payload: serde_json::json!({"selected": 2}),
+            },
+        )
+        .await;
+
+        let event = timeout(Duration::from_secs(2), event_rx.recv())
+            .await
+            .expect("driver event timeout")
+            .expect("driver event channel closed");
+        match event {
+            DriverChildEvent::Event { kind, payload } => {
+                assert_eq!(kind, "figma.selectionchange");
+                assert_eq!(payload["session_id"], "events");
+                assert_eq!(payload["generation"], 2);
+                assert_eq!(payload["revision"], 3);
+                assert_eq!(payload["data"]["selected"], 2);
+            }
+            other => panic!("unexpected child event: {other:?}"),
+        }
+        assert_eq!(hub.sessions().await[0].revision, 3);
+    }
+
+    #[tokio::test]
     async fn captured_proof_cannot_be_replayed_on_a_new_connection() {
-        let hub = BridgeHub::start_on(0).await.expect("start bridge");
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
         let (ws1, nonce1) = hello(&hub, "replay", 1).await;
         let captured = hub.secret.proof(&nonce1, "replay", 1);
         drop(ws1);

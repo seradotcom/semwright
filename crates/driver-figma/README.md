@@ -36,7 +36,7 @@ npm run build
 
 Load `plugin/manifest.json` as a Figma development plugin after building it. The plugin manifest is deliberately limited to Figma/FigJam, `documentAccess: dynamic-page`, and the fixed development loopback endpoint `ws://127.0.0.1:38471`.
 
-The Driver Host manifest must be owner-configured. Start from `driver.manifest.example.json`, replace the executable path and SHA-256, and explicitly allow driver network access. Driver Protocol v1 currently expresses network as a boolean grant; the driver itself binds only to loopback.
+The Driver Host manifest must be owner-configured. Start from `driver.manifest.example.json`, replace the executable path and SHA-256, and explicitly allow driver network access. The current Driver Manifest expresses network as a boolean grant; the driver itself binds only to loopback. This integration uses Semwright Driver Protocol v2 and negotiates child events, while cancellation, progress, artifacts and dynamic capabilities remain disabled until the Figma implementation can satisfy those contracts honestly.
 
 ## Pairing
 

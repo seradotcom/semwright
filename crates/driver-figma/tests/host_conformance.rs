@@ -3,7 +3,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverResources, Manifest, Transport,
+    ApplicationMatch, DRIVER_MANIFEST_VERSION, DRIVER_PROTOCOL_VERSION, DriverInterfaces,
+    DriverResources, Manifest, Transport,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -74,8 +75,8 @@ impl FakeFigma {
 
 fn manifest(executable: PathBuf) -> Manifest {
     Manifest {
-        manifest_version: 1,
-        protocol: 1,
+        manifest_version: DRIVER_MANIFEST_VERSION,
+        protocol: DRIVER_PROTOCOL_VERSION,
         id: "figma".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -95,7 +96,11 @@ fn manifest(executable: PathBuf) -> Manifest {
             ..DriverResources::default()
         },
         request_timeout_ms: 5_000,
-        interfaces: DriverInterfaces::default(),
+        interfaces: DriverInterfaces {
+            events: true,
+            health: true,
+            ..DriverInterfaces::default()
+        },
     }
 }
 

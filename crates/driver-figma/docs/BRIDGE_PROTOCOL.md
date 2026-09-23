@@ -18,6 +18,6 @@ Requests carry correlation IDs, session/generation and optional expected revisio
 
 Limits include a 1 MiB control-message ceiling, bounded pending requests, bounded session metadata and operation-specific semantic budgets. BinaryStart/Chunk/End remain reserved for a future artifact transport; large media exports must not be encoded as ordinary JSON arrays.
 
-The production Rust driver starts this bridge and `Driver::execute` dispatches bridge-backed operations through it. The production fake-Figma E2E exercises the complete Driver Protocol -> WebSocket -> fake-plugin flow.
+The production Rust driver starts this bridge and `Driver::execute` dispatches bridge-backed operations through it. This bridge protocol is distinct from Semwright Driver Protocol v2: the driver negotiates `events=true` at the child-driver layer and forwards allowlisted plugin events as bounded `figma.*` child events. The production fake-Figma E2E exercises Driver Protocol v2 -> WebSocket -> fake-plugin request/response flow.
 
 Security invariants: loopback only, ephemeral secret, HMAC authentication, strict serde envelopes, replay/generation rejection, no eval/Function/import surface, and untrusted Figma content treated as data.

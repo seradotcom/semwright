@@ -1,10 +1,11 @@
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver};
+use semwright_driver_sdk::{Capability, Driver, DriverChildEvent, DriverInterfaces};
 use semwright_figma_driver::bridge::{BridgeError, BridgeHub, pairing_status};
 use semwright_figma_driver::{model, schemas, snapshot};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Risk};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
+use tokio::sync::mpsc;
 
 const DRIVER_SCOPE: &str = "driver:figma";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -912,6 +913,7 @@ struct FigmaDriver {
     descriptors: BTreeMap<String, String>,
     ops: BTreeMap<String, Op>,
     hub: BridgeHub,
+    events: Option<mpsc::UnboundedReceiver<DriverChildEvent>>,
 }
 
 impl FigmaDriver {
@@ -924,13 +926,15 @@ impl FigmaDriver {
             descriptors.insert(capability.descriptor.name.clone(), digest);
             ops.insert(capability.descriptor.name.clone(), operation);
         }
-        let hub = BridgeHub::start()
+        let (event_tx, event_rx) = mpsc::unbounded_channel();
+        let hub = BridgeHub::start(event_tx)
             .await
             .map_err(|_| Error::unavailable("Figma loopback bridge could not start"))?;
         Ok(Self {
             descriptors,
             ops,
             hub,
+            events: Some(event_rx),
         })
     }
 
@@ -988,6 +992,18 @@ impl Driver for FigmaDriver {
 
     fn version(&self) -> &str {
         VERSION
+    }
+
+    fn interfaces(&self) -> DriverInterfaces {
+        DriverInterfaces {
+            events: true,
+            health: true,
+            ..DriverInterfaces::default()
+        }
+    }
+
+    fn take_events(&mut self) -> Option<mpsc::UnboundedReceiver<DriverChildEvent>> {
+        self.events.take()
     }
 
     async fn capabilities(&mut self) -> semwright_types::Result<Vec<Capability>> {

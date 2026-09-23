@@ -72,7 +72,7 @@ def main():
     try:
         ready = request(driver, {
             "type": "hello",
-            "protocol": 1,
+            "protocol": 2,
             "provider": {
                 "id": "driver:figma",
                 "kind": "driver",
@@ -84,6 +84,14 @@ def main():
             "executable_sha256": "0" * 64,
         }, "ready")
         assert ready["id"] == "figma"
+        assert ready["protocol"] == 2
+
+        interfaces = request(driver, {"type": "interfaces", "id": "interfaces"}, "interfaces")
+        assert interfaces["id"] == "interfaces"
+        assert interfaces["interfaces"]["events"] is True
+        assert interfaces["interfaces"]["cooperative_cancellation"] is False
+        assert interfaces["interfaces"]["progress"] is False
+        assert interfaces["interfaces"]["artifacts"] is False
 
         catalog = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {cap["descriptor"]["name"]: cap for cap in catalog["capabilities"]}

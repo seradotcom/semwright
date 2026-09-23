@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 1,
+  "protocol": 2,
   "id": "figma",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -26,7 +26,9 @@
   "interfaces": {
     "dynamic_capabilities": false,
     "cooperative_cancellation": false,
-    "events": false,
+    "events": true,
+    "progress": false,
+    "artifacts": false,
     "health": true
   }
 }
