@@ -17,15 +17,15 @@ fn context() -> Context {
 async fn wait_for_fixture(backend: &Sway, ctx: &Context) -> (Value, NativeTarget) {
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            if let Ok(listed) = backend.execute(ctx, "window.list", &json!({})).await {
-                if let Some(row) = listed["windows"].as_array().and_then(|rows| {
+            if let Ok(listed) = backend.execute(ctx, "window.list", &json!({})).await
+                && let Some(row) = listed["windows"].as_array().and_then(|rows| {
                     rows.iter()
                         .find(|row| row["title"].as_str() == Some("Semwright Sway Fixture"))
-                }) {
-                    let target = serde_json::from_value::<NativeTarget>(row["ref"]["$ref"].clone())
-                        .expect("fixture target");
-                    return (row.clone(), target);
-                }
+                })
+            {
+                let target = serde_json::from_value::<NativeTarget>(row["ref"]["$ref"].clone())
+                    .expect("fixture target");
+                return (row.clone(), target);
             }
             tokio::time::sleep(Duration::from_millis(80)).await;
         }
