@@ -12,6 +12,7 @@ use crate::{
     runtime::{RenderProfile, Runtime},
     time::{FrameRange, FrameRate},
 };
+use semwright_video_domain::support::VideoOperation;
 use std::{
     collections::BTreeMap,
     io::{Read, Write},
@@ -421,15 +422,14 @@ impl App {
                                     )
                                 })
                                 .map(|operation| {
+                                    let support = operation
+                                        .parse::<VideoOperation>()
+                                        .map_or(adapters::Support::Unsupported, |operation| {
+                                            adapter.supported_mutation(p, operation)
+                                        });
                                     obj([
                                         ("operation", operation.into()),
-                                        (
-                                            "support",
-                                            adapters::support_name(
-                                                adapter.supported_mutation(p, operation),
-                                            )
-                                            .into(),
-                                        ),
+                                        ("support", adapters::support_name(support).into()),
                                     ])
                                 }),
                         ),

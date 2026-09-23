@@ -57,7 +57,7 @@ impl ProjectAdapter for GenericMltAdapter {
             )
         }
     }
-    fn supported_mutation(&self, p: &Project, _op: &str) -> Support {
+    fn supported_mutation(&self, p: &Project, _op: VideoOperation) -> Support {
         if p.generated {
             Support::SafeRoundtrip
         } else {

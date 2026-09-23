@@ -12,7 +12,7 @@ use crate::{
 };
 pub use generic::{GenericMltAdapter, write_normal_form};
 pub use kdenlive::KdenliveAdapter;
-pub use semwright_video_domain::support::MutationSupport as Support;
+pub use semwright_video_domain::support::{MutationSupport as Support, VideoOperation};
 pub use shotcut::ShotcutAdapter;
 use std::collections::BTreeMap;
 
@@ -29,7 +29,7 @@ pub trait ProjectAdapter {
     fn detect(&self, root: &Node) -> bool;
     fn parse(&self, root: Node) -> Result<Project>;
     fn serialize(&self, project: &Project) -> Result<String>;
-    fn supported_mutation(&self, project: &Project, operation: &str) -> Support;
+    fn supported_mutation(&self, project: &Project, operation: VideoOperation) -> Support;
 }
 pub fn adapter(format: Format) -> Box<dyn ProjectAdapter> {
     match format {
