@@ -169,7 +169,9 @@ async fn hostile_plugin_cannot_escape_filesystem_network_process_or_environment(
         .iter()
         .map(|value| value.as_str().unwrap())
         .collect::<Vec<_>>();
-    assert_eq!(keys, vec!["HOME", "LANG", "PATH"]);
+    // Bubblewrap sets PWD after --chdir /tmp. No host-provided environment
+    // variables survive the explicit clearenv/allowlist boundary.
+    assert_eq!(keys, vec!["HOME", "LANG", "PATH", "PWD"]);
     assert_eq!(
         std::fs::read(harness.rw_path.join("allowed.txt")).unwrap(),
         b"allowed"
