@@ -1464,7 +1464,7 @@
   {
     "name": "screen.stream_info",
     "version": "1.0",
-    "description": "Describe portal ScreenCast support; this build does not decode PipeWire frames.",
+    "description": "Describe ScreenCast support and the owner session's active PipeWire streams.",
     "input_schema": {
       "type": "object",
       "properties": {},
@@ -1472,7 +1472,59 @@
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "screencast_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pixel_stream": {
+          "type": "string",
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "owned_by_session": {
+          "type": "boolean"
+        },
+        "consent": {
+          "type": "string"
+        },
+        "persistent_tokens": {
+          "type": "boolean"
+        },
+        "available_source_types": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_cursor_modes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "streams": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "screencast_version",
+        "pixel_stream",
+        "active",
+        "owned_by_session",
+        "consent",
+        "persistent_tokens",
+        "available_source_types",
+        "available_cursor_modes",
+        "streams"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "desktop.observe"
@@ -1482,6 +1534,209 @@
     "timeout_ms": 10000,
     "dry_run": true,
     "interactive_consent": false,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.stream.start",
+    "version": "1.0",
+    "description": "Request a user-consented ScreenCast session for bounded PipeWire frame capture.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "any",
+            "monitor",
+            "window"
+          ]
+        },
+        "multiple": {
+          "type": "boolean"
+        },
+        "cursor": {
+          "type": "string",
+          "enum": [
+            "hidden",
+            "embedded"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "consent": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "already_active": {
+          "type": "boolean"
+        },
+        "persistent": {
+          "type": "boolean"
+        },
+        "streams": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "consent",
+        "active",
+        "already_active",
+        "persistent",
+        "streams"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 120000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.stream.capture",
+    "version": "1.0",
+    "description": "Capture one bounded frame from an active owner ScreenCast stream into a private PNG artifact.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "stream": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 30000
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "expires_in_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "mime_type": {
+          "const": "image/png"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "source_format": {
+          "type": "string",
+          "enum": [
+            "rgba",
+            "bgra",
+            "rgbx",
+            "bgrx",
+            "rgb",
+            "bgr"
+          ]
+        },
+        "stream": {
+          "type": "object"
+        },
+        "warning": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "artifact",
+        "expires_in_seconds",
+        "mime_type",
+        "width",
+        "height",
+        "source_format",
+        "stream",
+        "warning"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 45000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.stream.stop",
+    "version": "1.0",
+    "description": "Revoke and close this broker session's active ScreenCast grant.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "active": {
+          "const": false
+        },
+        "consent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "active",
+        "consent"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
     "backends": [
       "portal"
     ]

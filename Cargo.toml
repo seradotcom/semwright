@@ -32,6 +32,8 @@ toml = "0.9"
 zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
 futures-util = { version = "0.3", features = ["sink"] }
 reis = { version = "=0.7.1", features = ["tokio", "calloop"] }
+pipewire = { version = "=0.10.1", features = ["v0_3_65"] }
+png = "0.18"
 calloop = "0.14"
 x11rb = { version = "0.13", features = ["xtest"] }
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "handshake"] }
