@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
 BLENDER_BIN=${BLENDER_BIN:-/usr/local/bin/blender}
 DAEMON="$BIN_DIR/semwrightd"
-CTL="$BIN_DIR/computerctl"
+CTL="$BIN_DIR/semwright"
 
 for file in "$DAEMON" "$CTL" "$BLENDER_BIN"; do
   test -x "$file" || { echo "missing executable: $file" >&2; exit 2; }

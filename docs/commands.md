@@ -3,7 +3,7 @@
 Generated from `schemas/commands.json`; do not edit by hand.
 
 86 built-in descriptors. A descriptor is not proof of live backend support.
-Run `computerctl doctor` and consult `compatibility.md` and `../VERIFY.md`.
+Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
 for the authoritative input/output schema. Return schemas are intentionally broad

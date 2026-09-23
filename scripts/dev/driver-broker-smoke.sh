@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
 DAEMON="$BIN_DIR/semwrightd"
-CTL="$BIN_DIR/computerctl"
+CTL="$BIN_DIR/semwright"
 FIXTURE="$BIN_DIR/semwright-driver-fixture"
 SANDBOX="$BIN_DIR/semwright-sandbox"
 for file in "$DAEMON" "$CTL" "$FIXTURE" "$SANDBOX"; do

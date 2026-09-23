@@ -180,7 +180,7 @@ async fn main() {{
             )?;
             create(
                 &output.join("README.md"),
-                "# Semwright application driver\n\nBuild the binary, replace the absolute executable path and SHA-256 in driver.manifest.example.json, rename it to a protected owner manifest, then run computerctl driver validate and computerctl driver conformance. Scaffolding never installs or grants authority to the driver.\n",
+                "# Semwright application driver\n\nBuild the binary, replace the absolute executable path and SHA-256 in driver.manifest.example.json, rename it to a protected owner manifest, then run semwright driver validate and semwright driver conformance. Scaffolding never installs or grants authority to the driver.\n",
             )?;
             print_result(
                 &json!({"created":output,"installed":false,"next":"build, pin SHA-256, validate, conformance"}),
@@ -578,7 +578,7 @@ async fn local(cli: &Cli) -> Result<bool> {
             clap_complete::generate(
                 *shell,
                 &mut Cli::command(),
-                "computerctl",
+                "semwright",
                 &mut std::io::stdout(),
             );
         }

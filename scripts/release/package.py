@@ -12,7 +12,7 @@ import tempfile
 import tomllib
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-BINS=('computerctl','semwrightd','semwright-mcp','semwright-inspect','semwright-sandbox')
+BINS=('semwright','semwrightd','semwright-mcp','semwright-inspect','semwright-sandbox')
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--bin-dir',type=Path,required=True);p.add_argument('--arch',choices=['x86_64','aarch64'],required=True);p.add_argument('--output',type=Path,default=ROOT/'dist');p.add_argument('--deb',action='store_true');a=p.parse_args()
     subprocess.run(['python3',str(ROOT/'scripts/release/assert-ready.py')],check=True)

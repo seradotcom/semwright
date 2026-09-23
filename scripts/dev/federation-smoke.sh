@@ -6,7 +6,7 @@ set -u
 if [[ -z "$BIN_DIR" ]]; then BIN_DIR=target/debug; fi
 
 daemon="$BIN_DIR/semwrightd"
-client="$BIN_DIR/computerctl"
+client="$BIN_DIR/semwright"
 fixture="$BIN_DIR/semwright-mcp-fixture"
 
 for binary in "$daemon" "$client" "$fixture"; do

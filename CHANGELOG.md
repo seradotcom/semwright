@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Renamed the canonical user CLI from `computerctl` to `semwright` across build targets,
+  packaging, workflows, examples, smoke tests and documentation.
+- Renamed the advertised MCP gateway tools from the legacy `computer_*` names to
+  `semwright_*`; `capabilities_search` and `capabilities_describe` remain protocol-neutral.
+- New installations publish only `semwright`; the uninstaller still recognizes historical
+  `computerctl` manifests so pre-1.0 installs can be removed safely.
+
+
 ## 0.9.0-dev.1 — 2026-09-21 — source handoff, unreleased
 
 Added source implementations for the Rust capability broker, framed Unix protocol,

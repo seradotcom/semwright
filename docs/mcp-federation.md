@@ -4,7 +4,7 @@ Semwright can consume an external MCP server as a dynamic Provider while remaini
 authorization and audit boundary presented to the agent.
 
 The initial implementation deliberately supports **owner-configured local stdio upstreams**.
-Upstream definitions can be managed with local `computerctl mcp upstream ...` commands, but
+Upstream definitions can be managed with local `semwright mcp upstream ...` commands, but
 those commands are intentionally not broker/MCP capabilities and never grant authorization.
 There is no agent-callable "install or trust an MCP server" operation.
 
@@ -57,17 +57,17 @@ and granted separately in daemon policy.
 Typical lifecycle:
 
 ```sh
-computerctl mcp upstream add playwright /absolute/canonical/path/to/server \
+semwright mcp upstream add playwright /absolute/canonical/path/to/server \
   --arg=--stdio \
   --expected-name playwright \
   --expected-version 1.0.0
 
-computerctl mcp upstream list
-computerctl mcp upstream inspect playwright
-computerctl mcp upstream doctor playwright
-computerctl mcp upstream disable playwright
-computerctl mcp upstream enable playwright
-computerctl mcp upstream remove playwright
+semwright mcp upstream list
+semwright mcp upstream inspect playwright
+semwright mcp upstream doctor playwright
+semwright mcp upstream disable playwright
+semwright mcp upstream enable playwright
+semwright mcp upstream remove playwright
 ```
 
 `add` computes the executable SHA-256 from the opened file unless `--sha256` is supplied.

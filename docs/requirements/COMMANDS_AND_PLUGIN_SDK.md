@@ -56,18 +56,18 @@ browser.dom.click
 Human mode:
 
 ```bash
-computerctl doctor
-computerctl window list
-computerctl ui snapshot --window win:3 --actionable
-computerctl ui find --window win:3 --role button --name Save
-computerctl ui invoke ui:19
+semwright doctor
+semwright window list
+semwright ui snapshot --window win:3 --actionable
+semwright ui find --window win:3 --role button --name Save
+semwright ui invoke ui:19
 ```
 
 Machine mode:
 
 ```bash
-computerctl --json ui find ...
-computerctl --json recipe run ...
+semwright --json ui find ...
+semwright --json recipe run ...
 ```
 
 Rules:
@@ -123,14 +123,14 @@ Recommended model:
 
 ### Always-visible tools
 
-- `computer_doctor`
-- `computer_capabilities`
-- `computer_search_commands`
-- `computer_describe_command`
-- `computer_execute`
-- `computer_snapshot`
-- `computer_find`
-- `computer_audit_tail` (metadata/redacted)
+- `semwright_doctor`
+- `semwright_capabilities`
+- `semwright_search_commands`
+- `semwright_describe_command`
+- `semwright_execute`
+- `semwright_snapshot`
+- `semwright_find`
+- `semwright_audit_tail` (metadata/redacted)
 
 ### Dynamic tools
 
@@ -147,7 +147,7 @@ search_commands("blender material")
 enable those tools
 ```
 
-If dynamic registration is not supported, `computer_execute` remains the universal typed gateway.
+If dynamic registration is not supported, `semwright_execute` remains the universal typed gateway.
 
 The MCP layer must:
 - preserve input/output schemas;
@@ -186,12 +186,12 @@ Always preserve a structured representation for machine clients.
 CLI examples:
 
 ```bash
-computerctl ui find \
+semwright ui find \
   --app org.gimp.GIMP \
   --role button \
   --name-exact Export
 
-computerctl ui find \
+semwright ui find \
   --window win:4 \
   --role menu-item \
   --name-regex '^Save( As…)?$'
@@ -279,10 +279,10 @@ Recipe engine requirements:
 Provide tooling:
 
 ```bash
-computerctl recipe scaffold my-workflow
-computerctl plugin scaffold my-plugin
-computerctl recipe validate recipe.yaml
-computerctl recipe test recipe.yaml --backend fake
+semwright recipe scaffold my-workflow
+semwright plugin scaffold my-plugin
+semwright recipe validate recipe.yaml
+semwright recipe test recipe.yaml --backend fake
 ```
 
 A future agent can turn an observed successful sequence into a recipe, but the project must never silently install generated code.
@@ -309,7 +309,7 @@ manifest_version = 1
 name = "blender"
 version = "1.0.0"
 protocol = "1"
-executable = "computerctl-plugin-blender"
+executable = "semwright-plugin-blender"
 
 [permissions]
 network = "none"

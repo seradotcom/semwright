@@ -49,10 +49,10 @@ commands may not acquire retries through a recipe. Every step re-enters authoriz
 Nested recipe commands are rejected.
 
 ```sh
-computerctl recipe validate recipes/fake-export.yaml
-computerctl --dry-run recipe run recipes/fake-export.yaml
-computerctl recipe test recipes/fake-export.yaml --backend fake
-computerctl recipe scaffold my-flow ./my-flow.yaml
+semwright recipe validate recipes/fake-export.yaml
+semwright --dry-run recipe run recipes/fake-export.yaml
+semwright recipe test recipes/fake-export.yaml --backend fake
+semwright recipe scaffold my-flow ./my-flow.yaml
 ```
 
 Validation/dry-run do not prove future object identity or permission. A dry-run recipe

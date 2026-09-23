@@ -12,7 +12,7 @@ with os.fdopen(fd) as f:
     m=os.fstat(f.fileno())
     if not stat.S_ISREG(m.st_mode) or m.st_uid!=os.getuid() or m.st_mode&0o077:raise SystemExit('Unsafe install manifest')
     files=json.load(f)
-allowed={'computerctl','semwrightd','semwright-mcp','semwright-inspect','semwright-sandbox'}
+allowed={'semwright','computerctl','semwrightd','semwright-mcp','semwright-inspect','semwright-sandbox'}
 for name,digest in files.items():
     path=Path(name)
     if path.parent!=home/'.local/bin' or path.name not in allowed:raise SystemExit('Unexpected install manifest path')

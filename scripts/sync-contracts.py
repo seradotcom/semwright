@@ -9,7 +9,7 @@ def generated():
     commands = json.loads((ROOT / "schemas/commands.json").read_text())
     lines = ["# Command reference", "", "Generated from `schemas/commands.json`; do not edit by hand.", "",
              f"{len(commands)} built-in descriptors. A descriptor is not proof of live backend support.",
-             "Run `computerctl doctor` and consult `compatibility.md` and `../VERIFY.md`.", "",
+             "Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.", "",
              "Every command accepts only its documented properties. Use `commands describe NAME`",
              "for the authoritative input/output schema. Return schemas are intentionally broad",
              "for many backends in this development handoff; strengthening them is a release gate.", "",

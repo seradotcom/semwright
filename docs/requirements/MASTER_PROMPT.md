@@ -182,7 +182,7 @@ Choose a short, memorable project name after checking obvious collisions:
 - npm if used;
 - common Linux packages.
 
-The command may remain `computerctl` if the brand name differs, but choose a coherent final naming scheme.
+The canonical user-facing CLI is `semwright`; companion executables use the `semwright-*`/`semwrightd` naming scheme.
 
 Then freeze the core architecture and proceed.
 

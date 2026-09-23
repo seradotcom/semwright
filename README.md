@@ -39,23 +39,23 @@ command, telemetry client, or root daemon is part of the product.
 These are intended CLI examples, **not a captured successful Rust run**:
 
 ```sh
-computerctl doctor
-computerctl --json capabilities list
-computerctl --json ui find --app org.gnome.TextEditor --role button --name Save
-computerctl commands describe ui.invoke
-computerctl ui invoke 'ui:<reference returned by this session>' --action click
-computerctl recipe run recipes/fake-export.yaml
+semwright doctor
+semwright --json capabilities list
+semwright --json ui find --app org.gnome.TextEditor --role button --name Save
+semwright commands describe ui.invoke
+semwright ui invoke 'ui:<reference returned by this session>' --action click
+semwright recipe run recipes/fake-export.yaml
 
 # Owner-only MCP definition management; this does NOT grant broker policy authority:
-computerctl mcp upstream list
+semwright mcp upstream list
 
 # Driver authoring/verification remains local owner tooling:
-computerctl --json driver validate ./driver.json
-computerctl --json driver conformance ./driver.json
+semwright --json driver validate ./driver.json
+semwright --json driver conformance ./driver.json
 
 # Static/local distribution is also owner-only and never grants driver policy authority:
-computerctl --json driver index validate ./registry/index.json
-computerctl --json --dry-run driver install ./registry/index.json libreoffice \
+semwright --json driver index validate ./registry/index.json
+semwright --json --dry-run driver install ./registry/index.json libreoffice \
   --application-version 24.2
 ```
 
@@ -124,8 +124,8 @@ chmod 700 "$HOME/.config/semwright"
 install -m 600 config/observe.toml "$HOME/.config/semwright/daemon.toml"
 target/debug/semwrightd --config "$HOME/.config/semwright/daemon.toml"
 # A second terminal, in the same graphical login session:
-target/debug/computerctl --json doctor
-target/debug/computerctl ui snapshot --max-nodes 100
+target/debug/semwright --json doctor
+target/debug/semwright ui snapshot --max-nodes 100
 ```
 
 Do not overwrite an existing configuration using this example. A foreground daemon
@@ -181,7 +181,7 @@ start it, authorize mutations, or approve portal dialogs. See [MCP](docs/mcp.md)
 Semwright also has a governed [MCP federation](docs/mcp-federation.md) provider.
 Owner-configured stdio servers are imported into the same capability registry and remain
 subject to normal broker policy, operator approval, provenance and audit. Operators manage
-definitions locally with `computerctl mcp upstream ...`; those local commands never add a
+definitions locally with `semwright mcp upstream ...`; those local commands never add a
 policy grant, so registering a server is distinct from authorizing its tools. The initial
 launcher is digest-pinned and environment-scrubbed but is **not** a sandbox against a
 malicious same-UID executable.

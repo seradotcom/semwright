@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
-CTL="$BIN_DIR/computerctl"
-test -x "$CTL" || { echo "missing computerctl: $CTL" >&2; exit 2; }
+CTL="$BIN_DIR/semwright"
+test -x "$CTL" || { echo "missing semwright: $CTL" >&2; exit 2; }
 test -x /usr/bin/true || { echo "missing /usr/bin/true" >&2; exit 5; }
 
 TMP=$(mktemp -d)

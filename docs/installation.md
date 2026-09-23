@@ -43,7 +43,7 @@ startup failures and `doctor`; start with observe-only capabilities.
 
 Optional federated MCP server definitions live separately at
 `$HOME/.config/semwright/mcp-upstreams.toml` (or the XDG equivalent) and are managed by
-`computerctl mcp upstream ...`. Adding or enabling a definition never edits daemon policy;
+`semwright mcp upstream ...`. Adding or enabling a definition never edits daemon policy;
 an `external-mcp:<slug>` grant must be reviewed separately. Registry changes currently take
 effect after restarting the broker. See [MCP federation](mcp-federation.md).
 

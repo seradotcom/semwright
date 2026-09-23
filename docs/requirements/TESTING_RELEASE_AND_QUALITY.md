@@ -169,7 +169,7 @@ Optional later:
 A polished project needs:
 
 ```bash
-computerctl doctor
+semwright doctor
 ```
 
 immediately after install.
@@ -184,7 +184,7 @@ Installer must:
 
 Ship:
 - systemd user unit;
-- `computerctl service install/start/stop/status`;
+- `semwright service install/start/stop/status`;
 - graceful shutdown;
 - socket cleanup;
 - restart policy that does not loop on bad config.
@@ -204,7 +204,7 @@ GitHub Actions should:
 
 Examples in docs should be checked where practical.
 
-`computerctl --help` examples must stay synchronized.
+`semwright --help` examples must stay synchronized.
 
 ## Manual acceptance matrix
 

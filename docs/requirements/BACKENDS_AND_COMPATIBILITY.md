@@ -257,7 +257,7 @@ LibreOffice UNO or GIMP 3 plugin, whichever can be implemented and verified more
 
 ## Capability probing
 
-`computerctl doctor --json` must expose a matrix like:
+`semwright doctor --json` must expose a matrix like:
 
 ```json
 {
