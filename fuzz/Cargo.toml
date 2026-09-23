@@ -136,6 +136,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "video_domain_render"
+path = "fuzz_targets/video_domain_render.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "figma_bridge_envelope"
 path = "fuzz_targets/figma_bridge_envelope.rs"
 test = false

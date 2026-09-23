@@ -436,6 +436,18 @@ pub fn render_plan(
             "Empty, opaque, nested or subtitle sequence cannot be rendered by the curated backend",
         ));
     }
+
+    let semantic_project = crate::domain::project(p);
+    let render_intent =
+        semwright_video_domain::render::RenderIntent::full(sequence, profile.semantic());
+    let semantic_frames = render_intent.expected_frames(&semantic_project)?;
+    if semantic_frames != seq.duration() {
+        return Err(Error::new(
+            "BackendFailed",
+            "Native and semantic render duration disagree",
+        ));
+    }
+
     let out = roots
         .get("output")
         .ok_or_else(|| Error::new("Unavailable", "Output mount is absent"))?;
@@ -480,7 +492,7 @@ pub fn render_plan(
         }
     }
     let available = runtime.is_some_and(|r| profile.available(&r.catalog));
-    Ok(obj([("project_revision",revision.into()),("sequence",sequence.into()),("profile",profile.id.into()),("output_root","output".into()),("output_path",output.into()),("frames",seq.duration().into()),("runnable",(available&&missing.is_empty()).into()),("missing_services",array(missing.into_iter().map(Into::into))),("media",array(media)),("warnings",array(["No wall-clock duration estimate; progress is state-only".into(),"Media are staged from confined FDs; output is validated before no-replace publication".into()]))]))
+    Ok(obj([("project_revision",revision.into()),("sequence",sequence.into()),("profile",profile.id.into()),("output_root","output".into()),("output_path",output.into()),("frames",semantic_frames.into()),("runnable",(available&&missing.is_empty()).into()),("missing_services",array(missing.into_iter().map(Into::into))),("media",array(media)),("warnings",array(["No wall-clock duration estimate; progress is state-only".into(),"Media are staged from confined FDs; output is validated before no-replace publication".into()]))]))
 }
 pub fn valid_color(s: &str) -> bool {
     matches!(s, "red" | "green" | "blue" | "black" | "white" | "yellow")
