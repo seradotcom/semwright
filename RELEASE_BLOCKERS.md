@@ -11,14 +11,18 @@ This remains a development snapshot and is not a release candidate.
 
 | ID | Remaining blocker | Completion evidence needed |
 |---|---|---|
-| R01 | No MSRV policy or compatibility range has been established; Rust 1.98.1 is the tested pin, not an MSRV. | Document a supported lower bound and execute the full required gate set on it. |
 | R02 | EIS/libei sender transport is implemented and protocol-tested, but a real user-approved portal ConnectToEIS session is not yet certified. | Live portal-granted sessions with consent, revocation, cancellation, coordinate/focus and lifecycle evidence on supported Wayland desktops. |
-| R06 | The cross-desktop live matrix is incomplete. X11 executes under Xvfb and AT-SPI executes against real GTK/Qt fixtures, but GNOME Wayland, Plasma Wayland, Sway, Hyprland and a native desktop X11 session are not all certified. | Versioned session matrix with negative cases, focus drift, scaling/multi-monitor where available, cancellation and cleanup. |
-| R09 | Chromium has substantial real Rust integration, but download quotas, crash recovery, multi-frame races and complete artifact lifecycle still need deeper coverage. | Quota/crash/frame-race matrices with deterministic cleanup, stale refs and bounded artifacts. |
-| R13 | Core event provenance and session-private jobs are implemented; provider progress/artifacts, MCP task mapping, negotiated driver child events/cancellation and richer inspector workflows remain incomplete. | Cross-provider progress/artifact contracts, MCP/driver task conformance and inspector/reference workflow evidence. |
+| R06 | The cross-desktop live matrix is incomplete. GNOME Shell 46.0 Wayland now has real semantic GTK/AT-SPI mutation/delta/stale-ref evidence; hosted X11 and GTK/Qt fixtures also execute, but Plasma Wayland, Sway, Hyprland and a native desktop X11 session are not all certified. | Versioned remaining-session matrix with negative cases, focus drift, scaling/multi-monitor where available, cancellation and cleanup. |
+| R13 | Core event provenance, session-private jobs and MCP Tasks mapping are implemented; provider-wide progress/artifacts, negotiated driver-child events/cooperative cancellation and richer inspector workflows remain incomplete. | Cross-provider progress/artifact contracts, Driver Protocol task/event/cancellation conformance and inspector/reference workflow evidence. |
 | R14 | Some outputs and availability signals remain broader/generic than the final semantic API should expose. | Tight output schemas and operation-specific probing/compatibility fixtures across representative providers. |
 | R15 | Semwright binary packaging/install/uninstall, Nix evaluation, reproducibility, SBOM/signing and publishing provenance are not fully certified. | Clean hosted artifact matrix, installation/removal tests, reproducibility receipts and release provenance. |
 | R16 | No independent security review has closed the remaining host/application attack surface. | Peer review of authorization, prompt-injection containment, cancellation, stale identity, sandbox boundaries and disclosure behavior. |
+
+Closed development blocker **R01**: Rust 1.88 is the declared workspace MSRV and the hosted MSRV job executes the required fmt/check/build/Clippy/tests/doctests/docs/release/fake/federation gate set. Rust 1.98.1 remains the development pin rather than being mislabeled as the minimum.
+
+Closed development blocker **R09**: the real Rust Chromium matrix now exercises bounded per-file/count/total download quotas, CDP cancellation, crash/dead-instance relaunch, screenshot/download artifact lifecycle, stale refs and real multi-frame navigation. These tests retain disposable profiles and do not expand browser authority.
+
+Live-matrix progress under **R06**: GNOME Shell 46.0 on a real Wayland login session now executes the production AT-SPI backend against a disposable Zenity/GTK fixture. Discovery, full snapshot, semantic text mutation, delta refresh, application close/resync and stale-ref rejection pass on commit `6bab0cc`. This closes the GNOME/A025/A029 evidence slice only; it does not certify portal input consent, the optional GJS bridge, Plasma, Sway, Hyprland or native desktop X11.
 
 Closed development blocker **R03**: the platformized Linux host now implements bounded XDG
 ScreenCast + PipeWire capture. Hosted native integration creates a real synthetic PipeWire source,
