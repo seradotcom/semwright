@@ -24,6 +24,9 @@ int main(int argc, char **argv) {
         return 3;
     }
     std::cerr << "qt_atspi_preconnect=true" << std::endl;
+    // Force creation of QXcbIntegration's accessibility bridge only after the
+    // canonical "a11y" QtDBus connection is known-good.
+    QAccessible::setRootObject(&app);
     QCoreApplication::setApplicationName("SemwrightQtFixture");
     QApplication::setApplicationDisplayName("Semwright Qt AT-SPI Fixture");
 
