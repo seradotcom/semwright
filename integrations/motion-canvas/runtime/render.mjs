@@ -88,6 +88,7 @@ async function main() {
     // The browser is still confined by Driver Host bubblewrap + Landlock + no-network policy.
     const launch = {headless:true,chromiumSandbox:false,args:['--disable-background-networking','--disable-component-update','--no-first-run']};
     launch.args = [];
+    launch.env = {...process.env, MOZ_ASSUME_USER_NS:'0'};
     if (a.browser) launch.executablePath = a.browser;
     browser = await firefox.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});

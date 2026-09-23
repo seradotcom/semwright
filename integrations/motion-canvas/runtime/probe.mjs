@@ -10,7 +10,7 @@ for (const name of ['@motion-canvas/core', '@motion-canvas/2d', '@motion-canvas/
 }
 let browser;
 try {
-  browser = await firefox.launch({headless: true, chromiumSandbox: true, timeout: 30000});
+  browser = await firefox.launch({headless: true, chromiumSandbox: true, timeout: 30000, env: {...process.env, MOZ_ASSUME_USER_NS: '0'}});
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.setContent('<canvas width="32" height="32"></canvas>');
