@@ -6,6 +6,8 @@ Semwright render profiles use a half-open frame range `[first_frame, end_frame_e
 
 No stable documented standalone Motion Canvas headless CLI was found for this baseline. Rendering therefore uses Motion Canvas' Vite project integration and core `Renderer` from a controlled browser harness. It is not pixel-click automation and does not record the Motion Canvas editor UI.
 
+The Vite plugin is configured with the documented project import path `./src/project.ts` relative to the isolated build root; the disabled editor shim is supplied as a directory containing `editor.html`, `styles.css` and `main.js`, matching the upstream plugin contract.
+
 ## Production path
 
 1. Rust validates `semwright-motion.json` and a bounded RenderProfile.

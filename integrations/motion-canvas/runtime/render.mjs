@@ -75,7 +75,7 @@ async function main() {
     await fs.symlink(path.join(runtimeRoot, 'node_modules'), path.join(work, 'node_modules'), 'dir');
     await fs.writeFile(path.join(work, 'semwright-render.html'), '<!doctype html><meta charset="utf-8"><script type="module" src="/semwright-entry.js"></script>');
     await fs.writeFile(path.join(work, 'semwright-entry.js'), "import 'virtual:semwright-render';\n");
-    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:path.join(work,'src/project.ts'),editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:path.join(work,'semwright-render.html')}}});
+    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:'./src/project.ts',editor:path.join(runtimeRoot,'stub-editor')}),harnessPlugin(config)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:path.join(work,'semwright-render.html')}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
     // Chromium's user-namespace sandbox is unavailable inside the outer bwrap namespace.
