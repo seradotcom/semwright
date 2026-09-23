@@ -44,7 +44,7 @@ jobs:
         env:
           SEMWRIGHT_TEST_CHROMIUM: /opt/google/chrome/chrome
         run: |
-          cargo test --locked --workspace --all-targets --all-features real_chromium_native_input_navigation_download_denial_and_cleanup -- --ignored --nocapture 2>&1 | tee verification/native-ci/chromium.log
+          cargo test --locked --workspace --all-targets --all-features real_chromium_ -- --ignored --nocapture 2>&1 | tee verification/native-ci/chromium.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
