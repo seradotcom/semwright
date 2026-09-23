@@ -78,6 +78,7 @@ struct DoctorOutput {
     output_mounted: bool,
     runtime_mounted: bool,
     render_available: bool,
+    renderer_reason: String,
     active_jobs: usize,
     capability_count: usize,
 }
@@ -163,6 +164,7 @@ pub struct MotionDriver {
     roots: BTreeMap<String, PathBuf>,
     store: Option<ProjectStore>,
     renderer: RenderManager,
+    renderer_reason: String,
 }
 impl MotionDriver {
     pub fn production() -> Result<Self> {
@@ -177,12 +179,28 @@ impl MotionDriver {
         .map(|(name, path)| (name.into(), PathBuf::from(path)))
         .collect();
         let store = roots.get("project").map(ProjectStore::open).transpose()?;
-        let runtime = roots
-            .get("runtime")
-            .map(|root| RendererRuntime::from_root(root))
-            .transpose()
-            .ok()
-            .flatten();
+        let (runtime, renderer_reason) = match roots.get("runtime") {
+            Some(root) => match RendererRuntime::from_root(root) {
+                Ok(runtime) => (
+                    Some(runtime),
+                    "Pinned runtime tools verified by SHA-256".into(),
+                ),
+                Err(error) => (
+                    None,
+                    format!(
+                        "Runtime unavailable: {:?}: {}",
+                        error.code,
+                        error
+                            .message
+                            .chars()
+                            .filter(|ch| !ch.is_control())
+                            .take(512)
+                            .collect::<String>()
+                    ),
+                ),
+            },
+            None => (None, "Owner-approved runtime mount is absent".into()),
+        };
         let output = roots
             .get("output")
             .cloned()
@@ -192,6 +210,7 @@ impl MotionDriver {
             roots,
             store,
             renderer,
+            renderer_reason,
         })
     }
     #[cfg(test)]
@@ -203,6 +222,7 @@ impl MotionDriver {
             roots,
             store: Some(ProjectStore::open(root)?),
             renderer,
+            renderer_reason: "Test harness has no owner-approved render runtime".into(),
         })
     }
     fn store(&self) -> Result<&ProjectStore> {
@@ -414,6 +434,7 @@ impl MotionDriver {
                     output_mounted: self.roots.contains_key("output"),
                     runtime_mounted: self.roots.contains_key("runtime"),
                     render_available: self.renderer.available(),
+                    renderer_reason: self.renderer_reason.clone(),
                     active_jobs: self.renderer.active_count().await,
                     capability_count: Self::catalog()?.len(),
                 })?)

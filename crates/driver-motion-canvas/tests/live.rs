@@ -212,13 +212,64 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
     .await
     .unwrap();
     assert_eq!(result["state"], "succeeded");
-    assert!(h.output.path().read_dir().unwrap().any(|entry| {
-        entry
-            .unwrap()
-            .path()
-            .join("artifact-manifest.json")
-            .is_file()
-    }));
+    let artifact_dir = h
+        .output
+        .path()
+        .join(result["artifact"]["directory"].as_str().unwrap());
+    assert!(artifact_dir.join("artifact-manifest.json").is_file());
+    let first = artifact_dir.join("frames/000000.png");
+    let evidence = std::env::var_os("SEMWRIGHT_TEST_MOTION_EVIDENCE").map(PathBuf::from);
+    if let Some(evidence) = &evidence {
+        std::fs::create_dir_all(evidence).unwrap();
+        std::fs::copy(
+            artifact_dir.join("artifact-manifest.json"),
+            evidence.join("opaque-manifest.json"),
+        )
+        .unwrap();
+        std::fs::copy(&first, evidence.join("opaque-first.png")).unwrap();
+    }
+
+    let alpha_started = call(provider.as_ref(), &caps, "driver.motion-canvas.render.start", json!({"expected_fingerprint":fingerprint,"profile":{"first_frame":0,"end_frame_exclusive":2,"scale":"full","transparent":true,"timeout_ms":120000}})).await.unwrap();
+    let alpha_job = alpha_started["job_ref"].as_str().unwrap().to_owned();
+    let alpha_terminal = loop {
+        let status = call(
+            provider.as_ref(),
+            &caps,
+            "driver.motion-canvas.render.status",
+            json!({"job_ref":alpha_job}),
+        )
+        .await
+        .unwrap();
+        match status["state"].as_str().unwrap() {
+            "succeeded" | "failed" | "cancelled" => break status,
+            _ => tokio::time::sleep(Duration::from_millis(50)).await,
+        }
+    };
+    assert_eq!(
+        alpha_terminal["state"], "succeeded",
+        "alpha: {alpha_terminal:#}"
+    );
+    let alpha_dir = h
+        .output
+        .path()
+        .join(alpha_terminal["artifact"]["directory"].as_str().unwrap());
+    let alpha_first = alpha_dir.join("frames/000000.png");
+    let png = semwright_driver_motion_canvas::security::inspect_png(
+        &std::fs::read(&alpha_first).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        png.min_alpha < 255,
+        "transparent render had no alpha: {png:?}"
+    );
+    if let Some(evidence) = &evidence {
+        std::fs::copy(
+            alpha_dir.join("artifact-manifest.json"),
+            evidence.join("alpha-manifest.json"),
+        )
+        .unwrap();
+        std::fs::copy(&alpha_first, evidence.join("alpha-first.png")).unwrap();
+    }
 
     let started = call(provider.as_ref(), &caps, "driver.motion-canvas.render.start", json!({"expected_fingerprint":fingerprint,"profile":{"first_frame":0,"end_frame_exclusive":300,"scale":"full","transparent":false,"timeout_ms":120000}})).await.unwrap();
     let cancel_job = started["job_ref"].as_str().unwrap().to_owned();

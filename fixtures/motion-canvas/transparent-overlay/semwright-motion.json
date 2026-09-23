@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "component_version": 1,
+  "id": "transparent-overlay",
+  "generation": "7472616e73706172656e742d6f766572",
+  "revision": 1,
+  "settings": {
+    "width": 640,
+    "height": 360,
+    "fps": 30,
+    "background": null,
+    "color_space": "srgb"
+  },
+  "theme": {
+    "font_family": "Instrument Sans Variable",
+    "mono_family": "IBM Plex Mono",
+    "font_size": 36.0,
+    "font_weight": 500,
+    "spacing": 16.0,
+    "line_width": 2.0,
+    "radius": 16.0,
+    "colors": {
+      "paper": "#f7f5ee",
+      "surface": "#fdfcf8",
+      "ink": "#202d42",
+      "muted": "#5b6471",
+      "accent": "#234ea2",
+      "line": "#dadbd4",
+      "mint": "#dce9dc",
+      "peach": "#f2ddc8",
+      "lavender": "#e9e2f2",
+      "blue_soft": "#e4ebf8"
+    }
+  },
+  "scenes": [
+    {
+      "id": "overlay",
+      "name": "Transparent overlay",
+      "duration_ms": 1500,
+      "nodes": [
+        {
+          "id": "badge",
+          "name": "Overlay badge",
+          "kind": "rect",
+          "properties": {
+            "width": 300,
+            "height": 90,
+            "fill": "@accent",
+            "radius": 20,
+            "opacity": 0.85
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "enter",
+          "target": "badge",
+          "property": "scale",
+          "from": [
+            0.8,
+            0.8
+          ],
+          "to": [
+            1,
+            1
+          ],
+          "duration_ms": 500,
+          "easing": "ease_out_back"
+        }
+      ],
+      "cues": [],
+      "transition": null
+    }
+  ],
+  "assets": [],
+  "audio": []
+}

@@ -74,9 +74,12 @@ async function main() {
     await fs.symlink(path.join(runtimeRoot, 'node_modules'), path.join(work, 'node_modules'), 'dir');
     await fs.writeFile(path.join(work, 'semwright-render.html'), '<!doctype html><meta charset="utf-8"><script type="module" src="/semwright-entry.js"></script>');
     await fs.writeFile(path.join(work, 'semwright-entry.js'), "import 'virtual:semwright-render';\n");
-    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:'./src/project.ts',editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:path.join(work,'semwright-render.html')}}});
+    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:path.join(work,'src/project.ts'),editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:path.join(work,'semwright-render.html')}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
-    const launch = {headless:true,chromiumSandbox:true,args:['--disable-background-networking','--disable-component-update','--no-first-run']};
+    if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
+    // Chromium's user-namespace sandbox is unavailable inside the outer bwrap namespace.
+    // The browser is still confined by Driver Host bubblewrap + Landlock + no-network policy.
+    const launch = {headless:true,chromiumSandbox:false,args:['--disable-background-networking','--disable-component-update','--no-first-run']};
     if (a.browser) launch.executablePath = a.browser;
     browser = await chromium.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});

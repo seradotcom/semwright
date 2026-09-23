@@ -208,6 +208,31 @@ fn render_profile_is_bounded() {
         );
     }
 }
+#[test]
+fn required_managed_fixtures_validate_and_compile() {
+    for bytes in [
+        include_bytes!("../../../fixtures/motion-canvas/hello-text/semwright-motion.json")
+            .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/architecture-graph/semwright-motion.json")
+            .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/code-morph/semwright-motion.json")
+            .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/camera-pan/semwright-motion.json")
+            .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/audio-cues/semwright-motion.json")
+            .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/transparent-overlay/semwright-motion.json")
+            .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/media-embed/semwright-motion.json")
+            .as_slice(),
+    ] {
+        let project = validate::parse(bytes).unwrap();
+        let first = compiler::compile(&project).unwrap();
+        let second = compiler::compile(&project).unwrap();
+        assert_eq!(first.files, second.files);
+    }
+}
+
 proptest! {
     #[test]
     fn display_strings_roundtrip_as_json(text in ".{0,2048}") {

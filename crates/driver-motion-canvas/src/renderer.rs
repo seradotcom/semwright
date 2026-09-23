@@ -11,9 +11,11 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs,
+    io::Read,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -47,15 +49,31 @@ impl RendererRuntime {
         }
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
+        struct Tool {
+            path: String,
+            sha256: String,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
         struct Config {
-            node: String,
-            helper: String,
-            browser: String,
+            node: Tool,
+            helper: Tool,
+            browser: Tool,
         }
         let config: Config = serde_json::from_slice(&bytes)?;
-        let resolve = |value: &str| -> Result<PathBuf> {
-            security::relative_path(value)?;
-            let path = root.join(value);
+        let canonical_root = fs::canonicalize(root)?;
+        if canonical_root != root {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Runtime root must be canonical",
+            ));
+        }
+        let resolve = |tool: &Tool| -> Result<PathBuf> {
+            security::relative_path(&tool.path)?;
+            if !security::digest(&tool.sha256) {
+                return Err(Error::invalid("Runtime tool digest is malformed"));
+            }
+            let path = root.join(&tool.path);
             let canonical = fs::canonicalize(&path)?;
             if !canonical.starts_with(root) {
                 return Err(Error::new(
@@ -64,10 +82,27 @@ impl RendererRuntime {
                 ));
             }
             let meta = fs::symlink_metadata(&path)?;
-            if !meta.is_file() || meta.file_type().is_symlink() {
+            if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 536_870_912 {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    "Runtime tool must be a regular non-symlink file",
+                    "Runtime tool must be a bounded regular non-symlink file",
+                ));
+            }
+            let mut file = fs::File::open(&canonical)?;
+            let mut hasher = Sha256::new();
+            let mut buffer = [0u8; 65_536];
+            loop {
+                let read = file.read(&mut buffer)?;
+                if read == 0 {
+                    break;
+                }
+                hasher.update(&buffer[..read]);
+            }
+            let actual = format!("{:x}", hasher.finalize());
+            if actual != tool.sha256 {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Pinned runtime tool digest mismatch",
                 ));
             }
             Ok(canonical)
@@ -305,6 +340,12 @@ async fn run_render(
     job_ref: &str,
 ) -> Result<ArtifactSummary> {
     set_state(jobs, job_ref, RenderState::Starting).await;
+    if std::env::var("SEMWRIGHT_DRIVER_SANDBOX").as_deref() != Ok("landlock-bwrap-v1") {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Rendering is only available inside the Semwright Driver Host sandbox",
+        ));
+    }
     if cancel.is_cancelled() {
         return Err(Error::new(
             ErrorCode::Cancelled,
@@ -345,7 +386,8 @@ async fn run_render(
         .env_clear()
         .env("PATH", "/usr/bin:/bin")
         .env("HOME", "/home")
-        .env("LANG", "C.UTF-8");
+        .env("LANG", "C.UTF-8")
+        .env("SEMWRIGHT_DRIVER_SANDBOX", "landlock-bwrap-v1");
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -495,9 +537,11 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
         ));
     }
     let mut manifest = Vec::with_capacity(entries.len());
+    let mut saw_transparency = false;
     for (index, entry) in entries.iter().enumerate() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.ends_with(".png") || entry.file_type()?.is_symlink() {
+        let expected = format!("{:06}.png", plan.first_frame + index as u64);
+        if name != expected || entry.file_type()?.is_symlink() {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
                 "Unexpected render artifact",
@@ -511,6 +555,7 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
                 "Rendered PNG dimensions do not match plan",
             ));
         }
+        saw_transparency |= png.min_alpha < 255;
         manifest.push(json!({
             "index": index,
             "file": format!("frames/{name}"),
@@ -520,6 +565,12 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
             "min_alpha": png.min_alpha,
             "max_alpha": png.max_alpha,
         }));
+    }
+    if plan.alpha && !saw_transparency {
+        return Err(Error::new(
+            ErrorCode::BackendFailed,
+            "Transparent render produced no transparent pixels",
+        ));
     }
     let manifest_bytes = serde_json::to_vec_pretty(&json!({
         "renderer": "motion-canvas-core-renderer-v3.17.2",
