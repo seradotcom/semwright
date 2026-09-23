@@ -65,6 +65,12 @@ case "$PHASE" in
     # qspiaccessiblebridge}.cpp. Keep the real Qt bridge and all live assertions.
     unset AT_SPI_BUS_ADDRESS
     xprop -root -remove AT_SPI_BUS
+    # Capture startup stacks independently of the Rust client if Qt stalls.
+    QT_LINUX_ACCESSIBILITY_ALWAYS_ON=1 QT_QPA_PLATFORM=xcb \
+      timeout --signal=INT --kill-after=5s 5s gdb -batch \
+        -ex run -ex 'thread apply all bt' --args "$SEMWRIGHT_TEST_QT_FIXTURE" \
+        > verification/native-ci/qt-startup-stack.log 2>&1 || diagnostic_rc=$?
+    cat verification/native-ci/qt-startup-stack.log
     test_name=live_atspi_qt_delta_resync_and_stale_refs
     ;;
 esac
