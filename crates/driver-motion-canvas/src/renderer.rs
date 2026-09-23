@@ -25,6 +25,7 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_PROCESS_OUTPUT: u64 = 262_144;
 const MAX_JOBS: usize = 64;
+const NODE_RENDER_FLAGS: [&str; 2] = ["--disable-wasm-trap-handler", "--max-old-space-size=256"];
 
 #[derive(Debug, Clone)]
 pub struct RendererRuntime {
@@ -370,6 +371,7 @@ async fn run_render(
     let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
     let mut command = Command::new(&runtime.node);
     command
+        .args(NODE_RENDER_FLAGS)
         .arg(&runtime.helper)
         .arg("--project")
         .arg(generated)

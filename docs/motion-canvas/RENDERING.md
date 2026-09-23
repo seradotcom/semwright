@@ -11,6 +11,7 @@ No stable documented standalone Motion Canvas headless CLI was found for this ba
 3. Driver Host supplies an owner-approved read-only runtime mount.
 4. Rust verifies SHA-256 pins for Node, `render.mjs` and Chromium.
 5. A render job starts the pinned Node helper only inside the Driver Host sandbox.
+   Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` so Vite/Undici remain compatible with the existing 4 GiB Driver Host address-space ceiling instead of raising that generic limit.
 6. The helper copies the generated project to a private temporary directory and runs a Vite build with an absolute project entry.
 7. A dedicated Playwright context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
 8. Motion Canvas core `Renderer` invokes the fixed Semwright image-sequence exporter.
