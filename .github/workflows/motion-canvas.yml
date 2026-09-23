@@ -96,7 +96,7 @@ jobs:
           if sysctl -a 2>/dev/null | grep -q '^kernel.unprivileged_userns_clone'; then
             sudo sysctl -w kernel.unprivileged_userns_clone=1
           fi
-          bwrap --unshare-all --ro-bind /usr /usr --proc /proc --dev /dev -- /usr/bin/true
+          bwrap --unshare-all --ro-bind / / -- /usr/bin/true
       - name: Install exact runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: npm ci --ignore-scripts
