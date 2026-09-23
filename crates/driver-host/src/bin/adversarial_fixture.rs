@@ -147,7 +147,7 @@ impl Driver for Adversarial {
                 }))
             }
             "driver.adversarial.spawn_descendant" => {
-                Command::new("/bin/sh")
+                Command::new("/usr/bin/sh")
                     .args([
                         "-c",
                         "sleep 1; printf escaped > /workspace/rw/driver-descendant.txt",
