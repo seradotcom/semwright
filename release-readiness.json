@@ -7,7 +7,7 @@
     "clippy_and_fmt": true,
     "dependency_audit_and_licenses": true,
     "rust_broker_integration": true,
-    "plugin_sandbox_negative_tests": false,
+    "plugin_sandbox_negative_tests": true,
     "live_desktop_matrix": false,
     "application_adapter_validation": true,
     "release_packaging_validation": false,

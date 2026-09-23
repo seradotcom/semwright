@@ -1,0 +1,43 @@
+{
+  "schema": "semwright.live-desktop-evidence.v1",
+  "status": "PASS",
+  "recorded_at_utc": "2026-09-23T19:06:20Z",
+  "source_commit": "6bab0cca6948465752468d4a324fd4b7a6202860",
+  "cargo_lock_sha256": "74b0048ffe265104e946b81838b70e47e769890f392fc07f811c193d05502113",
+  "environment": {
+    "os": "Ubuntu 24.04.1 LTS",
+    "kernel": "6.8.0-139-generic",
+    "architecture": "x86_64",
+    "session_type": "wayland",
+    "desktop": "ubuntu:GNOME",
+    "gnome_shell": "46.0",
+    "wayland_display": "wayland-0"
+  },
+  "fixture": {
+    "application": "Zenity",
+    "version": "4.0.1-1build3",
+    "at_spi2_core": "2.52.0-1build1",
+    "gtk4_runtime": "4.14.2+ds-1ubuntu1"
+  },
+  "toolchain": {
+    "rustc": "1.98.1",
+    "cargo": "1.98.1"
+  },
+  "test": {
+    "name": "live_atspi_gtk_delta_resync_and_stale_refs",
+    "crate": "semwright-platform-linux",
+    "raw_log_sha256": "035fee0de27c6cb6a5261e6932e2d21175351a4ca8bb7c339f27ee1e2479cc86",
+    "raw_log_committed": false
+  },
+  "observed": {
+    "application_discovery": true,
+    "semantic_snapshot": true,
+    "semantic_text_mutation": true,
+    "delta_snapshot": true,
+    "structural_resync_after_close": true,
+    "stale_reference_rejection": true,
+    "portal_input_grant_used": false,
+    "global_keyboard_or_pointer_injection_used": false
+  },
+  "scope": "Real GNOME Wayland semantic control evidence for a disposable GTK fixture. This is not a full GNOME shell-extension, portal-consent, scaling, multi-monitor, or cross-desktop certificate."
+}

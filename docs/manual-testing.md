@@ -1,7 +1,9 @@
 # Manual/live verification matrix
 
-**All Rust and real desktop/application steps in this file are pending.** They are
-procedures, not recorded successes. Use an owned disposable Linux account with a temporary
+Some rows below now have recorded development evidence, while the remaining rows are still
+procedures rather than implied successes. GNOME Wayland semantic GTK/AT-SPI, hosted X11/AT-SPI,
+PipeWire, deep application and sandbox paths are recorded in `VERIFY.md`; do not generalize them to
+untested desktop/version combinations. Use an owned disposable Linux account with a temporary
 workspace containing only test data. Keep a second trusted recovery terminal; do not
 connect an agent to an account containing important sessions or credentials.
 
@@ -26,15 +28,15 @@ socket/ticket/config modes using a second user account, not chmod bypasses.
 
 | Session | Fixture and positive case | Negative/edge cases |
 |---|---|---|
-| GNOME Wayland, exact recorded version | GTK fixture via AT-SPI; optional bridge window list/focus/move | Disable extension; window disappear/recreate; different bus sender; locked screen |
+| GNOME Wayland, GNOME Shell 46.0 | **EXECUTED:** disposable Zenity/GTK fixture via production AT-SPI; discovery, snapshot, semantic text mutation, delta, close/resync and stale-ref rejection | Portal consent/revocation, optional bridge, different bus sender, locked screen, scaling/multi-monitor remain |
 | Plasma Wayland | Qt/GTK accessibility; KWin mailbox focus/resize | Broker restart, stale heartbeat, cancelled queue, script disabled |
 | Sway | Native window tree, focus/move and semantic UI | IPC endpoint ownership, window ID reuse, workspace change, failed command |
 | Hyprland | Current native JSON client list and dispatch | Stale address/fingerprint, compositor restart, mixed scale/monitors |
 | Native X11 + EWMH manager | Window lifecycle, focus, XTEST on a fixture | Missing WM, hung X server, server disconnect, destroyed/reused XID |
 
-**X11 is release-blocked on I/O/lifecycle design fixes even before these tests.** Xvfb
-without an EWMH window manager does not verify window-management support. Do not call a
-nested compositor test equivalent to every interactive desktop configuration.
+X11 I/O/lifecycle design fixes are implemented and the dedicated Xvfb lifecycle regression passes.
+Xvfb without a full interactive EWMH desktop still does not certify the native-desktop matrix; do
+not call a nested compositor test equivalent to every interactive desktop configuration.
 
 Use `ui.snapshot` with several budgets, exact and regex selectors, duplicate labels,
 ancestor refs, disabled/invisible controls, editable text, numeric values, toggle/select/
@@ -51,11 +53,10 @@ revoke during use. Check owner-session isolation, session close, pending request
 focus change between observation and action and cancellation without a stuck chooser.
 
 Capture only a disposable fixture. Check artifact permissions, PNG metadata, normal expiry,
-no bytes in audit and cleanup after normal/abnormal termination. Multi-monitor scaling and
-mapping are not considered solved by either the relative Notify fallback or EIS. The EIS
-protocol transport is implemented and contract-tested, but release evidence still requires a
-real portal-granted `ConnectToEIS` session with revocation/cancellation. PipeWire streaming and
-permission-token persistence remain unimplemented.
+no bytes in audit and cleanup after normal/abnormal termination. Multi-monitor scaling and mapping are not considered solved by either the relative Notify fallback
+or EIS. The EIS protocol transport is implemented and contract-tested, PipeWire frame capture and
+restore-token/clipboard persistence have executed fixtures, but release evidence still requires a
+real portal-granted `ConnectToEIS` session with revocation/cancellation across supported desktops.
 
 ## App adapters
 
