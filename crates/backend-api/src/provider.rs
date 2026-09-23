@@ -2,7 +2,8 @@
 use crate::{Backend, Context};
 use async_trait::async_trait;
 use semwright_types::{
-    CommandDescriptor, Error, ErrorCode, Feature, NativeTarget, ProviderIdentity, Result,
+    CommandDescriptor, Error, ErrorCode, Feature, JobArtifact, JobProgress, NativeTarget,
+    ProviderIdentity, Result,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -31,13 +32,23 @@ impl From<CommandDescriptor> for ProvidedCapability {
 pub enum ProviderSignal {
     CapabilitiesChanged,
     Disconnected,
-    Event { kind: String, payload: Value },
+    Event {
+        kind: String,
+        payload: Value,
+    },
+    Progress {
+        request_id: String,
+        progress: JobProgress,
+        artifacts: Vec<JobArtifact>,
+    },
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProviderInterfaces {
     pub dynamic_capabilities: bool,
     pub cooperative_cancellation: bool,
     pub events: bool,
+    pub progress: bool,
+    pub artifacts: bool,
     pub health: bool,
 }
 #[async_trait]

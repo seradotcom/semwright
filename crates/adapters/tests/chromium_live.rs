@@ -250,6 +250,7 @@ async fn real_chromium_native_input_navigation_download_denial_and_cleanup() -> 
     )?;
     let ctx = Context {
         session: "real-browser-test".into(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     };
     let outcome = std::panic::AssertUnwindSafe(tokio::time::timeout(
@@ -371,6 +372,7 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
     )?;
     let ctx = Context {
         session: "hardening-browser-test".into(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     };
     browser

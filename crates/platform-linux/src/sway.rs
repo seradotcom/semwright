@@ -108,7 +108,9 @@ pub fn flatten_windows(tree: &Value) -> Vec<Value> {
         if visited > 20_000 {
             break;
         }
-        if node["type"] == "con" && (node["app_id"].is_string() || node["window"].is_number()) {
+        if matches!(node["type"].as_str(), Some("con" | "floating_con"))
+            && (node["app_id"].is_string() || node["window"].is_number())
+        {
             output.push(node.clone());
         }
         for key in ["floating_nodes", "nodes"] {
@@ -237,8 +239,10 @@ mod tests {
     use super::*;
     #[test]
     fn floating_and_tiled_are_both_visible() {
-        let tree = json!({"type":"root","nodes":[{"type":"con","id":1,"app_id":"a"}],"floating_nodes":[{"type":"con","id":2,"app_id":"b"}]});
-        assert_eq!(flatten_windows(&tree).len(), 2);
+        let tree = json!({"type":"root","nodes":[{"type":"con","id":1,"app_id":"a"}],"floating_nodes":[{"type":"floating_con","id":2,"app_id":"b"}]});
+        let windows = flatten_windows(&tree);
+        assert_eq!(windows.len(), 2);
+        assert!(windows.iter().any(|window| window["id"] == 2));
     }
     #[test]
     fn container_is_not_window() {

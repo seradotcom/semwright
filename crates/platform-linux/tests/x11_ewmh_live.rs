@@ -25,6 +25,7 @@ fn atom(conn: &RustConnection, name: &str) -> u32 {
 fn context() -> Context {
     Context {
         session: "x11-ewmh-live".into(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     }
 }

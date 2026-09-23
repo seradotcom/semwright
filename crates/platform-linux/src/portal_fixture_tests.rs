@@ -273,6 +273,7 @@ async fn private_portal_fixture_rotates_restore_token_and_grants_clipboard() {
     let state = root.path().join("state");
     let ctx = Context {
         session: "portal-fixture".into(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     };
 

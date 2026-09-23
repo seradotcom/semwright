@@ -2,17 +2,24 @@
 use async_trait::async_trait;
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::provider::canonical_slug;
-use semwright_types::{CommandDescriptor, Error, ErrorCode, ProviderIdentity, Result, SourceKind};
+use semwright_types::{
+    CommandDescriptor, Error, ErrorCode, JobArtifact, JobProgress, ProviderIdentity, Result,
+    SourceKind,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     path::{Component, Path, PathBuf},
+    sync::Arc,
 };
+use tokio::sync::{Mutex, mpsc};
+use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 1;
+pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -20,7 +27,7 @@ pub enum Transport {
     StdioV1,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DriverInterfaces {
     #[serde(default)]
@@ -29,6 +36,10 @@ pub struct DriverInterfaces {
     pub cooperative_cancellation: bool,
     #[serde(default)]
     pub events: bool,
+    #[serde(default)]
+    pub progress: bool,
+    #[serde(default)]
+    pub artifacts: bool,
     #[serde(default = "default_health")]
     pub health: bool,
 }
@@ -199,7 +210,7 @@ impl Manifest {
     }
     pub fn validate(&self) -> Result<()> {
         if self.manifest_version != DRIVER_MANIFEST_VERSION
-            || self.protocol != DRIVER_PROTOCOL_VERSION
+            || !(DRIVER_PROTOCOL_MIN_VERSION..=DRIVER_PROTOCOL_VERSION).contains(&self.protocol)
         {
             return Err(Error::new(
                 ErrorCode::ProtocolMismatch,
@@ -209,6 +220,18 @@ impl Manifest {
         self.identity()?;
         self.application.validate()?;
         self.resources.validate()?;
+        if self.protocol == 1
+            && (self.interfaces.dynamic_capabilities
+                || self.interfaces.cooperative_cancellation
+                || self.interfaces.events
+                || self.interfaces.progress
+                || self.interfaces.artifacts)
+        {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver protocol v1 cannot negotiate dynamic/events/progress/artifacts/cancellation",
+            ));
+        }
         if self.publisher.is_empty()
             || self.publisher.len() > 128
             || self.publisher.chars().any(char::is_control)
@@ -300,6 +323,9 @@ pub enum Request {
         provider: ProviderIdentity,
         executable_sha256: String,
     },
+    Interfaces {
+        id: String,
+    },
     Capabilities {
         id: String,
     },
@@ -308,6 +334,10 @@ pub enum Request {
         command: String,
         descriptor_sha256: String,
         args: Value,
+    },
+    Cancel {
+        id: String,
+        target: String,
     },
     Health {
         id: String,
@@ -325,6 +355,10 @@ pub enum Response {
         id: String,
         version: String,
     },
+    Interfaces {
+        id: String,
+        interfaces: DriverInterfaces,
+    },
     Capabilities {
         id: String,
         capabilities: Vec<Capability>,
@@ -338,6 +372,11 @@ pub enum Response {
         id: String,
         error: Error,
     },
+    Cancelled {
+        id: String,
+        target: String,
+        accepted: bool,
+    },
     Healthy {
         id: String,
         details: Value,
@@ -345,12 +384,133 @@ pub enum Response {
     Shutdown {
         id: String,
     },
+    Event {
+        kind: String,
+        payload: Value,
+    },
+    CapabilitiesChanged,
+    Progress {
+        id: String,
+        progress: JobProgress,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        artifacts: Vec<JobArtifact>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum DriverChildEvent {
+    CapabilitiesChanged,
+    Event { kind: String, payload: Value },
+}
+
+#[derive(Clone)]
+pub struct DriverExecutionContext {
+    request_id: String,
+    cancellation: CancellationToken,
+    output: mpsc::UnboundedSender<Response>,
+    interfaces: DriverInterfaces,
+}
+impl DriverExecutionContext {
+    pub fn request_id(&self) -> &str {
+        &self.request_id
+    }
+    pub fn cancellation(&self) -> CancellationToken {
+        self.cancellation.clone()
+    }
+    pub fn check_cancelled(&self) -> Result<()> {
+        if self.cancellation.is_cancelled() {
+            Err(Error::new(
+                ErrorCode::Cancelled,
+                "Driver execution cancelled",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+    pub fn report_progress(
+        &self,
+        progress: JobProgress,
+        artifacts: Vec<JobArtifact>,
+    ) -> Result<()> {
+        if !self.interfaces.progress {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver did not negotiate progress reporting",
+            ));
+        }
+        if !artifacts.is_empty() && !self.interfaces.artifacts {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver did not negotiate artifact reporting",
+            ));
+        }
+        progress.validate()?;
+        if artifacts.len() > 32 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Driver progress artifact count exceeds limit",
+            ));
+        }
+        for artifact in &artifacts {
+            artifact.validate()?;
+        }
+        self.output
+            .send(Response::Progress {
+                id: self.request_id.clone(),
+                progress,
+                artifacts,
+            })
+            .map_err(|_| Error::unavailable("Driver protocol writer is closed"))
+    }
+    pub fn capabilities_changed(&self) -> Result<()> {
+        if !self.interfaces.dynamic_capabilities {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver did not negotiate dynamic capabilities",
+            ));
+        }
+        self.output
+            .send(Response::CapabilitiesChanged)
+            .map_err(|_| Error::unavailable("Driver protocol writer is closed"))
+    }
+
+    pub fn emit_event(&self, kind: impl Into<String>, payload: Value) -> Result<()> {
+        if !self.interfaces.events {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver did not negotiate child events",
+            ));
+        }
+        let kind = kind.into();
+        if kind.is_empty()
+            || kind.len() > 128
+            || kind.starts_with("provider.")
+            || !kind.bytes().all(|b| {
+                b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'_' | b'-')
+            })
+            || serde_json::to_vec(&payload)?.len() > 16_384
+        {
+            return Err(Error::invalid("Driver event exceeds its bounded contract"));
+        }
+        self.output
+            .send(Response::Event { kind, payload })
+            .map_err(|_| Error::unavailable("Driver protocol writer is closed"))
+    }
 }
 
 #[async_trait]
-pub trait Driver: Send {
+pub trait Driver: Send + 'static {
     fn id(&self) -> &str;
     fn version(&self) -> &str;
+    fn interfaces(&self) -> DriverInterfaces {
+        DriverInterfaces {
+            health: true,
+            ..Default::default()
+        }
+    }
+    fn take_events(&mut self) -> Option<mpsc::UnboundedReceiver<DriverChildEvent>> {
+        None
+    }
     async fn capabilities(&mut self) -> Result<Vec<Capability>>;
     async fn execute(
         &mut self,
@@ -358,43 +518,31 @@ pub trait Driver: Send {
         descriptor_sha256: &str,
         args: Value,
     ) -> Result<Value>;
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        descriptor_sha256: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        self.execute(command, descriptor_sha256, args).await
+    }
     async fn health(&mut self) -> Result<Value> {
         Ok(serde_json::json!({"healthy":true}))
     }
 }
 
-pub async fn serve<D: Driver>(mut driver: D) -> Result<()> {
-    let mut input = tokio::io::stdin();
-    let mut output = tokio::io::stdout();
-    let owner_identity = match read_frame::<_, Request>(&mut input).await? {
-        Request::Hello {
-            protocol: DRIVER_PROTOCOL_VERSION,
-            provider,
-            executable_sha256,
-        } if provider.kind == SourceKind::Driver
-            && provider.id == format!("driver:{}", driver.id())
-            && provider.version == driver.version()
-            && executable_sha256.len() == 64 =>
-        {
-            provider
-        }
-        _ => {
-            return Err(Error::new(
-                ErrorCode::ProtocolMismatch,
-                "Driver hello does not match its pinned owner identity",
-            ));
-        }
-    };
-    owner_identity.validate_external()?;
-    write_frame(
-        &mut output,
-        &Response::Ready {
-            protocol: DRIVER_PROTOCOL_VERSION,
-            id: driver.id().into(),
-            version: driver.version().into(),
-        },
-    )
-    .await?;
+fn valid_hello_digest(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+async fn serve_v1<D: Driver>(
+    mut driver: D,
+    owner_identity: ProviderIdentity,
+    mut input: tokio::io::Stdin,
+    mut output: tokio::io::Stdout,
+) -> Result<()> {
     loop {
         match read_frame::<_, Request>(&mut input).await? {
             Request::Capabilities { id } => {
@@ -442,6 +590,217 @@ pub async fn serve<D: Driver>(mut driver: D) -> Result<()> {
                 write_frame(&mut output, &Response::Shutdown { id }).await?;
                 return Ok(());
             }
+            Request::Hello { .. } | Request::Interfaces { .. } | Request::Cancel { .. } => {
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Driver protocol v1 received a v2-only or duplicate request",
+                ));
+            }
+        }
+    }
+}
+
+async fn serve_v2<D: Driver>(
+    mut driver: D,
+    owner_identity: ProviderIdentity,
+    mut input: tokio::io::Stdin,
+    mut output: tokio::io::Stdout,
+) -> Result<()> {
+    let interfaces = driver.interfaces();
+    let mut child_events = driver.take_events();
+    let driver = Arc::new(Mutex::new(driver));
+    let active = Arc::new(Mutex::new(BTreeMap::<String, CancellationToken>::new()));
+    let (responses, mut response_rx) = mpsc::unbounded_channel::<Response>();
+
+    let writer = tokio::spawn(async move {
+        while let Some(response) = response_rx.recv().await {
+            write_frame(&mut output, &response).await?;
+        }
+        Ok::<(), Error>(())
+    });
+
+    let event_task = child_events.take().map(|mut events| {
+        let responses = responses.clone();
+        tokio::spawn(async move {
+            while let Some(event) = events.recv().await {
+                let response = match event {
+                    DriverChildEvent::CapabilitiesChanged => {
+                        if !interfaces.dynamic_capabilities {
+                            continue;
+                        }
+                        Response::CapabilitiesChanged
+                    }
+                    DriverChildEvent::Event { kind, payload } => {
+                        if !interfaces.events
+                            || kind.is_empty()
+                            || kind.len() > 128
+                            || kind.starts_with("provider.")
+                            || !kind.bytes().all(|b| {
+                                b.is_ascii_lowercase()
+                                    || b.is_ascii_digit()
+                                    || matches!(b, b'.' | b'_' | b'-')
+                            })
+                            || serde_json::to_vec(&payload).is_ok_and(|bytes| bytes.len() > 16_384)
+                        {
+                            continue;
+                        }
+                        Response::Event { kind, payload }
+                    }
+                };
+                if responses.send(response).is_err() {
+                    break;
+                }
+            }
+        })
+    });
+
+    let mut tasks = tokio::task::JoinSet::new();
+    loop {
+        match read_frame::<_, Request>(&mut input).await? {
+            Request::Interfaces { id } => {
+                responses
+                    .send(Response::Interfaces { id, interfaces })
+                    .map_err(|_| Error::unavailable("Driver protocol writer is closed"))?;
+            }
+            Request::Capabilities { id } => {
+                let driver = driver.clone();
+                let responses = responses.clone();
+                let owner_identity = owner_identity.clone();
+                tasks.spawn(async move {
+                    let response = {
+                        let mut driver = driver.lock().await;
+                        match driver.capabilities().await {
+                            Ok(capabilities) if capabilities.len() <= 2048 => {
+                                let valid = capabilities.iter().all(|capability| {
+                                    capability.validate_for(&owner_identity).is_ok()
+                                });
+                                if !valid {
+                                    Response::Failure {
+                                        id,
+                                        error: Error::new(
+                                            ErrorCode::PolicyDenied,
+                                            "Driver capability escaped its owner namespace",
+                                        ),
+                                    }
+                                } else {
+                                    match capabilities_digest(&capabilities) {
+                                        Ok(digest) => Response::Capabilities {
+                                            id,
+                                            capabilities,
+                                            digest,
+                                        },
+                                        Err(error) => Response::Failure { id, error },
+                                    }
+                                }
+                            }
+                            Ok(_) => Response::Failure {
+                                id,
+                                error: Error::new(
+                                    ErrorCode::ResourceExhausted,
+                                    "Driver capability catalog exceeds limit",
+                                ),
+                            },
+                            Err(error) => Response::Failure { id, error },
+                        }
+                    };
+                    let _ = responses.send(response);
+                });
+            }
+            Request::Execute {
+                id,
+                command,
+                descriptor_sha256,
+                args,
+            } => {
+                let token = CancellationToken::new();
+                {
+                    let mut active = active.lock().await;
+                    if active.contains_key(&id) {
+                        responses
+                            .send(Response::Failure {
+                                id,
+                                error: Error::new(
+                                    ErrorCode::Conflict,
+                                    "Driver execution request ID is already active",
+                                ),
+                            })
+                            .map_err(|_| Error::unavailable("Driver protocol writer is closed"))?;
+                        continue;
+                    }
+                    if active.len() >= 64 {
+                        responses
+                            .send(Response::Failure {
+                                id,
+                                error: Error::new(
+                                    ErrorCode::ResourceExhausted,
+                                    "Driver has too many active executions",
+                                ),
+                            })
+                            .map_err(|_| Error::unavailable("Driver protocol writer is closed"))?;
+                        continue;
+                    }
+                    active.insert(id.clone(), token.clone());
+                }
+                let driver = driver.clone();
+                let active = active.clone();
+                let responses = responses.clone();
+                tasks.spawn(async move {
+                    let context = DriverExecutionContext {
+                        request_id: id.clone(),
+                        cancellation: token,
+                        output: responses.clone(),
+                        interfaces,
+                    };
+                    let result = {
+                        let mut driver = driver.lock().await;
+                        driver
+                            .execute_with_context(&command, &descriptor_sha256, args, context)
+                            .await
+                    };
+                    active.lock().await.remove(&id);
+                    let response = match result {
+                        Ok(value) => Response::Result { id, value },
+                        Err(error) => Response::Failure { id, error },
+                    };
+                    let _ = responses.send(response);
+                });
+            }
+            Request::Cancel { id, target } => {
+                let token = active.lock().await.get(&target).cloned();
+                let accepted = token.is_some();
+                if let Some(token) = token {
+                    token.cancel();
+                }
+                responses
+                    .send(Response::Cancelled {
+                        id,
+                        target,
+                        accepted,
+                    })
+                    .map_err(|_| Error::unavailable("Driver protocol writer is closed"))?;
+            }
+            Request::Health { id } => {
+                let driver = driver.clone();
+                let responses = responses.clone();
+                tasks.spawn(async move {
+                    let response = match driver.lock().await.health().await {
+                        Ok(details) => Response::Healthy { id, details },
+                        Err(error) => Response::Failure { id, error },
+                    };
+                    let _ = responses.send(response);
+                });
+            }
+            Request::Shutdown { id } => {
+                for token in active.lock().await.values() {
+                    token.cancel();
+                }
+                tasks.abort_all();
+                while tasks.join_next().await.is_some() {}
+                responses
+                    .send(Response::Shutdown { id })
+                    .map_err(|_| Error::unavailable("Driver protocol writer is closed"))?;
+                break;
+            }
             Request::Hello { .. } => {
                 return Err(Error::new(
                     ErrorCode::ProtocolMismatch,
@@ -449,6 +808,54 @@ pub async fn serve<D: Driver>(mut driver: D) -> Result<()> {
                 ));
             }
         }
+    }
+    if let Some(task) = event_task {
+        task.abort();
+    }
+    drop(responses);
+    writer
+        .await
+        .map_err(|_| Error::new(ErrorCode::Internal, "Driver protocol writer task failed"))??;
+    Ok(())
+}
+
+pub async fn serve<D: Driver>(driver: D) -> Result<()> {
+    let mut input = tokio::io::stdin();
+    let mut output = tokio::io::stdout();
+    let (protocol, owner_identity) = match read_frame::<_, Request>(&mut input).await? {
+        Request::Hello {
+            protocol,
+            provider,
+            executable_sha256,
+        } if (DRIVER_PROTOCOL_MIN_VERSION..=DRIVER_PROTOCOL_VERSION).contains(&protocol)
+            && provider.kind == SourceKind::Driver
+            && provider.id == format!("driver:{}", driver.id())
+            && provider.version == driver.version()
+            && valid_hello_digest(&executable_sha256) =>
+        {
+            (protocol, provider)
+        }
+        _ => {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Driver hello does not match its pinned owner identity",
+            ));
+        }
+    };
+    owner_identity.validate_external()?;
+    write_frame(
+        &mut output,
+        &Response::Ready {
+            protocol,
+            id: driver.id().into(),
+            version: driver.version().into(),
+        },
+    )
+    .await?;
+    if protocol == 1 {
+        serve_v1(driver, owner_identity, input, output).await
+    } else {
+        serve_v2(driver, owner_identity, input, output).await
     }
 }
 
