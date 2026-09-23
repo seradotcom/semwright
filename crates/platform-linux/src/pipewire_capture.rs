@@ -207,6 +207,12 @@ pub fn capture_one(
     if timeout.is_zero() || timeout > Duration::from_secs(30) {
         return Err(Error::invalid("PipeWire capture timeout is outside bounds"));
     }
+    if cancellation.is_cancelled() {
+        return Err(Error::new(
+            ErrorCode::Cancelled,
+            "PipeWire frame capture cancelled",
+        ));
+    }
 
     pw::init();
     let mainloop = pw::main_loop::MainLoopRc::new(None)
