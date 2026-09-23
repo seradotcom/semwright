@@ -77,15 +77,28 @@ The Linux Driver Host still executes through bubblewrap + Landlock. Real driver 
 
 ## Native macOS evidence
 
-Native ARM64 and Intel jobs are defined in `.github/workflows/platformization-macos.yml`. They are required to:
+PR #29 was merged as `70c409fc619411b6ecb5fb3f723e27d00cac634e` after the final
+Platformization and macOS workflow completed successfully:
 
-- compile the macOS-capable workspace against a real Apple SDK, explicitly excluding the currently Linux-only `semwright-mlt-video-driver`;
-- compile/link the Swift/C native host bridge;
-- run native platform contract tests;
-- link the daemon and frontends;
-- execute the noninteractive native smoke.
+- run: https://github.com/seradotcom/semwright/actions/runs/35815672055
+- ARM64 job: https://github.com/seradotcom/semwright/actions/runs/35815672055/job/107036553094
+- Intel job: https://github.com/seradotcom/semwright/actions/runs/35815672055/job/107036552873
 
-This section must be updated with exact run URLs/results after the branch is pushed.
+Both jobs compiled the macOS-capable workspace against a real Apple SDK, compiled/linked
+the Swift/C native host bridge, ran native platform contract tests, linked the daemon and
+frontends, and completed the noninteractive native smoke.
+
+Observed environment on both hosted runners:
+
+- macOS 15.7.9 (24G830), Darwin 24.6.0;
+- Xcode 16.4 (16F6);
+- Rust 1.98.1 and Cargo 1.98.1.
+
+The ARM64 job ran on `macos-15` / `arm64`; the Intel job ran on
+`macos-15-intel` / `x86_64`. Each job also recorded the live-acceptance boundary
+explicitly: native SDK compile/link and noninteractive smoke PASS, while Accessibility
+consent, CGEvent control, ScreenCaptureKit capture, TCC grant/revocation, installed service,
+codesign/notarization and live multi-display acceptance remain NOT_RUN.
 
 ## Still not certified
 

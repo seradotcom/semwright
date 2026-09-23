@@ -138,7 +138,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 |---|---|---|
 | Rust core, broker, CLI, MCP, inspector | Source + Rust unit/property/integration tests | Hosted development line compiles and executes on x86_64 + ARM64 under the exact-SHA quality matrix |
 | Platform boundary | `platform-api` + shared services + per-OS hosts | Linux workspace gates plus Darwin cross-checks for Rust-only portable crates |
-| macOS host foundation | AX/CoreGraphics/ScreenCaptureKit/NSPasteboard + Darwin filesystem/Mach-O/service source | Native macOS CI is required for Apple-framework linking; TCC/live acceptance remains separate |
+| macOS host foundation | AX/CoreGraphics/ScreenCaptureKit/NSPasteboard + Darwin filesystem/Mach-O/service source | Native ARM64 + Intel CI compiles/links/tests against the Apple SDK; TCC/live desktop acceptance remains separate |
 | AT-SPI, Sway, Hyprland, X11, GNOME/KWin clients | Native backend source + Rust tests | Compiled/tested in hosted baseline; no live compositor matrix |
 | GNOME/KWin bridges | JavaScript source + shared-contract tests | Node contract tests; not a live shell/runtime test |
 | RemoteDesktop portal, interactive screenshot | Native D-Bus source + Rust lifecycle tests | Compiled/tested; no accepted live portal/EIS session |

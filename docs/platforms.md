@@ -22,7 +22,7 @@ Do not collapse these into one status:
 2. **native CI** — code is compiled/linked/tested on GitHub-hosted macOS with an Apple SDK;
 3. **live Mac acceptance** — Accessibility, input, ScreenCaptureKit, TCC, multi-display and service behaviour are exercised in an interactive authorized user session.
 
-Linux is the verified runtime host. macOS remains experimental until levels 2 and 3 have adequate evidence. A green hosted build must not be represented as TCC/live-desktop certification.
+Linux is the verified runtime host. macOS now has level-2 native CI evidence on both ARM64 and Intel, but remains experimental until level-3 live Mac acceptance is completed. A green hosted build must not be represented as TCC/live-desktop certification.
 
 ## Security parity
 
