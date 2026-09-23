@@ -45,6 +45,12 @@ jobs:
         run: |
           mkdir -p verification/motion-canvas
           cargo check --locked -p semwright-driver-motion-canvas --all-targets 2>&1 | tee verification/motion-canvas/check.log
+      - name: Validate launch-film managed source
+        run: |
+          rm -rf "$RUNNER_TEMP/launch-source"
+          cargo run --locked -q -p semwright-driver-motion-canvas --example materialize -- demos/launch-film/semwright-motion.json "$RUNNER_TEMP/launch-source"
+          python3 -m py_compile scripts/demo/generate-launch-sound.py
+          python3 -c "import json; json.load(open('demos/launch-film/ASSETS.json'))"
       - name: Unit, property and security tests
         run: cargo test --locked -p semwright-driver-motion-canvas --all-targets 2>&1 | tee verification/motion-canvas/tests.log
       - name: Clippy

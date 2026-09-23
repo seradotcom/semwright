@@ -1,6 +1,6 @@
 # Licenses and provenance
 
-Motion Canvas core, 2d, Vite plugin and official FFmpeg exporter: MIT.
+Motion Canvas core, 2d, UI, Vite plugin and official FFmpeg exporter: MIT.
 Vite, TypeScript, pngjs and the Lezer grammars: their npm package license files
 and locked package metadata are retained by the dependency installer.
 Playwright: Apache-2.0; browser redistribution is not part of this source PR.

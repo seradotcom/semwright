@@ -209,6 +209,25 @@ fn render_profile_is_bounded() {
     }
 }
 #[test]
+fn launch_film_source_is_a_valid_52_second_managed_project() {
+    let project = validate::parse(include_bytes!(
+        "../../../demos/launch-film/semwright-motion.json"
+    ))
+    .unwrap();
+    assert_eq!(project.settings.width, 1920);
+    assert_eq!(project.settings.height, 1080);
+    assert_eq!(project.settings.fps, 30);
+    assert_eq!(project.duration_ms(), 52_000);
+    assert_eq!(
+        validate::ms_to_frames(project.duration_ms(), project.settings.fps).unwrap(),
+        1560
+    );
+    let first = compiler::compile(&project).unwrap();
+    let second = compiler::compile(&project).unwrap();
+    assert_eq!(first.files, second.files);
+}
+
+#[test]
 fn required_managed_fixtures_validate_and_compile() {
     for bytes in [
         include_bytes!("../../../fixtures/motion-canvas/hello-text/semwright-motion.json")

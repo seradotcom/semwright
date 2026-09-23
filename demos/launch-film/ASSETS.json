@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "file": "Semwright mark embedded as semantic SVG",
+      "source": "/home/sergio/Documents/Projects/semwright-site/public/mark.svg (read-only brand reference)",
+      "license": "Semwright project-owned brand asset",
+      "generated_or_original": "original",
+      "bundled_binary": false,
+      "sha256": "5d3a42347ac610ca88772622fafc674cbd83df8581b86b35d85869cf8ede506a",
+      "note": "The exact SVG is embedded as semantic data; the source repository is read-only and is not bundled."
+    },
+    {
+      "file": "Instrument Sans Variable",
+      "source": "@fontsource-variable/instrument-sans 5.3.0",
+      "license": "SIL Open Font License 1.1",
+      "generated_or_original": "third-party pinned dependency",
+      "bundled_binary": false,
+      "sha256": "resolved from the pinned npm lockfile at build time"
+    },
+    {
+      "file": "IBM Plex Mono",
+      "source": "@fontsource/ibm-plex-mono 5.3.0",
+      "license": "SIL Open Font License 1.1",
+      "generated_or_original": "third-party pinned dependency",
+      "bundled_binary": false,
+      "sha256": "resolved from the pinned npm lockfile at build time"
+    },
+    {
+      "file": "launch-sound.wav",
+      "source": "scripts/demo/generate-launch-sound.py",
+      "license": "repository-generated original audio; project license",
+      "generated_or_original": "generated",
+      "bundled_binary": false,
+      "generator_sha256": "0a6965f5eed9939523a32cc8f0b09e1660b4737b5d3b96d724ebe619ee0e81e9",
+      "sha256": "cd30cdc595b23fe4a4667480972073f03149b20f4cb4979efa68aa1abada044d"
+    }
+  ],
+  "semantic_source": {
+    "file": "semwright-motion.json",
+    "sha256": "b8493a7e131974093d9d2070dbbac11d38c5b480f834bd62f4e4a38f043fcd00"
+  },
+  "runtime_lock": {
+    "file": "../../integrations/motion-canvas/runtime/package-lock.json",
+    "sha256": "328d56591e54b770a7bfcce5c7be0ebe02b9631d4d4530d6a1e1d45a1597ba43"
+  }
+}
