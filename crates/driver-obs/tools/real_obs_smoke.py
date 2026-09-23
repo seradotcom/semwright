@@ -186,7 +186,13 @@ def namespace(probe:pathlib.Path,parent_netns:str):
     command=['bwrap','--unshare-all','--share-net','--die-with-parent','--new-session','--clearenv','--ro-bind','/usr','/usr']
     for path in ['/bin','/lib','/lib64']:
         if pathlib.Path(path).exists():command+=['--ro-bind',path,path]
-    command+=['--proc','/proc','--dev','/dev','--tmpfs','/tmp','--dir','/run','--dir','/etc','--ro-bind',str(ROOT),'/pack','--ro-bind',str(probe),'/probe','--setenv','PATH','/usr/bin:/bin','--chdir','/tmp','/usr/bin/python3','/pack/tools/real_obs_smoke.py','--sandbox','/probe']
+    command+=['--proc','/proc','--dev','/dev','--tmpfs','/tmp','--dir','/run','--dir','/etc']
+    # Ubuntu's libblas.so.3 and similar system-library alternatives resolve
+    # through /etc/alternatives. Preserve only that read-only indirection,
+    # not the host's complete /etc tree.
+    alternatives=pathlib.Path('/etc/alternatives')
+    if alternatives.is_dir():command+=['--ro-bind',str(alternatives),str(alternatives)]
+    command+=['--ro-bind',str(ROOT),'/pack','--ro-bind',str(probe),'/probe','--setenv','PATH','/usr/bin:/bin','--chdir','/tmp','/usr/bin/python3','/pack/tools/real_obs_smoke.py','--sandbox','/probe']
     code,out,err=bounded_process(command,55)
     if out:sys.stdout.buffer.write(out);sys.stdout.flush()
     if code!=0:
