@@ -47,6 +47,23 @@ Application drivers use the same Provider Runtime. Driver Protocol semantics are
 
 Recipes and plugins remain separate composition mechanisms: recipes re-enter broker execution for every step; plugins provide narrow one-shot commands.
 
+## Domain-specific semantic cores
+
+When multiple application backends share a real domain model, Semwright can factor that model
+below the concrete drivers without moving application/runtime authority into the shared layer.
+The first such core is `semwright-video-domain`: backend-neutral timeline, frame/time, refs,
+edit intent, mutation-support and differential-conformance primitives.
+
+Concrete video drivers keep native serialization, process/runtime integration, native revision
+calculation and round-trip metadata. The shared domain never imports a concrete editor SDK or
+native project representation. The MLT driver projects its rich native envelope into the shared
+model and differentially verifies every supported mutation before its existing native
+serialize/reparse gate.
+
+This is not a requirement that all applications share one model. A domain core is extracted
+only where multiple backends can preserve the same semantics without weakening them. See
+[semantic video domain](video-domain.md).
+
 ## Execution and references
 
 The broker snapshots the selected capability descriptor and provenance before dispatch. It evaluates capability/risk/scope, obtains the execution gate, requests human approval when required, validates current references, and invokes the selected provider with cancellation and deadline semantics. A provider failure does not trigger an implicit retry or hidden fallback.

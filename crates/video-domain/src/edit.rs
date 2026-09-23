@@ -1,12 +1,11 @@
-//! Transactional timeline engine. Validate on a clone; commit is the caller's explicit choice.
-use crate::{
-    Error, Result,
-    adapters::{self, Support},
-    hash::sha256,
-    json::{Value, array, obj},
-    model::*,
-    time::FrameRange,
-};
+//! Backend-neutral transactional semantic video edit engine.
+//!
+//! Backend policy, native revision checks, serialization and round-trip
+//! validation intentionally live outside this module.
+
+use crate::{Error, Result, hash::sha256, model::*, time::FrameRange};
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Debug)]
 pub enum Edit {
     Profile(Profile),
@@ -106,7 +105,7 @@ pub enum Edit {
     EffectAdd {
         sequence: String,
         clip: String,
-        service: String,
+        kind: String,
         value: i64,
     },
     EffectPatch {
@@ -203,93 +202,44 @@ impl Edit {
         }
     }
 }
-#[derive(Clone, Debug)]
-pub struct ChangePlan {
-    pub expected_revision: String,
-    pub resulting_revision: String,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EditOutcome {
     pub operation: String,
     pub affected: Vec<String>,
     pub created: Vec<String>,
     pub before_frames: u64,
     pub after_frames: u64,
-    pub support: Support,
-    pub warnings: Vec<String>,
     pub result: Project,
 }
-impl ChangePlan {
-    pub fn json(&self, applied: bool) -> Value {
-        obj([
-            ("applied", applied.into()),
-            ("expected_revision", self.expected_revision.clone().into()),
-            ("resulting_revision", self.resulting_revision.clone().into()),
-            ("operation", self.operation.clone().into()),
-            (
-                "affected",
-                array(self.affected.iter().cloned().map(Into::into)),
-            ),
-            (
-                "created",
-                array(self.created.iter().cloned().map(Into::into)),
-            ),
-            ("before_frames", self.before_frames.into()),
-            ("after_frames", self.after_frames.into()),
-            ("support", adapters::support_name(self.support).into()),
-            (
-                "warnings",
-                array(self.warnings.iter().cloned().map(Into::into)),
-            ),
-        ])
-    }
-}
-pub fn revision(p: &Project) -> Result<String> {
-    Ok(sha256(adapters::save(p)?.as_bytes()))
-}
-fn duration(p: &Project) -> u64 {
-    p.sequences
-        .iter()
-        .map(Sequence::duration)
-        .max()
-        .unwrap_or(0)
-}
-fn semantic_id(rev: &str, seed: &str, prefix: &str) -> String {
+
+fn semantic_id(base: &str, seed: &str, prefix: &str) -> String {
     format!(
         "{prefix}_{}",
-        &sha256(format!("{rev}:{seed}:{prefix}").as_bytes())[..24]
+        &sha256(format!("{base}:{seed}:{prefix}").as_bytes())[..24]
     )
 }
-pub fn plan(
+
+pub fn apply(project: &Project, edit: Edit, seed: &str) -> Result<EditOutcome> {
+    let base = project.semantic_digest()?;
+    apply_with_identity_base(project, edit, seed, &base)
+}
+
+/// Apply an edit while deriving any newly created semantic IDs from a caller
+/// supplied revision/identity base. Backends use this to keep semantic IDs
+/// stable with their native optimistic-concurrency revision.
+pub fn apply_with_identity_base(
     project: &Project,
-    expected: &str,
     edit: Edit,
     seed: &str,
-    allow_metadata_risk: bool,
-) -> Result<ChangePlan> {
-    let actual = revision(project)?;
-    if actual != expected {
-        return Err(Error::stale());
-    }
+    identity_base: &str,
+) -> Result<EditOutcome> {
+    project.validate()?;
+    let base = identity_base;
     let operation = edit.operation();
-    let support = adapters::adapter(project.format).supported_mutation(project, operation);
-    if support == Support::Unsupported || support == Support::RenderOnly {
-        return Err(Error::unsupported(
-            "Mutation is not available for this project graph/format",
-        ));
-    }
-    if support == Support::MetadataRisk && !allow_metadata_risk {
-        return Err(Error::unsupported(
-            "Native metadata-risk mutation requires explicit acknowledgement; no GUI guarantee",
-        ));
-    }
-
-    // The portable video domain is an executable semantic specification.
-    // Backend-specific mutation below must remain observationally equivalent.
-    let portable_before = crate::domain::project(project);
-    let portable_edit = crate::domain::edit(&edit);
-
     let mut result = project.clone();
     let mut created = vec![];
     let mut affected = vec![];
-    let new = |prefix: &str| semantic_id(expected, seed, prefix);
+    let new = |prefix: &str| semantic_id(base, seed, prefix);
     match edit {
         Edit::Profile(profile) => {
             profile.validate()?;
@@ -306,7 +256,7 @@ pub fn plan(
                 markers: vec![],
                 nested: vec![],
                 subtitles: vec![],
-                opaque: false,
+                editability: Editability::Editable,
             });
             created.push(id);
         }
@@ -324,17 +274,11 @@ pub fn plan(
                 .assets
                 .get_mut(&id)
                 .ok_or_else(|| Error::new("NotFound", "Asset missing"))?;
+            if a.editability.is_read_only() {
+                return Err(Error::unsupported("Read-only asset cannot be relinked"));
+            }
             if a.resource.text() != expected {
                 return Err(Error::stale());
-            }
-            if a.proxy
-                .as_deref()
-                .is_some_and(|s| s != "-" && !s.is_empty())
-                || a.original.is_some()
-            {
-                return Err(Error::unsupported(
-                    "Proxy/original relink is not safe in this adapter",
-                ));
             }
             if matches!(a.resource, Resource::Color(_) | Resource::Opaque(_)) {
                 return Err(Error::unsupported(
@@ -349,6 +293,7 @@ pub fn plan(
             name,
             kind,
         } => {
+            ensure_sequence_editable(&result, &sequence)?;
             if !matches!(kind.as_str(), "audio" | "video" | "av") {
                 return Err(Error::invalid("Track kind"));
             }
@@ -365,11 +310,12 @@ pub fn plan(
                     clips: vec![],
                 }],
                 effects: vec![],
-                opaque: false,
+                editability: Editability::Editable,
             });
             created.push(id);
         }
         Edit::TrackRemove { sequence, track } => {
+            ensure_track_editable(&result, &sequence, &track)?;
             let seq = result.sequence_mut(&sequence)?;
             if seq
                 .transitions
@@ -391,11 +337,8 @@ pub fn plan(
             track,
             name,
         } => {
-            if project.format == Format::GenericMlt {
-                result.track_mut(&sequence, &track)?.name = name;
-            } else {
-                adapters::rename_native_track(&mut result, &sequence, &track, &name)?;
-            }
+            ensure_track_editable(&result, &sequence, &track)?;
+            result.track_mut(&sequence, &track)?.name = name;
             affected.push(track);
         }
         Edit::TrackMute {
@@ -403,6 +346,7 @@ pub fn plan(
             track,
             value,
         } => {
+            ensure_track_editable(&result, &sequence, &track)?;
             result.track_mut(&sequence, &track)?.muted = value;
             affected.push(track);
         }
@@ -411,6 +355,7 @@ pub fn plan(
             track,
             value,
         } => {
+            ensure_track_editable(&result, &sequence, &track)?;
             result.track_mut(&sequence, &track)?.hidden = value;
             affected.push(track);
         }
@@ -419,6 +364,7 @@ pub fn plan(
             track,
             index,
         } => {
+            ensure_track_editable(&result, &sequence, &track)?;
             let seq = result.sequence_mut(&sequence)?;
             if index >= seq.tracks.len() {
                 return Err(Error::invalid("Track insertion index out of range"));
@@ -449,7 +395,6 @@ pub fn plan(
                 start,
                 source,
                 effects: vec![],
-                binding: None,
                 speed: (1, 1),
             };
             insert(&mut result, &sequence, &track, clip, ripple)?;
@@ -472,6 +417,7 @@ pub fn plan(
             clip,
             source,
         } => {
+            ensure_clip_editable(&result, &sequence, &clip)?;
             let c = result.clip_mut(&sequence, &clip)?;
             if !c.effects.is_empty() {
                 if source.start.0 < c.source.start.0 || source.end.0 > c.source.end.0 {
@@ -490,6 +436,7 @@ pub fn plan(
             affected.push(clip);
         }
         Edit::Split { sequence, clip, at } => {
+            ensure_clip_editable(&result, &sequence, &clip)?;
             let original = result.clip(&sequence, &clip)?.clone();
             if at <= original.start || at >= original.end()? {
                 return Err(Error::invalid(
@@ -505,7 +452,6 @@ pub fn plan(
             right_clip.id = right_id.clone();
             right_clip.start = at;
             right_clip.source = right;
-            right_clip.binding = None;
             right_clip.effects = original
                 .effects
                 .iter()
@@ -551,11 +497,11 @@ pub fn plan(
             track,
             start,
         } => {
+            ensure_clip_editable(&result, &sequence, &clip)?;
             let mut c = result.clip(&sequence, &clip)?.clone();
             let id = new("c");
             c.id = id.clone();
             c.start = start;
-            c.binding = None;
             for e in &mut c.effects {
                 e.id = format!("ef_{}", &sha256(format!("{id}:{}", e.id).as_bytes())[..24]);
             }
@@ -570,6 +516,7 @@ pub fn plan(
             b_track,
             range,
         } => {
+            ensure_sequence_editable(&result, &sequence)?;
             let id = new("tr");
             result
                 .sequence_mut(&sequence)?
@@ -581,7 +528,7 @@ pub fn plan(
                     b_track,
                     range,
                     reverse: false,
-                    opaque: None,
+                    editability: Editability::Editable,
                 });
             created.push(id);
         }
@@ -591,13 +538,14 @@ pub fn plan(
             range,
             reverse,
         } => {
+            ensure_sequence_editable(&result, &sequence)?;
             let t = result
                 .sequence_mut(&sequence)?
                 .transitions
                 .iter_mut()
                 .find(|t| t.id == id)
                 .ok_or_else(|| Error::new("NotFound", "Transition missing"))?;
-            if t.opaque.is_some() {
+            if t.editability.is_read_only() {
                 return Err(Error::unsupported("Opaque transition"));
             }
             t.range = range;
@@ -605,31 +553,36 @@ pub fn plan(
             affected.push(id);
         }
         Edit::TransitionRemove { sequence, id } => {
+            ensure_sequence_editable(&result, &sequence)?;
             let seq = result.sequence_mut(&sequence)?;
             let i = seq
                 .transitions
                 .iter()
                 .position(|t| t.id == id)
                 .ok_or_else(|| Error::new("NotFound", "Transition missing"))?;
+            if seq.transitions[i].editability.is_read_only() {
+                return Err(Error::unsupported("Read-only transition cannot be removed"));
+            }
             seq.transitions.remove(i);
             affected.push(id);
         }
         Edit::EffectAdd {
             sequence,
             clip,
-            service,
+            kind,
             value,
         } => {
+            ensure_clip_editable(&result, &sequence, &clip)?;
             let id = new("ef");
-            validate_effect_value(&service, "level", value)?;
+            validate_effect_value(&kind, "level", value)?;
             result.clip_mut(&sequence, &clip)?.effects.push(Effect {
                 id: id.clone(),
-                service,
-                property: "level".into(),
+                kind,
+                parameter: "level".into(),
                 value,
                 enabled: true,
                 keyframes: vec![],
-                opaque: None,
+                editability: Editability::Editable,
             });
             created.push(id);
             affected.push(clip);
@@ -641,7 +594,7 @@ pub fn plan(
             value,
         } => {
             let e = effect_mut(&mut result, &sequence, &clip, &id)?;
-            validate_effect_value(&e.service, &e.property, value)?;
+            validate_effect_value(&e.kind, &e.parameter, value)?;
             if !e.keyframes.is_empty() {
                 return Err(Error::invalid(
                     "Constant patch cannot erase animation; remove keyframes explicitly",
@@ -651,6 +604,7 @@ pub fn plan(
             affected.push(id);
         }
         Edit::EffectRemove { sequence, clip, id } => {
+            ensure_clip_editable(&result, &sequence, &clip)?;
             let c = result.clip_mut(&sequence, &clip)?;
             let i = c
                 .effects
@@ -676,7 +630,7 @@ pub fn plan(
             keyframe,
         } => {
             let e = effect_mut(&mut result, &sequence, &clip, &effect)?;
-            validate_effect_value(&e.service, &e.property, keyframe.value)?;
+            validate_effect_value(&e.kind, &e.parameter, keyframe.value)?;
             if let Some(k) = e.keyframes.iter_mut().find(|k| k.frame == keyframe.frame) {
                 *k = keyframe;
             } else {
@@ -707,6 +661,7 @@ pub fn plan(
             frame,
             label,
         } => {
+            ensure_sequence_editable(&result, &sequence)?;
             let id = new("m");
             result.sequence_mut(&sequence)?.markers.push(Marker {
                 id: id.clone(),
@@ -722,6 +677,7 @@ pub fn plan(
             frame,
             label,
         } => {
+            ensure_sequence_editable(&result, &sequence)?;
             let m = result
                 .sequence_mut(&sequence)?
                 .markers
@@ -733,6 +689,7 @@ pub fn plan(
             affected.push(id);
         }
         Edit::MarkerRemove { sequence, id } => {
+            ensure_sequence_editable(&result, &sequence)?;
             let seq = result.sequence_mut(&sequence)?;
             let i = seq
                 .markers
@@ -747,13 +704,14 @@ pub fn plan(
             clip,
             value,
         } => {
+            ensure_clip_editable(&result, &sequence, &clip)?;
             validate_effect_value("volume", "level", value)?;
             let c = result.clip_mut(&sequence, &clip)?;
             let existing: Vec<_> = c
                 .effects
                 .iter()
                 .enumerate()
-                .filter(|(_, e)| e.service == "volume")
+                .filter(|(_, e)| e.kind == "volume")
                 .map(|(i, _)| i)
                 .collect();
             if existing.len() > 1 {
@@ -764,7 +722,7 @@ pub fn plan(
             }
             if let Some(i) = existing.first() {
                 let e = &mut c.effects[*i];
-                if e.opaque.is_some() || !e.keyframes.is_empty() {
+                if e.editability.is_read_only() || !e.keyframes.is_empty() {
                     return Err(Error::unsupported(
                         "Volume automation requires explicit keyframe edits",
                     ));
@@ -775,12 +733,12 @@ pub fn plan(
                 let id = new("ef");
                 c.effects.push(Effect {
                     id: id.clone(),
-                    service: "volume".into(),
-                    property: "level".into(),
+                    kind: "volume".into(),
+                    parameter: "level".into(),
                     value,
                     enabled: true,
                     keyframes: vec![],
-                    opaque: None,
+                    editability: Editability::Editable,
                 });
                 created.push(id);
             }
@@ -792,6 +750,7 @@ pub fn plan(
             frames,
             fade_in,
         } => {
+            ensure_clip_editable(&result, &sequence, &clip)?;
             let c = result.clip_mut(&sequence, &clip)?;
             if frames < 2 || frames > c.duration() {
                 return Err(Error::invalid("Fade length must be 2..clip duration"));
@@ -826,70 +785,79 @@ pub fn plan(
             };
             c.effects.push(Effect {
                 id: id.clone(),
-                service: "volume".into(),
-                property: "level".into(),
+                kind: "volume".into(),
+                parameter: "level".into(),
                 value: a.value,
                 enabled: true,
                 keyframes: vec![a, b],
-                opaque: None,
+                editability: Editability::Editable,
             });
             created.push(id);
             affected.push(clip);
         }
     }
     result.validate()?;
-
-    let projected_result = crate::domain::project(&result);
-    semwright_video_domain::conformance::verify_backend_mutation(
-        &portable_before,
-        portable_edit,
-        seed,
-        &actual,
-        &projected_result,
-        &affected,
-        &created,
-    )?;
-
-    let serialized = adapters::save(&result)?;
-    let reloaded = adapters::load(serialized.as_bytes())?;
-    if reloaded.semantic_json() != result.semantic_json() {
-        return Err(Error::new(
-            "BackendFailed",
-            "Semantic serialize/reparse validation differs; edit not committed",
-        ));
-    }
-    let resulting_revision = sha256(serialized.as_bytes());
-    let warnings = if support == Support::MetadataRisk {
-        vec!["Native GUI reopen has not been certified".into()]
-    } else {
-        vec![]
-    };
-    Ok(ChangePlan {
-        expected_revision: actual,
-        resulting_revision,
+    Ok(EditOutcome {
         operation: operation.into(),
         affected,
         created,
-        before_frames: duration(project),
-        after_frames: duration(&result),
-        support,
-        warnings,
+        before_frames: project.duration(),
+        after_frames: result.duration(),
         result,
     })
 }
+
+fn ensure_sequence_editable(project: &Project, sequence: &str) -> Result<()> {
+    if project.sequence(sequence)?.editability.is_read_only() {
+        return Err(Error::unsupported("Read-only sequence cannot be mutated"));
+    }
+    Ok(())
+}
+
+fn ensure_track_editable(project: &Project, sequence: &str, track: &str) -> Result<()> {
+    ensure_sequence_editable(project, sequence)?;
+    if project.track(sequence, track)?.editability.is_read_only() {
+        return Err(Error::unsupported("Read-only track cannot be mutated"));
+    }
+    Ok(())
+}
+
+fn ensure_clip_editable(project: &Project, sequence: &str, clip: &str) -> Result<()> {
+    ensure_sequence_editable(project, sequence)?;
+    let sequence = project.sequence(sequence)?;
+    let track = sequence
+        .tracks
+        .iter()
+        .find(|track| {
+            track
+                .lanes
+                .iter()
+                .flat_map(|lane| &lane.clips)
+                .any(|candidate| candidate.id == clip)
+        })
+        .ok_or_else(|| Error::new("NotFound", "Clip missing"))?;
+    if track.editability.is_read_only() {
+        return Err(Error::unsupported(
+            "Clip belongs to a read-only track and cannot be mutated",
+        ));
+    }
+    Ok(())
+}
+
 fn effect_mut<'a>(
     p: &'a mut Project,
     sequence: &str,
     clip: &str,
     id: &str,
 ) -> Result<&'a mut Effect> {
+    ensure_clip_editable(p, sequence, clip)?;
     let e = p
         .clip_mut(sequence, clip)?
         .effects
         .iter_mut()
         .find(|e| e.id == id)
         .ok_or_else(|| Error::new("NotFound", "Effect missing"))?;
-    if e.opaque.is_some() {
+    if e.editability.is_read_only() {
         return Err(Error::unsupported(
             "Opaque effect is preserved, not editable",
         ));
@@ -903,7 +871,7 @@ fn insert(p: &mut Project, sequence: &str, track: &str, clip: Clip, ripple: bool
         ));
     }
     let t = p.track_mut(sequence, track)?;
-    if t.opaque || t.lanes.len() != 1 {
+    if t.editability.is_read_only() || t.lanes.len() != 1 {
         return Err(Error::unsupported(
             "Insert requires an editable single-lane track",
         ));
@@ -934,6 +902,7 @@ fn insert(p: &mut Project, sequence: &str, track: &str, clip: Clip, ripple: bool
     Ok(())
 }
 fn take_clip(p: &mut Project, sequence: &str, id: &str, ripple: bool) -> Result<Clip> {
+    ensure_clip_editable(p, sequence, id)?;
     let seq = p.sequence_mut(sequence)?;
     for t in &mut seq.tracks {
         for l in &mut t.lanes {
@@ -958,18 +927,33 @@ fn take_clip(p: &mut Project, sequence: &str, id: &str, ripple: bool) -> Result<
     }
     Err(Error::new("NotFound", "Clip missing"))
 }
-/// Compact structural diff, not raw XML and not an undo log.
-pub fn diff(before: &Project, after: &Project) -> Value {
-    let clips = |p: &Project| -> std::collections::BTreeMap<String, (String, u64, u64, u64)> {
-        p.sequences
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectDiff {
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub changed: Vec<String>,
+    pub profile_changed: bool,
+    pub before_frames: u64,
+    pub after_frames: u64,
+}
+
+pub fn diff(before: &Project, after: &Project) -> ProjectDiff {
+    let clips = |project: &Project| -> std::collections::BTreeMap<String, (String, u64, u64, u64)> {
+        project
+            .sequences
             .iter()
-            .flat_map(|s| {
-                s.tracks.iter().flat_map(|t| {
-                    t.lanes.iter().flat_map(move |l| {
-                        l.clips.iter().map(move |c| {
+            .flat_map(|sequence| {
+                sequence.tracks.iter().flat_map(|track| {
+                    track.lanes.iter().flat_map(move |lane| {
+                        lane.clips.iter().map(move |clip| {
                             (
-                                c.id.clone(),
-                                (t.id.clone(), c.start, c.source.start.0, c.source.end.0),
+                                clip.id.clone(),
+                                (
+                                    track.id.clone(),
+                                    clip.start,
+                                    clip.source.start.0,
+                                    clip.source.end.0,
+                                ),
                             )
                         })
                     })
@@ -979,35 +963,24 @@ pub fn diff(before: &Project, after: &Project) -> Value {
     };
     let a = clips(before);
     let b = clips(after);
-    obj([
-        (
-            "added",
-            array(
-                b.keys()
-                    .filter(|k| !a.contains_key(*k))
-                    .cloned()
-                    .map(Into::into),
-            ),
-        ),
-        (
-            "removed",
-            array(
-                a.keys()
-                    .filter(|k| !b.contains_key(*k))
-                    .cloned()
-                    .map(Into::into),
-            ),
-        ),
-        (
-            "changed",
-            array(
-                a.iter()
-                    .filter(|(k, v)| b.get(*k).is_some_and(|w| w != *v))
-                    .map(|(k, _)| k.clone().into()),
-            ),
-        ),
-        ("profile_changed", (before.profile != after.profile).into()),
-        ("before_frames", duration(before).into()),
-        ("after_frames", duration(after).into()),
-    ])
+    ProjectDiff {
+        added: b
+            .keys()
+            .filter(|key| !a.contains_key(*key))
+            .cloned()
+            .collect(),
+        removed: a
+            .keys()
+            .filter(|key| !b.contains_key(*key))
+            .cloned()
+            .collect(),
+        changed: a
+            .iter()
+            .filter(|(key, value)| b.get(*key).is_some_and(|other| other != *value))
+            .map(|(key, _)| key.clone())
+            .collect(),
+        profile_changed: before.profile != after.profile,
+        before_frames: before.duration(),
+        after_frames: after.duration(),
+    }
 }

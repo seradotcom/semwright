@@ -31,6 +31,8 @@ historical only and is not used to certify this baseline.
 | Platformization / Linux regression | PASS | Commit checks: Platformization and macOS |
 | Platformization / native macOS ARM64 | PASS | Commit checks: Platformization and macOS |
 | Platformization / native macOS Intel | PASS | Commit checks: Platformization and macOS |
+| Packaging certification / x86_64 | PASS | Commit checks: `Packaging certification` |
+| Packaging certification / ARM64 | PASS | Commit checks: `Packaging certification` |
 
 The development matrix uses Rust 1.98.1, while Rust **1.88.0 is the declared and executed MSRV**. The hosted MSRV job runs the required fmt/check/build/Clippy/tests/doctests/docs/release/fake/federation gates at that lower bound. The normal x86_64/ARM64 matrix runs the locked workspace on 1.98.1. Source contracts run Python discovery, Node tests, source/schema validation and the native C/openat2 harness; a separate hosted static-lints job executes pinned Ruff 0.13.2, ShellCheck and actionlint including embedded workflow shell.
 
@@ -78,7 +80,8 @@ descriptors/results, `tools/list_changed` refresh, crash invalidation and owner-
 
 This certifies the mediated federation path, not the upstream executable itself. A trusted stdio
 upstream still runs as the same Unix user and is not currently sandboxed against that UID. Remote
-MCP transports, task/job bridging and input-required rounds remain follow-on work.
+MCP transports and input-required rounds remain follow-on work; broker jobs are mapped to MCP Tasks
+as described in the Events and Jobs section below.
 
 ## App Driver SDK closure included in this development line
 
@@ -264,6 +267,12 @@ both Apple Silicon and Intel hosted runners. The macOS foundation includes nativ
 cross-architecture compilation without weakening Linux-only driver behavior. This is a platform
 foundation, not a claim that macOS has feature parity with the Linux semantic host.
 
+## Reproducible packaging and user-install certification included in this development line
+
+The hosted `Packaging certification` workflow runs on native x86_64 and ARM64 Linux runners. It builds the five release executables (`semwright`, `semwrightd`, `semwright-mcp`, `semwright-inspect`, and `semwright-sandbox`), creates normalized tar/deb artifacts twice, compares their hashes, validates package payloads, and exercises a private user install -> execute -> uninstall lifecycle. The uninstall regression also proves modified/tampered installed files are refused rather than deleted blindly.
+
+This closes Semwright's `release_packaging_validation` gate and the development evidence gap for native tar/deb packaging, reproducibility and user install/uninstall. It does **not** claim Nix evaluation, publisher identity, SBOM generation, signing/notarization or publication provenance; those remain separate release/security work and `release-readiness.json` remains fail-closed.
+
 ## Verification hardening included in the baseline
 
 - The command schema contract expects the current 90 descriptors (180 input/output schemas).
@@ -283,8 +292,8 @@ GTK/AT-SPI execution, but that does not certify every GNOME extension/portal/sca
 not certify a sandbox for same-UID MCP upstream executables, a remote signed driver marketplace or
 cryptographic publisher identity. Adversarial plugin/driver sandbox regressions are executed but do
 not constitute a formal security proof. Rust 1.88 is the executed MSRV, Chromium quota/crash/frame
-hardening and MCP Tasks mapping are executed, but reproducible Semwright packaging/installation is
-still pending hosted certification in this baseline. SBOM/signing, independent security review,
+hardening, MCP Tasks mapping, reproducible native tar/deb packaging and private user install/uninstall
+are executed. Nix evaluation, SBOM/signing/publication provenance, independent security review,
 provider-wide progress/artifacts and negotiated dynamic driver child event/cancellation interfaces
 remain follow-on work.
 
