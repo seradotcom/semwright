@@ -1,9 +1,12 @@
-//! Semwright plugin protocol v1. Stdio is reserved for bounded framed JSON.
+//! Semwright plugin protocol v2. Stdio is reserved for bounded framed JSON.
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, path::PathBuf};
+
+pub const PLUGIN_PROTOCOL_VERSION: u32 = 2;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
@@ -28,10 +31,10 @@ pub struct Mount {
 }
 impl Manifest {
     pub fn validate(&self) -> Result<()> {
-        if self.protocol != 1 {
+        if self.protocol != PLUGIN_PROTOCOL_VERSION {
             return Err(Error::new(
                 ErrorCode::ProtocolMismatch,
-                "Plugin protocol must be 1",
+                "Plugin protocol must match the current attested protocol",
             ));
         }
         if self.name.is_empty()
@@ -96,12 +99,21 @@ impl Manifest {
         Ok(())
     }
 }
+pub fn commands_digest(commands: &[CommandDescriptor]) -> Result<String> {
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(commands)?)
+    ))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     Hello {
         protocol: u32,
         name: String,
+        version: String,
+        commands_sha256: String,
     },
     Execute {
         id: String,
@@ -112,26 +124,48 @@ pub enum Request {
     Shutdown {},
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Response {
-    Ready { protocol: u32, name: String },
-    Result { id: String, value: Value },
-    Failure { id: String, error: Error },
-    Healthy { protocol: u32 },
+    Ready {
+        protocol: u32,
+        name: String,
+        version: String,
+        commands_sha256: String,
+    },
+    Result {
+        id: String,
+        value: Value,
+    },
+    Failure {
+        id: String,
+        error: Error,
+    },
+    Healthy {
+        protocol: u32,
+    },
 }
 /// SDK runner. Plugin authors supply a typed dispatcher; arbitrary code evaluation
 /// is not part of the SDK contract. Panics terminate only the sandboxed child.
-pub async fn serve<F>(name: &str, mut dispatch: F) -> Result<()>
+pub async fn serve<F>(
+    name: &str,
+    version: &str,
+    commands: &[CommandDescriptor],
+    mut dispatch: F,
+) -> Result<()>
 where
     F: FnMut(&str, Value) -> Result<Value>,
 {
     let mut input = tokio::io::stdin();
     let mut output = tokio::io::stdout();
+    let local_digest = commands_digest(commands)?;
     match read_frame::<_, Request>(&mut input).await? {
         Request::Hello {
-            protocol: 1,
+            protocol: PLUGIN_PROTOCOL_VERSION,
             name: expected,
-        } if expected == name => (),
+            version: expected_version,
+            commands_sha256,
+        } if expected == name && expected_version == version && commands_sha256 == local_digest => {
+        }
         _ => {
             return Err(Error::new(
                 ErrorCode::PluginProtocolError,
@@ -142,8 +176,10 @@ where
     write_frame(
         &mut output,
         &Response::Ready {
-            protocol: 1,
+            protocol: PLUGIN_PROTOCOL_VERSION,
             name: name.into(),
+            version: version.into(),
+            commands_sha256: local_digest,
         },
     )
     .await?;
@@ -157,7 +193,13 @@ where
                 write_frame(&mut output, &response).await?;
             }
             Request::Health {} => {
-                write_frame(&mut output, &Response::Healthy { protocol: 1 }).await?
+                write_frame(
+                    &mut output,
+                    &Response::Healthy {
+                        protocol: PLUGIN_PROTOCOL_VERSION,
+                    },
+                )
+                .await?
             }
             Request::Shutdown {} => return Ok(()),
             _ => {
@@ -174,7 +216,7 @@ mod tests {
     use super::*;
     #[test]
     fn manifest_requires_hash() {
-        let raw = serde_json::json!({"protocol":1,"name":"stats","version":"1","executable":"/tmp/plugin","sha256":"","commands":[]});
+        let raw = serde_json::json!({"protocol":PLUGIN_PROTOCOL_VERSION,"name":"stats","version":"1","executable":"/tmp/plugin","sha256":"","commands":[]});
         let m: Manifest = serde_json::from_value(raw).unwrap();
         assert!(m.validate().is_err());
     }

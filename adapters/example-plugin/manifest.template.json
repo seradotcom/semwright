@@ -1,5 +1,5 @@
 {
-  "protocol": 1,
+  "protocol": 2,
   "name": "textstats",
   "version": "1.0.0",
   "executable": "/ABSOLUTE/PATH/semwright-example-plugin",

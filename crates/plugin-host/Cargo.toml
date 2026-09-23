@@ -8,6 +8,10 @@ authors.workspace = true
 description = "Semwright plugin-host: semantic Linux automation"
 publish = false
 
+[features]
+default = []
+test-tools = []
+
 [lints]
 workspace = true
 
@@ -32,3 +36,8 @@ tempfile.workspace = true
 [[bin]]
 name = "semwright-sandbox"
 path = "src/semwright-sandbox.rs"
+
+[[bin]]
+name = "semwright-adversarial-plugin-fixture"
+path = "src/bin/adversarial_plugin_fixture.rs"
+required-features = ["test-tools"]

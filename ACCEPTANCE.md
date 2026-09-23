@@ -93,9 +93,9 @@ other commits and local archives is not part of this acceptance decision.
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
-| A050 | Plugin manifest v1. | PASS | Plugin manifest v1 parsing/validation is compiled and unit-tested with strict hash/field requirements. |
-| A051 | Plugin protocol handshake. | PASS | Plugin protocol handshake/control framing is implemented and tested; stronger independent schema/version attestation remains R10. |
-| A052 | Sandboxed plugin host. | FAIL | Bubblewrap/Landlock source compiles; hostile negative sandbox execution remains unverified. R10. |
+| A050 | Plugin manifest v1. | PASS | The original manifest requirement is satisfied; the pre-release wire protocol has since advanced fail-closed to Plugin Protocol v2 while retaining strict manifest hash/field validation. |
+| A051 | Plugin protocol handshake. | PASS | Plugin Protocol v2 mutually attests plugin name, version and the SHA-256 digest of the complete ordered command descriptors; hosted mismatch tests reject version/descriptor drift before execution. |
+| A052 | Sandboxed plugin host. | PASS | Hosted hostile-plugin tests execute through Bubblewrap + Landlock and prove mount boundaries, host-file/PID/loopback isolation, environment scrubbing and watchdog descendant cleanup. |
 | A053 | Example plugin. | PASS | The example plugin is part of the compiled workspace and shares the typed plugin SDK contract. |
 | A054 | Recipe schema v1. | PASS | Recipe schema v1 is committed, generated/validated and exercised by workspace/source checks. |
 | A055 | Recipe validation. | PASS | Recipe validation executes in Rust tests and bounded recipe fuzzing. |
@@ -210,7 +210,7 @@ other commits and local archives is not part of this acceptance decision.
 
 ## Totals
 
-PASS: **117**, FAIL: **5**, LIVE_VERIFICATION_PENDING: **0**, NOT_APPLICABLE: **1**.
+PASS: **118**, FAIL: **4**, LIVE_VERIFICATION_PENDING: **0**, NOT_APPLICABLE: **1**.
 
 These totals measure checklist resolution, not a percentage of software correctness.
 A green compiler baseline does not replace missing live/security evidence, regardless of the
@@ -266,12 +266,12 @@ MCP Federation expansion subtotal: **9 PASS, 1 FAIL**.
 | D006 | Network/filesystem requests cannot exceed owner configuration. | PASS | Manifest/grant validation and network/interface fail-closed tests. |
 | D007 | Driver conformance executes health, safe read-only capability and clean shutdown. | PASS | Hosted conformance fixture. |
 | D008 | Scaffolded driver project compiles against the public SDK. | PASS | Conformance script creates and `cargo check`s a generated driver. |
-| D009 | Hostile sandbox escape matrix covers filesystem/network/process/environment attacks. | FAIL | Happy-path sandbox is real; the adversarial negative matrix is still R10. |
+| D009 | Hostile sandbox escape matrix covers filesystem/network/process/environment attacks. | PASS | Hosted hostile plugin and DriverProvider fixtures exercise filesystem mounts, host-file/PID/loopback isolation, environment scrubbing, RLIMIT enforcement and descendant cleanup through the production Linux sandbox launcher. |
 | D010 | Driver protocol negotiates dynamic capabilities, events and cooperative cancellation. | FAIL | Protocol v1 intentionally rejects these interfaces until implemented/tested. |
-| D011 | Driver registry/distribution supports safe search/install/update/removal. | FAIL | R12 remains open; no package/index installation surface is certified. |
+| D011 | Driver registry/distribution supports safe search/install/update/removal. | PASS | Certified static/local `.swdp` distribution provides bounded package/index validation, compatibility resolution and non-executing install/update/remove with pinned digests. |
 | D012 | A second non-browser/non-Blender application has a real deep driver integration. | PASS | Sandboxed LibreOffice/UNO executes real Writer/Calc/PDF operations through CLI -> broker -> DriverProvider in hosted CI. |
 
-App Driver SDK expansion subtotal: **9 PASS, 3 FAIL**.
+App Driver SDK expansion subtotal: **11 PASS, 1 FAIL**.
 
 ## LibreOffice deep-driver expansion acceptance
 

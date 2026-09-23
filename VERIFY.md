@@ -93,6 +93,22 @@ executes the broker smoke path and compiles a newly scaffolded driver. Protocol 
 rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
 are negotiated and tested.
 
+## Adversarial sandbox and plugin-attestation closure included in this development line
+
+Plugin Protocol v2 now binds the owner-reviewed manifest to the child binary's plugin name, plugin
+version and SHA-256 digest of the complete ordered command descriptors before any plugin command can
+execute. Hosted mismatch tests prove version or descriptor drift fails closed rather than accepting
+an older v1-style identity-only handshake.
+
+The hosted `driver-conformance` job also executes deliberately hostile plugin and DriverProvider
+fixtures through the production Linux Bubblewrap + Landlock launcher. The fixtures prove granted
+read/write mounts behave as declared while writes outside grants, host-secret reads, host PID
+visibility and host-loopback connections are denied. Environment inheritance is reduced to the
+sandbox-controlled allowlist; the DriverProvider fixture additionally observes its requested
+RLIMIT_NOFILE bound. Timeout/provider shutdown tests spawn descendants and verify they cannot survive
+long enough to mutate a writable grant. These are executed regression checks for the configured
+sandbox boundary, not a formal proof against kernel, Bubblewrap, Landlock or native-code defects.
+
 ## Driver distribution closure included in this development line
 
 The App Driver SDK now has owner-facing static/local distribution that is deliberately separate
@@ -249,9 +265,9 @@ foundation, not a claim that macOS has feature parity with the Linux semantic ho
 
 This baseline does **not** claim live GNOME Wayland, Plasma Wayland, Sway, Hyprland or a complete
 native-desktop X11 matrix, nor a real user-approved portal ConnectToEIS session. It does not certify
-hostile plugin/driver sandbox escape resistance, a sandbox for same-UID MCP upstream executables, a
-remote signed driver marketplace or cryptographic publisher identity. Chromium quota/crash/frame-race
-hardening remains incomplete. It does not establish an MSRV, reproducible Semwright binary
+a sandbox for same-UID MCP upstream executables, a remote signed driver marketplace or cryptographic
+publisher identity. Adversarial plugin/driver sandbox regressions are executed, but do not constitute
+a formal security proof. Chromium quota/crash/frame-race hardening remains incomplete. It does not establish an MSRV, reproducible Semwright binary
 packaging/installation, SBOM/signing or an independent security review. Provider-specific
 progress/artifacts, MCP task mapping and negotiated dynamic driver job/event interfaces remain
 follow-on work.
