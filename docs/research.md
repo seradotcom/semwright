@@ -10,10 +10,10 @@ No third-party repository is vendored as this project's implementation.
 | MCP | [Official Rust SDK](https://github.com/modelcontextprotocol/rust-sdk), [rmcp 3.4.0](https://docs.rs/rmcp/3.4.0/rmcp/) | Official SDK frontend, stdio, small tool surface; API signatures checked, compile unverified |
 | D-Bus | [zbus 5.19.0](https://docs.rs/zbus/5.19.0/zbus/) | Tokio runtime feature; shared narrow native proxy code |
 | Portal abstraction | [ashpd](https://docs.rs/ashpd/latest/ashpd/) | Current documentation showed 0.13.13; evaluated, not added to this dependency graph |
-| Portal input | [RemoteDesktop interface](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.RemoteDesktop.html) | Raw zbus request/session lifecycle plus Notify; EIS/persistence not implemented |
+| Portal input | [RemoteDesktop interface](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.RemoteDesktop.html) | Raw zbus lifecycle plus RemoteDesktop v2 ConnectToEIS with Notify fallback only before EIS establishment; persistence remains pending |
 | Portal streams | [ScreenCast interface](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.ScreenCast.html) | Version probe only; no claim of a PipeWire decoder |
 | Accessibility | [Rust AT-SPI](https://docs.rs/atspi/latest/atspi/), [GNOME AT-SPI interfaces](https://gitlab.gnome.org/GNOME/at-spi2-core/-/tree/main/xml) | Normalize native AT-SPI D-Bus objects behind backend traits; no crate-type leakage |
-| EIS | [reis Rust API](https://docs.rs/reis/latest/reis/), [libei](https://gitlab.freedesktop.org/libinput/libei) | A real follow-on integration is required; no fictional implemented adapter |
+| EIS | [reis Rust API](https://docs.rs/reis/latest/reis/), [libei](https://gitlab.freedesktop.org/libinput/libei) | `reis` sender transport implemented and exercised against a real EIS peer fixture; live compositor-granted portal transport remains pending |
 | GNOME | [GJS extension guide](https://gjs.guide/extensions/), [Mutter API](https://mutter.gnome.org/meta/) | Narrow first-party extension, no arbitrary eval; candidate versions require live tests |
 | KDE | [KWin scripting API](https://develop.kde.org/docs/plasma/kwin/api/) | Narrow script/mailbox rather than assume a generic Wayland window-control API |
 | Sway | [Sway IPC manual source](https://github.com/swaywm/sway/blob/master/sway/sway-ipc.7.scd) | Typed native Unix framing, no shell command interpolation |

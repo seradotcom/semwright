@@ -52,8 +52,9 @@ focus change between observation and action and cancellation without a stuck cho
 
 Capture only a disposable fixture. Check artifact permissions, PNG metadata, normal expiry,
 no bytes in audit and cleanup after normal/abnormal termination. Multi-monitor scaling and
-mapping are not considered solved by the relative Notify input route. EIS/PipeWire streaming
-and persistence cannot be passed by these tests until implemented.
+mapping are not considered solved by relative input alone. Exercise the EIS route separately
+from Notify and verify that Notify is never used after EIS establishment. PipeWire streaming
+and persistence cannot be marked PASS until their implementations and live tests exist.
 
 ## App adapters
 

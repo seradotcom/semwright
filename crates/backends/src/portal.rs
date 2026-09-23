@@ -1,16 +1,20 @@
 //! XDG portal RemoteDesktop and Screenshot clients with native consent and RAII revocation.
-//! Uses the documented Notify* route; EIS and PipeWire pixel decoding are NOT advertised.
+//! Prefers the portal's EIS transport when negotiated; Notify* remains the pre-EIS fallback.
+//! PipeWire pixel decoding is intentionally reported unavailable until implemented.
+use crate::eis::{EisClient, Requested as EisRequested};
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use semwright_backend_api::{Backend, Context};
 use semwright_protocol::private_directory;
 use semwright_types::*;
 use serde_json::{Value, json};
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, os::unix::net::UnixStream, path::PathBuf, sync::Arc, time::Duration,
+};
 use tokio::sync::{Mutex, OnceCell};
 use zbus::{
     Connection, Proxy,
-    zvariant::{OwnedObjectPath, OwnedValue, Value as DValue},
+    zvariant::{OwnedFd as ZOwnedFd, OwnedObjectPath, OwnedValue, Value as DValue},
 };
 const DEST: &str = "org.freedesktop.portal.Desktop";
 const PATH: &str = "/org/freedesktop/portal/desktop";
@@ -56,11 +60,16 @@ struct Session {
     devices: u32,
     armed: bool,
     closed: Arc<std::sync::atomic::AtomicBool>,
+    eis: Option<EisClient>,
     watch: Option<tokio::task::JoinHandle<()>>,
+    eis_watch: Option<tokio::task::JoinHandle<()>>,
 }
 impl Drop for Session {
     fn drop(&mut self) {
         if let Some(watch) = self.watch.take() {
+            watch.abort();
+        }
+        if let Some(watch) = self.eis_watch.take() {
             watch.abort();
         }
         if self.armed {
@@ -163,6 +172,24 @@ impl Portal {
             Err(_) => 0,
         }
     }
+    async fn connect_eis(
+        &self,
+        path: &OwnedObjectPath,
+        requested: EisRequested,
+    ) -> Result<Option<EisClient>> {
+        if self.version(REMOTE).await < 2 {
+            return Ok(None);
+        }
+        let proxy = self.proxy(REMOTE).await?;
+        let options = Options::new();
+        let fd: ZOwnedFd = match proxy.call("ConnectToEIS", &(path, options)).await {
+            Ok(fd) => fd,
+            Err(_) => return Ok(None),
+        };
+        let fd: std::os::fd::OwnedFd = fd.into();
+        let stream = UnixStream::from(fd);
+        EisClient::connect(stream, requested).await.map(Some)
+    }
     async fn request<B>(
         &self,
         ctx: &Context,
@@ -263,7 +290,14 @@ impl Portal {
         }
         if let Some(existing) = guard.as_ref() {
             return if existing.owner == ctx.session {
-                Ok(json!({"consent":"granted","already_active":true,"devices":existing.devices}))
+                let route = if existing.eis.is_some() {
+                    "eis"
+                } else {
+                    "portal_notify"
+                };
+                Ok(
+                    json!({"consent":"granted","already_active":true,"devices":existing.devices,"input_route":route,"eis":existing.eis.is_some()}),
+                )
             } else {
                 Err(Error::new(
                     ErrorCode::Conflict,
@@ -282,11 +316,17 @@ impl Portal {
         match result {
             Ok(session) => {
                 let devices = session.devices;
+                let eis = session.eis.is_some();
+                let route = if eis { "eis" } else { "portal_notify" };
                 *guard = Some(session);
                 *self.consent.lock().await = ConsentState::Granted;
-                Ok(
-                    json!({"consent":"granted","devices":devices,"ephemeral":true,"input_route":"portal_notify","eis":"not_implemented"}),
-                )
+                Ok(json!({
+                    "consent":"granted",
+                    "devices":devices,
+                    "ephemeral":true,
+                    "input_route":route,
+                    "eis":eis
+                }))
             }
             Err(e) => {
                 *self.consent.lock().await = ConsentState::Denied;
@@ -347,7 +387,9 @@ impl Portal {
             devices: 0,
             armed: true,
             closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            eis: None,
             watch: None,
+            eis_watch: None,
         };
         let closed = session.closed.clone();
         let consent = self.consent.clone();
@@ -386,6 +428,37 @@ impl Portal {
             ));
         }
         session.devices = devices;
+        if let Some(eis) = self
+            .connect_eis(&session.path, EisRequested { keyboard, pointer })
+            .await?
+        {
+            let watched = eis.clone();
+            let connection = session.connection.clone();
+            let path = session.path.clone();
+            let closed = session.closed.clone();
+            let consent = self.consent.clone();
+            session.eis_watch = Some(tokio::spawn(async move {
+                watched.wait_closed().await;
+                if !closed.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                    if let Ok(proxy) = Proxy::new(
+                        &connection,
+                        DEST,
+                        path.as_str(),
+                        "org.freedesktop.portal.Session",
+                    )
+                    .await
+                    {
+                        let _ = tokio::time::timeout(
+                            Duration::from_secs(2),
+                            proxy.call::<_, _, ()>("Close", &()),
+                        )
+                        .await;
+                    }
+                    *consent.lock().await = ConsentState::Expired;
+                }
+            }));
+            session.eis = Some(eis);
+        }
         Ok(session)
     }
     async fn stop(&self, owner: Option<&str>) -> Result<Value> {
@@ -399,6 +472,9 @@ impl Portal {
             ));
         }
         if let Some(mut session) = guard.take() {
+            if let Some(eis) = session.eis.take() {
+                let _ = eis.stop().await;
+            }
             let proxy = error(
                 Proxy::new(
                     &session.connection,
@@ -413,6 +489,61 @@ impl Portal {
         }
         *self.consent.lock().await = ConsentState::Expired;
         Ok(json!({"consent":"expired"}))
+    }
+    async fn send_eis_input(eis: &EisClient, command: &str, args: &Value) -> Result<Value> {
+        match command {
+            "input.key" => {
+                let raw = args["keysym"]
+                    .as_u64()
+                    .ok_or_else(|| Error::invalid("keysym required"))?;
+                let keysym =
+                    u32::try_from(raw).map_err(|_| Error::invalid("keysym exceeds EIS range"))?;
+                eis.keysym(keysym).await?;
+            }
+            "input.type" => eis.type_text(arg_str(args, "text")?).await?,
+            "pointer.move" => {
+                eis.motion(
+                    args["dx"]
+                        .as_f64()
+                        .ok_or_else(|| Error::invalid("dx required"))?,
+                    args["dy"]
+                        .as_f64()
+                        .ok_or_else(|| Error::invalid("dy required"))?,
+                )
+                .await?;
+            }
+            "pointer.click" => {
+                let button = match arg_str(args, "button")? {
+                    "left" => 272,
+                    "right" => 273,
+                    "middle" => 274,
+                    _ => return Err(Error::invalid("Unknown pointer button")),
+                };
+                eis.click(button).await?;
+            }
+            "pointer.scroll" => {
+                eis.scroll(
+                    args["dx"]
+                        .as_f64()
+                        .ok_or_else(|| Error::invalid("dx required"))?,
+                    args["dy"]
+                        .as_f64()
+                        .ok_or_else(|| Error::invalid("dy required"))?,
+                )
+                .await?;
+            }
+            _ => {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Unknown remote-input command",
+                ));
+            }
+        }
+        Ok(json!({
+            "sent":true,
+            "backend_route":"eis",
+            "coordinate_space":"relative_logical_delta"
+        }))
     }
     async fn notify(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
         let guard = self.session.lock().await;
@@ -431,9 +562,6 @@ impl Portal {
                 "Portal input session was revoked or closed",
             ));
         }
-        let p = self.proxy(REMOTE).await?;
-        let path = &session.path;
-        let empty = Options::new();
         ctx.check_cancelled()?;
         if command.starts_with("input.") && session.devices & 1 == 0 {
             return Err(Error::new(
@@ -447,6 +575,18 @@ impl Portal {
                 "Pointer was not granted",
             ));
         }
+        if let Some(eis) = session.eis.as_ref() {
+            if eis.is_closed() {
+                return Err(Error::new(
+                    ErrorCode::ConsentRequired,
+                    "EIS transport was disconnected; start a new portal session",
+                ));
+            }
+            return Self::send_eis_input(eis, command, args).await;
+        }
+        let p = self.proxy(REMOTE).await?;
+        let path = &session.path;
+        let empty = Options::new();
         match command {
             "input.key" => {
                 let key = args["keysym"]
@@ -552,6 +692,32 @@ impl Portal {
         Ok(
             json!({"sent":true,"backend_route":"portal_notify","coordinate_space":"relative_logical_delta"}),
         )
+    }
+    async fn status(&self) -> Value {
+        let remote = self.version(REMOTE).await;
+        let guard = self.session.lock().await;
+        let active = guard
+            .as_ref()
+            .is_some_and(|session| !session.closed.load(std::sync::atomic::Ordering::SeqCst));
+        let eis = guard
+            .as_ref()
+            .and_then(|session| session.eis.as_ref())
+            .is_some_and(|eis| !eis.is_closed());
+        let route = if !active {
+            "none"
+        } else if eis {
+            "eis"
+        } else {
+            "portal_notify"
+        };
+        json!({
+            "consent":*self.consent.lock().await,
+            "remote_desktop_version":remote,
+            "persistent_tokens":false,
+            "session_active":active,
+            "eis":if eis { "connected" } else if active { "not_connected" } else { "inactive" },
+            "input_route":route
+        })
     }
     async fn capture(&self, ctx: &Context) -> Result<Value> {
         let result = self
@@ -694,7 +860,7 @@ impl Backend for Portal {
                     CapabilityStatus::Unavailable
                 },
                 reason: format!(
-                    "RemoteDesktop interface version {remote}; input additionally requires a live, owner-consented session"
+                    "RemoteDesktop interface version {remote}; input requires a live owner-consented session and version 2 can negotiate EIS"
                 ),
                 remediation:
                     "Install a matching portal backend and explicitly approve portal.start".into(),
@@ -727,12 +893,10 @@ impl Backend for Portal {
         match c {
             "portal.start" => self.start(ctx, args).await,
             "portal.stop" => self.stop(Some(&ctx.session)).await,
-            "portal.status" => Ok(
-                json!({"consent":*self.consent.lock().await,"remote_desktop_version":self.version(REMOTE).await,"persistent_tokens":false,"eis":"not_implemented","input_route":"portal_notify"}),
-            ),
+            "portal.status" => Ok(self.status().await),
             "screen.capture" => self.capture(ctx).await,
             "screen.stream_info" => Ok(
-                json!({"screencast_version":self.version("org.freedesktop.portal.ScreenCast").await,"pixel_stream":"unavailable","reason":"PipeWire decoder and EIS transport are not implemented; interactive screenshot is a separate supported route"}),
+                json!({"screencast_version":self.version("org.freedesktop.portal.ScreenCast").await,"pixel_stream":"unavailable","reason":"PipeWire frame decoding is not implemented; RemoteDesktop input transport is reported separately by portal.status"}),
             ),
             c if c.starts_with("input.") || c.starts_with("pointer.") => {
                 self.notify(ctx, c, args).await

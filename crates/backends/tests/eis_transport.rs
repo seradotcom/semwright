@@ -159,6 +159,10 @@ async fn real_eis_protocol_negotiates_and_sends_input() {
     }
 
     client.stop().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), client.wait_closed())
+        .await
+        .expect("EIS client should observe transport shutdown");
+    assert!(client.is_closed());
     thread.join().unwrap();
     let snapshot = seen.lock().unwrap();
     assert!(snapshot.iter().any(|v| v == "keysym:97"));

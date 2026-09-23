@@ -131,6 +131,20 @@ impl EisClient {
         *self.capabilities.borrow()
     }
 
+    #[must_use]
+    pub fn is_closed(&self) -> bool {
+        *self.closed.borrow()
+    }
+
+    pub async fn wait_closed(&self) {
+        let mut closed = self.closed.clone();
+        while !*closed.borrow() {
+            if closed.changed().await.is_err() {
+                break;
+            }
+        }
+    }
+
     pub async fn keysym(&self, keysym: u32) -> Result<()> {
         self.send(|reply| Command::KeySym(keysym, reply)).await
     }
