@@ -11,6 +11,7 @@ on:
       - "crates/driver-host/**"
       - "crates/plugin-host/**"
       - "fuzz/**"
+      - "scripts/dev/obs-driver-smoke.sh"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/obs-integration.yml"
@@ -21,6 +22,7 @@ on:
       - "crates/driver-host/**"
       - "crates/plugin-host/**"
       - "fuzz/**"
+      - "scripts/dev/obs-driver-smoke.sh"
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/obs-integration.yml"
@@ -83,6 +85,10 @@ jobs:
         run: |
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
           SEMWRIGHT_TEST_OBS=1 SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"             cargo test --locked -p semwright-driver-obs --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/obs-ci/host-conformance.log
+      - name: Broker, policy and CLI end-to-end against fake OBS
+        run: |
+          cargo build --locked             -p semwright-driver-obs --bin semwright-obs-driver             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-cli --bin computerctl             -p semwright-daemon --bin semwrightd
+          BIN_DIR=target/debug scripts/dev/obs-driver-smoke.sh 2>&1 | tee verification/obs-ci/broker-smoke.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -105,6 +111,7 @@ jobs:
       - run: cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
       - name: Bounded OBS fuzz smoke
         run: |
+          set -o pipefail
           mkdir -p verification/obs-fuzz-ci
           for target in obs_message obs_event obs_response obs_reference obs_bounded_json obs_capability_mapping; do
             cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=10 -timeout=3 -rss_limit_mb=1024 -max_len=8192 2>&1 | tee "verification/obs-fuzz-ci/$target.log"
@@ -140,14 +147,22 @@ jobs:
           if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
             sudo sysctl -w kernel.unprivileged_userns_clone=1
           fi
+          # The smoke deliberately uses /usr/bin/unshare to create a private
+          # user+network namespace before bubblewrap. The bwrap-specific AppArmor
+          # profile used elsewhere does not authorize unshare itself. GitHub-hosted
+          # runners are disposable; production Semwright never changes this sysctl.
           current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          namespace_setup=kernel-default
           if [ "$current_apparmor" = "1" ]; then
-            sudo apt-get install -y apparmor-profiles apparmor-utils
-            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
-            if ! ([ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict); then
-              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-            fi
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            namespace_setup=ephemeral-ci-unshare-relaxation
           fi
+          {
+            echo "namespace_setup=$namespace_setup"
+            echo "kernel.unprivileged_userns_clone=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)"
+            echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)"
+          } | tee verification/obs-real-ci/namespace-setup.log
+          unshare --user --map-root-user --net -- true
       - name: Build read-only OBS probe
         run: cargo build --locked -p semwright-driver-obs --bin obs-probe --release
       - name: Real isolated OBS WebSocket smoke
