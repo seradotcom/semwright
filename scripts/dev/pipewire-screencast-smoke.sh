@@ -52,7 +52,7 @@ if command -v wireplumber >/dev/null; then
   sleep 0.5
 fi
 
-gst-launch-1.0 -q   videotestsrc is-live=true pattern=smpte   ! video/x-raw,format=BGRA,width=64,height=48,framerate=30/1   ! pipewiresink >"$TMP/gstreamer.log" 2>&1 &
+gst-launch-1.0 -q   videotestsrc is-live=true pattern=smpte   ! video/x-raw,format=BGRA,width=64,height=48,framerate=30/1   ! pipewiresink mode=provide >"$TMP/gstreamer.log" 2>&1 &
 GST_PID=$!
 
 TARGET="$TMP/target.env"
