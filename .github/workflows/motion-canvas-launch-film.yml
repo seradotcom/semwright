@@ -1,6 +1,11 @@
 name: Motion Canvas launch film
 on:
   workflow_dispatch:
+  push:
+    branches: [feat/motion-canvas-driver]
+    paths:
+      - '.github/workflows/motion-canvas-launch-film.yml'
+      - 'demos/launch-film/.ci-trigger'
 permissions:
   contents: read
 concurrency:
