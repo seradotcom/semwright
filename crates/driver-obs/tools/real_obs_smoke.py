@@ -42,6 +42,18 @@ def loopback_port_open(port:int):
     except OSError:
         return False
 
+def safe_log_signals(path:pathlib.Path,limit:int=12288):
+    try:text=path.read_bytes().decode('utf-8','replace')
+    except OSError:return ''
+    text=text.replace(TEST_PASSWORD,'<redacted-fixture-password>')
+    needles=('error:', 'warning:', 'Startup complete', 'Loaded scenes', 'Switched to scene',
+             'Failed to', 'obs_module_', 'Config::Load', 'FrontendFinishedLoading',
+             'encoder', 'service')
+    lines=[line for line in text.splitlines() if any(n.lower() in line.lower() for n in needles)]
+    data='\n'.join(lines[-120:])
+    data=''.join(ch if ch in (chr(10),chr(13),chr(9)) or ord(ch)>=32 else '?' for ch in data)
+    return data[-limit:]
+
 def config_tree(root:pathlib.Path,port:int):
     # Keep HOME and XDG config roots unified. OBS core follows XDG_CONFIG_HOME,
     # while some bundled plugins resolve their config through the home-derived
@@ -153,6 +165,7 @@ def sandbox(probe:pathlib.Path):
                 olog.flush();xlog.flush()
                 report('OBS_DIAGNOSTIC',
                        websocket_port_open=loopback_port_open(port),
+                       obs_log_signals=safe_log_signals(root/'obs.log'),
                        obs_log_tail=safe_log_tail(root/'obs.log'),
                        xvfb_log_tail=safe_log_tail(root/'xvfb.log'))
                 raise RuntimeError('OBS WebSocket did not become ready')
