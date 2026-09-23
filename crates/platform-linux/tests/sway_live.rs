@@ -64,7 +64,7 @@ async fn real_sway_window_lifecycle_uses_native_ipc() {
         // A panic must not leave the GUI process holding the Actions tee pipe.
         .kill_on_drop(true)
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .args([
             "--entry",
             "--title=Semwright Sway Fixture",
@@ -72,6 +72,11 @@ async fn real_sway_window_lifecycle_uses_native_ipc() {
         ])
         .spawn()
         .expect("zenity fixture must start");
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    if let Some(status) = child.try_wait().expect("inspect zenity fixture status") {
+        panic!("zenity fixture exited before mapping a Wayland window: {status}");
+    }
 
     let (row, target) = wait_for_fixture(&backend, &ctx).await;
     assert_eq!(row["coordinate_space"], "compositor_logical");
