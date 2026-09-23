@@ -10,6 +10,7 @@ use tokio_util::sync::CancellationToken;
 fn context() -> Context {
     Context {
         session: "sway-live".into(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     }
 }
