@@ -3,6 +3,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -33,10 +34,18 @@ int main(int argc, char **argv) {
     window.resize(360, 160);
     window.show();
 
-    QAccessible::setRootObject(&app);
-    auto *root = QAccessible::queryAccessibleInterface(&app);
-    std::cerr << "qt_accessibility_active=" << (QAccessible::isActive() ? "true" : "false")
-              << " root_interface=" << (root != nullptr ? "present" : "missing") << std::endl;
+    // QApplication installs its accessibility root when the event loop starts. Diagnose
+    // after startup rather than forcing a root before the platform AT-SPI bridge initializes.
+    QTimer::singleShot(250, [&app, &window]() {
+        auto *app_root = QAccessible::queryAccessibleInterface(&app);
+        auto *window_root = QAccessible::queryAccessibleInterface(&window);
+        std::cerr << "qt_accessibility_active="
+                  << (QAccessible::isActive() ? "true" : "false")
+                  << " app_root=" << (app_root != nullptr ? "present" : "missing")
+                  << " window_root=" << (window_root != nullptr ? "present" : "missing")
+                  << " platform=" << QGuiApplication::platformName().toStdString()
+                  << std::endl;
+    });
 
     return app.exec();
 }
