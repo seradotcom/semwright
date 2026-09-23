@@ -1,0 +1,11 @@
+{
+  "op": 5,
+  "d": {
+    "eventType": "RecordStateChanged",
+    "eventIntent": 64,
+    "eventData": {
+      "outputState": "OBS_WEBSOCKET_OUTPUT_STARTED",
+      "outputActive": true
+    }
+  }
+}
