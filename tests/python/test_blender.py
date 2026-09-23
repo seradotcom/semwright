@@ -1,10 +1,7 @@
 """Actual Python add-on transport/dispatcher tests; not a live Blender certification."""
-import concurrent.futures
-import copy
 import json
 import os
 from pathlib import Path
-import queue
 import random
 import socket
 import stat

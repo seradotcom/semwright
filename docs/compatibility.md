@@ -4,6 +4,7 @@ This table separates implementation from evidence. A compile or cross-target che
 
 | Environment or route | Implementation boundary | Current evidence | Remaining |
 |---|---|---|---|
+| Rust toolchain | MSRV 1.88; development pin 1.98.1 | locked workspace CI on both policy points | raise MSRV only through an explicit reviewed change |
 | Linux portable/runtime core | Provider Runtime + platform boundary | workspace fmt/check/Clippy/tests/doctests/docs and source contract gates | live desktop matrix remains separate |
 | GNOME Wayland | AT-SPI + optional GJS bridge + portal | Rust/contract tests | real GNOME version/consent/window matrix |
 | Plasma Wayland | AT-SPI + KWin bridge + portal | Rust/contract tests | real KWin lifecycle matrix |

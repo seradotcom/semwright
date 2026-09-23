@@ -2,6 +2,7 @@
 name = "semwright-driver-obs"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 publish = false
 description = "Bounded OBS Studio 5.x driver over obs-websocket; Semwright stdio v1"
