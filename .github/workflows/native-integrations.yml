@@ -526,7 +526,8 @@ jobs:
               # disconnects. Ask the session bus for a fresh address immediately before Qt.
               qt_raw_address=$(gdbus call --session --dest org.a11y.Bus --object-path /org/a11y/bus \
                 --method org.a11y.Bus.GetAddress)
-              QT_AT_SPI_BUS_ADDRESS=$(printf "%s" "$qt_raw_address" | sed -E "s/^\('([^']+)',\)$/\1/")
+              QT_AT_SPI_BUS_ADDRESS=${qt_raw_address:2:${#qt_raw_address}-5}
+              [[ "$QT_AT_SPI_BUS_ADDRESS" == unix:* ]]
               test -n "$QT_AT_SPI_BUS_ADDRESS"
               printf "QT_AT_SPI_BUS_ADDRESS=%s\n" "$QT_AT_SPI_BUS_ADDRESS" \
                 | sed -E "s/guid=[^, ]+/guid=<redacted>/" \
