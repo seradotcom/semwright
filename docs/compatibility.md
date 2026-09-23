@@ -16,7 +16,8 @@ This table separates implementation from evidence. A compile or cross-target che
 | macOS ARM64 / Intel | `platform-macos[-sys]` + Swift/C Apple bridge | native hosted macOS CI on Apple Silicon and Intel plus both Darwin target checks | TCC/live interactive Mac acceptance |
 | macOS Accessibility/Input/Capture | AXUIElement / CoreGraphics / ScreenCaptureKit | source + platform-model tests only until native CI | real authorized interactive Mac |
 | macOS arbitrary drivers/plugins | platform launcher boundary | deliberately unavailable | prove supported isolation model before enabling |
-| Blender / LibreOffice / MLT / KiCad | first-party DriverProviders | repository-specific tests/integration gates | per-application live matrix varies |
+| Blender / LibreOffice / MLT / KiCad / OBS | first-party DriverProviders | repository-specific tests/integration gates | per-application live matrix varies |
+| Figma | official Plugin API via authenticated loopback DriverProvider bridge | typed/plugin/fake-host tests plus sandboxed host CI | authorized disposable real-Figma Design/FigJam/Motion acceptance |
 | Chromium | private-profile CDP adapter | real hosted browser integration on Linux development line | broader OS matrix |
 | Plugins | platform sandbox service | Linux bubblewrap/Landlock implementation and tests | adversarial/live sandbox matrix |
 | Windows | future platform host | no implementation claim | platform host + native Windows evidence |
