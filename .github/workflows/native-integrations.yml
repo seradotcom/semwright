@@ -67,7 +67,7 @@ jobs:
         run: |
           if ! command -v bwrap >/dev/null; then
             sudo apt-get update
-            sudo apt-get install -y bubblewrap
+            sudo apt-get install -y bubblewrap libpipewire-0.3-dev
           fi
           current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
           if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
@@ -167,7 +167,7 @@ jobs:
       - name: Install LibreOffice, pyuno and sandbox dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap fontconfig libreoffice-writer libreoffice-calc python3-uno unzip
+          sudo apt-get install -y bubblewrap fontconfig libreoffice-writer libreoffice-calc python3-uno unzip libpipewire-0.3-dev
           mkdir -p verification/native-ci
           soffice --version | tee verification/native-ci/libreoffice-version.log
           /usr/bin/python3 -c 'import uno; print("pyuno=ok")' | tee verification/native-ci/pyuno.log
@@ -249,7 +249,7 @@ jobs:
           BLENDER_SHA256: 9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap fontconfig xz-utils xvfb xauth
+          sudo apt-get install -y bubblewrap fontconfig xz-utils xvfb xauth libpipewire-0.3-dev
           curl --fail --location --retry 3 --output /tmp/blender.tar.xz "$BLENDER_URL"
           echo "$BLENDER_SHA256  /tmp/blender.tar.xz" | sha256sum --check -
           sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
@@ -379,7 +379,7 @@ jobs:
       - name: Install native driver dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap python3 melt ffmpeg
+          sudo apt-get install -y bubblewrap python3 melt ffmpeg libpipewire-0.3-dev
           mkdir -p verification/native-ci
           melt -version | head -5 | tee verification/native-ci/mlt-version.log
           ffprobe -version | head -3 | tee verification/native-ci/ffprobe-version.log
@@ -460,7 +460,7 @@ jobs:
       - name: Install isolated X11 server
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb xauth
+          sudo apt-get install -y xvfb xauth libpipewire-0.3-dev
           mkdir -p verification/native-ci
           Xvfb -version 2>&1 | head -20 | tee verification/native-ci/xvfb-version.log || true
       - name: Real X11 lifecycle and bounded backend
@@ -490,7 +490,7 @@ jobs:
       - name: Install isolated GTK accessibility fixture
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity libpipewire-0.3-dev
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-gtk"
           chmod 700 "$RUNNER_TEMP/atspi-gtk"
           zenity --version | tee verification/native-ci/zenity-version.log
@@ -521,7 +521,7 @@ jobs:
             python3-venv libegl1 libgl1 libx11-xcb1 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 \
-            libxkbcommon-x11-0 \
+            libxkbcommon-x11-0 libpipewire-0.3-dev \
             xvfb xauth x11-utils
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
           chmod 700 "$RUNNER_TEMP/atspi-qt"

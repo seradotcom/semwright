@@ -476,7 +476,7 @@ fn packed_png_pixels(frame: &CapturedFrame) -> Result<(png::ColorType, Vec<u8>)>
                 Vec::with_capacity(pixels.checked_mul(4).ok_or_else(|| {
                     Error::new(ErrorCode::ResourceExhausted, "PNG buffer overflow")
                 })?);
-            for pixel in frame.data.chunks_exact(4) {
+            for pixel in frame.data.as_chunks::<4>().0 {
                 match frame.format {
                     PixelFormat::Bgra => {
                         output.extend_from_slice(&[pixel[2], pixel[1], pixel[0], pixel[3]])
@@ -497,7 +497,7 @@ fn packed_png_pixels(frame: &CapturedFrame) -> Result<(png::ColorType, Vec<u8>)>
                 Vec::with_capacity(pixels.checked_mul(3).ok_or_else(|| {
                     Error::new(ErrorCode::ResourceExhausted, "PNG buffer overflow")
                 })?);
-            for pixel in frame.data.chunks_exact(3) {
+            for pixel in frame.data.as_chunks::<3>().0 {
                 output.extend_from_slice(&[pixel[2], pixel[1], pixel[0]]);
             }
             Ok((png::ColorType::Rgb, output))
@@ -564,7 +564,7 @@ mod tests {
     #[test]
     fn mapped_frame_bounds_fail_closed() {
         assert!(copy_mapped_frame(&[0; 8], 0, 8, 8, 2, 2, PixelFormat::Rgb).is_err());
-        assert!(copy_mapped_frame(&[0; 64], 60, 4, 0, 1, 1, PixelFormat::Rgba).is_err());
+        assert!(copy_mapped_frame(&[0; 64], 61, 4, 0, 1, 1, PixelFormat::Rgba).is_err());
         assert!(checked_frame_layout(MAX_DIMENSION + 1, 1, 0, PixelFormat::Rgba).is_err());
         assert!(checked_frame_layout(1, 1, -1, PixelFormat::Rgba).is_err());
     }

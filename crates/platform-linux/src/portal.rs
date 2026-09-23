@@ -556,7 +556,7 @@ impl Portal {
         let owned = guard.as_ref().is_some_and(|session| session.owner == owner);
         let streams = guard
             .as_ref()
-            .filter(|session| owned && active)
+            .filter(|_| owned && active)
             .map(|session| {
                 session
                     .streams
@@ -1464,5 +1464,38 @@ mod tests {
         let source = dir.path().join("not-image");
         std::fs::write(&source, b"not a screenshot").unwrap();
         assert!(copy_screenshot(&source, &dir.path().join("out")).is_err());
+    }
+
+    #[test]
+    fn screencast_streams_prefer_pipewire_serial_and_keep_mapping_metadata() {
+        let mut properties = Options::new();
+        properties.insert("pipewire-serial".into(), option(9001u64));
+        properties.insert("mapping_id".into(), option("display-1".to_owned()));
+        properties.insert("source_type".into(), option(1u32));
+        properties.insert("position".into(), option((10i32, 20i32)));
+        properties.insert("size".into(), option((1920i32, 1080i32)));
+        let mut results = Options::new();
+        results.insert("streams".into(), option(vec![(77u32, properties)]));
+        let streams = parse_screencast_streams(&results).unwrap();
+        assert_eq!(streams.len(), 1);
+        assert_eq!(streams[0].target, StreamTarget::Serial(9001));
+        assert_eq!(streams[0].mapping_id.as_deref(), Some("display-1"));
+        assert_eq!(streams[0].source_type, Some(1));
+        assert_eq!(streams[0].position, Some((10, 20)));
+        assert_eq!(streams[0].logical_size, Some((1920, 1080)));
+        assert!(streams[0].target.stable_identity());
+    }
+
+    #[test]
+    fn screencast_streams_fall_back_to_legacy_node_and_reject_empty_lists() {
+        let mut results = Options::new();
+        results.insert("streams".into(), option(vec![(42u32, Options::new())]));
+        let streams = parse_screencast_streams(&results).unwrap();
+        assert_eq!(streams[0].target, StreamTarget::LegacyNode(42));
+        assert!(!streams[0].target.stable_identity());
+
+        let mut empty = Options::new();
+        empty.insert("streams".into(), option(Vec::<(u32, Options)>::new()));
+        assert!(parse_screencast_streams(&empty).is_err());
     }
 }
