@@ -363,6 +363,21 @@ pub enum Portal {
 pub enum Screen {
     Capture,
     StreamInfo,
+    StreamStart {
+        #[arg(long, default_value = "any")]
+        source: String,
+        #[arg(long)]
+        multiple: bool,
+        #[arg(long, default_value = "embedded")]
+        cursor: String,
+    },
+    StreamCapture {
+        #[arg(long, default_value_t = 0)]
+        stream: usize,
+        #[arg(long, default_value_t = 5_000)]
+        timeout_ms: u64,
+    },
+    StreamStop,
 }
 #[derive(Subcommand, Debug)]
 pub enum Clipboard {
@@ -801,14 +816,23 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             Portal::Status => ("portal.status".into(), json!({})),
             Portal::RestoreClear => ("portal.restore.clear".into(), json!({})),
         },
-        Command::Screen { command } => (
-            match command {
-                Screen::Capture => "screen.capture",
-                Screen::StreamInfo => "screen.stream_info",
-            }
-            .into(),
-            json!({}),
-        ),
+        Command::Screen { command } => match command {
+            Screen::Capture => ("screen.capture".into(), json!({})),
+            Screen::StreamInfo => ("screen.stream_info".into(), json!({})),
+            Screen::StreamStart {
+                source,
+                multiple,
+                cursor,
+            } => (
+                "screen.stream.start".into(),
+                json!({"source":source,"multiple":multiple,"cursor":cursor}),
+            ),
+            Screen::StreamCapture { stream, timeout_ms } => (
+                "screen.stream.capture".into(),
+                json!({"stream":stream,"timeout_ms":timeout_ms}),
+            ),
+            Screen::StreamStop => ("screen.stream.stop".into(), json!({})),
+        },
         Command::Clipboard { command } => match command {
             Clipboard::Read => ("clipboard.read".into(), json!({})),
             Clipboard::Write { text } => ("clipboard.write".into(), json!({"text":text.value()?})),

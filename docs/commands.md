@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-87 built-in descriptors. A descriptor is not proof of live backend support.
+90 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -50,6 +50,9 @@ for many backends in this development handoff; strengthening them is a release g
 | `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal, macos |
 | `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal, macos |
 | `screen.stream_info` | `desktop.observe` | read_only | 10000 ms | portal |
+| `screen.stream.start` | `screen.capture` | secret_access | 120000 ms | portal |
+| `screen.stream.capture` | `screen.capture` | secret_access | 45000 ms | portal |
+| `screen.stream.stop` | `screen.capture` | mutating_reversible | 10000 ms | portal |
 | `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, portal, macos |
 | `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, portal, macos |
 | `process.list` | `process.observe` | read_only | 10000 ms | system |
@@ -1078,9 +1081,84 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `screen.stream_info`
 
-Describe portal ScreenCast support; this build does not decode PipeWire frames.
+Describe ScreenCast support and the owner session's active PipeWire streams.
 
 Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `screen.stream.start`
+
+Request a user-consented ScreenCast session for bounded PipeWire frame capture.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": [
+        "any",
+        "monitor",
+        "window"
+      ]
+    },
+    "multiple": {
+      "type": "boolean"
+    },
+    "cursor": {
+      "type": "string",
+      "enum": [
+        "hidden",
+        "embedded"
+      ]
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `screen.stream.capture`
+
+Capture one bounded frame from an active owner ScreenCast stream into a private PNG artifact.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "stream": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 30000
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `screen.stream.stop`
+
+Revoke and close this broker session's active ScreenCast grant.
+
+Idempotency: `idempotent`. Dry run: `true`.
 
 ```json
 {

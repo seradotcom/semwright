@@ -1,8 +1,9 @@
 //! XDG portal RemoteDesktop and Screenshot clients with native consent and RAII revocation.
 //! Prefers the portal's EIS transport when negotiated; Notify* remains the pre-EIS fallback.
-//! PipeWire pixel decoding is intentionally reported unavailable until implemented.
+//! ScreenCast PipeWire capture and RemoteDesktop clipboard/persistence remain separately consented.
 use crate::{
     eis::{EisClient, Requested as EisRequested},
+    pipewire_capture::{StreamTarget, capture_one, write_png_create_new},
     portal_state::{RestoreRecord, RestoreStatus, RestoreStore},
 };
 use async_trait::async_trait;
@@ -26,6 +27,7 @@ const DEST: &str = "org.freedesktop.portal.Desktop";
 const PATH: &str = "/org/freedesktop/portal/desktop";
 const REMOTE: &str = "org.freedesktop.portal.RemoteDesktop";
 const CLIPBOARD: &str = "org.freedesktop.portal.Clipboard";
+const SCREENCAST: &str = "org.freedesktop.portal.ScreenCast";
 type Options = HashMap<String, OwnedValue>;
 fn error<T>(r: zbus::Result<T>) -> Result<T> {
     r.map_err(|_| Error::new(ErrorCode::BackendFailed, "Portal D-Bus operation failed"))
@@ -113,6 +115,138 @@ impl Drop for Session {
         }
     }
 }
+
+#[derive(Clone, Debug)]
+struct ScreenCastStream {
+    node_id: u32,
+    target: StreamTarget,
+    mapping_id: Option<String>,
+    source_type: Option<u32>,
+    position: Option<(i32, i32)>,
+    logical_size: Option<(i32, i32)>,
+}
+impl ScreenCastStream {
+    fn value(&self, index: usize) -> Value {
+        let (target_kind, target_id) = match self.target {
+            StreamTarget::Serial(value) => ("pipewire_serial", value),
+            StreamTarget::LegacyNode(value) => ("legacy_node", u64::from(value)),
+        };
+        json!({
+            "index":index,
+            "node_id":self.node_id,
+            "target_kind":target_kind,
+            "target_id":target_id,
+            "stable_identity":self.target.stable_identity(),
+            "mapping_id":self.mapping_id,
+            "source_type":self.source_type,
+            "position":self.position,
+            "logical_size":self.logical_size
+        })
+    }
+}
+struct ScreenCastSession {
+    connection: Connection,
+    path: OwnedObjectPath,
+    owner: String,
+    streams: Vec<ScreenCastStream>,
+    armed: bool,
+    closed: Arc<std::sync::atomic::AtomicBool>,
+    watch: Option<tokio::task::JoinHandle<()>>,
+}
+impl Drop for ScreenCastSession {
+    fn drop(&mut self) {
+        if let Some(watch) = self.watch.take() {
+            watch.abort();
+        }
+        if self.armed {
+            let connection = self.connection.clone();
+            let path = self.path.clone();
+            if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                handle.spawn(async move {
+                    if let Ok(proxy) = Proxy::new(
+                        &connection,
+                        DEST,
+                        path.as_str(),
+                        "org.freedesktop.portal.Session",
+                    )
+                    .await
+                    {
+                        let _ = tokio::time::timeout(
+                            Duration::from_secs(2),
+                            proxy.call::<_, _, ()>("Close", &()),
+                        )
+                        .await;
+                    }
+                });
+            }
+        }
+    }
+}
+fn option_u64(options: &Options, key: &str) -> Option<u64> {
+    options
+        .get(key)?
+        .try_clone()
+        .ok()
+        .and_then(|value| u64::try_from(value).ok())
+}
+fn option_u32(options: &Options, key: &str) -> Option<u32> {
+    options
+        .get(key)?
+        .try_clone()
+        .ok()
+        .and_then(|value| u32::try_from(value).ok())
+}
+fn option_string(options: &Options, key: &str) -> Option<String> {
+    options
+        .get(key)?
+        .try_clone()
+        .ok()
+        .and_then(|value| String::try_from(value).ok())
+}
+fn option_pair_i32(options: &Options, key: &str) -> Option<(i32, i32)> {
+    options
+        .get(key)?
+        .try_clone()
+        .ok()
+        .and_then(|value| <(i32, i32)>::try_from(value).ok())
+}
+fn parse_screencast_streams(results: &Options) -> Result<Vec<ScreenCastStream>> {
+    let value = results
+        .get("streams")
+        .ok_or_else(|| Error::new(ErrorCode::BackendFailed, "ScreenCast omitted streams"))?
+        .try_clone()
+        .map_err(|_| Error::new(ErrorCode::BackendFailed, "Invalid ScreenCast streams value"))?;
+    let rows: Vec<(u32, Options)> = value.try_into().map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Invalid ScreenCast streams signature",
+        )
+    })?;
+    if rows.is_empty() || rows.len() > 16 {
+        return Err(Error::new(
+            ErrorCode::BackendFailed,
+            "ScreenCast returned an invalid stream count",
+        ));
+    }
+    rows.into_iter()
+        .map(|(node_id, properties)| {
+            let target = option_u64(&properties, "pipewire-serial")
+                .filter(|value| *value != 0)
+                .map(StreamTarget::Serial)
+                .unwrap_or(StreamTarget::LegacyNode(node_id))
+                .validate()?;
+            Ok(ScreenCastStream {
+                node_id,
+                target,
+                mapping_id: option_string(&properties, "mapping_id"),
+                source_type: option_u32(&properties, "source_type"),
+                position: option_pair_i32(&properties, "position"),
+                logical_size: option_pair_i32(&properties, "size")
+                    .or_else(|| option_pair_i32(&properties, "logical_size")),
+            })
+        })
+        .collect()
+}
 struct PendingRequest {
     connection: Connection,
     path: String,
@@ -162,6 +296,8 @@ pub struct Portal {
     connection: OnceCell<Connection>,
     session: Mutex<Option<Session>>,
     consent: Arc<Mutex<ConsentState>>,
+    screencast: Mutex<Option<ScreenCastSession>>,
+    screencast_consent: Arc<Mutex<ConsentState>>,
     artifacts: PathBuf,
     restore_store: RestoreStore,
     transient_restore: Mutex<Option<RestoreRecord>>,
@@ -174,6 +310,8 @@ impl Portal {
             connection: OnceCell::new(),
             session: Mutex::new(None),
             consent: Arc::new(Mutex::new(ConsentState::NotRequested)),
+            screencast: Mutex::new(None),
+            screencast_consent: Arc::new(Mutex::new(ConsentState::NotRequested)),
             artifacts,
             restore_store: RestoreStore::new(state)?,
             transient_restore: Mutex::new(None),
@@ -465,6 +603,371 @@ impl Portal {
             "bytes": text.len(),
             "lifetime": "portal_session",
             "backend_route": "portal"
+        }))
+    }
+
+    async fn start_screencast(&self, ctx: &Context, args: &Value) -> Result<Value> {
+        let mut guard = self.screencast.lock().await;
+        if guard
+            .as_ref()
+            .is_some_and(|session| session.closed.load(std::sync::atomic::Ordering::SeqCst))
+        {
+            guard.take();
+            *self.screencast_consent.lock().await = ConsentState::Expired;
+        }
+        if let Some(existing) = guard.as_ref() {
+            if existing.owner != ctx.session {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "ScreenCast is already bound to another broker session",
+                ));
+            }
+            return Ok(json!({
+                "consent":"granted",
+                "active":true,
+                "already_active":true,
+                "persistent":false,
+                "streams":existing.streams.iter().enumerate().map(|(index,stream)|stream.value(index)).collect::<Vec<_>>()
+            }));
+        }
+
+        let current = *self.screencast_consent.lock().await;
+        *self.screencast_consent.lock().await = transition(current, "request")?;
+        let mut pending = PendingConsent {
+            consent: self.screencast_consent.clone(),
+            armed: true,
+        };
+        let result = self.start_screencast_inner(ctx, args).await;
+        pending.armed = false;
+        match result {
+            Ok(session) => {
+                let streams = session
+                    .streams
+                    .iter()
+                    .enumerate()
+                    .map(|(index, stream)| stream.value(index))
+                    .collect::<Vec<_>>();
+                *guard = Some(session);
+                *self.screencast_consent.lock().await = ConsentState::Granted;
+                Ok(json!({
+                    "consent":"granted",
+                    "active":true,
+                    "already_active":false,
+                    "persistent":false,
+                    "streams":streams
+                }))
+            }
+            Err(error) => {
+                *self.screencast_consent.lock().await = ConsentState::Denied;
+                Err(error)
+            }
+        }
+    }
+
+    async fn start_screencast_inner(
+        &self,
+        ctx: &Context,
+        args: &Value,
+    ) -> Result<ScreenCastSession> {
+        let version = self.version(SCREENCAST).await;
+        if version == 0 {
+            return Err(Error::new(
+                ErrorCode::Unavailable,
+                "ScreenCast portal is unavailable",
+            ));
+        }
+        let proxy = self.proxy(SCREENCAST).await?;
+        let available_sources: u32 = error(proxy.get_property("AvailableSourceTypes").await)?;
+        let requested_sources = match args["source"].as_str().unwrap_or("any") {
+            "monitor" => 1,
+            "window" => 2,
+            "any" => 1 | 2,
+            _ => return Err(Error::invalid("Unknown ScreenCast source selector")),
+        };
+        let selected_sources = requested_sources & available_sources;
+        if selected_sources == 0 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Requested ScreenCast source type is unavailable",
+            ));
+        }
+        let multiple = args["multiple"].as_bool().unwrap_or(false);
+        let cursor_name = args["cursor"].as_str().unwrap_or("embedded");
+        let cursor_mode = match cursor_name {
+            "hidden" => 1,
+            "embedded" => 2,
+            _ => return Err(Error::invalid("Unsupported ScreenCast cursor mode")),
+        };
+        if version < 2 && cursor_name != "embedded" {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "This ScreenCast portal version cannot select cursor mode",
+            ));
+        }
+        if version >= 2 {
+            let available_cursor: u32 = error(proxy.get_property("AvailableCursorModes").await)?;
+            if available_cursor & cursor_mode == 0 {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Requested ScreenCast cursor mode is unavailable",
+                ));
+            }
+        }
+
+        let results = self
+            .request(ctx, SCREENCAST, "CreateSession", |mut options| {
+                options.insert(
+                    "session_handle_token".into(),
+                    option(format!("sw{}", uuid::Uuid::new_v4().simple())),
+                );
+                RequestBody::Options(options)
+            })
+            .await?;
+        let value = results.get("session_handle").ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "ScreenCast omitted session handle",
+            )
+        })?;
+        let raw = String::try_from(value.try_clone().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Invalid ScreenCast session handle",
+            )
+        })?)
+        .or_else(|_| {
+            value
+                .try_clone()
+                .and_then(OwnedObjectPath::try_from)
+                .map(|path| path.to_string())
+        })
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Invalid ScreenCast session handle type",
+            )
+        })?;
+        let path = OwnedObjectPath::try_from(raw)
+            .map_err(|_| Error::new(ErrorCode::BackendFailed, "Invalid ScreenCast session path"))?;
+
+        let closed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let session_proxy = error(
+            Proxy::new(
+                self.connection().await?,
+                DEST,
+                path.as_str(),
+                "org.freedesktop.portal.Session",
+            )
+            .await,
+        )?;
+        let mut closed_signals = error(session_proxy.receive_signal("Closed").await)?;
+        let closed_flag = closed.clone();
+        let consent = self.screencast_consent.clone();
+        let watch = tokio::spawn(async move {
+            let _ = closed_signals.next().await;
+            closed_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            *consent.lock().await = ConsentState::Expired;
+        });
+        let mut session = ScreenCastSession {
+            connection: self.connection().await?.clone(),
+            path: path.clone(),
+            owner: ctx.session.clone(),
+            streams: vec![],
+            armed: true,
+            closed,
+            watch: Some(watch),
+        };
+
+        self.request(ctx, SCREENCAST, "SelectSources", |mut options| {
+            options.insert("types".into(), option(selected_sources));
+            options.insert("multiple".into(), option(multiple));
+            if version >= 2 {
+                options.insert("cursor_mode".into(), option(cursor_mode));
+            }
+            RequestBody::Session(path.clone(), options)
+        })
+        .await?;
+        ctx.check_cancelled()?;
+        let results = self
+            .request(ctx, SCREENCAST, "Start", |options| {
+                RequestBody::Start(path.clone(), options)
+            })
+            .await?;
+        session.streams = parse_screencast_streams(&results)?;
+        Ok(session)
+    }
+
+    async fn stop_screencast(&self, owner: Option<&str>) -> Result<Value> {
+        let mut guard = self.screencast.lock().await;
+        if let Some(session) = guard.as_ref()
+            && owner.is_some_and(|candidate| candidate != session.owner)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Cannot close another broker session's ScreenCast grant",
+            ));
+        }
+        if let Some(mut session) = guard.take() {
+            let proxy = error(
+                Proxy::new(
+                    &session.connection,
+                    DEST,
+                    session.path.as_str(),
+                    "org.freedesktop.portal.Session",
+                )
+                .await,
+            )?;
+            error(proxy.call::<_, _, ()>("Close", &()).await)?;
+            session.armed = false;
+        }
+        *self.screencast_consent.lock().await = ConsentState::Expired;
+        Ok(json!({"active":false,"consent":"expired"}))
+    }
+
+    async fn screencast_info(&self, owner: &str) -> Value {
+        let version = self.version(SCREENCAST).await;
+        let (available_sources, available_cursor_modes) = match self.proxy(SCREENCAST).await {
+            Ok(proxy) if version > 0 => (
+                proxy
+                    .get_property::<u32>("AvailableSourceTypes")
+                    .await
+                    .unwrap_or(0),
+                if version >= 2 {
+                    proxy
+                        .get_property::<u32>("AvailableCursorModes")
+                        .await
+                        .unwrap_or(0)
+                } else {
+                    0
+                },
+            ),
+            _ => (0, 0),
+        };
+        let guard = self.screencast.lock().await;
+        let active = guard
+            .as_ref()
+            .is_some_and(|session| !session.closed.load(std::sync::atomic::Ordering::SeqCst));
+        let owned = guard.as_ref().is_some_and(|session| session.owner == owner);
+        let streams = guard
+            .as_ref()
+            .filter(|_| owned && active)
+            .map(|session| {
+                session
+                    .streams
+                    .iter()
+                    .enumerate()
+                    .map(|(index, stream)| stream.value(index))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        json!({
+            "screencast_version":version,
+            "pixel_stream":if version > 0 {"available"} else {"unavailable"},
+            "active":active,
+            "owned_by_session":owned,
+            "consent":*self.screencast_consent.lock().await,
+            "persistent_tokens":false,
+            "available_source_types":available_sources,
+            "available_cursor_modes":available_cursor_modes,
+            "streams":streams
+        })
+    }
+
+    async fn open_pipewire_remote(&self, path: &OwnedObjectPath) -> Result<std::os::fd::OwnedFd> {
+        let proxy = self.proxy(SCREENCAST).await?;
+        let options = Options::new();
+        let fd: ZOwnedFd = error(proxy.call("OpenPipeWireRemote", &(path, options)).await)?;
+        Ok(fd.into())
+    }
+
+    async fn capture_screencast_frame(&self, ctx: &Context, args: &Value) -> Result<Value> {
+        let index = args["stream"]
+            .as_u64()
+            .map(usize::try_from)
+            .transpose()
+            .map_err(|_| Error::invalid("ScreenCast stream index is too large"))?
+            .unwrap_or(0);
+        let timeout_ms = args["timeout_ms"].as_u64().unwrap_or(5_000);
+        if !(100..=30_000).contains(&timeout_ms) {
+            return Err(Error::invalid("PipeWire capture timeout is outside bounds"));
+        }
+        let (path, stream, closed) = {
+            let guard = self.screencast.lock().await;
+            let session = guard.as_ref().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::ConsentRequired,
+                    "Start a ScreenCast session before capturing frames",
+                )
+            })?;
+            if session.owner != ctx.session {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "ScreenCast belongs to another broker session",
+                ));
+            }
+            if session.closed.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err(Error::new(
+                    ErrorCode::ConsentRequired,
+                    "ScreenCast session was revoked or closed",
+                ));
+            }
+            let stream = session
+                .streams
+                .get(index)
+                .cloned()
+                .ok_or_else(|| Error::invalid("ScreenCast stream index is out of range"))?;
+            (session.path.clone(), stream, session.closed.clone())
+        };
+        ctx.check_cancelled()?;
+        let remote = self.open_pipewire_remote(&path).await?;
+        let destination = self
+            .artifacts
+            .join(format!("stream-{}.png", uuid::Uuid::new_v4().simple()));
+        let artifact = destination.clone();
+        let cancellation = ctx.cancellation.clone();
+        let target = stream.target;
+        let frame = tokio::task::spawn_blocking(move || -> Result<(u32, u32, String)> {
+            let frame = capture_one(
+                remote,
+                target,
+                Duration::from_millis(timeout_ms),
+                cancellation,
+            )?;
+            let format = match frame.format {
+                crate::pipewire_capture::PixelFormat::Rgba => "rgba",
+                crate::pipewire_capture::PixelFormat::Bgra => "bgra",
+                crate::pipewire_capture::PixelFormat::Rgbx => "rgbx",
+                crate::pipewire_capture::PixelFormat::Bgrx => "bgrx",
+                crate::pipewire_capture::PixelFormat::Rgb => "rgb",
+                crate::pipewire_capture::PixelFormat::Bgr => "bgr",
+            };
+            let dimensions = (frame.width, frame.height, format.to_owned());
+            write_png_create_new(&frame, &artifact)?;
+            Ok(dimensions)
+        })
+        .await
+        .map_err(|_| Error::new(ErrorCode::BackendFailed, "PipeWire capture worker failed"))??;
+        if closed.load(std::sync::atomic::Ordering::SeqCst) {
+            let _ = tokio::fs::remove_file(&destination).await;
+            return Err(Error::new(
+                ErrorCode::ConsentRequired,
+                "ScreenCast session closed during capture",
+            ));
+        }
+        let cleanup = destination.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(300)).await;
+            let _ = tokio::fs::remove_file(cleanup).await;
+        });
+        Ok(json!({
+            "artifact":destination,
+            "expires_in_seconds":300,
+            "mime_type":"image/png",
+            "width":frame.0,
+            "height":frame.1,
+            "source_format":frame.2,
+            "stream":stream.value(index),
+            "warning":"ScreenCast frames may contain sensitive content; image bytes are never audited"
         }))
     }
 
@@ -1245,6 +1748,9 @@ impl Backend for Portal {
                 | "pointer.scroll"
                 | "screen.capture"
                 | "screen.stream_info"
+                | "screen.stream.start"
+                | "screen.stream.capture"
+                | "screen.stream.stop"
         )
     }
     fn operation_feature(&self, command: &str) -> Option<String> {
@@ -1255,9 +1761,11 @@ impl Backend for Portal {
             match command {
                 "screen.capture" => "screen.capture",
                 "clipboard.read" | "clipboard.write" => "clipboard.portal",
-                "portal.status" | "portal.stop" | "portal.restore.clear" | "screen.stream_info" => {
-                    "portal.status"
-                }
+                "screen.stream_info"
+                | "screen.stream.start"
+                | "screen.stream.capture"
+                | "screen.stream.stop" => "screen.stream",
+                "portal.status" | "portal.stop" | "portal.restore.clear" => "portal.status",
                 _ => "input.consented",
             }
             .into(),
@@ -1267,6 +1775,7 @@ impl Backend for Portal {
         let remote = self.version(REMOTE).await;
         let screenshot = self.version("org.freedesktop.portal.Screenshot").await;
         let clipboard_version = self.version(CLIPBOARD).await;
+        let screencast = self.version(SCREENCAST).await;
         vec![
             Feature {
                 backend: self.name().into(),
@@ -1294,6 +1803,21 @@ impl Backend for Portal {
                     "Screenshot portal version {screenshot}; distinct from RemoteDesktop availability"
                 ),
                 remediation: "A user-facing screenshot chooser is required".into(),
+            },
+            Feature {
+                backend: self.name().into(),
+                capability: "screen.stream".into(),
+                status: if screencast > 0 {
+                    CapabilityStatus::SupportedWithConsent
+                } else {
+                    CapabilityStatus::Unavailable
+                },
+                reason: format!(
+                    "ScreenCast interface version {screencast}; pixel frames are decoded through the portal-restricted PipeWire remote"
+                ),
+                remediation:
+                    "Install a ScreenCast-capable portal backend and approve screen.stream.start"
+                        .into(),
             },
             Feature {
                 backend: self.name().into(),
@@ -1336,9 +1860,10 @@ impl Backend for Portal {
             "clipboard.read" => self.clipboard_read(ctx, args).await,
             "clipboard.write" => self.clipboard_write(ctx, args).await,
             "screen.capture" => self.capture(ctx).await,
-            "screen.stream_info" => Ok(
-                json!({"screencast_version":self.version("org.freedesktop.portal.ScreenCast").await,"pixel_stream":"unavailable","reason":"PipeWire frame decoding is not implemented; RemoteDesktop input transport is reported separately by portal.status"}),
-            ),
+            "screen.stream_info" => Ok(self.screencast_info(&ctx.session).await),
+            "screen.stream.start" => self.start_screencast(ctx, args).await,
+            "screen.stream.capture" => self.capture_screencast_frame(ctx, args).await,
+            "screen.stream.stop" => self.stop_screencast(Some(&ctx.session)).await,
             c if c.starts_with("input.") || c.starts_with("pointer.") => {
                 self.notify(ctx, c, args).await
             }
@@ -1346,6 +1871,7 @@ impl Backend for Portal {
         }
     }
     async fn shutdown(&self) -> Result<()> {
+        self.stop_screencast(None).await?;
         self.stop(None).await.map(|_| ())
     }
 }
@@ -1386,5 +1912,38 @@ mod tests {
         let source = dir.path().join("not-image");
         std::fs::write(&source, b"not a screenshot").unwrap();
         assert!(copy_screenshot(&source, &dir.path().join("out")).is_err());
+    }
+
+    #[test]
+    fn screencast_streams_prefer_pipewire_serial_and_keep_mapping_metadata() {
+        let mut properties = Options::new();
+        properties.insert("pipewire-serial".into(), option(9001u64));
+        properties.insert("mapping_id".into(), option("display-1".to_owned()));
+        properties.insert("source_type".into(), option(1u32));
+        properties.insert("position".into(), option((10i32, 20i32)));
+        properties.insert("size".into(), option((1920i32, 1080i32)));
+        let mut results = Options::new();
+        results.insert("streams".into(), option(vec![(77u32, properties)]));
+        let streams = parse_screencast_streams(&results).unwrap();
+        assert_eq!(streams.len(), 1);
+        assert_eq!(streams[0].target, StreamTarget::Serial(9001));
+        assert_eq!(streams[0].mapping_id.as_deref(), Some("display-1"));
+        assert_eq!(streams[0].source_type, Some(1));
+        assert_eq!(streams[0].position, Some((10, 20)));
+        assert_eq!(streams[0].logical_size, Some((1920, 1080)));
+        assert!(streams[0].target.stable_identity());
+    }
+
+    #[test]
+    fn screencast_streams_fall_back_to_legacy_node_and_reject_empty_lists() {
+        let mut results = Options::new();
+        results.insert("streams".into(), option(vec![(42u32, Options::new())]));
+        let streams = parse_screencast_streams(&results).unwrap();
+        assert_eq!(streams[0].target, StreamTarget::LegacyNode(42));
+        assert!(!streams[0].target.stable_identity());
+
+        let mut empty = Options::new();
+        empty.insert("streams".into(), option(Vec::<(u32, Options)>::new()));
+        assert!(parse_screencast_streams(&empty).is_err());
     }
 }

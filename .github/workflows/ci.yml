@@ -51,6 +51,10 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install Linux media development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
       # A genuine locked dependency graph is mandatory.
       - run: test -f Cargo.lock
       - run: cargo fmt --all -- --check
