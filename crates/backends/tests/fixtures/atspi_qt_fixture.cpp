@@ -10,8 +10,12 @@
 #include <iostream>
 
 int main(int argc, char **argv) {
-    QApplication app(argc, argv);
+    // Set the test-only accessibility policy before Qt creates its platform
+    // integration. The real backend never mutates another application's state.
+    qputenv("QT_ACCESSIBILITY", "1");
+    qputenv("QT_LINUX_ACCESSIBILITY_ALWAYS_ON", "1");
     QCoreApplication::setApplicationName("SemwrightQtFixture");
+    QApplication app(argc, argv);
     QApplication::setApplicationDisplayName("Semwright Qt AT-SPI Fixture");
 
     QWidget window;
@@ -34,8 +38,15 @@ int main(int argc, char **argv) {
     window.resize(360, 160);
     window.show();
 
-    // QApplication publishes its accessibility root when entering exec(). Keep the
-    // fixture on the same initialization path as a real Qt desktop application.
+    // Force creation of QXcbIntegration's accessibility bridge only in this
+    // conformance fixture. Qt exposes setActive/setRootObject as static accessibility
+    // hooks; production applications remain completely untouched by Semwright.
+    QAccessible::setActive(true);
+    QAccessible::setRootObject(&app);
+    QAccessibleEvent shown(&window, QAccessible::ObjectShow);
+    QAccessible::updateAccessibility(&shown);
+
+    // Keep the fixture on the same event-loop path as a real Qt desktop application.
     QTimer::singleShot(250, [&app, &window]() {
         auto *app_root = QAccessible::queryAccessibleInterface(&app);
         auto *window_root = QAccessible::queryAccessibleInterface(&window);
