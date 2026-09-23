@@ -170,15 +170,32 @@ impl Backend for FakeDesktop {
                 let limit = args["max_nodes"].as_u64().unwrap_or(200).min(2000) as usize;
                 let depth = args["max_depth"].as_u64().unwrap_or(5);
                 let actionable = args["actionable"].as_bool().unwrap_or(false);
+                let since_revision = args.get("since_revision").and_then(Value::as_u64);
+                if since_revision.is_some_and(|since| since > s.revision) {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Snapshot base revision is newer than fixture state",
+                    ));
+                }
                 let nodes:Vec<Value>=s.nodes.iter().filter(|n|depth>0||n.parent.is_none()).filter(|n|!actionable||!n.actions.is_empty()||n.role=="entry").take(limit).map(|n|json!({
+                    "node_id":format!("fixture:{}",n.id),
                     "ref":target_marker(Self::target("ui",&n.id,s.revision,&format!("{}:{}",n.role,n.name))),
                     "role":n.role,"name":n.name,"description":"Deterministic test fixture","states":["enabled","visible"],"actions":n.actions,
                     "app":"org.semwright.Fixture","parent_ref":n.parent.as_ref().map(|p|target_marker(Self::target("ui",p,s.revision,"frame:Fixture Editor"))),
                     "bounds":{"x":0,"y":0,"width":80,"height":24,"coordinate_space":"fixture_logical"},"children_count":s.nodes.iter().filter(|c|c.parent.as_deref()==Some(n.id.as_str())).count()
                 })).collect();
-                Ok(
-                    json!({"revision":s.revision,"partial":nodes.len()<s.nodes.len(),"nodes":nodes,"semantic_coverage":"fixture","budget":limit}),
-                )
+                let delta = since_revision == Some(s.revision);
+                Ok(json!({
+                    "revision":s.revision,
+                    "partial":nodes.len()<s.nodes.len(),
+                    "nodes":if delta {vec![]} else {nodes},
+                    "mode":if delta {"delta"} else {"full"},
+                    "base_revision":since_revision,
+                    "removed_node_ids":Vec::<String>::new(),
+                    "resync_required":since_revision.is_some()&&!delta,
+                    "semantic_coverage":"fixture",
+                    "budget":limit
+                }))
             }
             "window.focus" => {
                 s.focus = true;
@@ -316,5 +333,64 @@ impl Backend for FakeDesktop {
                 .lock()
                 .map_err(|_| Error::new(ErrorCode::Internal, "Fake state poisoned"))?
                 .focus)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn context() -> Context {
+        Context {
+            session: "fake-delta-test".into(),
+            cancellation: tokio_util::sync::CancellationToken::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn snapshot_delta_contract_is_conservative() {
+        let backend = FakeDesktop::new();
+        let first = backend
+            .execute(&context(), "ui.snapshot", &json!({}))
+            .await
+            .unwrap();
+        let revision = first["revision"].as_u64().unwrap();
+        assert_eq!(first["mode"], "full");
+        assert_eq!(first["resync_required"], false);
+        assert!(first["nodes"][0]["node_id"].as_str().is_some());
+
+        let unchanged = backend
+            .execute(
+                &context(),
+                "ui.snapshot",
+                &json!({"since_revision":revision}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unchanged["mode"], "delta");
+        assert_eq!(unchanged["nodes"].as_array().unwrap().len(), 0);
+        assert_eq!(unchanged["resync_required"], false);
+
+        backend.disappear("save1");
+        let resync = backend
+            .execute(
+                &context(),
+                "ui.snapshot",
+                &json!({"since_revision":revision}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resync["mode"], "full");
+        assert_eq!(resync["resync_required"], true);
+
+        let future = backend
+            .execute(
+                &context(),
+                "ui.snapshot",
+                &json!({"since_revision":u64::MAX}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(future.code, ErrorCode::Conflict);
     }
 }

@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Disposable Qt accessibility fixture for hosted AT-SPI conformance."""
+import sys
+
+from PyQt6.QtCore import QLibraryInfo, QTimer, QT_VERSION_STR
+from PyQt6.QtWidgets import (
+    QApplication,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+
+app = QApplication(sys.argv)
+app.setApplicationName("SemwrightQtFixture")
+app.setApplicationDisplayName("Semwright Qt AT-SPI Fixture")
+
+window = QWidget()
+window.setWindowTitle("Semwright Qt AT-SPI Fixture")
+window.setAccessibleName("Semwright Qt AT-SPI Fixture")
+
+layout = QVBoxLayout(window)
+label = QLabel("Disposable accessibility fixture")
+entry = QLineEdit()
+entry.setAccessibleName("Semwright editable entry")
+entry.setAccessibleDescription(
+    "Editable field used by the Semwright AT-SPI conformance test"
+)
+entry.setPlaceholderText("Type here")
+button = QPushButton("Close")
+button.clicked.connect(window.close)
+
+layout.addWidget(label)
+layout.addWidget(entry)
+layout.addWidget(button)
+window.resize(360, 160)
+window.show()
+
+
+def report_ready() -> None:
+    print(
+        "qt_fixture_ready"
+        f" qt={QT_VERSION_STR}"
+        f" plugins={QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath)}",
+        flush=True,
+    )
+
+
+QTimer.singleShot(250, report_ready)
+raise SystemExit(app.exec())

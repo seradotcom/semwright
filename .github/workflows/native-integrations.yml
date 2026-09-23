@@ -471,3 +471,105 @@ jobs:
           name: real-x11-backend-evidence
           path: verification/native-ci
           retention-days: 14
+
+  atspi-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: atspi-gtk-backend
+      - name: Install isolated GTK accessibility fixture
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity
+          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-gtk"
+          chmod 700 "$RUNNER_TEMP/atspi-gtk"
+          zenity --version | tee verification/native-ci/zenity-version.log
+          dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
+      - name: Real GTK AT-SPI delta, structural resync and stale-reference lifecycle
+        env:
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/atspi-gtk
+          XDG_SESSION_TYPE: x11
+          SEMWRIGHT_TEST_ATSPI: "1"
+        run: scripts/dev/atspi-live-ci.sh gtk
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: real-atspi-gtk-evidence
+          path: verification/native-ci
+          retention-days: 14
+
+  atspi-qt-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install maintained Qt accessibility runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            at-spi2-core dbus-x11 file \
+            python3-venv libegl1 libgl1 libx11-xcb1 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 \
+            libxkbcommon-x11-0 \
+            xvfb xauth x11-utils
+          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
+          chmod 700 "$RUNNER_TEMP/atspi-qt"
+          python3 -m venv "$RUNNER_TEMP/qt-venv"
+          "$RUNNER_TEMP/qt-venv/bin/pip" install \
+            --disable-pip-version-check --no-cache-dir \
+            "PyQt6==6.11.0" "PyQt6-Qt6==6.11.2" "PyQt6-sip==13.12.0"
+          "$RUNNER_TEMP/qt-venv/bin/python" - <<'PY' | tee verification/native-ci/qt-version.log
+          from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
+          print(f"PyQt6={PYQT_VERSION_STR}")
+          print(f"Qt6={QT_VERSION_STR}")
+          PY
+          qt_xcb=$(find "$RUNNER_TEMP/qt-venv" -path '*/PyQt6/Qt6/plugins/platforms/libqxcb.so' -print -quit)
+          test -f "$qt_xcb"
+          ldd "$qt_xcb" | tee verification/native-ci/qt-xcb-ldd.log
+          ! grep -q 'not found' verification/native-ci/qt-xcb-ldd.log
+          dpkg-query -W -f='${binary:Package}=${Version}\n' \
+            at-spi2-core libxcb-cursor0 libxkbcommon-x11-0 \
+            | tee verification/native-ci/atspi-qt-packages.log
+          cat > "$RUNNER_TEMP/atspi-qt-fixture" <<EOF
+          #!/usr/bin/env bash
+          exec "$RUNNER_TEMP/qt-venv/bin/python" \
+            "$GITHUB_WORKSPACE/crates/platform-linux/tests/fixtures/atspi_qt_fixture.py" "\$@"
+          EOF
+          chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
+          file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Real Qt AT-SPI delta, structural resync and stale-reference lifecycle
+        env:
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/atspi-qt
+          XDG_SESSION_TYPE: x11
+          SEMWRIGHT_TEST_ATSPI: "1"
+          SEMWRIGHT_TEST_QT_FIXTURE: ${{ runner.temp }}/atspi-qt-fixture
+          SEMWRIGHT_TEST_QT_PLATFORM: xcb
+        run: |
+          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp > verification/native-ci/xvfb-qt.log 2>&1 &
+          xvfb_pid=$!
+          trap 'kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true' EXIT
+          export DISPLAY=:99
+          for _ in $(seq 1 100); do
+            if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 0.05
+          done
+          xdpyinfo -display "$DISPLAY" >/dev/null
+          SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- scripts/dev/atspi-live-ci.sh qt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: real-atspi-qt-evidence
+          path: verification/native-ci
+          retention-days: 14
