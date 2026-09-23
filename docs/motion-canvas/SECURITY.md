@@ -8,6 +8,8 @@ Agent input is untrusted semantic data. Driver Protocol descriptors are strict, 
 
 The Driver Host is the execution boundary. Production rendering requires Bubblewrap + Landlock, named owner grants, a pinned driver ELF, `network=false` and bounded process/file/CPU/address-space resources. There is no unsandboxed fallback.
 
+Ubuntu 24.04 additionally restricts unprivileged user namespaces through AppArmor. CI loads the distro `bwrap-userns-restrict` profile specifically for `/usr/bin/bwrap`; it does not disable `kernel.apparmor_restrict_unprivileged_userns` system-wide. This lets Bubblewrap create the isolated namespaces it needs while preserving Ubuntu's global user-namespace mitigation for unrelated processes.
+
 The Motion runtime is an explicit read-only owner grant. Node, renderer helper and Chromium are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
 
 ## Files and assets

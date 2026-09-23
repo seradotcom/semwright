@@ -13,7 +13,7 @@
 | TypeScript | 5.9.3 |
 | Fonts | Instrument Sans Variable 5.3.0; IBM Plex Mono 5.3.0 |
 
-Linux is the live rendering/conformance target. The production path uses the repository Driver Host Bubblewrap + Landlock sandbox and a pinned Chromium supplied by the owner-approved runtime mount.
+Linux is the live rendering/conformance target. The production path uses the repository Driver Host Bubblewrap + Landlock sandbox and a pinned Chromium supplied by the owner-approved runtime mount. On Ubuntu 24.04, Bubblewrap also needs an AppArmor user-namespace profile; CI enables the distro `bwrap-userns-restrict` profile rather than switching off the system-wide user-namespace restriction.
 
 The Rust semantic/compiler logic is designed to remain portable and does not introduce an ELF assumption itself; the currently certified live Driver Host sandbox path is Linux. macOS compilation/regression is inherited from repository platform CI where applicable, but this branch does not claim a macOS live Motion Canvas render certification.
 
