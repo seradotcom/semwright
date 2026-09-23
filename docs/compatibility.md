@@ -1,27 +1,23 @@
 # Compatibility and verification levels
 
-The columns distinguish delivered source from execution evidence. **None of the Rust
-backends is “compiled only”: compilation itself did not run.** Runtime doctor statuses
-are reachability/capability observations, not a replacement for this evidence table.
+This table separates implementation from evidence. A compile or cross-target check is not a live desktop certificate.
 
-| Environment or route | Implementation boundary | Verified here | Remaining |
+| Environment or route | Implementation boundary | Current evidence | Remaining |
 |---|---|---|---|
-| GNOME Wayland | AT-SPI + optional GJS bridge + portal Notify/Screenshot | Shared JS contract, syntax only | Compile Rust; real GNOME version/consent/window tests |
-| Plasma Wayland | AT-SPI + KWin script/mailbox + portal | Shared JS contract, syntax only | Compile Rust; real KWin asynchronous lifecycle tests |
-| Sway / i3-style IPC | Typed native socket commands/tree | Rust test sources only | Live Sway IPC, identity, workspace/focus tests |
-| Hyprland | Native JSON socket / dispatch | Rust test sources only | Live version-specific IPC and restart tests |
-| Native X11 | EWMH + explicit XTEST fallback | No Rust/Xvfb route executed | Bound synchronous I/O; lifecycle identity; real WM/XTEST tests |
-| AT-SPI | Dedicated accessibility bus; bounded tree and semantic actions | Rust normalization/selector test sources | Private bus + GTK/Qt app tests, live event invalidation |
-| Portal | Native Notify input + interactive Screenshot | Rust state/URI test sources | Consent, cancellation, session revocation on actual desktop |
-| Blender | Python typed host; Rust Unix client | Python fake-bpy/host tests | Live bpy, Blender background and GUI, Rust client |
-| Chromium | Broker-launched private profile + CDP | Separate live Python CDP contract probe | Rust adapter and broker path, quotas/crash cleanup |
-| Plugins | Bubblewrap + Landlock isolated ELF process | No sandbox execution | Negative tests on real kernels/user namespaces |
-| x86_64 | Workspace and packaging definitions | Python/JS/C ran in x86_64 sandbox | Rust clean build and release install |
-| aarch64 | Native CI runner/package definition | Not run | Resolve dependencies, compile, run, package |
-| Nix | Guarded package expression | Text source only | Lockfile, evaluation, build; no flake lock |
+| Linux portable/runtime core | Provider Runtime + platform boundary | workspace fmt/check/Clippy/tests/doctests/docs and source contract gates | live desktop matrix remains separate |
+| GNOME Wayland | AT-SPI + optional GJS bridge + portal | Rust/contract tests | real GNOME version/consent/window matrix |
+| Plasma Wayland | AT-SPI + KWin bridge + portal | Rust/contract tests | real KWin lifecycle matrix |
+| Sway / i3-style IPC | typed native socket commands/tree | Rust tests | live Sway identity/workspace/focus |
+| Hyprland | native JSON socket / dispatch | Rust tests | live version-specific IPC/restart |
+| Native X11 | EWMH + explicit XTEST fallback | bounded/lifecycle Rust tests; dedicated live test is opt-in | isolated Xvfb/WM execution in exact integration SHA |
+| AT-SPI | dedicated accessibility bus | normalization/selector/lifecycle source + tests | GTK/Qt private-bus and live event-loss testing |
+| Portal | portal provider | lifecycle/state tests | live consent/revocation and complete EIS/PipeWire evidence |
+| macOS ARM64 / Intel | `platform-macos[-sys]` + Swift/C Apple bridge | portable Rust crates cross-check for both Darwin targets | native Apple-SDK CI; TCC/live Mac acceptance |
+| macOS Accessibility/Input/Capture | AXUIElement / CoreGraphics / ScreenCaptureKit | source + platform-model tests only until native CI | real authorized interactive Mac |
+| macOS arbitrary drivers/plugins | platform launcher boundary | deliberately unavailable | prove supported isolation model before enabling |
+| Blender / LibreOffice / MLT / KiCad | first-party DriverProviders | repository-specific tests/integration gates | per-application live matrix varies |
+| Chromium | private-profile CDP adapter | real hosted browser integration on Linux development line | broader OS matrix |
+| Plugins | platform sandbox service | Linux bubblewrap/Landlock implementation and tests | adversarial/live sandbox matrix |
+| Windows | future platform host | no implementation claim | platform host + native Windows evidence |
 
-Bridge manifests list candidate GNOME API versions 46–49, not a tested support guarantee.
-Do not broaden that list for newer versions without testing. COSMIC, Windows and macOS
-have no backend here. No low-level uinput/root helper is implemented. Chromium downloads
-are disabled by default. Browser navigation defaults to `about:blank` until origins are
-explicitly granted. This source is not a universal “works on Wayland” implementation.
+Bridge manifests and source availability are not support guarantees. macOS support must not be announced solely from Linux cross-compilation or hosted noninteractive tests. Windows is a future host, not an implemented fallback.

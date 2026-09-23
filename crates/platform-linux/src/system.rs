@@ -1,8 +1,8 @@
 //! Native small system surface. No arbitrary executable/argv supplied by the agent.
 use async_trait::async_trait;
 use semwright_backend_api::{Backend, Context, feature};
+pub use semwright_platform_common::Application;
 use semwright_types::*;
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -10,7 +10,6 @@ use std::{
         fd::{AsRawFd, FromRawFd, OwnedFd},
         unix::fs::MetadataExt,
     },
-    path::PathBuf,
     process::Stdio,
 };
 use tokio::{
@@ -21,14 +20,6 @@ use zbus::{
     Connection, Proxy,
     zvariant::{OwnedObjectPath, OwnedValue},
 };
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Application {
-    pub executable: PathBuf,
-    #[serde(default)]
-    pub args: Vec<String>,
-    pub cwd: Option<PathBuf>,
-}
 struct Process {
     child: Child,
     pidfd: OwnedFd,
