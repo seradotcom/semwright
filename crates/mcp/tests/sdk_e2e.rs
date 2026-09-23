@@ -1,7 +1,11 @@
 //! Real official-SDK client -> stdio MCP binary -> Unix IPC -> broker -> fake desktop.
 use rmcp::{
     ClientLifecycleMode, ClientServiceExt, ServiceExt,
-    model::{CallToolRequestParams, ClientConfig, ProtocolVersion},
+    model::{
+        CallToolRequestParams, CallToolResponse, CancelTaskParams, ClientCapabilities,
+        ClientConfig, GetTaskParams, Implementation, ProtocolVersion, TaskPayload, TaskStatus,
+        UpdateTaskParams,
+    },
 };
 use semwright_backends::fake::FakeDesktop;
 use semwright_core::{Broker, NoApprover, audit::Audit};
@@ -56,15 +60,18 @@ async fn exercise(discover: bool, profile: Profile) {
         .unwrap();
     let transport = (child.stdout.take().unwrap(), child.stdin.take().unwrap());
     let client = if discover {
-        ClientConfig::default()
-            .serve_with_lifecycle(
-                transport,
-                ClientLifecycleMode::Discover {
-                    preferred_versions: vec![ProtocolVersion::V_2026_07_28],
-                },
-            )
-            .await
-            .unwrap()
+        ClientConfig::new(
+            ClientCapabilities::builder().enable_tasks().build(),
+            Implementation::new("semwright-sdk-task-test", "1"),
+        )
+        .serve_with_lifecycle(
+            transport,
+            ClientLifecycleMode::Discover {
+                preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+            },
+        )
+        .await
+        .unwrap()
     } else {
         ClientConfig::default().serve(transport).await.unwrap()
     };
@@ -91,6 +98,70 @@ async fn exercise(discover: bool, profile: Profile) {
         .await
         .unwrap();
     assert_eq!(doctor.structured_content.unwrap()["data"]["fake"], true);
+
+    let task_args = json!({"command":"app.list","args":{}});
+    if discover {
+        let task = client
+            .call_tool(
+                CallToolRequestParams::new("semwright_execute_task")
+                    .with_arguments(task_args.as_object().unwrap().clone()),
+            )
+            .await
+            .unwrap();
+        let created = match task {
+            CallToolResponse::Task(created) => created,
+            other => panic!("expected MCP task handle, got {other:?}"),
+        };
+        let task_id = created.task.task_id.clone();
+        assert_eq!(created.task.status, TaskStatus::Working);
+        let terminal = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let current = client
+                    .get_task(GetTaskParams::new(task_id.clone()))
+                    .await
+                    .unwrap();
+                if current.task.status().is_terminal() {
+                    break current;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(terminal.task.status(), TaskStatus::Completed);
+        let TaskPayload::Completed { result } = terminal.task.payload else {
+            panic!("completed Semwright task must carry a tool result");
+        };
+        assert_eq!(
+            result
+                .get("structuredContent")
+                .and_then(|value| value.get("ok")),
+            Some(&json!(true))
+        );
+        client
+            .cancel_task(CancelTaskParams::new(task_id.clone()))
+            .await
+            .unwrap();
+        assert!(
+            client
+                .update_task(UpdateTaskParams::new(task_id, Default::default()))
+                .await
+                .is_err(),
+            "Semwright never advertises input_required without an outstanding request"
+        );
+    } else {
+        assert!(
+            client
+                .call_tool(
+                    CallToolRequestParams::new("semwright_execute_task")
+                        .with_arguments(task_args.as_object().unwrap().clone()),
+                )
+                .await
+                .is_err(),
+            "legacy client must not create an orphan broker job"
+        );
+    }
+
     let find = client
         .call_tool(
             CallToolRequestParams::new("semwright_find").with_arguments(

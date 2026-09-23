@@ -87,7 +87,7 @@ other commits and local archives is not part of this acceptance decision.
 | A046 | MCP using official Rust SDK. | PASS | MCP uses the official Rust SDK; real SDK client E2E covers initialization, discovery, execution and read-only policy. |
 | A047 | TUI/inspector or equivalent high-quality debugging surface. | PASS | semwright-inspect is a read-only seven-pane broker-backed TUI with filtering, refresh, audit/policy/UI views and terminal-injection escaping tests. |
 | A048 | MCP does not bypass policy. | PASS | Official-client MCP integration and broker tests prove MCP requests traverse normal policy and cannot self-approve. |
-| A049 | MCP tool discovery/context-control strategy. | PASS | Eight discovery/gateway tools are documented and exercised by server/client integration tests. |
+| A049 | MCP tool discovery/context-control strategy. | PASS | The bounded discovery/gateway surface is documented and exercised by official-SDK server/client integration tests; application commands remain behind search/describe/execute rather than static tool expansion. |
 
 ## Extensibility
 
