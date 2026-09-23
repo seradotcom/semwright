@@ -49,7 +49,13 @@ def safe_log_signals(path:pathlib.Path,limit:int=12288):
     needles=('error:', 'warning:', 'Startup complete', 'Loaded scenes', 'Switched to scene',
              'Failed to', 'obs_module_', 'Config::Load', 'FrontendFinishedLoading',
              'encoder', 'service')
-    lines=[line for line in text.splitlines() if any(n.lower() in line.lower() for n in needles)]
+    selected=[line for line in text.splitlines() if any(n.lower() in line.lower() for n in needles)]
+    lines=[];seen=set()
+    for line in selected:
+        key=line.split('] ',1)[-1] if line.startswith('[') and '] ' in line else line
+        if key in seen:
+            continue
+        seen.add(key);lines.append(line)
     data='\n'.join(lines[-120:])
     data=''.join(ch if ch in (chr(10),chr(13),chr(9)) or ord(ch)>=32 else '?' for ch in data)
     return data[-limit:]
