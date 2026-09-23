@@ -3,7 +3,10 @@
 //! This is semantic capability information, not a permission decision. Policy,
 //! consent and backend-specific preconditions remain outside this type.
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MutationSupport {
     /// The backend can preserve its native project representation safely.
     SafeRoundtrip,

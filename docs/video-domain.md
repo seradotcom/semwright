@@ -41,6 +41,22 @@ keyframes, markers and audio volume/fades.
 These are semantic operations. A concrete driver remains free to expose additional native
 read-only information or application-specific capabilities.
 
+## Backend capability snapshots
+
+Every concrete video backend must classify all shared mutation operations explicitly through
+`BackendCapabilities`. A snapshot is tied to `MODEL_VERSION` and contains one
+`MutationSupport` value for every operation in `SEMANTIC_OPERATIONS`; missing and unknown
+entries fail validation.
+
+This is intentionally stricter than a sparse feature list. When the shared domain gains an
+operation, existing backends must make an explicit compatibility decision instead of silently
+appearing to support it. Backends may advertise only guarantees they actually enforce, such as
+optimistic concurrency, differential semantic conformance and native round-trip validation.
+
+The MLT backend derives this snapshot from its real project adapter on every project, so
+Kdenlive/Shotcut/native-MLT graph restrictions remain visible without leaking those formats
+into the shared domain.
+
 ## Native envelope rule
 
 A backend may need much richer state to preserve a document exactly. That state stays in the

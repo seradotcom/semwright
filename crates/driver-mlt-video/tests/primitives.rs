@@ -1,3 +1,5 @@
+mod common;
+
 use semwright_mlt_video::{
     hash::{self, Sha256},
     json::{self, Value},
@@ -324,5 +326,33 @@ fn reference_decode_length_and_alphabet() {
         "video:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     ] {
         assert!(RefStore::decode(s).is_err());
+    }
+}
+
+#[test]
+fn mlt_exports_complete_backend_capability_snapshot() {
+    use semwright_video_domain::capabilities::{BackendGuarantee, SEMANTIC_OPERATIONS};
+
+    let project = common::sample();
+    let capabilities = semwright_mlt_video::domain::capabilities(&project).unwrap();
+    assert_eq!(capabilities.operations.len(), SEMANTIC_OPERATIONS.len());
+    assert!(
+        capabilities
+            .guarantees
+            .contains(&BackendGuarantee::DifferentialSemanticConformance)
+    );
+    assert!(
+        capabilities
+            .guarantees
+            .contains(&BackendGuarantee::NativeRoundtripValidation)
+    );
+
+    let adapter = semwright_mlt_video::adapters::adapter(project.format);
+    for operation in SEMANTIC_OPERATIONS {
+        assert_eq!(
+            capabilities.support(operation).unwrap(),
+            adapter.supported_mutation(&project, operation),
+            "support drift for {operation}"
+        );
     }
 }

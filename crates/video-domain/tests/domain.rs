@@ -1,4 +1,5 @@
 use semwright_video_domain::{
+    capabilities::{BackendCapabilities, BackendGuarantee, SEMANTIC_OPERATIONS},
     edit::{self, Edit},
     model::{
         Clip, Editability, Effect, Interpolation, Keyframe, MediaAsset, Profile, Project, Resource,
@@ -383,4 +384,62 @@ fn shared_conformance_rejects_backend_semantic_drift() {
     )
     .unwrap_err();
     assert_eq!(error.code, "BackendFailed");
+}
+
+#[test]
+fn backend_capabilities_are_exhaustive_versioned_and_serializable() {
+    let capabilities = BackendCapabilities::from_supports(
+        "fixture/backend",
+        [
+            BackendGuarantee::OptimisticConcurrency,
+            BackendGuarantee::DifferentialSemanticConformance,
+        ],
+        |operation| {
+            if operation == "clip.insert" {
+                MutationSupport::SafeRoundtrip
+            } else {
+                MutationSupport::Unsupported
+            }
+        },
+    )
+    .unwrap();
+
+    assert_eq!(capabilities.operations.len(), SEMANTIC_OPERATIONS.len());
+    assert_eq!(
+        capabilities.support("clip.insert").unwrap(),
+        MutationSupport::SafeRoundtrip
+    );
+    assert_eq!(
+        capabilities.support("transition.add").unwrap(),
+        MutationSupport::Unsupported
+    );
+    assert!(
+        capabilities
+            .guarantees
+            .contains(&BackendGuarantee::OptimisticConcurrency)
+    );
+
+    let encoded = serde_json::to_vec(&capabilities).unwrap();
+    let decoded: BackendCapabilities = serde_json::from_slice(&encoded).unwrap();
+    assert_eq!(decoded, capabilities);
+    decoded.validate().unwrap();
+}
+
+#[test]
+fn backend_capability_snapshot_fails_closed_when_incomplete_or_unknown() {
+    let mut capabilities = BackendCapabilities::unsupported("fixture").unwrap();
+    capabilities.operations.remove("clip.insert");
+    assert_eq!(capabilities.validate().unwrap_err().code, "BackendFailed");
+
+    let mut capabilities = BackendCapabilities::unsupported("fixture").unwrap();
+    capabilities
+        .operations
+        .insert("vendor.magic".into(), MutationSupport::SafeRoundtrip);
+    assert_eq!(capabilities.validate().unwrap_err().code, "BackendFailed");
+
+    let capabilities = BackendCapabilities::unsupported("fixture").unwrap();
+    assert_eq!(
+        capabilities.support("vendor.magic").unwrap_err().code,
+        "Unsupported"
+    );
 }

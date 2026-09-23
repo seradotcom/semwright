@@ -3,8 +3,26 @@
 //! XML/MLT details stop at this boundary. Native structures that cannot be
 //! edited semantically project as read-only objects.
 
-use crate::{edit as mlt_edit, model as mlt};
-use semwright_video_domain::{edit as video_edit, model as video};
+use crate::{adapters, edit as mlt_edit, model as mlt};
+use semwright_video_domain::{
+    capabilities::{BackendCapabilities, BackendGuarantee},
+    edit as video_edit, model as video,
+};
+
+pub fn capabilities(v: &mlt::Project) -> semwright_video_domain::Result<BackendCapabilities> {
+    let adapter = adapters::adapter(v.format);
+    let backend = format!("mlt/{}", adapter.name());
+    BackendCapabilities::from_supports(
+        backend,
+        [
+            BackendGuarantee::OptimisticConcurrency,
+            BackendGuarantee::DifferentialSemanticConformance,
+            BackendGuarantee::NativeRoundtripValidation,
+            BackendGuarantee::DeterministicSemanticIdentity,
+        ],
+        |operation| adapter.supported_mutation(v, operation),
+    )
+}
 
 fn access(read_only: bool, reason: &str) -> video::Editability {
     if read_only {

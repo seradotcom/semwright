@@ -94,6 +94,9 @@ something that looks safely editable.
 This is capability information, **not authority**. Semwright policy, consent and the Driver Host
 remain responsible for authorization.
 
+Every backend must also expose a complete capability snapshot for all shared mutation operation IDs.
+Sparse maps are rejected, so adding a new shared operation forces every backend to classify it explicitly.
+
 ## Identity and revisions
 
 The domain uses stable semantic IDs and opaque process-local refs. `apply_with_identity_base`

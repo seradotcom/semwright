@@ -1,0 +1,1 @@
+{"model_version":1,"id":"project","profile":{"width":1280,"height":720,"fps":{"num":25,"den":1},"progressive":true,"sample_aspect":[1,1],"display_aspect":[16,9],"colorspace":709,"audio_channels":2},"assets":{},"sequences":[{"id":"sequence0","name":"Main","tracks":[],"transitions":[],"markers":[],"nested":[],"subtitles":[],"editability":{"state":"editable"}}],"warnings":[]}
