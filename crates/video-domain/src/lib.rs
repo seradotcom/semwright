@@ -12,6 +12,7 @@ pub mod error;
 pub mod hash;
 pub mod model;
 pub mod refs;
+pub mod render;
 pub mod support;
 pub mod time;
 

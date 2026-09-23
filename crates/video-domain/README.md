@@ -13,7 +13,8 @@ It models the concepts an agent should reason about:
 - markers and subtitles;
 - opaque semantic references;
 - mutation support and editability;
-- transactional edit intent, diffs and deterministic identities.
+- transactional edit intent, diffs and deterministic identities;
+- render/export intent, semantic presets and backend-neutral availability.
 
 It deliberately does **not** model a concrete editor's project file, executable, IPC
 transport, render process, filesystem confinement or application metadata.
@@ -25,7 +26,7 @@ agent / broker / driver
           |
           v
 semwright-video-domain
- model / time / refs / edit / conformance
+ model / time / refs / edit / render / conformance
           ^
           |
    backend projection
@@ -96,6 +97,21 @@ something that looks safely editable.
 This is capability information, **not authority**. Semwright policy, consent and the Driver Host
 remain responsible for authorization.
 
+## Render/export contract
+
+`RenderIntent` and `RenderPreset` describe what should be rendered without describing how a
+backend launches an encoder. Presets use semantic codec/container identifiers, exact optional
+dimensions and a bounded full-sequence or frame range. Output paths, executable names, native
+encoder flags, queue state and filesystem publication remain driver responsibilities.
+
+For example, the MLT backend may invoke the native encoder name `libx264`, but its semantic
+preset projects that implementation detail as `h264`. A future Resolve/OpenCut backend can
+therefore map the same intent to its native encoder without pretending to implement MLT.
+
+`RenderSupport` is runtime capability information only. It never authorizes a render, chooses
+an output path or bypasses Semwright policy. A render intent has a deterministic semantic digest
+bound to the normalized project and resolved frame range so a backend can detect planning drift.
+
 ## Identity and revisions
 
 The domain uses stable semantic IDs and opaque process-local refs. `apply_with_identity_base`
@@ -127,8 +143,10 @@ A new video driver should not fork this model. It should:
 3. map only genuinely supported operations into `Edit`;
 4. mark unrepresentable native structures read-only;
 5. reuse `MutationSupport`, time primitives and refs where appropriate;
-6. run the shared differential conformance gate for every mutation;
-7. maintain its own real-application round-trip and render tests.
+6. map native export presets into `RenderPreset` without leaking encoder implementation names;
+7. validate `RenderIntent` before starting backend-specific render work;
+8. run the shared differential conformance gate for every mutation;
+9. maintain its own real-application round-trip and render tests.
 
 If a second backend demonstrates that the semantic model is missing a real cross-editor concept,
 extend and version the shared model with fixtures and differential tests. Do not add speculative
