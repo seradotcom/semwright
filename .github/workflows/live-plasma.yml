@@ -74,7 +74,7 @@ jobs:
 
       - name: Real KWin 6 virtual Wayland bridge lifecycle
         run: |
-          docker run --rm --init --network none             --security-opt seccomp=unconfined             --user "$(id -u):$(id -g)"             --entrypoint /usr/bin/dbus-run-session             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence             -v "$GITHUB_WORKSPACE:/workspace:ro"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro"             "$KDE_NEON_IMAGE"             -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
+          docker run --rm --init --network none             --security-opt seccomp=unconfined             --cap-add SYS_NICE             --user "$(id -u):$(id -g)"             --entrypoint /usr/bin/dbus-run-session             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence             -v "$GITHUB_WORKSPACE:/workspace:ro"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro"             "$KDE_NEON_IMAGE"             -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
