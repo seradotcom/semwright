@@ -66,6 +66,7 @@ impl Fixture {
 }
 
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn connection_status_and_version() {
     let f = Fixture::start("normal", 1000).await;
     f.client.ready().await.unwrap();
@@ -74,6 +75,7 @@ async fn connection_status_and_version() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn authentication_real_rust_client() {
     let f = Fixture::start("auth_required", 1000).await;
     f.client.ready().await.unwrap();
@@ -81,6 +83,7 @@ async fn authentication_real_rust_client() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn authentication_failure_is_permanent() {
     let f = Fixture::start("auth_fail", 1000).await;
     assert_eq!(
@@ -91,6 +94,7 @@ async fn authentication_failure_is_permanent() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn wrong_rpc_rejected() {
     let f = Fixture::start("wrong_rpc_version", 1000).await;
     assert_eq!(
@@ -100,12 +104,14 @@ async fn wrong_rpc_rejected() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn malformed_hello_rejected() {
     let f = Fixture::start("malformed_hello", 1000).await;
     assert!(f.client.ready().await.is_err());
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn not_ready_is_not_authentication_failure() {
     let f = Fixture::start("not_ready", 1000).await;
     f.client.ready().await.unwrap();
@@ -116,6 +122,7 @@ async fn not_ready_is_not_authentication_failure() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn unsupported_request_not_sent() {
     let f = Fixture::start("unsupported", 1000).await;
     f.client.ready().await.unwrap();
@@ -126,6 +133,7 @@ async fn unsupported_request_not_sent() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn error_text_does_not_leak() {
     let f = Fixture::start("request_error", 1000).await;
     f.client.ready().await.unwrap();
@@ -135,6 +143,7 @@ async fn error_text_does_not_leak() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn fifty_concurrent_reads_are_correlated() {
     let f = Fixture::start("out_of_order_response", 3000).await;
     f.client.ready().await.unwrap();
@@ -161,6 +170,7 @@ async fn fifty_concurrent_reads_are_correlated() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn unknown_response_id_cannot_complete_request() {
     let f = Fixture::start("unknown_request_id", 1000).await;
     f.client.ready().await.unwrap();
@@ -175,6 +185,7 @@ async fn unknown_response_id_cannot_complete_request() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn duplicate_response_ignored() {
     let f = Fixture::start("duplicate_response", 1000).await;
     f.client.ready().await.unwrap();
@@ -189,6 +200,7 @@ async fn duplicate_response_ignored() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn response_old_generation_ignored() {
     let f = Fixture::start("old_response", 1000).await;
     f.client.ready().await.unwrap();
@@ -196,6 +208,7 @@ async fn response_old_generation_ignored() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn wrong_response_type_is_error() {
     let f = Fixture::start("wrong_response_type", 1000).await;
     f.client.ready().await.unwrap();
@@ -206,6 +219,7 @@ async fn wrong_response_type_is_error() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn timeout_then_late_response_never_satisfies_new_request() {
     let f = Fixture::start("late_response", 100).await;
     f.client.ready().await.unwrap();
@@ -227,6 +241,7 @@ async fn timeout_then_late_response_never_satisfies_new_request() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn cancellation_aborts_wait_not_application_operation() {
     let f = Fixture::start("delayed_response", 1000).await;
     f.client.ready().await.unwrap();
@@ -240,6 +255,7 @@ async fn cancellation_aborts_wait_not_application_operation() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn shutdown_cancels_pending_requests() {
     let f = Fixture::start("delayed_response", 1000).await;
     f.client.ready().await.unwrap();
@@ -255,6 +271,7 @@ async fn shutdown_cancels_pending_requests() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn event_flood_is_bounded_and_marks_gap() {
     let f = Fixture::start("event_flood", 5000).await;
     f.client.ready().await.unwrap();
@@ -267,6 +284,7 @@ async fn event_flood_is_bounded_and_marks_gap() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn malformed_event_disconnects_and_invalidates() {
     let f = Fixture::start("malformed_event", 1000).await;
     f.client.ready().await.unwrap();
@@ -280,6 +298,7 @@ async fn malformed_event_disconnects_and_invalidates() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn huge_websocket_message_rejected() {
     let f = Fixture::start("huge_response", 1000).await;
     f.client.ready().await.unwrap();
@@ -287,6 +306,7 @@ async fn huge_websocket_message_rejected() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn binary_frame_rejected() {
     let f = Fixture::start("binary_frame", 1000).await;
     f.client.ready().await.unwrap();
@@ -297,6 +317,7 @@ async fn binary_frame_rejected() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn duplicate_json_keys_on_wire_rejected() {
     let f = Fixture::start("duplicate_json_key", 1000).await;
     f.client.ready().await.unwrap();
@@ -304,6 +325,7 @@ async fn duplicate_json_keys_on_wire_rejected() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn deep_json_on_wire_rejected() {
     let f = Fixture::start("deep_json", 1000).await;
     f.client.ready().await.unwrap();
@@ -311,6 +333,7 @@ async fn deep_json_on_wire_rejected() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn mutation_disconnect_has_unknown_outcome() {
     let f = Fixture::start("disconnect_after_request", 1000).await;
     f.client.ready().await.unwrap();
@@ -328,6 +351,7 @@ async fn mutation_disconnect_has_unknown_outcome() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn generation_increments_on_reconnect() {
     let f = Fixture::start("generation_change", 1000).await;
     f.client.ready().await.unwrap();
@@ -340,6 +364,7 @@ async fn generation_increments_on_reconnect() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn reconnect_storm_bounded() {
     let f = Fixture::start("reconnect_storm", 1000).await;
     assert!(f.client.ready().await.is_err());
@@ -352,6 +377,7 @@ async fn reconnect_storm_bounded() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn batch_halt_partial_failure() {
     let f = Fixture::start("batch_partial", 1000).await;
     f.client.ready().await.unwrap();
@@ -365,6 +391,7 @@ async fn batch_halt_partial_failure() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn batch_continue_partial_failure() {
     let f = Fixture::start("batch_partial", 1000).await;
     f.client.ready().await.unwrap();
@@ -378,6 +405,7 @@ async fn batch_continue_partial_failure() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn reidentify_updates_actual_subscription_state() {
     let f = Fixture::start("normal", 1000).await;
     f.client.ready().await.unwrap();
@@ -410,6 +438,7 @@ async fn invoke(
     driver.invoke(&name, &digest, args).await
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn curated_scene_change_and_stale_ref_rejection() {
     let f = Fixture::start("normal", 1000).await;
     f.client.ready().await.unwrap();
@@ -435,6 +464,7 @@ async fn curated_scene_change_and_stale_ref_rejection() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn curated_input_mute_precondition() {
     let f = Fixture::start("normal", 1000).await;
     f.client.ready().await.unwrap();
@@ -448,6 +478,7 @@ async fn curated_input_mute_precondition() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn curated_record_operation_event_before_ack() {
     let f = Fixture::start("event_before_response", 1000).await;
     f.client.ready().await.unwrap();
@@ -480,6 +511,7 @@ async fn curated_record_operation_event_before_ack() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn curated_stream_start_disabled_by_default() {
     let f = Fixture::start("normal", 1000).await;
     f.client.ready().await.unwrap();
@@ -496,6 +528,7 @@ async fn curated_stream_start_disabled_by_default() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn curated_descriptor_digest_must_match() {
     let f = Fixture::start("normal", 1000).await;
     let d = ObsDriver::new(f.client.clone(), f.config.clone()).unwrap();
@@ -509,6 +542,7 @@ async fn curated_descriptor_digest_must_match() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn mixed_reads_and_mutations() {
     let f = Fixture::start("normal", 3000).await;
     f.client.ready().await.unwrap();
@@ -537,6 +571,7 @@ async fn mixed_reads_and_mutations() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn disconnect_mid_concurrency_does_not_leave_waiters() {
     let f = Fixture::start("disconnect_mid_concurrency", 1000).await;
     f.client.ready().await.unwrap();
@@ -561,6 +596,7 @@ async fn disconnect_mid_concurrency_does_not_leave_waiters() {
 }
 
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn anonymous_session_does_not_claim_password_authentication() {
     let f = Fixture::start("normal", 1000).await;
     f.client.ready().await.unwrap();
@@ -568,6 +604,7 @@ async fn anonymous_session_does_not_claim_password_authentication() {
     f.close().await;
 }
 #[tokio::test]
+#[ignore = "requires independent Python obs-websocket fixture"]
 async fn disconnected_health_does_not_claim_negotiated_rpc() {
     let config = Config {
         port: 1,

@@ -29,6 +29,19 @@ def stderr_category(data:bytes):
     if 'no such file or directory' in text:return 'child_path_missing'
     return 'child_stderr_present' if data else 'no_child_stderr'
 
+def safe_log_tail(path:pathlib.Path,limit:int=4096):
+    try:data=path.read_bytes()[-limit:]
+    except OSError:return ''
+    text=data.decode('utf-8','replace').replace(TEST_PASSWORD,'<redacted-fixture-password>')
+    return ''.join(ch if ch in (chr(10),chr(13),chr(9)) or ord(ch)>=32 else '?' for ch in text)
+
+def loopback_port_open(port:int):
+    try:
+        with socket.create_connection(('127.0.0.1',port),timeout=.25):
+            return True
+    except OSError:
+        return False
+
 def config_tree(root:pathlib.Path,port:int):
     config=root/'config'/'obs-studio'
     profile=config/'basic/profiles/SemwrightFixture';profile.mkdir(parents=True)
@@ -125,6 +138,11 @@ def sandbox(probe:pathlib.Path):
                         report('PASS_READ_ONLY',obs_version=data['version'].get('obsVersion'),websocket_version=data['version'].get('obsWebSocketVersion'),scene_names=names,recording_started=False,streaming_started=False)
                         return
                     time.sleep(.2)
+                olog.flush();xlog.flush()
+                report('OBS_DIAGNOSTIC',
+                       websocket_port_open=loopback_port_open(port),
+                       obs_log_tail=safe_log_tail(root/'obs.log'),
+                       xvfb_log_tail=safe_log_tail(root/'xvfb.log'))
                 raise RuntimeError('OBS WebSocket did not become ready')
         finally:
             for proc in reversed(children):

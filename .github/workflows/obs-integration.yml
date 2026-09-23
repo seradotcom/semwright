@@ -80,6 +80,7 @@ jobs:
       - name: Rust OBS driver suite
         run: |
           cargo test --locked -p semwright-driver-obs --all-targets 2>&1 | tee verification/obs-ci/driver-tests.log
+          cargo test --locked -p semwright-driver-obs --test fake_matrix -- --ignored 2>&1 | tee verification/obs-ci/fake-matrix.log
           cargo clippy --locked -p semwright-driver-obs --all-targets -- -D warnings 2>&1 | tee verification/obs-ci/driver-clippy.log
       - name: Real Semwright Driver Host against fake OBS
         run: |
