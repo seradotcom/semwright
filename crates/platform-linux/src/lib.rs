@@ -6,6 +6,7 @@ pub mod bridge;
 pub mod clipboard;
 pub mod eis;
 pub mod hyprland;
+pub mod pipewire_capture;
 pub mod portal;
 pub mod sway;
 pub mod system;

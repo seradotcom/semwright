@@ -30,6 +30,8 @@ zbus.workspace = true
 x11rb.workspace = true
 futures-util.workspace = true
 reis.workspace = true
+pipewire.workspace = true
+png.workspace = true
 url.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]

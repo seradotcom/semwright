@@ -47,6 +47,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: coverage
+      - name: Install Linux media development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
       - run: cargo install --locked cargo-llvm-cov --version 0.9.1
       - run: cargo llvm-cov --locked --workspace --all-features --lcov --output-path lcov.info
       - run: cargo llvm-cov report --json --output-path coverage.json

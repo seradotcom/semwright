@@ -28,6 +28,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: native-applications
+      - name: Install Linux media development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
       - name: Detect actual browser version
         run: |
           mkdir -p verification/native-ci
