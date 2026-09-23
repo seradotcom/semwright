@@ -480,22 +480,32 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Install Qt accessibility runtime and build dependencies
+      - name: Install maintained Qt accessibility runtime
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            at-spi2-core dbus-x11 \
-            g++ file pkg-config \
-            qt6-base-dev \
+            at-spi2-core dbus-x11 file \
+            python3-venv libxcb-cursor0 \
             xvfb xauth x11-utils
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
           chmod 700 "$RUNNER_TEMP/atspi-qt"
-          pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
+          python3 -m venv "$RUNNER_TEMP/qt-venv"
+          "$RUNNER_TEMP/qt-venv/bin/pip" install \
+            --disable-pip-version-check --no-cache-dir \
+            "PyQt6==6.11.0" "PyQt6-Qt6==6.11.2" "PyQt6-sip==13.12.0"
+          "$RUNNER_TEMP/qt-venv/bin/python" - <<'PY' | tee verification/native-ci/qt-version.log
+          from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
+          print(f"PyQt6={PYQT_VERSION_STR}")
+          print(f"Qt6={QT_VERSION_STR}")
+          PY
           dpkg-query -W -f='${binary:Package}=${Version}\n' \
-            at-spi2-core qt6-base-dev libqt6widgets6 libqt6dbus6 \
+            at-spi2-core libxcb-cursor0 \
             | tee verification/native-ci/atspi-qt-packages.log
-          g++ -std=c++17 -O2 -fPIC crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
-            -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets Qt6DBus)
+          cat > "$RUNNER_TEMP/atspi-qt-fixture" <<EOF
+          #!/usr/bin/env bash
+          exec "$RUNNER_TEMP/qt-venv/bin/python" \
+            "$GITHUB_WORKSPACE/crates/backends/tests/fixtures/atspi_qt_fixture.py" "\$@"
+          EOF
           chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
           file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
