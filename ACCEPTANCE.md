@@ -163,12 +163,12 @@ other commits and local archives is not part of this acceptance decision.
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
 | A094 | systemd user unit. | PASS | packaging/systemd-user/semwright.service included; no service enabled. |
-| A095 | install/uninstall path. | PASS | packaging/install Python tools plus user documentation; real ELF install/uninstall not tested. |
+| A095 | install/uninstall path. | PASS | Hosted native x86_64/ARM64 packaging certification executes private user install, runs the installed binaries, uninstalls them, and verifies tamper-safe refusal. |
 | A096 | release workflow. | PASS | Fail-closed release definition and admission check; no publication/signing performed. |
-| A097 | x86_64 artifact definition. | PASS | Native x86_64 runner builds the release workspace; packaged artifact installation remains unverified. |
-| A098 | aarch64 artifact definition. | PASS | Native ARM64 GitHub runners execute the locked workspace build/test matrix; package installation remains a separate R15 gate. |
+| A097 | x86_64 artifact definition. | PASS | Native x86_64 packaging job builds the five release executables, produces reproducible tar/deb artifacts and executes the user installation lifecycle. |
+| A098 | aarch64 artifact definition. | PASS | Native ARM64 packaging job builds the five release executables, produces reproducible tar/deb artifacts and executes the user installation lifecycle. |
 | A099 | checksums. | PASS | Source manifest and external ZIP SHA-256; not a binary release signature. |
-| A100 | at least one distro packaging path plus tarball. | PASS | Tarball/.deb packager source; guarded, unexecuted with binaries. |
+| A100 | at least one distro packaging path plus tarball. | PASS | Hosted certification builds normalized tarballs and `.deb` packages twice, validates payloads and proves deterministic hashes on native x86_64/ARM64 runners. |
 | A101 | Nix packaging/flake if feasible. | PASS | Nix package expression provided, no flake/lock/evaluation claimed. |
 
 ## Documentation
