@@ -477,22 +477,23 @@ jobs:
 
   atspi-qt-backend:
     runs-on: ubuntu-24.04
-    container:
-      image: fedora:43
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Install Qt 6.10 accessibility runtime and build dependencies
+      - name: Install Qt accessibility runtime and build dependencies
         run: |
-          dnf -y install \
-            at-spi2-core dbus-daemon dbus-x11 glib2 \
-            gcc-c++ file pkgconf-pkg-config \
-            qt6-qtbase-devel \
-            xorg-x11-server-Xvfb xorg-x11-xauth xdpyinfo
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            at-spi2-core dbus-x11 \
+            g++ file pkg-config \
+            qt6-base-dev \
+            xvfb xauth x11-utils
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
           chmod 700 "$RUNNER_TEMP/atspi-qt"
           pkg-config --modversion Qt6Widgets | sed 's/^/Qt6Widgets=/' | tee verification/native-ci/qt-version.log
-          rpm -q at-spi2-core qt6-qtbase qt6-qtbase-gui | tee verification/native-ci/atspi-qt-packages.log
+          dpkg-query -W -f='${binary:Package}=${Version}\n' \
+            at-spi2-core qt6-base-dev libqt6widgets6 libqt6dbus6 \
+            | tee verification/native-ci/atspi-qt-packages.log
           g++ -std=c++17 -O2 -fPIC crates/backends/tests/fixtures/atspi_qt_fixture.cpp \
             -o "$RUNNER_TEMP/atspi-qt-fixture" $(pkg-config --cflags --libs Qt6Widgets Qt6DBus)
           chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
