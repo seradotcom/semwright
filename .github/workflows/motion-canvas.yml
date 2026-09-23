@@ -120,6 +120,10 @@ jobs:
           BROWSER_SHA=$(sha256sum "$BROWSER" | awk '{print $1}')
           BROWSER_REL="$BROWSER_REL" NODE_SHA="$NODE_SHA" HELPER_SHA="$HELPER_SHA" BROWSER_SHA="$BROWSER_SHA" node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('runtime.json', JSON.stringify({node:{path:'.semwright-tools/node',sha256:process.env.NODE_SHA},helper:{path:'render.mjs',sha256:process.env.HELPER_SHA},browser:{path:process.env.BROWSER_REL,sha256:process.env.BROWSER_SHA}},null,2))"
           cat runtime.json
+      - name: Record Driver Protocol catalog frame size
+        run: |
+          mkdir -p verification/motion-canvas-host
+          cargo run --locked -q -p semwright-driver-motion-canvas --example catalog_size | tee verification/motion-canvas-host/catalog-size.log
       - name: Real Driver Host conformance and sandboxed render/cancellation
         env:
           SEMWRIGHT_TEST_MOTION_CANVAS: '1'
