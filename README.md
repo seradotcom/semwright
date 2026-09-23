@@ -3,8 +3,10 @@
 **A cross-platform semantic capability broker that turns applications and desktops into typed commands—not a stream of guessed clicks.**
 
 > **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
-> The accepted development line has a committed `Cargo.lock`, pins Rust 1.98.1, and has
-> passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
+> The accepted development line has a committed `Cargo.lock`, uses Rust 1.98.1 as the
+> development toolchain, and declares Rust 1.88 as its minimum supported Rust version (MSRV).
+> Hosted CI separately verifies the MSRV and current development toolchain. The line has passed
+> x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
 > rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz and real Rust Chromium gates.
 > Provider Runtime, governed stdio MCP federation, the persistent App Driver SDK with
 > sandboxed conformance tooling, and non-executing static/local driver distribution are merged

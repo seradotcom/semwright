@@ -4,9 +4,7 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import stat
-import tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 BINS=('semwright','semwrightd','semwright-mcp','semwright-inspect','semwright-sandbox')

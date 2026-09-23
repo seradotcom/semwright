@@ -3,7 +3,8 @@
 ## Before installation
 
 No release binary is published yet. The accepted development baseline has a committed
-Cargo.lock, a pinned Rust 1.98.1 toolchain and green hosted build/test gates, but Semwright
+Cargo.lock, a Rust 1.98.1 development toolchain, a declared Rust 1.88 MSRV and green hosted
+build/test gates. The MSRV is verified separately from the newer development toolchain. Semwright
 is still development software with live-desktop and security evidence outstanding. Start
 with the developer instructions in a disposable account/VM before granting access to real
 work. There is no verified release URL and no `curl | sh` installer.

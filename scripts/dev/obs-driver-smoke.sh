@@ -149,11 +149,11 @@ current=$(run execute driver.obs.scene.current.get)
 inputs=$(run execute driver.obs.input.list)
 record=$(run execute driver.obs.record.status)
 
-read -r scene_ref generation input_ref < <(python3 -c '
+read -r scene_ref generation < <(python3 -c '
 import json,sys
-scenes=json.loads(sys.argv[1])["data"]; inputs=json.loads(sys.argv[2])["data"]
-print(scenes["data"]["scenes"][1]["ref"], scenes["generation"], inputs["data"]["inputs"][0]["ref"])
-' "$scenes" "$inputs")
+scenes=json.loads(sys.argv[1])["data"]
+print(scenes["data"]["scenes"][1]["ref"], scenes["generation"])
+' "$scenes")
 
 scene_set=$(run execute driver.obs.scene.current.set --args-json "$(printf '{"scene_ref":"%s","expected_generation":%s}' "$scene_ref" "$generation")")
 # The graph mutation invalidates prior refs. Refresh before the next mutation.
