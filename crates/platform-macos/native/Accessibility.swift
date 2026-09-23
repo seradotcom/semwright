@@ -187,7 +187,7 @@ private let observe:AXObserverCallback={_,element,_,_ in
             // requesting max_chars past the end is rejected by many normal controls.
             let availableRaw=try axRaw(e,kAXNumberOfCharactersAttribute)
             guard let available=availableRaw as? NSNumber,
-                  CFGetTypeID(available)!=CFBooleanGetTypeID(),
+                  CFGetTypeID(available) != CFBooleanGetTypeID(),
                   available.doubleValue.isFinite,available.doubleValue>=0,
                   available.doubleValue.rounded(.towardZero)==available.doubleValue,
                   available.doubleValue<Double(Int.max) else{
@@ -233,7 +233,7 @@ private let observe:AXObserverCallback={_,element,_,_ in
 // These helpers accept only a numeric AX value; CFBoolean must never masquerade as 0/1.
 private func axNumber(_ e:AXUIElement,_ key:String)throws->Double{
     let raw=try axRaw(e,key)
-    guard let n=raw as? NSNumber,CFGetTypeID(n)!=CFBooleanGetTypeID(),n.doubleValue.isFinite else{
+    guard let n=raw as? NSNumber,CFGetTypeID(n) != CFBooleanGetTypeID(),n.doubleValue.isFinite else{
         throw SWFailure(code:"Unsupported",message:"Numeric Accessibility attribute unavailable")
     }
     return n.doubleValue

@@ -79,7 +79,7 @@ The Linux Driver Host still executes through bubblewrap + Landlock. Real driver 
 
 Native ARM64 and Intel jobs are defined in `.github/workflows/platformization-macos.yml`. They are required to:
 
-- compile the full workspace against a real Apple SDK;
+- compile the macOS-capable workspace against a real Apple SDK, explicitly excluding the currently Linux-only `semwright-mlt-video-driver`;
 - compile/link the Swift/C native host bridge;
 - run native platform contract tests;
 - link the daemon and frontends;

@@ -86,10 +86,13 @@ jobs:
         run: |
           set -euo pipefail
           cargo check --locked --target "${{ matrix.other }}"             -p semwright-types             -p semwright-backend-api             -p semwright-platform-api             -p semwright-registry             -p semwright-recipes
-      - name: Compile complete workspace against native macOS SDK
+      - name: Compile macOS-capable workspace against native SDK
         run: |
           set -euo pipefail
-          cargo check --locked --workspace --all-targets --all-features             2>&1 | tee "verification/platform-ci/workspace-check-${{ matrix.arch }}.log"
+          # driver-mlt-video deliberately rejects non-Linux builds until its
+          # openat2/process-containment layer is ported. Keep that limitation
+          # explicit instead of deleting its fail-closed compile guard.
+          cargo check --locked --workspace             --exclude semwright-mlt-video-driver             --all-targets --all-features             2>&1 | tee "verification/platform-ci/workspace-check-${{ matrix.arch }}.log"
 
       - name: Run native platform contract tests
         run: |
