@@ -19,10 +19,12 @@ function args() {
   for (const key of ['project', 'output', 'config']) if (!out[key]) fail(`missing --${key}`);
   return out;
 }
-function harnessPlugin(config) {
+function harnessPlugin(config, entry) {
   const id = '\0semwright-render-entry';
   return {
     name: 'semwright:controlled-render-harness',
+    enforce: 'post',
+    config() { return {build:{rollupOptions:{input:entry}}}; },
     resolveId(source) { if (source === 'virtual:semwright-render') return id; },
     load(source) {
       if (source !== id) return;
@@ -75,7 +77,9 @@ async function main() {
     await fs.symlink(path.join(runtimeRoot, 'node_modules'), path.join(work, 'node_modules'), 'dir');
     await fs.writeFile(path.join(work, 'semwright-render.html'), '<!doctype html><meta charset="utf-8"><script type="module" src="/semwright-entry.js"></script>');
     await fs.writeFile(path.join(work, 'semwright-entry.js'), "import 'virtual:semwright-render';\n");
-    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:'./src/project.ts',editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:path.join(work,'semwright-render.html')}}});
+    const projectEntry=path.join(work,'src/project.ts');
+    const renderEntry=path.join(work,'semwright-render.html');
+    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
     // Chromium's user-namespace sandbox is unavailable inside the outer bwrap namespace.
