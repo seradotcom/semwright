@@ -41,6 +41,21 @@ pub struct BrowserConfig {
     pub allowed_origins: Vec<String>,
     #[serde(default)]
     pub allow_downloads: bool,
+    #[serde(default = "default_download_bytes")]
+    pub max_download_bytes: u64,
+    #[serde(default = "default_total_download_bytes")]
+    pub max_total_download_bytes: u64,
+    #[serde(default = "default_download_count")]
+    pub max_downloads: u32,
+}
+const fn default_download_bytes() -> u64 {
+    32 * 1024 * 1024
+}
+const fn default_total_download_bytes() -> u64 {
+    64 * 1024 * 1024
+}
+const fn default_download_count() -> u32 {
+    8
 }
 impl Default for BrowserConfig {
     fn default() -> Self {
@@ -48,6 +63,9 @@ impl Default for BrowserConfig {
             executable: PathBuf::from("/usr/bin/chromium"),
             allowed_origins: vec![],
             allow_downloads: false,
+            max_download_bytes: default_download_bytes(),
+            max_total_download_bytes: default_total_download_bytes(),
+            max_downloads: default_download_count(),
         }
     }
 }
@@ -65,6 +83,18 @@ impl BrowserConfig {
         }
         if self.allowed_origins.len() > 128 {
             return Err(Error::invalid("Too many browser origins"));
+        }
+        if self.max_download_bytes == 0
+            || self.max_total_download_bytes == 0
+            || self.max_downloads == 0
+            || self.max_download_bytes > 256 * 1024 * 1024
+            || self.max_total_download_bytes > 1024 * 1024 * 1024
+            || self.max_downloads > 64
+            || self.max_download_bytes > self.max_total_download_bytes
+        {
+            return Err(Error::invalid(
+                "Browser download quotas must be positive, bounded, and per-file <= total",
+            ));
         }
         for origin in &self.allowed_origins {
             let parsed =
@@ -115,9 +145,10 @@ fn target_url_ready(config: &BrowserConfig, text: &str) -> Result<bool> {
 struct Cdp {
     writer: Arc<Mutex<SplitSink<Socket, Message>>>,
     pending: Pending,
-    sequence: AtomicU64,
+    sequence: Arc<AtomicU64>,
     generations: Arc<StdMutex<BTreeMap<String, u64>>>,
     events: Arc<StdMutex<VecDeque<Value>>>,
+    downloads: Arc<StdMutex<DownloadState>>,
     alive: Arc<AtomicBool>,
     stop: CancellationToken,
 }
@@ -132,8 +163,139 @@ impl Drop for PendingGuard {
         }
     }
 }
+#[derive(Clone, Copy)]
+struct DownloadLimits {
+    per_file: u64,
+    total: u64,
+    count: u32,
+}
+impl From<&BrowserConfig> for DownloadLimits {
+    fn from(config: &BrowserConfig) -> Self {
+        Self {
+            per_file: config.max_download_bytes,
+            total: config.max_total_download_bytes,
+            count: config.max_downloads,
+        }
+    }
+}
+#[derive(Clone, Debug, Default)]
+struct DownloadRecord {
+    received: u64,
+    total_hint: Option<u64>,
+    state: String,
+    quota_exceeded: bool,
+}
+#[derive(Clone, Debug, Default)]
+struct DownloadState {
+    started: u32,
+    total_received: u64,
+    records: BTreeMap<String, DownloadRecord>,
+    quota_cancellations: u32,
+}
+fn safe_download_guid(value: &Value) -> Option<String> {
+    let guid = value.as_str()?;
+    (guid.len() <= 128
+        && !guid.is_empty()
+        && guid
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_')))
+    .then(|| guid.to_owned())
+}
+fn bounded_byte_count(value: &Value) -> Option<u64> {
+    value.as_u64().or_else(|| {
+        value.as_f64().and_then(|number| {
+            (number.is_finite() && number >= 0.0 && number <= u64::MAX as f64)
+                .then_some(number as u64)
+        })
+    })
+}
+fn remove_owned_regular(path: &std::path::Path) {
+    let Ok(metadata) = std::fs::symlink_metadata(path) else {
+        return;
+    };
+    if metadata.file_type().is_file()
+        && !metadata.file_type().is_symlink()
+        && metadata.uid() == current_uid()
+        && metadata.mode() & 0o022 == 0
+    {
+        let _ = std::fs::remove_file(path);
+    }
+}
+fn remove_owned_download(download_dir: &std::path::Path, guid: &str) {
+    remove_owned_regular(&download_dir.join(guid));
+}
+fn cancel_download_request(id: u64, guid: &str) -> Message {
+    Message::Text(
+        json!({"id":id,"method":"Browser.cancelDownload","params":{"guid":guid}})
+            .to_string()
+            .into(),
+    )
+}
+impl DownloadState {
+    fn ensure_record(&mut self, guid: &str) -> &mut DownloadRecord {
+        if !self.records.contains_key(guid) {
+            self.started = self.started.saturating_add(1);
+            self.records
+                .insert(guid.to_owned(), DownloadRecord::default());
+        }
+        self.records
+            .get_mut(guid)
+            .expect("download record inserted")
+    }
+    fn begin(&mut self, guid: &str, limits: DownloadLimits) -> bool {
+        self.ensure_record(guid);
+        let over = self.started > limits.count;
+        if over {
+            let record = self.records.get_mut(guid).expect("download record exists");
+            if !record.quota_exceeded {
+                record.quota_exceeded = true;
+                self.quota_cancellations = self.quota_cancellations.saturating_add(1);
+            }
+        }
+        over
+    }
+    fn progress(
+        &mut self,
+        guid: &str,
+        received: u64,
+        total_hint: Option<u64>,
+        state: &str,
+        limits: DownloadLimits,
+    ) -> bool {
+        self.ensure_record(guid);
+        let previous = self
+            .records
+            .get(guid)
+            .map(|record| record.received)
+            .unwrap_or(0);
+        self.total_received = self
+            .total_received
+            .saturating_add(received.saturating_sub(previous));
+        let total_received = self.total_received;
+        let count_over = self.started > limits.count;
+        let record = self.records.get_mut(guid).expect("download record exists");
+        record.received = record.received.max(received);
+        record.total_hint = total_hint.or(record.total_hint);
+        record.state = state.chars().take(32).collect();
+        let over = count_over
+            || record.received > limits.per_file
+            || record
+                .total_hint
+                .is_some_and(|total| total > limits.per_file)
+            || total_received > limits.total;
+        if over && !record.quota_exceeded {
+            record.quota_exceeded = true;
+            self.quota_cancellations = self.quota_cancellations.saturating_add(1);
+        }
+        over
+    }
+}
 impl Cdp {
-    async fn connect(endpoint: &str) -> Result<Arc<Self>> {
+    async fn connect(
+        endpoint: &str,
+        limits: DownloadLimits,
+        download_dir: PathBuf,
+    ) -> Result<Arc<Self>> {
         let url = Url::parse(endpoint).map_err(|_| Error::invalid("Invalid CDP endpoint"))?;
         if url.scheme() != "ws"
             || url.host_str() != Some("127.0.0.1")
@@ -155,15 +317,19 @@ impl Cdp {
         let this = Arc::new(Self {
             writer: Arc::new(Mutex::new(sink)),
             pending: Arc::new(StdMutex::new(BTreeMap::new())),
-            sequence: AtomicU64::new(1),
+            sequence: Arc::new(AtomicU64::new(1)),
             generations: Arc::new(StdMutex::new(BTreeMap::new())),
             events: Arc::new(StdMutex::new(VecDeque::new())),
+            downloads: Arc::new(StdMutex::new(DownloadState::default())),
             alive: Arc::new(AtomicBool::new(true)),
             stop: CancellationToken::new(),
         });
         let pending = this.pending.clone();
+        let writer = this.writer.clone();
+        let sequence = this.sequence.clone();
         let generations = this.generations.clone();
         let events = this.events.clone();
+        let downloads = this.downloads.clone();
         let alive = this.alive.clone();
         let stop = this.stop.clone();
         tokio::spawn(async move {
@@ -201,12 +367,66 @@ impl Cdp {
                             | "DOM.attributeRemoved"
                             | "DOM.characterDataModified"
                             | "Page.frameNavigated"
+                            | "Inspector.targetCrashed"
                     ) && let Some(session) = value.get("sessionId").and_then(Value::as_str)
                         && let Ok(mut map) = generations.lock()
                     {
                         let n = map.entry(session.into()).or_insert(0);
                         *n = n.saturating_add(1);
                     }
+
+                    let mut quota_exceeded = false;
+                    let mut download_guid = None;
+                    let mut download_state = None;
+                    if matches!(
+                        method,
+                        "Browser.downloadWillBegin" | "Browser.downloadProgress"
+                    ) && let Some(guid) =
+                        value.pointer("/params/guid").and_then(safe_download_guid)
+                    {
+                        download_guid = Some(guid.clone());
+                        if let Ok(mut state) = downloads.lock() {
+                            quota_exceeded = if method == "Browser.downloadWillBegin" {
+                                state.begin(&guid, limits)
+                            } else {
+                                let received = value
+                                    .pointer("/params/receivedBytes")
+                                    .and_then(bounded_byte_count)
+                                    .unwrap_or(0);
+                                let total = value
+                                    .pointer("/params/totalBytes")
+                                    .and_then(bounded_byte_count);
+                                let status = value
+                                    .pointer("/params/state")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("");
+                                download_state = Some(status.chars().take(32).collect::<String>());
+                                state.progress(&guid, received, total, status, limits)
+                            };
+                        }
+                        if quota_exceeded {
+                            let id = sequence.fetch_add(1, Ordering::Relaxed);
+                            let _ = writer
+                                .lock()
+                                .await
+                                .send(cancel_download_request(id, &guid))
+                                .await;
+                        }
+                        if quota_exceeded || download_state.as_deref() == Some("canceled") {
+                            let directory = download_dir.clone();
+                            let guid = guid.clone();
+                            tokio::spawn(async move {
+                                for _ in 0..20 {
+                                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                                    remove_owned_download(&directory, &guid);
+                                    if !directory.join(&guid).exists() {
+                                        break;
+                                    }
+                                }
+                            });
+                        }
+                    }
+
                     // Metadata only: no console text, headers, URLs, request bodies or download names.
                     if matches!(
                         method,
@@ -217,10 +437,22 @@ impl Cdp {
                             | "Inspector.targetCrashed"
                     ) {
                         let mut row = json!({"event":method});
-                        for key in ["guid", "state", "receivedBytes", "totalBytes"] {
-                            if let Some(v) = value.pointer(&format!("/params/{key}")) {
-                                row[key] = v.clone();
+                        if let Some(guid) = download_guid {
+                            row["guid"] = json!(guid);
+                        }
+                        if let Some(state) = download_state {
+                            row["state"] = json!(state);
+                        }
+                        for key in ["receivedBytes", "totalBytes"] {
+                            if let Some(count) = value
+                                .pointer(&format!("/params/{key}"))
+                                .and_then(bounded_byte_count)
+                            {
+                                row[key] = json!(count);
                             }
+                        }
+                        if quota_exceeded {
+                            row["quota_exceeded"] = json!(true);
                         }
                         if let Ok(mut queue) = events.lock() {
                             if queue.len() == 256 {
@@ -310,6 +542,13 @@ impl Cdp {
             .iter()
             .cloned()
             .collect())
+    }
+    fn download_snapshot(&self) -> Result<DownloadState> {
+        Ok(self
+            .downloads
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Download state lock poisoned"))?
+            .clone())
     }
 }
 impl Drop for Cdp {
@@ -415,6 +654,37 @@ impl Instance {
             app: "org.semwright.Chromium".into(),
         }))
     }
+    fn download_artifacts(&self, limits: DownloadLimits) -> Result<Vec<Value>> {
+        let snapshot = self.cdp.download_snapshot()?;
+        let mut artifacts = Vec::new();
+        for (guid, record) in snapshot.records {
+            if record.state != "completed" || record.quota_exceeded {
+                continue;
+            }
+            let path = self.downloads.join(&guid);
+            let Ok(metadata) = std::fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if !metadata.file_type().is_file()
+                || metadata.file_type().is_symlink()
+                || metadata.uid() != current_uid()
+                || metadata.mode() & 0o022 != 0
+                || metadata.len() > limits.per_file
+            {
+                continue;
+            }
+            artifacts.push(json!({
+                "id": guid,
+                "path": path,
+                "bytes": metadata.len(),
+                "lifetime": "browser_instance"
+            }));
+            if artifacts.len() >= limits.count as usize {
+                break;
+            }
+        }
+        Ok(artifacts)
+    }
 }
 impl Drop for Instance {
     fn drop(&mut self) {
@@ -426,6 +696,7 @@ pub struct Chromium {
     config: BrowserConfig,
     directory: PathBuf,
     instance: Mutex<Option<Instance>>,
+    artifacts: Arc<StdMutex<BTreeMap<PathBuf, u64>>>,
 }
 impl Chromium {
     pub fn new(config: BrowserConfig, directory: PathBuf) -> Result<Self> {
@@ -435,14 +706,67 @@ impl Chromium {
             config,
             directory,
             instance: Mutex::new(None),
+            artifacts: Arc::new(StdMutex::new(BTreeMap::new())),
         })
     }
+    fn cleanup_artifacts(&self) {
+        let paths = self
+            .artifacts
+            .lock()
+            .map(|mut artifacts| std::mem::take(&mut *artifacts))
+            .unwrap_or_default();
+        for path in paths.keys() {
+            remove_owned_regular(path);
+        }
+    }
+    async fn cleanup_instance(&self, mut instance: Instance, graceful: bool) -> Result<()> {
+        if graceful && instance.cdp.alive.load(Ordering::SeqCst) {
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                instance.cdp.call("Browser.close", json!({}), None),
+            )
+            .await;
+        }
+        instance.cdp.stop.cancel();
+        if instance.child.try_wait()?.is_none()
+            && tokio::time::timeout(std::time::Duration::from_secs(5), instance.child.wait())
+                .await
+                .is_err()
+        {
+            let _ = instance.child.kill().await;
+            let _ = instance.child.wait().await;
+        }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+        loop {
+            match std::fs::remove_dir_all(&instance.profile) {
+                Ok(()) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
+                Err(_) if std::time::Instant::now() < deadline => {
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                }
+                Err(_) => {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Failed to remove the owned Chromium profile after shutdown",
+                    ));
+                }
+            }
+        }
+        self.cleanup_artifacts();
+        Ok(())
+    }
     async fn launch(&self, state: &mut Option<Instance>, headless: bool) -> Result<Value> {
-        if state.is_some() {
-            return Err(Error::new(
-                ErrorCode::Conflict,
-                "An isolated browser is already running",
-            ));
+        if let Some(existing) = state.as_mut() {
+            let dead =
+                existing.child.try_wait()?.is_some() || !existing.cdp.alive.load(Ordering::SeqCst);
+            if !dead {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "An isolated browser is already running",
+                ));
+            }
+            let stale = state.take().expect("dead browser instance exists");
+            self.cleanup_instance(stale, false).await?;
         }
         if current_uid() == 0 {
             return Err(Error::new(
@@ -537,7 +861,12 @@ impl Chromium {
             }
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         };
-        let cdp = Cdp::connect(&endpoint).await?;
+        let cdp = Cdp::connect(
+            &endpoint,
+            DownloadLimits::from(&self.config),
+            downloads.clone(),
+        )
+        .await?;
         cdp.call("Browser.setDownloadBehavior",json!({"behavior":if self.config.allow_downloads{"allowAndName"}else{"deny"},"downloadPath":downloads,"eventsEnabled":true}),None).await?;
         *state = Some(Instance {
             child,
@@ -649,7 +978,21 @@ impl Chromium {
                 "Browser screenshot is not PNG",
             ));
         }
-        let path = self.directory.join(format!("screen-{}.png", unique_id()));
+        let path = self
+            .directory
+            .join(format!("artifact-screen-{}.png", unique_id()));
+        let mut artifacts = self
+            .artifacts
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Artifact registry lock poisoned"))?;
+        artifacts.retain(|path, _| path.exists());
+        let total = artifacts.values().copied().sum::<u64>();
+        if artifacts.len() >= 16 || total.saturating_add(data.len() as u64) > 64 * 1024 * 1024 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Browser artifact budget exceeded",
+            ));
+        }
         let mut file = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -657,10 +1000,16 @@ impl Chromium {
             .open(&path)?;
         file.write_all(&data)?;
         file.sync_all()?;
+        artifacts.insert(path.clone(), data.len() as u64);
+        drop(artifacts);
         let expiry = path.clone();
+        let registry = self.artifacts.clone();
         tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(300)).await;
-            let _ = tokio::fs::remove_file(expiry).await;
+            remove_owned_regular(&expiry);
+            if let Ok(mut artifacts) = registry.lock() {
+                artifacts.remove(&expiry);
+            }
         });
         Ok(
             json!({"artifact":{"path":path,"mime_type":"image/png","expires_in_seconds":300,"bytes":data.len()},"coordinate_space":"viewport_css_pixels","scale":"browser_device_scale_factor_not_assumed"}),
@@ -750,6 +1099,7 @@ impl Backend for Chromium {
         let mut instance = self.instance.lock().await;
         let running = instance.as_mut().is_some_and(|instance| {
             instance.child.try_wait().is_ok_and(|exit| exit.is_none())
+                && instance.cdp.alive.load(Ordering::SeqCst)
                 && !instance.cdp.stop.is_cancelled()
         });
         vec![
@@ -780,21 +1130,49 @@ impl Backend for Chromium {
         ctx.check_cancelled()?;
         let mut state = self.instance.lock().await;
         if command == "browser.status" {
-            return Ok(
-                json!({"running":state.as_ref().is_some_and(|i|i.cdp.alive.load(Ordering::SeqCst)),"isolated_profile":true,"attach_existing":false,"arbitrary_javascript":false,"origin_scope":"top-level command targets, not a network firewall","downloads_enabled":self.config.allow_downloads}),
-            );
+            let running = state.as_mut().is_some_and(|instance| {
+                instance
+                    .child
+                    .try_wait()
+                    .is_ok_and(|status| status.is_none())
+                    && instance.cdp.alive.load(Ordering::SeqCst)
+            });
+            return Ok(json!({
+                "running": running,
+                "isolated_profile": true,
+                "attach_existing": false,
+                "arbitrary_javascript": false,
+                "origin_scope": "top-level command targets, not a network firewall",
+                "downloads_enabled": self.config.allow_downloads,
+                "download_limits": {
+                    "per_file_bytes": self.config.max_download_bytes,
+                    "total_bytes": self.config.max_total_download_bytes,
+                    "count": self.config.max_downloads
+                }
+            }));
         }
         if command == "browser.launch" {
             return self
                 .launch(&mut state, args["headless"].as_bool().unwrap_or(true))
                 .await;
         }
+        let dead = state.as_mut().is_some_and(|instance| {
+            instance
+                .child
+                .try_wait()
+                .is_ok_and(|status| status.is_some())
+                || !instance.cdp.alive.load(Ordering::SeqCst)
+        });
+        if dead {
+            let stale = state.take().expect("dead browser instance exists");
+            self.cleanup_instance(stale, false).await?;
+            return Err(Error::unavailable(
+                "The isolated browser exited; owned state was cleaned and may be relaunched",
+            ));
+        }
         let instance = state.as_mut().ok_or_else(|| {
             Error::unavailable("No isolated browser is running; use browser.launch with approval")
         })?;
-        if instance.child.try_wait()?.is_some() {
-            return Err(Error::unavailable("The isolated browser exited"));
-        }
         if command == "browser.tab.list" {
             let mut rows = vec![];
             for target in instance.targets().await? {
@@ -812,9 +1190,30 @@ impl Backend for Chromium {
                         .is_some_and(|s| s.starts_with("Browser.download"))
                 });
             }
-            return Ok(
-                json!({"events":events,"bounded_event_history":256,"download_directory":instance.downloads,"enabled":self.config.allow_downloads,"payloads_redacted":true,"automatic_download_size_limit":false}),
-            );
+            if command == "browser.downloads.status" {
+                let snapshot = instance.cdp.download_snapshot()?;
+                return Ok(json!({
+                    "events": events,
+                    "artifacts": instance.download_artifacts(DownloadLimits::from(&self.config))?,
+                    "bounded_event_history": 256,
+                    "enabled": self.config.allow_downloads,
+                    "payloads_redacted": true,
+                    "automatic_download_size_limit": true,
+                    "limits": {
+                        "per_file_bytes": self.config.max_download_bytes,
+                        "total_bytes": self.config.max_total_download_bytes,
+                        "count": self.config.max_downloads
+                    },
+                    "started": snapshot.started,
+                    "total_received_bytes": snapshot.total_received,
+                    "quota_cancellations": snapshot.quota_cancellations
+                }));
+            }
+            return Ok(json!({
+                "events": events,
+                "bounded_event_history": 256,
+                "payloads_redacted": true
+            }));
         }
         if command == "browser.tab.open" {
             let url = arg_str(args, "url")?;
@@ -1110,42 +1509,31 @@ impl Backend for Chromium {
     }
     async fn validate(&self, target: &NativeTarget) -> Result<()> {
         let mut state = self.instance.lock().await;
+        let dead = state.as_mut().is_some_and(|instance| {
+            instance
+                .child
+                .try_wait()
+                .is_ok_and(|status| status.is_some())
+                || !instance.cdp.alive.load(Ordering::SeqCst)
+        });
+        if dead {
+            let stale = state.take().expect("dead browser instance exists");
+            self.cleanup_instance(stale, false).await?;
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Browser instance exited; obtain references from a relaunched instance",
+            ));
+        }
         let instance = state
             .as_mut()
             .ok_or_else(|| Error::new(ErrorCode::StaleReference, "Browser is not running"))?;
         self.validate_in(instance, target).await.map(|_| ())
     }
     async fn shutdown(&self) -> Result<()> {
-        if let Some(mut instance) = self.instance.lock().await.take() {
-            let _ = tokio::time::timeout(
-                std::time::Duration::from_secs(2),
-                instance.cdp.call("Browser.close", json!({}), None),
-            )
-            .await;
-            instance.cdp.stop.cancel();
-            if tokio::time::timeout(std::time::Duration::from_secs(5), instance.child.wait())
-                .await
-                .is_err()
-            {
-                let _ = instance.child.kill().await;
-                let _ = instance.child.wait().await;
-            }
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
-            loop {
-                match std::fs::remove_dir_all(&instance.profile) {
-                    Ok(()) => break,
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => break,
-                    Err(_) if std::time::Instant::now() < deadline => {
-                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                    }
-                    Err(_) => {
-                        return Err(Error::new(
-                            ErrorCode::BackendFailed,
-                            "Failed to remove the owned Chromium profile after shutdown",
-                        ));
-                    }
-                }
-            }
+        if let Some(instance) = self.instance.lock().await.take() {
+            self.cleanup_instance(instance, true).await?;
+        } else {
+            self.cleanup_artifacts();
         }
         Ok(())
     }
@@ -1222,5 +1610,51 @@ mod tests {
         let n = json!({"attributes":["id","a","value","secret"]});
         assert_eq!(attribute(&n, "id").as_deref(), Some("a"));
         assert_eq!(attribute(&n, "role"), None);
+    }
+    #[test]
+    fn download_quota_configuration_is_bounded() {
+        let mut config = BrowserConfig::default();
+        assert!(config.validate().is_ok());
+        config.max_download_bytes = 0;
+        assert!(config.validate().is_err());
+        config = BrowserConfig::default();
+        config.max_download_bytes = config.max_total_download_bytes + 1;
+        assert!(config.validate().is_err());
+        config = BrowserConfig::default();
+        config.max_downloads = 65;
+        assert!(config.validate().is_err());
+    }
+    #[test]
+    fn download_accounting_enforces_file_total_and_count_budgets() {
+        let limits = DownloadLimits {
+            per_file: 100,
+            total: 150,
+            count: 2,
+        };
+        let mut state = DownloadState::default();
+        assert!(!state.begin("one", limits));
+        assert!(!state.progress("one", 90, Some(90), "inProgress", limits));
+        assert!(!state.begin("two", limits));
+        assert!(state.progress("two", 70, Some(70), "inProgress", limits));
+        assert_eq!(state.quota_cancellations, 1);
+        assert!(state.begin("three", limits));
+        assert_eq!(state.quota_cancellations, 2);
+
+        let mut state = DownloadState::default();
+        assert!(!state.begin("large", limits));
+        assert!(state.progress("large", 1, Some(101), "inProgress", limits));
+        assert_eq!(state.quota_cancellations, 1);
+    }
+    #[test]
+    fn download_event_fields_are_strictly_bounded() {
+        assert_eq!(
+            safe_download_guid(&json!("abc-123_DEF")).as_deref(),
+            Some("abc-123_DEF")
+        );
+        assert!(safe_download_guid(&json!("../escape")).is_none());
+        assert!(safe_download_guid(&json!("a".repeat(129))).is_none());
+        assert_eq!(bounded_byte_count(&json!(42)), Some(42));
+        assert_eq!(bounded_byte_count(&json!(-1)), None);
+        assert_eq!(bounded_byte_count(&json!("42")), None);
     }
 }
