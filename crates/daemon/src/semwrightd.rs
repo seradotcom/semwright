@@ -148,6 +148,7 @@ async fn run(args: Args) -> Result<()> {
     let platform = semwright_platform_host::bootstrap(
         args.fake,
         &runtime,
+        &state,
         config.applications.clone(),
         config.browser.clone(),
         config.blender_socket.clone(),

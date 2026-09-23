@@ -816,6 +816,19 @@
     ],
     "untrusted_metadata": false
   },
+  "portal.restore.clear": {
+    "aliases": [],
+    "app": null,
+    "object_types": [],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "portal",
+      "restore"
+    ],
+    "untrusted_metadata": false
+  },
   "portal.start": {
     "aliases": [],
     "app": null,

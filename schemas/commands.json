@@ -1138,7 +1138,7 @@
   {
     "name": "portal.start",
     "version": "1.0",
-    "description": "Request an ephemeral RemoteDesktop session; the desktop presents native user consent.",
+    "description": "Request a RemoteDesktop session with native consent; persistence and portal clipboard access are explicit opt-ins.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -1147,13 +1147,73 @@
         },
         "pointer": {
           "type": "boolean"
+        },
+        "persist_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "0 ephemeral, 1 process lifetime, 2 persist until desktop permission is revoked"
+        },
+        "clipboard": {
+          "type": "boolean",
+          "description": "Request Clipboard portal integration for this RemoteDesktop session"
         }
       },
       "required": [],
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "consent": {
+          "const": "granted"
+        },
+        "already_active": {
+          "type": "boolean"
+        },
+        "devices": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ephemeral": {
+          "type": "boolean"
+        },
+        "persist_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "restore_saved": {
+          "type": "boolean"
+        },
+        "restore_attempted": {
+          "type": "boolean"
+        },
+        "clipboard_enabled": {
+          "type": "boolean"
+        },
+        "input_route": {
+          "enum": [
+            "eis",
+            "portal_notify"
+          ]
+        },
+        "eis": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "consent",
+        "devices",
+        "ephemeral",
+        "persist_mode",
+        "restore_saved",
+        "restore_attempted",
+        "clipboard_enabled",
+        "input_route",
+        "eis"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "input.keyboard",
@@ -1179,7 +1239,16 @@
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "consent": {
+          "const": "expired"
+        }
+      },
+      "required": [
+        "consent"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "desktop.observe"
@@ -1196,7 +1265,7 @@
   {
     "name": "portal.status",
     "version": "1.0",
-    "description": "Inspect consent state and portal interface versions.",
+    "description": "Inspect portal consent/session state, interface versions and restore-token availability without exposing token material.",
     "input_schema": {
       "type": "object",
       "properties": {},
@@ -1204,7 +1273,78 @@
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "consent": {
+          "enum": [
+            "not_requested",
+            "pending",
+            "granted",
+            "denied",
+            "expired"
+          ]
+        },
+        "remote_desktop_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clipboard_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restore_token_state": {
+          "enum": [
+            "absent",
+            "available",
+            "invalid"
+          ]
+        },
+        "process_restore_token": {
+          "type": "boolean"
+        },
+        "persistent_tokens": {
+          "type": "boolean"
+        },
+        "session_active": {
+          "type": "boolean"
+        },
+        "persist_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "clipboard_enabled": {
+          "type": "boolean"
+        },
+        "eis": {
+          "enum": [
+            "connected",
+            "not_connected",
+            "inactive"
+          ]
+        },
+        "input_route": {
+          "enum": [
+            "none",
+            "eis",
+            "portal_notify"
+          ]
+        }
+      },
+      "required": [
+        "consent",
+        "remote_desktop_version",
+        "clipboard_version",
+        "restore_token_state",
+        "process_restore_token",
+        "persistent_tokens",
+        "session_active",
+        "persist_mode",
+        "clipboard_enabled",
+        "eis",
+        "input_route"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "desktop.observe"
@@ -1214,6 +1354,56 @@
     "timeout_ms": 10000,
     "dry_run": true,
     "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "portal.restore.clear",
+    "version": "1.0",
+    "description": "Forget process-local and durable RemoteDesktop restore tokens without claiming to revoke the desktop portal permission itself.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "cleared": {
+          "type": "boolean"
+        },
+        "process_token_cleared": {
+          "type": "boolean"
+        },
+        "durable_token_cleared": {
+          "type": "boolean"
+        },
+        "portal_permission_revoked": {
+          "const": false
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cleared",
+        "process_token_cleared",
+        "durable_token_cleared",
+        "portal_permission_revoked",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "mutating",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
     "backends": [
       "portal"
     ]
@@ -1770,6 +1960,7 @@
     "interactive_consent": true,
     "backends": [
       "clipboard",
+      "portal",
       "macos"
     ]
   },
@@ -1803,6 +1994,7 @@
     "interactive_consent": false,
     "backends": [
       "clipboard",
+      "portal",
       "macos"
     ]
   },

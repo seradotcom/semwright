@@ -25,6 +25,7 @@ use std::{
 
 pub async fn bootstrap(
     runtime: &Path,
+    state: &Path,
     applications: BTreeMap<String, Application>,
     browser: BrowserConfig,
     blender_socket: Option<PathBuf>,
@@ -53,7 +54,10 @@ pub async fn bootstrap(
             Err(_) => environment["kwin_mailbox"] = serde_json::json!("unavailable"),
         }
     }
-    backends.push(Arc::new(Portal::new(runtime.join("artifacts"))?));
+    backends.push(Arc::new(Portal::new(
+        runtime.join("artifacts"),
+        state.join("portal"),
+    )?));
     let blender_socket = blender_socket.unwrap_or_else(|| {
         runtime
             .parent()
