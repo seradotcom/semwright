@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+semwright-platform-api.workspace = true
+semwright-platform-services.workspace = true
 semwright-types.workspace = true
 semwright-protocol.workspace = true
 semwright-policy.workspace = true

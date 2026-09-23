@@ -21,36 +21,36 @@ for many backends in this development handoff; strengthening them is a release g
 | `recipe.list` | `desktop.observe` | read_only | 10000 ms | core |
 | `recipe.validate` | `desktop.observe` | read_only | 10000 ms | core |
 | `recipe.run` | `desktop.observe` | mutating | 300000 ms | core |
-| `app.list` | `app.observe` | read_only | 10000 ms | atspi |
+| `app.list` | `app.observe` | read_only | 10000 ms | atspi, macos |
 | `app.launch` | `app.launch` | code_execution | 10000 ms | system |
 | `app.close` | `app.close`, `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `window.list` | `window.observe` | read_only | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `window.focus` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `window.move` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `window.resize` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi |
+| `window.list` | `window.observe` | read_only | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
+| `window.focus` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
+| `window.move` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
+| `window.resize` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
+| `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
+| `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos |
 | `ui.find` | `ui.observe` | read_only | 10000 ms | core |
-| `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi |
-| `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi |
-| `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi |
-| `ui.set_value` | `ui.invoke` | mutating_reversible | 10000 ms | atspi |
-| `ui.get_value` | `ui.observe` | read_only | 10000 ms | atspi |
-| `ui.toggle` | `ui.invoke` | mutating | 10000 ms | atspi |
+| `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
+| `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
+| `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos |
+| `ui.set_value` | `ui.invoke` | mutating_reversible | 10000 ms | atspi, macos |
+| `ui.get_value` | `ui.observe` | read_only | 10000 ms | atspi, macos |
+| `ui.toggle` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
 | `ui.select` | `ui.invoke` | mutating | 10000 ms | atspi |
-| `ui.expand` | `ui.invoke` | mutating | 10000 ms | atspi |
+| `ui.expand` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
 | `portal.start` | `input.keyboard`, `input.pointer` | privilege_sensitive | 120000 ms | portal |
 | `portal.stop` | `desktop.observe` | mutating_reversible | 10000 ms | portal |
 | `portal.status` | `desktop.observe` | read_only | 10000 ms | portal |
-| `input.key` | `input.keyboard` | mutating | 10000 ms | portal, x11 |
-| `input.type` | `input.keyboard` | mutating | 10000 ms | portal |
-| `pointer.move` | `input.pointer` | mutating | 10000 ms | portal, x11 |
-| `pointer.click` | `input.pointer` | mutating | 10000 ms | portal, x11 |
-| `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal |
-| `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal |
+| `input.key` | `input.keyboard` | mutating | 10000 ms | portal, x11, macos |
+| `input.type` | `input.keyboard` | mutating | 10000 ms | portal, macos |
+| `pointer.move` | `input.pointer` | mutating | 10000 ms | portal, x11, macos |
+| `pointer.click` | `input.pointer` | mutating | 10000 ms | portal, x11, macos |
+| `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal, macos |
+| `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal, macos |
 | `screen.stream_info` | `desktop.observe` | read_only | 10000 ms | portal |
-| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard |
-| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard |
+| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, macos |
+| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, macos |
 | `process.list` | `process.observe` | read_only | 10000 ms | system |
 | `process.signal` | `process.manage` | destructive | 10000 ms | system |
 | `filesystem.read` | `filesystem.read` | read_only | 10000 ms | filesystem |

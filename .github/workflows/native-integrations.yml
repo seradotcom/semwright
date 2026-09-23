@@ -120,6 +120,35 @@ jobs:
           path: verification/native-ci
           retention-days: 14
 
+  driver-distribution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-distribution
+      - name: Test bounded package and static-index contracts
+        run: |
+          mkdir -p verification/native-ci
+          cargo test --locked -p semwright-driver-registry --all-targets 2>&1 | tee verification/native-ci/driver-registry-tests.log
+          cargo clippy --locked -p semwright-driver-registry -p semwright-cli --all-targets -- -D warnings 2>&1 | tee verification/native-ci/driver-registry-clippy.log
+      - name: Non-executing package install/update/remove smoke
+        run: |
+          cargo build --locked -p semwright-cli --bin computerctl
+          BIN_DIR=target/debug scripts/dev/driver-registry-smoke.sh 2>&1 | tee verification/native-ci/driver-distribution-smoke.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: driver-distribution-evidence
+          path: |
+            verification/native-ci/driver-registry-*
+            verification/native-ci/driver-distribution-smoke.log
+          retention-days: 14
+
   libreoffice-driver:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -511,7 +540,7 @@ jobs:
           cat > "$RUNNER_TEMP/atspi-qt-fixture" <<EOF
           #!/usr/bin/env bash
           exec "$RUNNER_TEMP/qt-venv/bin/python" \
-            "$GITHUB_WORKSPACE/crates/backends/tests/fixtures/atspi_qt_fixture.py" "\$@"
+            "$GITHUB_WORKSPACE/crates/platform-linux/tests/fixtures/atspi_qt_fixture.py" "\$@"
           EOF
           chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
           file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log

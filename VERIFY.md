@@ -18,6 +18,7 @@ historical only and is not used to certify this baseline.
 | Dependency, coverage and fuzz / bounded fuzz | PASS | Commit checks: `Dependency, coverage and fuzz gates` |
 | Native application integration / Chromium | PASS | Commit checks: `Native application integration` |
 | Native application integration / Driver conformance | PASS | Commit checks: `Native application integration` |
+| Native application integration / Driver distribution | PASS | Commit checks: `Native application integration` |
 | Native application integration / LibreOffice driver | PASS | Commit checks: `Native application integration` |
 
 The quality matrix uses Rust 1.98.1 and runs, with the locked dependency graph, `fmt`,
@@ -83,6 +84,29 @@ executes the broker smoke path and compiles a newly scaffolded driver. Protocol 
 rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
 are negotiated and tested.
 
+## Driver distribution closure included in this development line
+
+The App Driver SDK now has owner-facing static/local distribution that is deliberately separate
+from broker authority. `.swdp` v1 is not an arbitrary archive: it contains one bounded metadata
+document and exactly one ELF payload, eliminating package-controlled extraction paths, symlinks and
+install hooks. The package and executable are SHA-256 pinned; the index independently pins package
+size/hash, driver identity/version/publisher, a Semwright SemVer requirement and optional exact
+application versions.
+
+The hosted `driver-distribution` job runs the registry tests plus a real CLI smoke path that packages
+`/usr/bin/true`, builds/validates a local index, resolves compatibility, dry-runs installation,
+installs into a private temporary XDG store, verifies the installed bytes and `0700`/`0600` modes,
+then removes the receipt-bound version. Tests reject traversal, symlink escape, tampering, malformed
+package lengths, duplicate entries, invalid digest forms, incompatible/missing application versions
+and version-path escape during removal. A separate update test installs 1.0.0 then 2.0.0 and verifies
+the stable manifest moves to 2.0.0 while the older version directory remains.
+
+Distribution establishes integrity and compatibility, not publisher identity or execution authority:
+install/update do not execute the payload, run conformance, edit daemon policy or create a
+`driver:<id>` grant. Runtime `DriverProvider` digest validation and Bubblewrap + Landlock remain the
+execution boundary. Remote index transport, a hosted marketplace and cryptographic publisher
+signatures are not certified by this local/static v1.
+
 ## LibreOffice deep-driver closure included in this development line
 
 LibreOffice is the first accepted deep application driver built on the public App Driver SDK that
@@ -133,8 +157,9 @@ follow-on compatibility work rather than implied capabilities of the core job st
 
 This baseline does **not** claim live GNOME, Plasma, Sway, Hyprland, native X11, portal EIS,
 PipeWire pixel streaming, persistent portal restore tokens, real Blender, hostile plugin-sandbox
-certification, a sandbox for same-UID MCP upstream executables, or a distributed driver registry.
-It does not establish an MSRV, reproducible binary packaging, installation, SBOM/signing or an
+certification, a sandbox for same-UID MCP upstream executables, a remote driver marketplace or
+cryptographic driver-publisher authentication. It does not establish an MSRV, reproducible Semwright
+binary packaging, system installation, SBOM/signing or an
 independent security review. Provider-specific progress/artifacts, MCP task mapping and negotiated
 dynamic driver job/event interfaces remain follow-on work.
 

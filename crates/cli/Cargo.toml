@@ -19,6 +19,7 @@ semwright-registry.workspace = true
 semwright-federation.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-driver-host.workspace = true
+semwright-driver-registry.workspace = true
 semwright-policy.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true

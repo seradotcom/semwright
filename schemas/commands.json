@@ -343,7 +343,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -450,7 +451,8 @@
       "hyprland",
       "gnome",
       "kwin",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -487,7 +489,8 @@
       "hyprland",
       "gnome",
       "kwin",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -536,7 +539,8 @@
       "hyprland",
       "gnome",
       "kwin",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -585,7 +589,8 @@
       "hyprland",
       "gnome",
       "kwin",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -622,7 +627,8 @@
       "hyprland",
       "gnome",
       "kwin",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -714,7 +720,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -865,7 +872,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -903,7 +911,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -941,7 +950,8 @@
     "dry_run": true,
     "interactive_consent": true,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -980,7 +990,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -1013,7 +1024,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -1046,7 +1058,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -1118,7 +1131,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "macos"
     ]
   },
   {
@@ -1241,7 +1255,8 @@
     "interactive_consent": false,
     "backends": [
       "portal",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -1279,7 +1294,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "portal"
+      "portal",
+      "macos"
     ]
   },
   {
@@ -1325,7 +1341,8 @@
     "interactive_consent": false,
     "backends": [
       "portal",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -1368,7 +1385,8 @@
     "interactive_consent": false,
     "backends": [
       "portal",
-      "x11"
+      "x11",
+      "macos"
     ]
   },
   {
@@ -1413,7 +1431,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "portal"
+      "portal",
+      "macos"
     ]
   },
   {
@@ -1438,7 +1457,8 @@
     "dry_run": true,
     "interactive_consent": true,
     "backends": [
-      "portal"
+      "portal",
+      "macos"
     ]
   },
   {
@@ -1494,7 +1514,8 @@
     "dry_run": true,
     "interactive_consent": true,
     "backends": [
-      "clipboard"
+      "clipboard",
+      "macos"
     ]
   },
   {
@@ -1526,7 +1547,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "clipboard"
+      "clipboard",
+      "macos"
     ]
   },
   {

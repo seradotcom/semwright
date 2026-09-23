@@ -462,6 +462,77 @@ pub enum DriverCommand {
         #[arg(long)]
         sdk_path: PathBuf,
     },
+    /// Build or inspect the non-executing Semwright driver package format.
+    Package {
+        #[command(subcommand)]
+        command: DriverPackageCommand,
+    },
+    /// Validate or search a static/local driver index.
+    Index {
+        #[command(subcommand)]
+        command: DriverIndexCommand,
+    },
+    /// Install the selected compatible package without executing it or changing policy grants.
+    Install {
+        index: PathBuf,
+        id: String,
+        #[arg(long)]
+        version: Option<String>,
+        #[arg(long)]
+        application_version: Option<String>,
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+        #[arg(long)]
+        config_dir: Option<PathBuf>,
+    },
+    /// Resolve and install a newer compatible version; old version directories remain for rollback.
+    Update {
+        index: PathBuf,
+        id: String,
+        #[arg(long)]
+        application_version: Option<String>,
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+        #[arg(long)]
+        config_dir: Option<PathBuf>,
+    },
+    /// Remove one receipt-bound installed version. Policy is never edited automatically.
+    Remove {
+        id: String,
+        version: String,
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+        #[arg(long)]
+        config_dir: Option<PathBuf>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DriverPackageCommand {
+    Create {
+        manifest: PathBuf,
+        output: PathBuf,
+        /// SemVer requirement for compatible Semwright versions. Defaults to this build exactly.
+        #[arg(long)]
+        semwright: Option<String>,
+    },
+    Inspect {
+        package: PathBuf,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DriverIndexCommand {
+    Validate {
+        index: PathBuf,
+    },
+    Search {
+        index: PathBuf,
+        #[arg(default_value = "")]
+        query: String,
+        #[arg(long)]
+        application_version: Option<String>,
+    },
 }
 #[derive(Subcommand, Debug)]
 pub enum Audit {
@@ -852,6 +923,42 @@ mod tests {
             }
         ));
     }
+    #[test]
+    fn driver_distribution_commands_are_local_owner_tools() {
+        for args in [
+            vec![
+                "computerctl",
+                "--json",
+                "driver",
+                "package",
+                "inspect",
+                "/tmp/fixture.swdp",
+            ],
+            vec![
+                "computerctl",
+                "--json",
+                "driver",
+                "index",
+                "validate",
+                "/tmp/index.json",
+            ],
+            vec![
+                "computerctl",
+                "--json",
+                "--dry-run",
+                "driver",
+                "install",
+                "/tmp/index.json",
+                "fixture",
+                "--application-version",
+                "1",
+            ],
+        ] {
+            let parsed = Cli::try_parse_from(args).unwrap();
+            assert!(request(&parsed).unwrap().is_none());
+        }
+    }
+
     #[test]
     fn no_permission_upgrade_flags() {
         assert!(Cli::try_parse_from(["computerctl", "--approve", "doctor"]).is_err());

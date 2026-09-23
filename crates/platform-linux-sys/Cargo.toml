@@ -1,0 +1,25 @@
+[package]
+name = "semwright-platform-linux-sys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+semwright-platform-api.workspace = true
+semwright-types.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+libc.workspace = true
+tokio.workspace = true
+landlock.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true

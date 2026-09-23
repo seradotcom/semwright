@@ -1,5 +1,5 @@
 use semwright_backend_api::{Backend, Context};
-use semwright_backends::atspi::Atspi;
+use semwright_platform_linux::atspi::Atspi;
 use semwright_types::{ErrorCode, NativeTarget};
 use serde_json::{Value, json};
 use std::{path::PathBuf, time::Duration};

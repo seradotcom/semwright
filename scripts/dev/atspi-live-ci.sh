@@ -72,7 +72,7 @@ esac
 echo "phase=${PHASE}_start" | tee -a verification/native-ci/atspi-phases.log
 rc=0
 timeout --signal=TERM --kill-after=5s 90s \
-  cargo test --locked -p semwright-backends "$test_name" \
+  cargo test --locked -p semwright-platform-linux "$test_name" \
     -- --ignored --nocapture --test-threads=1 \
   > "verification/native-ci/atspi-${PHASE}.log" 2>&1 || rc=$?
 cat "verification/native-ci/atspi-${PHASE}.log"

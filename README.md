@@ -1,13 +1,14 @@
 # Semwright
 
-**A local capability broker that turns Linux applications and desktops into typed commands—not a stream of guessed clicks.**
+**A cross-platform semantic capability broker that turns applications and desktops into typed commands—not a stream of guessed clicks.**
 
 > **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
 > The accepted development line has a committed `Cargo.lock`, pins Rust 1.98.1, and has
 > passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
 > rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz and real Rust Chromium gates.
-> Provider Runtime, governed stdio MCP federation, and the persistent App Driver SDK with
-> sandboxed conformance tooling are merged after exact-head green CI. A real LibreOffice/UNO
+> Provider Runtime, governed stdio MCP federation, the persistent App Driver SDK with
+> sandboxed conformance tooling, and non-executing static/local driver distribution are merged
+> after exact-head green CI. A real LibreOffice/UNO
 > deep driver now exercises that SDK through the normal CLI/broker/policy path, while Chromium
 > has a hosted real-browser integration with bounded handling of transient target metadata. Live
 > desktops, real Blender, broader driver coverage, packaging and independent security review
@@ -26,7 +27,10 @@ Agent intent                 Semwright authority                 Linux / applica
 The project contains source implementations of a Rust daemon, CLI, MCP frontend,
 terminal inspector, command registry, Provider Runtime, MCP federation client, persistent
 App Driver SDK/host, reference store, policy engine, metadata audit, recipe runner,
-sandboxed plugin host, desktop backends, and application adapters.
+sandboxed plugin host, desktop backends, and application adapters. The runtime is now split
+behind explicit platform contracts: Linux remains the verified host, while the macOS host
+foundation is experimental and requires native Apple-SDK/TCC evidence before it can be
+advertised as supported.
 No model, cloud account, default shell, remote desktop service, arbitrary Python/JS
 command, telemetry client, or root daemon is part of the product.
 
@@ -48,6 +52,11 @@ computerctl mcp upstream list
 # Driver authoring/verification remains local owner tooling:
 computerctl --json driver validate ./driver.json
 computerctl --json driver conformance ./driver.json
+
+# Static/local distribution is also owner-only and never grants driver policy authority:
+computerctl --json driver index validate ./registry/index.json
+computerctl --json --dry-run driver install ./registry/index.json libreoffice \
+  --application-version 24.2
 ```
 
 References are opaque, session-scoped, short-lived values. Do not paste the illustrative
@@ -69,7 +78,7 @@ the independent security review and live-system evidence still listed as blocker
 
 ## Build and first validation
 
-Use a disposable Linux account or VM first. Do not use `sudo` to run the daemon.
+For the verified Linux path, use a disposable Linux account or VM first. Do not use `sudo` to run the daemon.
 Use the repository-pinned Rust toolchain and the committed lockfile. Network access may
 still be required to populate an empty Cargo cache.
 
@@ -128,6 +137,8 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | Component | Delivered | Evidence in this handoff |
 |---|---|---|
 | Rust core, broker, CLI, MCP, inspector | Source + Rust unit/property/integration tests | Hosted development line compiles and executes on x86_64 + ARM64 under the exact-SHA quality matrix |
+| Platform boundary | `platform-api` + shared services + per-OS hosts | Linux workspace gates plus Darwin cross-checks for Rust-only portable crates |
+| macOS host foundation | AX/CoreGraphics/ScreenCaptureKit/NSPasteboard + Darwin filesystem/Mach-O/service source | Native macOS CI is required for Apple-framework linking; TCC/live acceptance remains separate |
 | AT-SPI, Sway, Hyprland, X11, GNOME/KWin clients | Native backend source + Rust tests | Compiled/tested in hosted baseline; no live compositor matrix |
 | GNOME/KWin bridges | JavaScript source + shared-contract tests | Node contract tests; not a live shell/runtime test |
 | RemoteDesktop portal, interactive screenshot | Native D-Bus source + Rust lifecycle tests | Compiled/tested; no accepted live portal/EIS session |
@@ -138,6 +149,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
 | MCP federation | Governed stdio provider + owner-only upstream registry | Merged after green x86_64/ARM64 CI with real fixture handshake/tool import, policy mediation, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
 | App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Merged after hosted driver-conformance: pinned fixture handshake/catalog/health/execute/shutdown, broker smoke and generated-driver compile |
+| Driver distribution | Non-executing `.swdp` packages + static/local index | Hosted package/index tests and install/update/remove smoke; SHA-256 integrity/compatibility only, not publisher signatures or a marketplace |
 | LibreOffice | Sandboxed persistent UNO DriverProvider | Real hosted Writer create/read, Calc create/get/set and PDF export through CLI -> daemon -> broker -> driver; curated seven-capability surface, not full UNO |
 | MLT video | Sandboxed persistent semantic timeline DriverProvider | 68-capability bounded model with 206 Rust tests and host-sandbox conformance; real MLT/Kdenlive/Shotcut round-trip certification remains pending |
 | KiCad | Separately licensed GPL IPC DriverProvider integration | Rust/Go build, native protocol tests and fake IPC host-sandbox conformance; real KiCad interoperability remains pending |
@@ -183,8 +195,10 @@ uses `sudo`, enables a plugin, requests portal consent, or downloads an opaque b
 [Recipes](docs/recipes.md) replace repeated improvisation with typed bindings and explicit
 assertions. [Plugins](docs/plugins.md) add narrow one-shot sandboxed commands. The
 [App Driver SDK](docs/drivers.md) adds persistent application providers with owner-assigned
-identity, digest-pinned capabilities and executable conformance. [Events and jobs](docs/events-jobs.md)
-document source-bound event delivery and bounded long-operation lifecycle. [The inspector](docs/inspector.md)
+identity, digest-pinned capabilities and executable conformance. [Driver distribution](docs/driver-distribution.md)
+adds non-executing local packages and static indexes without granting policy authority.
+[Events and jobs](docs/events-jobs.md) document source-bound event delivery and bounded long-operation
+lifecycle. [The inspector](docs/inspector.md)
 is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
 [Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md),
