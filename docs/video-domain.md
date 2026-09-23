@@ -126,3 +126,36 @@ sandbox prerequisites.
 
 See also [architecture](architecture.md), [drivers](drivers.md) and the
 [MLT driver](../crates/driver-mlt-video/README.md).
+
+## Backend negotiation contract
+
+The portable domain also defines a versioned backend negotiation surface. A loaded native project
+can expose a `BackendContract` containing:
+
+- stable backend family and adapter identities;
+- the native application/project version when known;
+- the semantic model version;
+- projection fidelity;
+- one explicit `MutationSupport` value for every shared `VideoOperation`.
+
+This matrix is per loaded project/version. It is not a blanket claim that every version of an
+application supports the same operations, and it never grants policy authority.
+
+Concrete adapters expose native fidelity separately through `ProjectionReport`. Backend-only
+warnings and opaque native structures become structured projection losses instead of modifying the
+portable `Project`. This keeps semantic content independent from MLT/Kdenlive/Shotcut and gives a
+future OpenCut or DaVinci adapter the same fail-closed contract.
+
+The current MLT driver now consumes this shared contract for mutation preflight and
+`project.format` support reporting, so the shared abstraction is part of the production path
+rather than a parallel documentation model.
+
+## Evolution rules
+
+Version 1 decoding is strict: unknown struct fields are rejected. New cross-editor semantics must
+therefore be introduced deliberately with a model-version change and differential fixtures instead
+of being silently ignored by older binaries.
+
+The backend-contract version evolves separately from the project model. A future adapter should
+implement the same projection/contract boundary first, then add native persistence, render and live
+application evidence behind it.

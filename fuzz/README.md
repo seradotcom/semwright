@@ -18,6 +18,7 @@ cargo +nightly fuzz run recipe -- -max_total_time=15 -rss_limit_mb=512 -max_len=
 cargo +nightly fuzz run path -- -max_total_time=15 -rss_limit_mb=512 -max_len=4096
 cargo +nightly fuzz run video_domain_model -- -max_total_time=15 -rss_limit_mb=512 -max_len=8192
 cargo +nightly fuzz run video_domain_edit -- -max_total_time=15 -rss_limit_mb=512 -max_len=8192
+cargo +nightly fuzz run video_domain_contract -- -max_total_time=15 -rss_limit_mb=512 -max_len=8192
 ```
 
 The video-domain targets exercise backend-neutral model decoding/round-trip invariants and

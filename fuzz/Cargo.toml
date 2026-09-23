@@ -126,3 +126,10 @@ path = "fuzz_targets/video_domain_edit.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "video_domain_contract"
+path = "fuzz_targets/video_domain_contract.rs"
+test = false
+doc = false
+bench = false

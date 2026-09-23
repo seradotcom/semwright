@@ -133,3 +133,35 @@ A new video driver should not fork this model. It should:
 If a second backend demonstrates that the semantic model is missing a real cross-editor concept,
 extend and version the shared model with fixtures and differential tests. Do not add speculative
 fields for a single backend.
+
+## Backend contract and projection fidelity
+
+Every concrete backend can implement `SemanticVideoProjection<Native>`. The shared contract is
+project/version scoped rather than a global promise. `BackendContract` declares the backend and
+adapter identity, semantic model version, projection fidelity and exactly one support entry for
+every `VideoOperation`.
+
+`ProjectionReport` separates portable semantic state from backend-specific fidelity information.
+Native metadata warnings, unknown native versions, opaque objects and round-trip risks belong in
+structured `ProjectionLoss` entries. They must not be smuggled into the portable project model.
+
+Fidelity is explicit:
+
+- `exact`: no semantic projection losses;
+- `semantically_equivalent`: native metadata differs but modeled semantics are preserved;
+- `lossy_read_only`: at least one native concept can only be represented conservatively and
+  must remain read-only.
+
+A `ReadOnly` projection loss is invalid unless the report declares `lossy_read_only`. An
+`exact` report is invalid if it contains any losses. This prevents adapters from overstating
+fidelity.
+
+## Versioning and fail-closed decoding
+
+Model v1 structs reject unknown fields during Serde decoding. This is intentional. A newer backend
+must not be able to send a field that an older Semwright silently discards while claiming the
+project was understood. Cross-version semantic changes require an explicit `MODEL_VERSION`
+change and migration/conformance evidence.
+
+The backend contract is versioned independently through `BACKEND_CONTRACT_VERSION`, allowing
+capability-negotiation evolution without coupling it to project-model migrations.
