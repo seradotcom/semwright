@@ -56,8 +56,15 @@ case "$PHASE" in
   qt)
     : "${SEMWRIGHT_TEST_QT_FIXTURE:?SEMWRIGHT_TEST_QT_FIXTURE is required for qt}"
     export SEMWRIGHT_TEST_QT_PLATFORM=${SEMWRIGHT_TEST_QT_PLATFORM:-xcb}
-    # Keep the freshly resolved address for the Qt fixture. The fixture preconnects
-    # QtDBus under the same "a11y" connection name used by Qt's AT-SPI bridge.
+    # Qt 6.4 DBusConnection emits enabledChanged synchronously in its constructor
+    # for both AT_SPI_BUS_ADDRESS and the X11 AT_SPI_BUS atom. Its bridge connects
+    # that signal only AFTER construction, losing activation on those paths.
+    # Use org.a11y.Bus.GetAddress on the session bus instead: its asynchronous
+    # reply arrives after the bridge has installed its signal handler.
+    # Source: qtbase v6.4.2 src/gui/accessible/linux/{dbusconnection,
+    # qspiaccessiblebridge}.cpp. Keep the real Qt bridge and all live assertions.
+    unset AT_SPI_BUS_ADDRESS
+    xprop -root -remove AT_SPI_BUS
     test_name=live_atspi_qt_delta_resync_and_stale_refs
     ;;
 esac
