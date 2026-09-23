@@ -1,24 +1,11 @@
 use clap::Parser;
-use semwright_adapters::{blender::Blender, chromium::Chromium};
-use semwright_backend_api::Backend;
-use semwright_backends::{
-    atspi::Atspi,
-    bridge::{Gnome, Kwin},
-    clipboard::Clipboard,
-    fake::FakeDesktop,
-    filesystem::Filesystem,
-    hyprland::Hyprland,
-    portal::Portal,
-    sway::Sway,
-    system::System,
-    x11::X11,
-};
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
 use semwright_daemon::{config, console::Console, server};
 use semwright_driver_host::DriverProvider;
 use semwright_federation::{
     ExternalMcpProvider, default_upstream_registry_path, load_upstream_registry,
 };
+use semwright_platform_common::filesystem::Filesystem;
 use semwright_plugin_host::Host;
 use semwright_policy::Policy;
 use semwright_protocol::{current_uid, private_directory, runtime_directory};
@@ -77,7 +64,7 @@ fn main() {
             std::process::exit(1);
         }
     };
-    if let Err(error) = runtime.block_on(run(args)) {
+    if let Err(error) = semwright_platform_host::run(runtime, run(args)) {
         eprintln!("{error}");
         std::process::exit(error.exit_code());
     }
@@ -157,53 +144,20 @@ async fn run(args: Args) -> Result<()> {
     let audit_dir = state.join("audit");
     let audit = Audit::open(&audit_dir, config.audit_max_bytes, config.audit_retention)?;
     let policy = Policy::new(config.policy.clone())?;
-    let mut backends: Vec<Arc<dyn Backend>> = vec![];
-    let mut environment = semwright_backends::environment();
-    // Retain this connection for both the GNOME sender check and the KWin mailbox.
-    let dbus = if args.fake {
-        None
-    } else {
-        match zbus::Connection::session().await {
-            Ok(connection) => {
-                connection.request_name("org.semwright.Broker").await.map_err(|_|Error::new(ErrorCode::Conflict,"Another real broker owns org.semwright.Broker, or the session bus denied the name"))?;
-                Some(connection)
-            }
-            Err(_) => None,
-        }
-    };
-    environment["broker_session_bus_owned"] = serde_json::json!(dbus.is_some());
-    environment["root_fixture_only"] = serde_json::json!(args.fake && current_uid() == 0);
-    if args.fake {
-        backends.push(Arc::new(FakeDesktop::new()));
-    } else {
-        backends.extend([
-            Arc::new(Atspi::default()) as Arc<dyn Backend>,
-            Arc::new(Sway::default()),
-            Arc::new(Hyprland::default()),
-            Arc::new(X11::default()),
-            Arc::new(Gnome::new(dbus.clone())),
-            Arc::new(Clipboard::default()),
-            Arc::new(System::new(config.applications.clone())?),
-        ]);
-        if let Some(connection) = &dbus {
-            match Kwin::attach(connection).await {
-                Ok(kwin) => backends.push(Arc::new(kwin)),
-                Err(_) => environment["kwin_mailbox"] = serde_json::json!("unavailable"),
-            }
-        }
-        backends.push(Arc::new(Portal::new(runtime.join("artifacts"))?));
-        let blender_socket = config.blender_socket.clone().unwrap_or_else(|| {
-            runtime
-                .parent()
-                .unwrap_or(&runtime)
-                .join("semwright-blender/bridge.sock")
-        });
-        backends.push(Arc::new(Blender::new(blender_socket)));
-        backends.push(Arc::new(Chromium::new(
-            config.browser.clone(),
-            runtime.join("browser"),
-        )?));
-    }
+
+    let platform = semwright_platform_host::bootstrap(
+        args.fake,
+        &runtime,
+        config.applications.clone(),
+        config.browser.clone(),
+        config.blender_socket.clone(),
+    )
+    .await?;
+    let mut backends = platform.backends;
+    let environment = platform.environment;
+    // Holds Linux D-Bus ownership (and any future native connection lifetimes)
+    // until after the shared broker has shut down.
+    let platform_keepalive = platform.keepalive;
     if !config.policy.filesystem.is_empty() {
         backends.push(Arc::new(Filesystem::new(&config.policy.filesystem)?));
     }
@@ -285,6 +239,6 @@ async fn run(args: Args) -> Result<()> {
         "broker ready; authorization defaults deny side effects"
     );
     let result = server::serve(&socket, broker, stop).await;
-    drop(dbus);
+    drop(platform_keepalive);
     result
 }

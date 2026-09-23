@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+semwright-platform-services.workspace = true
 semwright-types.workspace = true
 tokio.workspace = true
 serde.workspace = true

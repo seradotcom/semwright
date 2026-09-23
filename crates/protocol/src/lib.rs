@@ -78,55 +78,19 @@ pub async fn write_frame<W: AsyncWrite + Unpin, T: Serialize>(
     Ok(())
 }
 pub fn current_uid() -> u32 {
-    // SAFETY: getuid has no pointer arguments and no memory/lifetime preconditions.
-    unsafe { libc::getuid() }
+    semwright_platform_services::current_uid()
 }
 pub fn private_directory(path: &Path) -> Result<()> {
-    match std::fs::symlink_metadata(path) {
-        Ok(m) => {
-            if !m.is_dir()
-                || m.file_type().is_symlink()
-                || m.uid() != current_uid()
-                || m.permissions().mode() & 0o777 != 0o700
-            {
-                return Err(Error::new(
-                    ErrorCode::PermissionDenied,
-                    "Directory must be owned by the current user with mode 0700",
-                ));
-            }
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            use std::os::unix::fs::DirBuilderExt;
-            std::fs::DirBuilder::new().mode(0o700).create(path)?;
-        }
-        Err(e) => return Err(e.into()),
-    }
-    Ok(())
+    semwright_platform_services::private_directory(path)
 }
 pub fn runtime_directory() -> Result<PathBuf> {
-    let base = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .ok_or_else(|| {
-            Error::unavailable(
-                "XDG_RUNTIME_DIR is not set; use a private login-session runtime directory",
-            )
-        })?;
-    private_directory(&base)?;
-    let path = base.join("semwright");
-    private_directory(&path)?;
-    Ok(path)
+    semwright_platform_services::runtime_directory()
 }
 pub fn default_socket() -> Result<PathBuf> {
     Ok(runtime_directory()?.join("broker.sock"))
 }
 pub fn validate_peer(stream: &UnixStream) -> Result<()> {
-    if stream.peer_cred()?.uid() != current_uid() {
-        return Err(Error::new(
-            ErrorCode::PermissionDenied,
-            "Unix peer UID does not match broker owner",
-        ));
-    }
-    Ok(())
+    semwright_platform_services::validate_peer(stream)
 }
 pub struct Client {
     pub stream: UnixStream,

@@ -12,13 +12,13 @@ use semwright_types::{
 };
 use serde::Serialize;
 use serde_json::{Value, json};
+#[cfg(test)]
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    io::{Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+    io::Write,
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
-    process::Stdio,
     sync::Arc,
     time::Duration,
 };
@@ -36,42 +36,7 @@ impl Drop for StagedFile {
 }
 
 fn verify_owned_elf(path: &Path, digest: &str) -> Result<Vec<u8>> {
-    let mut file = std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(path)?;
-    let meta = file.metadata()?;
-    // SAFETY: getuid has no pointer arguments or preconditions.
-    let uid = unsafe { libc::getuid() };
-    if !meta.is_file()
-        || meta.len() > 67_108_864
-        || meta.mode() & 0o022 != 0
-        || !(meta.uid() == uid || meta.uid() == 0)
-    {
-        return Err(Error::new(
-            ErrorCode::PermissionDenied,
-            "Driver executable must be an owned/root regular file, <=64 MiB and not writable by group/others",
-        ));
-    }
-    let mut data = vec![];
-    std::io::Read::by_ref(&mut file)
-        .take(67_108_865)
-        .read_to_end(&mut data)?;
-    if data.len() > 67_108_864
-        || format!("{:x}", Sha256::digest(&data)) != digest.to_ascii_lowercase()
-    {
-        return Err(Error::new(
-            ErrorCode::PermissionDenied,
-            "Driver executable SHA-256 does not match its manifest",
-        ));
-    }
-    if !data.starts_with(b"ELF") {
-        return Err(Error::new(
-            ErrorCode::Unsupported,
-            "Driver host launches pinned ELF binaries only; interpreter selection must be explicit in a future transport",
-        ));
-    }
-    Ok(data)
+    semwright_platform_services::verify_executable(path, digest)
 }
 
 fn validate_owner_permissions(
@@ -155,137 +120,50 @@ fn sandbox_command(
     helper: &Path,
     roots: &[FilesystemGrant],
 ) -> Result<Command> {
-    if !Path::new("/usr/bin/bwrap").is_file() || !helper.is_file() {
-        return Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Bubblewrap and semwright-sandbox are required; refusing unsandboxed driver execution",
-        ));
-    }
-    let mut process = Command::new("/usr/bin/bwrap");
-    process.args([
-        "--die-with-parent",
-        "--new-session",
-        "--unshare-all",
-        "--clearenv",
-        "--cap-drop",
-        "ALL",
-    ]);
-    if manifest.network {
-        process.arg("--share-net");
-    }
-    process.args([
-        "--proc",
-        "/proc",
-        "--dev",
-        "/dev",
-        "--tmpfs",
-        "/tmp",
-        "--dir",
-        "/home",
-        "--dir",
-        "/workspace",
-        "--dir",
-        "/plugin",
-    ]);
-    for runtime in ["/usr", "/lib", "/lib64"] {
-        if Path::new(runtime).exists() {
-            process.arg("--ro-bind").arg(runtime).arg(runtime);
-        }
-    }
-    process.args(["--dir", "/etc"]);
-    if Path::new("/etc/ld.so.cache").exists() {
-        process.args(["--ro-bind", "/etc/ld.so.cache", "/etc/ld.so.cache"]);
-    }
-    // Debian/Ubuntu and other distributions may route shared-library ABI names
-    // through update-alternatives (for example libblas.so.3). /usr is already
-    // read-only inside the sandbox, but those symlinks resolve via /etc.
-    // Expose only the alternatives directory, read-only; arbitrary /etc remains hidden.
-    if Path::new("/etc/alternatives").is_dir() {
-        process.args(["--ro-bind", "/etc/alternatives", "/etc/alternatives"]);
-    }
-    for mount in &manifest.system_config {
-        let grant = roots
+    use semwright_platform_api::launch::{Mount, ResourceLimits, SandboxKind, SandboxSpec};
+    let lookup = |name: &str| -> Result<&FilesystemGrant> {
+        roots
             .iter()
-            .find(|root| root.name == mount.root)
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::PolicyDenied,
-                    "Driver system config grant was removed",
-                )
-            })?;
-        process
-            .arg("--ro-bind")
-            .arg(&grant.path)
-            .arg(&mount.destination);
-    }
-    process.arg("--ro-bind").arg(staged).arg("/plugin/bin");
-    process.arg("--ro-bind").arg(helper).arg("/plugin/sandbox");
-    let mut writable = vec![];
-    for mount in &manifest.mounts {
-        let grant = roots
-            .iter()
-            .find(|root| root.name == mount.root)
-            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver root grant was removed"))?;
-        let destination = format!("/workspace/{}", mount.root);
-        process
-            .arg(if mount.read_only {
-                "--ro-bind"
-            } else {
-                "--bind"
+            .find(|g| g.name == name)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver grant disappeared"))
+    };
+    let mounts = manifest
+        .mounts
+        .iter()
+        .map(|m| {
+            Ok(Mount {
+                source: lookup(&m.root)?.path.clone(),
+                destination: PathBuf::from(format!("/workspace/{}", m.root)),
+                read_only: m.read_only,
             })
-            .arg(&grant.path)
-            .arg(&destination);
-        if !mount.read_only {
-            writable.push(destination);
-        }
-    }
-    process.args([
-        "--setenv",
-        "HOME",
-        "/home",
-        "--setenv",
-        "PATH",
-        "/usr/bin:/bin",
-        "--setenv",
-        "LANG",
-        "C.UTF-8",
-        "--setenv",
-        "XDG_CACHE_HOME",
-        "/tmp/cache",
-        "--setenv",
-        "XDG_CONFIG_HOME",
-        "/tmp/config",
-        "--setenv",
-        "XDG_DATA_HOME",
-        "/tmp/data",
-        "--setenv",
-        "SEMWRIGHT_DRIVER_SANDBOX",
-        "landlock-bwrap-v1",
-        "--chdir",
-        "/tmp",
-        "--",
-        "/plugin/sandbox",
-    ]);
-    for (flag, value) in [
-        ("--limit-nofile", manifest.resources.open_files),
-        ("--limit-nproc", manifest.resources.processes),
-        ("--limit-cpu", manifest.resources.cpu_seconds),
-        ("--limit-as", manifest.resources.address_space_bytes),
-        ("--limit-fsize", manifest.resources.file_size_bytes),
-    ] {
-        process.arg(flag).arg(value.to_string());
-    }
-    for path in writable {
-        process.arg("--write-root").arg(path);
-    }
-    process.arg("--").arg("/plugin/bin");
-    process
-        .env_clear()
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .kill_on_drop(true);
-    Ok(process)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let system_config = manifest
+        .system_config
+        .iter()
+        .map(|m| {
+            Ok(Mount {
+                source: lookup(&m.root)?.path.clone(),
+                destination: m.destination.clone(),
+                read_only: true,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    semwright_platform_services::sandbox_command(&SandboxSpec {
+        kind: SandboxKind::Driver,
+        staged_executable: staged.into(),
+        helper: helper.into(),
+        mounts,
+        system_config,
+        network: manifest.network,
+        limits: Some(ResourceLimits {
+            open_files: manifest.resources.open_files,
+            processes: manifest.resources.processes,
+            cpu_seconds: manifest.resources.cpu_seconds,
+            address_space_bytes: manifest.resources.address_space_bytes,
+            file_size_bytes: manifest.resources.file_size_bytes,
+        }),
+    })
 }
 
 pub struct DriverProvider {

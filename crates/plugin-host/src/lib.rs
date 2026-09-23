@@ -4,16 +4,15 @@ use semwright_policy::FilesystemGrant;
 use semwright_protocol::{private_directory, read_frame, write_frame};
 use semwright_types::*;
 use serde_json::{Value, json};
+#[cfg(test)]
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    io::{Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+    io::Write,
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
-    process::Stdio,
     sync::RwLock,
 };
-use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 pub struct Host {
@@ -108,9 +107,10 @@ impl Host {
             .manifests
             .read()
             .map_err(|_| Error::new(ErrorCode::Internal, "Plugin registry lock poisoned"))?;
-        let rows:Vec<_>=manifests.values().map(|m|json!({"name":m.name,"version":m.version,"sha256":m.sha256,"commands":m.commands.iter().map(|c|&c.name).collect::<Vec<_>>(),"sandbox":"bubblewrap+landlock_required","network":m.network})).collect();
+        let native = semwright_platform_services::sandbox_diagnostics(&self.helper);
+        let rows:Vec<_>=manifests.values().map(|m|json!({"name":m.name,"version":m.version,"sha256":m.sha256,"commands":m.commands.iter().map(|c|&c.name).collect::<Vec<_>>(),"sandbox":semwright_platform_services::sandbox_mechanism(),"network":m.network})).collect();
         Ok(
-            json!({"plugins":rows,"bubblewrap_present":Path::new("/usr/bin/bwrap").is_file(),"sandbox_helper_present":self.helper.is_file(),"lifecycle":"one sandboxed process per invocation","stderr":"discarded"}),
+            json!({"plugins":rows,"sandbox":native,"bubblewrap_present":native.get("bubblewrap_present").and_then(Value::as_bool).unwrap_or(false),"sandbox_helper_present":native["helper_present"],"lifecycle":"one sandboxed process per invocation","stderr":"discarded"}),
         )
     }
     pub async fn execute(
@@ -129,7 +129,7 @@ impl Host {
             .iter()
             .find(|c| c.name == command)
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Plugin command is not declared"))?;
-        if !Path::new("/usr/bin/bwrap").is_file() || !self.helper.is_file() {
+        if !semwright_platform_services::sandbox_available(&self.helper) {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
                 "Bubblewrap and semwright-sandbox are required; refusing unsandboxed execution",
@@ -147,93 +147,35 @@ impl Host {
         file.sync_all()?;
         file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
         drop(file);
-        let mut process = Command::new("/usr/bin/bwrap");
-        process.args([
-            "--die-with-parent",
-            "--new-session",
-            "--unshare-all",
-            "--clearenv",
-            "--cap-drop",
-            "ALL",
-        ]);
-        if manifest.network {
-            process.arg("--share-net");
-        }
-        process.args([
-            "--proc",
-            "/proc",
-            "--dev",
-            "/dev",
-            "--tmpfs",
-            "/tmp",
-            "--dir",
-            "/home",
-            "--dir",
-            "/workspace",
-            "--dir",
-            "/plugin",
-        ]);
-        for runtime in ["/usr", "/lib", "/lib64"] {
-            if Path::new(runtime).exists() {
-                process.arg("--ro-bind").arg(runtime).arg(runtime);
-            }
-        }
-        process.args(["--dir", "/etc"]);
-        if Path::new("/etc/ld.so.cache").exists() {
-            process.args(["--ro-bind", "/etc/ld.so.cache", "/etc/ld.so.cache"]);
-        }
-        process.arg("--ro-bind").arg(&staged).arg("/plugin/bin");
-        process
-            .arg("--ro-bind")
-            .arg(&self.helper)
-            .arg("/plugin/sandbox");
-        let mut writable = vec![];
-        for mount in &manifest.mounts {
-            let grant = self
-                .roots
-                .iter()
-                .find(|r| r.name == mount.root)
-                .ok_or_else(|| {
-                    Error::new(ErrorCode::PolicyDenied, "Plugin root grant was removed")
-                })?;
-            let destination = format!("/workspace/{}", mount.root);
-            process
-                .arg(if mount.read_only {
-                    "--ro-bind"
-                } else {
-                    "--bind"
+
+        use semwright_platform_api::launch::{Mount, SandboxKind, SandboxSpec};
+        let mounts = manifest
+            .mounts
+            .iter()
+            .map(|m| {
+                let grant = self
+                    .roots
+                    .iter()
+                    .find(|g| g.name == m.root)
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::PolicyDenied, "Plugin grant disappeared")
+                    })?;
+                Ok(Mount {
+                    source: grant.path.clone(),
+                    destination: PathBuf::from(format!("/workspace/{}", m.root)),
+                    read_only: m.read_only,
                 })
-                .arg(&grant.path)
-                .arg(&destination);
-            if !mount.read_only {
-                writable.push(destination);
-            }
-        }
-        process.args([
-            "--setenv",
-            "HOME",
-            "/home",
-            "--setenv",
-            "PATH",
-            "/usr/bin:/bin",
-            "--setenv",
-            "LANG",
-            "C.UTF-8",
-            "--chdir",
-            "/tmp",
-            "--",
-            "/plugin/sandbox",
-        ]);
-        for directory in writable {
-            process.arg("--write-root").arg(directory);
-        }
-        process.arg("--").arg("/plugin/bin");
-        process
-            .env_clear()
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .kill_on_drop(true);
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut process = semwright_platform_services::sandbox_command(&SandboxSpec {
+            kind: SandboxKind::Plugin,
+            staged_executable: staged.clone(),
+            helper: self.helper.clone(),
+            mounts,
+            system_config: vec![],
+            network: manifest.network,
+            limits: None,
+        })?;
         if cancellation.is_cancelled() {
             return Err(Error::new(
                 ErrorCode::Cancelled,
@@ -332,42 +274,7 @@ impl Drop for StagedFile {
     }
 }
 fn verify_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
-    let mut file = std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(path)?;
-    let meta = file.metadata()?;
-    // SAFETY: getuid has no pointer arguments or other preconditions.
-    let uid = unsafe { libc::getuid() };
-    if !meta.is_file()
-        || meta.len() > 67_108_864
-        || meta.mode() & 0o022 != 0
-        || !(meta.uid() == uid || meta.uid() == 0)
-    {
-        return Err(Error::new(
-            ErrorCode::PermissionDenied,
-            "Plugin executable must be a non-writable-by-others regular file owned by the user/root, <=64 MiB",
-        ));
-    }
-    let mut data = vec![];
-    std::io::Read::by_ref(&mut file)
-        .take(67_108_865)
-        .read_to_end(&mut data)?;
-    if data.len() > 67_108_864
-        || format!("{:x}", Sha256::digest(&data)) != digest.to_ascii_lowercase()
-    {
-        return Err(Error::new(
-            ErrorCode::PermissionDenied,
-            "Plugin binary SHA-256 does not match the pinned manifest",
-        ));
-    }
-    if !data.starts_with(b"\x7fELF") {
-        return Err(Error::new(
-            ErrorCode::Unsupported,
-            "This host only launches ELF plugin binaries, not implicit interpreters",
-        ));
-    }
-    Ok(data)
+    semwright_platform_services::verify_executable(path, digest)
 }
 #[cfg(test)]
 mod tests {
@@ -390,6 +297,7 @@ mod tests {
         assert!(verify_executable(&p, &format!("{:x}", Sha256::digest(body))).is_err());
     }
     #[test]
+    #[cfg(target_os = "linux")]
     fn exact_bytes_are_staged() {
         let d = tempfile::tempdir().unwrap();
         let p = d.path().join("plugin");
