@@ -457,7 +457,7 @@ jobs:
       - name: Install isolated GTK and Qt accessibility fixtures
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity g++ pkg-config qt6-base-dev qt6-wayland weston
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth zenity g++ pkg-config qt6-base-dev
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-runtime"
           chmod 700 "$RUNNER_TEMP/atspi-runtime"
           zenity --version | tee verification/native-ci/zenity-version.log
@@ -505,36 +505,11 @@ jobs:
               fi
               echo "phase=gtk_done" | tee -a verification/native-ci/atspi-phases.log
 
-              weston --backend=headless-backend.so --socket=semwright-wayland --idle-time=0 \
-                > verification/native-ci/weston.log 2>&1 &
-              weston_pid=$!
-              cleanup_weston() {
-                kill -TERM "$weston_pid" 2>/dev/null || true
-                for _ in $(seq 1 50); do
-                  if ! kill -0 "$weston_pid" 2>/dev/null; then
-                    wait "$weston_pid" 2>/dev/null || true
-                    return
-                  fi
-                  sleep 0.1
-                done
-                kill -KILL "$weston_pid" 2>/dev/null || true
-                wait "$weston_pid" 2>/dev/null || true
-              }
-              trap cleanup_weston EXIT
-              for _ in $(seq 1 120); do
-                if [ -S "$XDG_RUNTIME_DIR/semwright-wayland" ]; then
-                  break
-                fi
-                kill -0 "$weston_pid"
-                sleep 0.05
-              done
-              test -S "$XDG_RUNTIME_DIR/semwright-wayland"
-              echo "phase=weston_ready" | tee -a verification/native-ci/atspi-phases.log
+              echo "phase=qt_start" | tee -a verification/native-ci/atspi-phases.log
               qt_rc=0
               timeout --signal=TERM --kill-after=5s 90s \
-                env WAYLAND_DISPLAY=semwright-wayland \
-                    XDG_SESSION_TYPE=wayland \
-                    SEMWRIGHT_TEST_QT_PLATFORM=wayland \
+                xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp" \
+                env XDG_SESSION_TYPE=x11 SEMWRIGHT_TEST_QT_PLATFORM=xcb \
                 cargo test --locked -p semwright-backends \
                   live_atspi_qt_delta_resync_and_stale_refs -- --ignored --nocapture --test-threads=1 \
                 > verification/native-ci/atspi-qt.log 2>&1 || qt_rc=$?
@@ -544,9 +519,6 @@ jobs:
                 exit "$qt_rc"
               fi
               echo "phase=qt_done" | tee -a verification/native-ci/atspi-phases.log
-              cleanup_weston
-              trap - EXIT
-              echo "phase=weston_stopped" | tee -a verification/native-ci/atspi-phases.log
             '
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
