@@ -727,6 +727,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn catalog_response_fits_driver_protocol_frame_budget() {
+        let capabilities = MotionDriver::catalog().unwrap();
+        let digest = semwright_driver_sdk::capabilities_digest(&capabilities).unwrap();
+        let response = semwright_driver_sdk::Response::Capabilities {
+            id: "catalog-size".into(),
+            capabilities,
+            digest,
+        };
+        let bytes = serde_json::to_vec(&response).unwrap();
+        assert!(
+            bytes.len() <= semwright_types::MAX_FRAME,
+            "Motion Canvas catalog is {} bytes but protocol budget is {}",
+            bytes.len(),
+            semwright_types::MAX_FRAME
+        );
+    }
+
+    #[test]
     fn catalog_is_curated_and_descriptor_names_are_owned() {
         let catalog = MotionDriver::catalog().unwrap();
         assert_eq!(catalog.len(), 16);
