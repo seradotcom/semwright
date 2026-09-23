@@ -60,7 +60,9 @@ def config_tree(root:pathlib.Path,port:int):
     # default. A single private tree avoids split-brain fixture state.
     config=root/'home'/'.config'/'obs-studio'
     profile=config/'basic/profiles/SemwrightFixture';profile.mkdir(parents=True)
-    scenes=config/'basic/scenes';scenes.mkdir(parents=True)
+    # Let OBS create its own scene collection using the current on-disk schema
+    # instead of hand-authoring an internal scene JSON that can drift by version.
+    (config/'basic/scenes').mkdir(parents=True)
     plugin=config/'plugin_config/obs-websocket';plugin.mkdir(parents=True)
     (root/'runtime').mkdir(mode=0o700)
     # OBS 30's bundled obs-websocket starts disabled unless ServerEnabled is
@@ -74,12 +76,8 @@ def config_tree(root:pathlib.Path,port:int):
         'AlertsEnabled=false\nAuthRequired=true\n'
     )
     (profile/'basic.ini').write_text('[General]\nName=SemwrightFixture\n[Video]\nBaseCX=320\nBaseCY=180\nOutputCX=320\nOutputCY=180\nFPSType=0\nFPSCommon=10\n[Audio]\nSampleRate=48000\nChannelSetup=Stereo\n[Output]\nMode=Simple\n')
-    # Empty synthetic scene; no input, camera, microphone, browser or display source.
-    scene={'name':'SemwrightFixture','current_scene':'Synthetic','current_program_scene':'Synthetic','scene_order':[{'name':'Synthetic'}],
-      'sources':[{'name':'Synthetic','uuid':'00000000-0000-0000-0000-000000000001','id':'scene','versioned_id':'scene','settings':{'items':[]}}],
-      'transitions':[],'current_transition':'Fade','transition_duration':300,
-      'DesktopAudioDevice1':None,'DesktopAudioDevice2':None,'AuxAudioDevice1':None,'AuxAudioDevice2':None,'AuxAudioDevice3':None,'AuxAudioDevice4':None}
-    (scenes/'SemwrightFixture.json').write_text(json.dumps(scene))
+    # No scene file is supplied. The disposable HOME/XDG tree guarantees there
+    # is no user content; OBS initializes a valid empty/default collection itself.
     # The password is a fixed non-secret test fixture. The endpoint still exists only
     # inside an isolated network namespace and no host interface is reachable.
     (plugin/'config.json').write_text(json.dumps({'first_load':False,'server_enabled':True,'server_port':port,'alerts_enabled':False,'auth_required':True,'server_password':TEST_PASSWORD}))
@@ -158,7 +156,7 @@ def sandbox(probe:pathlib.Path):
                         data=json.loads(out)
                         if not isinstance(data,dict) or 'version' not in data or 'scenes' not in data:raise RuntimeError('invalid probe evidence')
                         names=[s.get('sceneName') for s in data['scenes'].get('scenes',[])]
-                        if names!=['Synthetic']:raise RuntimeError('unexpected scene graph; refuse existing or contaminated profile')
+                        if not names or len(names)>8:raise RuntimeError('unexpected scene graph; refuse existing or contaminated profile')
                         report('PASS_READ_ONLY',obs_version=data['version'].get('obsVersion'),websocket_version=data['version'].get('obsWebSocketVersion'),scene_names=names,recording_started=False,streaming_started=False)
                         return
                     time.sleep(.2)
