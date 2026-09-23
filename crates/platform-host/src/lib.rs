@@ -13,6 +13,7 @@ use std::{
 pub async fn bootstrap(
     fake: bool,
     runtime: &Path,
+    state: &Path,
     applications: BTreeMap<String, Application>,
     browser: BrowserConfig,
     blender_socket: Option<PathBuf>,
@@ -25,22 +26,24 @@ pub async fn bootstrap(
             keepalive: Box::new(()),
         });
     }
-    let mut host = native(runtime, applications, browser, blender_socket).await?;
+    let mut host = native(runtime, state, applications, browser, blender_socket).await?;
     host.environment["root_fixture_only"] = serde_json::json!(false);
     Ok(host)
 }
 #[cfg(target_os = "linux")]
 async fn native(
     r: &Path,
+    state: &Path,
     a: BTreeMap<String, Application>,
     b: BrowserConfig,
     s: Option<PathBuf>,
 ) -> Result<DesktopHost> {
-    semwright_platform_linux::bootstrap(r, a, b, s).await
+    semwright_platform_linux::bootstrap(r, state, a, b, s).await
 }
 #[cfg(target_os = "macos")]
 async fn native(
     r: &Path,
+    _state: &Path,
     _a: BTreeMap<String, Application>,
     _b: BrowserConfig,
     _s: Option<PathBuf>,

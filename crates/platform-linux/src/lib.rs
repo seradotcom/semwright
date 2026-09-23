@@ -7,6 +7,7 @@ pub mod clipboard;
 pub mod eis;
 pub mod hyprland;
 pub mod portal;
+mod portal_state;
 pub mod sway;
 pub mod system;
 pub mod x11;
