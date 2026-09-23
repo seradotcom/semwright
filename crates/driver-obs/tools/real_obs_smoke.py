@@ -11,6 +11,23 @@ class Missing(RuntimeError):pass
 
 def report(status,**fields):print(json.dumps({'status':status,'scope':'real OBS transport read-only smoke, NOT Semwright host conformance',**fields}),flush=True)
 
+SAFE_RUNTIME_DETAILS=frozenset({
+    'child output exceeded evidence budget','real hardware unexpectedly visible','non-loopback interface visible',
+    'virtual display timeout','invalid virtual display','OBS exited before readiness','invalid probe evidence',
+    'unexpected scene graph; refuse existing or contaminated profile','OBS WebSocket did not become ready',
+    'network namespace isolation failed',
+})
+def safe_runtime_detail(error):
+    message=str(error)
+    return message if message in SAFE_RUNTIME_DETAILS else 'runtime_failure'
+def stderr_category(data:bytes):
+    text=data.decode('utf-8','replace').lower()
+    if 'unshare' in text and 'operation not permitted' in text:return 'user_namespace_denied'
+    if 'bwrap' in text:return 'bubblewrap_launch_failed'
+    if 'permission denied' in text:return 'permission_denied'
+    if 'no such file or directory' in text:return 'child_path_missing'
+    return 'child_stderr_present' if data else 'no_child_stderr'
+
 def config_tree(root:pathlib.Path,port:int):
     config=root/'config'/'obs-studio'
     profile=config/'basic/profiles/SemwrightFixture';profile.mkdir(parents=True)
@@ -118,7 +135,7 @@ def namespace(probe:pathlib.Path,parent_netns:str):
     code,out,err=bounded_process(command,55)
     if out:sys.stdout.buffer.write(out);sys.stdout.flush()
     if code!=0:
-        report('FAILED_ISOLATED_LAUNCH',exit_code=code,diagnostic_bytes=len(err));raise SystemExit(code or 1)
+        report('FAILED_ISOLATED_LAUNCH',exit_code=code,diagnostic_category=stderr_category(err),diagnostic_bytes=len(err));raise SystemExit(code or 1)
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--probe',type=pathlib.Path,default=ROOT/'driver/target/release/obs-probe');p.add_argument('--namespace',type=pathlib.Path);p.add_argument('--parent-netns');p.add_argument('--sandbox',type=pathlib.Path);a=p.parse_args()
@@ -132,9 +149,11 @@ def main():
     command=['unshare','--user','--map-root-user','--net','--pid','--fork','--kill-child=KILL','--',sys.executable,str(pathlib.Path(__file__).resolve()),'--namespace',str(probe),'--parent-netns',parent]
     code,out,err=bounded_process(command,65)
     if out:sys.stdout.buffer.write(out);sys.stdout.flush()
-    if code!=0:report('FAILED_ISOLATION_OR_SMOKE',exit_code=code,diagnostic_bytes=len(err))
+    if code!=0:report('FAILED_ISOLATION_OR_SMOKE',exit_code=code,diagnostic_category=stderr_category(err),diagnostic_bytes=len(err))
     return code
 if __name__=='__main__':
     try:raise SystemExit(main() or 0)
-    except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+    except RuntimeError as error:
+        report('FAIL',error_category='RuntimeError',detail=safe_runtime_detail(error));raise SystemExit(1)
+    except (OSError,ValueError,subprocess.SubprocessError) as error:
         report('FAIL',error_category=type(error).__name__);raise SystemExit(1)
