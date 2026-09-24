@@ -246,8 +246,17 @@ jobs:
         working-directory: integrations/motion-canvas/runtime
         run: |
           mkdir -p verification
+          # Mirror the production renderer's Node/browser composition. Plain Node 22
+          # reserves WebAssembly trap-handler address space before probe.mjs runs and
+          # can fail under RLIMIT_AS even though the production helper disables it.
+          mkdir -p "$RUNNER_TEMP/motion-firefox-4g-tmp"
           set +e
-          (ulimit -v 4194304; npm run probe) >verification/firefox-4g-address-space.log 2>&1
+          (
+            ulimit -v 4194304
+            export TMPDIR="$RUNNER_TEMP/motion-firefox-4g-tmp" TMP="$RUNNER_TEMP/motion-firefox-4g-tmp" TEMP="$RUNNER_TEMP/motion-firefox-4g-tmp"
+            export MOZ_DISABLE_CONTENT_SANDBOX=1
+            ./.semwright-tools/node --disable-wasm-trap-handler --max-old-space-size=256 probe.mjs
+          ) >verification/firefox-4g-address-space.log 2>&1
           rc=$?
           set -e
           echo "exit_code=$rc" >>verification/firefox-4g-address-space.log
