@@ -10,7 +10,7 @@ The Driver Host is the execution boundary. Production rendering requires Bubblew
 
 Ubuntu 24.04 additionally restricts unprivileged user namespaces through AppArmor. CI loads the distro `bwrap-userns-restrict` profile specifically for `/usr/bin/bwrap`; it does not disable `kernel.apparmor_restrict_unprivileged_userns` system-wide. This lets Bubblewrap create the isolated namespaces it needs while preserving Ubuntu's global user-namespace mitigation for unrelated processes.
 
-The Motion runtime is an explicit read-only owner grant. Fontconfig is a separate read-only grant mapped only to `/etc/fonts`, because Driver Host otherwise constructs a minimal `/etc`. Node, renderer helper and Firefox are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
+The Motion runtime is an explicit read-only owner grant. Fontconfig is a separate read-only grant mapped only to `/etc/fonts`, because Driver Host otherwise constructs a minimal `/etc`. Node, renderer helper and Chromium headless shell are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
 
 ## Files and assets
 
@@ -24,7 +24,7 @@ Generated source is written to a driver-owned content-addressed tree; agent text
 
 The browser uses a disposable Playwright context, no user profile, no credentials or extensions. Built assets are fulfilled through request interception from the synthetic `semwright.invalid` origin. Other requests are aborted. No Vite server listens on loopback or LAN.
 
-Firefox runs headless inside the mandatory Driver Host Bubblewrap + Landlock boundary; the helper does not expose an agent-controlled browser sandbox switch. Firefox's nested Linux content sandbox and content-process split are disabled with `MOZ_DISABLE_CONTENT_SANDBOX=1` / `MOZ_FORCE_DISABLE_E10S=1` only after the helper verifies the Driver Host sandbox marker, because the inner tab sandbox cannot create its subprocess boundary inside this outer namespace. The Rust parent pins `TMPDIR` and XDG state to the job-specific owner-granted output directory so Playwright's temporary profile remains visible to Firefox subprocesses. Direct helper execution fails closed.
+Chromium headless shell runs inside the mandatory Driver Host Bubblewrap + Landlock boundary; the helper does not expose an agent-controlled browser sandbox switch. Only after the helper verifies the Driver Host marker does it set Playwright `chromiumSandbox:false` and the fixed `--single-process --no-zygote --disable-gpu` arguments, avoiding a nested browser namespace/process tree. This does not remove the outer Driver Host isolation: filesystem grants remain explicit, `network=false`, external browser requests are aborted, and direct helper execution fails closed. The Rust parent pins `TMPDIR` and XDG state to the job-specific owner-granted output directory.
 
 ## Jobs and artifacts
 

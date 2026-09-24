@@ -11,7 +11,7 @@ Agent
   -> semwright-motion-canvas-driver
   -> versioned managed motion model
   -> deterministic TS/TSX compiler
-  -> owner-mounted, SHA-256-pinned Node + render helper + Firefox
+  -> owner-mounted, SHA-256-pinned Node + render helper + Chromium headless shell
   -> Motion Canvas 3.17.2 Renderer
   -> validated PNG sequence
   -> MLT provider for the launch-film final timeline/encode
@@ -23,7 +23,7 @@ Motion Canvas does not provide a documented stable standalone headless render CL
 
 The render helper builds a temporary project copy and serves the resulting files to a dedicated Playwright page through request interception at the synthetic `semwright.invalid` origin. It does not open a Vite HTTP listener. Every other browser request is aborted.
 
-On Linux, render execution fails closed unless `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1` was established by Driver Host. Firefox's nested content sandbox is disabled only inside that outer Bubblewrap + Landlock boundary because the inner tab-process sandbox cannot compose with the existing namespace. Driver Host network remains false.
+On Linux, render execution fails closed unless `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1` was established by Driver Host. Chromium's nested sandbox is disabled only after the helper verifies the outer Bubblewrap + Landlock marker; `--single-process --no-zygote` avoids an inner renderer/zygote process tree while Driver Host remains the mandatory sandbox boundary. Driver Host network remains false.
 
 ## Project transaction
 
@@ -35,4 +35,4 @@ Dry-run stops before any write and returns the same prospective semantic diff/ge
 
 Driver Protocol v1 has no negotiated child events or cooperative cancellation. Rendering is therefore a driver-local job surface: `render.start/status/cancel/result`. Cancellation terminates the owned process group and removes partial output. Successful jobs validate exact frame names/count, PNG dimensions, decoded pixels, hashes and alpha evidence before returning path metadata.
 
-The driver requests named `project`, `media`, `output` and `runtime` grants plus an explicit read-only `fontconfig` system-config grant mapped only to `/etc/fonts`. The runtime mount is owner-provided and read-only; Node, helper and Firefox are each SHA-256 pinned. Final binary media is never returned inside protocol JSON.
+The driver requests named `project`, `media`, `output` and `runtime` grants plus an explicit read-only `fontconfig` system-config grant mapped only to `/etc/fonts`. The runtime mount is owner-provided and read-only; Node, helper and Chromium headless shell are each SHA-256 pinned. Final binary media is never returned inside protocol JSON.

@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import motionCanvasModule from '@motion-canvas/vite-plugin';
 const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
-import {firefox} from 'playwright';
+import {chromium} from 'playwright';
 
 function fail(message) { throw new Error(message); }
 function args() {
@@ -84,12 +84,11 @@ async function main() {
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
-    // Firefox remains inside the outer Driver Host Bubblewrap + Landlock boundary.
-    // Temporary/profile state is pinned by the Rust parent to the job output grant.
-    const launch = {headless:true};
-    launch.env = {...process.env, MOZ_ASSUME_USER_NS:'0', MOZ_DISABLE_CONTENT_SANDBOX:'1', MOZ_FORCE_DISABLE_E10S:'1', MOZ_WEBRENDER:'0'};
+    // Chromium's nested sandbox/process model cannot compose with the already-required
+    // Driver Host namespace. Keep one browser process inside Bubblewrap + Landlock.
+    const launch = {headless:true, chromiumSandbox:false, args:['--single-process','--no-zygote','--disable-gpu','--disable-background-networking','--disable-component-update','--no-first-run']};
     if (a.browser) launch.executablePath = a.browser;
-    browser = await firefox.launch(launch);
+    browser = await chromium.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});
     page = await context.newPage();
     const written = new Set();

@@ -17,9 +17,9 @@ test('runtime dependencies use exact versions', () => {
 test('render harness is bound to the Driver Host marker and local origin', () => {
   assert.ok(render.includes('SEMWRIGHT_DRIVER_SANDBOX'));
   assert.ok(render.includes('landlock-bwrap-v1'));
-  assert.ok(render.includes("MOZ_DISABLE_CONTENT_SANDBOX:'1'"));
-  assert.ok(render.includes("MOZ_FORCE_DISABLE_E10S:'1'"));
-  assert.ok(render.includes("MOZ_WEBRENDER:'0'"));
+  assert.ok(render.includes('chromiumSandbox:false'));
+  assert.ok(render.includes("'--single-process'"));
+  assert.ok(render.includes("'--no-zygote'"));
   assert.ok(render.includes('semwright.invalid'));
   assert.ok(render.includes("route.abort('blockedbyclient')"));
 });

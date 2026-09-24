@@ -392,7 +392,7 @@ async fn run_render(
         .env("FONTCONFIG_PATH", "/etc/fonts")
         .env("FONTCONFIG_FILE", "fonts.conf")
         // Keep all renderer/browser ephemeral state inside this job's writable,
-        // owner-granted output directory. This is required because Firefox's
+        // owner-granted output directory. This is required because Chromium's
         // Playwright profile must remain visible across its subprocesses inside
         // the outer Bubblewrap + Landlock sandbox.
         .env("TMPDIR", &output)

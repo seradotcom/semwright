@@ -13,10 +13,10 @@ The Vite plugin is configured with the documented project import path `./src/pro
 1. Rust validates `semwright-motion.json` and a bounded RenderProfile.
 2. Deterministic generated source is materialized in a content-addressed project tree.
 3. Driver Host supplies an owner-approved read-only runtime mount plus a separate read-only `fontconfig` system-config grant mapped only to `/etc/fonts`.
-4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Firefox executable.
+4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Chromium headless shell executable.
 5. A render job starts the pinned Node helper only inside the Driver Host sandbox. Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` so Vite/Undici remain compatible with the existing 4 GiB Driver Host address-space ceiling instead of raising that generic limit.
 6. The parent pins `TMPDIR`, `TMP`, `TEMP` and XDG state to the job-specific writable output directory before the helper starts. The helper copies the generated project into that private area and performs the Vite build there.
-7. A dedicated Playwright Firefox context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
+7. A dedicated Playwright Chromium headless shell context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
 8. Motion Canvas core `Renderer` invokes the fixed Semwright image-sequence exporter.
 9. The exporter returns PNG data only through an owner-controlled Playwright binding.
 10. Rust validates frame names/count, dimensions, PNG decode, pixel hash and alpha evidence before returning artifact paths.
@@ -27,9 +27,9 @@ The helper never accepts arbitrary JavaScript, npm packages, commands or URLs fr
 
 The Rust job owns a new process group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. Driver Protocol v1 does not transport child progress events, so status exposes observed phases only.
 
-## Firefox sandbox layering
+## Chromium headless shell sandbox layering
 
-The certified Ubuntu path keeps Firefox inside the already-required Driver Host Bubblewrap + Landlock boundary and does not expose a request-controlled browser sandbox override. The exact Playwright-installed Firefox executable is selected uniquely and SHA-256 pinned in the owner runtime manifest. Because Firefox's own Linux content sandbox cannot create its tab-process boundary inside this outer namespace, the pinned helper sets `MOZ_DISABLE_CONTENT_SANDBOX=1`, `MOZ_FORCE_DISABLE_E10S=1` and `MOZ_WEBRENDER=0` only after verifying the Driver Host marker; the renderer loads one generated local origin and blocks every external request, so no untrusted cross-site content is admitted; the process still has the outer Bubblewrap/Landlock filesystem, PID and no-network boundary. Playwright's temporary profile is created under the job's writable output root rather than depending on ambient host state. The driver manifest remains `network=false`.
+The certified Ubuntu path keeps Chromium headless shell inside the already-required Driver Host Bubblewrap + Landlock boundary and does not expose a request-controlled browser sandbox override. The exact Playwright-installed Chromium headless shell executable is selected uniquely and SHA-256 pinned in the owner runtime manifest. After verifying the Driver Host marker, the helper uses Playwright's `chromiumSandbox:false` together with fixed `--single-process --no-zygote --disable-gpu` arguments. This avoids a second namespace/sandbox and renderer-process tree inside the Driver Host boundary. The renderer admits only one generated local origin and aborts every external request; the browser remains confined by Bubblewrap/Landlock, the explicit filesystem grants and `network=false`. Playwright's temporary profile is created under the job's writable output root rather than depending on ambient host state.
 
 Running `render.mjs` directly outside the Driver Host boundary fails closed.
 
