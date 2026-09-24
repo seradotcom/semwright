@@ -11,7 +11,11 @@ use windows::Win32::{
 
 /// OS Job Object used for child-process containment. This is unrelated to Semwright protocol Jobs.
 pub struct ProcessJob(HANDLE);
+// SAFETY: a Windows Job Object HANDLE is process-wide rather than thread-affine; this wrapper
+// owns the handle, exposes only thread-safe kernel operations, and closes it exactly once on Drop.
 unsafe impl Send for ProcessJob {}
+// SAFETY: shared references only invoke Job Object APIs that accept the process-wide HANDLE and
+// do not mutate Rust-owned memory without synchronization. Kernel state provides its own safety.
 unsafe impl Sync for ProcessJob {}
 
 impl Drop for ProcessJob {
