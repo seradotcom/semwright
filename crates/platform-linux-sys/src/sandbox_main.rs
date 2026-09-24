@@ -29,6 +29,7 @@ fn bounded_limit(
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let mut writable = vec!["/tmp".to_owned()];
+    let mut readable = Vec::new();
     let mut seen = BTreeSet::new();
     let mut nofile = 128u64;
     let mut nproc = 32u64;
@@ -45,6 +46,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     return Err("invalid sandbox root".into());
                 }
                 writable.push(path);
+            }
+            "--read-root" => {
+                let path = args.next().ok_or("read root missing")?;
+                if !(path.starts_with("/workspace/") || path.starts_with("/etc/"))
+                    || path.contains("..")
+                    || path.contains('\0')
+                {
+                    return Err("invalid sandbox read root".into());
+                }
+                readable.push(path);
             }
             "--limit-nofile" => {
                 if !seen.insert(argument.clone()) {
@@ -134,6 +145,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         PathFd::new("/dev/null")?,
         AccessFs::ReadFile | AccessFs::WriteFile,
     ))?;
+    // The bind-mounted runtime is a separate hierarchy. Grant read/execute
+    // only to destinations already admitted by SandboxSpec and Bubblewrap.
+    for path in readable {
+        let access = if Path::new(&path).is_dir() {
+            read
+        } else {
+            AccessFs::Execute | AccessFs::ReadFile
+        };
+        ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(&path)?, access))?;
+    }
     for path in writable {
         ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, all))?;
     }
