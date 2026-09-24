@@ -15,6 +15,7 @@ export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export AQ_NO_KMS_REQUIREMENT=1
 export AQ_NO_MODIFIERS=1
+export AQ_TRACE=1
 export HYPRLAND_NO_RT=1
 export HYPRLAND_NO_SD_NOTIFY=1
 export HYPRLAND_NO_SD_VARS=1
@@ -27,13 +28,17 @@ misc {
     disable_hyprland_logo = true
     disable_splash_rendering = true
 }
+debug {
+    disable_logs = false
+}
 windowrulev2 = float,title:^(Semwright Hyprland Fixture)$
 CONF
 
 # Aquamarine needs either a usable DRM seat or a parent Wayland compositor. GitHub-hosted
 # Docker has neither, so provide a real Weston headless parent and exercise Hyprland's
 # Wayland backend rather than synthesizing Hyprland IPC state.
-weston --backend=headless-backend.so --socket=wayland-parent --idle-time=0 \
+weston --backend=headless-backend.so --renderer=gl --socket=wayland-parent --idle-time=0 \
+  --width=1280 --height=720 \
   >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/weston.log" 2>&1 &
 weston_pid=$!
 for _ in $(seq 1 200); do
@@ -66,6 +71,10 @@ cleanup() {
   done
   kill -KILL "$weston_pid" 2>/dev/null || true
   wait "$weston_pid" 2>/dev/null || true
+  internal_log=$(find "$runtime/hypr" -type f -name hyprland.log -print -quit 2>/dev/null || true)
+  if [ -n "${internal_log:-}" ]; then
+    cp "$internal_log" "$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/hyprland-internal.log" || true
+  fi
   rm -rf "$runtime" "$home"
   exit "$status"
 }
