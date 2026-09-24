@@ -271,8 +271,8 @@ pub enum Ui {
         name: Option<String>,
         #[arg(long)]
         name_regex: Option<String>,
-        #[arg(long, conflicts_with = "help_regex")]
-        help: Option<String>,
+        #[arg(long = "help-text", conflicts_with = "help_regex")]
+        help_text: Option<String>,
         #[arg(long)]
         help_regex: Option<String>,
         #[arg(long)]
@@ -845,7 +845,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
                 role,
                 name,
                 name_regex,
-                help,
+                help_text,
                 help_regex,
                 framework,
                 attribute,
@@ -876,7 +876,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
                 if let Some(name) = name_regex {
                     s["name"] = json!({"op":"regex","value":name});
                 }
-                if let Some(help) = help {
+                if let Some(help) = help_text {
                     s["help"] = json!({"op":"exact","value":help});
                 }
                 if let Some(help) = help_regex {
@@ -1278,6 +1278,17 @@ mod tests {
     #[test]
     fn no_permission_upgrade_flags() {
         assert!(Cli::try_parse_from(["semwright", "--approve", "doctor"]).is_err());
+    }
+    #[test]
+    fn ui_find_help_text_does_not_shadow_clap_help() {
+        let parsed =
+            Cli::try_parse_from(["semwright", "ui", "find", "--help-text", "tooltip"]).unwrap();
+        let request = request(&parsed).unwrap().unwrap();
+        assert_eq!(request.args["selector"]["help"]["op"], "exact");
+        assert_eq!(request.args["selector"]["help"]["value"], "tooltip");
+
+        let help = Cli::try_parse_from(["semwright", "ui", "find", "--help"]).unwrap_err();
+        assert_eq!(help.kind(), clap::error::ErrorKind::DisplayHelp);
     }
     #[test]
     fn known_examples_match_schemas() {
