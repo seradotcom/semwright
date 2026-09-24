@@ -39,7 +39,7 @@ calloop = "0.14"
 x11rb = { version = "0.13", features = ["xtest"] }
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "handshake"] }
 url = "2"
-base64 = "0.22"
+base64 = "0.23"
 anyhow = "1"
 hex = "0.4"
 hmac = "0.12"
