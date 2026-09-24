@@ -159,7 +159,7 @@ providers = doctor["data"]["providers"]["providers"]
 provider = next(p for p in providers if p["identity"]["id"] == "external-mcp:fixture")
 assert provider["connected"] is True
 assert provider["identity"]["kind"] == "external_mcp"
-assert provider["identity"]["origin"] == f"trusted-stdio-sha256:{sha}"
+assert provider["identity"]["origin"] == f"sandboxed-stdio-sha256:{sha}"
 assert provider["interfaces"]["dynamic_capabilities"] is True
 
 assert search["ok"] is True
