@@ -3,6 +3,7 @@ pub mod audit;
 mod catalog;
 mod jobs;
 mod providers;
+mod workflows;
 use async_trait::async_trait;
 use providers::{Invocation, ProviderCatalog, ProviderLease};
 use semwright_backend_api::{Backend, Context};
@@ -68,6 +69,7 @@ pub struct Broker {
     provider_tasks: tokio_util::task::TaskTracker,
     job_tasks: tokio_util::task::TaskTracker,
     jobs: StdMutex<jobs::JobStore>,
+    workflows: StdMutex<semwright_workflow::WorkflowManager>,
     events: StdMutex<Events>,
     broadcast: broadcast::Sender<Event>,
     environment: Value,
@@ -120,6 +122,7 @@ impl Broker {
             provider_tasks: tokio_util::task::TaskTracker::new(),
             job_tasks: tokio_util::task::TaskTracker::new(),
             jobs: StdMutex::new(jobs::JobStore::default()),
+            workflows: StdMutex::new(semwright_workflow::WorkflowManager::default()),
             events: StdMutex::new(Events {
                 sequence: 0,
                 history: VecDeque::new(),
@@ -572,6 +575,12 @@ impl Broker {
     ) -> Envelope {
         let started = Instant::now();
         let descriptor = self.invocation(&request.command);
+        let trace_context = descriptor.as_ref().ok().map(|invocation| {
+            (
+                invocation.capability.descriptor.clone(),
+                invocation.capability.metadata.clone(),
+            )
+        });
         let safe_name = descriptor
             .as_ref()
             .map(|d| d.capability.descriptor.name.clone())
@@ -621,6 +630,17 @@ impl Broker {
             )
             .uncertain()),
         };
+        if let Some((trace_descriptor, trace_metadata)) = &trace_context {
+            self.record_workflow_execution(
+                &session,
+                &request,
+                trace_descriptor,
+                trace_metadata,
+                &selected,
+                started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                &result,
+            );
+        }
         self.event(
             self.core_event("command_finish")
                 .with_attribute("command", json!(safe_name))
@@ -730,7 +750,7 @@ impl Broker {
                 broker: self.clone(),
                 session: session.into(),
             };
-            return recipe
+            let output = recipe
                 .run(
                     &bridge,
                     request
@@ -741,7 +761,45 @@ impl Broker {
                     request.dry_run,
                     cancellation,
                 )
-                .await;
+                .await?;
+            capability.validate_output(&output)?;
+            return Ok(output);
+        }
+        if request.command == "workflow.replay" {
+            *selected = "core".into();
+            audit.backend(selected);
+            audit.executed_provider("semwright-core", None);
+            let output = self
+                .workflow_replay(
+                    session,
+                    arg_str(&request.args, "candidate_id")?,
+                    request
+                        .args
+                        .get("inputs")
+                        .cloned()
+                        .unwrap_or_else(|| json!({})),
+                    request.dry_run,
+                    cancellation,
+                )
+                .await?;
+            capability.validate_output(&output)?;
+            return Ok(output);
+        }
+        if capability.metadata.source == SourceKind::Recipe {
+            *selected = capability.metadata.provider.clone();
+            audit.backend(selected);
+            audit.executed_provider(&capability.metadata.provider, None);
+            let output = self
+                .execute_promoted_workflow(
+                    session,
+                    &request.command,
+                    request.args.clone(),
+                    request.dry_run,
+                    cancellation,
+                )
+                .await?;
+            capability.validate_output(&output)?;
+            return Ok(output);
         }
         *selected = self
             .choose(
@@ -1065,6 +1123,43 @@ impl Broker {
             "audit.tail" => {
                 Ok(json!({"events":self.audit.tail(args["limit"].as_u64().unwrap_or(30)as usize)?}))
             }
+            "workflow.record.start" => self.workflow_record_start(
+                session,
+                arg_str(args, "name")?,
+                args["intent"].as_str().unwrap_or(""),
+                args["capture_values"].as_bool().unwrap_or(false),
+            ),
+            "workflow.record.stop" => {
+                self.workflow_record_stop(session, args["successful"].as_bool().unwrap_or(true))
+            }
+            "workflow.traces.list" => self.workflow_traces(),
+            "workflow.trace.get" => self.workflow_trace(arg_str(args, "trace_id")?),
+            "workflow.trace.delete" => self.workflow_trace_delete(arg_str(args, "trace_id")?),
+            "workflow.compile" => {
+                let trace_ids: Vec<String> = serde_json::from_value(args["trace_ids"].clone())?;
+                let hints: Vec<semwright_workflow::ParameterHint> = serde_json::from_value(
+                    args.get("parameters").cloned().unwrap_or_else(|| json!([])),
+                )?;
+                self.workflow_compile(
+                    &trace_ids,
+                    arg_str(args, "name")?,
+                    args["description"].as_str().unwrap_or(""),
+                    hints,
+                )
+            }
+            "workflow.candidates.list" => self.workflow_candidates(),
+            "workflow.candidate.get" => {
+                Ok(json!({"candidate":self.workflow_candidate(arg_str(args,"candidate_id")?)?}))
+            }
+            "workflow.candidate.delete" => {
+                self.workflow_candidate_delete(arg_str(args, "candidate_id")?)
+            }
+            "workflow.verify" => self.workflow_verify(session, arg_str(args, "candidate_id")?),
+            "workflow.promote" => {
+                self.workflow_promote(arg_str(args, "candidate_id")?, arg_str(args, "slug")?)
+            }
+            "workflow.promotions.list" => self.workflow_promotions(),
+            "workflow.demote" => self.workflow_demote(arg_str(args, "slug")?),
             "recipe.list" => Ok(
                 json!({"recipes":["fake-export","fake-edit","blender-inspect","workspace-write"],"source":"Recipe files ship with the repository; clients load and submit their declarative contents"}),
             ),
