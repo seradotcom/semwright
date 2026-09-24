@@ -494,6 +494,7 @@ pub fn input_schema(name: &str) -> Value {
 
         _ => crate::semantic_complete_schemas::input_schema(name)
             .or_else(|| crate::semantic_more_schemas::input_schema(name))
+            .or_else(|| crate::semantic_admin_schemas::input_schema(name))
             .unwrap_or_else(|| json!({"not":{}})),
     }
 }
@@ -677,6 +678,7 @@ pub fn output_schema(name: &str) -> Value {
         "dev.css" => bounded_object(256),
         _ => crate::semantic_complete_schemas::output_schema(name)
             .or_else(|| crate::semantic_more_schemas::output_schema(name))
+            .or_else(|| crate::semantic_admin_schemas::output_schema(name))
             .unwrap_or_else(|| json!({"not":{}})),
     }
 }

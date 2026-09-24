@@ -62,6 +62,8 @@ pub const OPERATIONS: &[&str] = &[
     "design_system.export.tailwind",
     "node.export.jsx",
     "node.export.storybook",
+    "text.range.inspect",
+    "text.range.edit",
 ];
 fn s(max: usize) -> Value {
     json!({"type":"string","minLength":1,"maxLength":max})
@@ -338,6 +340,20 @@ pub fn input_schema(name: &str) -> Option<Value> {
         "node.export.jsx" | "node.export.storybook" => {
             input(vec![("nodeId", s(256)), ("name", s(256))], &["nodeId"])
         }
+        "text.range.inspect" => input(
+            vec![("nodeId", s(256)), ("start", u(65_536)), ("end", u(65_536))],
+            &["nodeId", "start", "end"],
+        ),
+        "text.range.edit" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("start", u(65_536)),
+                ("end", u(65_536)),
+                ("characters", json!({"type":"string","maxLength":65_536})),
+                ("useStyle", en(&["BEFORE", "AFTER"])),
+            ],
+            &["nodeId", "start"],
+        ),
         other => unreachable!("semantic-more operation {other} lacks input schema"),
     };
     Some(schema)
@@ -500,6 +516,13 @@ pub fn output_schema(name: &str) -> Option<Value> {
                 "boundVariableId":{"type":["string","null"],"maxLength":256}
             },
             "required":["nodeId","index","boundVariableId"],
+            "additionalProperties":false
+        }),
+        "text.range.inspect" => loose_output(64),
+        "text.range.edit" => json!({
+            "type":"object",
+            "properties":{"start":u(65_536),"end":u(65_536),"characters":{"type":"string","maxLength":65_536}},
+            "required":["start","end","characters"],
             "additionalProperties":false
         }),
         _ => loose_output(128),

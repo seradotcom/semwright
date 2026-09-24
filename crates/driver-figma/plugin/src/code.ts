@@ -731,7 +731,9 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
         const semanticExport = await handleSemanticExports(request, a);
         if (semanticExport) return semanticExport;
         const semanticProperty = await handleSemanticProperties(request, a);
-        return semanticProperty ?? fail(request.id, "unsupported", "operation not implemented by plugin build");
+        if (semanticProperty) return semanticProperty;
+        const admin = await handleSemanticAdmin(request, a);
+        return admin ?? fail(request.id, "unsupported", "operation not implemented by plugin build");
       }
     }
   } catch (error) {

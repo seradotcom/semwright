@@ -1,9 +1,9 @@
-use super::{op, Op};
+use super::{Op, op};
 use semwright_types::{Idempotency, Risk};
 
 pub(super) fn operations() -> Vec<Op> {
-    use Idempotency::{Idempotent, ReadOnly};
-    use Risk::{MutatingReversible, ReadOnly as ReadRisk, SecretAccess};
+    use Idempotency::{Idempotent, NonIdempotent, ReadOnly};
+    use Risk::{MutatingReversible, PrivilegeSensitive, ReadOnly as ReadRisk, SecretAccess};
 
     vec![
         op(
@@ -82,6 +82,125 @@ pub(super) fn operations() -> Vec<Op> {
             SecretAccess,
             ReadOnly,
             false,
+        ),
+        op(
+            "node.top_level_frame",
+            "Resolve the enclosing top-level Figma frame",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "node.plugin_data.keys",
+            "List private plugin-data keys stored by this plugin",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "node.shared_plugin_data.get",
+            "Read explicitly namespaced shared plugin data",
+            SecretAccess,
+            ReadOnly,
+            false,
+        ),
+        op(
+            "node.shared_plugin_data.keys",
+            "List explicitly namespaced shared plugin-data keys",
+            SecretAccess,
+            ReadOnly,
+            false,
+        ),
+        op(
+            "node.shared_plugin_data.set",
+            "Set or clear explicitly namespaced shared plugin data",
+            PrivilegeSensitive,
+            Idempotent,
+            true,
+        ),
+        op(
+            "library.publish_status.inspect",
+            "Inspect a publishable component, component set, or style status",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "figjam.stamp.author.inspect",
+            "Read the author metadata for a FigJam stamp",
+            SecretAccess,
+            ReadOnly,
+            false,
+        ),
+        op(
+            "node.resize_unconstrained",
+            "Resize a node without applying child constraints",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "node.aspect_ratio.lock",
+            "Lock a node to its current aspect ratio",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "node.aspect_ratio.unlock",
+            "Remove a node aspect-ratio lock",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "instance.overrides.remove_all",
+            "Remove all direct instance overrides",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "layout.grid.rows.reorder",
+            "Reorder explicit grid rows",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "layout.grid.columns.reorder",
+            "Reorder explicit grid columns",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "layout.grid.child.position",
+            "Move a direct grid child to an explicit cell",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "slides.transition.inspect",
+            "Inspect a slide transition",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "slides.transition.set",
+            "Set a complete slide transition",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "widget.find_by_widget_id",
+            "Find bounded widget nodes with a given widget ID",
+            ReadRisk,
+            ReadOnly,
+            true,
         ),
     ]
 }

@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use tokio::sync::mpsc;
 
+mod semantic_admin_ops;
 mod semantic_more_ops;
 
 const DRIVER_SCOPE: &str = "driver:figma";
@@ -1487,6 +1488,7 @@ fn operations() -> Vec<Op> {
 fn advertised_operations() -> Vec<Op> {
     let mut operations = operations();
     operations.extend(semantic_more_ops::operations());
+    operations.extend(semantic_admin_ops::operations());
     operations
 }
 

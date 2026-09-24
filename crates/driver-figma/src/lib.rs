@@ -4,6 +4,7 @@ pub mod model;
 pub mod motion;
 pub mod prototype;
 pub mod schemas;
+pub mod semantic_admin_schemas;
 pub mod semantic_complete_schemas;
 pub mod semantic_more_schemas;
 pub mod snapshot;

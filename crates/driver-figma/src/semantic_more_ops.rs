@@ -432,5 +432,19 @@ pub(super) fn operations() -> Vec<Op> {
             ReadOnly,
             true,
         ),
+        op(
+            "text.range.inspect",
+            "Inspect the complete public rich-text range state",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "text.range.edit",
+            "Insert, delete, or replace text while preserving surrounding styles",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
     ]
 }

@@ -7,6 +7,7 @@ root = pathlib.Path(__file__).resolve().parents[1]
 rust_sources = [
     root / "src/main.rs",
     root / "src/semantic_more_ops.rs",
+    root / "src/semantic_admin_ops.rs",
 ]
 main = "\n".join(path.read_text(encoding="utf-8") for path in rust_sources)
 plugin_sources = [

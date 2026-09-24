@@ -228,6 +228,30 @@ async function handleSemanticComplete(request: BridgeRequest, a: any): Promise<B
       const fields=extraBoundedArray(a.fields??["fontName","fontSize","fills","textDecoration","textCase","hyperlink"],32);
       return ok(request.id,node.getStyledTextSegments(fields as any).slice(0,MAX_RESULTS));
     }
+    case "text.range.inspect": {
+      const node=await nodeById(String(a.nodeId)) as any;
+      if(node.type!=="TEXT"&&node.type!=="TEXT_PATH") throw new Error("not_text");
+      const start=Number(a.start),end=Number(a.end); if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end>node.characters.length) throw new Error("invalid_text_range");
+      const norm=(value:any)=>value===figma.mixed?"MIXED":spSerializable(value);
+      const bound:Record<string,unknown>={};
+      for(const field of ["fontFamily","fontSize","fontStyle","fontWeight","letterSpacing","lineHeight","paragraphSpacing","paragraphIndent"] as VariableBindableTextField[]){
+        bound[field]=norm(node.getRangeBoundVariable(start,end,field));
+      }
+      return ok(request.id,{start,end,characters:node.characters.slice(start,end),
+        fontSize:norm(node.getRangeFontSize(start,end)),fontName:norm(node.getRangeFontName(start,end)),
+        fontWeight:norm(node.getRangeFontWeight(start,end)),fontNames:norm(node.getRangeAllFontNames(start,end)),
+        textCase:norm(node.getRangeTextCase(start,end)),openTypeFeatures:norm(node.getRangeOpenTypeFeatures(start,end)),
+        letterSpacing:norm(node.getRangeLetterSpacing(start,end)),hyperlink:norm(node.getRangeHyperlink(start,end)),
+        fills:norm(node.getRangeFills(start,end)),textStyleId:norm(node.getRangeTextStyleId(start,end)),
+        fillStyleId:norm(node.getRangeFillStyleId(start,end)),boundVariables:bound,
+        textDecoration:norm(node.getRangeTextDecoration(start,end)),textDecorationStyle:norm(node.getRangeTextDecorationStyle(start,end)),
+        textDecorationOffset:norm(node.getRangeTextDecorationOffset(start,end)),textDecorationThickness:norm(node.getRangeTextDecorationThickness(start,end)),
+        textDecorationColor:norm(node.getRangeTextDecorationColor(start,end)),textDecorationSkipInk:norm(node.getRangeTextDecorationSkipInk(start,end)),
+        lineHeight:norm(node.getRangeLineHeight(start,end)),listOptions:norm(node.getRangeListOptions(start,end)),
+        listSpacing:norm(node.getRangeListSpacing(start,end)),indentation:norm(node.getRangeIndentation(start,end)),
+        paragraphIndent:norm(node.getRangeParagraphIndent(start,end)),paragraphSpacing:norm(node.getRangeParagraphSpacing(start,end)),
+        textWrapStyle:norm(node.getRangeTextWrapStyle(start,end))});
+    }
     case "text.range.patch": {
       const node=await nodeById(String(a.nodeId)) as any;
       if(node.type!=="TEXT"&&node.type!=="TEXT_PATH") throw new Error("not_text");
@@ -236,10 +260,32 @@ async function handleSemanticComplete(request: BridgeRequest, a: any): Promise<B
       if(a.fontSize!==undefined) node.setRangeFontSize(start,end,Number(a.fontSize));
       if(a.fontName){await figma.loadFontAsync(a.fontName as FontName);node.setRangeFontName(start,end,a.fontName as FontName);}
       if(a.fills) node.setRangeFills(start,end,a.fills as Paint[]);
-      if(a.letterSpacing) node.setRangeLetterSpacing(start,end,a.letterSpacing);
-      if(a.textDecoration) node.setRangeTextDecoration(start,end,a.textDecoration);
-      if(a.textCase) node.setRangeTextCase(start,end,a.textCase);
+      if(a.fillStyleId!==undefined) await node.setRangeFillStyleIdAsync(start,end,String(a.fillStyleId));
+      if(a.textStyleId!==undefined) await node.setRangeTextStyleIdAsync(start,end,String(a.textStyleId));
+      if(a.letterSpacing!==undefined) node.setRangeLetterSpacing(start,end,a.letterSpacing);
+      if(a.textDecoration!==undefined) node.setRangeTextDecoration(start,end,a.textDecoration);
+      if(a.textDecorationStyle!==undefined) node.setRangeTextDecorationStyle(start,end,a.textDecorationStyle);
+      if(a.textDecorationOffset!==undefined) node.setRangeTextDecorationOffset(start,end,a.textDecorationOffset);
+      if(a.textDecorationThickness!==undefined) node.setRangeTextDecorationThickness(start,end,a.textDecorationThickness);
+      if(a.textDecorationColor!==undefined) node.setRangeTextDecorationColor(start,end,a.textDecorationColor);
+      if(a.textDecorationSkipInk!==undefined) node.setRangeTextDecorationSkipInk(start,end,Boolean(a.textDecorationSkipInk));
+      if(a.textCase!==undefined) node.setRangeTextCase(start,end,a.textCase);
+      if(a.lineHeight!==undefined) node.setRangeLineHeight(start,end,a.lineHeight);
+      if(a.listOptions!==undefined) node.setRangeListOptions(start,end,a.listOptions);
+      if(a.listSpacing!==undefined) node.setRangeListSpacing(start,end,Number(a.listSpacing));
+      if(a.indentation!==undefined) node.setRangeIndentation(start,end,Number(a.indentation));
+      if(a.paragraphIndent!==undefined) node.setRangeParagraphIndent(start,end,Number(a.paragraphIndent));
+      if(a.paragraphSpacing!==undefined) node.setRangeParagraphSpacing(start,end,Number(a.paragraphSpacing));
+      if(a.textWrapStyle!==undefined) node.setRangeTextWrapStyle(start,end,a.textWrapStyle);
       return ok(request.id,{start,end},true);
+    }
+    case "text.range.edit": {
+      const node=await nodeById(String(a.nodeId)) as any;if(node.type!=="TEXT"&&node.type!=="TEXT_PATH")throw new Error("not_text");
+      const start=Number(a.start),end=Number(a.end??a.start);if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end>node.characters.length)throw new Error("invalid_text_range");
+      await ensureFonts(node as TextNode);
+      if(end>start)node.deleteCharacters(start,end);
+      if(a.characters!==undefined&&String(a.characters).length)node.insertCharacters(start,String(a.characters).slice(0,65536),a.useStyle??"BEFORE");
+      return ok(request.id,{start,end,characters:node.characters.slice(Math.max(0,start-16),Math.min(node.characters.length,start+String(a.characters??"").length+16))},true);
     }
     case "text.hyperlink.set": {
       const node=await nodeById(String(a.nodeId)) as any; if(node.type!=="TEXT"&&node.type!=="TEXT_PATH") throw new Error("not_text");

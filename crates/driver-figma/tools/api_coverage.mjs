@@ -114,12 +114,69 @@ const METHOD_MAP={
   applyAnimationStyle:"motion.style.apply", removeAnimationStyle:"motion.style.remove",
   applyManualKeyframeTrack:"motion.keyframe.apply", removeManualKeyframeTrack:"motion.keyframe.remove",
   setTimelineDuration:"motion.timeline.set_duration",
+  appendChild:"node.reparent", appendChildAt:"node.reparent+node.reorder",
+  insertChild:"node.reparent+node.reorder",
+  cellAt:"figjam.table.cell.inspect", createSlot:"slot.create", resetSlot:"slot.reset",
+  findAll:"node.search", findAllWithCriteria:"node.search", findChild:"node.search",
+  findChildren:"node.children", findOne:"node.search",
+  getInstancesAsync:"component.instances.list",
+  insertRow:"figjam.table.row.insert", removeRow:"figjam.table.row.remove",
+  moveRow:"figjam.table.row.move", resizeRow:"figjam.table.row.resize",
+  insertColumn:"figjam.table.column.insert", removeColumn:"figjam.table.column.remove",
+  moveColumn:"figjam.table.column.move", resizeColumn:"figjam.table.column.resize",
+  setEffectStyleIdAsync:"style.apply", setFillStyleIdAsync:"style.apply",
+  setGridStyleIdAsync:"style.apply", setStrokeStyleIdAsync:"style.apply",
+  setTextStyleIdAsync:"style.apply", setFillsAsync:"node.properties.patch",
+  setStrokesAsync:"node.properties.patch", setProperties:"instance.properties.patch",
+  setVectorNetworkAsync:"vector.network.set",
+  insertCharacters:"text.range.edit", deleteCharacters:"text.range.edit",
+  getRangeAllFontNames:"text.range.inspect", getRangeBoundVariable:"text.range.inspect",
+  getRangeFillStyleId:"text.range.inspect", getRangeFills:"text.range.inspect",
+  getRangeFontName:"text.range.inspect", getRangeFontSize:"text.range.inspect",
+  getRangeFontWeight:"text.range.inspect", getRangeHyperlink:"text.range.inspect",
+  getRangeIndentation:"text.range.inspect", getRangeLetterSpacing:"text.range.inspect",
+  getRangeLineHeight:"text.range.inspect", getRangeListOptions:"text.range.inspect",
+  getRangeListSpacing:"text.range.inspect", getRangeOpenTypeFeatures:"text.range.inspect",
+  getRangeParagraphIndent:"text.range.inspect", getRangeParagraphSpacing:"text.range.inspect",
+  getRangeTextCase:"text.range.inspect", getRangeTextDecoration:"text.range.inspect",
+  getRangeTextDecorationColor:"text.range.inspect", getRangeTextDecorationOffset:"text.range.inspect",
+  getRangeTextDecorationSkipInk:"text.range.inspect", getRangeTextDecorationStyle:"text.range.inspect",
+  getRangeTextDecorationThickness:"text.range.inspect", getRangeTextStyleId:"text.range.inspect",
+  getRangeTextWrapStyle:"text.range.inspect",
+  setRangeFillStyleId:"text.range.patch", setRangeFillStyleIdAsync:"text.range.patch",
+  setRangeFills:"text.range.patch", setRangeFontName:"text.range.patch",
+  setRangeFontSize:"text.range.patch", setRangeIndentation:"text.range.patch",
+  setRangeLetterSpacing:"text.range.patch", setRangeLineHeight:"text.range.patch",
+  setRangeListOptions:"text.range.patch", setRangeListSpacing:"text.range.patch",
+  setRangeParagraphIndent:"text.range.patch", setRangeParagraphSpacing:"text.range.patch",
+  setRangeTextCase:"text.range.patch", setRangeTextDecoration:"text.range.patch",
+  setRangeTextDecorationColor:"text.range.patch", setRangeTextDecorationOffset:"text.range.patch",
+  setRangeTextDecorationSkipInk:"text.range.patch", setRangeTextDecorationStyle:"text.range.patch",
+  setRangeTextDecorationThickness:"text.range.patch", setRangeTextStyleId:"text.range.patch",
+  setRangeTextStyleIdAsync:"text.range.patch", setRangeTextWrapStyle:"text.range.patch",
+  getTopLevelFrame:"node.top_level_frame", getPluginDataKeys:"node.plugin_data.keys",
+  getSharedPluginData:"node.shared_plugin_data.get", setSharedPluginData:"node.shared_plugin_data.set",
+  getSharedPluginDataKeys:"node.shared_plugin_data.keys", getPublishStatusAsync:"library.publish_status.inspect",
+  getAuthorAsync:"figjam.stamp.author.inspect", resizeWithoutConstraints:"node.resize_unconstrained",
+  lockAspectRatio:"node.aspect_ratio.lock", unlockAspectRatio:"node.aspect_ratio.unlock",
+  resetOverrides:"instance.overrides.remove_all", removeOverrides:"instance.overrides.remove_all",
+  reorderRows:"layout.grid.rows.reorder", reorderColumns:"layout.grid.columns.reorder",
+  setGridChildPosition:"layout.grid.child.position", getSlideTransition:"slides.transition.inspect",
+  setSlideTransition:"slides.transition.set", findWidgetNodesByWidgetId:"widget.find_by_widget_id",
+};
+const METHOD_CLASSIFICATION={
+  cloneWidget:"UPSTREAM_WIDGET_CONTEXT_RESTRICTED",
+  setWidgetSyncedState:"UPSTREAM_WIDGET_CONTEXT_RESTRICTED",
+  setDevResourcePreviewAsync:"UPSTREAM_PARTNER_RESTRICTED",
 };
 for(const node of Object.values(sceneNodes)){
   for(const member of Object.values(node.members)){
-    if(member.kind==="method"&&METHOD_MAP[member.name]){
+    if(member.kind!=="method")continue;
+    if(METHOD_MAP[member.name]){
       member.status="SUPPORTED_METHOD";
       member.capability=METHOD_MAP[member.name];
+    }else if(METHOD_CLASSIFICATION[member.name]){
+      member.status=METHOD_CLASSIFICATION[member.name];
     }
   }
 }

@@ -12,8 +12,9 @@ function harness(editorType = "figma") {
   const semantic = fs.readFileSync(path.join(process.cwd(), "src/semantic_complete.ts"), "utf8");
   const more = fs.readFileSync(path.join(process.cwd(), "src/semantic_more.ts"), "utf8");
   const exports = fs.readFileSync(path.join(process.cwd(), "src/semantic_exports.ts"), "utf8");
+  const admin = fs.readFileSync(path.join(process.cwd(), "src/semantic_admin.ts"), "utf8");
   const code = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
-  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + exports + "\n" + code;
+  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + exports + "\n" + admin + "\n" + code;
   const javascript = ts.transpileModule(source, {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
@@ -23,9 +24,12 @@ function harness(editorType = "figma") {
   const variables = new Map<string, AnyNode>();
   const images = new Map<string, AnyNode>();
   const videos = new Map<string, AnyNode>();
+  const styles = new Map<string, AnyNode>();
+  const annotationCategories = new Map<string, AnyNode>();
   const eventHandlers = new Map<string, Array<(event: any) => void>>();
   let thumbnail: AnyNode | null = null;
-  let nextNode = 2, nextCollection = 1, nextVariable = 1, nextMedia = 1;
+  let slideGrid: AnyNode[][] = [];
+  let nextNode = 2, nextCollection = 1, nextVariable = 1, nextMedia = 1, nextStyle = 1;
 
   function scene(type: string, name = type): AnyNode {
     const node: AnyNode = {
@@ -61,7 +65,7 @@ function harness(editorType = "figma") {
   }
 
   const page: AnyNode = {
-    id:"0:1", type:"PAGE", name:"Page 1", children:[], selection:[], flowStartingPoints:[],
+    id:"0:1", type:"PAGE", name:"Page 1", children:[], selection:[], flowStartingPoints:[], focusedNode:null,
     async loadAsync(){},
     appendChild(node:AnyNode){ node.parent=this; this.children.push(node); },
     insertChild(index:number,node:AnyNode){ if(node.parent) node.parent.children.splice(node.parent.children.indexOf(node),1); node.parent=this; this.children.splice(index,0,node); },
@@ -77,6 +81,19 @@ function harness(editorType = "figma") {
     page.appendChild(n); return n;
   }
 
+  function style(type:"PAINT"|"TEXT"|"EFFECT"|"GRID"):AnyNode{
+    const id="S:"+(nextStyle++);
+    const value:any={id,key:"style-key-"+id,name:type+" Style",type,remote:false,description:"",descriptionMarkdown:""};
+    if(type==="PAINT")value.paints=[];
+    if(type==="TEXT"){value.fontName={family:"Inter",style:"Regular"};value.fontSize=16;value.letterSpacing={unit:"PIXELS",value:0};value.lineHeight={unit:"AUTO"};}
+    if(type==="EFFECT")value.effects=[];
+    if(type==="GRID")value.layoutGrids=[];
+    value.remove=()=>styles.delete(id);
+    styles.set(id,value);
+    return value;
+  }
+
+  annotationCategories.set("cat:1",{id:"cat:1",label:"Review",color:"yellow",isPreset:false});
   const figma:any = {
     root, currentPage: page, editorType, mixed: Symbol("mixed"),
     ui: {onmessage: undefined, postMessage: (message:any)=>posted.push(message)},
@@ -88,8 +105,24 @@ function harness(editorType = "figma") {
     },
     async loadAllPagesAsync(){},
     async getNodeByIdAsync(id:string){ return nodes.get(id) ?? null; },
+    async getStyleByIdAsync(id:string){ return styles.get(id) ?? null; },
     async setCurrentPageAsync(p:AnyNode){ this.currentPage=p; },
-    createPage(){ const p:any={...page,id:`0:${nextNode++}`,name:"Page",children:[],selection:[],flowStartingPoints:[]}; nodes.set(p.id,p); root.children.push(p); return p; },
+    mode: editorType==="dev"?"codegen":"default",
+    currentUser:{id:"user:1",name:"Sergio Test",photoUrl:null,color:"#ff0000",sessionId:1},
+    activeUsers:[{id:"user:1",name:"Sergio Test",photoUrl:null,color:"#ff0000",sessionId:1,position:{x:10,y:20},viewport:{x:0,y:0,width:800,height:600},selection:[]}],
+    codegen:{preferences:{unit:"PIXEL",scaleFactor:undefined,customSettings:{}},refresh(){figma.codegenRefreshes++;}},
+    codegenRefreshes:0,
+    annotations:{
+      async getAnnotationCategoriesAsync(){return [...annotationCategories.values()];},
+      async getAnnotationCategoryByIdAsync(id:string){return annotationCategories.get(id)??null;},
+      async addAnnotationCategoryAsync(input:any){
+        const id="cat:"+(annotationCategories.size+1);
+        const c:any={id,label:input.label,color:input.color,isPreset:false};
+        c.remove=()=>annotationCategories.delete(id);c.setColor=(color:string)=>{c.color=color};c.setLabel=(label:string)=>{c.label=label};
+        annotationCategories.set(id,c);return c;
+      },
+    },
+    createPage(){ const p:any={...page,id:`0:${nextNode++}`,name:"Page",children:[],selection:[],flowStartingPoints:[],focusedNode:null}; nodes.set(p.id,p); root.children.push(p); return p; },
     createPageDivider(name="---"){ const p:any={...page,id:`0:${nextNode++}`,name,isPageDivider:true,children:[],selection:[],flowStartingPoints:[]};nodes.set(p.id,p);root.children.push(p);return p; },
     createFrame(){ const n=scene("FRAME","Frame"); page.appendChild(n); return n; },
     createSlice(){ const n=scene("SLICE","Slice"); page.appendChild(n); return n; },
@@ -127,8 +160,20 @@ function harness(editorType = "figma") {
     getImageByHash(hash:string){return images.get(hash)??null;},
     async createVideoAsync(data:Uint8Array){const hash=`video:${nextMedia++}`;const video={hash,bytes:new Uint8Array(data)};videos.set(hash,video);return video;},
     async loadFontAsync(){},
-    async getLocalPaintStylesAsync(){return[];}, async getLocalTextStylesAsync(){return[];},
-    async getLocalEffectStylesAsync(){return[];}, async getLocalGridStylesAsync(){return[];},
+    async listAvailableFontsAsync(){return [{fontName:{family:"Inter",style:"Regular"}}];},
+    getFontFamilyVariationAxes(family:string){return family==="Inter"?["wght","slnt"]:null;},
+    createPaintStyle(){return style("PAINT");}, createTextStyle(){return style("TEXT");},
+    createEffectStyle(){return style("EFFECT");}, createGridStyle(){return style("GRID");},
+    async getLocalPaintStylesAsync(){return [...styles.values()].filter(s=>s.type==="PAINT");},
+    async getLocalTextStylesAsync(){return [...styles.values()].filter(s=>s.type==="TEXT");},
+    async getLocalEffectStylesAsync(){return [...styles.values()].filter(s=>s.type==="EFFECT");},
+    async getLocalGridStylesAsync(){return [...styles.values()].filter(s=>s.type==="GRID");},
+    moveLocalPaintStyleAfter(){},moveLocalTextStyleAfter(){},moveLocalEffectStyleAfter(){},moveLocalGridStyleAfter(){},
+    moveLocalPaintFolderAfter(){},moveLocalTextFolderAfter(){},moveLocalEffectFolderAfter(){},moveLocalGridFolderAfter(){},
+    createSlide(){const n=scene("SLIDE","Slide");page.appendChild(n);slideGrid.push([n]);return n;},
+    createSlideRow(){const n=scene("SLIDEROW","Slide Row");page.appendChild(n);return n;},
+    getSlideGrid(){return slideGrid;},
+    setSlideGrid(value:AnyNode[][]){slideGrid=value.map(row=>[...row]);},
     variables: {
       async getLocalVariableCollectionsAsync(){return [...collections.values()];},
       async getLocalVariablesAsync(){return [...variables.values()];},
@@ -440,5 +485,73 @@ describe("extended semantic runtime",()=> {
     const storyText=await readArtifact(h,story.value.token);
     expect(storyText).toContain("StoryObj");
     expect(storyText).toContain("Figma/Hero");
+  });
+});
+
+describe("semantic admin and editor-gated runtime",()=> {
+  it("reorders local styles and style folders without arbitrary code",async()=> {
+    const h=harness();
+    const first=await h.call("style.create",{styleType:"PAINT",name:"A"});
+    const second=await h.call("style.create",{styleType:"PAINT",name:"B"});
+    const moved=await h.call("style.order.after",{styleId:second.value.id,referenceStyleId:first.value.id});
+    expect(moved.ok).toBe(true);
+    expect(moved.value).toEqual({moved:true,targetId:second.value.id,referenceId:first.value.id});
+    const folder=await h.call("style.folder.order.after",{styleType:"PAINT",targetFolder:"Brand",referenceFolder:null});
+    expect(folder.ok).toBe(true);
+    expect(folder.value.targetFolder).toBe("Brand");
+  });
+
+  it("round-trips the official Slides grid through explicit slide refs",async()=> {
+    const h=harness("slides");
+    const a=await h.call("slides.slide.create",{name:"One"});
+    const b=await h.call("slides.slide.create",{name:"Two"});
+    const set=await h.call("slides.grid.set",{rows:[[a.value.id,b.value.id]]});
+    expect(set.ok).toBe(true);
+    expect(set.value).toEqual({rows:1,slides:2});
+    const grid=await h.call("slides.grid.inspect");
+    expect(grid.ok).toBe(true);
+    expect(grid.value[0].map((x:any)=>x.name)).toEqual(["One","Two"]);
+  });
+  it("inspects annotation categories and loads fonts explicitly",async()=> {
+    const h=harness();
+    const category=await h.call("annotation.category.inspect",{id:"cat:1"});
+    expect(category.ok).toBe(true);
+    expect(category.value).toEqual({id:"cat:1",label:"Review",color:"yellow",isPreset:false});
+    const missing=await h.call("annotation.category.inspect",{id:"cat:404"});
+    expect(missing.ok).toBe(true);
+    expect(missing.value).toBeNull();
+    const loaded=await h.call("font.load",{family:"Inter",style:"Regular"});
+    expect(loaded.ok).toBe(true);
+    expect(loaded.value).toEqual({loaded:true,family:"Inter",style:"Regular"});
+  });
+
+  it("gates Dev Mode codegen semantics to the dev editor",async()=> {
+    const dev=harness("dev");
+    const status=await dev.call("codegen.status");
+    expect(status.ok).toBe(true);
+    expect(status.value.editorType).toBe("dev");
+    const refresh=await dev.call("codegen.refresh");
+    expect(refresh.ok).toBe(true);
+    expect(dev.figma.codegenRefreshes).toBe(1);
+
+    const normal=harness();
+    const denied=await normal.call("codegen.status");
+    expect(denied.ok).toBe(false);
+    expect(denied.error.message).toContain("unsupported_editor");
+  });
+  it("exposes collaboration context only through explicit semantic operations",async()=> {
+    const h=harness("figjam");
+    const current=await h.call("user.current");
+    expect(current.ok).toBe(true);
+    expect(current.value.name).toBe("Sergio Test");
+    const active=await h.call("figjam.active_users");
+    expect(active.ok).toBe(true);
+    expect(active.value).toHaveLength(1);
+    expect(active.value[0].selection).toEqual([]);
+
+    const design=harness("figma");
+    const wrongEditor=await design.call("figjam.active_users");
+    expect(wrongEditor.ok).toBe(false);
+    expect(wrongEditor.error.message).toContain("unsupported_editor");
   });
 });
