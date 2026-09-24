@@ -1,5 +1,6 @@
 //! Linux openat2 confinement. No canonicalize-then-open race for relative operations.
 //! Kernel < 5.6 / blocked openat2 fails closed. No fallback to unsafe string paths.
+use semwright_platform_api::filesystem::MAX_SCOPED_BINARY_BYTES;
 use semwright_types::{Error, ErrorCode, Result};
 use std::ffi::{CString, OsStr};
 use std::fs::File;
@@ -126,8 +127,8 @@ impl Root {
         if !self.readable {
             return Err(Error::new(ErrorCode::PolicyDenied, "Root is not readable"));
         }
-        if limit == 0 || limit > 1_048_576 {
-            return Err(Error::invalid("Read limit must be 1..1048576"));
+        if limit == 0 || limit > MAX_SCOPED_BINARY_BYTES {
+            return Err(Error::invalid("Read limit exceeds scoped binary budget"));
         }
         let fd = open_beneath(&self.fd, path, libc::O_RDONLY | libc::O_NONBLOCK, 0)?;
         let file = File::from(fd);
@@ -158,10 +159,10 @@ impl Root {
         if !self.writable {
             return Err(Error::new(ErrorCode::PolicyDenied, "Root is not writable"));
         }
-        if bytes.len() > 1_048_576 {
+        if bytes.len() > MAX_SCOPED_BINARY_BYTES {
             return Err(Error::new(
                 ErrorCode::ResourceExhausted,
-                "Write exceeds 1 MiB budget",
+                "Write exceeds scoped binary budget",
             ));
         }
         validate_relative_path(path)?;

@@ -5,7 +5,7 @@ use semwright_driver_host::DriverProvider;
 use semwright_federation::{
     ExternalMcpProvider, default_upstream_registry_path, load_upstream_registry,
 };
-use semwright_platform_common::filesystem::Filesystem;
+use semwright_platform_common::{artifact::ArtifactHandoff, filesystem::Filesystem};
 use semwright_plugin_host::Host;
 use semwright_policy::Policy;
 use semwright_protocol::{current_uid, private_directory, runtime_directory};
@@ -161,6 +161,7 @@ async fn run(args: Args) -> Result<()> {
     let platform_keepalive = platform.keepalive;
     if !config.policy.filesystem.is_empty() {
         backends.push(Arc::new(Filesystem::new(&config.policy.filesystem)?));
+        backends.push(Arc::new(ArtifactHandoff::new(&config.policy.filesystem)?));
     }
     let sandbox_helper = std::env::current_exe()?
         .parent()

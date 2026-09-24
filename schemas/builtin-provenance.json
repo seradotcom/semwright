@@ -38,6 +38,24 @@
     ],
     "untrusted_metadata": false
   },
+  "artifact.handoff": {
+    "aliases": [
+      "artifact.copy"
+    ],
+    "app": null,
+    "object_types": [
+      "artifact"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "artifact",
+      "handoff",
+      "cross-driver"
+    ],
+    "untrusted_metadata": false
+  },
   "audit.tail": {
     "aliases": [],
     "app": null,

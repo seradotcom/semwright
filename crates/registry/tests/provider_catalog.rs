@@ -94,6 +94,48 @@ fn dynamic_registration_update_remove_are_single_revision_transactions() {
     assert!(registry.describe("doctor").is_ok());
 }
 #[test]
+fn artifact_ports_are_discoverable_through_normal_tag_filters() {
+    let id = identity();
+    let mut registry = Registry::builtin().unwrap();
+    let before = registry.revision();
+    let producer = descriptor("driver.fixture.export");
+    let consumer = descriptor("driver.fixture.import");
+    let mut producer_metadata = Metadata::for_provider(&id);
+    producer_metadata.tags = vec!["artifact-out:model/3d".into()];
+    let mut consumer_metadata = Metadata::for_provider(&id);
+    consumer_metadata.tags = vec!["artifact-in:model/3d".into()];
+    registry
+        .replace_provider_catalog(
+            &id,
+            vec![
+                (producer.clone(), producer_metadata),
+                (consumer.clone(), consumer_metadata),
+            ],
+            before,
+            false,
+        )
+        .unwrap();
+
+    let outputs = registry
+        .ranked(&CatalogQuery {
+            tags: vec!["artifact-out:model/3d".into()],
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(outputs.len(), 1);
+    assert_eq!(outputs[0].0.name, producer.name);
+
+    let inputs = registry
+        .ranked(&CatalogQuery {
+            tags: vec!["artifact-in:model/3d".into()],
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].0.name, consumer.name);
+}
+
+#[test]
 fn invalid_batch_is_atomic_and_duplicate_names_do_not_replace_existing_entries() {
     let id = identity();
     let mut registry = Registry::builtin().unwrap();

@@ -1,4 +1,5 @@
 //! Shared fixture, configuration and scoped-filesystem Backend; no desktop framework.
+pub mod artifact;
 pub mod fake;
 pub mod filesystem;
 use serde::{Deserialize, Serialize};
