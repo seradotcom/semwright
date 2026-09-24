@@ -241,7 +241,7 @@ pub fn input_schema(name: &str) -> Value {
                 ),
                 (
                     "primaryAxisAlignItems",
-                    json!({"type":"string","enum":["MIN","MAX","CENTER","SPACE_BETWEEN"]}),
+                    json!({"type":"string","enum":["MIN","MAX","CENTER","SPACE_BETWEEN","SPACE_EVENLY","SPACE_AROUND"]}),
                 ),
                 (
                     "counterAxisAlignItems",
@@ -321,7 +321,7 @@ pub fn input_schema(name: &str) -> Value {
                 ("name", string_schema(256)),
                 (
                     "resolvedType",
-                    json!({"type":"string","enum":["BOOLEAN","FLOAT","STRING","COLOR"]}),
+                    json!({"type":"string","enum":["BOOLEAN","FLOAT","STRING","COLOR","EASING","TIMING"]}),
                 ),
             ],
             &["collectionId", "name", "resolvedType"],
@@ -492,7 +492,9 @@ pub fn input_schema(name: &str) -> Value {
             &[],
         ),
 
-        _ => json!({"not":{}}),
+        _ => crate::semantic_complete_schemas::input_schema(name)
+            .or_else(|| crate::semantic_more_schemas::input_schema(name))
+            .unwrap_or_else(|| json!({"not":{}})),
     }
 }
 
@@ -673,7 +675,9 @@ pub fn output_schema(name: &str) -> Value {
             "additionalProperties":false
         }),
         "dev.css" => bounded_object(256),
-        _ => json!({"not":{}}),
+        _ => crate::semantic_complete_schemas::output_schema(name)
+            .or_else(|| crate::semantic_more_schemas::output_schema(name))
+            .unwrap_or_else(|| json!({"not":{}})),
     }
 }
 

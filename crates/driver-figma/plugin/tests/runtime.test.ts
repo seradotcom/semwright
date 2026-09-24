@@ -7,7 +7,10 @@ import ts from "typescript";
 type AnyNode = Record<string, any>;
 
 function harness(editorType = "figma") {
-  const source = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
+  const semantic = fs.readFileSync(path.join(process.cwd(), "src/semantic_complete.ts"), "utf8");
+  const more = fs.readFileSync(path.join(process.cwd(), "src/semantic_more.ts"), "utf8");
+  const code = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
+  const source = semantic + "\n" + more + "\n" + code;
   const javascript = ts.transpileModule(source, {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
@@ -15,8 +18,11 @@ function harness(editorType = "figma") {
   const nodes = new Map<string, AnyNode>();
   const collections = new Map<string, AnyNode>();
   const variables = new Map<string, AnyNode>();
+  const images = new Map<string, AnyNode>();
+  const videos = new Map<string, AnyNode>();
   const eventHandlers = new Map<string, Array<(event: any) => void>>();
-  let nextNode = 2, nextCollection = 1, nextVariable = 1;
+  let thumbnail: AnyNode | null = null;
+  let nextNode = 2, nextCollection = 1, nextVariable = 1, nextMedia = 1;
 
   function scene(type: string, name = type): AnyNode {
     const node: AnyNode = {
@@ -39,6 +45,13 @@ function harness(editorType = "figma") {
         if(current) current.duration=duration; else this.timelines.push({id:timelineId,duration});
       },
       setBoundVariable(field: string, variable: AnyNode) { this.boundVariables ??= {}; this.boundVariables[field]=variable.id; },
+      _pluginData: {} as Record<string,string>, _relaunchData: {} as Record<string,string>,
+      getPluginData(key:string){ return this._pluginData[key] ?? ""; },
+      setPluginData(key:string,value:string){ this._pluginData[key]=value; },
+      getRelaunchData(){ return {...this._relaunchData}; },
+      setRelaunchData(value:Record<string,string>){ this._relaunchData={...value}; },
+      appendChild(child:AnyNode){ if(child.parent) child.parent.children.splice(child.parent.children.indexOf(child),1); child.parent=this; this.children.push(child); },
+      insertChild(index:number,child:AnyNode){ if(child.parent) child.parent.children.splice(child.parent.children.indexOf(child),1); child.parent=this; this.children.splice(index,0,child); },
     };
     nodes.set(node.id, node);
     return node;
@@ -74,7 +87,14 @@ function harness(editorType = "figma") {
     async getNodeByIdAsync(id:string){ return nodes.get(id) ?? null; },
     async setCurrentPageAsync(p:AnyNode){ this.currentPage=p; },
     createPage(){ const p:any={...page,id:`0:${nextNode++}`,name:"Page",children:[],selection:[],flowStartingPoints:[]}; nodes.set(p.id,p); root.children.push(p); return p; },
+    createPageDivider(name="---"){ const p:any={...page,id:`0:${nextNode++}`,name,isPageDivider:true,children:[],selection:[],flowStartingPoints:[]};nodes.set(p.id,p);root.children.push(p);return p; },
     createFrame(){ const n=scene("FRAME","Frame"); page.appendChild(n); return n; },
+    createSlice(){ const n=scene("SLICE","Slice"); page.appendChild(n); return n; },
+    group(items:AnyNode[],parent:AnyNode,index?:number){ const g=scene("GROUP","Group");g.children=[];(parent??page).insertChild(index??(parent??page).children.length,g);for(const item of items)g.appendChild(item);return g; },
+    ungroup(group:AnyNode){ const parent=group.parent??page;const at=parent.children.indexOf(group);const children=[...group.children];parent.children.splice(at,1,...children);for(const c of children)c.parent=parent;nodes.delete(group.id);return children; },
+    async getFileThumbnailNodeAsync(){return thumbnail;},
+    async setFileThumbnailNodeAsync(node:AnyNode|null){thumbnail=node;},
+    commitUndo(){}, triggerUndo(){}, async loadBrushesAsync(){},
     createSection(){ const n=scene("SECTION","Section"); page.appendChild(n); return n; },
     createRectangle(){ const n=scene("RECTANGLE","Rectangle"); page.appendChild(n); return n; },
     createEllipse(){ const n=scene("ELLIPSE","Ellipse"); page.appendChild(n); return n; },
@@ -100,6 +120,9 @@ function harness(editorType = "figma") {
     createShapeWithText(){ const n=scene("SHAPE_WITH_TEXT","Shape"); page.appendChild(n); return n; },
     createConnector(){ const n=scene("CONNECTOR","Connector"); page.appendChild(n); return n; },
     createCodeBlock(){ const n=scene("CODE_BLOCK","Code"); n.code=""; page.appendChild(n); return n; },
+    createImage(data:Uint8Array){ const hash=`image:${nextMedia++}`;const bytes=new Uint8Array(data);const image={hash,async getBytesAsync(){return bytes},async getSizeAsync(){return {width:1,height:1}}};images.set(hash,image);return image; },
+    getImageByHash(hash:string){return images.get(hash)??null;},
+    async createVideoAsync(data:Uint8Array){const hash=`video:${nextMedia++}`;const video={hash,bytes:new Uint8Array(data)};videos.set(hash,video);return video;},
     async loadFontAsync(){},
     async getLocalPaintStylesAsync(){return[];}, async getLocalTextStylesAsync(){return[];},
     async getLocalEffectStylesAsync(){return[];}, async getLocalGridStylesAsync(){return[];},
@@ -121,10 +144,14 @@ function harness(editorType = "figma") {
     motion: {
       figmaAnimationStyles(){return [{id:"spring",name:"Spring"}];},
       physicalSpringToNormalized(){return 0.5;},
+      playheadPosition: 0.75,
     },
   };
 
-  vm.runInNewContext(javascript, {figma, __html__:"", console, setTimeout, clearTimeout});
+  vm.runInNewContext(javascript, {
+    figma, __html__:"", console, setTimeout, clearTimeout,
+    atob: globalThis.atob, btoa: globalThis.btoa, crypto: globalThis.crypto,
+  });
   if (typeof figma.ui.onmessage !== "function") throw new Error("plugin did not install UI message handler");
 
   async function call(operation:string,args:Record<string,unknown>={},expectedRevision?:number){
@@ -246,5 +273,97 @@ describe("plugin runtime behavior",()=>{
     const fresh=await h.call("frame.create",{name:"Fresh"},1);
     expect(fresh.ok).toBe(true);
     expect(fresh.revision).toBe(2);
+  });
+});
+
+
+describe("semantic completeness runtime",()=>{
+  it("builds a nested declarative composition without executable JSX",async()=>{
+    const h=harness();
+    const result=await h.call("compose.apply",{root:{
+      type:"frame",name:"Card",width:320,height:180,
+      layout:{layoutMode:"VERTICAL",itemSpacing:12},
+      children:[{type:"text",name:"Title",text:"Semantic Figma"}]
+    }});
+    expect(result.ok).toBe(true);
+    expect(result.value.name).toBe("Card");
+    expect(result.value.children).toHaveLength(1);
+    expect(result.value.children[0].name).toBe("Title");
+    expect(result.revision).toBe(1);
+  });
+
+  it("snapshots the document and produces a bounded semantic diff",async()=>{
+    const h=harness();
+    await h.call("frame.create",{name:"Before"});
+    const snapshot=await h.call("document.snapshot",{},1);
+    expect(snapshot.ok).toBe(true);
+    const after=JSON.parse(JSON.stringify(snapshot.value));
+    after.name="Changed";
+    const diff=await h.call("document.diff",{before:snapshot.value,after,limit:20},1);
+    expect(diff.ok).toBe(true);
+    expect(diff.value.changes.some((x:any)=>x.path==="/name")).toBe(true);
+  });
+
+  it("runs deterministic validation and creates a FigJam graph",async()=>{
+    const h=harness();
+    const small=await h.call("rect.create",{name:"Tiny",width:8,height:8});
+    expect(small.ok).toBe(true);
+    const a11y=await h.call("validate.a11y",{minTouchTarget:44},1);
+    expect(a11y.ok).toBe(true);
+    expect(a11y.value.findings.some((x:any)=>x.rule==="a11y.touch_target")).toBe(true);
+
+    const j=harness("figjam");
+    const graph=await j.call("figjam.diagram.create",{
+      nodes:[{id:"a",kind:"sticky",name:"Agent"},{id:"b",kind:"shape",name:"Semwright"}],
+      edges:[{from:"a",to:"b"}]
+    });
+    expect(graph.ok).toBe(true);
+    expect(graph.value.nodes).toHaveLength(2);
+    expect(graph.value.edges).toHaveLength(1);
+  });
+});
+
+describe("extended semantic runtime",()=> {
+  it("groups and ungroups explicit nodes with revision tracking",async()=> {
+    const h=harness();
+    const a=await h.call("rect.create",{name:"A"});
+    const b=await h.call("ellipse.create",{name:"B"},1);
+    const grouped=await h.call("group.create",{nodeIds:[a.value.id,b.value.id],name:"Pair"},2);
+    expect(grouped.ok).toBe(true);
+    expect(grouped.value.type).toBe("GROUP");
+    expect(grouped.revision).toBe(3);
+    const ungrouped=await h.call("group.ungroup",{nodeId:grouped.value.id},3);
+    expect(ungrouped.ok).toBe(true);
+    expect(ungrouped.revision).toBe(4);
+  });
+
+  it("uploads bounded bytes, creates an image and applies it semantically",async()=> {
+    const h=harness();
+    const upload=await h.call("artifact.upload.begin",{name:"pixel.bin",mediaType:"application/octet-stream"});
+    expect(upload.ok).toBe(true);
+    expect(upload.revision).toBe(0);
+    const chunk=await h.call("artifact.upload.append",{token:upload.value.token,offset:0,base64:"AQIDBA=="});
+    expect(chunk.value.bytes).toBe(4);
+    expect(chunk.revision).toBe(0);
+    const image=await h.call("image.create",{token:upload.value.token});
+    expect(image.ok).toBe(true);
+    expect(image.value.hash).toMatch(/^image:/);
+    expect(image.revision).toBe(1);
+    const rect=await h.call("rect.create",{name:"Media"},1);
+    const applied=await h.call("media.fill.apply",{nodeId:rect.value.id,mediaType:"IMAGE",hash:image.value.hash},2);
+    expect(applied.ok).toBe(true);
+    expect(applied.revision).toBe(3);
+    expect(h.nodes.get(rect.value.id)!.fills[0].imageHash).toBe(image.value.hash);
+  });
+
+  it("exposes Motion playhead and bounded Semwright plugin metadata",async()=> {
+    const h=harness();
+    const frame=await h.call("frame.create",{name:"Metadata"});
+    const playhead=await h.call("motion.playhead.get",{},1);
+    expect(playhead.value.position).toBe(0.75);
+    const set=await h.call("node.plugin_data.set",{nodeId:frame.value.id,key:"semantic-role",value:"hero"},1);
+    expect(set.ok).toBe(true);
+    const get=await h.call("node.plugin_data.get",{nodeId:frame.value.id,key:"semantic-role"},2);
+    expect(get.value.value).toBe("hero");
   });
 });

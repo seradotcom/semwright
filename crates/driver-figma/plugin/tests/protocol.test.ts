@@ -2,10 +2,12 @@ import {describe,it,expect} from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 const code=fs.readFileSync(path.join(process.cwd(),"src/code.ts"),"utf8");
+const semantic=fs.readFileSync(path.join(process.cwd(),"src/semantic_complete.ts"),"utf8");
+const allCode=semantic+"\n"+code;
 const ui=fs.readFileSync(path.join(process.cwd(),"src/ui.html"),"utf8");
 const manifest=JSON.parse(fs.readFileSync(path.join(process.cwd(),"manifest.json"),"utf8"));
 describe("security surface",()=>{
- it("has no eval or Function constructor",()=>{expect(code).not.toMatch(/\beval\s*\(/);expect(code).not.toMatch(/new\s+Function/);});
+ it("has no eval or Function constructor",()=>{expect(allCode).not.toMatch(/\beval\s*\(/);expect(allCode).not.toMatch(/new\s+Function/);});
  it("uses dynamic page access",()=>expect(manifest.documentAccess).toBe("dynamic-page"));
  it("does not allow wildcard network",()=>expect(manifest.networkAccess.allowedDomains).toEqual(["none"]));
  it("limits dev websocket to loopback",()=>expect(manifest.networkAccess.devAllowedDomains).toEqual(["ws://127.0.0.1:38471"]));

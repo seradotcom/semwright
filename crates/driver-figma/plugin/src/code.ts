@@ -723,8 +723,12 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
         return ok(request.id, await node.getCSSAsync());
       }
 
-      default:
-        return fail(request.id, "unsupported", "operation not implemented by plugin build");
+      default: {
+        const extra = await handleSemanticComplete(request, a);
+        if (extra) return extra;
+        const more = await handleSemanticMore(request, a);
+        return more ?? fail(request.id, "unsupported", "operation not implemented by plugin build");
+      }
     }
   } catch (error) {
     return fail(request.id, "plugin_error", error instanceof Error ? error.message : "plugin failure");

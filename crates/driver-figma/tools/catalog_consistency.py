@@ -3,22 +3,38 @@ import pathlib
 import re
 import sys
 
-root=pathlib.Path(__file__).resolve().parents[1]
-main=(root/"src/main.rs").read_text(encoding="utf-8")
-plugin=(root/"plugin/src/code.ts").read_text(encoding="utf-8")
-match=re.search(r"const SUPPORTED_OPERATIONS: &\[&str\] = &\[(.*?)\];", main, re.S)
-if not match:
-    raise SystemExit("SUPPORTED_OPERATIONS not found")
-advertised=set(re.findall(r'"([^"]+)"', match.group(1)))
-handlers=set(re.findall(r'case\s+"([^"]+)"', plugin))
-local={"doctor","pairing.begin","session.list"}
-missing=sorted(advertised-handlers-local)
+root = pathlib.Path(__file__).resolve().parents[1]
+rust_sources = [
+    root / "src/main.rs",
+    root / "src/semantic_more_ops.rs",
+]
+main = "\n".join(path.read_text(encoding="utf-8") for path in rust_sources)
+plugin_sources = [
+    root / "plugin/src/code.ts",
+    root / "plugin/src/semantic_complete.ts",
+    root / "plugin/src/semantic_more.ts",
+]
+plugin = "\n".join(path.read_text(encoding="utf-8") for path in plugin_sources)
+
+advertised = set(re.findall(r'op\(\s*"([^"]+)"', main))
+handlers = set(re.findall(r'case\s+"([^"]+)"', plugin))
+local = {"doctor", "pairing.begin", "session.list"}
+
+missing = sorted(advertised - handlers - local)
+extra = sorted(handlers - advertised)
 if missing:
     print("advertised without implementation:")
     for item in missing:
         print(" -", item)
     sys.exit(1)
-extra=sorted(handlers-advertised)
-print(f"PASS advertised={len(advertised)} plugin_handlers={len(handlers)} local={len(local)}")
 if extra:
-    print("non-advertised plugin handlers:", ",".join(extra))
+    print("plugin handlers without descriptor:")
+    for item in extra:
+        print(" -", item)
+    sys.exit(1)
+
+for forbidden in (r"\beval\s*\(", r"\bFunction\s*\(", r"app\.asar", r"remote-debugging-port"):
+    if re.search(forbidden, plugin):
+        raise SystemExit(f"forbidden production escape hatch matched: {forbidden}")
+
+print(f"PASS advertised={len(advertised)} plugin_handlers={len(handlers)} local={len(local)}")
