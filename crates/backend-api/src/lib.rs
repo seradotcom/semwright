@@ -6,6 +6,7 @@ pub use provider::{
 };
 use semwright_types::{Error, ErrorCode, Feature, NativeTarget, Result};
 use serde_json::Value;
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
 #[derive(Clone)]
@@ -35,6 +36,11 @@ pub trait Backend: Send + Sync {
     /// Only trusted native providers may emit internal object-reference markers.
     fn emits_native_refs(&self) -> bool {
         true
+    }
+    /// Optional bounded signal stream for native semantic events/progress.
+    /// Backends remain unable to assign provider authority; the runtime binds provenance.
+    fn events(&self) -> Option<broadcast::Receiver<provider::ProviderSignal>> {
+        None
     }
 
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value>;

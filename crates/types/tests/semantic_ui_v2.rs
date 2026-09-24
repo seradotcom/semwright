@@ -122,3 +122,33 @@ fn v1_compatibility_and_strict_facets_are_preserved() {
     .expect_err("native extension fields must not leak into portable facets");
     assert!(err.to_string().contains("invented_native_field"));
 }
+
+#[test]
+fn rich_text_and_table_cell_facets_are_bounded_portable_data() {
+    let text = parse(json!({
+        "ref":"ui:text","role":"text","name":"Editor","description":"",
+        "facets":{"text":{"character_count":120,"caret_offset":42,"selection_count":1,
+          "selections":[{"start":10,"end":18}],
+          "caret_attributes":{"font-family":"Inter","weight":"700"},
+          "caret_attribute_range":{"start":40,"end":48},
+          "editable":true,"password":false}},
+        "states":["enabled","editable"],"actions":[],"app":"editor",
+        "parent_ref":null,"bounds":null,"children_count":0
+    }));
+    let facet = text.facets.text.as_ref().unwrap();
+    assert_eq!(facet.selections[0].start, 10);
+    assert_eq!(facet.caret_attributes["weight"], "700");
+
+    let cell = parse(json!({
+        "ref":"ui:cell","role":"table_cell","name":"Revenue","description":"",
+        "facets":{"table":{"rows":null,"columns":null,"row":5,"column":2,
+          "row_span":1,"column_span":2,"selected_rows":null,"selected_columns":null,
+          "row_headers":["August"],"column_headers":["Revenue"]}},
+        "states":["enabled"],"actions":[],"app":"sheet",
+        "parent_ref":"ui:table","bounds":null,"children_count":0
+    }));
+    let table = cell.facets.table.as_ref().unwrap();
+    assert_eq!((table.row, table.column), (Some(5), Some(2)));
+    assert_eq!(table.column_span, Some(2));
+    assert_eq!(table.row_headers, vec!["August"]);
+}

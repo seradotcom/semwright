@@ -196,6 +196,7 @@ impl State {
                     .ok()
                     .is_some_and(|value| !value.is_readonly().unwrap_or(true)),
                 password,
+                ..UiTextFacet::default()
             });
         } else if element.get_pattern::<UIValuePattern>().is_ok() {
             facets.text = Some(UiTextFacet {

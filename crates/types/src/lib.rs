@@ -369,10 +369,23 @@ pub struct UiRelation {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct UiTextRange {
+    pub start: i64,
+    pub end: i64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UiTextFacet {
     pub character_count: Option<usize>,
     pub caret_offset: Option<i64>,
     pub selection_count: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub selections: Vec<UiTextRange>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub caret_attributes: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caret_attribute_range: Option<UiTextRange>,
     #[serde(default)]
     pub editable: bool,
     #[serde(default)]

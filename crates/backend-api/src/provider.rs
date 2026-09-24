@@ -140,8 +140,12 @@ impl Provider for NativeProvider {
         ProviderInterfaces {
             health: true,
             cooperative_cancellation: true,
+            events: self.backend.events().is_some(),
             ..Default::default()
         }
+    }
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.backend.events()
     }
     async fn execute(
         &self,
@@ -162,5 +166,58 @@ impl Provider for NativeProvider {
     }
     async fn shutdown(&self) -> Result<()> {
         self.backend.shutdown().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use semwright_types::{ProviderIdentity, SourceKind};
+    use serde_json::json;
+
+    struct EventBackend {
+        tx: broadcast::Sender<ProviderSignal>,
+    }
+
+    #[async_trait]
+    impl Backend for EventBackend {
+        fn name(&self) -> &'static str {
+            "event-fixture"
+        }
+        fn supports(&self, _: &str) -> bool {
+            false
+        }
+        async fn probe(&self) -> Vec<Feature> {
+            vec![]
+        }
+        fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+            Some(self.tx.subscribe())
+        }
+        async fn execute(&self, _: &Context, _: &str, _: &Value) -> Result<Value> {
+            Err(Error::new(ErrorCode::Unsupported, "fixture"))
+        }
+    }
+
+    #[tokio::test]
+    async fn native_provider_forwards_backend_events() {
+        let (tx, _) = broadcast::channel(8);
+        let backend = Arc::new(EventBackend { tx: tx.clone() });
+        let identity =
+            ProviderIdentity::external(SourceKind::Driver, "event-fixture", "1").unwrap();
+        let provider = NativeProvider::new(backend, identity, vec![]);
+        assert!(provider.interfaces().events);
+        let mut rx = provider.events().expect("event receiver");
+        tx.send(ProviderSignal::Event {
+            kind: "semantic.text.changed".into(),
+            payload: json!({"node_id":"ui-node:test"}),
+        })
+        .unwrap();
+        match rx.recv().await.unwrap() {
+            ProviderSignal::Event { kind, payload } => {
+                assert_eq!(kind, "semantic.text.changed");
+                assert_eq!(payload["node_id"], "ui-node:test");
+            }
+            other => panic!("unexpected signal: {other:?}"),
+        }
     }
 }

@@ -2,7 +2,7 @@
 //! Invalidates all UI generations conservatively on object/window events or bus loss.
 use async_trait::async_trait;
 use futures_util::StreamExt;
-use semwright_backend_api::{Backend, Context, feature};
+use semwright_backend_api::{Backend, Context, ProviderSignal, feature};
 use semwright_types::*;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -12,7 +12,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 use std::time::Duration;
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{Mutex as AsyncMutex, broadcast};
 use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 
 type Object = (String, OwnedObjectPath);
@@ -80,9 +80,11 @@ pub struct Atspi {
     events_live: Arc<AtomicBool>,
     object_generations: Arc<ObjectGenerations>,
     snapshots: StdMutex<BTreeMap<SnapshotKey, CachedSnapshot>>,
+    signals: broadcast::Sender<ProviderSignal>,
 }
 impl Default for Atspi {
     fn default() -> Self {
+        let (signals, _) = broadcast::channel(512);
         Self {
             connection: Arc::new(AsyncMutex::new(None)),
             connect_guard: AsyncMutex::new(()),
@@ -92,6 +94,7 @@ impl Default for Atspi {
             events_live: Arc::new(AtomicBool::new(false)),
             object_generations: Arc::new(ObjectGenerations::default()),
             snapshots: StdMutex::new(BTreeMap::new()),
+            signals,
         }
     }
 }
@@ -191,6 +194,41 @@ fn supports_interface(interfaces: &[String], name: &str) -> bool {
     interfaces
         .iter()
         .any(|value| value == name || value.rsplit('.').next() == Some(name))
+}
+
+fn semantic_event_kind(interface: Option<&str>, member: Option<&str>) -> &'static str {
+    if interface == Some("org.freedesktop.DBus") {
+        return "semantic.backend.invalidated";
+    }
+    if interface == Some("org.a11y.atspi.Event.Window") {
+        return if member.is_some_and(|name| {
+            name.contains("Activate") || name.contains("Deactivate") || name.contains("Focus")
+        }) {
+            "semantic.focus.changed"
+        } else {
+            "semantic.window.changed"
+        };
+    }
+    match member.unwrap_or_default() {
+        name if name.contains("ChildrenChanged") => "semantic.structure.changed",
+        name if name.contains("TextSelectionChanged") || name.contains("SelectionChanged") => {
+            "semantic.selection.changed"
+        }
+        name if name.contains("TextChanged") || name.contains("TextAttributesChanged") => {
+            "semantic.text.changed"
+        }
+        name if name.contains("StateChanged") && name.to_ascii_lowercase().contains("focus") => {
+            "semantic.focus.changed"
+        }
+        name if name.contains("StateChanged") => "semantic.state.changed",
+        name if name.contains("PropertyChange") || name.contains("PropertyChanged") => {
+            "semantic.property.changed"
+        }
+        name if name.contains("BoundsChanged") || name.contains("VisibleDataChanged") => {
+            "semantic.geometry.changed"
+        }
+        _ => "semantic.object.changed",
+    }
 }
 fn stable_node_id(identity: &str) -> String {
     format!("ui-node:{:x}", Sha256::digest(identity.as_bytes()))
@@ -320,6 +358,7 @@ impl Atspi {
             let generations = self.object_generations.clone();
             let next_connection_generation = self.connection_generation.clone();
             let connection_slot = self.connection.clone();
+            let signals = self.signals.clone();
             tokio::spawn(async move {
                 while let Some(message) = stream.next().await {
                     let Ok(message) = message else {
@@ -335,13 +374,29 @@ impl Atspi {
                     ) || member
                         .as_deref()
                         .is_some_and(|name| name.contains("ChildrenChanged"));
+                    let identity = match (header.sender(), header.path()) {
+                        (Some(sender), Some(path)) => {
+                            Some(format!("{}|{}", sender.as_str(), path.as_str()))
+                        }
+                        _ => None,
+                    };
+                    let kind = semantic_event_kind(interface.as_deref(), member.as_deref());
+                    let _ = signals.send(ProviderSignal::Event {
+                        kind: kind.into(),
+                        payload: json!({
+                            "node_id": identity.as_deref().map(stable_node_id),
+                            "native_interface": interface,
+                            "native_member": member,
+                            "semantic_revision": current,
+                            "structural": structural
+                        }),
+                    });
                     if structural {
                         barrier_revision.store(current, Ordering::SeqCst);
                         generations.clear();
                         continue;
                     }
-                    if let (Some(sender), Some(path)) = (header.sender(), header.path()) {
-                        let identity = format!("{}|{}", sender.as_str(), path.as_str());
+                    if let Some(identity) = identity {
                         let _ = generations.invalidate(&identity);
                     } else {
                         barrier_revision.store(current, Ordering::SeqCst);
@@ -505,13 +560,68 @@ impl Atspi {
                 .await
                 .ok()
                 .and_then(|value| usize::try_from(value.max(0)).ok());
+            let password = role == "password-entry";
+            let mut selections = Vec::new();
+            if !password {
+                for index in 0..selection_count.unwrap_or(0).min(8) {
+                    if let Ok((start, end)) =
+                        bounded(proxy.call::<_, _, (i32, i32)>("GetSelection", &(index as i32,)))
+                            .await
+                    {
+                        if start >= 0 && end >= start {
+                            selections.push(UiTextRange {
+                                start: i64::from(start),
+                                end: i64::from(end),
+                            });
+                        }
+                    }
+                }
+            }
+            let (caret_attributes, caret_attribute_range) = if !password
+                && let Some(caret) = caret_offset.and_then(|value| i32::try_from(value).ok())
+            {
+                match bounded(
+                    proxy.call::<_, _, (std::collections::HashMap<String, String>, i32, i32)>(
+                        "GetAttributeRun",
+                        &(caret, true),
+                    ),
+                )
+                .await
+                {
+                    Ok((attributes, start, end)) if start >= 0 && end >= start => {
+                        let attributes = attributes
+                            .into_iter()
+                            .take(32)
+                            .map(|(key, value)| {
+                                (
+                                    key.chars().take(128).collect(),
+                                    value.chars().take(512).collect(),
+                                )
+                            })
+                            .collect();
+                        (
+                            attributes,
+                            Some(UiTextRange {
+                                start: i64::from(start),
+                                end: i64::from(end),
+                            }),
+                        )
+                    }
+                    _ => (BTreeMap::new(), None),
+                }
+            } else {
+                (BTreeMap::new(), None)
+            };
             facets.text = Some(UiTextFacet {
                 character_count,
                 caret_offset,
                 selection_count,
+                selections,
+                caret_attributes,
+                caret_attribute_range,
                 editable: supports_interface(interfaces, "EditableText")
                     || states.contains(&"editable"),
-                password: role == "password-entry",
+                password,
             });
         }
 
@@ -583,6 +693,43 @@ impl Atspi {
                 row_headers: vec![],
                 column_headers: vec![],
             });
+        }
+
+        if supports_interface(interfaces, "TableCell")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.TableCell").await
+        {
+            let mut table = facets.table.take().unwrap_or_default();
+            if let Ok((row, column, row_span, column_span)) =
+                bounded(proxy.call::<_, _, (i32, i32, i32, i32)>("GetRowColumnSpan", &())).await
+            {
+                table.row = usize::try_from(row.max(0)).ok();
+                table.column = usize::try_from(column.max(0)).ok();
+                table.row_span = usize::try_from(row_span.max(0)).ok();
+                table.column_span = usize::try_from(column_span.max(0)).ok();
+            }
+            if let Ok(headers) =
+                bounded(proxy.call::<_, _, Vec<Object>>("GetRowHeaderCells", &())).await
+            {
+                for header in headers.into_iter().take(32) {
+                    if let Ok((_, name, _)) = self.identity(c, &header).await
+                        && !name.is_empty()
+                    {
+                        table.row_headers.push(name.chars().take(256).collect());
+                    }
+                }
+            }
+            if let Ok(headers) =
+                bounded(proxy.call::<_, _, Vec<Object>>("GetColumnHeaderCells", &())).await
+            {
+                for header in headers.into_iter().take(32) {
+                    if let Ok((_, name, _)) = self.identity(c, &header).await
+                        && !name.is_empty()
+                    {
+                        table.column_headers.push(name.chars().take(256).collect());
+                    }
+                }
+            }
+            facets.table = Some(table);
         }
 
         if supports_interface(interfaces, "Document")
@@ -1074,6 +1221,9 @@ impl Backend for Atspi {
     fn operation_feature(&self, command: &str) -> Option<String> {
         self.supports(command).then(|| "ui.observe".to_owned())
     }
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        Some(self.signals.subscribe())
+    }
     async fn probe(&self) -> Vec<Feature> {
         let ready = tokio::time::timeout(Duration::from_secs(3), self.connect())
             .await
@@ -1292,6 +1442,32 @@ mod tests {
     fn unique_owner_required() {
         assert!(object_from_id("org.app|/object").is_err());
         assert!(object_from_id(":1.5|/object").is_ok());
+    }
+    #[test]
+    fn atspi_events_normalize_to_portable_semantics() {
+        assert_eq!(
+            semantic_event_kind(Some("org.a11y.atspi.Event.Object"), Some("ChildrenChanged")),
+            "semantic.structure.changed"
+        );
+        assert_eq!(
+            semantic_event_kind(Some("org.a11y.atspi.Event.Object"), Some("TextChanged")),
+            "semantic.text.changed"
+        );
+        assert_eq!(
+            semantic_event_kind(
+                Some("org.a11y.atspi.Event.Object"),
+                Some("SelectionChanged")
+            ),
+            "semantic.selection.changed"
+        );
+        assert_eq!(
+            semantic_event_kind(Some("org.a11y.atspi.Event.Window"), Some("Activate")),
+            "semantic.focus.changed"
+        );
+        assert_eq!(
+            semantic_event_kind(Some("org.freedesktop.DBus"), Some("NameOwnerChanged")),
+            "semantic.backend.invalidated"
+        );
     }
     #[test]
     fn object_generations_are_targeted_and_reset_conservatively() {
