@@ -371,11 +371,17 @@ async fn start_browser(
 ) -> Result<(tokio::process::Child, String)> {
     let profile = output.join("chromium-profile");
     fs::create_dir_all(&profile)?;
+    let stderr_path = output.join("chromium.stderr.log");
+    let stderr_file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&stderr_path)?;
     let mut command = Command::new(&runtime.browser);
     command
         .args([
             "--headless=new",
             "--no-sandbox",
+            "--enable-logging=stderr",
             "--disable-gpu",
             "--disable-dev-shm-usage",
             "--disable-background-networking",
@@ -397,7 +403,7 @@ async fn start_browser(
         .kill_on_drop(true)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stderr(std::process::Stdio::from(stderr_file))
         .env_clear()
         .env("PATH", "/usr/bin:/bin")
         .env("HOME", "/home")
@@ -431,7 +437,10 @@ async fn start_browser(
         if let Some(status) = child.try_wait()? {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
-                format!("Pinned Chromium exited before CDP startup: {status}"),
+                format!(
+                    "Pinned Chromium exited before CDP startup: {status}; stderr={}",
+                    bounded_browser_log(&stderr_path)
+                ),
             ));
         }
         match fs::read_to_string(&active_port) {
@@ -455,10 +464,24 @@ async fn start_browser(
             terminate_browser(&mut child).await;
             return Err(Error::new(
                 ErrorCode::Timeout,
-                "Pinned Chromium did not publish a bounded loopback CDP endpoint",
+                format!(
+                    "Pinned Chromium did not publish a bounded loopback CDP endpoint; stderr={}",
+                    bounded_browser_log(&stderr_path)
+                ),
             ));
         }
         tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+}
+
+fn bounded_browser_log(path: &Path) -> String {
+    match fs::read(path) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes)
+            .chars()
+            .filter(|ch| !ch.is_control() || matches!(ch, '\n' | '\t'))
+            .take(16_384)
+            .collect(),
+        Err(_) => "unavailable".into(),
     }
 }
 
@@ -619,6 +642,7 @@ async fn run_render(
         }
     };
     terminate_browser(&mut browser).await;
+    let _ = fs::remove_file(output.join("chromium.stderr.log"));
     let stdout = out_task
         .await
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stdout task failed"))??;
