@@ -92,6 +92,10 @@ fn one_selector_matches_equivalent_cross_platform_semantics() {
             target: Some("ui:label".into()),
         }),
         facet: Some("value".into()),
+        text: None,
+        value: None,
+        selection: None,
+        table: None,
         ancestor: None,
         nth: None,
         query: None,
@@ -151,4 +155,92 @@ fn rich_text_and_table_cell_facets_are_bounded_portable_data() {
     assert_eq!((table.row, table.column), (Some(5), Some(2)));
     assert_eq!(table.column_span, Some(2));
     assert_eq!(table.row_headers, vec!["August"]);
+}
+
+#[test]
+fn facet_specific_selectors_match_semantics_not_platform_details() {
+    let mut slider = parse(json!({
+        "ref":"ui:slider","role":"slider","name":"Opacity","description":"",
+        "facets":{"value":{"current":52.0,"minimum":0.0,"maximum":100.0,"increment":1.0}},
+        "states":["enabled"],"actions":["set_value"],"app":"editor",
+        "parent_ref":null,"bounds":null,"children_count":0
+    }));
+    slider.facets.text = Some(UiTextFacet {
+        editable: false,
+        password: false,
+        ..UiTextFacet::default()
+    });
+    let selector = Selector {
+        value: Some(ValueFacetMatch {
+            minimum: Some(50.0),
+            maximum: Some(60.0),
+        }),
+        text: Some(TextFacetMatch {
+            editable: Some(false),
+            password: Some(false),
+            has_selection: Some(false),
+        }),
+        ..Default::default()
+    };
+    assert_eq!(selector.unique(&[slider]).unwrap().reference, "ui:slider");
+}
+
+#[test]
+fn table_and_selection_selectors_match_rich_facets() {
+    let mut cell = parse(json!({
+        "ref":"ui:cell","role":"table_cell","name":"Revenue","description":"",
+        "facets":{"table":{"row":5,"column":2,"row_span":1,"column_span":1}},
+        "states":["enabled"],"actions":[],"app":"sheet",
+        "parent_ref":"ui:table","bounds":null,"children_count":0
+    }));
+    cell.facets.selection = Some(UiSelectionFacet {
+        selected: Some(true),
+        multi_select: Some(false),
+        ..UiSelectionFacet::default()
+    });
+    let selector = Selector {
+        table: Some(TableFacetMatch {
+            row: Some(5),
+            column: Some(2),
+            min_rows: None,
+            min_columns: None,
+        }),
+        selection: Some(SelectionFacetMatch {
+            selected: Some(true),
+            multi_select: Some(false),
+        }),
+        ..Default::default()
+    };
+    assert_eq!(selector.unique(&[cell]).unwrap().reference, "ui:cell");
+}
+
+#[test]
+fn inverted_or_nonfinite_value_ranges_are_rejected() {
+    let node = parse(json!({
+        "ref":"ui:value","role":"slider","name":"Value","description":"",
+        "facets":{"value":{"current":50.0}},
+        "states":[],"actions":[],"app":"fixture","parent_ref":null,"bounds":null,"children_count":0
+    }));
+    let inverted = Selector {
+        value: Some(ValueFacetMatch {
+            minimum: Some(80.0),
+            maximum: Some(20.0),
+        }),
+        ..Default::default()
+    };
+    assert_eq!(
+        inverted.select(&[node.clone()]).unwrap_err().code,
+        ErrorCode::InvalidArgument
+    );
+    let nonfinite = Selector {
+        value: Some(ValueFacetMatch {
+            minimum: Some(f64::NAN),
+            maximum: None,
+        }),
+        ..Default::default()
+    };
+    assert_eq!(
+        nonfinite.select(&[node]).unwrap_err().code,
+        ErrorCode::InvalidArgument
+    );
 }

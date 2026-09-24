@@ -45,17 +45,30 @@ Missing facets mean “not observed/supported”, not false. Platform-native han
 
 The table describes projection classes in the implementation. Native CI and live matrices remain the source of truth for verified support.
 
+## Rich selectors
+
+`ui.find` preserves the v1 selector surface and can additionally constrain observed semantic facets. Portable predicates include text editability/password/selection state, numeric value ranges, selection state and table row/column/size. These predicates operate only on projected semantics; they never inspect platform-native handles.
+
+Ranked free-text `query` remains discovery-only and cannot select a mutating target. Mutations still require an unambiguous broker-resolved ref.
+
+## Semantic events
+
+The portable event taxonomy includes backend/window/structure/selection/text/focus/state/property/geometry/object changes. Linux AT-SPI currently projects native event streams into these kinds and invalidates generations conservatively on structural loss. Windows already has a bounded overflow-invalidating queue, but native UIA event subscription still requires native verification. macOS AX observers currently invalidate native state; publication through the provider event pipeline remains follow-up work.
+
+Event loss is never treated as a complete history: caches/refs must be invalidated and refreshed.
+
 ## Conformance direction
 
 Platform implementations are tested against shared semantic expectations rather than forced into identical feature sets. A backend may expose a richer optional facet without requiring other operating systems to fabricate it.
 
-The next hardening layers are:
+Implemented rich semantics include AT-SPI Table/TableCell coordinates/spans/headers, bounded caret/selections/text-attribute runs, UIA Text/Grid/Table/Scroll/Window/Transform patterns, AX/UIA/AT-SPI native hit-testing and cross-platform selector conformance.
 
-- normalized semantic events over the existing provider event pipeline;
+Remaining hardening focuses on:
+
+- native Windows UIA event subscriptions and loss/flood verification;
+- macOS AX event publication through the provider pipeline;
 - native query pushdown where it preserves portable selector semantics;
-- AT-SPI TableCell row/column/span/header projection;
-- bounded text ranges, caret, selection and text-attribute semantics;
 - live GTK/Qt/UIA/AX fixture coverage for rich facets and hit-testing;
-- explicit event-loss, stale-ref, ambiguity and protected-control tests.
+- explicit native event-loss, stale-ref, ambiguity and protected-control tests.
 
 No v2 field is an authorization signal. Policy, consent, app scope and pre-mutation validation remain authoritative.

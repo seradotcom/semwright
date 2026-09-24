@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-92 built-in descriptors. A descriptor is not proof of live backend support.
+93 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -664,6 +664,75 @@ Idempotency: `read_only`. Dry run: `true`.
             "window",
             "transform"
           ]
+        },
+        "text": {
+          "type": "object",
+          "properties": {
+            "editable": {
+              "type": "boolean"
+            },
+            "password": {
+              "type": "boolean"
+            },
+            "has_selection": {
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "value": {
+          "type": "object",
+          "properties": {
+            "current_minimum": {
+              "type": "number"
+            },
+            "current_maximum": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "selection": {
+          "type": "object",
+          "properties": {
+            "selected": {
+              "type": "boolean"
+            },
+            "multi_select": {
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "table": {
+          "type": "object",
+          "properties": {
+            "row": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "column": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "min_rows": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "min_columns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            }
+          },
+          "required": [],
+          "additionalProperties": false
         }
       },
       "required": [],

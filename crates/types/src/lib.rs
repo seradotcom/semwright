@@ -2,7 +2,7 @@
 pub mod event;
 pub mod job;
 pub mod provider;
-pub use event::EventEnvelope;
+pub use event::{EventEnvelope, semantic_ui_event};
 pub use job::{JobArtifact, JobProgress, JobSnapshot, JobState};
 pub use provider::{InvocationProvenance, ProviderIdentity, SourceKind};
 use regex::RegexBuilder;
@@ -396,8 +396,8 @@ pub struct UiTextFacet {
 #[serde(deny_unknown_fields)]
 pub struct UiValueFacet {
     pub current: Option<f64>,
-    pub minimum: Option<f64>,
-    pub maximum: Option<f64>,
+    pub current_minimum: Option<f64>,
+    pub current_maximum: Option<f64>,
     pub increment: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
@@ -524,6 +524,37 @@ impl UiFacets {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct TextFacetMatch {
+    pub editable: Option<bool>,
+    pub password: Option<bool>,
+    pub has_selection: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ValueFacetMatch {
+    pub current_minimum: Option<f64>,
+    pub current_maximum: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SelectionFacetMatch {
+    pub selected: Option<bool>,
+    pub multi_select: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TableFacetMatch {
+    pub row: Option<usize>,
+    pub column: Option<usize>,
+    pub min_rows: Option<usize>,
+    pub min_columns: Option<usize>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Selector {
     pub app: Option<String>,
     pub role: Option<String>,
@@ -537,6 +568,10 @@ pub struct Selector {
     pub attributes: BTreeMap<String, String>,
     pub relation: Option<RelationMatch>,
     pub facet: Option<String>,
+    pub text: Option<TextFacetMatch>,
+    pub value: Option<ValueFacetMatch>,
+    pub selection: Option<SelectionFacetMatch>,
+    pub table: Option<TableFacetMatch>,
     pub ancestor: Option<String>,
     pub nth: Option<usize>,
     /// Discovery only. Never accepted by an invocation command.
@@ -607,6 +642,14 @@ impl Selector {
         };
         let name_regex = compile_regex(&self.name)?;
         let help_regex = compile_regex(&self.help)?;
+        if let Some(value) = &self.value {
+            if value.current_minimum.is_some_and(|v| !v.is_finite())
+                || value.current_maximum.is_some_and(|v| !v.is_finite())
+                || matches!((value.current_minimum, value.current_maximum), (Some(min), Some(max)) if min > max)
+            {
+                return Err(Error::invalid("Value selector range is invalid"));
+            }
+        }
         let index: BTreeMap<&str, &UiNode> =
             nodes.iter().map(|n| (n.reference.as_str(), n)).collect();
         let mut found: Vec<&UiNode> = nodes
@@ -622,6 +665,49 @@ impl Selector {
                         .iter()
                         .all(|(k, v)| n.attributes.get(k) == Some(v))
                     && self.facet.as_ref().is_none_or(|f| n.facets.has(f))
+                    && self.text.as_ref().is_none_or(|wanted| {
+                        n.facets.text.as_ref().is_some_and(|text| {
+                            wanted.editable.is_none_or(|v| text.editable == v)
+                                && wanted.password.is_none_or(|v| text.password == v)
+                                && wanted.has_selection.is_none_or(|v| {
+                                    let has_selection = !text.selections.is_empty()
+                                        || text.selection_count.is_some_and(|count| count > 0);
+                                    has_selection == v
+                                })
+                        })
+                    })
+                    && self.value.as_ref().is_none_or(|wanted| {
+                        n.facets.value.as_ref().is_some_and(|value| {
+                            value.current.is_some_and(|current| {
+                                wanted.current_minimum.is_none_or(|min| current >= min)
+                                    && wanted.current_maximum.is_none_or(|max| current <= max)
+                            })
+                        })
+                    })
+                    && self.selection.as_ref().is_none_or(|wanted| {
+                        n.facets.selection.as_ref().is_some_and(|selection| {
+                            wanted
+                                .selected
+                                .is_none_or(|v| selection.selected == Some(v))
+                                && wanted
+                                    .multi_select
+                                    .is_none_or(|v| selection.multi_select == Some(v))
+                        })
+                    })
+                    && self.table.as_ref().is_none_or(|wanted| {
+                        n.facets.table.as_ref().is_some_and(|table| {
+                            wanted.row.is_none_or(|row| table.row == Some(row))
+                                && wanted
+                                    .column
+                                    .is_none_or(|column| table.column == Some(column))
+                                && wanted
+                                    .min_rows
+                                    .is_none_or(|rows| table.rows.is_some_and(|v| v >= rows))
+                                && wanted.min_columns.is_none_or(|columns| {
+                                    table.columns.is_some_and(|v| v >= columns)
+                                })
+                        })
+                    })
                     && self.relation.as_ref().is_none_or(|wanted| {
                         n.relations.iter().any(|relation| {
                             relation.kind == wanted.kind

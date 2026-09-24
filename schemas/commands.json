@@ -2036,6 +2036,75 @@
                 "window",
                 "transform"
               ]
+            },
+            "text": {
+              "type": "object",
+              "properties": {
+                "editable": {
+                  "type": "boolean"
+                },
+                "password": {
+                  "type": "boolean"
+                },
+                "has_selection": {
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "value": {
+              "type": "object",
+              "properties": {
+                "current_minimum": {
+                  "type": "number"
+                },
+                "current_maximum": {
+                  "type": "number"
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "selection": {
+              "type": "object",
+              "properties": {
+                "selected": {
+                  "type": "boolean"
+                },
+                "multi_select": {
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "additionalProperties": false
+            },
+            "table": {
+              "type": "object",
+              "properties": {
+                "row": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "column": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "min_rows": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "min_columns": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
+              },
+              "required": [],
+              "additionalProperties": false
             }
           },
           "required": [],

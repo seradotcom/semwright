@@ -228,36 +228,36 @@ fn supports_interface(interfaces: &[String], name: &str) -> bool {
 
 fn semantic_event_kind(interface: Option<&str>, member: Option<&str>) -> &'static str {
     if interface == Some("org.freedesktop.DBus") {
-        return "semantic.backend.invalidated";
+        return semantic_ui_event::BACKEND_INVALIDATED;
     }
     if interface == Some("org.a11y.atspi.Event.Window") {
         return if member.is_some_and(|name| {
             name.contains("Activate") || name.contains("Deactivate") || name.contains("Focus")
         }) {
-            "semantic.focus.changed"
+            semantic_ui_event::FOCUS_CHANGED
         } else {
-            "semantic.window.changed"
+            semantic_ui_event::WINDOW_CHANGED
         };
     }
     match member.unwrap_or_default() {
-        name if name.contains("ChildrenChanged") => "semantic.structure.changed",
+        name if name.contains("ChildrenChanged") => semantic_ui_event::STRUCTURE_CHANGED,
         name if name.contains("TextSelectionChanged") || name.contains("SelectionChanged") => {
-            "semantic.selection.changed"
+            semantic_ui_event::SELECTION_CHANGED
         }
         name if name.contains("TextChanged") || name.contains("TextAttributesChanged") => {
-            "semantic.text.changed"
+            semantic_ui_event::TEXT_CHANGED
         }
         name if name.contains("StateChanged") && name.to_ascii_lowercase().contains("focus") => {
-            "semantic.focus.changed"
+            semantic_ui_event::FOCUS_CHANGED
         }
-        name if name.contains("StateChanged") => "semantic.state.changed",
+        name if name.contains("StateChanged") => semantic_ui_event::STATE_CHANGED,
         name if name.contains("PropertyChange") || name.contains("PropertyChanged") => {
-            "semantic.property.changed"
+            semantic_ui_event::PROPERTY_CHANGED
         }
         name if name.contains("BoundsChanged") || name.contains("VisibleDataChanged") => {
-            "semantic.geometry.changed"
+            semantic_ui_event::GEOMETRY_CHANGED
         }
-        _ => "semantic.object.changed",
+        _ => semantic_ui_event::OBJECT_CHANGED,
     }
 }
 fn stable_node_id(identity: &str) -> String {
