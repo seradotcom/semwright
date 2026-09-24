@@ -143,10 +143,6 @@ impl WorkflowManager {
             promotion.version != 1
                 || !canonical_slug(&promotion.slug)
                 || promotion.capability != format!("recipe.{}.run", promotion.slug)
-                || validate_candidate_integrity(&promotion.candidate).is_err()
-                || promotion.candidate.fingerprint != canonical.fingerprint
-                || !promotion.candidate.static_verified
-                || promotion.candidate.successful_replays == 0
                 || !canonical.static_verified
                 || canonical.successful_replays == 0
         });
@@ -180,7 +176,19 @@ impl WorkflowManager {
             .promotions
             .into_iter()
             .map(|mut promotion| {
-                promotion.candidate = self.candidates[&promotion.candidate.id].clone();
+                // The candidate stored inside a promotion is historical evidence.  It may
+                // legitimately lag replay counters, so use the independently validated
+                // canonical candidate when the immutable compiled fingerprint still
+                // matches.  If the embedded snapshot was tampered with, preserve it only
+                // long enough for Broker::configure_workflows to fail its integrity/drift
+                // check and report the promotion as stale.  Never silently repair a
+                // corrupted promotion into an executable capability.
+                if let Some(canonical) = self.candidates.get(&promotion.candidate.id)
+                    && validate_candidate_integrity(&promotion.candidate).is_ok()
+                    && promotion.candidate.fingerprint == canonical.fingerprint
+                {
+                    promotion.candidate = canonical.clone();
+                }
                 (promotion.slug.clone(), promotion)
             })
             .collect();
@@ -745,6 +753,42 @@ mod tests {
             restored.configure_persistence(&directory).unwrap_err().code,
             ErrorCode::Conflict
         );
+    }
+
+    #[test]
+    fn tampered_promotion_snapshot_is_loaded_only_as_stale_evidence() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        let trace = persisted_trace(&mut manager);
+        let candidate = candidate(&trace.id);
+        let candidate_id = candidate.id.clone();
+        manager.store_candidate(candidate).unwrap();
+        manager.mark_static_verified(&candidate_id).unwrap();
+        manager.mark_replay(&candidate_id).unwrap();
+        manager
+            .promote("demo-workflow", &candidate_id, "recipe.demo-workflow.run")
+            .unwrap();
+
+        let file = directory.join("workflows.json");
+        let mut persisted: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        persisted["promotions"][0]["candidate"]["source_descriptor_sha256"]["doctor"] =
+            Value::String("0".repeat(64));
+        std::fs::write(&file, serde_json::to_vec_pretty(&persisted).unwrap()).unwrap();
+
+        let mut restored = WorkflowManager::default();
+        restored.configure_persistence(&directory).unwrap();
+
+        assert!(restored.candidate(&candidate_id).unwrap().static_verified);
+        let promotion = restored
+            .promotion_by_capability("recipe.demo-workflow.run")
+            .unwrap();
+        assert_eq!(
+            promotion.candidate.source_descriptor_sha256["doctor"],
+            "0".repeat(64)
+        );
+        assert!(validate_candidate_integrity(&promotion.candidate).is_err());
     }
 
     #[test]
