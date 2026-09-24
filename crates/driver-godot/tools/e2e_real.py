@@ -263,13 +263,46 @@ var has_key := false
 
 func _ready() -> void:
     print("SEMWRIGHT_LAB_READY")
+    call_deferred("_acceptance_probe")
+
+func _acceptance_probe() -> void:
+    await get_tree().physics_frame
+    var start := $Player.global_position
+    Input.action_press("move_forward")
+    await get_tree().physics_frame
+    Input.action_release("move_forward")
+    await get_tree().physics_frame
+    if $Player.global_position.distance_to(start) <= 0.01:
+        push_error("SEMWRIGHT_PLAYER_DID_NOT_MOVE")
+        get_tree().quit(7)
+        return
+    print("SEMWRIGHT_PLAYER_MOVED")
+    if not $Key.is_connected("body_entered", Callable(self, "_on_key_body_entered")):
+        push_error("SEMWRIGHT_SIGNAL_NOT_PERSISTED")
+        get_tree().quit(8)
+        return
+    print("SEMWRIGHT_SIGNAL_WIRED")
+    $Player.global_position = $Key.global_position + Vector3(0.0, 0.5, 0.0)
+    for _i in range(4):
+        await get_tree().physics_frame
+    if not has_key:
+        push_error("SEMWRIGHT_INTERACTION_FAILED")
+        get_tree().quit(9)
+        return
+    print("SEMWRIGHT_INTERACTION_OK")
+    get_tree().quit()
 
 func _on_key_body_entered(body: Node) -> void:
-    if body.name != "Player":
+    if body.name != "Player" or has_key:
         return
     has_key = true
+    print("SEMWRIGHT_SIGNAL_FIRED")
     $HUD/Status.text = "Door unlocked"
+    if $HUD/Status.text == "Door unlocked":
+        print("SEMWRIGHT_UI_UPDATED")
     $Animations.play("door_open")
+    if $Animations.current_animation == "door_open":
+        print("SEMWRIGHT_ANIMATION_PLAYING")
     $Key.queue_free()
 """
         player = """extends CharacterBody3D
@@ -307,7 +340,7 @@ func _physics_process(_delta: float) -> void:
 
         value = call("driver.godot.signal.connect", {
             "session": sid, "source": "Key", "target": ".", "signal": "body_entered",
-            "method": "_on_key_body_entered", "flags": 8, "expect": st, "dry_run": False,
+            "method": "_on_key_body_entered", "flags": 2, "expect": st, "dry_run": False,
         })
         st = stamp(value)
 
@@ -350,10 +383,23 @@ func _physics_process(_delta: float) -> void:
         assert len(progress) == 2 and progress[-1]["progress"]["completed"] == 1
 
         runtime, progress = execute(driver, caps, "driver.godot.project.run_test", {
-            "project": project_id, "scene": "res://scenes/lab_room.tscn", "frames": 30,
+            "project": project_id, "scene": "res://scenes/lab_room.tscn", "frames": 120,
         }, "project-run")
-        trace.append({"id": "project-run", "command": "driver.godot.project.run_test", "args": {"project": project_id, "scene": "res://scenes/lab_room.tscn", "frames": 30}, "result": runtime, "progress": progress})
-        assert runtime["success"] and "SEMWRIGHT_LAB_READY" in runtime["stdout"], runtime
+        trace.append({"id": "project-run", "command": "driver.godot.project.run_test", "args": {"project": project_id, "scene": "res://scenes/lab_room.tscn", "frames": 120}, "result": runtime, "progress": progress})
+        assert runtime["success"], runtime
+        required_runtime_markers = {
+            "SEMWRIGHT_LAB_READY",
+            "SEMWRIGHT_PLAYER_MOVED",
+            "SEMWRIGHT_SIGNAL_WIRED",
+            "SEMWRIGHT_SIGNAL_FIRED",
+            "SEMWRIGHT_UI_UPDATED",
+            "SEMWRIGHT_ANIMATION_PLAYING",
+            "SEMWRIGHT_INTERACTION_OK",
+        }
+        missing_markers = sorted(
+            marker for marker in required_runtime_markers if marker not in runtime["stdout"]
+        )
+        assert not missing_markers, (missing_markers, runtime)
         assert_no_godot_errors("project.run_test", runtime)
         assert len(progress) == 2
 
