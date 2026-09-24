@@ -1,4 +1,5 @@
 //! macOS is a Backend of the SAME broker, registry, policy, refs and jobs.
+pub mod roles;
 pub mod transport;
 use async_trait::async_trait;
 use semwright_backend_api::{Backend, Context, feature};

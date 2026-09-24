@@ -1,12 +1,16 @@
-//! Bounded length-prefixed JSON protocol. Unix only; TCP is deliberately absent.
+//! Bounded length-prefixed JSON protocol over peer-authenticated local IPC. TCP is deliberately absent.
 use semwright_types::{
     Envelope, Error, ErrorCode, EventEnvelope, ExecuteRequest, MAX_FRAME, PROTOCOL_VERSION, Result,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+#[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+#[cfg(unix)]
 use tokio::net::UnixStream;
+#[cfg(target_os = "windows")]
+use tokio::net::windows::named_pipe::NamedPipeClient;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -77,6 +81,7 @@ pub async fn write_frame<W: AsyncWrite + Unpin, T: Serialize>(
     w.flush().await?;
     Ok(())
 }
+#[cfg(unix)]
 pub fn current_uid() -> u32 {
     semwright_platform_services::current_uid()
 }
@@ -86,31 +91,90 @@ pub fn private_directory(path: &Path) -> Result<()> {
 pub fn runtime_directory() -> Result<PathBuf> {
     semwright_platform_services::runtime_directory()
 }
-pub fn default_socket() -> Result<PathBuf> {
-    Ok(runtime_directory()?.join("broker.sock"))
+pub fn default_endpoint(kind: &str) -> Result<PathBuf> {
+    if kind.is_empty()
+        || kind.len() > 32
+        || !kind.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    {
+        return Err(Error::invalid("Invalid local endpoint kind"));
+    }
+    #[cfg(unix)]
+    {
+        return Ok(runtime_directory()?.join(format!("{kind}.sock")));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        return semwright_platform_services::windows_pipe_path(kind);
+    }
+    #[allow(unreachable_code)]
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "Local IPC transport is unavailable on this platform",
+    ))
 }
-pub fn validate_peer(stream: &UnixStream) -> Result<()> {
+pub fn default_socket() -> Result<PathBuf> {
+    default_endpoint("broker")
+}
+
+#[cfg(unix)]
+type LocalClientStream = UnixStream;
+#[cfg(target_os = "windows")]
+type LocalClientStream = NamedPipeClient;
+
+#[cfg(unix)]
+fn validate_client_peer(stream: &UnixStream) -> Result<()> {
     semwright_platform_services::validate_peer(stream)
 }
+#[cfg(target_os = "windows")]
+fn validate_client_peer(stream: &NamedPipeClient) -> Result<()> {
+    semwright_platform_services::validate_windows_client_peer(stream).map(|_| ())
+}
+
 pub struct Client {
-    pub stream: UnixStream,
+    pub stream: LocalClientStream,
     pub session: String,
 }
 impl Client {
-    pub async fn connect(path: &Path, session: Option<String>) -> Result<Self> {
-        let meta = std::fs::symlink_metadata(path)?;
-        use std::os::unix::fs::FileTypeExt;
-        if !meta.file_type().is_socket()
-            || meta.uid() != current_uid()
-            || meta.permissions().mode() & 0o777 != 0o600
+    async fn open_local(path: &Path) -> Result<LocalClientStream> {
+        #[cfg(unix)]
         {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Broker socket must be user-owned with mode 0600",
-            ));
+            let meta = std::fs::symlink_metadata(path)?;
+            use std::os::unix::fs::FileTypeExt;
+            if !meta.file_type().is_socket()
+                || meta.uid() != current_uid()
+                || meta.permissions().mode() & 0o777 != 0o600
+            {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Broker socket must be user-owned with mode 0600",
+                ));
+            }
+            return UnixStream::connect(path).await.map_err(Into::into);
         }
-        let mut stream = UnixStream::connect(path).await?;
-        validate_peer(&stream)?;
+        #[cfg(target_os = "windows")]
+        {
+            let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+            loop {
+                match semwright_platform_services::windows_pipe_client(path) {
+                    Ok(stream) => return Ok(stream),
+                    Err(error) if tokio::time::Instant::now() < deadline => {
+                        let _ = error;
+                        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+        }
+        #[allow(unreachable_code)]
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Local IPC transport is unavailable on this platform",
+        ))
+    }
+
+    pub async fn connect(path: &Path, session: Option<String>) -> Result<Self> {
+        let mut stream = Self::open_local(path).await?;
+        validate_client_peer(&stream)?;
         write_frame(
             &mut stream,
             &ClientMessage::Hello {
@@ -131,6 +195,7 @@ impl Client {
             )),
         }
     }
+
     pub async fn execute(&mut self, id: String, request: ExecuteRequest) -> Result<Envelope> {
         write_frame(
             &mut self.stream,
@@ -156,11 +221,14 @@ impl Client {
             }
         }
     }
+
     pub async fn cancel(&mut self, id: String) -> Result<()> {
         write_frame(&mut self.stream, &ClientMessage::Cancel { id }).await
     }
 }
+
 /// CLI persistence is a bearer session ticket, not an authorization upgrade.
+#[cfg(unix)]
 pub fn load_ticket(path: &Path) -> Result<Option<String>> {
     use std::os::unix::fs::OpenOptionsExt;
     match std::fs::OpenOptions::new()
@@ -192,6 +260,7 @@ pub fn load_ticket(path: &Path) -> Result<Option<String>> {
         Err(e) => Err(e.into()),
     }
 }
+#[cfg(unix)]
 pub fn save_ticket(path: &Path, ticket: &str) -> Result<()> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
@@ -262,6 +331,7 @@ mod tests {
 
 /// Serialize ticket creation only, not commands. A stale ticket starts a new session;
 /// old refs still fail because they are never translated between sessions.
+#[cfg(unix)]
 pub async fn connect_persistent(socket: &Path, ticket: &Path) -> Result<Client> {
     use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
     let parent = ticket
@@ -322,6 +392,23 @@ pub async fn connect_persistent(socket: &Path, ticket: &Path) -> Result<Client> 
     save_ticket(ticket, &client.session)?;
     drop(lock);
     Ok(client)
+}
+
+#[cfg(target_os = "windows")]
+pub fn load_ticket(_path: &Path) -> Result<Option<String>> {
+    Ok(None)
+}
+
+#[cfg(target_os = "windows")]
+pub fn save_ticket(_path: &Path, _ticket: &str) -> Result<()> {
+    // Persisting a bearer ticket requires an explicit owner-only file DACL contract.
+    // Until that exists, Windows intentionally uses a fresh broker session per client process.
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+pub async fn connect_persistent(socket: &Path, _ticket: &Path) -> Result<Client> {
+    Client::connect(socket, None).await
 }
 
 #[cfg(test)]

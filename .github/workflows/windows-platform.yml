@@ -1,0 +1,141 @@
+name: Platformization and Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'crates/platform-*/**'
+      - 'crates/protocol/**'
+      - 'crates/daemon/**'
+      - 'crates/cli/**'
+      - 'crates/mcp/**'
+      - 'crates/tui/**'
+      - 'crates/driver-host/**'
+      - 'crates/plugin-host/**'
+      - 'fixtures/windows-uia/**'
+      - 'docs/windows/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/windows-platform.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platformization-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  windows-native:
+    name: windows-${{ matrix.arch }} native noninteractive
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runs_on: windows-2025
+          - arch: arm64
+            runs_on: windows-11-vs2026-arm
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - name: Architecture evidence
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force verification/platform-ci | Out-Null
+          @(
+            "RUNNER_ARCH=$env:RUNNER_ARCH"
+            "PROCESSOR_ARCHITECTURE=$env:PROCESSOR_ARCHITECTURE"
+            (rustc -vV | Out-String)
+            (cargo -V | Out-String)
+          ) | Set-Content "verification/platform-ci/windows-${{ matrix.arch }}.log"
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Native Windows runtime check
+        run: >-
+          cargo check --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+          -p semwright-cli
+          -p semwright-mcp
+          -p semwright-tui
+          --all-targets
+      - name: Native Windows runtime Clippy
+        run: >-
+          cargo clippy --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+          -p semwright-cli
+          -p semwright-mcp
+          -p semwright-tui
+          --all-targets -- -D warnings
+      - name: Native Windows runtime tests
+        run: >-
+          cargo test --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+      - name: Native Windows docs
+        shell: pwsh
+        run: |
+          $env:RUSTDOCFLAGS='-D warnings'
+          cargo doc --locked -p semwright-platform-api -p semwright-platform-windows-sys -p semwright-platform-windows -p semwright-platform-services -p semwright-platform-host -p semwright-protocol --no-deps
+      - name: UIA fixture compiles natively
+        working-directory: fixtures/windows-uia
+        run: cargo check
+      - name: Record CI class
+        shell: pwsh
+        run: |
+          @'
+          PASS_WINDOWS_NATIVE_CI can only be claimed after this job is green.
+          This hosted runner is not evidence of PASS_WINDOWS_INTERACTIVE.
+          '@ | Out-File -Encoding utf8 "verification/platform-ci/windows-${{ matrix.arch }}-class.txt"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-${{ matrix.arch }}-evidence
+          path: verification/platform-ci/
+          retention-days: 14

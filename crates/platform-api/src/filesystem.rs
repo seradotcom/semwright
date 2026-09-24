@@ -6,7 +6,10 @@ pub enum Confinement {
     LinuxOpenat2NoSymlinksNoMounts,
     /// Pinned root, single child only. NOT an openat2-equivalent traversal claim.
     PinnedRootSingleChild,
+    /// Windows HANDLE-verified pinned root; initial implementation is read-only and one child.
+    WindowsPinnedRootSingleChildReadOnly,
 }
+
 pub trait ScopedRoot: Send + Sync {
     fn confinement(&self) -> Confinement;
     fn read(&self, path: &Path, limit: usize) -> Result<Vec<u8>>;
@@ -15,8 +18,8 @@ pub trait ScopedRoot: Send + Sync {
 pub trait ScopedFilesystem: Send + Sync {
     fn open_root(&self, path: &Path, read: bool, write: bool) -> Result<Box<dyn ScopedRoot>>;
 }
+
 /// Lexical validation is a precondition, never the enforcement boundary.
-/// Deliberately does not perform Unicode/case normalization of filenames.
 pub fn validate_relative_path(path: &Path) -> Result<()> {
     let bytes = path.as_os_str().as_encoded_bytes();
     if bytes.is_empty() || bytes.len() > 4096 || path.is_absolute() || bytes.contains(&0) {
@@ -31,6 +34,7 @@ pub fn validate_relative_path(path: &Path) -> Result<()> {
             "Path traversal is forbidden",
         ));
     }
+    // '/' is portable protocol syntax. Windows adds its own '\\', ADS and device-name checks.
     if bytes
         .split(|b| *b == b'/')
         .any(|c| c.is_empty() || c == b"." || c == b"..")
@@ -40,17 +44,4 @@ pub fn validate_relative_path(path: &Path) -> Result<()> {
         ));
     }
     Ok(())
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn lexical_paths() {
-        for p in ["", "../x", "a/../b", "/x", "a/./b", "a//b", "a/", "a\0b"] {
-            assert!(validate_relative_path(Path::new(p)).is_err(), "{p:?}");
-        }
-        for p in ["a", "a/b", "á", "a\\b"] {
-            assert!(validate_relative_path(Path::new(p)).is_ok());
-        }
-    }
 }

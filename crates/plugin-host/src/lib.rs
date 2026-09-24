@@ -6,14 +6,17 @@ use semwright_policy::FilesystemGrant;
 use semwright_protocol::{private_directory, read_frame, write_frame};
 use semwright_types::*;
 use serde_json::{Value, json};
-#[cfg(test)]
+#[cfg(all(test, unix))]
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    io::Write,
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     sync::RwLock,
+};
+#[cfg(unix)]
+use std::{
+    io::Write,
+    os::unix::fs::{OpenOptionsExt, PermissionsExt},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -131,149 +134,158 @@ impl Host {
             .iter()
             .find(|c| c.name == command)
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Plugin command is not declared"))?;
-        if !semwright_platform_services::sandbox_available(&self.helper) {
+        #[cfg(target_os = "windows")]
+        {
+            let _ = (&descriptor, &args, &cancellation);
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
-                "Bubblewrap and semwright-sandbox are required; refusing unsandboxed execution",
+                "Windows arbitrary plugin execution is fail-closed until secure pre-exec containment is implemented",
             ));
         }
-        let bytes = verify_executable(&manifest.executable, &manifest.sha256)?;
-        let staged = self.state.join(format!("binary-{}", unique_id()));
-        let cleanup = StagedFile(staged.clone());
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&staged)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
-        drop(file);
-
-        use semwright_platform_api::launch::{Mount, SandboxKind, SandboxSpec};
-        let mounts = manifest
-            .mounts
-            .iter()
-            .map(|m| {
-                let grant = self
-                    .roots
-                    .iter()
-                    .find(|g| g.name == m.root)
-                    .ok_or_else(|| {
-                        Error::new(ErrorCode::PolicyDenied, "Plugin grant disappeared")
-                    })?;
-                Ok(Mount {
-                    source: grant.path.clone(),
-                    destination: format!("/workspace/{}", m.root),
-                    read_only: m.read_only,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let mut process = semwright_platform_services::sandbox_command(&SandboxSpec {
-            kind: SandboxKind::Plugin,
-            staged_executable: staged.clone(),
-            helper: self.helper.clone(),
-            mounts,
-            system_config: vec![],
-            network: manifest.network,
-            limits: None,
-        })?;
-        if cancellation.is_cancelled() {
-            return Err(Error::new(
-                ErrorCode::Cancelled,
-                "Plugin cancelled before spawn",
-            ));
-        }
-        let mut child = process
-            .spawn()
-            .map_err(|_| Error::new(ErrorCode::SandboxDenied, "Sandbox launcher failed"))?;
-        let mut input = child
-            .stdin
-            .take()
-            .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "Plugin stdin missing"))?;
-        let mut output = child
-            .stdout
-            .take()
-            .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "Plugin stdout missing"))?;
-        let id = unique_id();
-        let expected_commands_sha256 = commands_digest(&manifest.commands)?;
-        let conversation = async {
-            write_frame(
-                &mut input,
-                &Request::Hello {
-                    protocol: PLUGIN_PROTOCOL_VERSION,
-                    name: name.into(),
-                    version: manifest.version.clone(),
-                    commands_sha256: expected_commands_sha256.clone(),
-                },
-            )
-            .await?;
-            match read_frame::<_, Response>(&mut output).await? {
-                Response::Ready {
-                    protocol: PLUGIN_PROTOCOL_VERSION,
-                    name: reported,
-                    version,
-                    commands_sha256,
-                } if reported == name
-                    && version == manifest.version
-                    && commands_sha256 == expected_commands_sha256 => {}
-                _ => {
-                    return Err(Error::new(
-                        ErrorCode::PluginProtocolError,
-                        "Plugin handshake mismatch",
-                    ));
-                }
-            }
-            write_frame(
-                &mut input,
-                &Request::Execute {
-                    id: id.clone(),
-                    command: command.into(),
-                    args,
-                },
-            )
-            .await?;
-            let result = match read_frame::<_, Response>(&mut output).await? {
-                Response::Result {
-                    id: reported,
-                    value,
-                } if reported == id => Ok(value),
-                Response::Failure {
-                    id: reported,
-                    error,
-                } if reported == id => Err(Error::new(
-                    error.code,
-                    "Plugin reported an error; stderr and payload were redacted",
-                )),
-                _ => Err(Error::new(
-                    ErrorCode::PluginProtocolError,
-                    "Plugin replied with an unexpected id or message",
-                )),
-            };
-            let _ = write_frame(&mut input, &Request::Shutdown {}).await;
-            result
-        };
-        let timeout = descriptor
-            .timeout_ms
-            .min(manifest.timeout_ms.unwrap_or(30000));
-        let result = tokio::select! {
-            _=cancellation.cancelled()=>Err(Error::new(ErrorCode::Cancelled,"Plugin cancelled").uncertain()),
-            r=tokio::time::timeout(std::time::Duration::from_millis(timeout),conversation)=>r.unwrap_or_else(|_|Err(Error::new(ErrorCode::Timeout,"Plugin exceeded its timeout").uncertain())),
-        };
-        let _ = child.kill().await;
-        let _ = child.wait().await;
-        drop(cleanup);
-        result.map_err(|e| {
-            if e.code == ErrorCode::BackendFailed {
-                Error::new(
+        #[cfg(unix)]
+        {
+            if !semwright_platform_services::sandbox_available(&self.helper) {
+                return Err(Error::new(
                     ErrorCode::SandboxDenied,
-                    "Plugin could not establish its protocol; sandbox may be unsupported",
-                )
-                .uncertain()
-            } else {
-                e
+                    "Bubblewrap and semwright-sandbox are required; refusing unsandboxed execution",
+                ));
             }
-        })
+            let bytes = verify_executable(&manifest.executable, &manifest.sha256)?;
+            let staged = self.state.join(format!("binary-{}", unique_id()));
+            let cleanup = StagedFile(staged.clone());
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&staged)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
+            drop(file);
+
+            use semwright_platform_api::launch::{Mount, SandboxKind, SandboxSpec};
+            let mounts = manifest
+                .mounts
+                .iter()
+                .map(|m| {
+                    let grant = self
+                        .roots
+                        .iter()
+                        .find(|g| g.name == m.root)
+                        .ok_or_else(|| {
+                            Error::new(ErrorCode::PolicyDenied, "Plugin grant disappeared")
+                        })?;
+                    Ok(Mount {
+                        source: grant.path.clone(),
+                        class: semwright_platform_api::launch::MountClass::Workspace,
+                        logical_name: m.root.clone(),
+                        read_only: m.read_only,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let mut process = semwright_platform_services::sandbox_command(&SandboxSpec {
+                kind: SandboxKind::Plugin,
+                staged_executable: staged.clone(),
+                helper: self.helper.clone(),
+                mounts,
+                network: manifest.network,
+                limits: None,
+            })?;
+            if cancellation.is_cancelled() {
+                return Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Plugin cancelled before spawn",
+                ));
+            }
+            let mut child = process
+                .spawn()
+                .map_err(|_| Error::new(ErrorCode::SandboxDenied, "Sandbox launcher failed"))?;
+            let mut input = child.stdin.take().ok_or_else(|| {
+                Error::new(ErrorCode::PluginProtocolError, "Plugin stdin missing")
+            })?;
+            let mut output = child.stdout.take().ok_or_else(|| {
+                Error::new(ErrorCode::PluginProtocolError, "Plugin stdout missing")
+            })?;
+            let id = unique_id();
+            let expected_commands_sha256 = commands_digest(&manifest.commands)?;
+            let conversation = async {
+                write_frame(
+                    &mut input,
+                    &Request::Hello {
+                        protocol: PLUGIN_PROTOCOL_VERSION,
+                        name: name.into(),
+                        version: manifest.version.clone(),
+                        commands_sha256: expected_commands_sha256.clone(),
+                    },
+                )
+                .await?;
+                match read_frame::<_, Response>(&mut output).await? {
+                    Response::Ready {
+                        protocol: PLUGIN_PROTOCOL_VERSION,
+                        name: reported,
+                        version,
+                        commands_sha256,
+                    } if reported == name
+                        && version == manifest.version
+                        && commands_sha256 == expected_commands_sha256 => {}
+                    _ => {
+                        return Err(Error::new(
+                            ErrorCode::PluginProtocolError,
+                            "Plugin handshake mismatch",
+                        ));
+                    }
+                }
+                write_frame(
+                    &mut input,
+                    &Request::Execute {
+                        id: id.clone(),
+                        command: command.into(),
+                        args,
+                    },
+                )
+                .await?;
+                let result = match read_frame::<_, Response>(&mut output).await? {
+                    Response::Result {
+                        id: reported,
+                        value,
+                    } if reported == id => Ok(value),
+                    Response::Failure {
+                        id: reported,
+                        error,
+                    } if reported == id => Err(Error::new(
+                        error.code,
+                        "Plugin reported an error; stderr and payload were redacted",
+                    )),
+                    _ => Err(Error::new(
+                        ErrorCode::PluginProtocolError,
+                        "Plugin replied with an unexpected id or message",
+                    )),
+                };
+                let _ = write_frame(&mut input, &Request::Shutdown {}).await;
+                result
+            };
+            let timeout = descriptor
+                .timeout_ms
+                .min(manifest.timeout_ms.unwrap_or(30000));
+            let result = tokio::select! {
+                _=cancellation.cancelled()=>Err(Error::new(ErrorCode::Cancelled,"Plugin cancelled").uncertain()),
+                r=tokio::time::timeout(std::time::Duration::from_millis(timeout),conversation)=>r.unwrap_or_else(|_|Err(Error::new(ErrorCode::Timeout,"Plugin exceeded its timeout").uncertain())),
+            };
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            drop(cleanup);
+            result.map_err(|e| {
+                if e.code == ErrorCode::BackendFailed {
+                    Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Plugin could not establish its protocol; sandbox may be unsupported",
+                    )
+                    .uncertain()
+                } else {
+                    e
+                }
+            })
+        }
     }
 }
 struct StagedFile(PathBuf);
@@ -285,7 +297,7 @@ impl Drop for StagedFile {
 fn verify_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
     semwright_platform_services::verify_executable(path, digest)
 }
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     #[test]
