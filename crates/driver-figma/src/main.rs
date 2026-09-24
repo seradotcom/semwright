@@ -1513,6 +1513,22 @@ fn advertised_operations() -> Vec<Op> {
 }
 
 fn capability(o: Op) -> Capability {
+    let mut tags = vec!["figma".into(), "plugin-api".into(), "semantic".into()];
+    match o.name {
+        "export.node" => tags.extend([
+            "artifact-out:image/raster".into(),
+            "artifact-out:image/vector".into(),
+            "artifact-out:document/pdf".into(),
+            "artifact-out:video/clip".into(),
+        ]),
+        "motion.export" => tags.push("artifact-out:video/clip".into()),
+        "image.export" => tags.push("artifact-out:image/raster".into()),
+        "design_system.export.css"
+        | "design_system.export.tailwind"
+        | "node.export.jsx"
+        | "node.export.storybook" => tags.push("artifact-out:text/source".into()),
+        _ => {}
+    }
     Capability {
         descriptor: CommandDescriptor {
             name: format!("driver.figma.{}", o.name),
@@ -1529,7 +1545,7 @@ fn capability(o: Op) -> Capability {
             backends: vec![DRIVER_SCOPE.into()],
         },
         aliases: vec![],
-        tags: vec!["figma".into(), "plugin-api".into(), "semantic".into()],
+        tags,
         object_types: o
             .name
             .split('.')
@@ -1879,6 +1895,34 @@ mod catalog_tests {
             .map(|op| op.name)
             .collect::<std::collections::BTreeSet<_>>();
         assert_eq!(operations.len(), unique.len());
+    }
+
+    #[test]
+    fn export_capabilities_advertise_generic_artifact_outputs() {
+        let export = capability(op(
+            "export.node",
+            "export",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ));
+        for expected in [
+            "artifact-out:image/raster",
+            "artifact-out:image/vector",
+            "artifact-out:document/pdf",
+            "artifact-out:video/clip",
+        ] {
+            assert!(export.tags.iter().any(|tag| tag == expected));
+        }
+
+        let css = capability(op(
+            "design_system.export.css",
+            "css",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ));
+        assert!(css.tags.iter().any(|tag| tag == "artifact-out:text/source"));
     }
 
     #[test]

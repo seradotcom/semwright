@@ -1,6 +1,9 @@
 use semwright_types::{Error, ErrorCode, Result};
 use std::path::{Component, Path};
 
+/// Bounded binary handoff budget. Text filesystem commands remain schema-limited to 1 MiB.
+pub const MAX_SCOPED_BINARY_BYTES: usize = 64 * 1024 * 1024;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Confinement {
     LinuxOpenat2NoSymlinksNoMounts,

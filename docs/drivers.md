@@ -102,6 +102,53 @@ user's real home directory.
 The manifest defines what the driver needs; it never creates a policy grant. Capability calls
 still pass through the broker's normal risk, confirmation, cancellation and audit path.
 
+## Cross-driver artifact handoff
+
+Drivers do not bind directly to each other. Capabilities may advertise semantic artifact ports
+using tags such as `artifact-out:model/3d` and `artifact-in:model/3d`. These tags describe
+compatibility only; they grant no filesystem access and do not move bytes.
+
+`artifact.handoff` is the broker-owned transfer primitive. It copies a bounded binary file from
+one explicitly readable filesystem grant to one explicitly writable grant, using relative paths
+only. The source may be pinned with `expected_sha256`; a mismatch fails before the destination is
+written. The destination uses the platform scoped-filesystem atomic-write boundary. The current
+handoff ceiling is 64 MiB; larger media requires a future streaming artifact transport rather
+than weakening the bounded in-memory contract.
+
+This deliberately keeps applications independent. For example, Blender may advertise
+`artifact-out:model/3d`; Godot may advertise `artifact-in:model/3d`; the agent can discover
+both with the normal capability-catalog tag filter, handoff a `.blend` file from the Blender
+workspace into the Godot project grant, then request the normal Godot asset rescan. Neither
+driver needs to know the other exists. The same contract can connect Godot movie capture to
+MLT (`video/clip`) or future audio/design providers.
+
+Artifact ports are intentionally semantic rather than pairwise bindings. A typical planner flow is
+`capabilities.search(tags=["artifact-out:model/3d"])` followed by
+`capabilities.search(tags=["artifact-in:model/3d"])`, then `artifact.handoff` when the concrete
+artifact is file-backed and both filesystem grants are authorized. Matching semantic tags do not
+prove that every native file format is accepted; the producer result/media type and consumer
+operation still require normal compatibility checks.
+
+Protocol-v2 `JobArtifact` references may also represent provider-owned tokenized artifacts. Those
+references are metadata today, not broker-readable file handles. Figma, for example, keeps exports
+behind authenticated driver-local tokens and bounded chunk reads. This v1 handoff does not pretend
+those tokens are file-backed; a future generic streaming/materialization contract can bridge them
+without changing the file-backed handoff security boundary.
+
+Current semantic ports include:
+
+| Provider operation | Artifact port |
+|---|---|
+| Blender file save | `artifact-out:model/3d` |
+| Blender render | `artifact-out:image/raster` |
+| Figma node export | raster/vector image, PDF and video outputs |
+| Figma design-system/source export | `artifact-out:text/source` |
+| LibreOffice PDF export | `artifact-out:document/pdf` |
+| Godot asset rescan | 3D model, raster/vector image and audio inputs |
+| Godot movie capture | `artifact-out:video/clip` |
+| MLT asset import | video, audio and raster-image inputs |
+| MLT render result | `artifact-out:video/clip` |
+
 Protocol v1 intentionally rejects dynamic-capability changes, child events, progress,
 artifacts and cooperative cancellation. Protocol v2 transports those interfaces explicitly,
 including bounded event/progress frames and cancellation acknowledgements. Drivers that do not
