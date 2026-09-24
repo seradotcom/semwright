@@ -11,10 +11,12 @@ function harness(editorType = "figma") {
   const properties = fs.readFileSync(path.join(process.cwd(), "src/semantic_properties.ts"), "utf8");
   const semantic = fs.readFileSync(path.join(process.cwd(), "src/semantic_complete.ts"), "utf8");
   const more = fs.readFileSync(path.join(process.cwd(), "src/semantic_more.ts"), "utf8");
+  const product = fs.readFileSync(path.join(process.cwd(), "src/semantic_product.ts"), "utf8");
   const exports = fs.readFileSync(path.join(process.cwd(), "src/semantic_exports.ts"), "utf8");
   const admin = fs.readFileSync(path.join(process.cwd(), "src/semantic_admin.ts"), "utf8");
+  const verification = fs.readFileSync(path.join(process.cwd(), "src/semantic_verification.ts"), "utf8");
   const code = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
-  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + exports + "\n" + admin + "\n" + code;
+  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + product + "\n" + exports + "\n" + admin + "\n" + verification + "\n" + code;
   const javascript = ts.transpileModule(source, {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
@@ -26,12 +28,13 @@ function harness(editorType = "figma") {
   const videos = new Map<string, AnyNode>();
   const styles = new Map<string, AnyNode>();
   const annotationCategories = new Map<string, AnyNode>();
+  const loadedFonts: AnyNode[] = [];
   const eventHandlers = new Map<string, Array<(event: any) => void>>();
   let thumbnail: AnyNode | null = null;
   let slideGrid: AnyNode[][] = [];
   let paymentStatus:{type:"UNPAID"|"PAID"|"NOT_SUPPORTED"}={type:"UNPAID"};
   let checkoutRequests=0;
-  let nextNode = 2, nextCollection = 1, nextVariable = 1, nextMedia = 1, nextStyle = 1;
+  let nextNode = 2, nextCollection = 1, nextVariable = 1, nextMedia = 1, nextStyle = 1, nextComponentProperty = 1;
 
   function scene(type: string, name = type): AnyNode {
     const node: AnyNode = {
@@ -43,7 +46,13 @@ function harness(editorType = "figma") {
       animationStyles: [], manualKeyframeTracks: [], animations: [], timelines: [],
       resize(w: number, h: number) { this.width = w; this.height = h; },
       remove() { this.parent?.children.splice(this.parent.children.indexOf(this), 1); nodes.delete(this.id); },
-      clone() { const copy = scene(this.type, this.name + " copy"); copy.x=this.x; copy.y=this.y; page.appendChild(copy); return copy; },
+      clone() {
+        const copy = scene(this.type, this.name + " copy");
+        copy.x=this.x; copy.y=this.y; copy.width=this.width; copy.height=this.height;
+        copy.fills=JSON.parse(JSON.stringify(this.fills)); copy.strokes=JSON.parse(JSON.stringify(this.strokes));
+        copy.effects=JSON.parse(JSON.stringify(this.effects)); page.appendChild(copy); return copy;
+      },
+      async exportAsync() { return new Uint8Array([137,80,78,71,13,10,26,10,1,2,3]); },
       async setReactionsAsync(value: unknown[]) { this.reactions = value; },
       applyAnimationStyle(styleId: string, config: unknown) { this.animationStyles.push({styleId, config}); },
       removeAnimationStyle(styleId: string) { this.animationStyles = this.animationStyles.filter((x:any)=>x.styleId!==styleId); },
@@ -79,6 +88,27 @@ function harness(editorType = "figma") {
   function component(): AnyNode {
     const n=scene("COMPONENT","Component");
     n.key="component-key-"+n.id; n.description=""; n.componentPropertyDefinitions={};
+    n.addComponentProperty=(name:string,type:string,defaultValue:any,options:AnyNode={})=>{
+      const id=`${name}#${nextComponentProperty++}`;
+      n.componentPropertyDefinitions[id]={type,defaultValue,...JSON.parse(JSON.stringify(options))};
+      return id;
+    };
+    n.editComponentProperty=(propertyName:string,patch:AnyNode)=>{
+      const current=n.componentPropertyDefinitions[propertyName];
+      if(!current)throw new Error("component_property_not_found");
+      n.componentPropertyDefinitions[propertyName]={...current,...JSON.parse(JSON.stringify(patch))};
+      return propertyName;
+    };
+    n.deleteComponentProperty=(propertyName:string)=>{delete n.componentPropertyDefinitions[propertyName];};
+    n.createSlot=()=>{
+      const slot=scene("SLOT","Slot");
+      const propertyName=n.addComponentProperty(slot.name,"SLOT","",{});
+      slot.componentPropertyReferences={slotContentId:propertyName};
+      slot.limitViolations=[];
+      slot.resetSlot=()=>{};
+      n.appendChild(slot);
+      return slot;
+    };
     n.createInstance=()=>{ const i=scene("INSTANCE",n.name); i.mainComponent=n; i.componentProperties={}; i.scaleFactor=1; i.getMainComponentAsync=async()=>i.mainComponent; i.swapComponent=(c:AnyNode)=>{i.mainComponent=c}; i.detachInstance=()=>scene("FRAME",i.name); page.appendChild(i); return i; };
     page.appendChild(n); return n;
   }
@@ -179,7 +209,8 @@ function harness(editorType = "figma") {
     createImage(data:Uint8Array){ const hash=`image:${nextMedia++}`;const bytes=new Uint8Array(data);const image={hash,async getBytesAsync(){return bytes},async getSizeAsync(){return {width:1,height:1}}};images.set(hash,image);return image; },
     getImageByHash(hash:string){return images.get(hash)??null;},
     async createVideoAsync(data:Uint8Array){const hash=`video:${nextMedia++}`;const video={hash,bytes:new Uint8Array(data)};videos.set(hash,video);return video;},
-    async loadFontAsync(){},
+    loadedFonts,
+    async loadFontAsync(font:AnyNode){loadedFonts.push(JSON.parse(JSON.stringify(font)));},
     async listAvailableFontsAsync(){return [{fontName:{family:"Inter",style:"Regular"}}];},
     getFontFamilyVariationAxes(family:string){return family==="Inter"?["wght","slnt"]:null;},
     createPaintStyle(){return style("PAINT");}, createTextStyle(){return style("TEXT");},
@@ -318,7 +349,7 @@ describe("plugin runtime behavior",()=>{
     expect(badScope.error.message).toContain("invalid_variable_scope");
   });
 
-  it("executes prototype and Motion handlers",async()=>{
+  it("executes prototype and official Figma Motion keyframe handlers",async()=>{
     const h=harness();
     const created=await h.call("frame.create",{name:"Interactive"});
     const id=created.value.id;
@@ -326,13 +357,97 @@ describe("plugin runtime behavior",()=>{
     expect((await h.call("prototype.reaction.set",{nodeId:id,reactions},1)).ok).toBe(true);
     expect((await h.call("prototype.reaction.list",{nodeId:id},2)).value).toHaveLength(1);
     expect((await h.call("motion.style.apply",{nodeId:id,styleId:"spring",duration:0.4},2)).ok).toBe(true);
-    expect((await h.call("motion.keyframe.apply",{nodeId:id,field:{type:"x"},track:{keyframes:[{t:0,value:0},{t:1,value:100}]}},3)).ok).toBe(true);
+    const keyframe=await h.call("motion.keyframe.apply",{
+      nodeId:id,
+      field:{type:"PROPERTY",name:"TRANSLATION_X"},
+      track:{keyframes:[
+        {timelinePosition:0,value:{type:"FLOAT",value:0}},
+        {timelinePosition:1,value:{type:"FLOAT",value:100},easing:{type:"EASE_OUT"}}
+      ]}
+    },3);
+    expect(keyframe.ok).toBe(true);
+    expect(keyframe.value.field).toEqual({type:"PROPERTY",name:"TRANSLATION_X"});
+    expect(keyframe.value.end).toBe(1);
+
+    const legacy=await h.call("motion.keyframe.apply",{
+      nodeId:id,field:{type:"x"},track:{keyframes:[{t:0,value:0}]}
+    },4);
+    expect(legacy.ok).toBe(false);
+    expect(legacy.error.message).toContain("invalid_motion_field");
+
     expect((await h.call("motion.timeline.set_duration",{nodeId:id,timelineId:"main",duration:1.2},4)).ok).toBe(true);
     const inspected=await h.call("motion.node.inspect",{nodeId:id},5);
     expect(inspected.ok).toBe(true);
     expect(inspected.value.animationStyles).toHaveLength(1);
     expect(inspected.value.manualKeyframeTracks).toHaveLength(1);
     expect(inspected.value.timelines[0].duration).toBe(1.2);
+  });
+
+  it("provides typed Motion presets, multi-track apply and stagger without eval",async()=>{
+    const h=harness();
+    const a=await h.call("frame.create",{name:"A"});
+    const b=await h.call("frame.create",{name:"B"},1);
+
+    const preset=await h.call("motion.preset.apply",{
+      nodeId:a.value.id,preset:"fade-up",duration:0.4,at:0.1,easing:"ease-out",distance:32
+    },2);
+    expect(preset.ok).toBe(true);
+    expect(preset.value.fields).toHaveLength(2);
+    expect(h.nodes.get(a.value.id)?.manualKeyframeTracks).toHaveLength(2);
+
+    const stagger=await h.call("motion.stagger",{
+      nodeIds:[a.value.id,b.value.id],preset:"pop",duration:0.3,step:0.12,easing:"quick"
+    },3);
+    expect(stagger.ok).toBe(true);
+    expect(stagger.value.results).toHaveLength(2);
+    expect(stagger.value.results[1].offset).toBeCloseTo(0.12);
+
+    const applied=await h.call("motion.apply",{tracks:[{
+      nodeId:b.value.id,
+      field:{type:"PROPERTY",name:"OPACITY"},
+      track:{baseValue:{type:"FLOAT",value:0},keyframes:[
+        {timelinePosition:0,value:{type:"FLOAT",value:0}},
+        {timelinePosition:0.25,value:{type:"FLOAT",value:1},easing:{type:"QUICK"}}
+      ]}
+    }]},4);
+    expect(applied.ok).toBe(true);
+    expect(applied.value.results[0].field).toEqual({type:"PROPERTY",name:"OPACITY"});
+  });
+
+  it("converts frames into native slot properties and patches SlotSettings",async()=>{
+    const h=harness();
+    const component=await h.call("component.create",{name:"Card"});
+    const owner=h.nodes.get(component.value.id)!;
+    const frame=h.scene("FRAME","Content");
+    owner.appendChild(frame);
+
+    const converted=await h.call("slot.convert",{
+      nodeId:frame.id,
+      name:"Content",
+      componentKeys:["remote-component-key"],
+      description:"Replaceable body content",
+      slotSettings:{minChildren:1,maxChildren:4,stretchChildOnInsert:true,allowPreferredValuesOnly:true}
+    },1);
+    expect(converted.ok).toBe(true);
+    const propertyName=converted.value.propertyName;
+    expect(frame.componentPropertyReferences.slotContentId).toBe(propertyName);
+    expect(owner.componentPropertyDefinitions[propertyName].type).toBe("SLOT");
+    expect(owner.componentPropertyDefinitions[propertyName].slotSettings.minChildren).toBe(1);
+
+    const patched=await h.call("slot.settings.patch",{
+      nodeId:frame.id,
+      slotSettings:{maxChildren:6,displayEmptyByDefault:true}
+    },2);
+    expect(patched.ok).toBe(true);
+    expect(patched.value.slotSettings).toMatchObject({
+      minChildren:1,maxChildren:6,displayEmptyByDefault:true,stretchChildOnInsert:true
+    });
+
+    const invalid=await h.call("slot.settings.patch",{
+      nodeId:frame.id,slotSettings:{minChildren:10,maxChildren:2}
+    },3);
+    expect(invalid.ok).toBe(false);
+    expect(invalid.error.message).toContain("invalid_slot_limits");
   });
 
   it("creates semantic FigJam nodes and connectors",async()=>{
@@ -589,6 +704,22 @@ describe("extended semantic runtime",()=> {
       nodeId:frame.value.id,properties:{id:"forbidden"}
     },2);
     expect(readonly.ok).toBe(false);
+
+    const wrongType=await h.call("node.properties.patch",{
+      nodeId:frame.value.id,properties:{itemSpacing:"24"}
+    },2);
+    expect(wrongType.ok).toBe(false);
+    expect(wrongType.error.message).toContain("property_type_number");
+
+    for(const [property,value] of Object.entries({
+      reactions:[],fillStyleId:"S:1",effectStyleId:"S:2",explicitVariableModes:{C:"M"}
+    })){
+      const special=await h.call("node.properties.patch",{
+        nodeId:frame.value.id,properties:{[property]:value}
+      },2);
+      expect(special.ok,property).toBe(false);
+      expect(special.error.message).toContain("property_not_writable");
+    }
   });
 
   it("exports CSS Tailwind JSX and Storybook through bounded artifacts",async()=> {
@@ -646,7 +777,7 @@ describe("semantic admin and editor-gated runtime",()=> {
     expect(grid.ok).toBe(true);
     expect(grid.value[0].map((x:any)=>x.name)).toEqual(["One","Two"]);
   });
-  it("inspects annotation categories and loads fonts explicitly",async()=> {
+  it("inspects annotation categories and loads static and variable fonts explicitly",async()=> {
     const h=harness();
     const category=await h.call("annotation.category.inspect",{id:"cat:1"});
     expect(category.ok).toBe(true);
@@ -654,9 +785,29 @@ describe("semantic admin and editor-gated runtime",()=> {
     const missing=await h.call("annotation.category.inspect",{id:"cat:404"});
     expect(missing.ok).toBe(true);
     expect(missing.value).toBeNull();
+
     const loaded=await h.call("font.load",{family:"Inter",style:"Regular"});
     expect(loaded.ok).toBe(true);
-    expect(loaded.value).toEqual({loaded:true,family:"Inter",style:"Regular"});
+    expect(loaded.value).toEqual({loaded:true,family:"Inter",style:"Regular",variationSettings:null});
+
+    const variable=await h.call("font.load",{family:"Inter",variationSettings:{wght:650,slnt:-5}});
+    expect(variable.ok).toBe(true);
+    expect(variable.value).toEqual({
+      loaded:true,family:"Inter",style:null,variationSettings:{wght:650,slnt:-5}
+    });
+    expect(h.figma.loadedFonts.at(-1)).toEqual({family:"Inter",variationSettings:{wght:650,slnt:-5}});
+
+    const text=await h.call("text.create",{characters:"Variable"});
+    const patched=await h.call("node.properties.patch",{
+      nodeId:text.value.id,
+      properties:{fontName:{family:"Inter",variationSettings:{wght:725}}}
+    });
+    expect(patched.ok).toBe(true);
+    expect(h.nodes.get(text.value.id)?.fontName).toEqual({family:"Inter",variationSettings:{wght:725}});
+
+    const invalid=await h.call("font.load",{family:"Inter",variationSettings:{"bad-axis!":500}});
+    expect(invalid.ok).toBe(false);
+    expect(invalid.error.message).toContain("invalid_font_variation_axis");
   });
 
   it("gates Dev Mode codegen semantics to the dev editor",async()=> {
@@ -737,5 +888,64 @@ describe("semantic admin and editor-gated runtime",()=> {
     expect(result).toHaveLength(1);
     expect(result[0].language).toBe("JSON");
     expect(JSON.parse(result[0].code).id).toBe(node.id);
+  });
+});
+
+
+describe("semantic verification and color-vision workflows",()=>{
+  it("analyzes color-vision simulations without mutating the document",async()=>{
+    const h=harness();
+    const a=await h.call("rect.create",{name:"Red"});
+    const b=await h.call("rect.create",{name:"Green"},1);
+    h.nodes.get(a.value.id)!.fills=[{type:"SOLID",color:{r:1,g:0,b:0},opacity:1}];
+    h.nodes.get(b.value.id)!.fills=[{type:"SOLID",color:{r:0,g:1,b:0},opacity:1}];
+    const result=await h.call("a11y.vision.analyze",{
+      modes:["protanopia","deuteranopia"],threshold:0.25,minOriginalDistance:0.2,maxPairs:10
+    },2);
+    expect(result.ok).toBe(true);
+    expect(result.revision).toBe(2);
+    expect(result.value.model).toBe("machado-2009-full-severity");
+    expect(result.value.results.map((x:any)=>x.mode)).toEqual(["protanopia","deuteranopia"]);
+    expect(result.value.colorCount).toBe(2);
+  });
+
+  it("creates reversible color-vision preview clones and leaves the source unchanged",async()=>{
+    const h=harness();
+    const source=await h.call("rect.create",{name:"Brand",x:10,y:20,width:120,height:60});
+    const original=h.nodes.get(source.value.id)!;
+    original.fills=[{type:"SOLID",color:{r:1,g:0,b:0},opacity:1}];
+    original.effects=[{type:"DROP_SHADOW",color:{r:1,g:0,b:0,a:0.42},offset:{x:0,y:2},radius:4,spread:0,visible:true,blendMode:"NORMAL"}];
+    const preview=await h.call("a11y.vision.preview",{
+      nodeId:source.value.id,modes:["protanopia"],gap:40,namePrefix:"Preview"
+    },1);
+    expect(preview.ok).toBe(true);
+    expect(preview.revision).toBe(2);
+    expect(preview.value.previews).toHaveLength(1);
+    const cloneId=preview.value.previews[0].node.id;
+    expect(cloneId).not.toBe(source.value.id);
+    expect(preview.value.previews[0].transformedPaints).toBe(2);
+    expect(h.nodes.get(source.value.id)!.fills[0].color).toEqual({r:1,g:0,b:0});
+    expect(h.nodes.get(cloneId)!.fills[0].color).not.toEqual({r:1,g:0,b:0});
+    expect(h.nodes.get(cloneId)!.effects[0].color.a).toBe(0.42);
+    expect(h.nodes.get(cloneId)!.effects[0].color).not.toEqual({r:1,g:0,b:0,a:0.42});
+    const removed=await h.call("node.remove",{nodeId:cloneId},2);
+    expect(removed.ok).toBe(true);
+    expect(h.nodes.has(cloneId)).toBe(false);
+  });
+
+  it("verifies a node with a bounded PNG artifact plus structural measurements",async()=>{
+    const h=harness();
+    const frame=await h.call("frame.create",{name:"Verification",width:320,height:180});
+    const verified=await h.call("verify.node",{nodeId:frame.value.id,scale:1,name:"verify.png"},1);
+    expect(verified.ok).toBe(true);
+    expect(verified.revision).toBe(1);
+    expect(verified.value.mediaType).toBe("image/png");
+    expect(verified.value.nodeId).toBe(frame.value.id);
+    expect(verified.value.nodeCount).toBeGreaterThanOrEqual(1);
+    expect(verified.value.structure.name).toBe("Verification");
+    const chunk=await h.call("artifact.read",{token:verified.value.token,offset:0,length:64},1);
+    expect(chunk.ok).toBe(true);
+    const raw=globalThis.atob(String(chunk.value.base64));
+    expect([...raw.slice(0,8)].map(x=>x.charCodeAt(0))).toEqual([137,80,78,71,13,10,26,10]);
   });
 });

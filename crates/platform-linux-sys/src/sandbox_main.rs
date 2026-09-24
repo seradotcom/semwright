@@ -28,7 +28,7 @@ fn bounded_limit(
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
-    let mut writable = vec!["/tmp".to_owned()];
+    let mut writable = vec!["/tmp".to_owned(), "/dev/shm".to_owned()];
     let mut readable: Vec<(String, bool)> = Vec::new();
     let mut seen = BTreeSet::new();
     let mut nofile = 128u64;

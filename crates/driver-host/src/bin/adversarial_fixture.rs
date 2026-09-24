@@ -123,6 +123,9 @@ impl Driver for Adversarial {
                 let address = SocketAddr::from(([127, 0, 0, 1], port));
                 let host_loopback_connected =
                     TcpStream::connect_timeout(&address, Duration::from_millis(150)).is_ok();
+                let shm_probe = format!("/dev/shm/semwright-probe-{}", std::process::id());
+                let private_shm_write = std::fs::write(&shm_probe, b"private").is_ok();
+                let _ = std::fs::remove_file(&shm_probe);
 
                 let mut environment = std::env::vars().map(|(key, _)| key).collect::<Vec<_>>();
                 environment.sort();
@@ -144,6 +147,7 @@ impl Driver for Adversarial {
                     "host_secret_visible":host_secret_visible,
                     "host_pid_visible":host_pid_visible,
                     "host_loopback_connected":host_loopback_connected,
+                    "private_shm_write":private_shm_write,
                     "environment":environment,
                     "nofile": if nofile_ok { Some(nofile.rlim_cur) } else { None },
                 }))

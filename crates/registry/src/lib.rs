@@ -153,10 +153,21 @@ impl Registry {
         Ok(())
     }
     pub fn remove_plugin_command(&mut self, name: &str) -> Result<()> {
-        if self.metadata(name)?.source != SourceKind::Plugin {
+        self.remove_command_owned_by(name, SourceKind::Plugin, "plugin")
+    }
+    pub fn remove_recipe_command(&mut self, name: &str) -> Result<()> {
+        self.remove_command_owned_by(name, SourceKind::Recipe, "recipe")
+    }
+    fn remove_command_owned_by(
+        &mut self,
+        name: &str,
+        source: SourceKind,
+        label: &str,
+    ) -> Result<()> {
+        if self.metadata(name)?.source != source {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
-                "Only registered plugin-owned commands can be removed",
+                format!("Only registered {label}-owned commands can be removed"),
             ));
         }
         let next = self.revision.checked_add(1).ok_or_else(|| {

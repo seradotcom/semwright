@@ -174,6 +174,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     assert_eq!(result["host_secret_visible"], false);
     assert_eq!(result["host_pid_visible"], false);
     assert_eq!(result["host_loopback_connected"], false);
+    assert_eq!(result["private_shm_write"], true);
     assert_eq!(result["nofile"], 64);
 
     let environment = result["environment"]

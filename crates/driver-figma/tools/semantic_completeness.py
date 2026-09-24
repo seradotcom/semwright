@@ -34,10 +34,24 @@ def main() -> int:
     generic = plugin.get("generic_property_surface", {})
     readable = set(generic.get("readable", []))
     writable = set(generic.get("writable", []))
+    write_types = generic.get("write_types", {})
+    if set(write_types) != writable:
+        fail("generic writable properties and reviewed write-type metadata drifted")
     if "mainComponent" in readable or "mainComponent" in writable:
         fail("InstanceNode.mainComponent must use explicit async-read/ref-write semantics")
-    if "stuckTo" in writable:
-        fail("StickableMixin.stuckTo must use an explicit node-ref mutation")
+    dynamic_page_special = {
+        "stuckTo", "reactions", "vectorNetwork", "explicitVariableModes",
+        "resolvedVariableModes", "backgroundStyleId", "fillStyleId",
+        "strokeStyleId", "effectStyleId", "gridStyleId", "textStyleId",
+    }
+    leaked = sorted(dynamic_page_special & writable)
+    if leaked:
+        fail("dynamic-page/special Figma writes leaked into generic property mutation: " + ", ".join(leaked))
+    for name, metadata in write_types.items():
+        if metadata.get("kind") not in {"number", "boolean", "string", "array", "object"}:
+            fail(f"generic property {name} has an unreviewed write kind")
+        if not isinstance(metadata.get("nullable"), bool) or not metadata.get("type"):
+            fail(f"generic property {name} has incomplete reviewed write metadata")
     instance_main = (
         plugin.get("scene_node_types", {})
         .get("INSTANCE", {})
