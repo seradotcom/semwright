@@ -20,6 +20,7 @@ test('render harness is bound to the Driver Host marker and local origin', () =>
   assert.ok(render.includes('chromiumSandbox:false'));
   assert.ok(!render.includes("'--single-process'"));
   assert.ok(!render.includes("'--no-zygote'"));
+  assert.ok(render.includes("'--enable-logging=stderr'"));
   assert.ok(render.includes('semwright.invalid'));
   assert.ok(render.includes("route.abort('blockedbyclient')"));
 });

@@ -87,7 +87,7 @@ async function main() {
     // Chromium's nested sandbox cannot compose with the already-required Driver Host.
     // Use Playwright's full Chromium in new-headless mode with its normal process topology;
     // every browser descendant remains inside the outer Bubblewrap + Landlock boundary.
-    const launch = {headless:true, chromiumSandbox:false, args:['--disable-gpu','--disable-background-networking','--disable-component-update','--no-first-run']};
+    const launch = {headless:true, chromiumSandbox:false, args:['--enable-logging=stderr','--v=1','--disable-gpu','--disable-background-networking','--disable-component-update','--no-first-run']};
     if (a.browser) launch.executablePath = a.browser;
     browser = await chromium.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});
