@@ -2823,6 +2823,7 @@ dependencies = [
  "libc",
  "semver",
  "semwright-driver-sdk",
+ "semwright-platform-services",
  "semwright-protocol",
  "semwright-types",
  "serde",
