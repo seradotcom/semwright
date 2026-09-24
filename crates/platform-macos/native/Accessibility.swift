@@ -74,9 +74,30 @@ func axSettable(_ e:AXUIElement,_ key:String)->Bool?{
     guard AXUIElementIsAttributeSettable(e,key as CFString,&settable) == .success else{return nil}
     return settable.boolValue
 }
-private let observe:AXObserverCallback={_,element,_,_ in
+private func semanticAXEvent(_ notification:CFString)->(String,Bool){
+    switch notification as String {
+    case kAXWindowCreatedNotification,kAXUIElementDestroyedNotification:
+        return ("semantic.structure.changed",true)
+    case kAXFocusedWindowChangedNotification:
+        return ("semantic.focus.changed",false)
+    case kAXSelectedChildrenChangedNotification:
+        return ("semantic.selection.changed",false)
+    case kAXValueChangedNotification,kAXTitleChangedNotification:
+        return ("semantic.property.changed",false)
+    default:
+        return ("semantic.object.changed",false)
+    }
+}
+private let observe:AXObserverCallback={_,element,notification,_ in
     var pid:pid_t=0
     guard AXUIElementGetPid(element,&pid) == .success else{return}
+    let event=semanticAXEvent(notification)
+    SemanticEventQueue.shared.push(
+        kind:event.0,
+        pid:pid,
+        notification:notification as String,
+        structural:event.1
+    )
     // No native object crosses threads. Retained observers live on the main run loop.
     Task { @MainActor in NativeHost.shared.ledger.invalidate(pid) }
 }

@@ -54,7 +54,7 @@ Ranked free-text `query` remains discovery-only and cannot select a mutating tar
 
 ## Semantic events
 
-The portable event taxonomy includes backend/window/structure/selection/text/focus/state/property/geometry/object changes. Linux AT-SPI projects native event streams into these kinds and invalidates generations conservatively on structural loss. Windows now installs bounded native UIA structure/property/focus/text/selection/window subscriptions when the host permits them, publishes portable provider events, and advances a structural generation so pre-change refs fail stale; native flood/loss fidelity still requires interactive Windows verification. macOS AX observers currently invalidate native state; publication through the provider event pipeline remains follow-up work.
+The portable event taxonomy includes backend/window/structure/selection/text/focus/state/property/geometry/object changes. Linux AT-SPI projects native event streams into these kinds and invalidates generations conservatively on structural loss. Windows installs bounded native UIA structure/property/focus/text/selection/window subscriptions when the host permits them, publishes portable provider events, and advances a structural generation so pre-change refs fail stale; native flood/loss fidelity still requires interactive Windows verification. macOS AX observers now enqueue bounded portable semantic events in the native host and the Rust transport drains them into the same provider-event pipeline; native AX event fidelity still requires an Accessibility-authorized interactive Mac.
 
 Event loss is never treated as a complete history: caches/refs must be invalidated and refreshed.
 
@@ -67,7 +67,7 @@ Implemented rich semantics include AT-SPI Table/TableCell coordinates/spans/head
 Remaining hardening focuses on:
 
 - native Windows UIA event loss/flood fidelity and interactive verification;
-- macOS AX event publication through the provider pipeline;
+- native macOS AX event fidelity/loss behavior on an Accessibility-authorized interactive Mac;
 - native query pushdown where it preserves portable selector semantics;
 - live GTK/Qt/UIA/AX fixture coverage for rich facets and hit-testing;
 - explicit native event-loss, stale-ref, ambiguity and protected-control tests.

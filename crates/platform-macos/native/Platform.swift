@@ -39,8 +39,25 @@ import ServiceManagement
         let board=NSPasteboard.withUniqueName();defer{board.releaseGlobally()}
         try require(board.setString("Semwright fixture ✓",forType:.string),"BackendFailed","Unique pasteboard write failed")
         try require(board.string(forType:.string)=="Semwright fixture ✓","BackendFailed","Unique pasteboard round trip failed")
+        let eventQueue=SemanticEventQueue(capacity:2)
+        eventQueue.push(kind:"semantic.text.changed",pid:1,notification:"fixture-1",structural:false)
+        eventQueue.push(kind:"semantic.selection.changed",pid:1,notification:"fixture-2",structural:false)
+        eventQueue.push(kind:"semantic.structure.changed",pid:1,notification:"fixture-overflow",structural:true)
+        let overflow=eventQueue.drain()
+        try require(
+            overflow.count==1 && overflow[0]["kind"] as? String=="semantic.backend.invalidated",
+            "BackendFailed",
+            "Native semantic event overflow did not fail closed"
+        )
+        eventQueue.push(kind:"semantic.text.changed",pid:1,notification:"fixture-recovery",structural:false)
+        let recovered=eventQueue.drain()
+        try require(
+            recovered.count==1 && recovered[0]["kind"] as? String=="semantic.text.changed",
+            "BackendFailed",
+            "Native semantic event queue did not recover after overflow"
+        )
         let count=NSWorkspace.shared.runningApplications.count
-        return["unique_pasteboard":true,"workspace_enumeration":true,"application_count":count,"tcc_prompted":false,"general_clipboard_touched":false]
+        return["unique_pasteboard":true,"workspace_enumeration":true,"application_count":count,"semantic_event_overflow":true,"tcc_prompted":false,"general_clipboard_touched":false]
     }
 }
 struct SignatureValidator {
