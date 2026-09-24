@@ -15,6 +15,8 @@ on:
       - 'crates/plugin-host/**'
       - 'fixtures/windows-uia/**'
       - 'docs/windows/**'
+      - 'schemas/commands.json'
+      - 'tests/python/test_windows_contracts.py'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/windows-platform.yml'
@@ -68,6 +70,11 @@ jobs:
           } | tee "verification/platform-ci/windows-${{ matrix.arch }}.log"
       - name: Format
         run: cargo fmt --all -- --check
+      - name: Windows portable command contracts
+        run: |
+          set -euo pipefail
+          python -m unittest tests.python.test_windows_contracts
+          python -m unittest tests.python.test_contracts
       - name: Native Windows runtime check
         run: >-
           cargo check --locked
