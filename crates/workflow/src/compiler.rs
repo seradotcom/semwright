@@ -73,23 +73,59 @@ fn scalar_paths(value: &Value, base: &str, out: &mut Vec<(String, Value)>, depth
     }
 }
 
-fn prior_binding(traces: &[WorkflowTrace], step: usize, values: &[&Value]) -> Option<Value> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StructuralValue {
+    Reference,
+    Identity,
+    Path,
+    Digest,
+    Revision,
+    Token,
+    Root,
+}
+
+fn structural_value(pointer: &str, value: &Value) -> Option<StructuralValue> {
+    if value.as_str().is_some_and(looks_like_ref) {
+        return Some(StructuralValue::Reference);
+    }
+    let leaf = pointer
+        .rsplit('/')
+        .next()?
+        .replace("~1", "/")
+        .replace("~0", "~");
+    match leaf.as_str() {
+        "ref" | "reference" => Some(StructuralValue::Reference),
+        "id" | "job_id" | "artifact_id" => Some(StructuralValue::Identity),
+        "path" | "source_path" | "destination_path" | "resource" => Some(StructuralValue::Path),
+        "sha256" | "expected_sha256" | "digest" | "checksum" => Some(StructuralValue::Digest),
+        "revision" | "expected_revision" | "resulting_revision" => Some(StructuralValue::Revision),
+        "token" | "artifact_token" => Some(StructuralValue::Token),
+        "root" | "source_root" | "destination_root" => Some(StructuralValue::Root),
+        _ if leaf.ends_with("_id") => Some(StructuralValue::Identity),
+        _ => None,
+    }
+}
+
+fn prior_binding(
+    traces: &[WorkflowTrace],
+    step: usize,
+    target_pointer: &str,
+    values: &[&Value],
+) -> Option<Value> {
     if values.is_empty() {
         return None;
     }
     let mut selected: Option<(usize, String)> = None;
     for (trace_index, trace) in traces.iter().enumerate() {
         let wanted = values[trace_index];
+        let target_kind = structural_value(target_pointer, wanted)?;
         let mut found = vec![];
         for prior in 0..step {
             let result = trace.steps[prior].result.as_ref()?;
             let mut scalars = vec![];
             scalar_paths(result, "", &mut scalars, 0);
             for (pointer, value) in scalars {
-                let structural = value.as_str().is_some_and(looks_like_ref)
-                    || pointer.ends_with("/ref")
-                    || pointer.ends_with("/id");
-                if structural && &value == wanted {
+                if structural_value(&pointer, &value) == Some(target_kind) && &value == wanted {
                     found.push((prior, pointer));
                 }
             }
@@ -173,7 +209,7 @@ fn compile_value(
     inputs: &mut BTreeMap<String, Input>,
     used: &mut BTreeSet<String>,
 ) -> Result<Value> {
-    if let Some(binding) = prior_binding(traces, step, values) {
+    if let Some(binding) = prior_binding(traces, step, pointer, values) {
         return Ok(binding);
     }
     let first = values[0];
@@ -1111,6 +1147,69 @@ mod tests {
         .unwrap();
         assert!(candidate.recipe.inputs["filename"].secret);
         assert!(candidate.recipe.outputs["result"].secret);
+    }
+
+    fn structural_binding_trace(result: Value) -> WorkflowTrace {
+        let step = |index: usize, result: Value| crate::TraceStep {
+            index,
+            command: "doctor".into(),
+            args: json!({}),
+            result: Some(result),
+            ok: true,
+            error_code: None,
+            outcome_known: true,
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            capability_version: "1".into(),
+            descriptor_sha256: "a".repeat(64),
+            backend: "fake".into(),
+            provider: None,
+            duration_ms: 1,
+            redacted: false,
+        };
+        WorkflowTrace {
+            version: 1,
+            id: "trace-structural".into(),
+            name: "structural".into(),
+            intent: String::new(),
+            started_unix_ms: 1,
+            ended_unix_ms: 2,
+            capture_values: true,
+            successful: true,
+            steps: vec![step(0, result), step(1, json!({"ok":true}))],
+        }
+    }
+
+    #[test]
+    fn structural_dataflow_binds_revisions_artifact_paths_and_digests() {
+        let digest = "a".repeat(64);
+        let trace = structural_binding_trace(json!({
+            "resulting_revision":"rev-42",
+            "artifact":{
+                "path":"renders/final.mp4",
+                "sha256":digest
+            }
+        }));
+
+        let revision = json!("rev-42");
+        assert_eq!(
+            prior_binding(&[trace.clone()], 1, "/expected_revision", &[&revision]),
+            Some(json!({"$var":"/steps/step-1/resulting_revision"}))
+        );
+
+        let path = json!("renders/final.mp4");
+        assert_eq!(
+            prior_binding(&[trace.clone()], 1, "/source_path", &[&path]),
+            Some(json!({"$var":"/steps/step-1/artifact/path"}))
+        );
+
+        let sha = json!("a".repeat(64));
+        assert_eq!(
+            prior_binding(&[trace.clone()], 1, "/expected_sha256", &[&sha]),
+            Some(json!({"$var":"/steps/step-1/artifact/sha256"}))
+        );
+
+        assert_eq!(prior_binding(&[trace], 1, "/label", &[&path]), None);
     }
 
     #[test]

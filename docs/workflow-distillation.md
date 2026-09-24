@@ -63,10 +63,14 @@ sequences. Every trace must:
 - still match the current capability descriptor digest/version/risk/idempotency.
 
 With multiple traces, scalar argument values that differ are converted into typed recipe
-inputs. Values that correspond to a unique prior step result (including opaque refs) are
-rewritten as `$var` bindings so ephemeral references are reacquired during replay. An
-opaque reference that cannot be tied to a prior result is never baked into a recipe:
-compilation fails until the caller explicitly parameterizes it.
+inputs. Values that correspond to a unique prior step result are rewritten as `$var`
+bindings so ephemeral state is reacquired during replay. V1 recognizes only compatible
+structural dataflow classes — opaque refs, identities, filesystem paths/roots, SHA-256
+digests, revisions and provider tokens — so patterns such as
+`resulting_revision → expected_revision` and `artifact.path → source_path` compile
+without binding unrelated equal strings. An opaque reference that cannot be tied to a
+prior result is never baked into a recipe: compilation fails until the caller explicitly
+parameterizes it.
 
 With a single trace, constants remain constants unless the caller supplies an explicit
 parameter hint:
