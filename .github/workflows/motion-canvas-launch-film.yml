@@ -63,21 +63,48 @@ jobs:
           nested = "allow pix /** -> &unpriv_bwrap,"
           if text.count(parent) != 1 or text.count(nested) != 1:
               raise SystemExit("unexpected bwrap AppArmor exec-rule shape")
-          # Current upstream uses pix for the initial stack and recursive child
-          # execs.  The inherited-exec fallback is what keeps no_new_privs
-          # descendants in the existing confinement when another transition
-          # cannot be made safely.
-          text = text.replace(parent, "allow pix /** -> &bwrap//&unpriv_bwrap,")
+          # Keep the one privilege-dropping transition explicit: bwrap may exec
+          # only Semwright's staged sandbox helper into the stacked unprivileged
+          # profile.  Once there, later Driver Host descendants inherit that same
+          # confinement instead of attempting another no_new_privs transition.
+          inherited = "\n".join([
+              "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
+              "  allow ix /bin/**,",
+              "  allow ix /lib/**,",
+              "  allow ix /lib64/**,",
+          ])
+          child_inherited = "\n".join([
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
+              "  allow ix /bin/**,",
+              "  allow ix /lib/**,",
+              "  allow ix /lib64/**,",
+          ])
+          text = text.replace("  " + parent, inherited)
+          text = text.replace("  " + nested, child_inherited)
           path.write_text(text)
           PY
           sudo install -m 0644 "$RUNNER_TEMP/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
           sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
           test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 1)" != "0"
           bwrap --unshare-all --ro-bind / / -- /usr/bin/true
-          # Prove recursive descendants can exec while remaining in the stacked
-          # unpriv_bwrap confinement. The real chain is bwrap -> sandbox helper
-          # -> Rust driver -> pinned tools, so one child generation is insufficient.
-          bwrap --unshare-all --ro-bind / / -- /bin/sh -c '/bin/sh -c "/bin/sh -c /usr/bin/true"'
+          # Exercise the exact transition depth used by Driver Host: the first
+          # executable is mounted at /plugin/sandbox, then it execs /plugin/bin,
+          # which finally execs a workspace tool while the stacked profile remains.
+          mkdir -p "$RUNNER_TEMP/aa-probe/runtime"
+          cp /bin/sh "$RUNNER_TEMP/aa-probe/sandbox"
+          cp /bin/sh "$RUNNER_TEMP/aa-probe/driver"
+          cp /usr/bin/true "$RUNNER_TEMP/aa-probe/runtime/tool"
+          chmod 0755 "$RUNNER_TEMP/aa-probe/sandbox" "$RUNNER_TEMP/aa-probe/driver" "$RUNNER_TEMP/aa-probe/runtime/tool"
+          bwrap --unshare-all --ro-bind / / --dir /plugin --dir /workspace \
+            --ro-bind "$RUNNER_TEMP/aa-probe/sandbox" /plugin/sandbox \
+            --ro-bind "$RUNNER_TEMP/aa-probe/driver" /plugin/bin \
+            --ro-bind "$RUNNER_TEMP/aa-probe/runtime" /workspace/runtime \
+            -- /plugin/sandbox -c '/plugin/bin -c /workspace/runtime/tool'
       - name: Install exact Motion Canvas runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: |
