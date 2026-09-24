@@ -180,18 +180,22 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             DriverMount {
                 root: "project".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "media".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "output".into(),
                 read_only: false,
+                execute: false,
             },
             DriverMount {
                 root: "runtime".into(),
                 read_only: true,
+                execute: false,
             },
         ],
         system_config: vec![],

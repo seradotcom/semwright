@@ -15,6 +15,7 @@ pub struct Mount {
     pub source: PathBuf,
     pub destination: String,
     pub read_only: bool,
+    pub execute: bool,
 }
 #[derive(Clone, Debug)]
 pub struct ResourceLimits {
