@@ -76,18 +76,64 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     .expect("complete fixture snapshot");
 
     let revision = snapshot["revision"].as_u64().unwrap();
-    let target: NativeTarget =
-        serde_json::from_value(snapshot["nodes"][0]["ref"]["$ref"].clone()).unwrap();
-    let editable = snapshot["nodes"]
-        .as_array()
-        .unwrap()
+    let nodes = snapshot["nodes"].as_array().unwrap();
+    let target: NativeTarget = serde_json::from_value(nodes[0]["ref"]["$ref"].clone()).unwrap();
+
+    let editable = nodes
         .iter()
         .find(|node| {
             node["states"]
                 .as_array()
                 .is_some_and(|states| states.iter().any(|state| state == "editable"))
+                && node["role"] != "password-entry"
         })
-        .expect("fixture entry should be editable");
+        .expect("fixture entry should expose editable text semantics");
+    assert_eq!(editable["facets"]["text"]["editable"], true);
+    assert_eq!(editable["facets"]["text"]["password"], false);
+    assert!(
+        editable["facets"]["text"]["character_count"]
+            .as_u64()
+            .is_some_and(|count| count > 0),
+        "editable text should expose bounded text metadata: {editable}"
+    );
+
+    let password = nodes
+        .iter()
+        .find(|node| node["role"] == "password-entry")
+        .expect("fixture password field should remain semantically identifiable");
+    assert_eq!(password["name"], "");
+    assert_eq!(password["description"], "");
+    assert_eq!(password["help"], "");
+    assert_eq!(password["facets"]["text"]["password"], true);
+
+    let slider = nodes
+        .iter()
+        .find(|node| node["role"] == "slider")
+        .expect("fixture slider should expose a value facet");
+    assert_eq!(slider["facets"]["value"]["minimum"].as_f64(), Some(0.0));
+    assert_eq!(slider["facets"]["value"]["maximum"].as_f64(), Some(100.0));
+    assert_eq!(slider["facets"]["value"]["current"].as_f64(), Some(25.0));
+
+    let export = nodes
+        .iter()
+        .find(|node| node["role"] == "button" && node["name"] == "Export")
+        .expect("fixture export button should be present");
+    let bounds = export["bounds"]
+        .as_object()
+        .expect("export button should expose screen bounds");
+    let x =
+        (bounds["x"].as_f64().unwrap() + bounds["width"].as_f64().unwrap() / 2.0).round() as i64;
+    let y =
+        (bounds["y"].as_f64().unwrap() + bounds["height"].as_f64().unwrap() / 2.0).round() as i64;
+    let hit = backend
+        .execute(&ctx, "ui.hit_test", &json!({"x":x,"y":y}))
+        .await
+        .expect("native semantic hit-test");
+    assert_eq!(hit["semantic_coverage"], "native_hit_test");
+    assert_eq!(hit["node"]["app"], app);
+    let _: NativeTarget = serde_json::from_value(hit["node"]["ref"]["$ref"].clone())
+        .expect("hit-test must return a native semantic ref");
+
     let editable_id = editable["node_id"].as_str().unwrap().to_owned();
     let editable_target: NativeTarget =
         serde_json::from_value(editable["ref"]["$ref"].clone()).unwrap();
