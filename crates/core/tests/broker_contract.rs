@@ -938,18 +938,16 @@ fn restarted_workflow_broker(root: &std::path::Path) -> (Arc<Broker>, Arc<FakeDe
     )
     .unwrap();
     let desktop = Arc::new(FakeDesktop::new());
-    let broker = Arc::new(
-        Broker::new(
-            Policy::new(config).unwrap(),
-            vec![desktop.clone()],
-            audit,
-            Arc::new(NoApprover),
-            None,
-            json!({"fixture":true,"restart":true}),
-            true,
-        )
-        .unwrap(),
-    );
+    let broker = Broker::new(
+        Policy::new(config).unwrap(),
+        vec![desktop.clone()],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({"fixture":true,"restart":true}),
+        true,
+    )
+    .unwrap();
     let restored = broker.configure_workflows(&root.join("workflows")).unwrap();
     (broker, desktop, restored)
 }
