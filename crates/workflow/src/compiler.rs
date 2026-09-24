@@ -371,10 +371,9 @@ pub fn compile(
             || !trace.successful
             || !trace.capture_values
             || trace.steps.len() != step_count
-            || trace
-                .steps
-                .iter()
-                .any(|step| !step.ok || !step.outcome_known || step.redacted)
+            || trace.steps.iter().any(|step| {
+                !step.ok || !step.outcome_known || step.redacted || step.result.is_none()
+            })
         {
             return Err(Error::new(
                 ErrorCode::Conflict,
@@ -1360,10 +1359,19 @@ mod tests {
             ErrorCode::Conflict
         );
 
-        let mut redacted = base;
+        let mut redacted = base.clone();
         redacted.steps[0].redacted = true;
         assert_eq!(
             compile(&[redacted], "redacted", "", &[], &lookup)
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+
+        let mut missing_result = base;
+        missing_result.steps[0].result = None;
+        assert_eq!(
+            compile(&[missing_result], "missing-result", "", &[], &lookup)
                 .unwrap_err()
                 .code,
             ErrorCode::Conflict
