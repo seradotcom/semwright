@@ -31941,6 +31941,103 @@
       "y"
     ]
   },
+  "auxiliary_property_surface": {
+    "STYLE": {
+      "readable": [
+        "boundVariables",
+        "consumers",
+        "description",
+        "descriptionMarkdown",
+        "documentationLinks",
+        "effects",
+        "fontName",
+        "fontSize",
+        "hangingList",
+        "hangingPunctuation",
+        "id",
+        "key",
+        "layoutGrids",
+        "leadingTrim",
+        "letterSpacing",
+        "lineHeight",
+        "listSpacing",
+        "name",
+        "paints",
+        "paragraphIndent",
+        "paragraphSpacing",
+        "remote",
+        "textCase",
+        "textDecoration",
+        "textWrapStyle",
+        "type"
+      ],
+      "writable": [
+        "boundVariables",
+        "description",
+        "descriptionMarkdown",
+        "documentationLinks",
+        "effects",
+        "fontName",
+        "fontSize",
+        "hangingList",
+        "hangingPunctuation",
+        "layoutGrids",
+        "leadingTrim",
+        "letterSpacing",
+        "lineHeight",
+        "listSpacing",
+        "name",
+        "paints",
+        "paragraphIndent",
+        "paragraphSpacing",
+        "textCase",
+        "textDecoration",
+        "textWrapStyle",
+        "type"
+      ]
+    },
+    "VARIABLE": {
+      "readable": [
+        "codeSyntax",
+        "description",
+        "hiddenFromPublishing",
+        "id",
+        "key",
+        "name",
+        "remote",
+        "resolvedType",
+        "scopes",
+        "valuesByMode",
+        "variableCollectionId"
+      ],
+      "writable": [
+        "description",
+        "hiddenFromPublishing",
+        "name",
+        "scopes"
+      ]
+    },
+    "COLLECTION": {
+      "readable": [
+        "defaultModeId",
+        "hiddenFromPublishing",
+        "id",
+        "isExtension",
+        "key",
+        "modes",
+        "name",
+        "parentVariableCollectionId",
+        "remote",
+        "rootVariableCollectionId",
+        "variableIds",
+        "variableOverrides"
+      ],
+      "writable": [
+        "hiddenFromPublishing",
+        "name"
+      ]
+    }
+  },
   "summary": {
     "global_interfaces": 18,
     "global_members": 213,

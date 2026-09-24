@@ -262,6 +262,22 @@ for(const [interfaceName,iface] of interfaces){
   }
   if(Object.keys(methods).length)auxiliaryInterfaces[interfaceName]=methods;
 }
+const AUX_PROPERTY_TARGETS={
+  STYLE:["PaintStyle","TextStyle","EffectStyle","GridStyle"],
+  VARIABLE:["Variable"],
+  COLLECTION:["VariableCollection","ExtendedVariableCollection"],
+};
+const auxPropertySurface={};
+for(const [targetKind,names] of Object.entries(AUX_PROPERTY_TARGETS)){
+  const readable=new Set(),writable=new Set();
+  for(const name of names){
+    for(const member of allMembers(name)){
+      if(member.kind!=="property")continue;
+      readable.add(member.name);if(!member.readonly)writable.add(member.name);
+    }
+  }
+  auxPropertySurface[targetKind]={readable:[...readable].sort(),writable:[...writable].sort()};
+}
 const previous=fs.existsSync(coveragePath)?JSON.parse(fs.readFileSync(coveragePath,"utf8")):{};
 const GLOBAL_INTERFACE_DEFAULTS={
   TextReviewAPI:"SUPPORTED_SEPARATE_MANIFEST",
@@ -337,6 +353,7 @@ const actual={
     readable:[...readProperties].sort(),
     writable:[...writeProperties].sort(),
   },
+  auxiliary_property_surface:auxPropertySurface,
   summary:{
     global_interfaces:GLOBAL_INTERFACES.length,
     global_members:Object.values(globals).reduce((n,x)=>n+Object.keys(x).length,0),
@@ -354,6 +371,8 @@ const generated=[
   "// Do not hand-edit. Public property names only; methods are mapped separately.",
   `const SEMWRIGHT_FIGMA_NODE_READ_PROPERTIES = new Set<string>(${JSON.stringify([...readProperties].sort(),null,2)});`,
   `const SEMWRIGHT_FIGMA_NODE_WRITE_PROPERTIES = new Set<string>(${JSON.stringify([...writeProperties].sort(),null,2)});`,
+  `const SEMWRIGHT_FIGMA_AUX_READ_PROPERTIES: Record<string, Set<string>> = Object.fromEntries(Object.entries(${JSON.stringify(auxPropertySurface)}).map(([kind,surface]: any)=>[kind,new Set(surface.readable)]));`,
+  `const SEMWRIGHT_FIGMA_AUX_WRITE_PROPERTIES: Record<string, Set<string>> = Object.fromEntries(Object.entries(${JSON.stringify(auxPropertySurface)}).map(([kind,surface]: any)=>[kind,new Set(surface.writable)]));`,
   "",
 ].join("\n");
 

@@ -353,6 +353,22 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
       const field=String(a.field) as VariableBindableTextField;style.setBoundVariable(field,variable);
       return ok(request.id,{styleId:style.id,field,bound:variable!==null,variableId:variable?.id??null},true);
     }
+    case "object.property.get": {
+      const kind=String(a.targetKind),id=String(a.targetId),property=String(a.property);
+      const allowed=SEMWRIGHT_FIGMA_AUX_READ_PROPERTIES[kind];
+      if(!allowed?.has(property))throw new Error("aux_property_not_readable");
+      const target=await saDataTarget(kind,id);
+      return ok(request.id,{targetKind:kind,targetId:id,property,value:spSerializable((target as any)[property])});
+    }
+    case "object.property.set": {
+      const kind=String(a.targetKind),id=String(a.targetId),property=String(a.property);
+      const allowed=SEMWRIGHT_FIGMA_AUX_WRITE_PROPERTIES[kind];
+      if(!allowed?.has(property))throw new Error("aux_property_not_writable");
+      const target=await saDataTarget(kind,id);
+      if((target as any).remote===true)throw new Error("remote_target_read_only");
+      (target as any)[property]=a.value;
+      return ok(request.id,{targetKind:kind,targetId:id,property,value:spSerializable((target as any)[property]),mutated:true},true);
+    }
     default:return null;
   }
 }

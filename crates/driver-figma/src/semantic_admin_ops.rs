@@ -349,5 +349,19 @@ pub(super) fn operations() -> Vec<Op> {
             Idempotent,
             true,
         ),
+        op(
+            "object.property.get",
+            "Read an allowlisted public property from a style, variable, or collection",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "object.property.set",
+            "Set an allowlisted writable property on a local style, variable, or collection",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
     ]
 }

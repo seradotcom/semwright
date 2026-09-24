@@ -50,6 +50,8 @@ pub const OPERATIONS: &[&str] = &[
     "object.shared_plugin_data.set",
     "object.shared_plugin_data.keys",
     "style.variable.bind",
+    "object.property.get",
+    "object.property.set",
 ];
 
 fn s(max: usize) -> Value {
@@ -462,6 +464,23 @@ pub fn input_schema(name: &str) -> Option<Value> {
             ],
             &["styleId", "field"],
         ),
+        "object.property.get" => input(
+            vec![
+                ("targetKind", en(&["STYLE", "VARIABLE", "COLLECTION"])),
+                ("targetId", s(256)),
+                ("property", s(128)),
+            ],
+            &["targetKind", "targetId", "property"],
+        ),
+        "object.property.set" => input(
+            vec![
+                ("targetKind", en(&["STYLE", "VARIABLE", "COLLECTION"])),
+                ("targetId", s(256)),
+                ("property", s(128)),
+                ("value", json!({})),
+            ],
+            &["targetKind", "targetId", "property", "value"],
+        ),
         other => unreachable!("semantic-admin operation {other} lacks input schema"),
     };
     Some(schema)
@@ -632,6 +651,12 @@ pub fn output_schema(name: &str) -> Option<Value> {
             "styleId":s(256),"field":en(&["fontFamily","fontSize","fontStyle","fontWeight","letterSpacing","lineHeight","paragraphSpacing","paragraphIndent"]),
             "bound":{"type":"boolean"},"variableId":nullable_string(256)
         },"required":["styleId","field","bound","variableId"],"additionalProperties":false}),
+        "object.property.get" => json!({"type":"object","properties":{
+            "targetKind":en(&["STYLE","VARIABLE","COLLECTION"]),"targetId":s(256),"property":s(128),"value":{}
+        },"required":["targetKind","targetId","property","value"],"additionalProperties":false}),
+        "object.property.set" => json!({"type":"object","properties":{
+            "targetKind":en(&["STYLE","VARIABLE","COLLECTION"]),"targetId":s(256),"property":s(128),"value":{},"mutated":{"type":"boolean"}
+        },"required":["targetKind","targetId","property","value","mutated"],"additionalProperties":false}),
         other => unreachable!("semantic-admin operation {other} lacks output schema"),
     };
     Some(schema)
