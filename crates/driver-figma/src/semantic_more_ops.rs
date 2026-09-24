@@ -265,6 +265,13 @@ pub(super) fn operations() -> Vec<Op> {
             true,
         ),
         op(
+            "node.properties.inspect",
+            "Inspect paginated public Figma node properties from the pinned API surface",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
             "node.properties.patch",
             "Patch an allowlisted semantic node-property set",
             MutatingReversible,

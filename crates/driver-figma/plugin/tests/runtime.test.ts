@@ -7,11 +7,13 @@ import ts from "typescript";
 type AnyNode = Record<string, any>;
 
 function harness(editorType = "figma") {
+  const generated = fs.readFileSync(path.join(process.cwd(), "src/generated_api_surface.ts"), "utf8");
+  const properties = fs.readFileSync(path.join(process.cwd(), "src/semantic_properties.ts"), "utf8");
   const semantic = fs.readFileSync(path.join(process.cwd(), "src/semantic_complete.ts"), "utf8");
   const more = fs.readFileSync(path.join(process.cwd(), "src/semantic_more.ts"), "utf8");
   const exports = fs.readFileSync(path.join(process.cwd(), "src/semantic_exports.ts"), "utf8");
   const code = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
-  const source = semantic + "\n" + more + "\n" + exports + "\n" + code;
+  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + exports + "\n" + code;
   const javascript = ts.transpileModule(source, {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
@@ -30,7 +32,7 @@ function harness(editorType = "figma") {
       id: `1:${nextNode++}`, type, name, visible: true, locked: false,
       x: 0, y: 0, width: 100, height: 100, rotation: 0, opacity: 1,
       layoutMode: "NONE", itemSpacing: 0, paddingTop: 0, paddingRight: 0,
-      paddingBottom: 0, paddingLeft: 0, reactions: [], children: [],
+      paddingBottom: 0, paddingLeft: 0, clipsContent: false, reactions: [], children: [],
       fills: [], strokes: [], effects: [], strokeWeight: 1,
       animationStyles: [], manualKeyframeTracks: [], animations: [], timelines: [],
       resize(w: number, h: number) { this.width = w; this.height = h; },
@@ -384,6 +386,30 @@ describe("extended semantic runtime",()=> {
     expect(set.ok).toBe(true);
     const get=await h.call("node.plugin_data.get",{nodeId:frame.value.id,key:"semantic-role"},2);
     expect(get.value.value).toBe("hero");
+  });
+
+  it("reads and patches generated public property surfaces",async()=> {
+    const h=harness();
+    const frame=await h.call("frame.create",{name:"Property Surface"});
+    const patched=await h.call("node.properties.patch",{
+      nodeId:frame.value.id,
+      properties:{itemSpacing:24,clipsContent:true}
+    },1);
+    expect(patched.ok).toBe(true);
+    expect(patched.value.values.itemSpacing).toBe(24);
+
+    const inspected=await h.call("node.properties.inspect",{
+      nodeId:frame.value.id,
+      properties:["id","name","itemSpacing","clipsContent"]
+    },2);
+    expect(inspected.ok).toBe(true);
+    expect(inspected.value.values.id).toBe(frame.value.id);
+    expect(inspected.value.values.itemSpacing).toBe(24);
+
+    const readonly=await h.call("node.properties.patch",{
+      nodeId:frame.value.id,properties:{id:"forbidden"}
+    },2);
+    expect(readonly.ok).toBe(false);
   });
 
   it("exports CSS Tailwind JSX and Storybook through bounded artifacts",async()=> {

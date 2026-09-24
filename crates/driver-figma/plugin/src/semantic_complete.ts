@@ -676,16 +676,8 @@ async function handleSemanticComplete(request: BridgeRequest, a: any): Promise<B
       const node=await nodeById(String(a.nodeId)) as any;
       return ok(request.id,{boundVariables:node.boundVariables??{},componentPropertyReferences:node.componentPropertyReferences??null,explicitVariableModes:node.explicitVariableModes??{}});
     }
-    case "node.properties.patch": {
-      const node=asScene(await nodeById(String(a.nodeId))) as any;
-      const props=a.properties;if(!props||typeof props!=="object"||Array.isArray(props)||Object.keys(props).length>32)throw new Error("property_limit");
-      const allowed=new Set(["name","visible","locked","opacity","x","y","rotation","clipsContent","cornerRadius","strokeWeight","strokeAlign","strokeCap","strokeJoin","dashPattern","constraints","minWidth","maxWidth","minHeight","maxHeight","layoutGrow","layoutAlign","layoutPositioning"]);
-      for(const [key,value] of Object.entries(props)){
-        if(!allowed.has(key)||!(key in node))throw new Error("unsupported_property");
-        node[key]=value;
-      }
-      return ok(request.id,extraNodeJson(node),true);
-    }
+    case "node.properties.patch":
+      return ok(request.id,await spPatchProperties(String(a.nodeId),a.properties),true);
     case "canvas.info":
       return ok(request.id,{page:summarize(figma.currentPage),children:figma.currentPage.children.slice(0,MAX_RESULTS).map(summarize),selection:figma.currentPage.selection.slice(0,MAX_RESULTS).map(summarize)});
     case "canvas.next_position":

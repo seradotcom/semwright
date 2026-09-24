@@ -729,7 +729,9 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
         const more = await handleSemanticMore(request, a);
         if (more) return more;
         const semanticExport = await handleSemanticExports(request, a);
-        return semanticExport ?? fail(request.id, "unsupported", "operation not implemented by plugin build");
+        if (semanticExport) return semanticExport;
+        const semanticProperty = await handleSemanticProperties(request, a);
+        return semanticProperty ?? fail(request.id, "unsupported", "operation not implemented by plugin build");
       }
     }
   } catch (error) {

@@ -9,5 +9,5 @@
     "outFile": "dist/code.js",
     "removeComments": true
   },
-  "files": ["src/semantic_complete.ts", "src/semantic_more.ts", "src/semantic_exports.ts", "src/code.ts"]
+  "files": ["src/generated_api_surface.ts", "src/semantic_properties.ts", "src/semantic_complete.ts", "src/semantic_more.ts", "src/semantic_exports.ts", "src/code.ts"]
 }

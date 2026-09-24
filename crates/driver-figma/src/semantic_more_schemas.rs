@@ -38,6 +38,7 @@ pub const OPERATIONS: &[&str] = &[
     "figjam.table.column.move",
     "figjam.table.column.resize",
     "node.bindings.inspect",
+    "node.properties.inspect",
     "node.properties.patch",
     "canvas.info",
     "canvas.next_position",
@@ -235,6 +236,15 @@ pub fn input_schema(name: &str) -> Option<Value> {
             &["nodeId", "index", "size"],
         ),
         "node.bindings.inspect" | "slot.list" => node_id(),
+        "node.properties.inspect" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("properties", arr(128, s(128))),
+                ("offset", u(10_000)),
+                ("limit", u(128)),
+            ],
+            &["nodeId"],
+        ),
         "node.properties.patch" => input(
             vec![("nodeId", s(256)), ("properties", obj(32))],
             &["nodeId", "properties"],
@@ -393,6 +403,31 @@ pub fn output_schema(name: &str) -> Option<Value> {
         "node.relaunch_data.set" => {
             json!({"type":"object","properties":{"count":u(32)},"required":["count"],"additionalProperties":false})
         }
+        "node.properties.inspect" => json!({
+            "type":"object",
+            "properties":{
+                "nodeId":s(256),
+                "nodeType":s(64),
+                "values":obj(128),
+                "unavailable":arr(128,s(128)),
+                "offset":u(10_000),
+                "nextOffset":{"type":["integer","null"],"minimum":0,"maximum":10_000},
+                "totalProperties":u(10_000)
+            },
+            "required":["nodeId","nodeType","values","unavailable","offset","nextOffset","totalProperties"],
+            "additionalProperties":false
+        }),
+        "node.properties.patch" => json!({
+            "type":"object",
+            "properties":{
+                "nodeId":s(256),
+                "nodeType":s(64),
+                "changed":arr(32,s(128)),
+                "values":obj(32)
+            },
+            "required":["nodeId","nodeType","changed","values"],
+            "additionalProperties":false
+        }),
         "figjam.table.cell.inspect" | "figjam.table.cell.text.set" => loose_output(16),
         "figjam.table.inspect"
         | "figjam.table.row.insert"
