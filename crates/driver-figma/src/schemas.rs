@@ -70,15 +70,6 @@ fn variable_value_schema() -> Value {
         ]
     })
 }
-fn variable_scope_schema() -> Value {
-    json!({"type":"string","enum":[
-        "ALL_SCOPES","TEXT_CONTENT","CORNER_RADIUS","WIDTH_HEIGHT","GAP",
-        "ALL_FILLS","FRAME_FILL","SHAPE_FILL","TEXT_FILL","STROKE_COLOR",
-        "STROKE_FLOAT","EFFECT_FLOAT","EFFECT_COLOR","OPACITY","COLOR_OPACITY",
-        "FONT_FAMILY","FONT_STYLE","FONT_WEIGHT","FONT_SIZE","LINE_HEIGHT",
-        "LETTER_SPACING","PARAGRAPH_SPACING","PARAGRAPH_INDENT"
-    ]})
-}
 fn bounded_object(max: usize) -> Value {
     json!({"type":"object","maxProperties":max})
 }
