@@ -1,0 +1,181 @@
+name: Supply-chain certification
+defaults:
+  run:
+    shell: bash
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nix-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1
+      - name: Build pinned Nix derivation
+        run: |
+          set -euo pipefail
+          mkdir -p verification/supply-chain
+          nix --version | tee verification/supply-chain/nix-version.log
+          result=$(nix-build packaging/nix/ci.nix --no-out-link)
+          printf '%s\n' "$result" | tee verification/supply-chain/nix-output-path.log
+          for binary in semwright semwrightd semwright-mcp semwright-inspect semwright-sandbox; do
+            test -x "$result/bin/$binary"
+          done
+          nix-store --query --requisites "$result" | LC_ALL=C sort             > verification/supply-chain/nix-closure.txt
+          nix path-info --json --closure-size "$result"             > verification/supply-chain/nix-path-info.json
+          printf '%s\n' "1bc55b9def8165e82073919945c3239903fe4dc2"             > verification/supply-chain/nixpkgs-revision.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nix-certification-${{ github.sha }}
+          path: verification/supply-chain
+          retention-days: 30
+
+  release-bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_RELEASE_DEBUG: 0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: supply-chain-${{ matrix.arch }}
+      - name: Install native and SBOM dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev dpkg-dev
+          cargo install --locked cargo-cyclonedx --version 0.5.9
+      - name: Build release executables
+        run: |
+          cargo build --locked --release             -p semwright-cli --bin semwright             -p semwright-daemon --bin semwrightd             -p semwright-mcp --bin semwright-mcp             -p semwright-tui --bin semwright-inspect             -p semwright-plugin-host --bin semwright-sandbox
+      - name: Generate reproducible CycloneDX SBOMs
+        run: |
+          export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          scripts/release/certify-sbom.sh
+      - name: Build non-admitted certification packages
+        run: |
+          set -euo pipefail
+          export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          rm -rf "dist/packages/${{ matrix.arch }}" "supply-chain/${{ matrix.arch }}"
+          python3 scripts/release/build-certification-packages.py             --bin-dir target/release             --arch "${{ matrix.arch }}"             --output "dist/packages/${{ matrix.arch }}"             --report "verification/supply-chain/package-${{ matrix.arch }}.json"
+          mkdir -p "supply-chain/${{ matrix.arch }}/binaries"                    "supply-chain/${{ matrix.arch }}/packages"                    "supply-chain/${{ matrix.arch }}/sbom"
+          for binary in semwright semwrightd semwright-mcp semwright-inspect semwright-sandbox; do
+            cp "target/release/$binary" "supply-chain/${{ matrix.arch }}/binaries/$binary"
+          done
+          cp dist/sbom/*.json dist/sbom/SHA256SUMS             "supply-chain/${{ matrix.arch }}/sbom/"
+          cp "dist/packages/${{ matrix.arch }}"/*             "supply-chain/${{ matrix.arch }}/packages/"
+          cp "verification/supply-chain/package-${{ matrix.arch }}.json"             "supply-chain/${{ matrix.arch }}/"
+          (
+            cd "supply-chain/${{ matrix.arch }}"
+            find binaries packages sbom -type f -print0               | LC_ALL=C sort -z               | xargs -0 sha256sum > SHA256SUMS
+          )
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: supply-chain-${{ matrix.arch }}-${{ github.sha }}
+          path: supply-chain/${{ matrix.arch }}
+          retention-days: 30
+
+  attest:
+    if: github.event_name != 'pull_request'
+    needs: [nix-package, release-bundle]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: supply-chain-x86_64-${{ github.sha }}
+          path: evidence/x86_64
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: supply-chain-aarch64-${{ github.sha }}
+          path: evidence/aarch64
+
+      - name: Attest packaged certification artifacts
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: |
+            evidence/x86_64/packages/*.tar.gz
+            evidence/x86_64/packages/*.deb
+            evidence/aarch64/packages/*.tar.gz
+            evidence/aarch64/packages/*.deb
+
+      - name: Attest x86_64 semwright SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/x86_64/binaries/semwright
+          sbom-path: evidence/x86_64/sbom/semwright.cdx.json
+      - name: Attest x86_64 semwrightd SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/x86_64/binaries/semwrightd
+          sbom-path: evidence/x86_64/sbom/semwrightd.cdx.json
+      - name: Attest x86_64 MCP SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/x86_64/binaries/semwright-mcp
+          sbom-path: evidence/x86_64/sbom/semwright-mcp.cdx.json
+      - name: Attest x86_64 inspector SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/x86_64/binaries/semwright-inspect
+          sbom-path: evidence/x86_64/sbom/semwright-inspect.cdx.json
+      - name: Attest x86_64 sandbox SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/x86_64/binaries/semwright-sandbox
+          sbom-path: evidence/x86_64/sbom/semwright-sandbox.cdx.json
+
+      - name: Attest aarch64 semwright SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/aarch64/binaries/semwright
+          sbom-path: evidence/aarch64/sbom/semwright.cdx.json
+      - name: Attest aarch64 semwrightd SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/aarch64/binaries/semwrightd
+          sbom-path: evidence/aarch64/sbom/semwrightd.cdx.json
+      - name: Attest aarch64 MCP SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/aarch64/binaries/semwright-mcp
+          sbom-path: evidence/aarch64/sbom/semwright-mcp.cdx.json
+      - name: Attest aarch64 inspector SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/aarch64/binaries/semwright-inspect
+          sbom-path: evidence/aarch64/sbom/semwright-inspect.cdx.json
+      - name: Attest aarch64 sandbox SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: evidence/aarch64/binaries/semwright-sandbox
+          sbom-path: evidence/aarch64/sbom/semwright-sandbox.cdx.json
