@@ -399,6 +399,21 @@ impl RestClient {
         self.request(Method::GET, self.url(segments, query)?, None, credential)
             .await
     }
+    async fn discovery(&self, a: &Map<String, Value>, c: &Credential) -> Result<Value> {
+        let mut q = Vec::new();
+        q.push(("start_date", required(a, "startDate")?.to_owned()));
+        push_str(&mut q, a, "endDate", "end_date")?;
+        if let Some(ttl) = optional_u64(a, "fileTtlInSeconds", 86_400)? {
+            if ttl < 60 {
+                return Err(Error::invalid(
+                    "fileTtlInSeconds must be between 60 and 86400",
+                ));
+            }
+            q.push(("file_ttl_in_seconds", ttl.to_string()));
+        }
+        self.get(&["v1", "discovery"], &q, c).await
+    }
+
     async fn file_get(&self, a: &Map<String, Value>, c: &Credential) -> Result<Value> {
         let key = required(a, "fileKey")?;
         let mut q = Vec::new();
@@ -1001,7 +1016,7 @@ fn webhook_body(args: &Map<String, Value>, create: bool) -> Result<Value> {
 fn credential_allowed(operation_id: &str, kind: AuthKind) -> bool {
     match operation_id {
         "getAiUsageDaily" | "getDeveloperLogs" => matches!(kind, AuthKind::Plan),
-        "getActivityLogs" => matches!(kind, AuthKind::OAuth),
+        "getActivityLogs" | "getDiscoveryTextEvents" => matches!(kind, AuthKind::OAuth),
         "getPayments" => matches!(kind, AuthKind::Personal),
         "getMe"
         | "getOEmbed"
@@ -1226,6 +1241,81 @@ mod tests {
         assert_eq!(output["source"], "figma_rest");
         assert_eq!(output["operation_id"], "getFileNodes");
         assert_eq!(output["data"]["nodes"]["1:2"]["document"]["id"], "1:2");
+    }
+
+    #[tokio::test]
+    async fn discovery_uses_official_query_names_and_oauth() {
+        let (base, server) =
+            capture_one(r#"{"error":false,"status":200,"meta":{"urls":{}},"i18n":null}"#).await;
+        let client = RestClient::with_base_for_tests(&base).unwrap();
+        let args = serde_json::from_value::<Map<String, Value>>(json!({
+            "startDate":"2026-09-23T00:00:00Z",
+            "endDate":"2026-09-23T02:00:00Z",
+            "fileTtlInSeconds":3600
+        }))
+        .unwrap();
+        let output = client
+            .execute_with_test_token(
+                "cloud.discovery.text_events",
+                &args,
+                "oauth",
+                b"TEST_ONLY_SECRET",
+            )
+            .await
+            .unwrap();
+        let request = server.await.unwrap();
+        assert!(request.starts_with("GET /v1/discovery?"));
+        assert!(request.contains("start_date=2026-09-23T00%3A00%3A00Z"));
+        assert!(request.contains("end_date=2026-09-23T02%3A00%3A00Z"));
+        assert!(request.contains("file_ttl_in_seconds=3600"));
+        assert!(
+            request
+                .to_ascii_lowercase()
+                .contains("authorization: bearer test_only_secret")
+        );
+        assert_eq!(output["operation_id"], "getDiscoveryTextEvents");
+        assert_eq!(output["data"]["status"], 200);
+    }
+
+    #[tokio::test]
+    async fn discovery_rejects_non_oauth_before_network() {
+        let client = RestClient::with_base_for_tests("http://127.0.0.1:9/").unwrap();
+        let args = serde_json::from_value::<Map<String, Value>>(json!({
+            "startDate":"2026-09-23T00:00:00Z"
+        }))
+        .unwrap();
+        for kind in ["pat", "plan"] {
+            let error = client
+                .execute_with_test_token(
+                    "cloud.discovery.text_events",
+                    &args,
+                    kind,
+                    b"TEST_ONLY_SECRET",
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, ErrorCode::PermissionDenied);
+        }
+    }
+
+    #[tokio::test]
+    async fn discovery_rejects_ttl_below_official_minimum() {
+        let client = RestClient::with_base_for_tests("http://127.0.0.1:9/").unwrap();
+        let args = serde_json::from_value::<Map<String, Value>>(json!({
+            "startDate":"2026-09-23T00:00:00Z",
+            "fileTtlInSeconds":59
+        }))
+        .unwrap();
+        let error = client
+            .execute_with_test_token(
+                "cloud.discovery.text_events",
+                &args,
+                "oauth",
+                b"TEST_ONLY_SECRET",
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
     }
 
     #[tokio::test]
