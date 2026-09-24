@@ -262,7 +262,7 @@ jobs:
             echo 'Landlock unexpectedly allowed writing /dev/zero'
             exit 1
           fi
-          rg -q 'Permission denied' verification/motion-canvas-host/other-device-write.log
+          grep -q 'Permission denied' verification/motion-canvas-host/other-device-write.log
           trace_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --write-root /workspace/trace -- /plugin/bin)
           set +e
           printf 'exec /usr/bin/strace -ff -s 160 -o /workspace/trace/chrome -e trace=%%file,%%process,%%signal "%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${trace_args[@]}" > verification/motion-canvas-host/landlock-strace.log 2>&1
@@ -271,7 +271,7 @@ jobs:
           echo "Landlock strace exit=$trace_rc"
           tail -30 verification/motion-canvas-host/landlock-strace.log
           cp -a "$PROBE_DIR/trace" verification/motion-canvas-host/trace
-          rg -n 'EACCES|EPERM|SIGTRAP' "$PROBE_DIR/trace" | tail -100 || true
+          grep -nE 'EACCES|EPERM|SIGTRAP' "$PROBE_DIR"/trace/* | tail -100 || true
           cargo test --locked -p semwright-driver-motion-canvas motion_driver_runs_through_real_driver_host_without_network -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/conformance.log
           cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
       - name: Capture sandbox denial diagnostics
