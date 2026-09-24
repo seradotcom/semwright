@@ -128,6 +128,9 @@ def main():
             "driver.figma.buzz.frame.create",
             "driver.figma.figjam.diagram.create",
             "driver.figma.validate.a11y",
+            "driver.figma.a11y.vision.analyze",
+            "driver.figma.a11y.vision.preview",
+            "driver.figma.verify.node",
             "driver.figma.payments.status",
         }
         missing_surface = sorted(required_surface - set(caps))
@@ -381,11 +384,22 @@ def main():
             driver, caps, "driver.figma.motion.keyframe.apply",
             {
                 "session_id": session_id, "expected_revision": 7, "nodeId": node_id,
-                "field": {"type": "x"},
-                "track": {"keyframes": [{"t": 0, "value": 0}, {"t": 1, "value": 100}]},
+                "field": {"type": "PROPERTY", "name": "TRANSLATION_X"},
+                "track": {
+                    "keyframes": [
+                        {"timelinePosition": 0, "value": {"type": "FLOAT", "value": 0}},
+                        {
+                            "timelinePosition": 1,
+                            "value": {"type": "FLOAT", "value": 100},
+                            "easing": {"type": "EASE_OUT"},
+                        },
+                    ]
+                },
             }, "motion-keyframe",
         )
         assert keyframes["type"] == "result", keyframes
+        assert keyframes["value"]["field"] == {"type": "PROPERTY", "name": "TRANSLATION_X"}
+        assert keyframes["value"]["end"] == 1
 
         timeline = execute(
             driver, caps, "driver.figma.motion.timeline.set_duration",
@@ -420,9 +434,42 @@ def main():
         )
         assert connector["type"] == "result", connector
 
+        vision = execute(
+            driver, caps, "driver.figma.a11y.vision.analyze",
+            {
+                "session_id": session_id, "expected_revision": 12,
+                "modes": ["protanopia", "deuteranopia"], "maxPairs": 10,
+            }, "vision-analyze",
+        )
+        assert vision["type"] == "result", vision
+        assert vision["value"]["model"] == "machado-2009-full-severity"
+
+        verify_progress = []
+        verified = execute(
+            driver, caps, "driver.figma.verify.node",
+            {
+                "session_id": session_id, "expected_revision": 12,
+                "nodeId": node_id, "scale": 1, "name": "verification.png",
+            }, "verify-node", verify_progress,
+        )
+        assert verified["type"] == "result", verified
+        assert verified["value"]["mediaType"] == "image/png"
+        assert len(verify_progress) == 1, verify_progress
+        assert verify_progress[0]["artifacts"][0]["reference"] == f"artifact:figma:{verified['value']['token']}"
+
+        preview = execute(
+            driver, caps, "driver.figma.a11y.vision.preview",
+            {
+                "session_id": session_id, "expected_revision": 12,
+                "nodeId": node_id, "modes": ["protanopia"], "gap": 40,
+            }, "vision-preview",
+        )
+        assert preview["type"] == "result", preview
+        assert len(preview["value"]["previews"]) == 1
+
         sessions = execute(driver, caps, "driver.figma.session.list", {}, "sessions-final")
         revision = sessions["value"][0]["revision"]
-        assert revision == 12, sessions
+        assert revision == 13, sessions
 
         shutdown = request(driver, {"type": "shutdown", "id": "bye"}, "shutdown")
         assert shutdown["id"] == "bye"

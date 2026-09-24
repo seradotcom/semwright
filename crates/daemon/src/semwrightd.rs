@@ -239,6 +239,13 @@ async fn run(args: Args) -> Result<()> {
         let provider = ExternalMcpProvider::connect_trusted_stdio(upstream).await?;
         broker.mount_provider(provider).await?;
     }
+    // Learned workflows may depend on configured plugins, drivers, or federated MCPs.
+    // Restore them only after all owner-configured providers are present in the catalog.
+    let workflow_restore = broker.configure_workflows(&state.join("workflows"))?;
+    tracing::info!(
+        workflow_restore = %workflow_restore,
+        "workflow store loaded"
+    );
     let stop = CancellationToken::new();
     let signal = stop.clone();
     tokio::spawn(async move {
