@@ -252,6 +252,223 @@
       "getPluginPaymentTokenAsync": "INTERNAL_OR_POLICY_EXCLUDED"
     }
   },
+  "auxiliary_interfaces": {
+    "AnnotationCategory": {
+      "remove": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "annotation.category.remove"
+      },
+      "setColor": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "annotation.category.patch"
+      },
+      "setLabel": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "annotation.category.patch"
+      }
+    },
+    "BaseStyleMixin": {
+      "getStyleConsumersAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "style.consumers.list"
+      },
+      "remove": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "style.remove"
+      }
+    },
+    "BuzzMediaField": {
+      "setMediaAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "buzz.media_content.set"
+      }
+    },
+    "BuzzTextField": {
+      "setValueAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "buzz.text_content.set"
+      }
+    },
+    "DocumentNode": {
+      "appendChild": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.reparent"
+      },
+      "insertChild": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.reparent+node.reorder"
+      },
+      "findChildren": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.children"
+      },
+      "findChild": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.search"
+      },
+      "findAll": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.search"
+      },
+      "findOne": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.search"
+      },
+      "findAllWithCriteria": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.search"
+      },
+      "findWidgetNodesByWidgetId": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "widget.find_by_widget_id"
+      }
+    },
+    "DropFile": {
+      "getBytesAsync": {
+        "status": "EVENT_PAYLOAD_HELPER"
+      },
+      "getTextAsync": {
+        "status": "EVENT_PAYLOAD_HELPER"
+      }
+    },
+    "ExtendedVariableCollection": {
+      "removeOverridesForVariable": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.collection.overrides.remove_variable"
+      },
+      "removeMode": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "mode.remove"
+      }
+    },
+    "Image": {
+      "getBytesAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "image.export"
+      },
+      "getSizeAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "image.inspect"
+      }
+    },
+    "MeasurementsMixin": {
+      "getMeasurements": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "dev.measurement.list"
+      },
+      "getMeasurementsForNode": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "dev.measurement.for_node"
+      },
+      "addMeasurement": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "dev.measurement.add"
+      },
+      "editMeasurement": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "dev.measurement.edit"
+      },
+      "deleteMeasurement": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "dev.measurement.remove"
+      }
+    },
+    "PageNode": {
+      "clone": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "node.clone"
+      },
+      "loadAsync": {
+        "status": "INTERNAL_DYNAMIC_PAGE_LIFECYCLE"
+      },
+      "on": {
+        "status": "EVENT_SOURCE_INTERNAL"
+      },
+      "once": {
+        "status": "EVENT_SOURCE_INTERNAL"
+      },
+      "off": {
+        "status": "EVENT_SOURCE_INTERNAL"
+      }
+    },
+    "SuggestionResults": {
+      "setSuggestions": {
+        "status": "EVENT_CALLBACK_HELPER"
+      },
+      "setError": {
+        "status": "EVENT_CALLBACK_HELPER"
+      },
+      "setLoadingMessage": {
+        "status": "EVENT_CALLBACK_HELPER"
+      }
+    },
+    "TextStyle": {
+      "setBoundVariable": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "style.variable.bind"
+      }
+    },
+    "Variable": {
+      "getPublishStatusAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "library.publish_status.inspect"
+      },
+      "resolveForConsumer": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.resolve_for_consumer"
+      },
+      "setValueForMode": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.set_value"
+      },
+      "remove": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.remove"
+      },
+      "setVariableCodeSyntax": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.code_syntax.set"
+      },
+      "removeVariableCodeSyntax": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.code_syntax.remove"
+      },
+      "valuesByModeForCollectionAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.values_for_collection"
+      },
+      "removeOverrideForMode": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.override.remove_mode"
+      }
+    },
+    "VariableCollection": {
+      "getPublishStatusAsync": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "library.publish_status.inspect"
+      },
+      "extend": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.collection.extend"
+      },
+      "remove": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "variable.collection.remove"
+      },
+      "removeMode": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "mode.remove"
+      },
+      "addMode": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "mode.create"
+      },
+      "renameMode": {
+        "status": "SUPPORTED_METHOD",
+        "capability": "mode.rename"
+      }
+    }
+  },
   "scene_node_types": {
     "BOOLEAN_OPERATION": {
       "interface": "BooleanOperationNode",
@@ -31727,6 +31944,9 @@
   "summary": {
     "global_interfaces": 18,
     "global_members": 213,
+    "auxiliary_interfaces": 14,
+    "auxiliary_method_entries": 49,
+    "unclassified_auxiliary_methods": 0,
     "scene_nodes": 34,
     "scene_node_members": 3699,
     "supported_scene_node_members": 3699,

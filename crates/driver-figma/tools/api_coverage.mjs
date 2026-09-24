@@ -81,6 +81,14 @@ function nodeTypeLiteral(interfaceName){
 const sceneAlias=findAlias("SceneNode");
 if(!sceneAlias)throw new Error("SceneNode alias missing from pinned typings");
 const sceneInterfaces=typeNames(sceneAlias.type).filter(name=>interfaces.has(name));
+const sceneHierarchyInterfaces=new Set();
+function markSceneHierarchy(name){
+  if(sceneHierarchyInterfaces.has(name))return;
+  sceneHierarchyInterfaces.add(name);
+  const iface=interfaces.get(name);if(!iface)return;
+  for(const parent of parents(iface))markSceneHierarchy(parent);
+}
+for(const name of sceneInterfaces)markSceneHierarchy(name);
 const sceneNodes={};
 const readProperties=new Set(), writeProperties=new Set(), methodNames=new Set();
 for(const interfaceName of sceneInterfaces){
@@ -235,16 +243,19 @@ const AUX_INTERFACE_CLASSIFICATION={
 };
 const AUX_EXACT_CLASSIFICATION={
   "PageNode.loadAsync":"INTERNAL_DYNAMIC_PAGE_LIFECYCLE",
+  "PageNode.on":"EVENT_SOURCE_INTERNAL",
+  "PageNode.once":"EVENT_SOURCE_INTERNAL",
+  "PageNode.off":"EVENT_SOURCE_INTERNAL",
 };
 const auxiliaryInterfaces={};let auxiliaryMethodEntries=0,unclassifiedAuxiliaryMethods=0;
 for(const [interfaceName,iface] of interfaces){
-  if(sceneInterfaces.has(interfaceName)||GLOBAL_INTERFACES.includes(interfaceName))continue;
+  if(sceneHierarchyInterfaces.has(interfaceName)||GLOBAL_INTERFACES.includes(interfaceName))continue;
   const methods={};
   for(const member of ownMembers(iface)){
     if(member.kind!=="method")continue;
     auxiliaryMethodEntries++;
     const key=`${interfaceName}.${member.name}`;
-    const capability=AUX_CAPABILITY_EXACT[key]??AUX_CAPABILITY_BY_METHOD[member.name];
+    const capability=AUX_CAPABILITY_EXACT[key]??AUX_CAPABILITY_BY_METHOD[member.name]??METHOD_MAP[member.name];
     const status=capability?"SUPPORTED_METHOD":(AUX_EXACT_CLASSIFICATION[key]??AUX_INTERFACE_CLASSIFICATION[interfaceName]??"UNCLASSIFIED");
     if(status==="UNCLASSIFIED")unclassifiedAuxiliaryMethods++;
     methods[member.name]={status,...(capability?{capability}:{})};
@@ -320,6 +331,7 @@ const actual={
   plugin_typings_version:typingsVersion,
   source:"@figma/plugin-typings/plugin-api.d.ts",
   interfaces:globals,
+  auxiliary_interfaces:Object.fromEntries(Object.keys(auxiliaryInterfaces).sort().map(k=>[k,auxiliaryInterfaces[k]])),
   scene_node_types:Object.fromEntries(Object.keys(sceneNodes).sort().map(k=>[k,sceneNodes[k]])),
   generic_property_surface:{
     readable:[...readProperties].sort(),
@@ -328,6 +340,9 @@ const actual={
   summary:{
     global_interfaces:GLOBAL_INTERFACES.length,
     global_members:Object.values(globals).reduce((n,x)=>n+Object.keys(x).length,0),
+    auxiliary_interfaces:Object.keys(auxiliaryInterfaces).length,
+    auxiliary_method_entries:auxiliaryMethodEntries,
+    unclassified_auxiliary_methods:unclassifiedAuxiliaryMethods,
     scene_nodes:Object.keys(sceneNodes).length,
     scene_node_members:totalNodeMembers,
     supported_scene_node_members:supportedNodeMembers,
@@ -361,4 +376,13 @@ if(unclassifiedGlobals){
   console.error(`UNCLASSIFIED global Figma API members: ${unclassifiedGlobals}`);
   process.exit(1);
 }
-console.log(`PASS typings=${typingsVersion} globals=${actual.summary.global_members} scene_nodes=${actual.summary.scene_nodes} node_members=${totalNodeMembers} supported=${supportedNodeMembers} method_gaps=${unmappedMethods.size}`);
+if(unclassifiedAuxiliaryMethods){
+  console.error(`UNCLASSIFIED auxiliary Figma API methods: ${unclassifiedAuxiliaryMethods}`);
+  for(const [iface,members] of Object.entries(auxiliaryInterfaces)){
+    for(const [method,entry] of Object.entries(members)){
+      if(entry.status==="UNCLASSIFIED")console.error(`  ${iface}.${method}`);
+    }
+  }
+  process.exit(1);
+}
+console.log(`PASS typings=${typingsVersion} globals=${actual.summary.global_members} auxiliary_methods=${auxiliaryMethodEntries} scene_nodes=${actual.summary.scene_nodes} node_members=${totalNodeMembers} supported=${supportedNodeMembers} method_gaps=${unmappedMethods.size}`);
