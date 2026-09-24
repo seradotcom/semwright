@@ -166,6 +166,7 @@ impl WorkflowManager {
                 || !(2..=MAX_TRACES).contains(&dismissal.dismissed_through_occurrences)
         });
         if !matches!(state.version, 1 | 2)
+            || (state.version == 1 && !state.dismissals.is_empty())
             || state.traces.len() > MAX_TRACES
             || state.candidates.len() > MAX_TRACES
             || state.promotions.len() > MAX_PROMOTIONS

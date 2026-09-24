@@ -16,6 +16,14 @@ fn pointer_escape(value: &str) -> String {
     value.replace('~', "~0").replace('/', "~1")
 }
 
+fn location_digest(step: usize, pointer: &str) -> String {
+    let digest = Sha256::digest(format!("{step}:{pointer}").as_bytes());
+    digest[..12]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 fn leaf(pointer: &str) -> &str {
     pointer.rsplit('/').next().unwrap_or("")
 }
@@ -95,17 +103,22 @@ fn value_shape(value: &Value, pointer: &str, depth: usize) -> Value {
     }
 }
 
-pub fn trace_compile_ready(trace: &WorkflowTrace) -> bool {
+fn trace_pattern_ready(trace: &WorkflowTrace) -> bool {
     trace.successful
-        && trace.capture_values
         && !trace.steps.is_empty()
-        && trace.steps.iter().all(|step| {
-            step.ok
-                && step.outcome_known
-                && !step.redacted
-                && step.result.is_some()
-                && step.descriptor_sha256.len() == 64
-        })
+        && trace
+            .steps
+            .iter()
+            .all(|step| step.ok && step.outcome_known && step.descriptor_sha256.len() == 64)
+}
+
+pub fn trace_compile_ready(trace: &WorkflowTrace) -> bool {
+    trace_pattern_ready(trace)
+        && trace.capture_values
+        && trace
+            .steps
+            .iter()
+            .all(|step| !step.redacted && step.result.is_some())
 }
 
 fn signature(trace: &WorkflowTrace) -> Value {
@@ -264,7 +277,7 @@ fn varying_arguments(traces: &[&WorkflowTrace]) -> Vec<PatternVariation> {
             if distinct.len() > 1 {
                 variations.push(PatternVariation {
                     step,
-                    pointer,
+                    location_digest: location_digest(step, &pointer),
                     kind,
                     observations: distinct.len(),
                 });
@@ -298,10 +311,7 @@ pub fn mine_patterns(
 ) -> Result<Vec<WorkflowPattern>> {
     validate_min_occurrences(min_occurrences)?;
     let mut groups = BTreeMap::<String, Vec<&WorkflowTrace>>::new();
-    for trace in traces
-        .iter()
-        .filter(|trace| trace.successful && !trace.steps.is_empty())
-    {
+    for trace in traces.iter().filter(|trace| trace_pattern_ready(trace)) {
         let fingerprint = pattern_fingerprint(trace)?;
         groups.entry(fingerprint).or_default().push(trace);
     }
@@ -488,9 +498,10 @@ mod tests {
             patterns[0]
                 .varying_arguments
                 .iter()
-                .any(|value| { value.pointer == "/path" && value.kind == "string:path" })
+                .any(|value| { value.location_digest.len() == 24 && value.kind == "string:path" })
         );
         let encoded = serde_json::to_string(&patterns).unwrap();
+        assert!(!encoded.contains("/path"));
         assert!(!encoded.contains("/tmp/a.png"));
         assert!(!encoded.contains("/tmp/b.png"));
     }
@@ -505,6 +516,22 @@ mod tests {
         let patterns = mine_patterns(&traces, 3, &BTreeMap::new()).unwrap();
         assert_eq!(patterns[0].compile_ready_count, 0);
         assert!(patterns[0].compile_trace_ids.is_empty());
+    }
+
+    #[test]
+    fn traces_with_failed_steps_do_not_become_pattern_evidence() {
+        let mut failed = trace("trace-failed", "export", "/tmp/a.png", true);
+        failed.steps[0].ok = false;
+        let traces = vec![
+            failed,
+            trace("trace-b", "export", "/tmp/b.png", true),
+            trace("trace-c", "export", "/tmp/c.png", true),
+        ];
+        assert!(
+            mine_patterns(&traces, 3, &BTreeMap::new())
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

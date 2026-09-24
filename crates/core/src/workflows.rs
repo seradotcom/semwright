@@ -140,7 +140,9 @@ impl Broker {
                 self.core_event("workflow.pattern.detected")
                     .with_attribute("pattern_id", json!(pattern.id))
                     .with_attribute("suggestion_id", json!(pattern.suggestion_id))
-                    .with_attribute("occurrences", json!(pattern.occurrences)),
+                    .with_attribute("occurrences", json!(pattern.occurrences))
+                    .with_attribute("compile_ready_count", json!(pattern.compile_ready_count))
+                    .with_attribute("compilable", json!(pattern.compile_ready_count >= 2)),
             );
         }
         Ok(json!({"recording":false,"trace":trace}))
@@ -251,7 +253,21 @@ impl Broker {
             .filter(|value| !value.is_empty())
             .unwrap_or(pattern.suggested_name.as_str());
         let selected_description = if description.is_empty() {
-            format!("Repeated workflow: {}", pattern.commands.join(" -> "))
+            let preview = pattern
+                .commands
+                .iter()
+                .take(12)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" -> ");
+            if pattern.commands.len() > 12 {
+                format!(
+                    "Repeated workflow with {} steps: {preview} -> …",
+                    pattern.commands.len()
+                )
+            } else {
+                format!("Repeated workflow: {preview}")
+            }
         } else {
             description.to_owned()
         };

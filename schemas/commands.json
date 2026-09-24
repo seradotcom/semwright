@@ -11513,10 +11513,6 @@
                       "minimum": 0,
                       "maximum": 63
                     },
-                    "pointer": {
-                      "type": "string",
-                      "maxLength": 512
-                    },
                     "kind": {
                       "type": "string",
                       "minLength": 1,
@@ -11526,11 +11522,15 @@
                       "type": "integer",
                       "minimum": 2,
                       "maximum": 256
+                    },
+                    "location_digest": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{24}$"
                     }
                   },
                   "required": [
                     "step",
-                    "pointer",
+                    "location_digest",
                     "kind",
                     "observations"
                   ],
@@ -11695,10 +11695,6 @@
                     "minimum": 0,
                     "maximum": 63
                   },
-                  "pointer": {
-                    "type": "string",
-                    "maxLength": 512
-                  },
                   "kind": {
                     "type": "string",
                     "minLength": 1,
@@ -11708,11 +11704,15 @@
                     "type": "integer",
                     "minimum": 2,
                     "maximum": 256
+                  },
+                  "location_digest": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$"
                   }
                 },
                 "required": [
                   "step",
-                  "pointer",
+                  "location_digest",
                   "kind",
                   "observations"
                 ],
@@ -11874,10 +11874,6 @@
                       "minimum": 0,
                       "maximum": 63
                     },
-                    "pointer": {
-                      "type": "string",
-                      "maxLength": 512
-                    },
                     "kind": {
                       "type": "string",
                       "minLength": 1,
@@ -11887,11 +11883,15 @@
                       "type": "integer",
                       "minimum": 2,
                       "maximum": 256
+                    },
+                    "location_digest": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{24}$"
                     }
                   },
                   "required": [
                     "step",
-                    "pointer",
+                    "location_digest",
                     "kind",
                     "observations"
                   ],
@@ -12060,10 +12060,6 @@
                     "minimum": 0,
                     "maximum": 63
                   },
-                  "pointer": {
-                    "type": "string",
-                    "maxLength": 512
-                  },
                   "kind": {
                     "type": "string",
                     "minLength": 1,
@@ -12073,11 +12069,15 @@
                     "type": "integer",
                     "minimum": 2,
                     "maximum": 256
+                  },
+                  "location_digest": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{24}$"
                   }
                 },
                 "required": [
                   "step",
-                  "pointer",
+                  "location_digest",
                   "kind",
                   "observations"
                 ],

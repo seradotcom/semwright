@@ -166,10 +166,10 @@ semwright workflow suggestions
 semwright workflow suggestion SUGGESTION_ID
 ```
 
-A pattern reports command sequence, occurrence counts, compile-ready evidence and argument
-locations that varied across value-capturing observations. It never reports the observed
-values themselves. Metadata-only traces can contribute repetition evidence but cannot be
-used to compile a candidate.
+A pattern reports command sequence, occurrence counts, compile-ready evidence and opaque
+location digests for arguments that varied across value-capturing observations. It never
+reports the observed values or raw JSON pointers/object keys. Metadata-only traces can
+contribute repetition evidence but cannot be used to compile a candidate.
 
 Suggestions are advisory. A suggestion needs at least two compatible, successful,
 unredacted value-capturing traces before:
@@ -188,8 +188,8 @@ dismissal state is persisted. Patterns and suggestions are recomputed from canon
 traces so they cannot drift into a second source of truth.
 
 When a pattern reaches the default threshold for the first time, Semwright emits a bounded,
-session-scoped `workflow.pattern.detected` event containing only IDs and the occurrence
-count; unrelated sessions cannot observe that learning notification.
+session-scoped `workflow.pattern.detected` event containing only IDs, occurrence count and
+compile-readiness metadata; unrelated sessions cannot observe that learning notification.
 
 ## V2 non-goals
 

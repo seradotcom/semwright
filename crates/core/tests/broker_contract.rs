@@ -889,7 +889,11 @@ async fn repeated_workflows_surface_suggestions_compile_and_resurface_after_new_
             .unwrap()
             .iter()
             .any(|value| {
-                value["step"] == 0 && value["pointer"] == "/text" && value["kind"] == "string"
+                value["step"] == 0
+                    && value["location_digest"]
+                        .as_str()
+                        .is_some_and(|digest| digest.len() == 24)
+                    && value["kind"] == "string"
             })
     );
     let suggestion_id = row["suggestion_id"].as_str().unwrap().to_owned();

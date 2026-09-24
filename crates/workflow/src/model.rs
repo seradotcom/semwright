@@ -105,7 +105,7 @@ pub struct Promotion {
 #[serde(deny_unknown_fields)]
 pub struct PatternVariation {
     pub step: usize,
-    pub pointer: String,
+    pub location_digest: String,
     pub kind: String,
     pub observations: usize,
 }
