@@ -9,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 COVERAGE = ROOT / "docs" / "REST_API_COVERAGE.json"
 CATALOG = ROOT / "src" / "rest_catalog.rs"
 OPS = ROOT / "src" / "semantic_rest_ops.rs"
+REST = ROOT / "src" / "rest.rs"
 
 def operation_ids_from_openapi(path: pathlib.Path) -> set[str]:
     text = path.read_text(encoding="utf-8")
@@ -34,6 +35,48 @@ def main() -> int:
     rust_caps = set(re.findall(r'capability:\s*"([^"]+)"', catalog))
     if rust_ids != set(all_ids) or rust_caps != set(all_caps):
         raise SystemExit("REST Rust catalog drifted from REST_API_COVERAGE.json")
+
+    expected_rows = {
+        (
+            item["operation_id"],
+            item["capability"],
+            item["method"],
+            item["path"],
+            item["scope"],
+            item["credential"],
+        )
+        for item in operations + extras
+    }
+    rust_rows = {
+        (operation_id, capability, method, path, scope, credential)
+        for operation_id, capability, method, path, scope, credential in re.findall(
+            r'operation_id:\s*"([^"]+)",\s*'
+            r'capability:\s*"([^"]+)",\s*'
+            r'method:\s*"([^"]+)",\s*'
+            r'path:\s*"([^"]+)",\s*'
+            r'scope:\s*"([^"]*)",\s*'
+            r'deprecated:\s*(?:true|false),\s*'
+            r'credential:\s*"([^"]+)"',
+            catalog,
+            flags=re.S,
+        )
+    }
+    if rust_rows != expected_rows:
+        raise SystemExit(
+            "REST metadata tuple drift: "
+            f"missing={sorted(expected_rows-rust_rows)} "
+            f"extra={sorted(rust_rows-expected_rows)}"
+        )
+
+    rest_text = REST.read_text(encoding="utf-8")
+    dispatched = set(re.findall(r'"(cloud\.[^"]+)"\s*=>', rest_text))
+    required_dispatch = set(all_caps)
+    if not required_dispatch.issubset(dispatched):
+        raise SystemExit(
+            "REST dispatcher coverage gap: "
+            f"missing={sorted(required_dispatch-dispatched)}"
+        )
+
     ops_text = OPS.read_text(encoding="utf-8")
     advertised = set(re.findall(r'"(cloud\.[^"]+)"', ops_text))
     expected = set(all_caps) | {"cloud.status"}
