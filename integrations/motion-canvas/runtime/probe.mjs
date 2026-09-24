@@ -10,7 +10,7 @@ for (const name of ['@motion-canvas/core', '@motion-canvas/2d', '@motion-canvas/
 }
 let browser;
 try {
-  browser = await chromium.launch({headless: true, timeout: 30000, chromiumSandbox: false, args: ['--single-process', '--no-zygote', '--disable-gpu']});
+  browser = await chromium.launch({headless: true, timeout: 30000, chromiumSandbox: false, args: ['--no-zygote', '--disable-gpu']});
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.setContent('<canvas width="32" height="32"></canvas>');

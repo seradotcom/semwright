@@ -23,7 +23,7 @@ Motion Canvas does not provide a documented stable standalone headless render CL
 
 The render helper builds a temporary project copy and serves the resulting files to a dedicated Playwright page through request interception at the synthetic `semwright.invalid` origin. It does not open a Vite HTTP listener. Every other browser request is aborted.
 
-On Linux, render execution fails closed unless `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1` was established by Driver Host. Chromium's nested sandbox is disabled only after the helper verifies the outer Bubblewrap + Landlock marker; `--single-process --no-zygote` avoids an inner renderer/zygote process tree while Driver Host remains the mandatory sandbox boundary. Driver Host network remains false.
+On Linux, render execution fails closed unless `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1` was established by Driver Host. Chromium's nested sandbox is disabled only after the helper verifies the outer Bubblewrap + Landlock marker. Renderer children use Chromium's normal process topology inside that boundary while `--no-zygote` avoids the zygote; Driver Host remains the mandatory sandbox boundary. `--single-process` is not used because the pinned headless shell aborts in that mode under CI confinement. Driver Host network remains false.
 
 ## Project transaction
 
