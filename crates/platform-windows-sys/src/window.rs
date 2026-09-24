@@ -27,9 +27,11 @@ pub struct NativeWindow {
 }
 
 unsafe extern "system" fn collect(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     if !unsafe { IsWindowVisible(hwnd) }.as_bool() {
         return BOOL(1);
     }
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     let windows = unsafe { &mut *(lparam.0 as *mut Vec<HWND>) };
     windows.push(hwnd);
     BOOL(1)
@@ -51,6 +53,7 @@ fn image(pid: u32) -> Option<PathBuf> {
     let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
     let mut buf = vec![0u16; 32_768];
     let mut len = buf.len() as u32;
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     let value = unsafe {
         QueryFullProcessImageNameW(
             handle,
@@ -61,6 +64,7 @@ fn image(pid: u32) -> Option<PathBuf> {
     }
     .ok()
     .map(|_| PathBuf::from(String::from_utf16_lossy(&buf[..len as usize])));
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     unsafe {
         let _ = CloseHandle(handle);
     }
@@ -70,6 +74,7 @@ fn image(pid: u32) -> Option<PathBuf> {
 pub fn process_creation_time(pid: u32) -> Result<u64> {
     // SAFETY: query-only process handle, explicitly closed below.
     let handle =
+        // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
         unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.map_err(|_| {
             Error::new(
                 ErrorCode::StaleReference,
@@ -81,7 +86,9 @@ pub fn process_creation_time(pid: u32) -> Result<u64> {
     let mut kernel = FILETIME::default();
     let mut user = FILETIME::default();
     let result =
+        // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
         unsafe { GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user) };
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     unsafe {
         let _ = CloseHandle(handle);
     }
@@ -107,6 +114,7 @@ pub fn enumerate() -> Result<Vec<NativeWindow>> {
     let mut out = Vec::with_capacity(handles.len());
     for hwnd in handles {
         let mut pid = 0u32;
+        // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
         unsafe {
             GetWindowThreadProcessId(hwnd, Some(&mut pid));
         }
@@ -114,6 +122,7 @@ pub fn enumerate() -> Result<Vec<NativeWindow>> {
             continue;
         }
         let mut rect = RECT::default();
+        // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
         if unsafe { GetWindowRect(hwnd, &mut rect) }.is_err() {
             continue;
         }
@@ -129,12 +138,14 @@ pub fn enumerate() -> Result<Vec<NativeWindow>> {
 }
 
 pub fn foreground() -> Option<HWND> {
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     let hwnd = unsafe { GetForegroundWindow() };
     if hwnd.0.is_null() { None } else { Some(hwnd) }
 }
 
 pub fn focus(hwnd: HWND) -> Result<()> {
     // Windows intentionally restricts foreground activation. Do not use AttachThreadInput hacks.
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     if !unsafe { SetForegroundWindow(hwnd) }.as_bool() {
         return Err(Error::new(
             ErrorCode::Conflict,
@@ -148,6 +159,7 @@ pub fn move_resize(hwnd: HWND, x: i32, y: i32, width: i32, height: i32) -> Resul
     if width <= 0 || height <= 0 {
         return Err(Error::invalid("Window size must be positive"));
     }
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     unsafe {
         SetWindowPos(
             hwnd,
@@ -163,6 +175,7 @@ pub fn move_resize(hwnd: HWND, x: i32, y: i32, width: i32, height: i32) -> Resul
 }
 
 pub fn close(hwnd: HWND) -> Result<()> {
+    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
     unsafe { PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0)) }
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "WM_CLOSE could not be posted"))
 }

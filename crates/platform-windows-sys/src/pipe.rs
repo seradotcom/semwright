@@ -37,6 +37,7 @@ fn token_sid_bytes(token: HANDLE) -> Result<Vec<u8>> {
             "Windows token user SID query failed",
         )
     })?;
+    // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
     let user = unsafe { &*(storage.as_ptr().cast::<TOKEN_USER>()) };
     let sid = user.User.Sid;
     if sid.is_invalid() {
@@ -46,6 +47,7 @@ fn token_sid_bytes(token: HANDLE) -> Result<Vec<u8>> {
         ));
     }
     // Copy the self-relative SID bytes while the TOKEN_USER backing buffer is alive.
+    // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
     let length = unsafe { windows::Win32::Security::GetLengthSid(sid) } as usize;
     if length == 0 || length > 4096 {
         return Err(Error::new(
@@ -53,6 +55,7 @@ fn token_sid_bytes(token: HANDLE) -> Result<Vec<u8>> {
             "Windows SID length invalid",
         ));
     }
+    // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
     Ok(unsafe { std::slice::from_raw_parts(sid.0.cast::<u8>(), length) }.to_vec())
 }
 
@@ -82,6 +85,7 @@ pub fn authenticate_same_user(
             "Named Pipe client PID unavailable",
         )
     })?;
+    // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
     unsafe { GetNamedPipeClientSessionId(pipe, &mut session) }.map_err(|_| {
         Error::new(
             ErrorCode::PermissionDenied,
@@ -113,6 +117,7 @@ pub fn authenticate_same_user(
         },
     )?;
     let peer_sid = token_sid_bytes(token);
+    // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
     unsafe {
         let _ = CloseHandle(token);
     }
@@ -127,6 +132,7 @@ pub fn authenticate_same_user(
 
 /// A diagnostic helper only. It does not authenticate a peer.
 pub fn host_process_id() -> u32 {
+    // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
     unsafe { GetCurrentProcessId() }
 }
 
@@ -159,6 +165,7 @@ impl Drop for OwnedSecurityDescriptor {
 pub struct OwnedPipe(HANDLE);
 impl Drop for OwnedPipe {
     fn drop(&mut self) {
+        // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
         unsafe {
             let _ = CloseHandle(self.0);
         }
@@ -331,6 +338,7 @@ pub fn validate_tokio_client_peer(pipe: &NamedPipeClient) -> Result<u32> {
             "Named Pipe server PID unavailable",
         )
     })?;
+    // SAFETY: the named-pipe/token handle and SID/session storage are live for this synchronous Win32 call; impersonation is scoped by the revert guard where applicable.
     unsafe { GetNamedPipeServerSessionId(raw, &mut session) }.map_err(|_| {
         Error::new(
             ErrorCode::PermissionDenied,

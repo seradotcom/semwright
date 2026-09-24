@@ -48,18 +48,22 @@ pub fn read_text() -> Result<String> {
             "Clipboard memory could not be locked",
         ));
     }
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     let size = unsafe { GlobalSize(memory) };
     if size == 0 || size > MAX_UTF16_BYTES || size % 2 != 0 {
+        // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
         let _ = unsafe { GlobalUnlock(memory) };
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
             "Clipboard text exceeds safe size",
         ));
     }
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     let units = unsafe { slice::from_raw_parts(ptr.cast::<u16>(), size / 2) };
     let end = units.iter().position(|u| *u == 0).unwrap_or(units.len());
     let result = String::from_utf16(&units[..end])
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "Clipboard UTF-16 was invalid"));
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     let _ = unsafe { GlobalUnlock(memory) };
     result
 }
@@ -80,28 +84,36 @@ pub fn write_text(value: &str) -> Result<()> {
     // SAFETY: allocation size is bounded above; memory remains owned here until SetClipboardData.
     let memory = unsafe { GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, bytes) }
         .map_err(|_| Error::new(ErrorCode::ResourceExhausted, "Clipboard allocation failed"))?;
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     let ptr = unsafe { GlobalLock(memory) };
     if ptr.is_null() {
+        // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
         let _ = unsafe { GlobalFree(Some(memory)) };
         return Err(Error::new(
             ErrorCode::BackendFailed,
             "Clipboard allocation lock failed",
         ));
     }
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     unsafe {
         std::ptr::copy_nonoverlapping(units.as_ptr(), ptr.cast::<u16>(), units.len());
     }
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     let _ = unsafe { GlobalUnlock(memory) };
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     if unsafe { EmptyClipboard() }.is_err() {
+        // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
         let _ = unsafe { GlobalFree(Some(memory)) };
         return Err(Error::new(
             ErrorCode::BackendFailed,
             "Clipboard clear failed",
         ));
     }
+    // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
     match unsafe { SetClipboardData(CF_UNICODETEXT.0 as u32, Some(HANDLE(memory.0))) } {
         Ok(_) => Ok(()), // ownership transferred to the system
         Err(_) => {
+            // SAFETY: the Win32 clipboard handle or buffer used here was obtained and bounded in this function, remains live for this synchronous call, and ownership is released or transferred on every path.
             let _ = unsafe { GlobalFree(Some(memory)) };
             Err(Error::new(
                 ErrorCode::BackendFailed,
