@@ -538,19 +538,8 @@ pub fn input_schema(name: &str) -> Value {
         "motion.keyframe.apply" => input_object(
             vec![
                 ("nodeId", string_schema(256)),
-                ("field", bounded_object(16)),
-                (
-                    "track",
-                    json!({
-                        "type":"object",
-                        "properties":{
-                            "baseValue":loose_value(),
-                            "keyframes":bounded_array(1024, bounded_object(16))
-                        },
-                        "required":["keyframes"],
-                        "additionalProperties":false
-                    }),
-                ),
+                ("field", crate::semantic_more_schemas::motion_field_schema()),
+                ("track", crate::semantic_more_schemas::motion_track_schema()),
             ],
             &["nodeId", "field", "track"],
         ),
@@ -558,7 +547,7 @@ pub fn input_schema(name: &str) -> Value {
         "motion.keyframe.remove" => input_object(
             vec![
                 ("nodeId", string_schema(256)),
-                ("field", bounded_object(16)),
+                ("field", crate::semantic_more_schemas::motion_field_schema()),
             ],
             &["nodeId", "field"],
         ),
@@ -752,16 +741,32 @@ pub fn output_schema(name: &str) -> Value {
             "required":["bounce"],
             "additionalProperties":false
         }),
-        "motion.style.apply" | "motion.keyframe.apply" => json!({
+        "motion.style.apply" => json!({
             "type":"object",
             "properties":{"applied":{"type":"boolean"}},
             "required":["applied"],
             "additionalProperties":false
         }),
-        "motion.style.remove" | "motion.keyframe.remove" => json!({
+        "motion.keyframe.apply" => json!({
+            "type":"object",
+            "properties":{
+                "applied":{"type":"boolean"},
+                "field":crate::semantic_more_schemas::motion_field_schema(),
+                "end":{"type":"number","minimum":0,"maximum":3600}
+            },
+            "required":["applied","field","end"],
+            "additionalProperties":false
+        }),
+        "motion.style.remove" => json!({
             "type":"object",
             "properties":{"removed":{"type":"boolean"}},
             "required":["removed"],
+            "additionalProperties":false
+        }),
+        "motion.keyframe.remove" => json!({
+            "type":"object",
+            "properties":{"removed":{"type":"boolean"},"field":crate::semantic_more_schemas::motion_field_schema()},
+            "required":["removed","field"],
             "additionalProperties":false
         }),
         "motion.timeline.set_duration" => json!({

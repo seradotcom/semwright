@@ -670,7 +670,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -838,7 +840,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -846,7 +849,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -903,7 +908,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -928,7 +935,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -1002,7 +1011,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -1681,7 +1692,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -1849,7 +1862,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -2207,7 +2221,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -2375,7 +2391,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "children": {
           "name": "children",
@@ -2479,7 +2496,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "strokes": {
           "name": "strokes",
@@ -2495,7 +2514,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -2569,7 +2590,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -2732,7 +2755,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -3327,7 +3352,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setGridStyleIdAsync": {
           "name": "setGridStyleIdAsync",
@@ -3408,7 +3435,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -3765,7 +3794,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -3933,7 +3964,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "children": {
           "name": "children",
@@ -4037,7 +4069,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "strokes": {
           "name": "strokes",
@@ -4053,7 +4087,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -4127,7 +4163,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -4290,7 +4328,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -4885,7 +4925,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setGridStyleIdAsync": {
           "name": "setGridStyleIdAsync",
@@ -5239,7 +5281,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -5407,7 +5451,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -5544,7 +5589,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -5895,7 +5942,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -6063,7 +6112,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -6071,7 +6121,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -6128,7 +6180,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -6153,7 +6207,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -6227,7 +6283,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -6834,7 +6892,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -7002,7 +7062,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -7336,7 +7397,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -7504,7 +7567,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "children": {
           "name": "children",
@@ -7608,7 +7672,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "strokes": {
           "name": "strokes",
@@ -7624,7 +7690,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -7698,7 +7766,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -7861,7 +7931,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -8456,7 +8528,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setGridStyleIdAsync": {
           "name": "setGridStyleIdAsync",
@@ -8537,7 +8611,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -8767,7 +8843,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -8935,7 +9013,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -8943,7 +9022,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -9056,7 +9137,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "opacity": {
           "name": "opacity",
@@ -9104,7 +9187,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -9613,7 +9698,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -9781,7 +9868,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -9789,7 +9877,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -9846,7 +9936,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -9871,7 +9963,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -9945,7 +10039,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -10281,7 +10377,9 @@
           "readonly": false,
           "optional": false,
           "type": "VectorNetwork",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "vector.network.set"
         },
         "setVectorNetworkAsync": {
           "name": "setVectorNetworkAsync",
@@ -10563,7 +10661,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -10731,7 +10831,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "children": {
           "name": "children",
@@ -10835,7 +10936,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "strokes": {
           "name": "strokes",
@@ -10851,7 +10954,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -10925,7 +11030,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -11088,7 +11195,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -11683,7 +11792,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setGridStyleIdAsync": {
           "name": "setGridStyleIdAsync",
@@ -11764,7 +11875,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -12106,7 +12219,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -12274,7 +12389,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -12608,7 +12724,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -12776,7 +12894,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -12784,7 +12903,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -12841,7 +12962,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -12866,7 +12989,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -12940,7 +13065,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -13497,7 +13624,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -13665,7 +13794,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -13999,7 +14129,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -14167,7 +14299,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -14519,7 +14652,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -14687,7 +14822,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -14695,7 +14831,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -14752,7 +14890,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -14777,7 +14917,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -14851,7 +14993,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -15458,7 +15602,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -15626,7 +15772,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -15634,7 +15781,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -15691,7 +15840,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -15716,7 +15867,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -15790,7 +15943,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -16350,7 +16505,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -16567,7 +16724,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -16735,7 +16894,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -16890,7 +17050,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -17243,7 +17405,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -17411,7 +17575,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -17532,7 +17697,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -17582,7 +17749,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -17911,7 +18080,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -18079,7 +18250,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "x": {
           "name": "x",
@@ -18553,7 +18725,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -18721,7 +18895,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "children": {
           "name": "children",
@@ -18825,7 +19000,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "strokes": {
           "name": "strokes",
@@ -18841,7 +19018,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -18915,7 +19094,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -19078,7 +19259,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -19673,7 +19856,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setGridStyleIdAsync": {
           "name": "setGridStyleIdAsync",
@@ -19953,7 +20138,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -20121,7 +20308,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -20527,7 +20715,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -20695,7 +20885,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -21101,7 +21292,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -21269,7 +21462,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "children": {
           "name": "children",
@@ -21373,7 +21567,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "strokes": {
           "name": "strokes",
@@ -21389,7 +21585,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -21463,7 +21661,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -21626,7 +21826,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -22221,7 +22423,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setGridStyleIdAsync": {
           "name": "setGridStyleIdAsync",
@@ -22302,7 +22506,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -22549,7 +22755,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -22717,7 +22925,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -22725,7 +22934,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -22782,7 +22993,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -22807,7 +23020,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -22881,7 +23096,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -23459,7 +23676,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -23627,7 +23846,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -23635,7 +23855,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -23692,7 +23914,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -23717,7 +23941,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -23791,7 +24017,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -24406,7 +24634,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -24574,7 +24804,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -24695,7 +24926,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -24982,7 +25215,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -25150,7 +25385,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -25271,7 +25507,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -25623,7 +25861,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -25791,7 +26031,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -25799,7 +26040,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -25856,7 +26099,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -25881,7 +26126,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -25955,7 +26202,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -27042,7 +27291,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setTextStyleIdAsync": {
           "name": "setTextStyleIdAsync",
@@ -27255,7 +27506,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -27423,7 +27676,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -27431,7 +27685,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -27488,7 +27744,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -27513,7 +27771,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -27587,7 +27847,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -28304,7 +28566,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setTextStyleIdAsync": {
           "name": "setTextStyleIdAsync",
@@ -28329,7 +28593,9 @@
           "readonly": true,
           "optional": false,
           "type": "VectorNetwork",
-          "status": "SUPPORTED_GENERIC_READ"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "vector.network.set"
         },
         "handleMirroring": {
           "name": "handleMirroring",
@@ -28549,7 +28815,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -28717,7 +28985,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -28725,7 +28994,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -28838,7 +29109,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SEMANTICALLY_SUPERSEDED_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "opacity": {
           "name": "opacity",
@@ -28886,7 +29159,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -29403,7 +29678,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -29571,7 +29848,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -29579,7 +29857,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -29636,7 +29916,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -29661,7 +29943,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -29735,7 +30019,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -30087,7 +30373,9 @@
           "readonly": false,
           "optional": false,
           "type": "VectorNetwork",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "vector.network.set"
         },
         "setVectorNetworkAsync": {
           "name": "setVectorNetworkAsync",
@@ -30367,7 +30655,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -30535,7 +30825,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "reactions": {
           "name": "reactions",
@@ -30543,7 +30834,9 @@
           "readonly": false,
           "optional": false,
           "type": "ReadonlyArray<Reaction>",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "prototype.reaction.list",
+          "write_capability": "prototype.reaction.set"
         },
         "setReactionsAsync": {
           "name": "setReactionsAsync",
@@ -30600,7 +30893,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setEffectStyleIdAsync": {
           "name": "setEffectStyleIdAsync",
@@ -30625,7 +30920,9 @@
           "readonly": false,
           "optional": false,
           "type": "string",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setStrokeStyleIdAsync": {
           "name": "setStrokeStyleIdAsync",
@@ -30699,7 +30996,9 @@
           "readonly": false,
           "optional": false,
           "type": "string | PluginAPI['mixed']",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "style.apply"
         },
         "setFillStyleIdAsync": {
           "name": "setFillStyleIdAsync",
@@ -31260,7 +31559,9 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.bindings.inspect",
+          "write_capability": "variable.mode.set_explicit"
         },
         "clearExplicitVariableModeForCollection": {
           "name": "clearExplicitVariableModeForCollection",
@@ -31428,7 +31729,8 @@
           "readonly": false,
           "optional": false,
           "type": "{\n    [collectionId: string]: string\n  }",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+          "read_capability": "node.bindings.inspect"
         },
         "exportSettings": {
           "name": "exportSettings",
@@ -31805,7 +32107,6 @@
       "authorName",
       "authorVisible",
       "autoRename",
-      "backgroundStyleId",
       "backgrounds",
       "blendMode",
       "booleanOperation",
@@ -31835,12 +32136,9 @@
       "descriptionMarkdown",
       "devStatus",
       "documentationLinks",
-      "effectStyleId",
       "effects",
       "expanded",
-      "explicitVariableModes",
       "exportSettings",
-      "fillStyleId",
       "fills",
       "fontName",
       "fontSize",
@@ -31856,7 +32154,6 @@
       "gridRowGap",
       "gridRowSizes",
       "gridRowSpan",
-      "gridStyleId",
       "guides",
       "handleMirroring",
       "hangingList",
@@ -31903,9 +32200,7 @@
       "pointCount",
       "primaryAxisAlignItems",
       "primaryAxisSizingMode",
-      "reactions",
       "relativeTransform",
-      "resolvedVariableModes",
       "rotation",
       "scaleFactor",
       "sectionContentsHidden",
@@ -31917,7 +32212,6 @@
       "strokeLeftWeight",
       "strokeMiterLimit",
       "strokeRightWeight",
-      "strokeStyleId",
       "strokeTopWeight",
       "strokeWeight",
       "strokes",
@@ -31933,20 +32227,700 @@
       "textDecorationStyle",
       "textDecorationThickness",
       "textPathStartData",
-      "textStyleId",
       "textTruncation",
       "textWrapStyle",
       "topLeftRadius",
       "topRightRadius",
       "transformModifiers",
       "variableWidthStrokeProperties",
-      "vectorNetwork",
       "vectorPaths",
       "verticalPadding",
       "visible",
       "x",
       "y"
-    ]
+    ],
+    "write_types": {
+      "annotations": {
+        "type": "ReadonlyArray<Annotation>",
+        "kind": "array",
+        "nullable": false
+      },
+      "arcData": {
+        "type": "ArcData",
+        "kind": "object",
+        "nullable": false
+      },
+      "authorName": {
+        "type": "string",
+        "kind": "string",
+        "nullable": false
+      },
+      "authorVisible": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "autoRename": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "backgrounds": {
+        "type": "ReadonlyArray<Paint>",
+        "kind": "array",
+        "nullable": false
+      },
+      "blendMode": {
+        "type": "BlendMode",
+        "kind": "string",
+        "nullable": false
+      },
+      "booleanOperation": {
+        "type": "'UNION' | 'INTERSECT' | 'SUBTRACT' | 'EXCLUDE'",
+        "kind": "string",
+        "nullable": false
+      },
+      "bottomLeftRadius": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "bottomRightRadius": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "characters": {
+        "type": "string",
+        "kind": "string",
+        "nullable": false
+      },
+      "clipsContent": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "code": {
+        "type": "string",
+        "kind": "string",
+        "nullable": false
+      },
+      "codeLanguage": {
+        "type": "| 'TYPESCRIPT' | 'CPP' | 'RUBY' | 'CSS' | 'JAVASCRIPT' | 'HTML' | 'JSON' | 'GRAPHQL' | 'PYTHON' | 'GO' | 'SQL' | 'SWIFT' | 'KOTLIN' | 'RUST' | 'BASH' | 'PLAINTEXT' | 'DART'",
+        "kind": "string",
+        "nullable": false
+      },
+      "complexStrokeProperties": {
+        "type": "ComplexStrokeProperties",
+        "kind": "object",
+        "nullable": false
+      },
+      "componentPropertyReferences": {
+        "type": "| { [nodeProperty in 'visible' | 'characters' | 'mainComponent']?: string } | null",
+        "kind": "object",
+        "nullable": true
+      },
+      "connectorEnd": {
+        "type": "ConnectorEndpoint",
+        "kind": "object",
+        "nullable": false
+      },
+      "connectorEndStrokeCap": {
+        "type": "ConnectorStrokeCap",
+        "kind": "string",
+        "nullable": false
+      },
+      "connectorLineType": {
+        "type": "'ELBOWED' | 'STRAIGHT' | 'CURVED'",
+        "kind": "string",
+        "nullable": false
+      },
+      "connectorStart": {
+        "type": "ConnectorEndpoint",
+        "kind": "object",
+        "nullable": false
+      },
+      "connectorStartStrokeCap": {
+        "type": "ConnectorStrokeCap",
+        "kind": "string",
+        "nullable": false
+      },
+      "constrainProportions": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "constraints": {
+        "type": "Constraints",
+        "kind": "object",
+        "nullable": false
+      },
+      "cornerRadius": {
+        "type": "number | PluginAPI['mixed']",
+        "kind": "number",
+        "nullable": false
+      },
+      "cornerSmoothing": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "counterAxisAlignContent": {
+        "type": "'AUTO' | 'SPACE_BETWEEN'",
+        "kind": "string",
+        "nullable": false
+      },
+      "counterAxisAlignItems": {
+        "type": "'MIN' | 'MAX' | 'CENTER' | 'BASELINE'",
+        "kind": "string",
+        "nullable": false
+      },
+      "counterAxisSizingMode": {
+        "type": "'FIXED' | 'AUTO'",
+        "kind": "string",
+        "nullable": false
+      },
+      "counterAxisSpacing": {
+        "type": "number | null",
+        "kind": "number",
+        "nullable": true
+      },
+      "dashPattern": {
+        "type": "ReadonlyArray<number>",
+        "kind": "array",
+        "nullable": false
+      },
+      "description": {
+        "type": "string",
+        "kind": "string",
+        "nullable": false
+      },
+      "descriptionMarkdown": {
+        "type": "string",
+        "kind": "string",
+        "nullable": false
+      },
+      "devStatus": {
+        "type": "DevStatus",
+        "kind": "object",
+        "nullable": true
+      },
+      "documentationLinks": {
+        "type": "ReadonlyArray<DocumentationLink>",
+        "kind": "array",
+        "nullable": false
+      },
+      "effects": {
+        "type": "ReadonlyArray<Effect>",
+        "kind": "array",
+        "nullable": false
+      },
+      "expanded": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "exportSettings": {
+        "type": "ReadonlyArray<ExportSettings>",
+        "kind": "array",
+        "nullable": false
+      },
+      "fills": {
+        "type": "ReadonlyArray<Paint> | PluginAPI['mixed']",
+        "kind": "array",
+        "nullable": false
+      },
+      "fontName": {
+        "type": "FontName | PluginAPI['mixed']",
+        "kind": "object",
+        "nullable": false
+      },
+      "fontSize": {
+        "type": "number | PluginAPI['mixed']",
+        "kind": "number",
+        "nullable": false
+      },
+      "gridAutoTracks": {
+        "type": "'NONE' | 'ROWS'",
+        "kind": "string",
+        "nullable": false
+      },
+      "gridChildHorizontalAlign": {
+        "type": "'MIN' | 'CENTER' | 'MAX' | 'AUTO'",
+        "kind": "string",
+        "nullable": false
+      },
+      "gridChildVerticalAlign": {
+        "type": "'MIN' | 'CENTER' | 'MAX' | 'AUTO'",
+        "kind": "string",
+        "nullable": false
+      },
+      "gridColumnCount": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "gridColumnGap": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "gridColumnSizes": {
+        "type": "Array<GridTrackSize>",
+        "kind": "array",
+        "nullable": false
+      },
+      "gridColumnSpan": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "gridItemsPositioning": {
+        "type": "'MANUAL' | 'ROW_AUTO_FLOW'",
+        "kind": "string",
+        "nullable": false
+      },
+      "gridRowCount": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "gridRowGap": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "gridRowSizes": {
+        "type": "Array<GridTrackSize>",
+        "kind": "array",
+        "nullable": false
+      },
+      "gridRowSpan": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "guides": {
+        "type": "ReadonlyArray<Guide>",
+        "kind": "array",
+        "nullable": false
+      },
+      "handleMirroring": {
+        "type": "HandleMirroring | PluginAPI['mixed']",
+        "kind": "string",
+        "nullable": false
+      },
+      "hangingList": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "hangingPunctuation": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "horizontalPadding": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "hyperlink": {
+        "type": "HyperlinkTarget | null | PluginAPI['mixed']",
+        "kind": "object",
+        "nullable": true
+      },
+      "inferredAutoLayout": {
+        "type": "InferredAutoLayoutResult | null",
+        "kind": "object",
+        "nullable": true
+      },
+      "innerRadius": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "isExposedInstance": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "isMask": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "isSkippedSlide": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "isWideWidth": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "itemReverseZIndex": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "itemSpacing": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "layoutAlign": {
+        "type": "'MIN' | 'CENTER' | 'MAX' | 'STRETCH' | 'INHERIT'",
+        "kind": "string",
+        "nullable": false
+      },
+      "layoutGrids": {
+        "type": "ReadonlyArray<LayoutGrid>",
+        "kind": "array",
+        "nullable": false
+      },
+      "layoutGrow": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "layoutMode": {
+        "type": "'NONE' | 'HORIZONTAL' | 'VERTICAL' | 'GRID'",
+        "kind": "string",
+        "nullable": false
+      },
+      "layoutPositioning": {
+        "type": "'AUTO' | 'ABSOLUTE'",
+        "kind": "string",
+        "nullable": false
+      },
+      "layoutSizingHorizontal": {
+        "type": "'FIXED' | 'HUG' | 'FILL'",
+        "kind": "string",
+        "nullable": false
+      },
+      "layoutSizingVertical": {
+        "type": "'FIXED' | 'HUG' | 'FILL'",
+        "kind": "string",
+        "nullable": false
+      },
+      "layoutWrap": {
+        "type": "'NO_WRAP' | 'WRAP'",
+        "kind": "string",
+        "nullable": false
+      },
+      "leadingTrim": {
+        "type": "LeadingTrim | PluginAPI['mixed']",
+        "kind": "string",
+        "nullable": false
+      },
+      "letterSpacing": {
+        "type": "LetterSpacing | PluginAPI['mixed']",
+        "kind": "object",
+        "nullable": false
+      },
+      "lineHeight": {
+        "type": "LineHeight | PluginAPI['mixed']",
+        "kind": "object",
+        "nullable": false
+      },
+      "listSpacing": {
+        "type": "number | PluginAPI['mixed']",
+        "kind": "number",
+        "nullable": false
+      },
+      "locked": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "maskType": {
+        "type": "MaskType",
+        "kind": "string",
+        "nullable": false
+      },
+      "maxHeight": {
+        "type": "number | null",
+        "kind": "number",
+        "nullable": true
+      },
+      "maxLines": {
+        "type": "number | null",
+        "kind": "number",
+        "nullable": true
+      },
+      "maxWidth": {
+        "type": "number | null",
+        "kind": "number",
+        "nullable": true
+      },
+      "minHeight": {
+        "type": "number | null",
+        "kind": "number",
+        "nullable": true
+      },
+      "minWidth": {
+        "type": "number | null",
+        "kind": "number",
+        "nullable": true
+      },
+      "name": {
+        "type": "string",
+        "kind": "string",
+        "nullable": false
+      },
+      "numberOfFixedChildren": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "opacity": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "overflowDirection": {
+        "type": "OverflowDirection",
+        "kind": "string",
+        "nullable": false
+      },
+      "paddingBottom": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "paddingLeft": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "paddingRight": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "paddingTop": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "paragraphIndent": {
+        "type": "number | PluginAPI['mixed']",
+        "kind": "number",
+        "nullable": false
+      },
+      "paragraphSpacing": {
+        "type": "number | PluginAPI['mixed']",
+        "kind": "number",
+        "nullable": false
+      },
+      "pointCount": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "primaryAxisAlignItems": {
+        "type": "'MIN' | 'MAX' | 'CENTER' | 'SPACE_BETWEEN' | 'SPACE_EVENLY' | 'SPACE_AROUND'",
+        "kind": "string",
+        "nullable": false
+      },
+      "primaryAxisSizingMode": {
+        "type": "'FIXED' | 'AUTO'",
+        "kind": "string",
+        "nullable": false
+      },
+      "relativeTransform": {
+        "type": "Transform",
+        "kind": "array",
+        "nullable": false
+      },
+      "rotation": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "scaleFactor": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "sectionContentsHidden": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "shapeType": {
+        "type": "| 'SQUARE' | 'ELLIPSE' | 'ROUNDED_RECTANGLE' | 'DIAMOND' | 'TRIANGLE_UP' | 'TRIANGLE_DOWN' | 'PARALLELOGRAM_RIGHT' | 'PARALLELOGRAM_LEFT' | 'ENG_DATABASE' | 'ENG_QUEUE' | 'ENG_FILE' | 'ENG_FOLDER' | 'TRAPEZOID' | 'PREDEFINED_PROCESS' | 'SHIELD' | 'DOCUMENT_SINGLE' | 'DOCUMENT_MULTIPLE' | 'MANUAL_INPUT' | 'HEXAGON' | 'CHEVRON' | 'PENTAGON' | 'OCTAGON' | 'STAR' | 'PLUS' | 'ARROW_LEFT' | 'ARROW_RIGHT' | 'SUMMING_JUNCTION' | 'OR' | 'SPEECH_BUBBLE' | 'INTERNAL_STORAGE'",
+        "kind": "string",
+        "nullable": false
+      },
+      "strokeAlign": {
+        "type": "'CENTER' | 'INSIDE' | 'OUTSIDE'",
+        "kind": "string",
+        "nullable": false
+      },
+      "strokeBottomWeight": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "strokeCap": {
+        "type": "StrokeCap | PluginAPI['mixed']",
+        "kind": "string",
+        "nullable": false
+      },
+      "strokeJoin": {
+        "type": "StrokeJoin | PluginAPI['mixed']",
+        "kind": "string",
+        "nullable": false
+      },
+      "strokeLeftWeight": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "strokeMiterLimit": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "strokeRightWeight": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "strokes": {
+        "type": "ReadonlyArray<Paint>",
+        "kind": "array",
+        "nullable": false
+      },
+      "strokesIncludedInLayout": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "strokeTopWeight": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "strokeWeight": {
+        "type": "number | PluginAPI['mixed']",
+        "kind": "number",
+        "nullable": false
+      },
+      "textAlignHorizontal": {
+        "type": "'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED'",
+        "kind": "string",
+        "nullable": false
+      },
+      "textAlignVertical": {
+        "type": "'TOP' | 'CENTER' | 'BOTTOM'",
+        "kind": "string",
+        "nullable": false
+      },
+      "textAutoResize": {
+        "type": "'NONE' | 'WIDTH_AND_HEIGHT' | 'HEIGHT' | 'TRUNCATE'",
+        "kind": "string",
+        "nullable": false
+      },
+      "textCase": {
+        "type": "TextCase | PluginAPI['mixed']",
+        "kind": "string",
+        "nullable": false
+      },
+      "textDecoration": {
+        "type": "TextDecoration | PluginAPI['mixed']",
+        "kind": "string",
+        "nullable": false
+      },
+      "textDecorationColor": {
+        "type": "TextDecorationColor | PluginAPI['mixed'] | null",
+        "kind": "object",
+        "nullable": true
+      },
+      "textDecorationOffset": {
+        "type": "TextDecorationOffset | PluginAPI['mixed'] | null",
+        "kind": "object",
+        "nullable": true
+      },
+      "textDecorationSkipInk": {
+        "type": "boolean | PluginAPI['mixed'] | null",
+        "kind": "boolean",
+        "nullable": true
+      },
+      "textDecorationStyle": {
+        "type": "TextDecorationStyle | PluginAPI['mixed'] | null",
+        "kind": "string",
+        "nullable": true
+      },
+      "textDecorationThickness": {
+        "type": "TextDecorationThickness | PluginAPI['mixed'] | null",
+        "kind": "object",
+        "nullable": true
+      },
+      "textPathStartData": {
+        "type": "TextPathStartData",
+        "kind": "object",
+        "nullable": false
+      },
+      "textTruncation": {
+        "type": "'DISABLED' | 'ENDING'",
+        "kind": "string",
+        "nullable": false
+      },
+      "textWrapStyle": {
+        "type": "TextWrapStyle | PluginAPI['mixed']",
+        "kind": "string",
+        "nullable": false
+      },
+      "topLeftRadius": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "topRightRadius": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "transformModifiers": {
+        "type": "TransformModifier[]",
+        "kind": "array",
+        "nullable": false
+      },
+      "variableWidthStrokeProperties": {
+        "type": "VariableWidthStrokeProperties | null",
+        "kind": "object",
+        "nullable": true
+      },
+      "vectorPaths": {
+        "type": "VectorPaths",
+        "kind": "array",
+        "nullable": false
+      },
+      "verticalPadding": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "visible": {
+        "type": "boolean",
+        "kind": "boolean",
+        "nullable": false
+      },
+      "x": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      },
+      "y": {
+        "type": "number",
+        "kind": "number",
+        "nullable": false
+      }
+    }
   },
   "auxiliary_property_surface": {
     "STYLE": {
