@@ -24,6 +24,10 @@ A future platform/tool dependency primitive could make browser runtime/profile r
 
 Motion Canvas + Vite + Firefox needs materially more address space/process budget than small stdio drivers. Protocol v1 permits up to the current 4 GiB ceiling; CI records Node compatibility with that ceiling. The branch does not raise generic limits without evidence.
 
+## 5. Windows platform-service composition
+
+The frozen baseline has no Windows implementation of `semwright-platform-services`, while Driver Protocol depends on that crate. A Windows compile of the complete protocol adapter therefore fails before Motion Canvas-specific code. This branch keeps the managed model OS-neutral and verifies the complete adapter on macOS, but does not redesign generic platform services or claim Windows support.
+
 ## Not a gap: loopback
 
 The render harness intentionally avoids a Vite HTTP listener. Static built files are delivered through Playwright request interception, so no loopback-network exception or full network grant is required.

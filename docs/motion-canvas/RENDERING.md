@@ -12,7 +12,7 @@ The Vite plugin is configured with the documented project import path `./src/pro
 
 1. Rust validates `semwright-motion.json` and a bounded RenderProfile.
 2. Deterministic generated source is materialized in a content-addressed project tree.
-3. Driver Host supplies an owner-approved read-only runtime mount.
+3. Driver Host supplies an owner-approved read-only runtime mount plus a separate read-only `fontconfig` system-config grant mapped only to `/etc/fonts`.
 4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Firefox executable.
 5. A render job starts the pinned Node helper only inside the Driver Host sandbox. Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` so Vite/Undici remain compatible with the existing 4 GiB Driver Host address-space ceiling instead of raising that generic limit.
 6. The parent pins `TMPDIR`, `TMP`, `TEMP` and XDG state to the job-specific writable output directory before the helper starts. The helper copies the generated project into that private area and performs the Vite build there.

@@ -15,7 +15,7 @@
 
 Linux is the live rendering/conformance target. The production path uses the repository Driver Host Bubblewrap + Landlock sandbox and the SHA-256-pinned Firefox build installed by Playwright 1.63.0 and supplied through the owner-approved runtime mount. On Ubuntu 24.04, Bubblewrap also needs an AppArmor user-namespace profile; CI enables the distro `bwrap-userns-restrict` profile rather than switching off the system-wide user-namespace restriction.
 
-The Rust semantic/compiler logic is designed to remain portable and does not introduce an ELF assumption itself; the currently certified live Driver Host sandbox path is Linux. Dedicated branch CI compiles the domain and Driver Protocol adapter on macOS and Windows, but this branch does not claim a live Motion Canvas render certification on either platform.
+The Rust semantic/compiler logic is designed to remain portable and does not introduce an ELF assumption itself; the currently certified live Driver Host sandbox path is Linux. Dedicated branch CI compiles the domain and Driver Protocol adapter on macOS, but this branch does not claim a live Motion Canvas render certification on either platform.
 
 Windows host work is outside this branch's frozen baseline and is not a launch claim. Do not infer Windows live-render support from Motion Canvas/Node cross-platform availability.
 

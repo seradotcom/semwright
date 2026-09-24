@@ -17,10 +17,11 @@ Unit/property/security tests are small enough for CI and may be run locally when
 
 ## Pull-request workflow
 
-`.github/workflows/motion-canvas.yml` runs three jobs:
+`.github/workflows/motion-canvas.yml` runs four verification layers:
 
-- **domain**: complete driver compile, unit/property/security tests, Clippy, rustfmt and whitespace.
-- **real-render-and-host**: exact Node/Motion Canvas install on an ephemeral runner, generated-project typecheck/Vite build, SHA-pinned runtime manifest, real Driver Host conformance, opaque render, transparent render/pixel evidence and cancellation.
+- **domain**: complete driver compile, unit/property/security tests, launch-source/audio provenance verification, Clippy, rustfmt and whitespace.
+- **portable-compile**: locked Rust compile of the domain and Driver Protocol adapter on the macOS runner.
+- **real-render-and-host**: exact Node/Motion Canvas install on an ephemeral Linux runner, runtime contract tests, generated-project typecheck/Vite build, SHA-pinned runtime manifest, real Driver Host conformance, opaque render, transparent render/pixel evidence and cancellation.
 - **fuzz**: bounded smoke for semantic parser, refs, animation validation, path validation, SVG boundary and codegen escaping.
 
 The render test is accepted only through the real Driver Host with `network=false`; direct unsandboxed helper rendering is intentionally not an acceptance path.

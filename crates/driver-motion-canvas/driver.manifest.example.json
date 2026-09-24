@@ -18,7 +18,9 @@
     {"root": "output", "read_only": false},
     {"root": "runtime", "read_only": true}
   ],
-  "system_config": [],
+  "system_config": [
+    {"root": "fontconfig", "destination": "/etc/fonts"}
+  ],
   "network": false,
   "resources": {
     "open_files": 256,

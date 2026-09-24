@@ -2,7 +2,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, SystemConfigMount,
+    Transport,
 };
 use semwright_policy::FilesystemGrant;
 use serde_json::{Value, json};
@@ -85,7 +86,14 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
         },
         transport: Transport::StdioV1,
         mounts,
-        system_config: vec![],
+        system_config: if with_runtime {
+            vec![SystemConfigMount {
+                root: "fontconfig".into(),
+                destination: "/etc/fonts".into(),
+            }]
+        } else {
+            vec![]
+        },
         network: false,
         resources: DriverResources {
             open_files: 512,
@@ -156,6 +164,7 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
         grant("project", h.project.path(), true),
         grant("output", h.output.path(), true),
         grant("runtime", &runtime, false),
+        grant("fontconfig", Path::new("/etc/fonts"), false),
     ];
     let provider = DriverProvider::connect(
         manifest(h.executable.clone(), true),

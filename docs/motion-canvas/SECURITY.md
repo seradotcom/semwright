@@ -10,7 +10,7 @@ The Driver Host is the execution boundary. Production rendering requires Bubblew
 
 Ubuntu 24.04 additionally restricts unprivileged user namespaces through AppArmor. CI loads the distro `bwrap-userns-restrict` profile specifically for `/usr/bin/bwrap`; it does not disable `kernel.apparmor_restrict_unprivileged_userns` system-wide. This lets Bubblewrap create the isolated namespaces it needs while preserving Ubuntu's global user-namespace mitigation for unrelated processes.
 
-The Motion runtime is an explicit read-only owner grant. Node, renderer helper and Firefox are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
+The Motion runtime is an explicit read-only owner grant. Fontconfig is a separate read-only grant mapped only to `/etc/fonts`, because Driver Host otherwise constructs a minimal `/etc`. Node, renderer helper and Firefox are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
 
 ## Files and assets
 
