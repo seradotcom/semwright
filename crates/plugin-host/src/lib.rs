@@ -1,9 +1,13 @@
 //! Sandboxed, digest-pinned, out-of-process plugin host. No unsandboxed fallback.
 #[cfg(feature = "test-tools")]
 pub mod adversarial_fixture;
-use semwright_plugin_sdk::{Manifest, PLUGIN_PROTOCOL_VERSION, Request, Response, commands_digest};
+use semwright_plugin_sdk::Manifest;
+#[cfg(unix)]
+use semwright_plugin_sdk::{PLUGIN_PROTOCOL_VERSION, Request, Response, commands_digest};
 use semwright_policy::FilesystemGrant;
-use semwright_protocol::{private_directory, read_frame, write_frame};
+use semwright_protocol::private_directory;
+#[cfg(unix)]
+use semwright_protocol::{read_frame, write_frame};
 use semwright_types::*;
 use serde_json::{Value, json};
 #[cfg(all(test, unix))]
@@ -38,6 +42,7 @@ impl Host {
         Ok(Self {
             manifests: RwLock::new(BTreeMap::new()),
             roots,
+            #[cfg(unix)]
             state,
             helper,
             allow_network,
@@ -288,7 +293,9 @@ impl Host {
         }
     }
 }
+#[cfg(unix)]
 struct StagedFile(PathBuf);
+#[cfg(unix)]
 impl Drop for StagedFile {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.0);

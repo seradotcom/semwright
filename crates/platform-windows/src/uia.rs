@@ -414,7 +414,7 @@ impl UiaActor {
     }
 
     fn request(&self, make: impl FnOnce(mpsc::Sender<Result<Value>>) -> Call) -> Result<Value> {
-        let (tx, rx) = mpsc::sync_channel(1);
+        let (tx, rx) = mpsc::channel();
         self.tx
             .send(make(tx))
             .map_err(|_| Error::unavailable("UIA actor is unavailable"))?;

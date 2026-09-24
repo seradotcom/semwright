@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
-use semwright_driver_sdk::{
-    DriverInterfaces, Manifest, Request, Response, capabilities_digest, descriptor_digest,
-};
+#[cfg(unix)]
+use semwright_driver_sdk::DriverInterfaces;
+use semwright_driver_sdk::{Manifest, Request, Response, capabilities_digest, descriptor_digest};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::{
@@ -40,6 +40,7 @@ impl Drop for StagedFile {
     }
 }
 
+#[cfg(unix)]
 fn verify_owned_elf(path: &Path, digest: &str) -> Result<Vec<u8>> {
     semwright_platform_services::verify_executable(path, digest)
 }
@@ -123,6 +124,7 @@ struct V2Io {
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
 }
 
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 enum ProtocolIo {
     V1(Mutex<Io>),
     V2(V2Io),
@@ -167,6 +169,7 @@ impl V2Io {
     }
 }
 
+#[cfg(unix)]
 fn provider_interfaces(interfaces: DriverInterfaces) -> ProviderInterfaces {
     ProviderInterfaces {
         dynamic_capabilities: interfaces.dynamic_capabilities,
@@ -178,6 +181,7 @@ fn provider_interfaces(interfaces: DriverInterfaces) -> ProviderInterfaces {
     }
 }
 
+#[cfg(unix)]
 fn response_id(response: &Response) -> Option<&str> {
     match response {
         Response::Interfaces { id, .. }
@@ -194,6 +198,7 @@ fn response_id(response: &Response) -> Option<&str> {
     }
 }
 
+#[cfg(unix)]
 fn spawn_v2_reader(
     mut output: ChildStdout,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
@@ -281,6 +286,7 @@ async fn request<T: Serialize>(io: &mut Io, request: &T, timeout: Duration) -> R
     .map_err(|_| Error::new(ErrorCode::Timeout, "Driver protocol request timed out"))?
 }
 
+#[cfg(unix)]
 fn sandbox_command(
     manifest: &Manifest,
     staged: &Path,
