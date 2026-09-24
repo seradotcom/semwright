@@ -237,10 +237,16 @@ jobs:
           done
           if test -f /etc/ld.so.cache; then probe+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache); fi
           probe+=(--ro-bind "$PROBE_DIR/driver" /plugin/bin --ro-bind "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime" /workspace/runtime --bind "$PROBE_DIR/trace" /workspace/trace --setenv PATH /usr/bin:/bin --setenv HOME /home --setenv LANG C.UTF-8 --chdir /tmp)
-          for mode in apparmor_only apparmor_landlock; do
+          for mode in apparmor_only apparmor_as apparmor_limits apparmor_landlock; do
             if test "$mode" = apparmor_only; then
               source=/usr/bin/setpriv
               args=(--no-new-privs /plugin/bin)
+            elif test "$mode" = apparmor_as; then
+              source=/usr/bin/setpriv
+              args=(--no-new-privs /usr/bin/prlimit --as=17179869184:17179869184 -- /plugin/bin)
+            elif test "$mode" = apparmor_limits; then
+              source=/usr/bin/setpriv
+              args=(--no-new-privs /usr/bin/prlimit --nofile=128:128 --nproc=64:64 --cpu=40:40 --as=17179869184:17179869184 --fsize=16777216:16777216 --core=0:0 -- /plugin/bin)
             else
               source="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
               args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 -- /plugin/bin)
@@ -265,13 +271,13 @@ jobs:
           grep -q 'Permission denied' verification/motion-canvas-host/other-device-write.log
           trace_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --write-root /workspace/trace -- /plugin/bin)
           set +e
-          printf 'exec /usr/bin/strace -ff -s 160 -o /workspace/trace/chrome -e trace=%%file,%%process,%%signal "%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${trace_args[@]}" > verification/motion-canvas-host/landlock-strace.log 2>&1
+          printf 'exec /usr/bin/strace -ff -s 160 -o /workspace/trace/chrome -e trace=%%file,%%process,%%signal,%%memory,write "%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${trace_args[@]}" > verification/motion-canvas-host/landlock-strace.log 2>&1
           trace_rc=$?
           set -e
           echo "Landlock strace exit=$trace_rc"
           tail -30 verification/motion-canvas-host/landlock-strace.log
           cp -a "$PROBE_DIR/trace" verification/motion-canvas-host/trace
-          grep -nE 'EACCES|EPERM|SIGTRAP' "$PROBE_DIR"/trace/* | tail -100 || true
+          grep -nE 'EACCES|EPERM|ENOMEM|SIGTRAP|write\(2,' "$PROBE_DIR"/trace/* | tail -100 || true
           cargo test --locked -p semwright-driver-motion-canvas motion_driver_runs_through_real_driver_host_without_network -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/conformance.log
           cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
       - name: Capture sandbox denial diagnostics
