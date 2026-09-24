@@ -70,10 +70,10 @@ async function main() {
   const project = path.resolve(a.project); const output = path.resolve(a.output);
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-motion-render-'));
   const dist = path.join(work, '.semwright-render-dist');
-  let browser; let page; let cancelling = false;
+  let context; let page; let cancelling = false;
   const diagnostics = [];
   const note = (kind, message) => { if (diagnostics.length < 32) diagnostics.push({kind,message:String(message).slice(0,512)}); };
-  const cleanup = async () => { try { await browser?.close(); } catch {} await fs.rm(work, {recursive:true,force:true}).catch(()=>{}); };
+  const cleanup = async () => { try { await context?.close(); } catch {} await fs.rm(work, {recursive:true,force:true}).catch(()=>{}); };
   const cancel = async () => { if (cancelling) return; cancelling = true; try { await page?.evaluate(() => window.__SEMWRIGHT_RENDER__?.abort()); } catch {} await cleanup(); process.exitCode = 130; };
   process.once('SIGTERM', cancel); process.once('SIGINT', cancel);
   try {
@@ -87,14 +87,17 @@ async function main() {
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
-    browser = await firefox.launch({
+    const profile = path.join(work, '.semwright-firefox-profile');
+    context = await firefox.launchPersistentContext(profile, {
       headless:true,
       executablePath:a.browser,
+      viewport:{width:config.width,height:config.height},
+      serviceWorkers:'block',
       firefoxUserPrefs:{'dom.ipc.forkserver.enable':false},
       env:{...process.env,MOZ_ASSUME_USER_NS:'0',MOZ_DISABLE_CONTENT_SANDBOX:'1'},
     });
-    const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});
-    page = await context.newPage();
+    page = context.pages()[0];
+    if (!page) fail('Firefox persistent context exposed no startup page');
     page.on('pageerror', error => note('pageerror', error));
     page.on('console', message => { if (['error','warning'].includes(message.type())) note(`console:${message.type()}`, message.text()); });
     const written = new Set();
