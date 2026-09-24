@@ -329,12 +329,23 @@ async fn godot_driver_runs_through_real_driver_host() {
     assert!(provider_interfaces.health);
 
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert_eq!(capabilities.len(), 53);
+    // This host fixture deliberately omits runner configuration, so the six
+    // digest-pinned headless/runtime capabilities must not be advertised.
+    assert_eq!(capabilities.len(), 47);
     assert!(
         capabilities
             .iter()
             .all(|capability| capability.descriptor.name.starts_with("driver.godot."))
     );
+    assert!(capabilities.iter().all(|capability| !matches!(
+        capability.descriptor.name.as_str(),
+        "driver.godot.project.validate"
+            | "driver.godot.script.validate"
+            | "driver.godot.project.run_test"
+            | "driver.godot.export.pack"
+            | "driver.godot.export.build"
+            | "driver.godot.movie.capture"
+    )));
 
     let fake = tokio::spawn(fake_editor(
         fixture.port,
