@@ -20,9 +20,13 @@ The renderer needs a real browser process plus writable temporary/profile state 
 
 The current driver package model still does not express the complete auxiliary Node/browser bundle or profile storage as a first-class distribution primitive. A future generic tool-dependency package could remove the owner-prepared runtime mount without broadening filesystem access.
 
+## Browser-version compatibility evidence
+
+Playwright 1.63.0 / Firefox 155.0 repeatedly failed inside the otherwise-conformant Driver Host after Juggler startup with a tab-subprocess `SIGSEGV`. Supplying a private `/dev/shm` did not remove the crash and AppArmor logs showed no relevant denial. The runtime therefore pins Playwright 1.61.1 / Firefox 151.0, the last-good pair documented by a current upstream Firefox SIGSEGV regression report, while preserving the same digest pinning, filesystem, network and process policy. This is an upstream compatibility pin, not a new Driver SDK authority gap.
+
 ## Resolved experiment: resource ceilings
 
-Earlier Chromium experiments drove temporary 16 GiB virtual-address-space and 256-task requests, but neither changed the reproducible Chrome-for-Testing `SIGTRAP` startup failure. The final Firefox path returned to the existing 4 GiB SDK hard ceiling and 128 tasks, which had already been sufficient to start Firefox inside Driver Host. No generic resource-limit expansion remains necessary for Motion Canvas.
+Earlier Chromium experiments drove temporary larger resource requests without changing the reproducible Chrome-for-Testing `SIGTRAP` startup failure. The Firefox compatibility-pin experiment returns to the existing 4 GiB SDK hard ceiling and 128-task request. Because Firefox 155 also has an upstream content-process SIGSEGV regression, the earlier tab-subprocess failure is not used by itself to justify broader resource authority. No generic resource-limit ceiling is increased by the Motion Canvas driver.
 
 ## Resolved during final integration: Windows platform services
 

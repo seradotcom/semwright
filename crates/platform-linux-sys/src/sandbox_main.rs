@@ -127,9 +127,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let abi = ABI::V3;
     let all = AccessFs::from_all(abi);
-    // landlock::AccessFs::from_read() includes Execute.  Driver mounts model
-    // execution as a separate, explicit capability, so never use from_read()
-    // for generic data roots.
+    // AccessFs::from_read() includes Execute. Driver mount execution is an
+    // explicit capability, so generic data roots must use a no-exec read set.
     let read_only = AccessFs::ReadFile | AccessFs::ReadDir;
     let read_exec = read_only | AccessFs::Execute;
     let read_write_noexec = read_only | AccessFs::from_write(abi);
@@ -138,15 +137,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .handle_access(all)?
         .create()?;
 
-    // System executables and ELF interpreters remain executable.  Everything
-    // else is non-executable unless a narrower rule below explicitly grants it.
+    // System binaries and ELF interpreters remain executable. Other broad
+    // roots are readable only; /workspace permissions come solely from the
+    // explicit SandboxSpec mounts below.
     for (path, access) in [
         ("/usr", read_exec),
         ("/lib", read_exec),
         ("/lib64", read_exec),
         ("/etc", read_only),
         ("/plugin", read_only),
-        ("/workspace", read_only),
         ("/dev", read_only),
         ("/proc", read_only),
     ] {
@@ -155,14 +154,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // The staged, digest-verified driver is the only executable under /plugin.
+    // The staged, digest-verified driver is the only executable below /plugin.
     ruleset = ruleset.add_rule(PathBeneath::new(
         PathFd::new("/plugin/bin")?,
         AccessFs::Execute | AccessFs::ReadFile,
     ))?;
 
-    // Bind mounts are separate Landlock hierarchies.  Data mounts stay
-    // non-executable; only an owner-approved execute mount gets Execute.
+    // Bind mounts are separate Landlock hierarchies. Read-only data mounts do
+    // not get Execute; only a manifest mount with execute=true receives it.
     for (path, execute) in readable {
         let is_dir = Path::new(&path).is_dir();
         let access = match (is_dir, execute) {
@@ -174,33 +173,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(&path)?, access))?;
     }
 
-    // Rust's Stdio::null() opens /dev/null for writing when a child redirects
-    // stdout or stderr. Keep every host device node non-writable.
+    // Stdio::null() opens /dev/null for writing. Keep every other device node
+    // non-writable, apart from the private /dev/shm tmpfs admitted below.
     ruleset = ruleset.add_rule(PathBeneath::new(
         PathFd::new("/dev/null")?,
         AccessFs::ReadFile | AccessFs::WriteFile,
     ))?;
 
-    // Bubblewrap creates these as fresh tmpfs instances inside each sandbox.
-    // Browser subprocesses need writable temporary/shared-memory storage, but
-    // neither location needs Execute and neither exposes host filesystem data.
-    for path in ["/tmp", "/dev/shm"] {
-        if Path::new(path).is_dir() {
-            ruleset = ruleset.add_rule(PathBeneath::new(
-                PathFd::new(path)?,
-                read_write_noexec,
-            ))?;
-        }
-    }
-
-    // Writable driver data is deliberately non-executable.  Platform Mount
-    // validation already forbids write+execute; Landlock must enforce the same
-    // contract rather than accidentally granting Execute through from_all().
+    // Writable project/output/tmp roots are intentionally non-executable.
+    // Platform mount validation already forbids write+execute; Landlock mirrors
+    // that contract instead of accidentally granting Execute via from_all().
     for path in writable {
-        ruleset = ruleset.add_rule(PathBeneath::new(
-            PathFd::new(path)?,
-            read_write_noexec,
-        ))?;
+        ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, read_write_noexec))?;
     }
     let status = ruleset.restrict_self()?;
     if status.ruleset != RulesetStatus::FullyEnforced {

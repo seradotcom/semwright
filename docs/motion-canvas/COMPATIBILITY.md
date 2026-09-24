@@ -8,17 +8,19 @@
 | Driver Protocol | 1 / `stdio_v1` |
 | Motion Canvas core/2d/vite-plugin/ui | 3.17.2 |
 | Node | 22.22.0 |
-| Playwright | 1.63.0 |
-| Render browser | Playwright-pinned Firefox; exact build/version recorded by CI |
+| Playwright | 1.61.1 |
+| Render browser | Playwright-pinned Firefox 151.0 (`firefox-1532`); exact build recorded by CI |
 | Vite | 5.4.21 |
 | TypeScript | 5.9.3 |
 | Fonts | Instrument Sans Variable 5.3.0; IBM Plex Mono 5.3.0 |
 
-Linux is the live rendering/conformance target. The production path uses the repository Driver Host Bubblewrap + Landlock sandbox and a SHA-256-pinned Firefox executable installed by Playwright 1.63.0 and supplied through the owner-approved read-only executable runtime mount. On Ubuntu 24.04, Bubblewrap also needs a scoped AppArmor user-namespace profile; CI keeps the system-wide user-namespace restriction enabled.
+Linux is the live rendering/conformance target. The production path uses the repository Driver Host Bubblewrap + Landlock sandbox and a SHA-256-pinned Firefox executable installed by Playwright 1.61.1 and supplied through the owner-approved read-only executable runtime mount. On Ubuntu 24.04, Bubblewrap also needs a scoped AppArmor user-namespace profile; CI keeps the system-wide user-namespace restriction enabled.
 
 The Rust semantic/compiler logic is designed to remain portable. Dedicated Motion Canvas CI compiles the complete domain and Driver Protocol adapter on macOS and Windows after final integration with the Windows platform-services implementation from `main`. These are portability checks only: live Motion Canvas rendering is certified on Linux, not Windows or macOS.
 
-The final Firefox path uses the existing 4 GiB Driver Host hard ceiling and a 128-task request; no generic resource-limit expansion is required. Node still uses `--disable-wasm-trap-handler` and a 256 MiB old-space ceiling. CI separately probes Firefox under the same 4 GiB ceiling before accepting the runtime.
+The Firefox compatibility-pin experiment keeps the existing 4 GiB Driver Host hard ceiling and the existing 128-task request. The previous Firefox 155 build reached Juggler and then failed while creating the tab subprocess, but that failure overlaps an upstream browser regression and is not treated as proof that the task ceiling is too low. Node still uses `--disable-wasm-trap-handler` and a 256 MiB old-space ceiling. CI separately probes the pinned Firefox under the same 4 GiB address-space ceiling before accepting the runtime.
+
+Playwright 1.63.0 / bundled Firefox 155.0 was also rejected after repeated CI failures: Firefox reached the Juggler pipe but failed to create the tab subprocess and exited with `SIGSEGV`, including after supplying private `/dev/shm`. Upstream Playwright issue #42565 independently identifies Firefox 153+ as a SIGSEGV regression family and records 1.61.1 / Firefox 151.0 as the last good release for its reproducible case. The driver therefore pins that known-good browser generation rather than weakening Driver Host isolation.
 
 Earlier Chrome-for-Testing experiments are retained only as failure evidence: several exact Playwright Chromium builds exited with `SIGTRAP/int3` inside the confined runner before CDP startup, including after increasing task and virtual-address-space limits. Chromium is therefore not a hidden fallback.
 

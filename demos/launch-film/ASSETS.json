@@ -42,6 +42,6 @@
   },
   "runtime_lock": {
     "file": "../../integrations/motion-canvas/runtime/package-lock.json",
-    "sha256": "328d56591e54b770a7bfcce5c7be0ebe02b9631d4d4530d6a1e1d45a1597ba43"
+    "sha256": "ad80a11a188c70ea8bd28e1fd194d871e9f22479d20c29bb0ead0406dde890b8"
   }
 }

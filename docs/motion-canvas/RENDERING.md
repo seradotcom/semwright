@@ -1,6 +1,6 @@
 # Motion Canvas rendering
 
-Pinned renderer baseline: Motion Canvas **3.17.2**, Node **22.22.0**, Playwright **1.63.0**, Vite **5.4.21**.
+Pinned renderer baseline: Motion Canvas **3.17.2**, Node **22.22.0**, Playwright **1.61.1**, Vite **5.4.21**.
 
 Semwright render profiles use a half-open frame range `[first_frame, end_frame_exclusive)`. Motion Canvas 3.17.2 accepts an inclusive end time, so the pinned helper translates the final semantic frame to `(end_frame_exclusive - 1) / fps`; this prevents an extra exported frame at range boundaries.
 
@@ -28,6 +28,10 @@ The helper never accepts arbitrary JavaScript, npm packages, commands or URLs fr
 ## Cancellation and timeout
 
 Node is started in a new owned process group; Firefox descendants inherit that group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. The Motion Canvas manifest currently negotiates protocol v1, so this driver does not transport protocol-v2 child progress events; status exposes observed phases only.
+
+## Firefox version pin
+
+The renderer deliberately pins Playwright 1.61.1 / Firefox 151.0. CI with Playwright 1.63.0 / Firefox 155.0 repeatedly reached Juggler and then failed to launch the tab subprocess with `SIGSEGV`; private shared memory did not change that outcome. The older exact pin is a compatibility response to a current upstream Firefox regression, not a relaxation of Semwright sandbox policy.
 
 ## Firefox sandbox layering
 
