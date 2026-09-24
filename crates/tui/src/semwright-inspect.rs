@@ -41,11 +41,13 @@ impl Drop for Restore {
         let _ = execute!(io::stdout(), LeaveAlternateScreen);
     }
 }
-const PANES: [(&str, &str); 8] = [
+const PANES: [(&str, &str); 10] = [
     ("Doctor", "doctor"),
     ("Windows", "window.list"),
     ("Apps", "app.list"),
     ("UI", "ui.snapshot"),
+    ("Refs", "ui.snapshot"),
+    ("Jobs", "jobs.list"),
     ("Policy", "capabilities.list"),
     ("Audit", "audit.tail"),
     ("Plugins", "plugin.list"),
@@ -64,32 +66,76 @@ fn escaped(text: &str) -> String {
         })
         .collect()
 }
+fn collect_references(value: &Value, path: &str, rows: &mut Vec<String>) {
+    if rows.len() >= 256 {
+        return;
+    }
+    match value {
+        Value::Object(map) => {
+            for (key, child) in map {
+                let child_path = format!("{path}/{key}");
+                if key == "ref" {
+                    rows.push(format!(
+                        "{child_path} = {}",
+                        serde_json::to_string(child).unwrap_or_else(|_| "<invalid>".into())
+                    ));
+                    if rows.len() >= 256 {
+                        return;
+                    }
+                } else {
+                    collect_references(child, &child_path, rows);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for (index, child) in items.iter().enumerate() {
+                collect_references(child, &format!("{path}/{index}"), rows);
+                if rows.len() >= 256 {
+                    return;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+fn render_value(value: &Value, pane: usize) -> Result<String> {
+    if PANES[pane].0 == "Refs" {
+        let mut rows = Vec::new();
+        collect_references(value, "$", &mut rows);
+        let text = if rows.is_empty() {
+            "No semantic references in the current snapshot.".into()
+        } else {
+            rows.join("\n")
+        };
+        Ok(escaped(&text))
+    } else {
+        Ok(escaped(&serde_json::to_string_pretty(value)?))
+    }
+}
 async fn fetch(
     socket: &std::path::Path,
     ticket: &std::path::Path,
     pane: usize,
     job: Option<String>,
 ) -> Result<Value> {
-    if pane == 7 && job.is_none() {
+    let command = PANES[pane].1;
+    if command == "jobs.get" && job.is_none() {
         return Ok(json!({
             "hint":"Pass --job <job-id> with the owning --session-file to inspect a job."
         }));
     }
     let mut client = connect_persistent(socket, ticket).await?;
-    let args = if pane == 3 {
-        json!({"max_nodes":200,"max_depth":5})
-    } else if pane == 5 {
-        json!({"limit":50})
-    } else if pane == 7 {
-        json!({"job_id":job.expect("job checked above")})
-    } else {
-        json!({})
+    let args = match command {
+        "ui.snapshot" => json!({"max_nodes":200,"max_depth":5}),
+        "audit.tail" => json!({"limit":50}),
+        "jobs.get" => json!({"job_id":job.expect("job checked above")}),
+        _ => json!({}),
     };
     let envelope = client
         .execute(
             unique_id(),
             ExecuteRequest {
-                command: PANES[pane].1.into(),
+                command: command.into(),
                 args,
                 dry_run: false,
                 backend: None,
@@ -134,7 +180,7 @@ async fn run() -> Result<()> {
             && let Some(done) = task.take()
         {
             body = match done.await {
-                Ok(Ok(value)) => escaped(&serde_json::to_string_pretty(&value)?),
+                Ok(Ok(value)) => render_value(&value, pane)?,
                 Ok(Err(error)) => escaped(&error.to_string()),
                 Err(_) => "Inspector request cancelled".into(),
             };
@@ -244,5 +290,26 @@ mod tests {
     fn terminal_injection_is_escaped() {
         assert!(!escaped("\u{1b}]52;c;secret\u{7}").contains('\u{1b}'));
         assert!(!escaped("\u{202e}").contains('\u{202e}'));
+    }
+
+    #[test]
+    fn reference_view_is_bounded_and_copyable() {
+        let nodes = (0..300)
+            .map(|index| json!({"name":format!("node-{index}"),"ref":format!("ui:{index:032x}")}))
+            .collect::<Vec<_>>();
+        let rendered = render_value(&json!({"data":{"nodes":nodes}}), 4).unwrap();
+        assert_eq!(rendered.lines().count(), 256);
+        assert!(rendered.contains("ui:00000000000000000000000000000000"));
+        assert!(!rendered.contains("ui:0000000000000000000000000000012b"));
+    }
+
+    #[test]
+    fn jobs_pane_uses_session_scoped_job_listing() {
+        assert_eq!(PANES[5], ("Jobs", "jobs.list"));
+    }
+
+    #[test]
+    fn job_pane_uses_session_scoped_job_lookup() {
+        assert_eq!(PANES[9], ("Job", "jobs.get"));
     }
 }
