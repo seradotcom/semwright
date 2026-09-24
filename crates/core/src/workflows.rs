@@ -1,8 +1,8 @@
 use super::*;
 use semwright_registry::{Metadata, Registry};
 use semwright_workflow::{
-    Candidate, DescriptorLookup, ParameterHint, TraceStep, compile as compile_trace,
-    promoted_descriptor, sanitize, verify_drift,
+    Candidate, DEFAULT_MIN_OCCURRENCES, DescriptorLookup, ParameterHint, TraceStep,
+    compile as compile_trace, promoted_descriptor, sanitize, verify_drift,
 };
 use std::path::Path;
 
@@ -115,11 +115,36 @@ impl Broker {
         }))
     }
     pub(super) fn workflow_record_stop(&self, session: &str, successful: bool) -> Result<Value> {
-        let trace = self
-            .workflows
-            .lock()
-            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
-            .stop(session, successful)?;
+        let (trace, detected) = {
+            let mut workflows = self
+                .workflows
+                .lock()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?;
+            let trace = workflows.stop(session, successful)?;
+            let detected = if trace.successful {
+                workflows
+                    .suggestions(DEFAULT_MIN_OCCURRENCES, false)?
+                    .into_iter()
+                    .find(|pattern| {
+                        pattern.occurrences == DEFAULT_MIN_OCCURRENCES
+                            && pattern.trace_ids.iter().any(|id| id == &trace.id)
+                    })
+            } else {
+                None
+            };
+            (trace, detected)
+        };
+        if let Some(pattern) = detected {
+            self.session_event(
+                session,
+                self.core_event("workflow.pattern.detected")
+                    .with_attribute("pattern_id", json!(pattern.id))
+                    .with_attribute("suggestion_id", json!(pattern.suggestion_id))
+                    .with_attribute("occurrences", json!(pattern.occurrences))
+                    .with_attribute("compile_ready_count", json!(pattern.compile_ready_count))
+                    .with_attribute("compilable", json!(pattern.compile_ready_count >= 2)),
+            );
+        }
         Ok(json!({"recording":false,"trace":trace}))
     }
 
@@ -148,6 +173,119 @@ impl Broker {
             .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
             .delete_trace(id)?;
         Ok(json!({"deleted":true,"trace_id":trace.id}))
+    }
+
+    pub(super) fn workflow_patterns(&self, min_occurrences: usize) -> Result<Value> {
+        let patterns = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .patterns(min_occurrences)?;
+        Ok(json!({"patterns":patterns,"min_occurrences":min_occurrences}))
+    }
+
+    pub(super) fn workflow_pattern(&self, id: &str) -> Result<Value> {
+        let pattern = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .pattern(id)?;
+        Ok(json!({"pattern":pattern}))
+    }
+
+    pub(super) fn workflow_suggestions(
+        &self,
+        min_occurrences: usize,
+        include_dismissed: bool,
+    ) -> Result<Value> {
+        let suggestions = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .suggestions(min_occurrences, include_dismissed)?;
+        Ok(json!({
+            "suggestions":suggestions,
+            "min_occurrences":min_occurrences,
+            "include_dismissed":include_dismissed
+        }))
+    }
+
+    pub(super) fn workflow_suggestion(&self, id: &str) -> Result<Value> {
+        let suggestion = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .suggestion(id)?;
+        Ok(json!({"suggestion":suggestion}))
+    }
+
+    pub(super) fn workflow_suggestion_dismiss(&self, id: &str, permanent: bool) -> Result<Value> {
+        let dismissal = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .dismiss_suggestion(id, permanent)?;
+        Ok(json!({"dismissed":true,"dismissal":dismissal}))
+    }
+
+    pub(super) fn workflow_suggestion_restore(&self, id: &str) -> Result<Value> {
+        let dismissal = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .restore_suggestion(id)?;
+        Ok(json!({"restored":true,"dismissal":dismissal}))
+    }
+
+    pub(super) fn workflow_suggestion_compile(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        description: &str,
+        hints: Vec<ParameterHint>,
+    ) -> Result<Value> {
+        let (pattern, traces) = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .compile_traces_for_suggestion(id)?;
+        let selected_name = name
+            .filter(|value| !value.is_empty())
+            .unwrap_or(pattern.suggested_name.as_str());
+        let selected_description = if description.is_empty() {
+            let preview = pattern
+                .commands
+                .iter()
+                .take(12)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" -> ");
+            if pattern.commands.len() > 12 {
+                format!(
+                    "Repeated workflow with {} steps: {preview} -> …",
+                    pattern.commands.len()
+                )
+            } else {
+                format!("Repeated workflow: {preview}")
+            }
+        } else {
+            description.to_owned()
+        };
+        let candidate = compile_trace(&traces, selected_name, &selected_description, &hints, self)?;
+        self.workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .store_candidate(candidate.clone())?;
+        Ok(json!({
+            "candidate":candidate,
+            "suggestion_id":pattern.suggestion_id,
+            "pattern_id":pattern.id,
+            "evidence":{
+                "occurrences":pattern.occurrences,
+                "compile_ready_count":pattern.compile_ready_count,
+                "source_traces":pattern.compile_trace_ids
+            }
+        }))
     }
 
     pub(super) fn workflow_compile(
