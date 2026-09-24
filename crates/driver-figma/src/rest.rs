@@ -472,7 +472,9 @@ impl RestClient {
     }
     async fn comments(&self, a: &Map<String, Value>, c: &Credential) -> Result<Value> {
         let mut q = Vec::new();
-        optional_bool(a, "asMarkdown")?.map(|v| q.push(("as_md", v.to_string())));
+        if let Some(v) = optional_bool(a, "asMarkdown")? {
+            q.push(("as_md", v.to_string()));
+        }
         self.get(&["v1", "files", required(a, "fileKey")?, "comments"], &q, c)
             .await
     }
@@ -517,7 +519,9 @@ impl RestClient {
     }
     async fn reactions(&self, a: &Map<String, Value>, c: &Credential) -> Result<Value> {
         let mut q = Vec::new();
-        optional_str(a, "cursor")?.map(|v| q.push(("cursor", v.to_owned())));
+        if let Some(v) = optional_str(a, "cursor")? {
+            q.push(("cursor", v.to_owned()));
+        }
         self.get(
             &[
                 "v1",
@@ -616,10 +620,18 @@ impl RestClient {
     }
     async fn webhooks_list(&self, a: &Map<String, Value>, c: &Credential) -> Result<Value> {
         let mut q = Vec::new();
-        optional_str(a, "context")?.map(|v| q.push(("context", v.to_owned())));
-        optional_str(a, "contextId")?.map(|v| q.push(("context_id", v.to_owned())));
-        optional_str(a, "planApiId")?.map(|v| q.push(("plan_api_id", v.to_owned())));
-        optional_str(a, "cursor")?.map(|v| q.push(("cursor", v.to_owned())));
+        if let Some(v) = optional_str(a, "context")? {
+            q.push(("context", v.to_owned()));
+        }
+        if let Some(v) = optional_str(a, "contextId")? {
+            q.push(("context_id", v.to_owned()));
+        }
+        if let Some(v) = optional_str(a, "planApiId")? {
+            q.push(("plan_api_id", v.to_owned()));
+        }
+        if let Some(v) = optional_str(a, "cursor")? {
+            q.push(("cursor", v.to_owned()));
+        }
         self.get(&["v2", "webhooks"], &q, c).await
     }
     async fn webhook_get(&self, a: &Map<String, Value>, c: &Credential) -> Result<Value> {
@@ -1062,7 +1074,7 @@ fn credential_socket_present() -> bool {
     {
         let dir = std::fs::symlink_metadata(CREDENTIAL_DIR);
         let sock = std::fs::symlink_metadata(CREDENTIAL_SOCKET);
-        return dir.is_ok_and(|m| m.is_dir()) && sock.is_ok_and(|m| m.file_type().is_socket());
+        dir.is_ok_and(|m| m.is_dir()) && sock.is_ok_and(|m| m.file_type().is_socket())
     }
     #[cfg(not(unix))]
     {
@@ -1074,6 +1086,7 @@ fn credential_socket_present() -> bool {
 async fn read_credential() -> Result<Credential> {
     let dir = Path::new(CREDENTIAL_DIR);
     let socket_path = Path::new(CREDENTIAL_SOCKET);
+    // SAFETY: getuid() has no preconditions and only reads the caller's real user ID.
     let uid = unsafe { libc::getuid() };
     let dm = std::fs::symlink_metadata(dir)
         .map_err(|_| Error::unavailable("Figma REST credential mount is unavailable"))?;
@@ -1110,7 +1123,7 @@ async fn read_credential() -> Result<Credential> {
         .await
         .map_err(|_| Error::unavailable("Could not read Figma credential frame"))?
         as usize;
-    if size < 4 || size > MAX_SECRET_BYTES {
+    if !(4..=MAX_SECRET_BYTES).contains(&size) {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
             "Figma credential frame exceeds bounds",
