@@ -185,6 +185,33 @@ impl Broker {
             .candidate(id)
     }
 
+    pub(super) fn workflow_candidates(&self) -> Result<Value> {
+        let candidates = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .candidates();
+        let rows = candidates
+            .into_iter()
+            .map(|candidate| {
+                let status = verify_drift(&candidate, self)
+                    .map(|_| "valid")
+                    .unwrap_or("stale");
+                json!({
+                    "id":candidate.id,
+                    "name":candidate.recipe.name,
+                    "source_trace_count":candidate.source_trace_ids.len(),
+                    "static_verified":candidate.static_verified,
+                    "successful_replays":candidate.successful_replays,
+                    "status":status,
+                    "compiled_unix_ms":candidate.compiled_unix_ms,
+                    "fingerprint":candidate.fingerprint
+                })
+            })
+            .collect::<Vec<_>>();
+        Ok(json!({"candidates":rows}))
+    }
+
     pub(super) fn workflow_candidate_delete(&self, id: &str) -> Result<Value> {
         let candidate = self
             .workflows

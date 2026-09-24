@@ -425,6 +425,10 @@ impl WorkflowManager {
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Workflow candidate not found"))
     }
 
+    pub fn candidates(&self) -> Vec<Candidate> {
+        self.candidates.values().cloned().collect()
+    }
+
     pub fn delete_candidate(&mut self, id: &str) -> Result<Candidate> {
         if self
             .promotions

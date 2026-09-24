@@ -91,6 +91,16 @@ should become an input.
 The compiler can infer simple success assertions from stable boolean result fields, but it
 does not invent application-specific postconditions.
 
+Compiled candidates remain discoverable across daemon restarts before promotion:
+
+```sh
+semwright workflow candidates
+semwright workflow candidate CANDIDATE_ID
+```
+
+The list reports static-verification state, successful live-replay evidence and current
+descriptor-drift status without exposing captured arguments or results.
+
 ## Verify and replay
 
 `workflow.verify CANDIDATE` performs static Recipe v1 validation and verifies every

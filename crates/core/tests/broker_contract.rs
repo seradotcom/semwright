@@ -746,6 +746,19 @@ async fn learned_workflow_infers_input_verifies_replays_promotes_and_executes() 
     assert!(compiled.ok, "{compiled:?}");
     let candidate = compiled.data.unwrap()["candidate"].clone();
     let candidate_id = candidate["id"].as_str().unwrap().to_owned();
+    let candidates = fixture.call("workflow.candidates.list", json!({})).await;
+    assert!(candidates.ok, "{candidates:?}");
+    let candidates = candidates.data.unwrap()["candidates"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(candidates[0]["id"], candidate_id);
+    assert_eq!(candidates[0]["name"], "clipboard-copy");
+    assert_eq!(candidates[0]["source_trace_count"], 2);
+    assert_eq!(candidates[0]["static_verified"], false);
+    assert_eq!(candidates[0]["successful_replays"], 0);
+    assert_eq!(candidates[0]["status"], "valid");
     assert_eq!(
         candidate["recipe"]["inputs"]["step1_text"]["kind"],
         "string"
@@ -775,6 +788,15 @@ async fn learned_workflow_infers_input_verifies_replays_promotes_and_executes() 
         .await;
     assert!(replayed.ok, "{replayed:?}");
     assert_eq!(replayed.data.unwrap()["completed"], true);
+    let candidates = fixture.call("workflow.candidates.list", json!({})).await;
+    assert!(candidates.ok, "{candidates:?}");
+    let candidates = candidates.data.unwrap()["candidates"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(candidates[0]["static_verified"], true);
+    assert_eq!(candidates[0]["successful_replays"], 1);
+    assert_eq!(candidates[0]["status"], "valid");
 
     let promoted = fixture
         .call(

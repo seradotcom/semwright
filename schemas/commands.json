@@ -8161,6 +8161,94 @@
     ]
   },
   {
+    "name": "workflow.candidates.list",
+    "version": "1.0",
+    "description": "List compiled workflow candidates and their verification, replay and drift status.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 10,
+                "maxLength": 96
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "source_trace_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              "static_verified": {
+                "type": "boolean"
+              },
+              "successful_replays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "valid",
+                  "stale"
+                ]
+              },
+              "compiled_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "fingerprint": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "source_trace_count",
+              "static_verified",
+              "successful_replays",
+              "status",
+              "compiled_unix_ms",
+              "fingerprint"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "candidates"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
     "name": "workflow.candidate.get",
     "version": "1.0",
     "description": "Inspect a compiled workflow candidate.",

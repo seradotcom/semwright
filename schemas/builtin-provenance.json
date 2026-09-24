@@ -1242,6 +1242,22 @@
     ],
     "untrusted_metadata": false
   },
+  "workflow.candidates.list": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "list",
+      "candidate"
+    ],
+    "untrusted_metadata": false
+  },
   "workflow.candidate.delete": {
     "aliases": [],
     "app": null,

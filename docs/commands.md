@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-105 built-in descriptors. A descriptor is not proof of live backend support.
+106 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -104,6 +104,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `jobs.get` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.cancel` | `desktop.observe` | read_only | 10000 ms | core |
 | `workflow.candidate.delete` | `workflow.manage` | destructive | 10000 ms | core |
+| `workflow.candidates.list` | `workflow.record` | read_only | 10000 ms | core |
 | `workflow.candidate.get` | `workflow.record` | read_only | 10000 ms | core |
 | `workflow.compile` | `workflow.record` | mutating_reversible | 30000 ms | core |
 | `workflow.demote` | `workflow.manage` | mutating_reversible | 30000 ms | core |
@@ -2515,6 +2516,21 @@ Idempotency: `destructive`. Dry run: `false`.
   "required": [
     "candidate_id"
   ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.candidates.list`
+
+List compiled workflow candidates and their verification, replay and drift status.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "required": [],
   "additionalProperties": false
 }
 ```

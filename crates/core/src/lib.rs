@@ -1147,6 +1147,7 @@ impl Broker {
                     hints,
                 )
             }
+            "workflow.candidates.list" => self.workflow_candidates(),
             "workflow.candidate.get" => {
                 Ok(json!({"candidate":self.workflow_candidate(arg_str(args,"candidate_id")?)?}))
             }

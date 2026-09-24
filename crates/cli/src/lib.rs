@@ -481,6 +481,7 @@ pub enum Workflow {
         #[arg(long = "parameter")]
         parameters: Vec<String>,
     },
+    Candidates,
     Candidate {
         candidate_id: String,
     },
@@ -987,6 +988,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
                         .collect::<Result<Vec<_>>>()?
                 }),
             ),
+            Workflow::Candidates => ("workflow.candidates.list".into(), json!({})),
             Workflow::Candidate { candidate_id } => (
                 "workflow.candidate.get".into(),
                 json!({"candidate_id":candidate_id}),
