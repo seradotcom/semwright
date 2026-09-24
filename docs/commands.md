@@ -21,40 +21,40 @@ for many backends in this development handoff; strengthening them is a release g
 | `recipe.list` | `desktop.observe` | read_only | 10000 ms | core |
 | `recipe.validate` | `desktop.observe` | read_only | 10000 ms | core |
 | `recipe.run` | `desktop.observe` | mutating | 300000 ms | core |
-| `app.list` | `app.observe` | read_only | 10000 ms | atspi, macos |
+| `app.list` | `app.observe` | read_only | 10000 ms | atspi, macos, windows |
 | `app.launch` | `app.launch` | code_execution | 10000 ms | system |
 | `app.close` | `app.close`, `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `window.list` | `window.observe` | read_only | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.focus` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.move` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.resize` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos |
+| `window.list` | `window.observe` | read_only | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.focus` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.move` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.resize` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos, windows |
 | `ui.find` | `ui.observe` | read_only | 10000 ms | core |
-| `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
-| `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
-| `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos |
-| `ui.set_value` | `ui.invoke` | mutating_reversible | 10000 ms | atspi, macos |
-| `ui.get_value` | `ui.observe` | read_only | 10000 ms | atspi, macos |
-| `ui.toggle` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
-| `ui.select` | `ui.invoke` | mutating | 10000 ms | atspi |
-| `ui.expand` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
+| `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
+| `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
+| `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos, windows |
+| `ui.set_value` | `ui.invoke` | mutating_reversible | 10000 ms | atspi, macos, windows |
+| `ui.get_value` | `ui.observe` | read_only | 10000 ms | atspi, macos, windows |
+| `ui.toggle` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
+| `ui.select` | `ui.invoke` | mutating | 10000 ms | atspi, windows |
+| `ui.expand` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `portal.start` | `input.keyboard`, `input.pointer` | privilege_sensitive | 120000 ms | portal |
 | `portal.stop` | `desktop.observe` | mutating_reversible | 10000 ms | portal |
 | `portal.status` | `desktop.observe` | read_only | 10000 ms | portal |
 | `portal.restore.clear` | `desktop.observe` | mutating | 10000 ms | portal |
 | `input.key` | `input.keyboard` | mutating | 10000 ms | portal, x11, macos |
-| `input.type` | `input.keyboard` | mutating | 10000 ms | portal, macos |
-| `pointer.move` | `input.pointer` | mutating | 10000 ms | portal, x11, macos |
-| `pointer.click` | `input.pointer` | mutating | 10000 ms | portal, x11, macos |
-| `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal, macos |
-| `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal, macos |
+| `input.type` | `input.keyboard` | mutating | 10000 ms | portal, macos, windows |
+| `pointer.move` | `input.pointer` | mutating | 10000 ms | portal, x11, macos, windows |
+| `pointer.click` | `input.pointer` | mutating | 10000 ms | portal, x11, macos, windows |
+| `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal, macos, windows |
+| `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal, macos, windows |
 | `screen.stream_info` | `desktop.observe` | read_only | 10000 ms | portal |
 | `screen.stream.start` | `screen.capture` | secret_access | 120000 ms | portal |
 | `screen.stream.capture` | `screen.capture` | secret_access | 45000 ms | portal |
 | `screen.stream.stop` | `screen.capture` | mutating_reversible | 10000 ms | portal |
-| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, portal, macos |
-| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, portal, macos |
+| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, portal, macos, windows |
+| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, portal, macos, windows |
 | `process.list` | `process.observe` | read_only | 10000 ms | system |
 | `process.signal` | `process.manage` | destructive | 10000 ms | system |
 | `filesystem.read` | `filesystem.read` | read_only | 10000 ms | filesystem |
@@ -649,7 +649,7 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `ui.set_text`
 
-Set editable text through AT-SPI, not through keyboard emulation.
+Set editable text through the platform semantic accessibility interface, not keyboard emulation.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
@@ -780,7 +780,7 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `ui.select`
 
-Select a child through the AT-SPI Selection interface.
+Select a child through the platform semantic selection interface.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
@@ -938,7 +938,7 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `input.type`
 
-Type Unicode using a consented portal or focused X11; semantic set_text is preferred.
+Type Unicode through an explicitly enabled focused input backend; semantic set_text is preferred.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
