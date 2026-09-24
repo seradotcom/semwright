@@ -13,7 +13,7 @@ the integration needs a long-lived connection or application state. Plugins rema
 for narrow stateless commands: the current plugin host starts one sandboxed process per
 invocation, while a driver process persists for its provider lifetime.
 
-## Protocol v1
+## Protocol versions
 
 The owner supplies a strict manifest. Semwright assigns the provider identity; the child cannot
 claim core authority or choose another namespace. The initial stdio protocol performs:
@@ -27,6 +27,11 @@ claim core authority or choose another namespace. The initial stdio protocol per
 
 Capabilities must live under `driver.<id>.*`, require `driver:<id>`, and route through that same
 provider ID. External metadata is treated as untrusted data by the Provider Runtime.
+
+Protocol v1 provides the baseline request/response lifecycle. Protocol v2 additionally
+negotiates interfaces for cooperative cancellation, child events, progress, artifacts,
+health and dynamic capability changes. Each interface remains fail-closed unless both the
+child and owner manifest negotiate the same value.
 
 ## Manifest
 
@@ -97,10 +102,10 @@ user's real home directory.
 The manifest defines what the driver needs; it never creates a policy grant. Capability calls
 still pass through the broker's normal risk, confirmation, cancellation and audit path.
 
-Current host v1 intentionally rejects drivers that advertise dynamic-capability changes,
-provider events or cooperative cancellation. The Provider Runtime supports those concepts,
-but the out-of-process driver transport has not yet negotiated them. Failing closed here is
-preferable to advertising semantics the host cannot enforce.
+Protocol v1 intentionally rejects dynamic-capability changes, child events, progress,
+artifacts and cooperative cancellation. Protocol v2 transports those interfaces explicitly,
+including bounded event/progress frames and cancellation acknowledgements. Drivers that do not
+negotiate an interface remain fail-closed rather than advertising semantics the host cannot enforce.
 
 ## Developer workflow
 
@@ -151,6 +156,11 @@ The workspace includes several larger integration surfaces in addition to the ex
   Auto Layout, typography, components/variants/instances, variables/design systems, prototypes,
   Figma Motion Beta and FigJam. Automated CI uses an independent fake Figma host and the real
   Driver Host sandbox; real Figma acceptance remains explicitly separate and disposable-file only.
+- `crates/driver-godot` provides 53 typed capabilities through an authenticated loopback bridge
+  to a Godot EditorPlugin plus a digest-pinned Godot runner. It covers scenes/nodes/resources,
+  managed scripts, signals, project InputMap persistence, animation tracks/keyframes, shaders,
+  UI/physics settings, headless validation/runtime and artifact exports. Dedicated CI executes
+  the production driver against both the real Driver Host sandbox and pinned Godot 4.7.2.
 
 These integrations use the normal owner-assigned DriverProvider identity, digest pinning,
 policy grants, bubblewrap/Landlock sandbox and descriptor-pinned execution where applicable.

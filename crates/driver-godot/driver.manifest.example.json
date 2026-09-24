@@ -1,0 +1,39 @@
+{
+  "manifest_version": 1,
+  "protocol": 2,
+  "id": "godot",
+  "version": "0.9.0-dev.1",
+  "publisher": "semwright",
+  "executable": "/absolute/path/to/semwright-godot-driver",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "application": {
+    "desktop_id": "org.godotengine.Godot",
+    "process_names": ["godot", "godot4"],
+    "supported_versions": ["4.7.2"]
+  },
+  "transport": "stdio_v1",
+  "mounts": [
+    {"root": "godot-config", "read_only": true},
+    {"root": "godot-project", "read_only": false},
+    {"root": "godot-output", "read_only": false},
+    {"root": "godot-runtime", "read_only": true}
+  ],
+  "system_config": [],
+  "network": true,
+  "resources": {
+    "open_files": 256,
+    "processes": 64,
+    "cpu_seconds": 300,
+    "address_space_bytes": 4294967296,
+    "file_size_bytes": 1073741824
+  },
+  "request_timeout_ms": 180000,
+  "interfaces": {
+    "dynamic_capabilities": false,
+    "cooperative_cancellation": true,
+    "events": true,
+    "progress": true,
+    "artifacts": true,
+    "health": true
+  }
+}
