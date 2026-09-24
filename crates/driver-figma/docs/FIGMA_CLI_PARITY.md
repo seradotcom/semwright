@@ -14,7 +14,8 @@ Semwright does not copy figma-cli's arbitrary-JavaScript execution model. The go
 | find / select / get | `node.search`, `node.query`, selection/node inspect | native semantic |
 | canvas info / next / arrange | `canvas.info`, `canvas.next_position`, `canvas.arrange` | native semantic |
 | duplicate / delete / tree / bindings | node and binding capabilities | native semantic |
-| slots | `slot.*` | native semantic |
+| slots | `slot.*`, including native frame→slot conversion, preferred values, content, reset and `SlotSettings` | native semantic |
+| Motion add/apply/presets/stagger | official `KeyframeField`/`ManualKeyframeTrackInput` primitives plus `motion.apply`, `motion.preset.apply`, `motion.stagger` | native semantic; no eval |
 | screenshots / node export | artifact-backed `export.node` plus selection refs | native semantic |
 | CSS / Tailwind | `design_system.export.css/tailwind` | native semantic |
 | JSX / Storybook export | `node.export.jsx/storybook` | native semantic |

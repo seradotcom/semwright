@@ -2,7 +2,7 @@
 
 | Area | Status | Evidence / limitation |
 |---|---|---|
-| Static capability catalog | SUPPORTED | 385 implementation-backed descriptors; 326 Plugin API operations + 56 cloud operations + 3 local driver/session operations |
+| Static capability catalog | SUPPORTED | 393 implementation-backed descriptors; 334 Plugin API operations + 56 cloud operations + 3 local driver/session operations |
 | Descriptor pinning | SUPPORTED | SDK digest contract exercised by production Driver Protocol E2E |
 | Protocol v2 | SUPPORTED | interfaces negotiation and v2 E2E exercised |
 | Persistent child process | SUPPORTED | driver owns long-lived authenticated loopback bridge |
