@@ -28,6 +28,10 @@ test('render harness is bound to Driver Host, pinned Firefox, and local origin',
   assert.ok(!render.includes('connectOverCDP'));
   assert.ok(render.includes('semwright.invalid'));
   assert.ok(render.includes("route.abort('blockedbyclient')"));
+  assert.ok(render.includes("id:'@semwright/driver/image-sequence'"));
+  assert.ok(render.includes('project.meta.rendering.exporter.exporters.push(semwrightExporter)'));
+  assert.ok(render.includes('window.__SEMWRIGHT_EXPORT_FRAME__'));
+  assert.ok(render.includes("canvas.toDataURL('image/png')"));
 });
 
 test('render harness reports bounded state when browser rendering stalls', () => {
