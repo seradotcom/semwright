@@ -1,5 +1,6 @@
 //! Native Windows desktop backend for the existing Semwright broker.
 //! UI Automation lives on one dedicated COM thread; no UIA interface crosses into Tokio.
+#![cfg(target_os = "windows")]
 pub mod events;
 pub mod roles;
 pub mod uia;

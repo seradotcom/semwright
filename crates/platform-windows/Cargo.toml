@@ -20,9 +20,9 @@ semwright-backend-api.workspace = true
 semwright-platform-api.workspace = true
 semwright-platform-windows-sys = { path = "../platform-windows-sys" }
 semwright-types.workspace = true
-uiautomation = { version = "0.25.1", default-features = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+uiautomation = { version = "=0.25.1", default-features = true }
 windows = { version = "0.62.2", features = [
   "Win32_Foundation",
   "Win32_System_Threading",
