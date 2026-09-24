@@ -41,11 +41,19 @@ rustPlatform.buildRustPackage {
   installPhase = ''
     runHook preInstall
     mkdir -p "$out/bin"
-    release_dir="target/release"
-    if [ -n "''${CARGO_BUILD_TARGET:-}" ]; then
-      release_dir="target/$CARGO_BUILD_TARGET/release"
+    release_dir=""
+    for candidate in target/release target/*/release; do
+      [ -x "$candidate/semwright" ] || continue
+      if [ -n "$release_dir" ]; then
+        echo "multiple Cargo release directories found" >&2
+        exit 1
+      fi
+      release_dir="$candidate"
+    done
+    if [ -z "$release_dir" ]; then
+      echo "Cargo release directory not found" >&2
+      exit 1
     fi
-    test -d "$release_dir"
     for binary in semwright semwrightd semwright-mcp semwright-inspect semwright-sandbox; do
       test -x "$release_dir/$binary"
       install -Dm755 "$release_dir/$binary" "$out/bin/$binary"
