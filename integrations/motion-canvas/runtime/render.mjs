@@ -32,24 +32,6 @@ function harnessPlugin(config, entry) {
 import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
-const semwrightExporter={
-  id:'@semwright/driver/image-sequence',
-  displayName:'Semwright image sequence',
-  async create(){
-    return {
-      async handleFrame(canvas,frame,_sceneFrame,_sceneName,signal){
-        if(signal.aborted)return;
-        await window.__SEMWRIGHT_EXPORT_FRAME__({
-          frame,
-          data:canvas.toDataURL('image/png'),
-        });
-      },
-    };
-  },
-};
-if(!project.meta.rendering.exporter.exporters.some(exporter=>exporter.id===semwrightExporter.id)){
-  project.meta.rendering.exporter.exporters.push(semwrightExporter);
-}
 const renderer=new Renderer(project);
 const state={done:false,result:null,frame:config.firstFrame,error:null,phase:'created'};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};

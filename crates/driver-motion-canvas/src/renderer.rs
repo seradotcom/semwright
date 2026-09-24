@@ -523,13 +523,25 @@ async fn run_render(
             "Renderer did not report success",
         ));
     }
-    match validate_artifacts(&output, plan) {
-        Ok(artifact) => Ok(artifact),
-        Err(error) => {
-            let _ = fs::remove_dir_all(&output);
-            Err(error)
+    // PNG inspection decodes and hashes every rendered frame.  The driver uses a
+    // current-thread Tokio runtime, so keep that blocking work off the protocol
+    // executor or render.status can starve until the host request timeout fires.
+    let validation_output = output.clone();
+    let validation_plan = (*plan).clone();
+    tokio::task::spawn_blocking(move || {
+        let result = validate_artifacts(&validation_output, &validation_plan);
+        if result.is_err() {
+            let _ = fs::remove_dir_all(&validation_output);
         }
-    }
+        result
+    })
+    .await
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::Internal,
+            "Renderer artifact validation task failed",
+        )
+    })?
 }
 
 #[cfg(unix)]
