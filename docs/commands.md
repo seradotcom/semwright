@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-91 built-in descriptors. A descriptor is not proof of live backend support.
+92 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -59,6 +59,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `process.signal` | `process.manage` | destructive | 10000 ms | system |
 | `filesystem.read` | `filesystem.read` | read_only | 10000 ms | filesystem |
 | `filesystem.write` | `filesystem.write` | mutating_reversible | 10000 ms | filesystem |
+| `artifact.handoff` | `filesystem.read:source_root`, `filesystem.write:destination_root` | mutating | 30000 ms | artifacts |
 | `notifications.send` | `notifications.send` | mutating | 10000 ms | system |
 | `network.status` | `desktop.observe` | read_only | 10000 ms | system |
 | `systemd.user.status` | `desktop.observe` | read_only | 10000 ms | system |
@@ -1320,6 +1321,64 @@ Idempotency: `idempotent`. Dry run: `true`.
     "root",
     "path",
     "text"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `artifact.handoff`
+
+Copy a bounded binary artifact between two explicitly granted filesystem roots without exposing host absolute paths.
+
+Idempotency: `idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source_root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "source_path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "destination_root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "destination_path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "max_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 67108864
+    },
+    "expected_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "semantic_type": {
+      "type": "string",
+      "maxLength": 96,
+      "pattern": "^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*$"
+    },
+    "media_type": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*/[A-Za-z0-9][A-Za-z0-9.+-]*$"
+    }
+  },
+  "required": [
+    "source_root",
+    "source_path",
+    "destination_root",
+    "destination_path"
   ],
   "additionalProperties": false
 }

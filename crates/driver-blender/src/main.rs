@@ -61,10 +61,20 @@ fn curated_capabilities() -> Result<Vec<Capability>> {
             })
             .map(|name| vec![name.into()])
             .unwrap_or_default();
+        let mut tags = vec!["blender".into(), "native".into(), "curated".into()];
+        match descriptor.name.as_str() {
+            "driver.blender.file.save" => {
+                tags.push(semwright_driver_sdk::artifact_output_tag("model/3d")?)
+            }
+            "driver.blender.render" => {
+                tags.push(semwright_driver_sdk::artifact_output_tag("image/raster")?)
+            }
+            _ => {}
+        }
         out.push(Capability {
             descriptor,
             aliases: vec![],
-            tags: vec!["blender".into(), "native".into(), "curated".into()],
+            tags,
             object_types: object_type,
         });
     }
@@ -506,6 +516,26 @@ mod tests {
             assert_eq!(capability.descriptor.requires, [DRIVER_SCOPE]);
             assert_eq!(capability.descriptor.backends, [DRIVER_SCOPE]);
         }
+    }
+
+    #[test]
+    fn catalog_declares_generic_artifact_outputs() {
+        let capabilities = capabilities().unwrap();
+        let saved = capabilities
+            .iter()
+            .find(|capability| capability.descriptor.name == "driver.blender.file.save")
+            .unwrap();
+        assert!(saved.tags.iter().any(|tag| tag == "artifact-out:model/3d"));
+        let render = capabilities
+            .iter()
+            .find(|capability| capability.descriptor.name == "driver.blender.render")
+            .unwrap();
+        assert!(
+            render
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-out:image/raster")
+        );
     }
 
     #[test]

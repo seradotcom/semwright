@@ -58,7 +58,7 @@ other commits and local archives is not part of this acceptance decision.
 | A027 | ScreenCast/screenshot integration or explicit capability state. | PASS | Screenshot plus ScreenCast are implemented; hosted PipeWire integration captures a real synthetic frame and validates bounded raw-pixel conversion/artifact handling. |
 | A028 | X11 fallback. | PASS | The X11 backend executes against isolated Xvfb with bounded blocking I/O, cancellation and lifecycle-epoch tests. |
 | A029 | GNOME backend/bridge. | PASS | Real GNOME Shell 46.0 Wayland session exercised the documented primary GTK/AT-SPI route end to end on commit `6bab0cc`; the optional GJS bridge and portal-consent matrix remain broader follow-on coverage. |
-| A030 | KDE backend/bridge. | FAIL | Source exists in crates/backends + bridges; docs/compatibility.md; compiled and tested in the hosted baseline; the full criterion still lacks required live/conformance evidence. |
+| A030 | KDE backend/bridge. | PASS | Hosted `Plasma Wayland live` executes the production KWin 6 mailbox bridge against a disposable Wayland fixture and verifies discovery, focus, resize, move, close and stale-reference rejection. |
 | A031 | Sway and/or Hyprland support path. | PASS | Sway and Hyprland backend paths compile and have command/peer/availability tests; full live compositor coverage remains R06. |
 | A032 | Input fallback is explicit and policy-gated. | PASS | Input fallback is explicit and policy-gated; the real EIS protocol integration transmits keyboard, text, relative pointer, button and scroll events. |
 
@@ -210,7 +210,7 @@ other commits and local archives is not part of this acceptance decision.
 
 ## Totals
 
-PASS: **121**, FAIL: **1**, LIVE_VERIFICATION_PENDING: **0**, NOT_APPLICABLE: **1**.
+PASS: **122**, FAIL: **0**, LIVE_VERIFICATION_PENDING: **0**, NOT_APPLICABLE: **1**.
 
 These totals measure checklist resolution, not a percentage of software correctness.
 A green compiler baseline does not replace missing live/security evidence, regardless of the
@@ -298,10 +298,10 @@ LibreOffice deep-driver expansion subtotal: **6 PASS, 1 FAIL**.
 | J005 | Cancellation is idempotent and can reach a blocked dynamic provider without waiting behind its execution gate. | PASS | Core and Provider Runtime cancellation regressions. |
 | J006 | Session revocation cancels and forgets only that session's active jobs. | PASS | Revocation regression covers ownership and cleanup. |
 | J007 | Job lifecycle events are source-tagged and private to the owning session. | PASS | Queued/started/cancel-requested/terminal event integration plus audience filtering. |
-| J008 | Providers expose a general, measured progress and artifact contract for long operations. | FAIL | Core lifecycle exists, but progress/artifact semantics are not yet a provider-wide contract. |
-| J009 | MCP Tasks and driver protocol job/event interfaces are negotiated and conformant. | FAIL | Mapping/negotiation remains follow-on work; protocol v1 does not imply these interfaces. |
+| J008 | Providers expose a general, measured progress and artifact contract for long operations. | PASS | Provider Runtime signals carry bounded `JobProgress` plus typed `JobArtifact` metadata into the owning session-scoped JobStore; integration tests verify progress, artifacts and cross-session isolation. |
+| J009 | MCP Tasks and driver protocol job/event interfaces are negotiated and conformant. | PASS | MCP Tasks map to session-scoped jobs, while Driver Protocol v2 negotiates dynamic capabilities, events, progress/artifacts and cooperative cancellation through sandboxed conformance tests. |
 
-Events and Jobs expansion subtotal: **7 PASS, 2 FAIL**.
+Events and Jobs expansion subtotal: **9 PASS, 0 FAIL**.
 
 ## OBS deep-driver expansion acceptance
 

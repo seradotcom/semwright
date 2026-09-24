@@ -4524,6 +4524,155 @@
     ]
   },
   {
+    "name": "artifact.handoff",
+    "version": "1.0",
+    "description": "Copy a bounded binary artifact between two explicitly granted filesystem roots without exposing host absolute paths.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "source_root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "source_path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "destination_root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "destination_path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "expected_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "semantic_type": {
+          "type": "string",
+          "maxLength": 96,
+          "pattern": "^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*$"
+        },
+        "media_type": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*/[A-Za-z0-9][A-Za-z0-9.+-]*$"
+        }
+      },
+      "required": [
+        "source_root",
+        "source_path",
+        "destination_root",
+        "destination_path"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "copied": {
+          "type": "boolean",
+          "const": true
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "root": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "path": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "root",
+            "path"
+          ],
+          "additionalProperties": false
+        },
+        "destination": {
+          "type": "object",
+          "properties": {
+            "root": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "path": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "root",
+            "path"
+          ],
+          "additionalProperties": false
+        },
+        "semantic_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 96
+        },
+        "media_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "atomic": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "copied",
+        "bytes",
+        "sha256",
+        "source",
+        "destination",
+        "semantic_type",
+        "media_type",
+        "atomic"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "filesystem.read:source_root",
+      "filesystem.write:destination_root"
+    ],
+    "risk": "mutating",
+    "idempotency": "idempotent",
+    "timeout_ms": 30000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "artifacts"
+    ]
+  },
+  {
     "name": "notifications.send",
     "version": "1.0",
     "description": "Send a desktop notification through the Notifications D-Bus interface.",
