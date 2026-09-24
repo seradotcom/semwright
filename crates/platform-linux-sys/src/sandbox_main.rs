@@ -128,6 +128,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, read))?;
         }
     }
+    // Child processes commonly redirect stdout/stderr through Stdio::null(), which opens
+    // /dev/null for writing. Grant that single device write access while keeping the rest
+    // of /dev under the read-only rule above.
+    ruleset = ruleset.add_rule(PathBeneath::new(
+        PathFd::new("/dev/null")?,
+        AccessFs::ReadFile | AccessFs::WriteFile,
+    ))?;
     for path in writable {
         ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, all))?;
     }

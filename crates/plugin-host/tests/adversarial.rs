@@ -160,6 +160,8 @@ async fn hostile_plugin_cannot_escape_filesystem_network_process_or_environment(
     assert_eq!(value["readonly_write"], false);
     assert_eq!(value["outside_home_write"], false);
     assert_eq!(value["outside_etc_write"], false);
+    assert_eq!(value["null_device_write"], true);
+    assert_eq!(value["other_device_write"], false);
     assert_eq!(value["host_secret_visible"], false);
     assert_eq!(value["host_pid_visible"], false);
     assert_eq!(value["host_loopback_connected"], false);
