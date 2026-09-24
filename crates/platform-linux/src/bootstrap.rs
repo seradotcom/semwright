@@ -30,14 +30,15 @@ pub async fn bootstrap(
     browser: BrowserConfig,
     blender_socket: Option<PathBuf>,
 ) -> Result<DesktopHost> {
-    let dbus = match zbus::Connection::session().await {
-        Ok(connection) => {
-            connection.request_name("org.semwright.Broker").await.map_err(|_|Error::new(ErrorCode::Conflict,"Another real broker owns org.semwright.Broker, or the session bus denied the name"))?;
-            Some(connection)
-        }
-        Err(_) => None,
-    };
+    let dbus = zbus::Connection::session().await.ok();
     let mut environment = crate::environment();
+    let mut kwin = None;
+    if let Some(connection) = &dbus {
+        // Register our D-Bus object before acquiring the well-known name. zbus deliberately
+        // warns about the opposite order because calls can arrive as soon as the name is owned.
+        kwin = Some(Kwin::attach(connection).await?);
+        connection.request_name("org.semwright.Broker").await.map_err(|_|Error::new(ErrorCode::Conflict,"Another real broker owns org.semwright.Broker, or the session bus denied the name"))?;
+    }
     environment["broker_session_bus_owned"] = serde_json::json!(dbus.is_some());
     let mut backends: Vec<Arc<dyn Backend>> = vec![
         Arc::new(Atspi::default()),
@@ -48,11 +49,8 @@ pub async fn bootstrap(
         Arc::new(Clipboard::default()),
         Arc::new(System::new(applications)?),
     ];
-    if let Some(connection) = &dbus {
-        match Kwin::attach(connection).await {
-            Ok(kwin) => backends.push(Arc::new(kwin)),
-            Err(_) => environment["kwin_mailbox"] = serde_json::json!("unavailable"),
-        }
+    if let Some(kwin) = kwin {
+        backends.push(Arc::new(kwin));
     }
     backends.push(Arc::new(Portal::new(
         runtime.join("artifacts"),
