@@ -59,12 +59,36 @@ jobs:
           if count != 2:
               raise SystemExit(f"unexpected bwrap AppArmor profile shape: {count} flag matches")
           text = text.replace(old, "flags=(attach_disconnected,mediate_deleted)")
+          # Ubuntu 24.04 ships an older first exec transition (`px`) here.
+          # Current upstream AppArmor uses `pix` plus a stacked target so
+          # no_new_privs descendants can fall back to inheriting the existing
+          # confinement when another profile transition is unavailable.
+          parent = "allow px /** -> bwrap//&unpriv_bwrap,"
+          upstream = "allow pix /** -> &bwrap//&unpriv_bwrap,"
+          nested = "allow pix /** -> &unpriv_bwrap,"
+          if text.count(parent) != 1 or text.count(nested) != 1:
+              raise SystemExit("unexpected bwrap AppArmor exec-rule shape")
+          text = text.replace(parent, upstream)
           path.write_text(text)
           PY
           sudo install -m 0644 "$RUNNER_TEMP/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
           sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
           test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 1)" != "0"
           bwrap --unshare-all --ro-bind / / -- /usr/bin/true
+          # Model the Driver Host exec depth before installing browsers: bwrap
+          # starts the staged sandbox helper, which execs the staged driver,
+          # which then execs a runtime tool under the same stacked profile.
+          rm -rf "$RUNNER_TEMP/aa-exec-probe"
+          mkdir -p "$RUNNER_TEMP/aa-exec-probe/runtime"
+          cp /bin/sh "$RUNNER_TEMP/aa-exec-probe/sandbox"
+          cp /bin/sh "$RUNNER_TEMP/aa-exec-probe/driver"
+          cp /usr/bin/true "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
+          chmod 0755 "$RUNNER_TEMP/aa-exec-probe/sandbox" "$RUNNER_TEMP/aa-exec-probe/driver" "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
+          bwrap --unshare-all --ro-bind / / --dir /plugin --dir /workspace \
+            --ro-bind "$RUNNER_TEMP/aa-exec-probe/sandbox" /plugin/sandbox \
+            --ro-bind "$RUNNER_TEMP/aa-exec-probe/driver" /plugin/bin \
+            --ro-bind "$RUNNER_TEMP/aa-exec-probe/runtime" /workspace/runtime \
+            -- /plugin/sandbox -c '/plugin/bin -c /workspace/runtime/tool'
       - name: Install exact Motion Canvas runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: |
