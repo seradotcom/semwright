@@ -111,7 +111,21 @@ jobs:
           sudo apt-get install -y apparmor-profiles apparmor-utils
           PROFILE=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
           test -f "$PROFILE"
-          sudo install -m 0644 "$PROFILE" /etc/apparmor.d/bwrap-userns-restrict
+          cp "$PROFILE" "$RUNNER_TEMP/bwrap-userns-restrict"
+          # Ubuntu 24.04's extra profile predates the upstream mediate_deleted fix.
+          # Keep userns restriction enabled; update only the scoped bwrap profile.
+          python3 - "$RUNNER_TEMP/bwrap-userns-restrict" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text()
+          old = "flags=(attach_disconnected)"
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f"unexpected bwrap AppArmor profile shape: {count} flag matches")
+          path.write_text(text.replace(old, "flags=(attach_disconnected,mediate_deleted)"))
+          PY
+          sudo install -m 0644 "$RUNNER_TEMP/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
           sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
           test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 1)" != "0"
           bwrap --unshare-all --ro-bind / / -- /usr/bin/true

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {constants as fsConstants} from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import process from 'node:process';
@@ -87,14 +88,28 @@ async function startChromium(executable, output, timeoutMs) {
     '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0',
     `--user-data-dir=${profile}`, 'about:blank',
   ];
+  const metadata = await fs.stat(executable);
+  if (!metadata.isFile() || (metadata.mode & 0o111) === 0) {
+    fail(`Pinned Chromium is not executable (mode=${(metadata.mode & 0o777).toString(8)})`);
+  }
+  try {
+    await fs.access(executable, fsConstants.X_OK);
+  } catch (error) {
+    fail(`Pinned Chromium failed X_OK access (mode=${(metadata.mode & 0o777).toString(8)}): ${String(error)}`);
+  }
   const child = spawn(executable, argv, {stdio:['ignore','ignore','pipe']});
+  const spawnFailure = once(child, 'error').then(([error]) => error);
   let stderr = '';
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-16384); });
+  child.stderr?.setEncoding('utf8');
+  child.stderr?.on('data', chunk => { stderr = (stderr + chunk).slice(-16384); });
   const activePort = path.join(profile, 'DevToolsActivePort');
   const deadline = Date.now() + Math.min(timeoutMs, 30000);
   let port = 0;
   while (Date.now() < deadline) {
+    const spawnError = await Promise.race([spawnFailure, sleep(25).then(() => null)]);
+    if (spawnError) {
+      fail(`Chromium spawn failed after X_OK passed (mode=${(metadata.mode & 0o777).toString(8)}): ${String(spawnError)}`);
+    }
     if (exited(child)) fail(`Chromium exited before CDP startup (code=${child.exitCode}, signal=${child.signalCode}): ${stderr}`);
     try {
       const lines = (await fs.readFile(activePort, 'utf8')).trim().split(/\r?\n/);
