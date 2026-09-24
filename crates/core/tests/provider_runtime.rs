@@ -353,8 +353,19 @@ async fn one_available_operation_does_not_enable_an_unavailable_operation() {
         })
         .await
         .unwrap();
-    assert_eq!(rows["total"], 1);
-    assert_eq!(rows["capabilities"][0]["id"], "driver.fixture.count");
+    assert_eq!(rows["total"], 2);
+    let available = rows["capabilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["id"].as_str().unwrap())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        available,
+        ["driver.fixture.count", "driver.fixture.progress"]
+            .into_iter()
+            .collect()
+    );
     fixture.broker.shutdown().await;
 }
 #[tokio::test]
