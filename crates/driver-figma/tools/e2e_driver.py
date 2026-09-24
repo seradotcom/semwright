@@ -109,6 +109,7 @@ def main():
             "driver.figma.buzz.frame.create",
             "driver.figma.figjam.diagram.create",
             "driver.figma.validate.a11y",
+            "driver.figma.payments.status",
         }
         missing_surface = sorted(required_surface - set(caps))
         assert not missing_surface, missing_surface

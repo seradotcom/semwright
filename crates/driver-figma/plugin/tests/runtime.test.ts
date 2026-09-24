@@ -29,6 +29,8 @@ function harness(editorType = "figma") {
   const eventHandlers = new Map<string, Array<(event: any) => void>>();
   let thumbnail: AnyNode | null = null;
   let slideGrid: AnyNode[][] = [];
+  let paymentStatus:{type:"UNPAID"|"PAID"|"NOT_SUPPORTED"}={type:"UNPAID"};
+  let checkoutRequests=0;
   let nextNode = 2, nextCollection = 1, nextVariable = 1, nextMedia = 1, nextStyle = 1;
 
   function scene(type: string, name = type): AnyNode {
@@ -110,6 +112,14 @@ function harness(editorType = "figma") {
     mode: editorType==="dev"?"codegen":"default", command:"",
     currentUser:{id:"user:1",name:"Sergio Test",photoUrl:null,color:"#ff0000",sessionId:1},
     activeUsers:[{id:"user:1",name:"Sergio Test",photoUrl:null,color:"#ff0000",sessionId:1,position:{x:10,y:20},viewport:{x:0,y:0,width:800,height:600},selection:[]}],
+    payments:{
+      get status(){return paymentStatus;},
+      setPaymentStatusInDevelopment(status:{type:"UNPAID"|"PAID"|"NOT_SUPPORTED"}){paymentStatus={...status};},
+      getUserFirstRanSecondsAgo(){return 123;},
+      async initiateCheckoutAsync(){paymentStatus={type:"PAID"};},
+      requestCheckout(){checkoutRequests++;},
+      async getPluginPaymentTokenAsync(){return "TEST_ONLY_INTERNAL_PAYMENT_TOKEN";},
+    },
     codegen:{
       preferences:{unit:"PIXEL",scaleFactor:undefined,customSettings:{}},
       refresh(){figma.codegenRefreshes++;},
@@ -611,6 +621,32 @@ describe("semantic admin and editor-gated runtime",()=> {
     expect(denied.ok).toBe(false);
     expect(denied.error.message).toContain("unsupported_editor");
   });
+  it("maps PaymentsAPI without exposing plugin payment tokens",async()=> {
+    const h=harness();
+    const initial=await h.call("payments.status");
+    expect(initial.ok).toBe(true);
+    expect(initial.value).toEqual({type:"UNPAID"});
+
+    const age=await h.call("payments.first_run_age");
+    expect(age.ok).toBe(true);
+    expect(age.value).toEqual({seconds:123});
+
+    const dev=await h.call("payments.dev.status.set",{status:"PAID"});
+    expect(dev.ok).toBe(true);
+    expect(dev.value).toEqual({type:"PAID"});
+
+    const requested=await h.call("payments.checkout.request");
+    expect(requested.ok).toBe(true);
+    expect(requested.value).toEqual({requested:true});
+
+    const checkout=await h.call("payments.checkout",{interstitial:"PAID_FEATURE"});
+    expect(checkout.ok).toBe(true);
+    expect(checkout.value).toEqual({type:"PAID"});
+
+    const serialized=JSON.stringify([initial,age,dev,requested,checkout]);
+    expect(serialized).not.toContain("TEST_ONLY_INTERNAL_PAYMENT_TOKEN");
+  });
+
   it("exposes collaboration context only through explicit semantic operations",async()=> {
     const h=harness("figjam");
     const current=await h.call("user.current");

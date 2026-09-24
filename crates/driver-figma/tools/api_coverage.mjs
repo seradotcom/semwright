@@ -237,7 +237,7 @@ const AUX_CAPABILITY_EXACT={
   "AnnotationCategory.remove":"annotation.category.remove","Image.getBytesAsync":"image.export","Image.getSizeAsync":"image.inspect",
 };
 const AUX_INTERFACE_CLASSIFICATION={
-  UIAPI:"INTERNAL_PLUGIN_UI",ClientStorageAPI:"INTERNAL_PLUGIN_STATE",PaymentsAPI:"POLICY_EXCLUDED_PAYMENT",
+  UIAPI:"INTERNAL_PLUGIN_UI",ClientStorageAPI:"INTERNAL_PLUGIN_STATE",
   UtilAPI:"PURE_HELPER_INTERNAL",SuggestionResults:"EVENT_CALLBACK_HELPER",DropFile:"EVENT_PAYLOAD_HELPER",
   DevResourcesAPI:"EVENT_SOURCE_INTERNAL",ParametersAPI:"EVENT_SOURCE_INTERNAL",
 };
@@ -287,11 +287,10 @@ const GLOBAL_INTERFACE_DEFAULTS={
   DevResourcesAPI:"SEPARATE_EDITOR_MODE",
   VSCodeAPI:"SEPARATE_EDITOR_MODE",
   ParametersAPI:"INVENTORIED_INTERNAL",
-  ClientStorageAPI:"INTERNAL_OR_POLICY_EXCLUDED",
-  UIAPI:"INTERNAL_OR_POLICY_EXCLUDED",
+  ClientStorageAPI:"INTERNAL_PLUGIN_STATE",
+  UIAPI:"INTERNAL_PLUGIN_UI",
   UtilAPI:"INVENTORIED_INTERNAL",
   ConstantsAPI:"INVENTORIED_INTERNAL",
-  PaymentsAPI:"INTERNAL_OR_POLICY_EXCLUDED",
 };
 const GLOBAL_CAPABILITY_MAP={
   PluginAPI:{
@@ -367,12 +366,20 @@ const GLOBAL_CAPABILITY_MAP={
   },
   TimerAPI:{remaining:"figjam.timer.status",total:"figjam.timer.status",state:"figjam.timer.status",pause:"figjam.timer.pause",resume:"figjam.timer.resume",start:"figjam.timer.start",stop:"figjam.timer.stop"},
   ViewportAPI:{center:"viewport.inspect+viewport.center",zoom:"viewport.inspect+viewport.zoom",bounds:"viewport.inspect",scrollAndZoomIntoView:"viewport.fit",slidesView:"slides.view.get+slides.view.set",canvasView:"viewport.canvas_view.get+viewport.canvas_view.set"},
+  PaymentsAPI:{
+    status:"payments.status",
+    setPaymentStatusInDevelopment:"payments.dev.status.set",
+    getUserFirstRanSecondsAgo:"payments.first_run_age",
+    initiateCheckoutAsync:"payments.checkout",
+    requestCheckout:"payments.checkout.request",
+  },
 };
 const GLOBAL_EXACT_CLASSIFICATION={
-  "PluginAPI.createImageAsync":"POLICY_EXCLUDED_REMOTE_FETCH_USE_ARTIFACT:image.create",
+  "PluginAPI.createImageAsync":"SEMANTICALLY_SUPERSEDED:image.create",
   "PluginAPI.loadAllPagesAsync":"INTERNAL_DYNAMIC_PAGE_LIFECYCLE",
   "VariablesAPI.createVariableAlias":"PURE_HELPER_INTERNAL_ALIAS_VALUE",
   "VariablesAPI.createVariableAliasByIdAsync":"PURE_HELPER_INTERNAL_ALIAS_VALUE",
+  "PaymentsAPI.getPluginPaymentTokenAsync":"INTERNAL_SECRET_COMPOSITION",
 };
 for(const [iface,mappings] of Object.entries(GLOBAL_CAPABILITY_MAP)){
   for(const [member,mapping] of Object.entries(mappings)){
@@ -394,10 +401,10 @@ const GLOBAL_MEMBER_OVERRIDES={
     devResources:"SEPARATE_EDITOR_MODE_NAMESPACE",
     root:"RUNTIME_DOCUMENT_CONTEXT",currentPage:"RUNTIME_DOCUMENT_CONTEXT",mixed:"RUNTIME_SENTINEL",
     on:"SUPPORTED_EVENT",once:"SUPPORTED_EVENT",off:"SUPPORTED_EVENT",
-    openExternal:"POLICY_EXCLUDED_EXTERNAL_NAVIGATION",
-    payments:"INTERNAL_OR_POLICY_EXCLUDED",clientStorage:"INTERNAL_OR_POLICY_EXCLUDED",
-    parameters:"INTERNAL_OR_POLICY_EXCLUDED",showUI:"INTERNAL_OR_POLICY_EXCLUDED",
-    ui:"INTERNAL_OR_POLICY_EXCLUDED",closePlugin:"INTERNAL_OR_POLICY_EXCLUDED",notify:"INTERNAL_OR_POLICY_EXCLUDED",
+    openExternal:"SEMANTICALLY_DELEGATED:browser-provider",
+    payments:"NAMESPACE_MAPPED",clientStorage:"INTERNAL_PLUGIN_STATE",
+    parameters:"INTERNAL_PLUGIN_INVOCATION",showUI:"INTERNAL_PLUGIN_UI",
+    ui:"INTERNAL_PLUGIN_UI",closePlugin:"INTERNAL_PLUGIN_LIFECYCLE",notify:"INTERNAL_PLUGIN_UI",
     util:"PURE_HELPER_INTERNAL",constants:"PURE_HELPER_INTERNAL",
     hasMissingFont:"CAPABILITY:font.status",base64Encode:"PURE_HELPER_INTERNAL",base64Decode:"PURE_HELPER_INTERNAL",
   },

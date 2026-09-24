@@ -10,6 +10,11 @@ pub const OPERATIONS: &[&str] = &[
     "dev.focused_node",
     "codegen.status",
     "codegen.refresh",
+    "payments.status",
+    "payments.first_run_age",
+    "payments.checkout",
+    "payments.checkout.request",
+    "payments.dev.status.set",
     "user.current",
     "figjam.active_users",
     "node.top_level_frame",
@@ -187,6 +192,14 @@ fn variable_value_schema() -> Value {
         {"type":"object","properties":{"type":{"const":"VARIABLE_ALIAS"},"id":s(256)},"required":["type","id"],"additionalProperties":false}
     ]})
 }
+fn payment_status_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{"type":en(&["UNPAID","PAID","NOT_SUPPORTED"])},
+        "required":["type"],
+        "additionalProperties":false
+    })
+}
 pub fn input_schema(name: &str) -> Option<Value> {
     if !OPERATIONS.contains(&name) {
         return None;
@@ -211,12 +224,23 @@ pub fn input_schema(name: &str) -> Option<Value> {
         | "dev.focused_node"
         | "codegen.status"
         | "codegen.refresh"
+        | "payments.status"
+        | "payments.first_run_age"
+        | "payments.checkout.request"
         | "user.current"
         | "figjam.active_users"
         | "textreview.status"
         | "textreview.enable"
         | "textreview.disable" => no_args(),
         "slides.grid.set" => input(vec![("rows", arr(100, arr(100, s(256))))], &["rows"]),
+        "payments.checkout" => input(
+            vec![("interstitial", en(&["PAID_FEATURE", "TRIAL_ENDED", "SKIP"]))],
+            &[],
+        ),
+        "payments.dev.status.set" => input(
+            vec![("status", en(&["UNPAID", "PAID", "NOT_SUPPORTED"]))],
+            &["status"],
+        ),
         "annotation.category.inspect" => input(vec![("id", s(256))], &["id"]),
         "font.load" => input(
             vec![
@@ -554,6 +578,21 @@ pub fn output_schema(name: &str) -> Option<Value> {
         "codegen.refresh" => json!({
             "type":"object","properties":{"refreshed":{"type":"boolean"}},
             "required":["refreshed"],"additionalProperties":false
+        }),
+        "payments.status" | "payments.checkout" | "payments.dev.status.set" => {
+            payment_status_schema()
+        }
+        "payments.first_run_age" => json!({
+            "type":"object",
+            "properties":{"seconds":u(u64::MAX)},
+            "required":["seconds"],
+            "additionalProperties":false
+        }),
+        "payments.checkout.request" => json!({
+            "type":"object",
+            "properties":{"requested":{"type":"boolean"}},
+            "required":["requested"],
+            "additionalProperties":false
         }),
         "user.current" => json!({"oneOf":[{"type":"null"},user_schema(false)]}),
         "figjam.active_users" => arr(128, user_schema(true)),

@@ -449,6 +449,7 @@ jobs:
           npm ci
           node ../tools/api_coverage.mjs | tee ../../../verification/native-ci/figma-api-coverage.log
           python3 ../tools/rest_api_coverage.py | tee ../../../verification/native-ci/figma-rest-api-coverage.log
+          python3 ../tools/semantic_completeness.py | tee ../../../verification/native-ci/figma-semantic-completeness.log
           npm test
           npm run typecheck
           npm run build

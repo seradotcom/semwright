@@ -24,6 +24,10 @@ function saTextReview():TextReviewAPI{
   if(!figma.textreview)throw new Error("textreview_manifest_required");
   return figma.textreview;
 }
+function saPayments():PaymentsAPI{
+  if(!figma.payments)throw new Error("payments_unavailable");
+  return figma.payments;
+}
 function saMeasurement(m:Measurement){
   return {id:m.id,start:{node:summarize(m.start.node),side:m.start.side},end:{node:summarize(m.end.node),side:m.end.side},offset:m.offset,freeText:m.freeText};
 }
@@ -108,6 +112,33 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
     }
     case "codegen.refresh":
       saRequireEditor("dev");figma.codegen.refresh();return ok(request.id,{refreshed:true},true);
+    case "payments.status": {
+      const payments=saPayments();
+      return ok(request.id,{type:payments.status.type});
+    }
+    case "payments.first_run_age": {
+      const payments=saPayments();
+      return ok(request.id,{seconds:payments.getUserFirstRanSecondsAgo()});
+    }
+    case "payments.checkout": {
+      const payments=saPayments();
+      const interstitial=a.interstitial===undefined
+        ? undefined
+        : String(a.interstitial) as "PAID_FEATURE"|"TRIAL_ENDED"|"SKIP";
+      await payments.initiateCheckoutAsync(interstitial===undefined?undefined:{interstitial});
+      return ok(request.id,{type:payments.status.type},true);
+    }
+    case "payments.checkout.request": {
+      const payments=saPayments();
+      payments.requestCheckout();
+      return ok(request.id,{requested:true},true);
+    }
+    case "payments.dev.status.set": {
+      const payments=saPayments();
+      const type=String(a.status) as PaymentStatus["type"];
+      payments.setPaymentStatusInDevelopment({type});
+      return ok(request.id,{type:payments.status.type},true);
+    }
     case "user.current": {
       let user:User|null;
       try{user=figma.currentUser;}catch{throw new Error("permission_currentuser_required");}
