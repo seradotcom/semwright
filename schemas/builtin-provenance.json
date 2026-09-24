@@ -1086,6 +1086,21 @@
     ],
     "untrusted_metadata": false
   },
+  "ui.hit_test": {
+    "aliases": [],
+    "app": null,
+    "object_types": [],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "ui",
+      "hit_test",
+      "accessibility",
+      "grounding"
+    ],
+    "untrusted_metadata": false
+  },
   "ui.invoke": {
     "aliases": [],
     "app": null,

@@ -891,6 +891,164 @@ impl Atspi {
             "visited": visited
         }))
     }
+
+    async fn hit_test(&self, ctx: &Context, args: &Value) -> Result<Value> {
+        let x = args["x"]
+            .as_i64()
+            .ok_or_else(|| Error::invalid("x required"))?;
+        let y = args["y"]
+            .as_i64()
+            .ok_or_else(|| Error::invalid("y required"))?;
+        if !(-1_000_000..=1_000_000).contains(&x) || !(-1_000_000..=1_000_000).contains(&y) {
+            return Err(Error::invalid("UI hit-test coordinates exceed budget"));
+        }
+        let x = i32::try_from(x).map_err(|_| Error::invalid("x out of range"))?;
+        let y = i32::try_from(y).map_err(|_| Error::invalid("y out of range"))?;
+        let c = self.connect().await?;
+        for app_object in self.apps(&c).await? {
+            ctx.check_cancelled()?;
+            let app = match self.app_name(&c, &app_object).await {
+                Ok(app) => app,
+                Err(_) => continue,
+            };
+            let framework = self.app_framework(&c, &app_object).await;
+            let Ok(component) = self
+                .proxy(&c, &app_object, "org.a11y.atspi.Component")
+                .await
+            else {
+                continue;
+            };
+            let hit: Object =
+                match bounded(component.call("GetAccessibleAtPoint", &(x, y, 0u32))).await {
+                    Ok(hit) => hit,
+                    Err(_) => continue,
+                };
+            if hit.0.is_empty() || hit.1.as_str() == "/org/a11y/atspi/null" {
+                continue;
+            }
+            let identity = object_id(&hit);
+            let (role, mut name, fingerprint) = self.identity(&c, &hit).await?;
+            let proxy = self.proxy(&c, &hit, ACCESSIBLE).await?;
+            let state_bits: Vec<u32> = bounded(proxy.call("GetState", &()))
+                .await
+                .unwrap_or_default();
+            let states = decode_states(&state_bits);
+            if states.contains(&"defunct") || states.contains(&"stale") {
+                continue;
+            }
+            let actions = self.actions(&c, &hit).await;
+            let child_count: i32 = bounded(proxy.get_property("ChildCount")).await.unwrap_or(0);
+            let child_count = usize::try_from(child_count.max(0)).unwrap_or(0).min(2000);
+            let attributes: BTreeMap<String, String> = bounded(
+                proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
+            )
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .take(128)
+            .map(|(key, value)| {
+                (
+                    key.chars().take(128).collect(),
+                    value.chars().take(1024).collect(),
+                )
+            })
+            .collect();
+            let help: String = bounded(proxy.get_property::<String>("HelpText"))
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(1024)
+                .collect();
+            let accessibility_id: String = bounded(proxy.get_property::<String>("AccessibleId"))
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(512)
+                .collect();
+            let locale: String = bounded(proxy.get_property::<String>("Locale"))
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(128)
+                .collect();
+            let interfaces: Vec<String> =
+                bounded(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .take(64)
+                    .map(|value| value.chars().take(128).collect())
+                    .collect();
+            let relations = self.relations(&c, &hit, &app).await;
+            let mut facets = self
+                .facets(&c, &hit, &interfaces, &states, &role, child_count)
+                .await;
+            if facets.document.is_none() && !locale.is_empty() {
+                facets.document = Some(UiDocumentFacet {
+                    locale: Some(locale),
+                    ..UiDocumentFacet::default()
+                });
+            }
+            let mut description: String = bounded(proxy.get_property("Description"))
+                .await
+                .unwrap_or_default();
+            if role == "password-entry" {
+                name = "[protected control]".into();
+                description.clear();
+            }
+            let bounds = match self.proxy(&c, &hit, "org.a11y.atspi.Component").await {
+                Ok(component) => {
+                    bounded(component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)))
+                        .await
+                        .ok()
+                        .map(|(x, y, width, height)| {
+                            json!({
+                                "x": x,
+                                "y": y,
+                                "width": width,
+                                "height": height,
+                                "coordinate_space": "atspi_screen_reported"
+                            })
+                        })
+                }
+                Err(_) => None,
+            };
+            let target = NativeTarget {
+                kind: "ui".into(),
+                identity: identity.clone(),
+                revision: self.object_generations.get_or_assign(&identity)?,
+                fingerprint,
+                app: app.clone(),
+            };
+            return Ok(json!({
+                "node": {
+                    "node_id": stable_node_id(&identity),
+                    "ref": target_marker(target),
+                    "role": role,
+                    "name": name.chars().take(1024).collect::<String>(),
+                    "description": description.chars().take(1024).collect::<String>(),
+                    "help": help,
+                    "accessibility_id": accessibility_id,
+                    "framework": framework,
+                    "attributes": attributes,
+                    "relations": relations,
+                    "facets": facets,
+                    "states": states,
+                    "actions": actions,
+                    "app": app,
+                    "parent_ref": Value::Null,
+                    "bounds": bounds,
+                    "children_count": child_count
+                },
+                "point": {"x": x, "y": y, "coordinate_space": "screen"},
+                "semantic_coverage": "native_hit_test"
+            }));
+        }
+        Err(Error::new(
+            ErrorCode::NotFound,
+            "No accessible object was reported at the requested screen point",
+        ))
+    }
 }
 #[async_trait]
 impl Backend for Atspi {
@@ -902,6 +1060,7 @@ impl Backend for Atspi {
             c,
             "app.list"
                 | "ui.snapshot"
+                | "ui.hit_test"
                 | "ui.invoke"
                 | "ui.set_text"
                 | "ui.read_text"
@@ -931,6 +1090,9 @@ impl Backend for Atspi {
         ctx.check_cancelled()?;
         if command == "ui.snapshot" {
             return self.snapshot(ctx, args).await;
+        }
+        if command == "ui.hit_test" {
+            return self.hit_test(ctx, args).await;
         }
         let c = self.connect().await?;
         if command == "app.list" {

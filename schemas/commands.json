@@ -1970,6 +1970,72 @@
             "query": {
               "type": "string",
               "maxLength": 256
+            },
+            "help": {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "exact",
+                    "regex"
+                  ]
+                },
+                "value": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "required": [
+                "op",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "framework": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "attributes": {
+              "type": "object",
+              "maxProperties": 32,
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 1024
+              }
+            },
+            "relation": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "target": {
+                  "type": "string",
+                  "maxLength": 80,
+                  "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            "facet": {
+              "type": "string",
+              "enum": [
+                "text",
+                "value",
+                "selection",
+                "table",
+                "document",
+                "image",
+                "hypertext",
+                "scroll",
+                "window",
+                "transform"
+              ]
             }
           },
           "required": [],
@@ -2051,6 +2117,184 @@
     "interactive_consent": false,
     "backends": [
       "core"
+    ]
+  },
+  {
+    "name": "ui.hit_test",
+    "version": "1.0",
+    "description": "Resolve a screen point through the native accessibility system into an exact semantic UI reference. Read-only; never clicks.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "type": "object",
+          "properties": {
+            "ref": {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+            },
+            "node_id": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "role": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "help": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "accessibility_id": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "framework": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "attributes": {
+              "type": "object",
+              "maxProperties": 128,
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 1024
+              }
+            },
+            "relations": {
+              "type": "array",
+              "maxItems": 64
+            },
+            "facets": {
+              "type": "object",
+              "maxProperties": 16
+            },
+            "states": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "maxLength": 80
+              }
+            },
+            "actions": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "maxLength": 80
+              }
+            },
+            "app": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "parent_ref": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 80
+            },
+            "bounds": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "children_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2000
+            }
+          },
+          "required": [
+            "ref",
+            "role",
+            "name",
+            "description",
+            "states",
+            "actions",
+            "app",
+            "parent_ref",
+            "bounds",
+            "children_count"
+          ],
+          "additionalProperties": false
+        },
+        "point": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "coordinate_space": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "coordinate_space"
+          ],
+          "additionalProperties": false
+        },
+        "semantic_coverage": {
+          "const": "native_hit_test"
+        }
+      },
+      "required": [
+        "node",
+        "point",
+        "semantic_coverage"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "ui.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 3000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "atspi",
+      "macos",
+      "windows"
     ]
   },
   {

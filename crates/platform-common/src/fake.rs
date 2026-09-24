@@ -114,6 +114,7 @@ impl Backend for FakeDesktop {
                 | "window.close"
                 | "app.close"
                 | "ui.snapshot"
+                | "ui.hit_test"
                 | "ui.invoke"
                 | "ui.set_text"
                 | "ui.read_text"
@@ -195,6 +196,60 @@ impl Backend for FakeDesktop {
                     "resync_required":since_revision.is_some()&&!delta,
                     "semantic_coverage":"fixture",
                     "budget":limit
+                }))
+            }
+            "ui.hit_test" => {
+                let x = args["x"]
+                    .as_f64()
+                    .ok_or_else(|| Error::invalid("x required"))?;
+                let y = args["y"]
+                    .as_f64()
+                    .ok_or_else(|| Error::invalid("y required"))?;
+                if !(0.0..80.0).contains(&x) || !(0.0..24.0).contains(&y) {
+                    return Err(Error::new(
+                        ErrorCode::NotFound,
+                        "Fixture has no semantic node at that point",
+                    ));
+                }
+                let n = s.nodes.first().ok_or_else(|| {
+                    Error::new(ErrorCode::NotFound, "Fixture has no semantic nodes")
+                })?;
+                Ok(json!({
+                    "node": {
+                        "node_id": format!("fixture:{}", n.id),
+                        "ref": target_marker(Self::target(
+                            "ui",
+                            &n.id,
+                            s.revision,
+                            &format!("{}:{}", n.role, n.name),
+                        )),
+                        "role": n.role,
+                        "name": n.name,
+                        "description": "Deterministic test fixture",
+                        "help": "",
+                        "accessibility_id": format!("fixture-{}", n.id),
+                        "framework": "fixture",
+                        "attributes": {},
+                        "relations": [],
+                        "facets": {},
+                        "states": ["enabled", "visible"],
+                        "actions": n.actions,
+                        "app": "org.semwright.Fixture",
+                        "parent_ref": Value::Null,
+                        "bounds": {
+                            "x": 0,
+                            "y": 0,
+                            "width": 80,
+                            "height": 24,
+                            "coordinate_space": "fixture_logical"
+                        },
+                        "children_count": s.nodes
+                            .iter()
+                            .filter(|c| c.parent.as_deref() == Some(n.id.as_str()))
+                            .count()
+                    },
+                    "point": {"x": x, "y": y, "coordinate_space": "fixture_logical"},
+                    "semantic_coverage": "native_hit_test"
                 }))
             }
             "window.focus" => {

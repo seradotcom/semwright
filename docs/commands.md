@@ -31,6 +31,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
 | `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos, windows |
 | `ui.find` | `ui.observe` | read_only | 10000 ms | core |
+| `ui.hit_test` | `ui.observe` | read_only | 3000 ms | atspi, macos, windows |
 | `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos, windows |
@@ -597,6 +598,72 @@ Idempotency: `read_only`. Dry run: `true`.
         "query": {
           "type": "string",
           "maxLength": 256
+        },
+        "help": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "regex"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "framework": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "attributes": {
+          "type": "object",
+          "maxProperties": 32,
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "relation": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "target": {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "facet": {
+          "type": "string",
+          "enum": [
+            "text",
+            "value",
+            "selection",
+            "table",
+            "document",
+            "image",
+            "hypertext",
+            "scroll",
+            "window",
+            "transform"
+          ]
         }
       },
       "required": [],
@@ -615,6 +682,35 @@ Idempotency: `read_only`. Dry run: `true`.
   },
   "required": [
     "selector"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `ui.hit_test`
+
+Resolve a screen point through the native accessibility system into an exact semantic UI reference. Read-only; never clicks.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "x": {
+      "type": "integer",
+      "minimum": -1000000,
+      "maximum": 1000000
+    },
+    "y": {
+      "type": "integer",
+      "minimum": -1000000,
+      "maximum": 1000000
+    }
+  },
+  "required": [
+    "x",
+    "y"
   ],
   "additionalProperties": false
 }

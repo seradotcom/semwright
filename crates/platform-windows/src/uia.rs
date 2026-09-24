@@ -18,7 +18,7 @@ use uiautomation::patterns::{
     UITablePattern, UITextPattern, UITogglePattern, UITransformPattern, UIValuePattern,
     UIWindowPattern,
 };
-use uiautomation::{UIAutomation, UIElement, UITreeWalker};
+use uiautomation::{UIAutomation, UIElement, UITreeWalker, types::Point};
 
 const MAX_NODES: usize = 2_000;
 const MAX_DEPTH: usize = 32;
@@ -64,6 +64,7 @@ enum Call {
     Select(NativeTarget, usize, mpsc::Sender<Result<Value>>),
     Expand(NativeTarget, bool, mpsc::Sender<Result<Value>>),
     Snapshot(Option<NativeTarget>, mpsc::Sender<Result<Value>>),
+    HitTest(i32, i32, mpsc::Sender<Result<Value>>),
     Validate(NativeTarget, mpsc::Sender<Result<Value>>),
     Focused(NativeTarget, mpsc::Sender<Result<Value>>),
     Shutdown(mpsc::Sender<Result<Value>>),
@@ -521,6 +522,34 @@ impl State {
         }))
     }
 
+    fn hit_test(&mut self, x: i32, y: i32) -> Result<Value> {
+        let element = self
+            .automation
+            .element_from_point(Point::new(x, y))
+            .map_err(|e| uia_error(e, "UIA element-from-point failed"))?;
+        let mut count = 0usize;
+        let tree = self.node(
+            element,
+            MAX_DEPTH,
+            &mut count,
+            Instant::now() + Duration::from_millis(250),
+        )?;
+        let mut nodes = Vec::with_capacity(1);
+        let mut partial = false;
+        Self::flatten_snapshot_node(tree, None, &mut nodes, &mut partial)?;
+        let node = nodes.into_iter().next().ok_or_else(|| {
+            Error::new(
+                ErrorCode::NotFound,
+                "UIA element-from-point did not produce a semantic node",
+            )
+        })?;
+        Ok(json!({
+            "node": node,
+            "point": {"x": x, "y": y, "coordinate_space": "windows_virtual_desktop"},
+            "semantic_coverage": "native_hit_test"
+        }))
+    }
+
     fn invoke(&mut self, target: &NativeTarget) -> Result<Value> {
         let e = self.resolve(target)?;
         e.get_pattern::<UIInvokePattern>()
@@ -761,6 +790,9 @@ impl UiaActor {
     pub fn snapshot(&self, t: Option<NativeTarget>) -> Result<Value> {
         self.request(|r| Call::Snapshot(t, r))
     }
+    pub fn hit_test(&self, x: i32, y: i32) -> Result<Value> {
+        self.request(|r| Call::HitTest(x, y, r))
+    }
     pub fn validate(&self, t: NativeTarget) -> Result<()> {
         self.request(|r| Call::Validate(t, r)).map(|_| ())
     }
@@ -801,6 +833,9 @@ fn dispatch(state: &mut State, call: Call) {
         }
         Call::Snapshot(t, r) => {
             let _ = r.send(state.snapshot(t));
+        }
+        Call::HitTest(x, y, r) => {
+            let _ = r.send(state.hit_test(x, y));
         }
         Call::Validate(t, r) => {
             let _ = r.send(state.resolve(&t).map(|_| json!({"valid":true})));

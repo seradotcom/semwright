@@ -26,6 +26,7 @@ pub const COMMANDS: &[&str] = &[
     "window.resize",
     "window.close",
     "ui.snapshot",
+    "ui.hit_test",
     "ui.invoke",
     "ui.set_text",
     "ui.read_text",
@@ -308,6 +309,21 @@ impl Backend for Windows {
                 args.get("_target")
                     .and_then(|v| serde_json::from_value(v.clone()).ok()),
             ),
+            "ui.hit_test" => {
+                let x = args
+                    .get("x")
+                    .and_then(Value::as_i64)
+                    .ok_or_else(|| Error::invalid("x required"))?;
+                let y = args
+                    .get("y")
+                    .and_then(Value::as_i64)
+                    .ok_or_else(|| Error::invalid("y required"))?;
+                if !(-1_000_000..=1_000_000).contains(&x) || !(-1_000_000..=1_000_000).contains(&y)
+                {
+                    return Err(Error::invalid("UI hit-test coordinates exceed budget"));
+                }
+                self.uia.hit_test(x as i32, y as i32)
+            }
             "ui.invoke" => self.uia.invoke(target(args)?),
             "ui.set_text" => self.uia.set_text(
                 target(args)?,

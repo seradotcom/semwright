@@ -75,6 +75,21 @@ async fn doctor_labels_fixture_not_live_desktop() {
     assert_eq!(r.data.unwrap()["fake"], true);
 }
 #[tokio::test]
+async fn semantic_hit_test_materializes_a_ref_without_input_side_effects() {
+    let f = Fixture::new(Profile::Observe);
+    let result = f.call("ui.hit_test", json!({"x":10,"y":10})).await;
+    assert!(result.ok, "{result:?}");
+    let data = result.data.unwrap();
+    let reference = data["node"]["ref"].as_str().unwrap();
+    assert!(reference.starts_with("ui:"));
+    assert_eq!(data["semantic_coverage"], "native_hit_test");
+    assert_eq!(f.desktop.invocations(), 0);
+
+    let miss = f.call("ui.hit_test", json!({"x":1000,"y":1000})).await;
+    assert_eq!(miss.error.unwrap().code, ErrorCode::NotFound);
+}
+
+#[tokio::test]
 async fn observe_can_inspect_but_cannot_invoke() {
     let f = Fixture::new(Profile::Observe);
     let n = f.find("Export").await;
