@@ -20,7 +20,7 @@ machinery remains the distribution mechanism; filesystem and policy grants remai
 owner-controlled. The runtime/browser is an explicit, read-only, digest-pinned
 owner grant rather than an implicit host dependency.
 
-Chromium compatibility experiments temporarily raised the virtual-address-space and task ceilings, but later CI proved those increases did not affect the pinned Chrome-for-Testing `SIGTRAP` failure. The final Firefox route returns the virtual-address-space ceiling to the original 4 GiB hard bound. After CI showed Firefox 151 WebRender failing thread creation with `EAGAIN` at 128 tasks, the driver-specific task request was raised to the already-existing 256-task SDK maximum; no generic resource ceiling changed. The generic change that remains is narrower: explicit executable authority for read-only Driver mounts, required so an owner-approved Node/browser runtime can execute without making ordinary project/media/config mounts executable.
+Chromium compatibility experiments temporarily raised the virtual-address-space and task ceilings, but later CI proved those increases did not affect the pinned Chrome-for-Testing `SIGTRAP` failure. The final Firefox route returns the address-space limit to the original 4 GiB hard ceiling and uses the existing 256-task SDK maximum after Firefox 151 CI measured `EAGAIN` while creating a graphics thread at 128 tasks. The generic change that remains is narrower: explicit executable authority for read-only Driver mounts, required so an owner-approved Node/browser runtime can execute without making ordinary project/media/config mounts executable.
 
 Launch-film semantic source, storyboard, visual system, recipe and asset manifest
 are source-controlled. Generated browser profiles, node_modules, PNG sequences,
