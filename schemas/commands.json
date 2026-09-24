@@ -8070,5 +8070,743 @@
     },
     "idempotency": "idempotent",
     "dry_run": false
+  },
+  {
+    "name": "workflow.candidate.delete",
+    "version": "1.0",
+    "description": "Delete one compiled workflow candidate after any promotion is demoted.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 96
+        }
+      },
+      "required": [
+        "candidate_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "const": true
+        },
+        "candidate_id": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 96
+        }
+      },
+      "required": [
+        "deleted",
+        "candidate_id"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.manage"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": true,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.candidate.get",
+    "version": "1.0",
+    "description": "Inspect a compiled workflow candidate.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 96
+        }
+      },
+      "required": [
+        "candidate_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "object",
+          "maxProperties": 20,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "candidate"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.compile",
+    "version": "1.0",
+    "description": "Compile 1..8 explicit compatible traces into a deterministic Recipe v1 candidate.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "trace_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 80
+          },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "parameters": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 63
+              },
+              "pointer": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "secret": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "step",
+              "pointer"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "trace_ids",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "object",
+          "maxProperties": 20,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "candidate"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.demote",
+    "version": "1.0",
+    "description": "Remove a promoted learned workflow from the live capability catalog.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,38}[a-z0-9]$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "slug"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "demoted": {
+          "type": "boolean",
+          "const": true
+        },
+        "promotion": {
+          "type": "object",
+          "maxProperties": 12,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "demoted",
+        "promotion"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.promote",
+    "version": "1.0",
+    "description": "Promote a statically verified and successfully replayed candidate into a searchable recipe capability.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 96
+        },
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,38}[a-z0-9]$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "candidate_id",
+        "slug"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "promoted": {
+          "type": "boolean",
+          "const": true
+        },
+        "promotion": {
+          "type": "object",
+          "maxProperties": 12,
+          "additionalProperties": true
+        },
+        "capability": {
+          "type": "object",
+          "maxProperties": 20,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "promoted",
+        "promotion",
+        "capability"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.promotions.list",
+    "version": "1.0",
+    "description": "List promoted learned workflow capabilities and drift status.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "promotions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "maxProperties": 12,
+            "additionalProperties": true
+          },
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "promotions"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.record.start",
+    "version": "1.0",
+    "description": "Start explicit local workflow recording for this session; value capture is opt-in.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "intent": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "capture_values": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "recording": {
+          "type": "boolean",
+          "const": true
+        },
+        "trace_id": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 80
+        },
+        "capture_values": {
+          "type": "boolean"
+        },
+        "privacy": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "recording",
+        "trace_id",
+        "capture_values",
+        "privacy"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.record.stop",
+    "version": "1.0",
+    "description": "Stop explicit workflow recording and persist the bounded trace.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "successful": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "recording": {
+          "type": "boolean",
+          "const": false
+        },
+        "trace": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "recording",
+        "trace"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.replay",
+    "version": "1.0",
+    "description": "Replay a verified workflow candidate through the broker; every step is re-authorized.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 96
+        },
+        "inputs": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "candidate_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "dry_run": {
+              "type": "boolean",
+              "const": true
+            },
+            "plan": {
+              "type": "object",
+              "maxProperties": 128,
+              "additionalProperties": true
+            },
+            "side_effects": {
+              "type": "boolean",
+              "const": false
+            },
+            "bindings": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "dry_run",
+            "plan",
+            "side_effects",
+            "bindings"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "completed": {
+              "type": "boolean",
+              "const": true
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "maxProperties": 16,
+                "additionalProperties": true
+              },
+              "maxItems": 64
+            },
+            "outputs": {
+              "type": "object",
+              "maxProperties": 64,
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "completed",
+            "steps",
+            "outputs"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 300000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.trace.delete",
+    "version": "1.0",
+    "description": "Delete one local recorded workflow trace when no candidate references it.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "trace_id": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 96
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "const": true
+        },
+        "trace_id": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 96
+        }
+      },
+      "required": [
+        "deleted",
+        "trace_id"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.manage"
+    ],
+    "risk": "destructive",
+    "idempotency": "destructive",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": true,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.trace.get",
+    "version": "1.0",
+    "description": "Inspect one recorded workflow trace.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "trace_id": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "trace_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "trace": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "trace"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.traces.list",
+    "version": "1.0",
+    "description": "List locally recorded workflow traces without replaying them.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "traces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "maxProperties": 12,
+            "additionalProperties": true
+          },
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "traces"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.verify",
+    "version": "1.0",
+    "description": "Statically verify a workflow candidate against current capability schemas and descriptor digests.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 96
+        }
+      },
+      "required": [
+        "candidate_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "verified": {
+          "type": "boolean",
+          "const": true
+        },
+        "candidate": {
+          "type": "object",
+          "maxProperties": 20,
+          "additionalProperties": true
+        },
+        "drift": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": true
+        },
+        "recipe_validation": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "verified",
+        "candidate",
+        "drift",
+        "recipe_validation"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
   }
 ]

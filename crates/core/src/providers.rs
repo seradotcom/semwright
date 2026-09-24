@@ -122,8 +122,10 @@ impl Broker {
             .read()
             .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
         let capability = catalog.snapshot(name)?;
-        let dynamic_provider = if capability.metadata.source != SourceKind::Builtin
-            && capability.descriptor.backends != ["plugin"]
+        let dynamic_provider = if !matches!(
+            capability.metadata.source,
+            SourceKind::Builtin | SourceKind::Recipe
+        ) && capability.descriptor.backends != ["plugin"]
         {
             Some(
                 catalog
