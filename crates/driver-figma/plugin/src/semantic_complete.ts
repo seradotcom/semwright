@@ -893,6 +893,22 @@ function extraLintDocument() {
     if(["FRAME","COMPONENT","SECTION"].includes(node.type)&&"children" in node&&node.children.length===0)add("no-empty-frames","info",node,"container has no children");
     if(["FRAME","COMPONENT","INSTANCE"].includes(node.type)&&"children" in node&&node.children.length>2&&n.layoutMode==="NONE")add("prefer-auto-layout","info",node,"multi-child container uses manual layout");
     if(Array.isArray(n.fills)&&n.fills.some((p:any)=>p?.type==="SOLID")&&!n.boundVariables?.fills)add("no-hardcoded-colors","info",node,"solid fill is not variable-bound");
+    if(["FRAME","COMPONENT","INSTANCE"].includes(node.type)&&n.visible!==false&&typeof n.width==="number"&&typeof n.height==="number"&&(n.width<44||n.height<44)){
+      add("touch-target-size","warning",node,`interactive-sized node is ${n.width}×${n.height}; recommended minimum is 44×44`);
+    }
+    if(node.type==="TEXT"){
+      const text=node as TextNode;
+      const size=text.fontSize===figma.mixed?null:Number(text.fontSize);
+      if(size!==null&&size<12)add("min-text-size","warning",node,`font size ${size} is below 12`);
+      const fg=extraSolidColor(text.fills);
+      const parent=text.parent as any;
+      const bg=parent&&"fills" in parent?extraSolidColor(parent.fills):null;
+      if(fg&&bg){
+        const ratio=extraContrast(fg,bg);
+        const threshold=size!==null&&size>=24?3:4.5;
+        if(ratio<threshold)add("color-contrast","warning",node,`contrast ${ratio.toFixed(2)} is below ${threshold}`);
+      }
+    }
     if("children" in node)for(const child of node.children)walk(child,depth+1);
   }
   walk(figma.currentPage,0);

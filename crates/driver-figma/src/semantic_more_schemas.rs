@@ -45,6 +45,18 @@ pub const OPERATIONS: &[&str] = &[
     "slot.list",
     "slot.preferred.set",
     "slot.content.add",
+    "analysis.colors",
+    "analysis.typography",
+    "analysis.spacing",
+    "analysis.clusters",
+    "validate.lint",
+    "font.status",
+    "viewport.canvas_view.get",
+    "viewport.canvas_view.set",
+    "library.collection.extend",
+    "variable.bind.paint",
+    "variable.bind.effect",
+    "variable.bind.layout_grid",
 ];
 fn s(max: usize) -> Value {
     json!({"type":"string","minLength":1,"maxLength":max})
@@ -248,6 +260,64 @@ pub fn input_schema(name: &str) -> Option<Value> {
             ],
             &["nodeId"],
         ),
+        "analysis.colors"
+        | "analysis.typography"
+        | "analysis.spacing"
+        | "analysis.clusters"
+        | "validate.lint"
+        | "font.status"
+        | "viewport.canvas_view.get" => no_args(),
+        "viewport.canvas_view.set" => input(
+            vec![("canvasView", en(&["grid", "single-asset"]))],
+            &["canvasView"],
+        ),
+        "library.collection.extend" => input(
+            vec![("collectionKey", s(256)), ("name", s(256))],
+            &["collectionKey", "name"],
+        ),
+        "variable.bind.paint" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("target", en(&["fills", "strokes"])),
+                ("index", u(1024)),
+                ("field", en(&["color"])),
+                (
+                    "variableId",
+                    json!({"type":["string","null"],"maxLength":256}),
+                ),
+            ],
+            &["nodeId", "target", "index", "field"],
+        ),
+        "variable.bind.effect" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("index", u(1024)),
+                (
+                    "field",
+                    en(&["color", "radius", "spread", "offsetX", "offsetY"]),
+                ),
+                (
+                    "variableId",
+                    json!({"type":["string","null"],"maxLength":256}),
+                ),
+            ],
+            &["nodeId", "index", "field"],
+        ),
+        "variable.bind.layout_grid" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("index", u(1024)),
+                (
+                    "field",
+                    en(&["sectionSize", "count", "offset", "gutterSize"]),
+                ),
+                (
+                    "variableId",
+                    json!({"type":["string","null"],"maxLength":256}),
+                ),
+            ],
+            &["nodeId", "index", "field"],
+        ),
         other => unreachable!("semantic-more operation {other} lacks input schema"),
     };
     Some(schema)
@@ -319,6 +389,70 @@ pub fn output_schema(name: &str) -> Option<Value> {
         | "figjam.table.column.move"
         | "figjam.table.row.resize"
         | "figjam.table.column.resize" => loose_output(64),
+        "analysis.colors" => json!({
+            "type":"object",
+            "properties":{"colors":arr(500, loose_output(16))},
+            "required":["colors"],
+            "additionalProperties":false
+        }),
+        "analysis.typography" => json!({
+            "type":"object",
+            "properties":{"typography":arr(500, loose_output(16))},
+            "required":["typography"],
+            "additionalProperties":false
+        }),
+        "analysis.spacing" => json!({
+            "type":"object",
+            "properties":{"spacing":arr(500, loose_output(8))},
+            "required":["spacing"],
+            "additionalProperties":false
+        }),
+        "analysis.clusters" => json!({
+            "type":"object",
+            "properties":{"clusters":arr(500, loose_output(16))},
+            "required":["clusters"],
+            "additionalProperties":false
+        }),
+        "validate.lint" => json!({
+            "type":"object",
+            "properties":{"findings":arr(1000, loose_output(16))},
+            "required":["findings"],
+            "additionalProperties":false
+        }),
+        "font.status" => json!({
+            "type":"object",
+            "properties":{"hasMissingFont":{"type":"boolean"}},
+            "required":["hasMissingFont"],
+            "additionalProperties":false
+        }),
+        "viewport.canvas_view.get" | "viewport.canvas_view.set" => json!({
+            "type":"object",
+            "properties":{"canvasView":en(&["grid", "single-asset"])},
+            "required":["canvasView"],
+            "additionalProperties":false
+        }),
+        "library.collection.extend" => loose_output(32),
+        "variable.bind.paint" => json!({
+            "type":"object",
+            "properties":{
+                "nodeId":s(256),
+                "target":en(&["fills","strokes"]),
+                "index":u(1024),
+                "boundVariableId":{"type":["string","null"],"maxLength":256}
+            },
+            "required":["nodeId","target","index","boundVariableId"],
+            "additionalProperties":false
+        }),
+        "variable.bind.effect" | "variable.bind.layout_grid" => json!({
+            "type":"object",
+            "properties":{
+                "nodeId":s(256),
+                "index":u(1024),
+                "boundVariableId":{"type":["string","null"],"maxLength":256}
+            },
+            "required":["nodeId","index","boundVariableId"],
+            "additionalProperties":false
+        }),
         _ => loose_output(128),
     };
     Some(schema)

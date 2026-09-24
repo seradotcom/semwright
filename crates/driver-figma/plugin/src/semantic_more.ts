@@ -164,6 +164,39 @@ async function handleSemanticMore(request: BridgeRequest, a: any): Promise<Bridg
     case "figjam.table.column.move": {extraRequireEditor("figjam");const t=await moreTable(a.nodeId);t.moveColumn(Number(a.from),Number(a.to));return ok(request.id,moreTableSummary(t),true);}
     case "figjam.table.row.resize": {extraRequireEditor("figjam");const t=await moreTable(a.nodeId);t.resizeRow(Number(a.index),extraFinite(a.size));return ok(request.id,moreTableSummary(t),true);}
     case "figjam.table.column.resize": {extraRequireEditor("figjam");const t=await moreTable(a.nodeId);t.resizeColumn(Number(a.index),extraFinite(a.size));return ok(request.id,moreTableSummary(t),true);}
+    case "analysis.colors": return ok(request.id,{colors:extraColorUsage(figma.currentPage)});
+    case "analysis.typography": return ok(request.id,{typography:extraTypographyUsage(figma.currentPage)});
+    case "analysis.spacing": return ok(request.id,{spacing:extraSpacingValues(figma.currentPage)});
+    case "analysis.clusters": return ok(request.id,{clusters:extraClusterAnalysis()});
+    case "validate.lint": return ok(request.id,{findings:extraLintDocument()});
+    case "font.status": return ok(request.id,{hasMissingFont:figma.hasMissingFont});
+    case "viewport.canvas_view.get": return ok(request.id,{canvasView:figma.viewport.canvasView});
+    case "viewport.canvas_view.set": {
+      extraRequireEditor("slides","buzz");figma.viewport.canvasView=String(a.canvasView) as "grid"|"single-asset";return ok(request.id,{canvasView:figma.viewport.canvasView},true);
+    }
+    case "library.collection.extend": {
+      const c=await figma.variables.extendLibraryCollectionByKeyAsync(String(a.collectionKey),String(a.name).slice(0,256));
+      return ok(request.id,{id:c.id,name:c.name,isExtension:c.isExtension,parentVariableCollectionId:c.parentVariableCollectionId,rootVariableCollectionId:c.rootVariableCollectionId,modes:c.modes,variableIds:c.variableIds},true);
+    }
+    case "variable.bind.paint": {
+      const node=asScene(await nodeById(String(a.nodeId))) as any;const target=String(a.target);if(!["fills","strokes"].includes(target)||!Array.isArray(node[target]))throw new Error("paint_target_unavailable");
+      const index=Number(a.index);const paints=[...node[target]];const paint=paints[index];if(!paint||paint.type!=="SOLID")throw new Error("solid_paint_required");
+      const variable=a.variableId?await figma.variables.getVariableByIdAsync(String(a.variableId)):null;
+      paints[index]=figma.variables.setBoundVariableForPaint(paint as SolidPaint,String(a.field) as VariableBindablePaintField,variable);node[target]=paints;
+      return ok(request.id,{nodeId:node.id,target,index,boundVariableId:variable?.id??null},true);
+    }
+    case "variable.bind.effect": {
+      const node=asScene(await nodeById(String(a.nodeId))) as any;if(!Array.isArray(node.effects))throw new Error("effects_unavailable");
+      const index=Number(a.index);const effects=[...node.effects];if(!effects[index])throw new Error("effect_not_found");const variable=a.variableId?await figma.variables.getVariableByIdAsync(String(a.variableId)):null;
+      effects[index]=figma.variables.setBoundVariableForEffect(effects[index] as Effect,String(a.field) as VariableBindableEffectField,variable);node.effects=effects;
+      return ok(request.id,{nodeId:node.id,index,boundVariableId:variable?.id??null},true);
+    }
+    case "variable.bind.layout_grid": {
+      const node=asScene(await nodeById(String(a.nodeId))) as any;if(!Array.isArray(node.layoutGrids))throw new Error("layout_grids_unavailable");
+      const index=Number(a.index);const grids=[...node.layoutGrids];if(!grids[index])throw new Error("layout_grid_not_found");const variable=a.variableId?await figma.variables.getVariableByIdAsync(String(a.variableId)):null;
+      grids[index]=figma.variables.setBoundVariableForLayoutGrid(grids[index] as LayoutGrid,String(a.field) as VariableBindableLayoutGridField,variable);node.layoutGrids=grids;
+      return ok(request.id,{nodeId:node.id,index,boundVariableId:variable?.id??null},true);
+    }
     default:
       return null;
   }
