@@ -86,6 +86,8 @@ impl ApplicationMatch {
 pub struct DriverMount {
     pub root: String,
     pub read_only: bool,
+    #[serde(default)]
+    pub execute: bool,
 }
 
 /// Owner-granted configuration exposed read-only at its canonical system location.
@@ -251,6 +253,9 @@ impl Manifest {
                 return Err(Error::invalid(
                     "Driver mount roots must be unique canonical policy-grant names",
                 ));
+            }
+            if mount.execute && !mount.read_only {
+                return Err(Error::invalid("Executable driver mounts must be read-only"));
             }
         }
         let mut destinations = BTreeSet::new();
@@ -957,12 +962,26 @@ mod tests {
         duplicate_root.mounts.push(DriverMount {
             root: "same".into(),
             read_only: true,
+            execute: false,
         });
         duplicate_root.system_config.push(SystemConfigMount {
             root: "same".into(),
             destination: "/etc/example".into(),
         });
         assert!(duplicate_root.validate().is_err());
+    }
+
+    #[test]
+    fn executable_mounts_must_be_read_only_and_opt_in() {
+        let mut candidate = manifest();
+        candidate.mounts.push(DriverMount {
+            root: "runtime".into(),
+            read_only: true,
+            execute: true,
+        });
+        candidate.validate().unwrap();
+        candidate.mounts[0].read_only = false;
+        assert!(candidate.validate().is_err());
     }
 
     #[test]

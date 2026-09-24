@@ -29,7 +29,7 @@ fn bounded_limit(
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let mut writable = vec!["/tmp".to_owned()];
-    let mut readable = Vec::new();
+    let mut readable: Vec<(String, bool)> = Vec::new();
     let mut seen = BTreeSet::new();
     let mut nofile = 128u64;
     let mut nproc = 32u64;
@@ -55,7 +55,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 {
                     return Err("invalid sandbox read root".into());
                 }
-                readable.push(path);
+                readable.push((path, false));
+            }
+            "--exec-root" => {
+                let path = args.next().ok_or("exec root missing")?;
+                if !path.starts_with("/workspace/") || path.contains("..") || path.contains('\0') {
+                    return Err("invalid sandbox exec root".into());
+                }
+                readable.push((path, true));
             }
             "--limit-nofile" => {
                 if !seen.insert(argument.clone()) {
@@ -139,13 +146,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, read))?;
         }
     }
-    // The bind-mounted runtime is a separate hierarchy. Grant read/execute
-    // only to destinations already admitted by SandboxSpec and Bubblewrap.
-    for path in readable {
-        let access = if Path::new(&path).is_dir() {
-            read
-        } else {
-            AccessFs::Execute | AccessFs::ReadFile
+    // Bind mounts are separate Landlock hierarchies. Data mounts get read-only
+    // rights; execute is added only for an explicitly attested executable mount.
+    for (path, execute) in readable {
+        let is_dir = Path::new(&path).is_dir();
+        let access = match (is_dir, execute) {
+            (true, true) => read,
+            (false, true) => AccessFs::Execute | AccessFs::ReadFile,
+            (true, false) => AccessFs::ReadFile | AccessFs::ReadDir,
+            (false, false) => AccessFs::ReadFile.into(),
         };
         ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(&path)?, access))?;
     }

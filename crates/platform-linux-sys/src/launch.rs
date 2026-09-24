@@ -165,8 +165,10 @@ impl SandboxLauncher for LinuxSandbox {
         for m in &s.mounts {
             if !m.read_only {
                 p.arg("--write-root").arg(&m.destination);
+            } else if m.execute {
+                p.arg("--exec-root").arg(&m.destination);
             } else {
-                // Bind mounts need their own Landlock rules.
+                // Bind-mounted data needs its own Landlock rule, without execute.
                 p.arg("--read-root").arg(&m.destination);
             }
         }

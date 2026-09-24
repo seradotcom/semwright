@@ -82,7 +82,9 @@ network is isolated unless both manifest and owner configuration allow it, and n
 filesystem mounts can only refer to existing policy grants.
 
 Ordinary `mounts` are exposed below `/workspace/<grant>`. A writable mount requires a matching
-owner grant with write authority. `system_config` is narrower: it may expose only a direct
+owner grant with write authority. Read-only mounts are data-only by default; a driver that must
+execute a digest-pinned auxiliary runtime can set `execute: true`, and that opt-in is accepted only
+on a read-only mount. Plugins do not inherit executable mount authority. `system_config` is narrower: it may expose only a direct
 child of `/etc`, always read-only, and only when the owner explicitly granted that canonical
 host directory. This supports packaged applications whose runtime data is split between
 `/usr` and distribution configuration such as `/etc/libreoffice` without granting arbitrary

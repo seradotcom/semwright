@@ -60,16 +60,19 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
         DriverMount {
             root: "project".into(),
             read_only: false,
+            execute: false,
         },
         DriverMount {
             root: "output".into(),
             read_only: false,
+            execute: false,
         },
     ];
     if with_runtime {
         mounts.push(DriverMount {
             root: "runtime".into(),
             read_only: true,
+            execute: true,
         });
     }
     Manifest {

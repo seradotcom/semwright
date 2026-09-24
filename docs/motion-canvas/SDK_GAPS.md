@@ -4,7 +4,7 @@ This document records only gaps exercised by the implementation; it is not a pro
 
 ## 1. Multi-tool runtime distribution
 
-Driver Registry packages pin a driver executable/manifest but do not currently distribute and attest a complete auxiliary runtime such as Node + Chromium + helper files. Motion Canvas therefore requires an explicit owner `runtime` filesystem grant. The driver itself verifies SHA-256 pins for every executable/helper entry before rendering.
+Driver Registry packages pin a driver executable/manifest but do not currently distribute and attest a complete auxiliary runtime such as Node + Chromium + helper files. Motion Canvas therefore requires an explicit owner `runtime` filesystem grant with the Driver-only `execute: true` opt-in. Other read-only grants remain non-executable. The driver itself verifies SHA-256 pins for every executable/helper entry before rendering.
 
 A generic future tool-dependency/package primitive could remove this manual runtime preparation without widening filesystem access.
 

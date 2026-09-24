@@ -299,6 +299,7 @@ fn sandbox_command(
                 source: lookup(&m.root)?.path.clone(),
                 destination: format!("/workspace/{}", m.root),
                 read_only: m.read_only,
+                execute: m.execute,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -316,6 +317,7 @@ fn sandbox_command(
                     })?
                     .to_owned(),
                 read_only: true,
+                execute: false,
             })
         })
         .collect::<Result<Vec<_>>>()?;

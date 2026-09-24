@@ -221,14 +221,17 @@ mod linux {
                 DriverMount {
                     root: "project".into(),
                     read_only: false,
+                    execute: false,
                 },
                 DriverMount {
                     root: "output".into(),
                     read_only: false,
+                    execute: false,
                 },
                 DriverMount {
                     root: "runtime".into(),
                     read_only: true,
+                    execute: true,
                 },
             ],
         )?;
@@ -378,18 +381,22 @@ mod linux {
                 DriverMount {
                     root: "project".into(),
                     read_only: true,
+                    execute: false,
                 },
                 DriverMount {
                     root: "media".into(),
                     read_only: true,
+                    execute: false,
                 },
                 DriverMount {
                     root: "output".into(),
                     read_only: false,
+                    execute: false,
                 },
                 DriverMount {
                     root: "runtime".into(),
                     read_only: true,
+                    execute: false,
                 },
             ],
         )?;

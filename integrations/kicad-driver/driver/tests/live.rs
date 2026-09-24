@@ -127,10 +127,12 @@ async fn fake_kicad_ipc_runs_through_real_sandboxed_driver_host() {
             DriverMount {
                 root: "kicad-config".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "kicad-ipc".into(),
                 read_only: true,
+                execute: false,
             },
         ],
         system_config: vec![],

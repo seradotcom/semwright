@@ -166,6 +166,7 @@ impl Host {
                     source: grant.path.clone(),
                     destination: format!("/workspace/{}", m.root),
                     read_only: m.read_only,
+                    execute: false,
                 })
             })
             .collect::<Result<Vec<_>>>()?;

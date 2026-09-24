@@ -16,7 +16,7 @@
     {"root": "project", "read_only": false},
     {"root": "media", "read_only": true},
     {"root": "output", "read_only": false},
-    {"root": "runtime", "read_only": true}
+    {"root": "runtime", "read_only": true, "execute": true}
   ],
   "system_config": [
     {"root": "fontconfig", "destination": "/etc/fonts"}

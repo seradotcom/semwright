@@ -108,6 +108,7 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
         mounts: vec![DriverMount {
             root: "project".into(),
             read_only: false,
+            execute: false,
         }],
         system_config: vec![],
         network: false,
