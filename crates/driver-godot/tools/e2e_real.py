@@ -177,16 +177,31 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         )
 
         sessions = []
-        for i in range(160):
+        matching = []
+        # Hosted runners can be CPU/disk constrained while Godot performs its first
+        # editor import. Wait for the authenticated session we actually paired rather
+        # than assuming the plugin is ready within ~8 seconds.
+        for i in range(600):
             value, _ = execute(driver, caps, "driver.godot.session.list", {}, f"sessions-{i}")
             sessions = value["sessions"]
-            if sessions:
+            matching = [session for session in sessions if session.get("project") == project_id]
+            if len(matching) == 1:
                 break
+            if len(matching) > 1:
+                raise RuntimeError(f"multiple Godot sessions paired for disposable project: {matching!r}")
             if godot.poll() is not None:
-                raise RuntimeError("Godot editor exited before pairing")
+                godot_log.flush()
+                tail = (td / "godot-editor.log").read_text(errors="replace")[-8000:]
+                raise RuntimeError(f"Godot editor exited before pairing (rc={godot.returncode}):\n{tail}")
             time.sleep(0.05)
-        assert len(sessions) == 1
-        sid = sessions[0]["session"]
+        if len(matching) != 1:
+            godot_log.flush()
+            tail = (td / "godot-editor.log").read_text(errors="replace")[-8000:]
+            raise RuntimeError(
+                "timed out waiting for authenticated Godot plugin session; "
+                f"sessions={sessions!r}\nGodot log tail:\n{tail}"
+            )
+        sid = matching[0]["session"]
 
         def call(name, args):
             rid = f"op-{len(trace):03d}"
