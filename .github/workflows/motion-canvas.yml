@@ -123,12 +123,23 @@ jobs:
           count = text.count(old)
           if count != 2:
               raise SystemExit(f"unexpected bwrap AppArmor profile shape: {count} flag matches")
-          path.write_text(text.replace(old, "flags=(attach_disconnected,mediate_deleted)"))
+          text = text.replace(old, "flags=(attach_disconnected,mediate_deleted)")
+          nested = "allow pix /** -> &unpriv_bwrap,"
+          if text.count(nested) != 1:
+              raise SystemExit("unexpected unpriv_bwrap nested-exec rule")
+          # Ubuntu 24.04's AppArmor 4 profile rejects the recursive stacked pix
+          # transition after the sandboxed application starts. ix preserves the
+          # already-enforced unpriv_bwrap profile across descendant execve.
+          text = text.replace(nested, "allow ix /**,")
+          path.write_text(text)
           PY
           sudo install -m 0644 "$RUNNER_TEMP/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
           sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
           test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 1)" != "0"
           bwrap --unshare-all --ro-bind / / -- /usr/bin/true
+          # Prove a process already in unpriv_bwrap can exec a descendant while
+          # remaining confined. Chromium requires this for renderer processes.
+          bwrap --unshare-all --ro-bind / / -- /bin/sh -c '/usr/bin/true'
       - name: Install exact runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: npm ci --ignore-scripts
