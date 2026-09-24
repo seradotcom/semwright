@@ -21,6 +21,35 @@ fn initial_catalog_is_strict_and_digests_are_stable() {
 }
 
 #[test]
+fn catalog_declares_generic_artifact_ports() {
+    let catalog = Catalog::load().unwrap();
+    let rescan = catalog.get("driver.godot.assets.rescan").unwrap();
+    for expected in [
+        "artifact-in:model/3d",
+        "artifact-in:image/raster",
+        "artifact-in:image/vector",
+        "artifact-in:audio/sample",
+    ] {
+        assert!(rescan.capability.tags.iter().any(|tag| tag == expected));
+    }
+
+    for (name, expected) in [
+        ("driver.godot.export.pack", "artifact-out:game/package"),
+        (
+            "driver.godot.export.build",
+            "artifact-out:application/binary",
+        ),
+        ("driver.godot.movie.capture", "artifact-out:video/clip"),
+    ] {
+        let capability = catalog.get(name).unwrap();
+        assert!(
+            capability.capability.tags.iter().any(|tag| tag == expected),
+            "{name} missing {expected}"
+        );
+    }
+}
+
+#[test]
 fn diff_is_bounded_and_pointer_escaped() {
     let diff = semantic_diff(&json!({"a/b": 1}), &json!({"a/b": 2}));
     assert_eq!(diff["changes"][0]["path"], "/a~1b");

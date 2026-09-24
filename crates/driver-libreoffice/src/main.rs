@@ -1,7 +1,7 @@
 //! First-party LibreOffice driver using the native UNO object model.
 //! The agent receives typed capabilities; no arbitrary Python or macro surface is exposed.
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, descriptor_digest, serve};
+use semwright_driver_sdk::{Capability, Driver, artifact_output_tag, descriptor_digest, serve};
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, MAX_FRAME, Result, Risk, unique_id,
 };
@@ -58,8 +58,8 @@ fn path_schema() -> Value {
     json!({"type":"string","minLength":1,"maxLength":240})
 }
 
-fn capabilities() -> Vec<Capability> {
-    vec![
+fn capabilities() -> Result<Vec<Capability>> {
+    let mut capabilities = vec![
         descriptor(
             "driver.libreoffice.status",
             "Inspect the sandbox-owned LibreOffice UNO runtime",
@@ -247,11 +247,17 @@ fn capabilities() -> Vec<Capability> {
             Idempotency::NonIdempotent,
             20_000,
         ),
-    ]
+    ];
+    let pdf = capabilities
+        .iter_mut()
+        .find(|capability| capability.descriptor.name == "driver.libreoffice.export.pdf")
+        .expect("LibreOffice PDF export capability is part of the static catalog");
+    pdf.tags.push(artifact_output_tag("document/pdf")?);
+    Ok(capabilities)
 }
 
 fn capability(command: &str) -> Result<Capability> {
-    capabilities()
+    capabilities()?
         .into_iter()
         .find(|capability| capability.descriptor.name == command)
         .ok_or_else(|| {
@@ -515,7 +521,7 @@ impl Driver for LibreOffice {
     }
 
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
-        Ok(capabilities())
+        capabilities()
     }
 
     async fn health(&mut self) -> Result<Value> {
@@ -647,5 +653,24 @@ async fn main() {
     if let Err(error) = result {
         eprintln!("{error}");
         std::process::exit(error.exit_code());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pdf_export_advertises_generic_artifact_output() {
+        let capabilities = capabilities().unwrap();
+        let pdf = capabilities
+            .iter()
+            .find(|capability| capability.descriptor.name == "driver.libreoffice.export.pdf")
+            .unwrap();
+        assert!(
+            pdf.tags
+                .iter()
+                .any(|tag| tag == "artifact-out:document/pdf")
+        );
     }
 }

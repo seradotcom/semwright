@@ -19,6 +19,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define SW_MAX_SCOPED_BINARY_BYTES 67108864ULL
+
 static int io_error(void) { return errno==ENOENT ? SW_NOT_FOUND : SW_DENIED; }
 static int child_name(const char *name) {
     if (!name || !*name || strlen(name)>255 || strcmp(name,".")==0 || strcmp(name,"..")==0) return SW_INVALID;
@@ -54,7 +56,7 @@ int sw_root_open(const char *absolute) {
 }
 int sw_child_read_open(int root, const char *child, size_t limit) {
     int status=child_name(child); if(status) return status;
-    if(!limit || limit>1048576) return SW_INVALID;
+    if(!limit || limit>SW_MAX_SCOPED_BINARY_BYTES) return SW_INVALID;
     struct stat rs; if(good_root(root,&rs)) return SW_DENIED;
     int fd=openat(root,child,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
     if(fd<0) return io_error();
@@ -65,7 +67,7 @@ int sw_child_read_open(int root, const char *child, size_t limit) {
 int sw_child_write_atomic(int root, const char *child, const char *temporary, const unsigned char *data, size_t size) {
     int status=child_name(child); if(status) return status;
     if(child_name(temporary) || strncmp(temporary,".semwright-",11)!=0 || strcmp(temporary,child)==0) return SW_INVALID;
-    if(size>1048576 || (!data && size)) return SW_BUDGET;
+    if(size>SW_MAX_SCOPED_BINARY_BYTES || (!data && size)) return SW_BUDGET;
     struct stat rs; if(good_root(root,&rs)) return SW_DENIED;
     int existing=openat(root,child,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
     if(existing>=0) {

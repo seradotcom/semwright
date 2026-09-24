@@ -277,6 +277,62 @@ pub struct Capability {
     #[serde(default)]
     pub object_types: Vec<String>,
 }
+fn valid_artifact_kind(kind: &str) -> bool {
+    if kind.is_empty() || kind.len() > 96 {
+        return false;
+    }
+    let mut parts = kind.split('/');
+    let Some(category) = parts.next() else {
+        return false;
+    };
+    let Some(subtype) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    let valid_part = |part: &str| {
+        !part.is_empty()
+            && part.len() <= 48
+            && part
+                .bytes()
+                .next()
+                .is_some_and(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+            && part.bytes().all(|b| {
+                b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'.' | b'+' | b'-')
+            })
+    };
+    valid_part(category) && valid_part(subtype)
+}
+
+fn artifact_port_tag(prefix: &str, kind: &str) -> Result<String> {
+    if !valid_artifact_kind(kind) {
+        return Err(Error::invalid(
+            "Artifact semantic type must be a bounded lowercase category/subtype",
+        ));
+    }
+    Ok(format!("{prefix}{kind}"))
+}
+
+pub fn artifact_input_tag(kind: &str) -> Result<String> {
+    artifact_port_tag("artifact-in:", kind)
+}
+
+pub fn artifact_output_tag(kind: &str) -> Result<String> {
+    artifact_port_tag("artifact-out:", kind)
+}
+
+fn validate_artifact_port_tag(tag: &str) -> Result<()> {
+    if let Some(kind) = tag
+        .strip_prefix("artifact-in:")
+        .or_else(|| tag.strip_prefix("artifact-out:"))
+        && !valid_artifact_kind(kind)
+    {
+        return Err(Error::invalid("Invalid artifact capability tag"));
+    }
+    Ok(())
+}
+
 impl Capability {
     pub fn validate_for(&self, identity: &ProviderIdentity) -> Result<()> {
         let command = &self.descriptor;
@@ -298,6 +354,9 @@ impl Capability {
             })
         {
             return Err(Error::invalid("Driver capability metadata exceeds bounds"));
+        }
+        for tag in &self.tags {
+            validate_artifact_port_tag(tag)?;
         }
         Ok(())
     }
@@ -961,6 +1020,52 @@ mod tests {
             destination: "/etc/example".into(),
         });
         assert!(duplicate_root.validate().is_err());
+    }
+
+    #[test]
+    fn artifact_port_tags_are_machine_readable_and_bounded() {
+        assert_eq!(
+            artifact_input_tag("model/3d").unwrap(),
+            "artifact-in:model/3d"
+        );
+        assert_eq!(
+            artifact_output_tag("video/clip").unwrap(),
+            "artifact-out:video/clip"
+        );
+        for bad in ["Model/3d", "model", "model/", "model/3d/raw", "model/_3d"] {
+            assert!(artifact_input_tag(bad).is_err(), "{bad}");
+        }
+
+        let identity = manifest().identity().unwrap();
+        let mut descriptor = CommandDescriptor {
+            name: "driver.fixture.export".into(),
+            version: "1".into(),
+            description: "Export fixture".into(),
+            input_schema: serde_json::json!({"type":"object"}),
+            output_schema: serde_json::json!({"type":"object"}),
+            requires: vec![identity.id.clone()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 1000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec![identity.id.clone()],
+        };
+        let good = Capability {
+            descriptor: descriptor.clone(),
+            aliases: vec![],
+            tags: vec!["artifact-out:model/3d".into()],
+            object_types: vec![],
+        };
+        good.validate_for(&identity).unwrap();
+        descriptor.name = "driver.fixture.bad-export".into();
+        let bad = Capability {
+            descriptor,
+            aliases: vec![],
+            tags: vec!["artifact-out:Model/3d".into()],
+            object_types: vec![],
+        };
+        assert!(bad.validate_for(&identity).is_err());
     }
 
     #[test]

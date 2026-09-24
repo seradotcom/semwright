@@ -29,10 +29,12 @@ semwright-driver-sdk.workspace = true
 semwright-types.workspace = true
 anyhow = { workspace = true, optional = true }
 async-trait.workspace = true
+base64.workspace = true
 futures-util.workspace = true
 hex.workspace = true
 hmac.workspace = true
 rand.workspace = true
+reqwest.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -41,6 +43,8 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
 uuid.workspace = true
+libc.workspace = true
+zeroize = "1"
 
 [dev-dependencies]
 proptest.workspace = true

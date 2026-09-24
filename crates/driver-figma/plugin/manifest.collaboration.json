@@ -1,0 +1,11 @@
+{
+  "name": "Semwright Figma Bridge — Collaboration",
+  "id": "semwright-figma-bridge-collaboration",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma", "figjam", "slides", "buzz"],
+  "documentAccess": "dynamic-page",
+  "permissions": ["teamlibrary", "currentuser", "activeusers", "fileusers"],
+  "networkAccess": {"allowedDomains":["none"],"devAllowedDomains":["ws://127.0.0.1:38471"]}
+}

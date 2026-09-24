@@ -98,7 +98,7 @@ impl Broker {
         if fake
             && map
                 .keys()
-                .any(|name| name != "fake" && name != "filesystem")
+                .any(|name| name != "fake" && name != "filesystem" && name != "artifacts")
         {
             return Err(Error::invalid(
                 "Fake mode cannot instantiate live desktop/application backends",

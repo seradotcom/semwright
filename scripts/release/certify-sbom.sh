@@ -12,6 +12,8 @@ if ! cargo cyclonedx --version | grep -q '0\.5\.9'; then
 fi
 
 export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" show -s --format=%ct HEAD)}
+SOURCE_COMMIT=${SOURCE_COMMIT:-$(git -C "$ROOT" rev-parse HEAD)}
+export SOURCE_COMMIT
 
 generate_one() {
   local name=$1
@@ -27,21 +29,8 @@ generate_one() {
   fi
   cp "${outputs[0]}" "$OUT/$name.cdx.json"
   rm -f "${outputs[0]}"
-  python3 - "$OUT/$name.cdx.json" "$name" <<'PY'
-import json, sys
-path, name = sys.argv[1:]
-doc = json.load(open(path, encoding="utf-8"))
-if doc.get("bomFormat") != "CycloneDX":
-    raise SystemExit(f"{name}: not CycloneDX")
-if doc.get("specVersion") != "1.5":
-    raise SystemExit(f"{name}: unexpected spec {doc.get('specVersion')}")
-metadata = doc.get("metadata") or {}
-component = metadata.get("component") or {}
-if component.get("type") not in {"application", "library"}:
-    raise SystemExit(f"{name}: missing top-level component")
-if doc.get("serialNumber") is not None:
-    raise SystemExit(f"{name}: reproducible SBOM unexpectedly has serialNumber")
-PY
+  python3 "$ROOT/scripts/release/normalize_cyclonedx.py" \
+    --path "$OUT/$name.cdx.json" --name "$name" --source-commit "$SOURCE_COMMIT"
 }
 
 cd "$ROOT"
@@ -74,6 +63,8 @@ for item in semwright semwrightd semwright-mcp semwright-inspect semwright-sandb
   mapfile -t outputs < <(find "$dir" -maxdepth 1 -type f -name "$item.cdx*" -print)
   [ "${#outputs[@]}" -eq 1 ]
   mv "${outputs[0]}" "$SECOND/$item.cdx.json"
+  python3 "$ROOT/scripts/release/normalize_cyclonedx.py" \
+    --path "$SECOND/$item.cdx.json" --name "$item" --source-commit "$SOURCE_COMMIT"
 done
 
 for item in semwright semwrightd semwright-mcp semwright-inspect semwright-sandbox; do

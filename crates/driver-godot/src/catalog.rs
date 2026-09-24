@@ -1,5 +1,7 @@
 use jsonschema::Validator;
-use semwright_driver_sdk::{Capability, descriptor_digest};
+use semwright_driver_sdk::{
+    Capability, artifact_input_tag, artifact_output_tag, descriptor_digest,
+};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
@@ -42,10 +44,23 @@ impl Catalog {
                 interactive_consent: spec.risk.sensitive(),
                 backends: vec!["driver:godot".into()],
             };
+            let mut tags = vec!["godot".into(), spec.tag.into()];
+            match spec.name {
+                "assets.rescan" => {
+                    tags.push(artifact_input_tag("model/3d")?);
+                    tags.push(artifact_input_tag("image/raster")?);
+                    tags.push(artifact_input_tag("image/vector")?);
+                    tags.push(artifact_input_tag("audio/sample")?);
+                }
+                "export.pack" => tags.push(artifact_output_tag("game/package")?),
+                "export.build" => tags.push(artifact_output_tag("application/binary")?),
+                "movie.capture" => tags.push(artifact_output_tag("video/clip")?),
+                _ => {}
+            }
             let capability = Capability {
                 descriptor,
                 aliases: vec![],
-                tags: vec!["godot".into(), spec.tag.into()],
+                tags,
                 object_types: vec![spec.object_type.into()],
             };
             let digest = descriptor_digest(&capability.descriptor)?;

@@ -5,3 +5,8 @@ dependency/license gates run cargo audit and cargo deny; release publishing prov
 independent security review remain separate release gates.
 The supplied product requirements are preserved under docs/requirements for traceability.
 No third-party executable, toolchain, browser, font or screenshot is bundled.
+
+The optional Figma REST client uses rustls trust-anchor data from the webpki-roots crate.
+That CA root data is distributed under CDLA-Permissive-2.0; the license text is available
+at https://cdla.dev/permissive-2-0/. This scoped data-license exception does not change
+Semwright's MIT OR Apache-2.0 source-code license.
