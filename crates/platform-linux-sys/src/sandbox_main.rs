@@ -128,6 +128,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, read))?;
         }
     }
+    // Rust's Stdio::null() opens /dev/null for writing when a child redirects
+    // stdout or stderr. Keep the rest of /dev read-only.
+    ruleset = ruleset.add_rule(PathBeneath::new(
+        PathFd::new("/dev/null")?,
+        AccessFs::ReadFile | AccessFs::WriteFile,
+    ))?;
     for path in writable {
         ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, all))?;
     }

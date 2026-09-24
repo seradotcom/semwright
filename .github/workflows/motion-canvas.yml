@@ -252,6 +252,17 @@ jobs:
             echo "$mode Chromium exec exit=$rc"
             tail -30 "verification/motion-canvas-host/$mode-exec.log"
           done
+          landlock_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 -- /plugin/bin)
+          printf 'printf smoke >/dev/null\n' | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${landlock_args[@]}"
+          set +e
+          printf 'printf blocked >/dev/zero\n' | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${landlock_args[@]}" > verification/motion-canvas-host/other-device-write.log 2>&1
+          device_rc=$?
+          set -e
+          if test "$device_rc" -eq 0; then
+            echo 'Landlock unexpectedly allowed writing /dev/zero'
+            exit 1
+          fi
+          rg -q 'Permission denied' verification/motion-canvas-host/other-device-write.log
           trace_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --write-root /workspace/trace -- /plugin/bin)
           set +e
           printf 'exec /usr/bin/strace -ff -s 160 -o /workspace/trace/chrome -e trace=%%file,%%process,%%signal "%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${trace_args[@]}" > verification/motion-canvas-host/landlock-strace.log 2>&1
