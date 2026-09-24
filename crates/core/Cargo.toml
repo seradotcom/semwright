@@ -18,6 +18,7 @@ semwright-registry.workspace = true
 semwright-policy.workspace = true
 semwright-backend-api.workspace = true
 semwright-recipes.workspace = true
+semwright-workflow.workspace = true
 semwright-plugin-sdk.workspace = true
 semwright-plugin-host.workspace = true
 async-trait.workspace = true

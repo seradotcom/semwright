@@ -642,3 +642,238 @@ async fn job_events_are_visible_only_to_the_owning_session() {
             .any(|event| event.event.kind == "command_start")
     );
 }
+
+fn workflow_fixture() -> Fixture {
+    let mut config = PolicyConfig {
+        profile: Profile::Desktop,
+        ..Default::default()
+    };
+    config.allow.extend(
+        ["workflow.record", "workflow.manage", "clipboard.write"]
+            .into_iter()
+            .map(String::from),
+    );
+    let fixture = Fixture::with_policy(config);
+    fixture
+        .broker
+        .configure_workflows(&fixture._dir.path().join("workflows"))
+        .unwrap();
+    fixture
+}
+
+async fn record_clipboard_trace(fixture: &Fixture, text: &str) -> String {
+    let started = fixture
+        .call(
+            "workflow.record.start",
+            json!({"name":"clipboard-demo","intent":"Write clipboard text","capture_values":true}),
+        )
+        .await;
+    assert!(started.ok, "{started:?}");
+    let written = fixture.call("clipboard.write", json!({"text":text})).await;
+    assert!(written.ok, "{written:?}");
+    let stopped = fixture
+        .call("workflow.record.stop", json!({"successful":true}))
+        .await;
+    assert!(stopped.ok, "{stopped:?}");
+    stopped.data.unwrap()["trace"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[tokio::test]
+async fn workflow_recording_requires_explicit_scope() {
+    let fixture = Fixture::new(Profile::Desktop);
+    let result = fixture
+        .call(
+            "workflow.record.start",
+            json!({"name":"denied","capture_values":false}),
+        )
+        .await;
+    assert_eq!(result.error.unwrap().code, ErrorCode::PolicyDenied);
+}
+
+#[tokio::test]
+async fn metadata_only_workflow_trace_redacts_values_and_cannot_compile() {
+    let fixture = workflow_fixture();
+    let secret = "do-not-store-this-value";
+    let started = fixture
+        .call(
+            "workflow.record.start",
+            json!({"name":"private","intent":"privacy test","capture_values":false}),
+        )
+        .await;
+    assert!(started.ok, "{started:?}");
+    assert!(
+        fixture
+            .call("clipboard.write", json!({"text":secret}))
+            .await
+            .ok
+    );
+    let stopped = fixture
+        .call("workflow.record.stop", json!({"successful":true}))
+        .await;
+    assert!(stopped.ok, "{stopped:?}");
+    let trace = stopped.data.unwrap()["trace"].clone();
+    let serialized = serde_json::to_string(&trace).unwrap();
+    assert!(!serialized.contains(secret));
+    assert_eq!(trace["steps"][0]["redacted"], true);
+    let trace_id = trace["id"].as_str().unwrap();
+    let compiled = fixture
+        .call(
+            "workflow.compile",
+            json!({"trace_ids":[trace_id],"name":"private-copy"}),
+        )
+        .await;
+    assert_eq!(compiled.error.unwrap().code, ErrorCode::Conflict);
+}
+
+#[tokio::test]
+async fn learned_workflow_infers_input_verifies_replays_promotes_and_executes() {
+    let fixture = workflow_fixture();
+    let first = record_clipboard_trace(&fixture, "alpha").await;
+    let second = record_clipboard_trace(&fixture, "beta").await;
+    let compiled = fixture
+        .call(
+            "workflow.compile",
+            json!({
+                "trace_ids":[first,second],
+                "name":"clipboard-copy",
+                "description":"Write caller-provided text to the clipboard."
+            }),
+        )
+        .await;
+    assert!(compiled.ok, "{compiled:?}");
+    let candidate = compiled.data.unwrap()["candidate"].clone();
+    let candidate_id = candidate["id"].as_str().unwrap().to_owned();
+    assert_eq!(
+        candidate["recipe"]["inputs"]["step1_text"]["kind"],
+        "string"
+    );
+    assert_eq!(
+        candidate["recipe"]["steps"][0]["args"]["text"],
+        json!({"$var":"/inputs/step1_text"})
+    );
+
+    let premature = fixture
+        .call(
+            "workflow.replay",
+            json!({"candidate_id":candidate_id,"inputs":{"step1_text":"gamma"}}),
+        )
+        .await;
+    assert_eq!(premature.error.unwrap().code, ErrorCode::Conflict);
+
+    let verified = fixture
+        .call("workflow.verify", json!({"candidate_id":candidate_id}))
+        .await;
+    assert!(verified.ok, "{verified:?}");
+    let replayed = fixture
+        .call(
+            "workflow.replay",
+            json!({"candidate_id":candidate_id,"inputs":{"step1_text":"gamma"}}),
+        )
+        .await;
+    assert!(replayed.ok, "{replayed:?}");
+    assert_eq!(replayed.data.unwrap()["completed"], true);
+
+    let promoted = fixture
+        .call(
+            "workflow.promote",
+            json!({"candidate_id":candidate_id,"slug":"clipboard-learned"}),
+        )
+        .await;
+    assert!(promoted.ok, "{promoted:?}");
+    assert_eq!(
+        promoted.data.unwrap()["capability"]["name"],
+        "recipe.clipboard-learned.run"
+    );
+
+    assert!(
+        fixture
+            .call(
+                "workflow.record.start",
+                json!({"name":"promoted-run","capture_values":true}),
+            )
+            .await
+            .ok
+    );
+    let executed = fixture
+        .call(
+            "recipe.clipboard-learned.run",
+            json!({"step1_text":"delta"}),
+        )
+        .await;
+    assert!(executed.ok, "{executed:?}");
+    let captured = fixture
+        .call("workflow.record.stop", json!({"successful":true}))
+        .await;
+    assert!(captured.ok, "{captured:?}");
+    let trace = &captured.data.unwrap()["trace"];
+    assert_eq!(trace["steps"].as_array().unwrap().len(), 1);
+    assert_eq!(trace["steps"][0]["command"], "clipboard.write");
+    assert_eq!(trace["steps"][0]["args"]["text"], "delta");
+
+    let demoted = fixture
+        .call("workflow.demote", json!({"slug":"clipboard-learned"}))
+        .await;
+    assert!(demoted.ok, "{demoted:?}");
+    let gone = fixture
+        .call(
+            "capabilities.describe",
+            json!({"name":"recipe.clipboard-learned.run"}),
+        )
+        .await;
+    assert_eq!(gone.error.unwrap().code, ErrorCode::NotFound);
+}
+
+#[tokio::test]
+async fn learned_workflow_reacquires_ephemeral_refs_before_mutation() {
+    let fixture = workflow_fixture();
+    assert!(
+        fixture
+            .call(
+                "workflow.record.start",
+                json!({"name":"export-click","capture_values":true}),
+            )
+            .await
+            .ok
+    );
+    let found = fixture.find("Export").await;
+    let reference = found["nodes"][0]["ref"].clone();
+    assert!(fixture.call("ui.invoke", json!({"ref":reference})).await.ok);
+    assert_eq!(fixture.desktop.invocations(), 1);
+    let stopped = fixture
+        .call("workflow.record.stop", json!({"successful":true}))
+        .await;
+    let trace_id = stopped.data.unwrap()["trace"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let compiled = fixture
+        .call(
+            "workflow.compile",
+            json!({"trace_ids":[trace_id],"name":"export-click"}),
+        )
+        .await;
+    assert!(compiled.ok, "{compiled:?}");
+    let candidate = compiled.data.unwrap()["candidate"].clone();
+    assert_eq!(
+        candidate["recipe"]["steps"][1]["args"]["ref"],
+        json!({"$var":"/steps/step-1/nodes/0/ref"})
+    );
+    let candidate_id = candidate["id"].as_str().unwrap();
+    assert!(
+        fixture
+            .call("workflow.verify", json!({"candidate_id":candidate_id}))
+            .await
+            .ok
+    );
+    let replayed = fixture
+        .call(
+            "workflow.replay",
+            json!({"candidate_id":candidate_id,"inputs":{}}),
+        )
+        .await;
+    assert!(replayed.ok, "{replayed:?}");
+    assert_eq!(fixture.desktop.invocations(), 2);
+}

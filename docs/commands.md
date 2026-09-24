@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-91 built-in descriptors. A descriptor is not proof of live backend support.
+104 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -102,6 +102,19 @@ for many backends in this development handoff; strengthening them is a release g
 | `jobs.list` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.get` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.cancel` | `desktop.observe` | read_only | 10000 ms | core |
+| `workflow.candidate.delete` | `workflow.manage` | destructive | 10000 ms | core |
+| `workflow.candidate.get` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.compile` | `workflow.record` | mutating_reversible | 30000 ms | core |
+| `workflow.demote` | `workflow.manage` | mutating_reversible | 30000 ms | core |
+| `workflow.promote` | `workflow.manage` | mutating_reversible | 30000 ms | core |
+| `workflow.promotions.list` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.record.start` | `workflow.record` | mutating_reversible | 10000 ms | core |
+| `workflow.record.stop` | `workflow.record` | mutating_reversible | 10000 ms | core |
+| `workflow.replay` | `workflow.record` | mutating | 300000 ms | core |
+| `workflow.trace.delete` | `workflow.manage` | destructive | 10000 ms | core |
+| `workflow.trace.get` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.traces.list` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.verify` | `workflow.record` | mutating_reversible | 30000 ms | core |
 
 ## `doctor`
 
@@ -2420,6 +2433,353 @@ Idempotency: `idempotent`. Dry run: `false`.
       "pattern": "^[0-9a-f]{32}$"
     }
   },
+  "additionalProperties": false
+}
+```
+
+## `workflow.candidate.delete`
+
+Delete one compiled workflow candidate after any promotion is demoted.
+
+Idempotency: `destructive`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "minLength": 7,
+      "maxLength": 96
+    }
+  },
+  "required": [
+    "candidate_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.candidate.get`
+
+Inspect a compiled workflow candidate.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 96
+    }
+  },
+  "required": [
+    "candidate_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.compile`
+
+Compile 1..8 explicit compatible traces into a deterministic Recipe v1 candidate.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "trace_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 7,
+        "maxLength": 80
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "parameters": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 63
+          },
+          "pointer": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "secret": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "step",
+          "pointer"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "trace_ids",
+    "name"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.demote`
+
+Remove a promoted learned workflow from the live capability catalog.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,38}[a-z0-9]$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "slug"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.promote`
+
+Promote a statically verified and successfully replayed candidate into a searchable recipe capability.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 96
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,38}[a-z0-9]$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "candidate_id",
+    "slug"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.promotions.list`
+
+List promoted learned workflow capabilities and drift status.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `workflow.record.start`
+
+Start explicit local workflow recording for this session; value capture is opt-in.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "intent": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "capture_values": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.record.stop`
+
+Stop explicit workflow recording and persist the bounded trace.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "successful": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `workflow.replay`
+
+Replay a verified workflow candidate through the broker; every step is re-authorized.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 96
+    },
+    "inputs": {
+      "type": "object",
+      "maxProperties": 64,
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "candidate_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.trace.delete`
+
+Delete one local recorded workflow trace when no candidate references it.
+
+Idempotency: `destructive`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "trace_id": {
+      "type": "string",
+      "minLength": 7,
+      "maxLength": 96
+    }
+  },
+  "required": [
+    "trace_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.trace.get`
+
+Inspect one recorded workflow trace.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "trace_id": {
+      "type": "string",
+      "minLength": 7,
+      "maxLength": 80
+    }
+  },
+  "required": [
+    "trace_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.traces.list`
+
+List locally recorded workflow traces without replaying them.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `workflow.verify`
+
+Statically verify a workflow candidate against current capability schemas and descriptor digests.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 96
+    }
+  },
+  "required": [
+    "candidate_id"
+  ],
   "additionalProperties": false
 }
 ```

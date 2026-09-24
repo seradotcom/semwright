@@ -1223,5 +1223,200 @@
       "resize"
     ],
     "untrusted_metadata": false
+  },
+  "workflow.candidate.delete": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "delete"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.candidate.get": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "get"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.compile": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "compile"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.demote": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "demote"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.promote": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "promote"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.promotions.list": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "list"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.record.start": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "start"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.record.stop": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "stop"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.replay": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "replay"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.trace.delete": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "delete"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.trace.get": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "get"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.traces.list": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "list"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.verify": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "verify"
+    ],
+    "untrusted_metadata": false
   }
 }

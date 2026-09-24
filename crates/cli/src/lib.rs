@@ -106,6 +106,11 @@ pub enum Command {
         #[command(subcommand)]
         command: Recipe,
     },
+    /// Record, compile, verify and promote reusable operational workflows.
+    Workflow {
+        #[command(subcommand)]
+        command: Workflow,
+    },
     Plugin {
         #[command(subcommand)]
         command: Plugin,
@@ -454,6 +459,68 @@ pub enum Recipe {
     },
 }
 #[derive(Subcommand, Debug)]
+pub enum Workflow {
+    Record {
+        #[command(subcommand)]
+        command: WorkflowRecord,
+    },
+    Traces,
+    Show {
+        trace_id: String,
+    },
+    DeleteTrace {
+        trace_id: String,
+    },
+    Compile {
+        name: String,
+        #[arg(long = "trace", required = true)]
+        trace_ids: Vec<String>,
+        #[arg(long, default_value = "")]
+        description: String,
+        /// Parameter hint NAME=STEP:/json/pointer. Repeat as needed.
+        #[arg(long = "parameter")]
+        parameters: Vec<String>,
+    },
+    Candidate {
+        candidate_id: String,
+    },
+    DeleteCandidate {
+        candidate_id: String,
+    },
+    Verify {
+        candidate_id: String,
+    },
+    Replay {
+        candidate_id: String,
+        #[command(flatten)]
+        inputs: JsonArgs,
+    },
+    Promote {
+        candidate_id: String,
+        slug: String,
+    },
+    List,
+    Demote {
+        slug: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WorkflowRecord {
+    Start {
+        name: String,
+        #[arg(long, default_value = "")]
+        intent: String,
+        #[arg(long)]
+        capture_values: bool,
+    },
+    Stop {
+        #[arg(long)]
+        failed: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
 pub enum Plugin {
     List,
     Describe {
@@ -644,6 +711,21 @@ fn put(v: &mut Value, k: &str, s: &Option<String>) {
     if let Some(s) = s {
         v[k] = json!(s);
     }
+}
+fn workflow_parameter(value: &str) -> Result<Value> {
+    let (name, location) = value
+        .split_once('=')
+        .ok_or_else(|| Error::invalid("Workflow parameter must be NAME=STEP:/json/pointer"))?;
+    let (step, pointer) = location
+        .split_once(':')
+        .ok_or_else(|| Error::invalid("Workflow parameter must include STEP:/json/pointer"))?;
+    let step: usize = step
+        .parse()
+        .map_err(|_| Error::invalid("Workflow parameter step must be an integer"))?;
+    if name.is_empty() || step > 63 || (!pointer.is_empty() && !pointer.starts_with('/')) {
+        return Err(Error::invalid("Workflow parameter hint is invalid"));
+    }
+    Ok(json!({"name":name,"step":step,"pointer":pointer,"secret":false}))
 }
 pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
     let (cmd, args) = match &cli.command {
@@ -848,6 +930,70 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
                 json!({"recipe":serde_json::to_value(semwright_recipes::parse(&read_file(file,262144)?)?)?,"inputs":inputs.value()?}),
             ),
             Recipe::Scaffold { .. } => return Ok(None),
+        },
+        Command::Workflow { command } => match command {
+            Workflow::Record {
+                command:
+                    WorkflowRecord::Start {
+                        name,
+                        intent,
+                        capture_values,
+                    },
+            } => (
+                "workflow.record.start".into(),
+                json!({"name":name,"intent":intent,"capture_values":capture_values}),
+            ),
+            Workflow::Record {
+                command: WorkflowRecord::Stop { failed },
+            } => ("workflow.record.stop".into(), json!({"successful":!failed})),
+            Workflow::Traces => ("workflow.traces.list".into(), json!({})),
+            Workflow::Show { trace_id } => {
+                ("workflow.trace.get".into(), json!({"trace_id":trace_id}))
+            }
+            Workflow::DeleteTrace { trace_id } => {
+                ("workflow.trace.delete".into(), json!({"trace_id":trace_id}))
+            }
+            Workflow::Compile {
+                name,
+                trace_ids,
+                description,
+                parameters,
+            } => (
+                "workflow.compile".into(),
+                json!({
+                    "name":name,
+                    "trace_ids":trace_ids,
+                    "description":description,
+                    "parameters":parameters.iter()
+                        .map(|value| workflow_parameter(value))
+                        .collect::<Result<Vec<_>>>()?
+                }),
+            ),
+            Workflow::Candidate { candidate_id } => (
+                "workflow.candidate.get".into(),
+                json!({"candidate_id":candidate_id}),
+            ),
+            Workflow::DeleteCandidate { candidate_id } => (
+                "workflow.candidate.delete".into(),
+                json!({"candidate_id":candidate_id}),
+            ),
+            Workflow::Verify { candidate_id } => (
+                "workflow.verify".into(),
+                json!({"candidate_id":candidate_id}),
+            ),
+            Workflow::Replay {
+                candidate_id,
+                inputs,
+            } => (
+                "workflow.replay".into(),
+                json!({"candidate_id":candidate_id,"inputs":inputs.value()?}),
+            ),
+            Workflow::Promote { candidate_id, slug } => (
+                "workflow.promote".into(),
+                json!({"candidate_id":candidate_id,"slug":slug}),
+            ),
+            Workflow::List => ("workflow.promotions.list".into(), json!({})),
+            Workflow::Demote { slug } => ("workflow.demote".into(), json!({"slug":slug})),
         },
         Command::Plugin { command } => match command {
             Plugin::List => ("plugin.list".into(), json!({})),
