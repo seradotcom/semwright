@@ -19,7 +19,7 @@ generate_one() {
   local dir
   dir=$(dirname "$manifest")
   rm -f "$dir/$name.cdx" "$dir/$name.cdx.json" "$dir/$name.cdx.xml"
-  cargo cyclonedx     --manifest-path "$manifest"     --format json     --describe binaries     --spec-version 1.5     --override-filename "$name.cdx"
+  cargo cyclonedx     --manifest-path "$manifest"     --format json     --spec-version 1.5     --override-filename "$name.cdx"
   mapfile -t outputs < <(find "$dir" -maxdepth 1 -type f -name "$name.cdx*" -print)
   if [ "${#outputs[@]}" -ne 1 ]; then
     printf 'Expected one SBOM for %s, got %s\n' "$name" "${outputs[*]-}" >&2
@@ -70,7 +70,7 @@ for item in semwright semwrightd semwright-mcp semwright-inspect semwright-sandb
   esac
   dir=$(dirname "$manifest")
   rm -f "$dir/$item.cdx" "$dir/$item.cdx.json" "$dir/$item.cdx.xml"
-  cargo cyclonedx     --manifest-path "$manifest"     --format json     --describe binaries     --spec-version 1.5     --override-filename "$item.cdx"
+  cargo cyclonedx     --manifest-path "$manifest"     --format json     --spec-version 1.5     --override-filename "$item.cdx"
   mapfile -t outputs < <(find "$dir" -maxdepth 1 -type f -name "$item.cdx*" -print)
   [ "${#outputs[@]}" -eq 1 ]
   mv "${outputs[0]}" "$SECOND/$item.cdx.json"
