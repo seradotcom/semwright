@@ -165,13 +165,7 @@ impl SandboxLauncher for LinuxSandbox {
         for m in &s.mounts {
             if !m.read_only {
                 p.arg("--write-root").arg(&m.destination);
-            } else {
-                // Bind mounts need their own Landlock rules.
-                p.arg("--read-root").arg(&m.destination);
             }
-        }
-        for m in &s.system_config {
-            p.arg("--read-root").arg(&m.destination);
         }
         p.args(["--", "/plugin/bin"])
             .env_clear()
