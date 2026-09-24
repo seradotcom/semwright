@@ -15,10 +15,10 @@ use std::{
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::PathBuf,
 };
+#[cfg(unix)]
+use tokio::net::UnixListener;
 #[cfg(target_os = "windows")]
 use tokio::net::windows::named_pipe::NamedPipeServer;
-#[cfg(unix)]
-use tokio::net::{UnixListener, UnixStream};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::{Semaphore, mpsc},
