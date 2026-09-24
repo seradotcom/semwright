@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 pub struct Host {
     manifests: RwLock<BTreeMap<String, Manifest>>,
     roots: Vec<FilesystemGrant>,
+    #[cfg(unix)]
     state: PathBuf,
     helper: PathBuf,
     allow_network: bool,
