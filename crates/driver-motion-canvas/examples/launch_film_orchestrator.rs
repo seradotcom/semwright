@@ -103,6 +103,7 @@ mod linux {
             provider,
             &Context {
                 session: "launch-film".into(),
+                request_id: semwright_types::unique_id(),
                 cancellation: CancellationToken::new(),
             },
             &find(caps, name)?.descriptor,

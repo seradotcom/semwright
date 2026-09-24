@@ -36,6 +36,7 @@ async fn call(
         provider,
         &Context {
             session: "motion-canvas-live".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         },
         &find(caps, name).descriptor,
