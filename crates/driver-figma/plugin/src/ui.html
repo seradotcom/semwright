@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+body{font:12px Inter,system-ui;margin:16px;color:var(--figma-color-text)}
+label{display:block;margin:10px 0 4px}
+input{width:100%;box-sizing:border-box;padding:7px}
+button{margin:12px 8px 0 0;padding:8px 12px}
+#state{margin-top:12px;white-space:pre-wrap}
+</style>
+<h3>Semwright Figma Bridge</h3>
+<label>Loopback port</label><input id="port" value="38471">
+<label>Pairing code</label><input id="secret" type="password" autocomplete="off">
+<button id="connect">Connect</button><button id="disconnect">Disconnect</button>
+<div id="state">Disconnected</div>
+<script>
+const $=id=>document.getElementById(id);
+let ws=null,session=null,generation=1,context=null;
+function state(s){$("state").textContent=s}
+function hex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
+function unhex(s){
+ if(!/^[0-9a-f]{64}$/i.test(s))throw new Error("pairing code must be 64 hex characters");
+ const out=new Uint8Array(s.length/2);
+ for(let i=0;i<out.length;i++)out[i]=parseInt(s.slice(i*2,i*2+2),16);
+ return out;
+}
+function generationBytes(n){
+ const out=new Uint8Array(8);let v=BigInt(n);
+ for(let i=7;i>=0;i--){out[i]=Number(v&255n);v>>=8n}
+ return out;
+}
+async function proof(secretHex,nonce,sessionId,gen){
+ const key=await crypto.subtle.importKey("raw",unhex(secretHex),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+ const enc=new TextEncoder(),zero=new Uint8Array([0]);
+ const n=enc.encode(nonce),s=enc.encode(sessionId),g=generationBytes(gen);
+ const data=new Uint8Array(n.length+1+s.length+1+g.length);
+ let o=0;data.set(n,o);o+=n.length;data.set(zero,o++);data.set(s,o);o+=s.length;data.set(zero,o++);data.set(g,o);
+ return hex(new Uint8Array(await crypto.subtle.sign("HMAC",key,data)));
+}
+parent.postMessage({pluginMessage:{type:"bridge-status"}},"*");
+onmessage=e=>{
+ const m=e.data.pluginMessage;if(!m)return;
+ if(m.type==="document-context"){context=m;state("Disconnected\n"+m.editorType)}
+ if(m.type==="bridge-response"&&ws?.readyState===1){
+  ws.send(JSON.stringify({type:"response",session_id:session,generation,revision:m.response.revision,id:m.response.id,ok:m.response.ok,value:m.response.value,error:m.response.error}));
+ }
+ if(m.type==="event"&&ws?.readyState===1){
+  ws.send(JSON.stringify({type:"event",session_id:session,generation,revision:m.revision,kind:m.kind,payload:m.payload??{}}));
+ }
+};
+$("connect").onclick=async()=>{
+ try{
+  const port=Number($("port").value),secret=$("secret").value.trim().toLowerCase();
+  if(!Number.isInteger(port)||port<1024||port>65535||!/^[0-9a-f]{64}$/.test(secret)){state("Invalid pairing data");return}
+  session=crypto.randomUUID();generation++;
+  ws=new WebSocket("ws://127.0.0.1:"+port);
+  ws.onopen=()=>{
+   ws.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.2.0",figma_api:"1.138.0",editor_type:context?.editorType??"unknown",session_id:session,document_id:context?.documentId??"unknown",generation,capabilities:["design","prototype","motion_beta","figjam"]}));
+   state("Awaiting server challenge…");
+  };
+  ws.onmessage=async e=>{
+   if(typeof e.data!=="string")return;
+   const m=JSON.parse(e.data);
+   if(m.type==="challenge"){
+    if(m.session_id!==session||m.generation!==generation||typeof m.nonce!=="string"||!/^[0-9a-f]{32}$/i.test(m.nonce)){state("Invalid server challenge");ws.close();return}
+    const authProof=await proof(secret,m.nonce,session,generation);
+    ws.send(JSON.stringify({type:"authenticate",session_id:session,generation,proof:authProof}));
+    state("Authenticating…");
+   }
+   else if(m.type==="ready"){$("secret").value="";state("Connected\nSession "+session+"\nGeneration "+generation)}
+   else if(m.type==="request")parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision,operation:m.operation,args:m.args}}},"*");
+   else if(m.type==="ping")ws.send(JSON.stringify({type:"pong",nonce:m.nonce}));
+   else if(m.type==="close"){state("Closed: "+String(m.reason??"server closed"));ws.close()}
+  };
+  ws.onclose=()=>state("Disconnected");
+  ws.onerror=()=>state("Connection failed");
+ }catch(err){state("Pairing failed")}
+};
+$("disconnect").onclick=()=>{ws?.close();ws=null;$("secret").value="";state("Disconnected")};
+</script>

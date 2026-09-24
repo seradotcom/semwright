@@ -40,6 +40,10 @@ x11rb = { version = "0.13", features = ["xtest"] }
 tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "handshake"] }
 url = "2"
 base64 = "0.22"
+anyhow = "1"
+hex = "0.4"
+hmac = "0.12"
+rand = "0.9"
 landlock = "=0.4.7"
 clap = { version = "4.5", features = ["derive", "env"] }
 clap_complete = "4.5"
