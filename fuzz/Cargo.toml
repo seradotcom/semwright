@@ -20,6 +20,7 @@ semwright-protocol = { path = "../crates/protocol" }
 semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
 semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
+semwright-workflow = { path = "../crates/workflow" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
 semwright-video-domain = { path = "../crates/video-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
@@ -48,6 +49,13 @@ bench = false
 [[bin]]
 name = "recipe"
 path = "fuzz_targets/recipe.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "workflow_trace"
+path = "fuzz_targets/workflow_trace.rs"
 test = false
 doc = false
 bench = false

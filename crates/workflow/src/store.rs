@@ -520,3 +520,226 @@ impl WorkflowManager {
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Promoted workflow unavailable"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use semwright_recipes::{Recipe, Retry, Step};
+    use semwright_types::{Idempotency, Risk};
+    use std::collections::BTreeMap;
+    use tempfile::tempdir;
+
+    fn step() -> TraceStep {
+        TraceStep {
+            index: 0,
+            command: "doctor".into(),
+            args: json!({}),
+            result: Some(json!({"ok":true})),
+            ok: true,
+            error_code: None,
+            outcome_known: true,
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            capability_version: "1".into(),
+            descriptor_sha256: "a".repeat(64),
+            backend: "core".into(),
+            provider: None,
+            duration_ms: 1,
+            redacted: false,
+        }
+    }
+
+    fn candidate(trace_id: &str) -> Candidate {
+        Candidate {
+            version: CANDIDATE_VERSION,
+            id: "candidate-test".into(),
+            recipe: Recipe {
+                version: 1,
+                name: "test".into(),
+                description: String::new(),
+                inputs: BTreeMap::new(),
+                steps: vec![Step {
+                    id: "step-1".into(),
+                    command: "doctor".into(),
+                    args: json!({}),
+                    timeout_ms: 1000,
+                    retry: Retry::default(),
+                    when: None,
+                    assertions: vec![],
+                }],
+                outputs: BTreeMap::new(),
+            },
+            source_trace_ids: vec![trace_id.into()],
+            source_descriptor_sha256: [("doctor".into(), "a".repeat(64))].into_iter().collect(),
+            compiled_unix_ms: 1,
+            fingerprint: "b".repeat(64),
+            static_verified: false,
+            successful_replays: 0,
+        }
+    }
+
+    fn persisted_trace(manager: &mut WorkflowManager) -> WorkflowTrace {
+        manager.start("session", "demo", "test", true).unwrap();
+        manager.record("session", step()).unwrap();
+        manager.stop("session", true).unwrap()
+    }
+
+    #[test]
+    fn persistence_roundtrip_restores_trace_candidate_and_promotion() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        let trace = persisted_trace(&mut manager);
+        manager.store_candidate(candidate(&trace.id)).unwrap();
+        manager.mark_static_verified("candidate-test").unwrap();
+        manager.mark_replay("candidate-test").unwrap();
+        manager
+            .promote(
+                "demo-workflow",
+                "candidate-test",
+                "recipe.demo-workflow.run",
+            )
+            .unwrap();
+
+        let mut restored = WorkflowManager::default();
+        restored.configure_persistence(&directory).unwrap();
+        assert_eq!(restored.trace(&trace.id).unwrap().id, trace.id);
+        assert!(
+            restored
+                .candidate("candidate-test")
+                .unwrap()
+                .static_verified
+        );
+        assert_eq!(
+            restored
+                .promotion_by_capability("recipe.demo-workflow.run")
+                .unwrap()
+                .slug,
+            "demo-workflow"
+        );
+    }
+
+    #[test]
+    fn promotion_requires_verification_and_successful_replay() {
+        let mut manager = WorkflowManager::default();
+        manager.start("session", "demo", "", true).unwrap();
+        manager.record("session", step()).unwrap();
+        let trace = manager.stop("session", true).unwrap();
+        manager.store_candidate(candidate(&trace.id)).unwrap();
+
+        assert_eq!(
+            manager
+                .promote(
+                    "demo-workflow",
+                    "candidate-test",
+                    "recipe.demo-workflow.run"
+                )
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+        manager.mark_static_verified("candidate-test").unwrap();
+        assert_eq!(
+            manager
+                .promote(
+                    "demo-workflow",
+                    "candidate-test",
+                    "recipe.demo-workflow.run"
+                )
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+        manager.mark_replay("candidate-test").unwrap();
+        manager
+            .promote(
+                "demo-workflow",
+                "candidate-test",
+                "recipe.demo-workflow.run",
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn deletion_respects_trace_candidate_promotion_dependencies() {
+        let mut manager = WorkflowManager::default();
+        manager.start("session", "demo", "", true).unwrap();
+        manager.record("session", step()).unwrap();
+        let trace = manager.stop("session", true).unwrap();
+        manager.store_candidate(candidate(&trace.id)).unwrap();
+
+        assert_eq!(
+            manager.delete_trace(&trace.id).unwrap_err().code,
+            ErrorCode::Conflict
+        );
+        manager.mark_static_verified("candidate-test").unwrap();
+        manager.mark_replay("candidate-test").unwrap();
+        manager
+            .promote(
+                "demo-workflow",
+                "candidate-test",
+                "recipe.demo-workflow.run",
+            )
+            .unwrap();
+        assert_eq!(
+            manager.delete_candidate("candidate-test").unwrap_err().code,
+            ErrorCode::Conflict
+        );
+
+        manager.demote("demo-workflow").unwrap();
+        manager.delete_candidate("candidate-test").unwrap();
+        manager.delete_trace(&trace.id).unwrap();
+        assert!(manager.list_traces().is_empty());
+    }
+
+    #[test]
+    fn corrupt_persisted_state_fails_closed() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        std::fs::write(directory.join("workflows.json"), b"{not-json").unwrap();
+
+        let mut restored = WorkflowManager::default();
+        assert_eq!(
+            restored.configure_persistence(&directory).unwrap_err().code,
+            ErrorCode::Conflict
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn persistence_is_private_and_symlinked_store_is_rejected() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        persisted_trace(&mut manager);
+
+        assert_eq!(
+            std::fs::metadata(&directory).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(directory.join("workflows.json"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o600
+        );
+
+        let target = temp.path().join("target");
+        std::fs::create_dir(&target).unwrap();
+        let link = temp.path().join("linked-store");
+        symlink(&target, &link).unwrap();
+        let mut rejected = WorkflowManager::default();
+        assert_eq!(
+            rejected.configure_persistence(&link).unwrap_err().code,
+            ErrorCode::PolicyDenied
+        );
+    }
+}
