@@ -98,6 +98,10 @@ mod linux {
         args: Value,
         trace: &mut Vec<Value>,
     ) -> AnyResult<Value> {
+        eprintln!(
+            "{}",
+            json!({"event":"provider_call_start","provider":provider_id,"capability":name})
+        );
         let started = Instant::now();
         let result = Provider::execute(
             provider,
@@ -112,8 +116,20 @@ mod linux {
         .await;
         let duration_ms = started.elapsed().as_millis() as u64;
         match &result {
-            Ok(_) => trace.push(json!({"provider":provider_id,"capability":name,"duration_ms":duration_ms,"status":"ok"})),
-            Err(error) => trace.push(json!({"provider":provider_id,"capability":name,"duration_ms":duration_ms,"status":"error","error_code":format!("{:?}",error.code)})),
+            Ok(_) => {
+                trace.push(json!({"provider":provider_id,"capability":name,"duration_ms":duration_ms,"status":"ok"}));
+                eprintln!(
+                    "{}",
+                    json!({"event":"provider_call_end","provider":provider_id,"capability":name,"duration_ms":duration_ms,"status":"ok"})
+                );
+            }
+            Err(error) => {
+                trace.push(json!({"provider":provider_id,"capability":name,"duration_ms":duration_ms,"status":"error","error_code":format!("{:?}",error.code)}));
+                eprintln!(
+                    "{}",
+                    json!({"event":"provider_call_end","provider":provider_id,"capability":name,"duration_ms":duration_ms,"status":"error","error_code":format!("{:?}",error.code)})
+                );
+            }
         }
         Ok(result?)
     }
