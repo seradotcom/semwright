@@ -56,7 +56,7 @@ async fn call(
         provider,
         &Context {
             session: "motion-host-conformance".into(),
-            request_id: "motion-host-conformance-request".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         },
         &find(caps, name).descriptor,

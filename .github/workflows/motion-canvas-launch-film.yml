@@ -128,6 +128,20 @@ jobs:
           cp "$RUNNER_TEMP/final-ffprobe.json" "$RUNNER_TEMP/launch-output/final-ffprobe.json"
           cp "$RUNNER_TEMP/launch-sound.sha256" "$RUNNER_TEMP/launch-output/launch-sound.sha256"
           sha256sum "$RUNNER_TEMP/launch-output/launch-film-1080p.mp4" "$RUNNER_TEMP/launch-output/poster.png" | tee "$RUNNER_TEMP/launch-output/SHA256SUMS.txt"
+      - name: Upload lightweight visual review evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: semwright-launch-film-review-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/launch-output/poster.png
+            ${{ runner.temp }}/launch-output/review
+            ${{ runner.temp }}/launch-output/DEMO_TRACE.json
+            ${{ runner.temp }}/launch-output/final-ffprobe.json
+            ${{ runner.temp }}/launch-output/SHA256SUMS.txt
+            ${{ runner.temp }}/launch-build.log
+          retention-days: 30
+          if-no-files-found: warn
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

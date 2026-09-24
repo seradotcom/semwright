@@ -99,16 +99,11 @@ mod linux {
         trace: &mut Vec<Value>,
     ) -> AnyResult<Value> {
         let started = Instant::now();
-        let request_id = format!(
-            "launch-film-{}-{}",
-            provider_id.replace(':', "-"),
-            trace.len()
-        );
         let result = Provider::execute(
             provider,
             &Context {
                 session: "launch-film".into(),
-                request_id,
+                request_id: semwright_types::unique_id(),
                 cancellation: CancellationToken::new(),
             },
             &find(caps, name)?.descriptor,

@@ -470,7 +470,7 @@ async fn run_render(
             ErrorCode::BackendFailed,
             format!(
                 "Motion Canvas renderer failed: {}",
-                message.chars().take(2000).collect::<String>()
+                message.chars().take(16_384).collect::<String>()
             ),
         ));
     }
