@@ -98,7 +98,11 @@ for(const interfaceName of sceneInterfaces){
 }
 const METHOD_MAP={
   remove:"node.remove", clone:"node.clone", resize:"node.resize", rescale:"node.resize",
+  resizeWithoutConstraints:"node.resize_unconstrained", getTopLevelFrame:"node.top_level_frame",
+  lockAspectRatio:"node.aspect_ratio.lock", unlockAspectRatio:"node.aspect_ratio.unlock",
   getPluginData:"node.plugin_data.get", setPluginData:"node.plugin_data.set",
+  getPluginDataKeys:"node.plugin_data.keys", getSharedPluginData:"node.shared_plugin_data.get",
+  getSharedPluginDataKeys:"node.shared_plugin_data.keys", setSharedPluginData:"node.shared_plugin_data.set",
   getRelaunchData:"node.relaunch_data.get", setRelaunchData:"node.relaunch_data.set",
   exportAsync:"export.node", getCSSAsync:"dev.css",
   getDevResourcesAsync:"dev.resources.list", addDevResourceAsync:"dev.resources.add",
@@ -108,7 +112,8 @@ const METHOD_MAP={
   getStyledTextSegments:"text.runs.inspect", setRangeHyperlink:"text.hyperlink.set",
   setRangeBoundVariable:"text.variable.bind_range", createInstance:"instance.create",
   getMainComponentAsync:"instance.inspect", swapComponent:"instance.swap",
-  detachInstance:"instance.detach", addComponentProperty:"component.property.add",
+  detachInstance:"instance.detach", removeOverrides:"instance.overrides.remove_all",
+  resetOverrides:"instance.overrides.remove_all", addComponentProperty:"component.property.add",
   editComponentProperty:"component.property.edit", deleteComponentProperty:"component.property.delete",
   outlineStroke:"node.outline_stroke", setReactionsAsync:"prototype.reaction.set",
   applyAnimationStyle:"motion.style.apply", removeAnimationStyle:"motion.style.remove",
@@ -124,9 +129,14 @@ const METHOD_MAP={
   moveRow:"figjam.table.row.move", resizeRow:"figjam.table.row.resize",
   insertColumn:"figjam.table.column.insert", removeColumn:"figjam.table.column.remove",
   moveColumn:"figjam.table.column.move", resizeColumn:"figjam.table.column.resize",
+  reorderRows:"layout.grid.rows.reorder", reorderColumns:"layout.grid.columns.reorder",
+  setGridChildPosition:"layout.grid.child.position",
   setEffectStyleIdAsync:"style.apply", setFillStyleIdAsync:"style.apply",
   setGridStyleIdAsync:"style.apply", setStrokeStyleIdAsync:"style.apply",
-  setTextStyleIdAsync:"style.apply", setFillsAsync:"node.properties.patch",
+  setTextStyleIdAsync:"style.apply", getSlideTransition:"slides.transition.inspect",
+  setSlideTransition:"slides.transition.set", getAuthorAsync:"figjam.stamp.author.inspect",
+  getPublishStatusAsync:"library.publish_status.inspect",
+  findWidgetNodesByWidgetId:"widget.find_by_widget_id", setFillsAsync:"node.properties.patch",
   setStrokesAsync:"node.properties.patch", setProperties:"instance.properties.patch",
   setVectorNetworkAsync:"vector.network.set",
   insertCharacters:"text.range.edit", deleteCharacters:"text.range.edit",
@@ -169,6 +179,24 @@ const METHOD_CLASSIFICATION={
   setWidgetSyncedState:"UPSTREAM_WIDGET_CONTEXT_RESTRICTED",
   setDevResourcePreviewAsync:"UPSTREAM_PARTNER_RESTRICTED",
 };
+const rustCatalogSources=[
+  "src/main.rs",
+  "src/semantic_more_ops.rs",
+  "src/semantic_admin_ops.rs",
+].map(file=>fs.readFileSync(path.join(root,file),"utf8")).join("\n");
+const advertisedCapabilities=new Set(
+  [...rustCatalogSources.matchAll(/op\(\s*"([^"]+)"/g)].map(match=>match[1])
+);
+for(const [method,mapping] of Object.entries(METHOD_MAP)){
+  for(const capability of mapping.split("+")){
+    if(!advertisedCapabilities.has(capability)){
+      throw new Error(`Scene method ${method} maps to missing capability ${capability}`);
+    }
+  }
+}
+for(const required of ["node.properties.inspect","node.properties.patch"]){
+  if(!advertisedCapabilities.has(required))throw new Error(`Missing generic property capability ${required}`);
+}
 for(const node of Object.values(sceneNodes)){
   for(const member of Object.values(node.members)){
     if(member.kind!=="method")continue;
