@@ -267,13 +267,15 @@ const AUX_PROPERTY_TARGETS={
   VARIABLE:["Variable"],
   COLLECTION:["VariableCollection","ExtendedVariableCollection"],
 };
+const AUX_WRITE_EXCLUDED_PROPERTIES=new Set(["type","boundVariables","consumers"]);
 const auxPropertySurface={};
 for(const [targetKind,names] of Object.entries(AUX_PROPERTY_TARGETS)){
   const readable=new Set(),writable=new Set();
   for(const name of names){
     for(const member of allMembers(name)){
       if(member.kind!=="property")continue;
-      readable.add(member.name);if(!member.readonly)writable.add(member.name);
+      readable.add(member.name);
+      if(!member.readonly&&!AUX_WRITE_EXCLUDED_PROPERTIES.has(member.name))writable.add(member.name);
     }
   }
   auxPropertySurface[targetKind]={readable:[...readable].sort(),writable:[...writable].sort()};
@@ -291,32 +293,113 @@ const GLOBAL_INTERFACE_DEFAULTS={
   ConstantsAPI:"INVENTORIED_INTERNAL",
   PaymentsAPI:"INTERNAL_OR_POLICY_EXCLUDED",
 };
+const GLOBAL_CAPABILITY_MAP={
+  PluginAPI:{
+    getNodeByIdAsync:"node.get",getNodeById:"node.get",
+    getStyleByIdAsync:"style.inspect",getStyleById:"style.inspect",
+    setCurrentPageAsync:"page.current.set",
+    createRectangle:"rect.create",createLine:"line.create",createEllipse:"ellipse.create",
+    createPolygon:"polygon.create",createStar:"star.create",createVector:"vector.create",
+    createText:"text.create",createFrame:"frame.create",createComponent:"component.create",
+    createComponentFromNode:"component.from_node",createPage:"page.create",
+    createPageDivider:"page.divider.create",createSlice:"slice.create",
+    createSlide:"slides.slide.create",createSlideRow:"slides.row.create",
+    createSticky:"figjam.sticky.create",createConnector:"figjam.connector.create",
+    createShapeWithText:"figjam.shape.create",createCodeBlock:"figjam.code_block.create",
+    createSection:"section.create",createTable:"figjam.table.create",
+    createTextPath:"text.path.create",createNodeFromJSXAsync:"compose.apply",
+    createBooleanOperation:"boolean.create",
+    createPaintStyle:"style.create",createTextStyle:"style.create",
+    createEffectStyle:"style.create",createGridStyle:"style.create",
+    getLocalPaintStylesAsync:"style.list",getLocalPaintStyles:"style.list",
+    getLocalTextStylesAsync:"style.list",getLocalTextStyles:"style.list",
+    getLocalEffectStylesAsync:"style.list",getLocalEffectStyles:"style.list",
+    getLocalGridStylesAsync:"style.list",getLocalGridStyles:"style.list",
+    moveLocalPaintStyleAfter:"style.order.after",moveLocalTextStyleAfter:"style.order.after",
+    moveLocalEffectStyleAfter:"style.order.after",moveLocalGridStyleAfter:"style.order.after",
+    moveLocalPaintFolderAfter:"style.folder.order.after",moveLocalTextFolderAfter:"style.folder.order.after",
+    moveLocalEffectFolderAfter:"style.folder.order.after",moveLocalGridFolderAfter:"style.folder.order.after",
+    importComponentByKeyAsync:"library.component.import",
+    importComponentSetByKeyAsync:"library.component_set.import",
+    importStyleByKeyAsync:"library.style.import",
+    listAvailableShaders:"shader.list",importShaderById:"shader.import",
+    listAvailableFontsAsync:"font.list",loadFontAsync:"font.load",
+    getFontFamilyVariationAxes:"font.variation_axes",createNodeFromSvg:"svg.import",
+    createImage:"image.create",getImageByHash:"image.inspect",createVideoAsync:"video.create",
+    createLinkPreviewAsync:"figjam.link_preview.create",createGif:"figjam.gif.create",
+    combineAsVariants:"component_set.create",group:"group.create",
+    transformGroup:"transform_group.create",flatten:"node.flatten",
+    union:"boolean.union",subtract:"boolean.subtract",intersect:"boolean.intersect",
+    exclude:"boolean.exclude",ungroup:"group.ungroup",
+    getFileThumbnailNodeAsync:"file.thumbnail.get",getFileThumbnailNode:"file.thumbnail.get",
+    setFileThumbnailNodeAsync:"file.thumbnail.set",getSlideGrid:"slides.grid.inspect",
+    setSlideGrid:"slides.grid.set",getCanvasGrid:"canvas.grid.inspect",
+    setCanvasGrid:"canvas.grid.set",createCanvasRow:"canvas.row.create",
+    moveNodesToCoord:"canvas.nodes.move",loadBrushesAsync:"brush.load",
+    currentUser:"user.current",activeUsers:"figjam.active_users",
+    commitUndo:"history.commit",triggerUndo:"history.undo",
+    saveVersionHistoryAsync:"file.version.save",getSelectionColors:"selection.colors",
+  },
+  VariablesAPI:{
+    getVariableByIdAsync:"variable.inspect",getVariableById:"variable.inspect",
+    getVariableCollectionByIdAsync:"variable.collection.inspect",getVariableCollectionById:"variable.collection.inspect",
+    getLocalVariablesAsync:"variable.list",getLocalVariables:"variable.list",
+    getLocalVariableCollectionsAsync:"variable.collection.list",getLocalVariableCollections:"variable.collection.list",
+    createVariable:"variable.create",createVariableCollection:"variable.collection.create",
+    extendLibraryCollectionByKeyAsync:"library.collection.extend",
+    setBoundVariableForPaint:"variable.bind.paint",setBoundVariableForEffect:"variable.bind.effect",
+    setBoundVariableForLayoutGrid:"variable.bind.layout_grid",importVariableByKeyAsync:"library.variable.import",
+  },
+  TeamLibraryAPI:{
+    getAvailableLibraryVariableCollectionsAsync:"library.variable_collections.list",
+    getVariablesInLibraryCollectionAsync:"library.variables.list",
+  },
+  MotionAPI:{playheadPosition:"motion.playhead.get",figmaAnimationStyles:"motion.styles.list",physicalSpringToNormalized:"motion.spring.normalize"},
+  AnnotationsAPI:{
+    getAnnotationCategoriesAsync:"annotation.categories.list",
+    getAnnotationCategoryByIdAsync:"annotation.category.inspect",
+    addAnnotationCategoryAsync:"annotation.category.create",
+  },
+  BuzzAPI:{
+    createFrame:"buzz.frame.create",createInstance:"buzz.instance.create",
+    getBuzzAssetTypeForNode:"buzz.asset_type.get",setBuzzAssetTypeForNode:"buzz.asset_type.set",
+    getTextContent:"buzz.text_content.inspect",getMediaContent:"buzz.media_content.inspect",smartResize:"buzz.smart_resize",
+  },
+  TimerAPI:{remaining:"figjam.timer.status",total:"figjam.timer.status",state:"figjam.timer.status",pause:"figjam.timer.pause",resume:"figjam.timer.resume",start:"figjam.timer.start",stop:"figjam.timer.stop"},
+  ViewportAPI:{center:"viewport.inspect+viewport.center",zoom:"viewport.inspect+viewport.zoom",bounds:"viewport.inspect",scrollAndZoomIntoView:"viewport.fit",slidesView:"slides.view.get+slides.view.set",canvasView:"viewport.canvas_view.get+viewport.canvas_view.set"},
+};
+const GLOBAL_EXACT_CLASSIFICATION={
+  "PluginAPI.createImageAsync":"POLICY_EXCLUDED_REMOTE_FETCH_USE_ARTIFACT:image.create",
+  "PluginAPI.loadAllPagesAsync":"INTERNAL_DYNAMIC_PAGE_LIFECYCLE",
+  "VariablesAPI.createVariableAlias":"PURE_HELPER_INTERNAL_ALIAS_VALUE",
+  "VariablesAPI.createVariableAliasByIdAsync":"PURE_HELPER_INTERNAL_ALIAS_VALUE",
+};
+for(const [iface,mappings] of Object.entries(GLOBAL_CAPABILITY_MAP)){
+  for(const [member,mapping] of Object.entries(mappings)){
+    for(const capability of mapping.split("+")){
+      if(!advertisedCapabilities.has(capability)){
+        throw new Error(`Global API ${iface}.${member} maps to missing capability ${capability}`);
+      }
+    }
+  }
+}
 const GLOBAL_MEMBER_OVERRIDES={
   PluginAPI:{
-    textreview:"SUPPORTED_SEPARATE_MANIFEST",
-    codegen:"SUPPORTED_SEPARATE_MANIFEST",
-    vscode:"SEPARATE_EDITOR_MODE",
-    currentUser:"SUPPORTED",
-    activeUsers:"SUPPORTED",
-    variables:"SUPPORTED",
-    teamLibrary:"SUPPORTED",
-    annotations:"SUPPORTED",
-    buzz:"SUPPORTED",
-    timer:"SUPPORTED",
-    viewport:"SUPPORTED",
-    motion:"BETA_SUPPORTED",
-    commitUndo:"SUPPORTED",
-    triggerUndo:"SUPPORTED",
-    saveVersionHistoryAsync:"SUPPORTED",
-    getSelectionColors:"SUPPORTED",
+    apiVersion:"RUNTIME_METADATA",command:"RUNTIME_INVOCATION_CONTEXT",editorType:"RUNTIME_EDITOR_CONTEXT",
+    mode:"RUNTIME_EDITOR_CONTEXT",pluginId:"RUNTIME_PLUGIN_IDENTITY",widgetId:"RUNTIME_WIDGET_CONTEXT",
+    fileKey:"RUNTIME_DOCUMENT_IDENTITY",skipInvisibleInstanceChildren:"RUNTIME_PERFORMANCE_TUNING",
+    textreview:"SUPPORTED_SEPARATE_MANIFEST",codegen:"SUPPORTED_SEPARATE_MANIFEST",vscode:"SEPARATE_EDITOR_MODE",
+    variables:"NAMESPACE_MAPPED",teamLibrary:"NAMESPACE_MAPPED",annotations:"NAMESPACE_MAPPED",
+    buzz:"NAMESPACE_MAPPED",timer:"NAMESPACE_MAPPED",viewport:"NAMESPACE_MAPPED",motion:"BETA_NAMESPACE_MAPPED",
+    devResources:"SEPARATE_EDITOR_MODE_NAMESPACE",
+    root:"RUNTIME_DOCUMENT_CONTEXT",currentPage:"RUNTIME_DOCUMENT_CONTEXT",mixed:"RUNTIME_SENTINEL",
+    on:"SUPPORTED_EVENT",once:"SUPPORTED_EVENT",off:"SUPPORTED_EVENT",
     openExternal:"POLICY_EXCLUDED_EXTERNAL_NAVIGATION",
-    payments:"INTERNAL_OR_POLICY_EXCLUDED",
-    clientStorage:"INTERNAL_OR_POLICY_EXCLUDED",
-    parameters:"INTERNAL_OR_POLICY_EXCLUDED",
-    showUI:"INTERNAL_OR_POLICY_EXCLUDED",
-    ui:"INTERNAL_OR_POLICY_EXCLUDED",
-    closePlugin:"INTERNAL_OR_POLICY_EXCLUDED",
-    notify:"INTERNAL_OR_POLICY_EXCLUDED",
+    payments:"INTERNAL_OR_POLICY_EXCLUDED",clientStorage:"INTERNAL_OR_POLICY_EXCLUDED",
+    parameters:"INTERNAL_OR_POLICY_EXCLUDED",showUI:"INTERNAL_OR_POLICY_EXCLUDED",
+    ui:"INTERNAL_OR_POLICY_EXCLUDED",closePlugin:"INTERNAL_OR_POLICY_EXCLUDED",notify:"INTERNAL_OR_POLICY_EXCLUDED",
+    util:"PURE_HELPER_INTERNAL",constants:"PURE_HELPER_INTERNAL",
+    hasMissingFont:"CAPABILITY:font.status",base64Encode:"PURE_HELPER_INTERNAL",base64Decode:"PURE_HELPER_INTERNAL",
   },
 };
 const globals={};
@@ -325,10 +408,11 @@ for(const name of GLOBAL_INTERFACES){
   const iface=interfaces.get(name);if(!iface)throw new Error(`Pinned typings missing ${name}`);
   globals[name]={};
   for(const member of ownMembers(iface)){
-    const old=previous.interfaces?.[name]?.[member.name];
+    const capability=GLOBAL_CAPABILITY_MAP[name]?.[member.name];
+    const exact=GLOBAL_EXACT_CLASSIFICATION[`${name}.${member.name}`];
     const override=GLOBAL_MEMBER_OVERRIDES[name]?.[member.name];
     const fallback=GLOBAL_INTERFACE_DEFAULTS[name];
-    const status=override ?? (typeof old==="string"?old:(old?.status??fallback??"UNCLASSIFIED"));
+    const status=capability?`CAPABILITY:${capability}`:(exact??override??fallback??"UNCLASSIFIED");
     if(status==="UNCLASSIFIED")unclassifiedGlobals++;
     globals[name][member.name]=status;
   }

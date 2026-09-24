@@ -197,6 +197,12 @@ async function handleSemanticComplete(request: BridgeRequest, a: any): Promise<B
       const result=node.outlineStroke();
       return ok(request.id,result?extraNodeJson(result):null,true);
     }
+    case "boolean.create": {
+      const node=figma.createBooleanOperation();
+      applyBasicSceneArgs(node,a);
+      if(a.operation!==undefined)node.booleanOperation=String(a.operation) as BooleanOperationNode["booleanOperation"];
+      return ok(request.id,extraNodeJson(node),true);
+    }
     case "boolean.union":
     case "boolean.subtract":
     case "boolean.intersect":

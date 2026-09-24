@@ -889,6 +889,13 @@ fn operations() -> Vec<Op> {
             true,
         ),
         op(
+            "boolean.create",
+            "Create an empty BooleanOperationNode",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
             "boolean.union",
             "Create a boolean union",
             MutatingReversible,

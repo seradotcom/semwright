@@ -9,6 +9,7 @@ pub const OPERATIONS: &[&str] = &[
     "annotation.node.set",
     "artifact.read",
     "artifact.release",
+    "boolean.create",
     "boolean.exclude",
     "boolean.intersect",
     "boolean.subtract",
@@ -210,6 +211,20 @@ pub fn input_schema(name: &str) -> Option<Value> {
         "vector.network.set" => input(
             vec![("nodeId", s(256)), ("vectorNetwork", obj(8))],
             &["nodeId", "vectorNetwork"],
+        ),
+        "boolean.create" => input(
+            vec![
+                ("name", s(256)),
+                ("x", n(-1_000_000.0, 1_000_000.0)),
+                ("y", n(-1_000_000.0, 1_000_000.0)),
+                ("width", n(0.01, 100_000.0)),
+                ("height", n(0.01, 100_000.0)),
+                (
+                    "operation",
+                    en(&["UNION", "INTERSECT", "SUBTRACT", "EXCLUDE"]),
+                ),
+            ],
+            &[],
         ),
         "node.flatten" | "boolean.union" | "boolean.subtract" | "boolean.intersect"
         | "boolean.exclude" => input(
@@ -688,6 +703,7 @@ pub fn output_schema(name: &str) -> Option<Value> {
         | "vector.inspect"
         | "node.flatten"
         | "node.outline_stroke"
+        | "boolean.create"
         | "boolean.union"
         | "boolean.subtract"
         | "boolean.intersect"
