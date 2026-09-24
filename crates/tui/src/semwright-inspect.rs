@@ -30,6 +30,9 @@ struct Args {
     socket: Option<PathBuf>,
     #[arg(long)]
     session_file: Option<PathBuf>,
+    /// Inspect one session-scoped broker job. The session file must own the job ID.
+    #[arg(long)]
+    job: Option<String>,
 }
 struct Restore;
 impl Drop for Restore {
@@ -38,7 +41,7 @@ impl Drop for Restore {
         let _ = execute!(io::stdout(), LeaveAlternateScreen);
     }
 }
-const PANES: [(&str, &str); 7] = [
+const PANES: [(&str, &str); 8] = [
     ("Doctor", "doctor"),
     ("Windows", "window.list"),
     ("Apps", "app.list"),
@@ -46,6 +49,7 @@ const PANES: [(&str, &str); 7] = [
     ("Policy", "capabilities.list"),
     ("Audit", "audit.tail"),
     ("Plugins", "plugin.list"),
+    ("Job", "jobs.get"),
 ];
 fn escaped(text: &str) -> String {
     text.chars()
@@ -60,12 +64,24 @@ fn escaped(text: &str) -> String {
         })
         .collect()
 }
-async fn fetch(socket: &std::path::Path, ticket: &std::path::Path, pane: usize) -> Result<Value> {
+async fn fetch(
+    socket: &std::path::Path,
+    ticket: &std::path::Path,
+    pane: usize,
+    job: Option<String>,
+) -> Result<Value> {
+    if pane == 7 && job.is_none() {
+        return Ok(json!({
+            "hint":"Pass --job <job-id> with the owning --session-file to inspect a job."
+        }));
+    }
     let mut client = connect_persistent(socket, ticket).await?;
     let args = if pane == 3 {
         json!({"max_nodes":200,"max_depth":5})
     } else if pane == 5 {
         json!({"limit":50})
+    } else if pane == 7 {
+        json!({"job_id":job.expect("job checked above")})
     } else {
         json!({})
     };
@@ -93,6 +109,7 @@ async fn run() -> Result<()> {
     let ticket = args
         .session_file
         .unwrap_or(socket.with_file_name("cli.session"));
+    let job = args.job;
     enable_raw_mode()?;
     let _restore = Restore;
     execute!(io::stdout(), EnterAlternateScreen)?;
@@ -108,7 +125,8 @@ async fn run() -> Result<()> {
             }
             let s = socket.clone();
             let t = ticket.clone();
-            task = Some(tokio::spawn(async move { fetch(&s, &t, pane).await }));
+            let j = job.clone();
+            task = Some(tokio::spawn(async move { fetch(&s, &t, pane, j).await }));
             requested = false;
             body = "Loading from broker…".into();
         }
