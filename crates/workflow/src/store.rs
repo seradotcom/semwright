@@ -1,6 +1,6 @@
 use crate::{
-    ActiveTrace, CANDIDATE_VERSION, Candidate, MAX_PROMOTIONS, MAX_TRACE_STEPS, MAX_TRACES,
-    Promotion, TRACE_VERSION, TraceStep, WorkflowTrace, validate_candidate_integrity,
+    ActiveTrace, Candidate, MAX_PROMOTIONS, MAX_TRACE_STEPS, MAX_TRACES, Promotion, TRACE_VERSION,
+    TraceStep, WorkflowTrace, validate_candidate_integrity,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
@@ -596,7 +596,7 @@ mod tests {
         )
         .unwrap();
         Candidate {
-            version: CANDIDATE_VERSION,
+            version: crate::CANDIDATE_VERSION,
             id: format!("candidate-{}", &fingerprint[..24]),
             recipe,
             source_trace_ids,

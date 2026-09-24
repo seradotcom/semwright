@@ -1,5 +1,5 @@
 use super::*;
-use semwright_registry::Metadata;
+use semwright_registry::{Metadata, Registry};
 use semwright_workflow::{
     Candidate, DescriptorLookup, ParameterHint, TraceStep, compile as compile_trace,
     promoted_descriptor, sanitize, verify_drift,
@@ -9,6 +9,14 @@ use std::path::Path;
 impl DescriptorLookup for Broker {
     fn describe(&self, command: &str) -> Result<CommandDescriptor> {
         Broker::describe(self, command)
+    }
+}
+
+struct RegistrySnapshot<'a>(&'a Registry);
+
+impl DescriptorLookup for RegistrySnapshot<'_> {
+    fn describe(&self, command: &str) -> Result<CommandDescriptor> {
+        self.0.describe(command).cloned()
     }
 }
 
@@ -44,33 +52,32 @@ impl Broker {
             workflows.configure_persistence(directory)?;
             workflows.promotions()
         };
-        let mut prepared = vec![];
-        let mut stale = vec![];
-        for promotion in promotions {
-            let descriptor = match verify_drift(&promotion.candidate, self)
-                .and_then(|_| promoted_descriptor(&promotion.slug, &promotion.candidate, self))
-            {
-                Ok(descriptor) if descriptor.name == promotion.capability => descriptor,
-                Ok(_) => {
-                    stale.push(
-                        json!({"slug":promotion.slug,"reason":"capability identity mismatch"}),
-                    );
-                    continue;
-                }
-                Err(error) => {
-                    stale.push(json!({"slug":promotion.slug,"reason":error.message}));
-                    continue;
-                }
-            };
-            prepared.push((promotion, descriptor));
-        }
         let mut catalog = self
             .registry
             .write()
             .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
         let mut candidate_catalog = catalog.clone();
         let mut restored = vec![];
-        for (promotion, descriptor) in prepared {
+        let mut stale = vec![];
+        for promotion in promotions {
+            let descriptor = {
+                let snapshot = RegistrySnapshot(&candidate_catalog);
+                match verify_drift(&promotion.candidate, &snapshot).and_then(|_| {
+                    promoted_descriptor(&promotion.slug, &promotion.candidate, &snapshot)
+                }) {
+                    Ok(descriptor) if descriptor.name == promotion.capability => descriptor,
+                    Ok(_) => {
+                        stale.push(
+                            json!({"slug":promotion.slug,"reason":"capability identity mismatch"}),
+                        );
+                        continue;
+                    }
+                    Err(error) => {
+                        stale.push(json!({"slug":promotion.slug,"reason":error.message}));
+                        continue;
+                    }
+                }
+            };
             let identity = ProviderIdentity::external(
                 SourceKind::Recipe,
                 &promotion.slug,
@@ -249,15 +256,19 @@ impl Broker {
     }
     pub(super) fn workflow_promote(&self, candidate_id: &str, slug: &str) -> Result<Value> {
         let candidate = self.workflow_candidate(candidate_id)?;
-        verify_drift(&candidate, self)?;
-        let descriptor = promoted_descriptor(slug, &candidate, self)?;
-        let identity = ProviderIdentity::external(SourceKind::Recipe, slug, &descriptor.version)?;
 
+        // Promotion is committed against one catalog snapshot. Holding the write lock
+        // prevents provider/dynamic-capability churn between drift verification,
+        // descriptor derivation and registration.
         let mut catalog = self
             .registry
             .write()
             .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
         let mut candidate_catalog = catalog.clone();
+        let snapshot = RegistrySnapshot(&candidate_catalog);
+        verify_drift(&candidate, &snapshot)?;
+        let descriptor = promoted_descriptor(slug, &candidate, &snapshot)?;
+        let identity = ProviderIdentity::external(SourceKind::Recipe, slug, &descriptor.version)?;
         candidate_catalog
             .register_with_metadata(descriptor.clone(), learned_recipe_metadata(&identity))?;
 
