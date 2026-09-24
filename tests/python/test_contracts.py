@@ -23,6 +23,28 @@ class ContractTests(unittest.TestCase):
     def test_unique_command_names(self):
         self.assertEqual(len(COMMANDS), len(REGISTRY))
 
+    def test_schema_unions_have_unique_branches(self):
+        def walk(value, path):
+            if isinstance(value, dict):
+                for union in ("oneOf", "anyOf"):
+                    variants = value.get(union)
+                    if isinstance(variants, list):
+                        canonical = [json.dumps(v, sort_keys=True, separators=(",", ":")) for v in variants]
+                        self.assertEqual(
+                            len(canonical),
+                            len(set(canonical)),
+                            f"duplicate {union} branches at {path}",
+                        )
+                for key, child in value.items():
+                    walk(child, f"{path}/{key}")
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    walk(child, f"{path}/{index}")
+
+        for command in COMMANDS:
+            walk(command["input_schema"], f"{command['name']}/input_schema")
+            walk(command["output_schema"], f"{command['name']}/output_schema")
+
     def test_every_input_is_closed(self):
         for command in COMMANDS:
             with self.subTest(command=command["name"]):

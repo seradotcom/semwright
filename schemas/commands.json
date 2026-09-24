@@ -1145,19 +1145,6 @@
             "closed"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "closed": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "closed"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -1319,19 +1306,6 @@
             "focused"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "focused": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "focused"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -1434,23 +1408,6 @@
           },
           "required": [
             "applied"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "coordinate_space": {
-              "const": "fixture_logical"
-            }
-          },
-          "required": [
-            "changed",
-            "coordinate_space"
           ],
           "additionalProperties": false
         },
@@ -1591,23 +1548,6 @@
             "coordinate_space"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "coordinate_space": {
-              "const": "fixture_logical"
-            }
-          },
-          "required": [
-            "changed",
-            "coordinate_space"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -1698,19 +1638,6 @@
           },
           "required": [
             "applied"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "closed": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "closed"
           ],
           "additionalProperties": false
         },
@@ -2169,25 +2096,6 @@
             "revision"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "changed",
-            "revision"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -2252,25 +2160,6 @@
           },
           "required": [
             "applied"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "changed",
-            "revision"
           ],
           "additionalProperties": false
         },
@@ -2385,19 +2274,6 @@
             "text"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "text": {
-              "type": "string",
-              "maxLength": 262144
-            }
-          },
-          "required": [
-            "text"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -2470,25 +2346,6 @@
           },
           "required": [
             "applied"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "changed",
-            "revision"
           ],
           "additionalProperties": false
         },
@@ -2641,25 +2498,6 @@
             "revision"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "changed",
-            "revision"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -2712,25 +2550,6 @@
           },
           "required": [
             "selected"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "changed",
-            "revision"
           ],
           "additionalProperties": false
         },
@@ -2810,25 +2629,6 @@
           },
           "required": [
             "applied"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "changed": {
-              "type": "boolean",
-              "const": true
-            },
-            "revision": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 9007199254740991
-            }
-          },
-          "required": [
-            "changed",
-            "revision"
           ],
           "additionalProperties": false
         },
@@ -3318,19 +3118,6 @@
             "sent"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "sent": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "sent"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -3420,19 +3207,6 @@
             "posted",
             "delivery_verified",
             "utf16_units"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "sent": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "sent"
           ],
           "additionalProperties": false
         },
@@ -3569,19 +3343,6 @@
             "sent"
           ],
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "sent": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "sent"
-          ],
-          "additionalProperties": false
         }
       ]
     },
@@ -3686,19 +3447,6 @@
           "required": [
             "posted",
             "delivery_verified"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "sent": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "sent"
           ],
           "additionalProperties": false
         },
@@ -3821,19 +3569,6 @@
           "required": [
             "posted",
             "delivery_verified"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "sent": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "sent"
           ],
           "additionalProperties": false
         },
@@ -4476,19 +4211,6 @@
           "required": [
             "written",
             "bytes"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "properties": {
-            "written": {
-              "type": "boolean",
-              "const": true
-            }
-          },
-          "required": [
-            "written"
           ],
           "additionalProperties": false
         },
