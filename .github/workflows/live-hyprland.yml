@@ -99,7 +99,7 @@ jobs:
           repo_gpgcheck=0
           REPO
               dnf -y --setopt=install_weak_deps=False install \
-                "$HYPRLAND_NEVRA" zenity dbus-daemon pipewire-libs mesa-dri-drivers util-linux python3 weston
+                "$HYPRLAND_NEVRA" zenity dbus-daemon pipewire-libs mesa-dri-drivers util-linux python3 sway
               test "$(rpm -q hyprland)" = "$HYPRLAND_NEVRA"
               rpm -q hyprland | tee /evidence/hyprland-rpm.log
               useradd --uid 1000 --create-home semwright

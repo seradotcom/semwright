@@ -34,23 +34,35 @@ debug {
 windowrulev2 = float,title:^(Semwright Hyprland Fixture)$
 CONF
 
-# Aquamarine needs either a usable DRM seat or a parent Wayland compositor. GitHub-hosted
-# Docker has neither, so provide a real Weston headless parent and exercise Hyprland's
-# Wayland backend rather than synthesizing Hyprland IPC state.
-weston --backend=headless-backend.so --renderer=gl --socket=wayland-parent --idle-time=0 \
-  --width=1280 --height=720 \
-  >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/weston.log" 2>&1 &
-weston_pid=$!
+# Aquamarine 0.15 binds wl_compositor v6 and requires linux-dmabuf. Weston 14
+# advertises only wl_compositor v5, so use the same wlroots/Sway family already
+# exercised by Semwright CI as a real headless parent compositor.
+cat > "$home/sway-parent.conf" <<'SWAYCONF'
+output * resolution 1280x720
+seat seat0 fallback true
+SWAYCONF
+WLR_BACKENDS=headless WLR_RENDERER=gles2 WLR_LIBINPUT_NO_DEVICES=1 \
+  sway --unsupported-gpu --config "$home/sway-parent.conf" --debug \
+  >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/sway-parent.log" 2>&1 &
+sway_pid=$!
+parent_wayland=""
+parent_sway=""
 for _ in $(seq 1 200); do
-  [ -S "$XDG_RUNTIME_DIR/wayland-parent" ] && break
-  if ! kill -0 "$weston_pid" 2>/dev/null; then
-    cat "$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/weston.log"
+  parent_wayland=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name "wayland-*" -printf "%f\n" -quit 2>/dev/null || true)
+  parent_sway=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name "sway-ipc.*.sock" -print -quit 2>/dev/null || true)
+  if [ -n "${parent_wayland:-}" ] && [ -n "${parent_sway:-}" ]; then
+    break
+  fi
+  if ! kill -0 "$sway_pid" 2>/dev/null; then
+    cat "$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/sway-parent.log"
     exit 1
   fi
   sleep 0.05
 done
-test -S "$XDG_RUNTIME_DIR/wayland-parent"
-export WAYLAND_DISPLAY=wayland-parent
+test -S "$XDG_RUNTIME_DIR/${parent_wayland:?parent Wayland socket missing}"
+test -S "${parent_sway:?parent Sway IPC socket missing}"
+SWAYSOCK="$parent_sway" swaymsg -t get_version | tee "$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/sway-parent-version.json"
+export WAYLAND_DISPLAY="$parent_wayland"
 
 Hyprland --config "$home/hyprland.conf" \
   >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/hyprland.log" 2>&1 &
@@ -64,13 +76,13 @@ cleanup() {
   done
   kill -KILL "$hyprland_pid" 2>/dev/null || true
   wait "$hyprland_pid" 2>/dev/null || true
-  kill -TERM "$weston_pid" 2>/dev/null || true
+  kill -TERM "$sway_pid" 2>/dev/null || true
   for _ in $(seq 1 40); do
-    kill -0 "$weston_pid" 2>/dev/null || break
+    kill -0 "$sway_pid" 2>/dev/null || break
     sleep 0.05
   done
-  kill -KILL "$weston_pid" 2>/dev/null || true
-  wait "$weston_pid" 2>/dev/null || true
+  kill -KILL "$sway_pid" 2>/dev/null || true
+  wait "$sway_pid" 2>/dev/null || true
   internal_log=$(find "$runtime/hypr" -type f -name hyprland.log -print -quit 2>/dev/null || true)
   if [ -n "${internal_log:-}" ]; then
     cp "$internal_log" "$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/hyprland-internal.log" || true
@@ -82,7 +94,7 @@ trap cleanup EXIT INT TERM
 
 for _ in $(seq 1 200); do
   instance=$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | head -1 || true)
-  wayland=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name "wayland-*" ! -name "wayland-parent" -printf "%f\n" 2>/dev/null | head -1 || true)
+  wayland=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name "wayland-*" ! -name "$parent_wayland" -printf "%f\n" 2>/dev/null | head -1 || true)
   if [ -n "${instance:-}" ] && [ -n "${wayland:-}" ]; then
     export HYPRLAND_INSTANCE_SIGNATURE="$instance"
     export WAYLAND_DISPLAY="$wayland"
