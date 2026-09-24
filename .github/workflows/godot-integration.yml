@@ -51,9 +51,31 @@ jobs:
         run: |
           set -o pipefail
           sudo apt-get update
-          sudo apt-get install -y bubblewrap
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils
           mkdir -p verification/godot-ci
           bwrap --version | tee verification/godot-ci/bwrap-version.log
+      - name: Preflight unprivileged Bubblewrap
+        run: |
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          sandbox_setup=kernel-default
+          if [ "$current_apparmor" = "1" ]; then
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
+              sandbox_setup=apparmor-bwrap-profile
+            else
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+              sandbox_setup=ephemeral-ci-userns-relaxation
+            fi
+          fi
+          {
+            echo "sandbox_setup=$sandbox_setup"
+            echo "kernel.unprivileged_userns_clone=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)"
+            echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)"
+          } | tee verification/obs-ci/sandbox-setup.log
       - name: Rust Godot driver suite
         run: |
           set -o pipefail
