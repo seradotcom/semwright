@@ -1,6 +1,9 @@
 use crate::roles::semantic_role;
 use semwright_platform_windows_sys::window::process_creation_time;
-use semwright_types::{Error, ErrorCode, NativeTarget, Result};
+use semwright_types::{
+    Error, ErrorCode, NativeTarget, Result, UiFacets, UiScrollFacet, UiSelectionFacet,
+    UiTableFacet, UiTextFacet, UiTransformFacet, UiValueFacet, UiWindowFacet,
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -10,8 +13,10 @@ use std::{
     time::{Duration, Instant},
 };
 use uiautomation::patterns::{
-    UIExpandCollapsePattern, UIInvokePattern, UIRangeValuePattern, UISelectionItemPattern,
-    UITogglePattern, UIValuePattern,
+    UIExpandCollapsePattern, UIGridItemPattern, UIGridPattern, UIInvokePattern,
+    UIRangeValuePattern, UIScrollPattern, UISelectionItemPattern, UISelectionPattern,
+    UITablePattern, UITextPattern, UITogglePattern, UITransformPattern, UIValuePattern,
+    UIWindowPattern,
 };
 use uiautomation::{UIAutomation, UIElement, UITreeWalker};
 
@@ -177,6 +182,151 @@ impl State {
         Ok(element)
     }
 
+    fn semantic_facets(&self, element: &UIElement, password: bool) -> UiFacets {
+        let mut facets = UiFacets::default();
+
+        if let Ok(pattern) = element.get_pattern::<UITextPattern>() {
+            facets.text = Some(UiTextFacet {
+                character_count: None,
+                caret_offset: None,
+                selection_count: pattern.get_selection().ok().map(|rows| rows.len()),
+                editable: element
+                    .get_pattern::<UIValuePattern>()
+                    .ok()
+                    .is_some_and(|value| !value.is_readonly().unwrap_or(true)),
+                password,
+            });
+        } else if element.get_pattern::<UIValuePattern>().is_ok() {
+            facets.text = Some(UiTextFacet {
+                editable: element
+                    .get_pattern::<UIValuePattern>()
+                    .ok()
+                    .is_some_and(|value| !value.is_readonly().unwrap_or(true)),
+                password,
+                ..UiTextFacet::default()
+            });
+        }
+
+        if let Ok(pattern) = element.get_pattern::<UIRangeValuePattern>() {
+            facets.value = Some(UiValueFacet {
+                current: pattern.get_value().ok(),
+                minimum: pattern.get_minimum().ok(),
+                maximum: pattern.get_maximum().ok(),
+                increment: pattern.get_small_change().ok(),
+                text: None,
+            });
+        } else if let Ok(pattern) = element.get_pattern::<UIValuePattern>() {
+            facets.value = Some(UiValueFacet {
+                text: (!password)
+                    .then(|| pattern.get_value().ok().map(bounded))
+                    .flatten(),
+                ..UiValueFacet::default()
+            });
+        }
+
+        let selected = element
+            .get_pattern::<UISelectionItemPattern>()
+            .ok()
+            .and_then(|pattern| pattern.is_selected().ok());
+        if let Ok(pattern) = element.get_pattern::<UISelectionPattern>() {
+            facets.selection = Some(UiSelectionFacet {
+                selected,
+                selected_count: pattern.get_selection().ok().map(|rows| rows.len()),
+                child_count: None,
+                multi_select: pattern.can_select_multiple().ok(),
+            });
+        } else if selected.is_some() {
+            facets.selection = Some(UiSelectionFacet {
+                selected,
+                ..UiSelectionFacet::default()
+            });
+        }
+
+        let mut table = UiTableFacet::default();
+        let mut has_table = false;
+        if let Ok(pattern) = element.get_pattern::<UIGridPattern>() {
+            table.rows = pattern
+                .get_row_count()
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            table.columns = pattern
+                .get_column_count()
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            has_table = true;
+        }
+        if let Ok(pattern) = element.get_pattern::<UIGridItemPattern>() {
+            table.row = pattern
+                .get_row()
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            table.column = pattern
+                .get_column()
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            table.row_span = pattern
+                .get_row_span()
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            table.column_span = pattern
+                .get_column_span()
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            has_table = true;
+        }
+        if let Ok(pattern) = element.get_pattern::<UITablePattern>() {
+            table.row_headers = pattern
+                .get_row_headers()
+                .unwrap_or_default()
+                .into_iter()
+                .take(64)
+                .filter_map(|element| element.get_name().ok())
+                .map(bounded)
+                .collect();
+            table.column_headers = pattern
+                .get_column_headers()
+                .unwrap_or_default()
+                .into_iter()
+                .take(64)
+                .filter_map(|element| element.get_name().ok())
+                .map(bounded)
+                .collect();
+            has_table = true;
+        }
+        if has_table {
+            facets.table = Some(table);
+        }
+
+        if let Ok(pattern) = element.get_pattern::<UIScrollPattern>() {
+            facets.scroll = Some(UiScrollFacet {
+                horizontal_percent: pattern.get_horizontal_scroll_percent().ok(),
+                vertical_percent: pattern.get_vertical_scroll_percent().ok(),
+                horizontal_view_size: pattern.get_horizontal_view_size().ok(),
+                vertical_view_size: pattern.get_vertical_view_size().ok(),
+            });
+        }
+
+        if let Ok(pattern) = element.get_pattern::<UIWindowPattern>() {
+            facets.window = Some(UiWindowFacet {
+                modal: pattern.is_modal().ok(),
+                minimized: pattern.is_minimized().ok(),
+                maximized: pattern.is_maximized().ok(),
+                can_minimize: pattern.can_minimize().ok(),
+                can_maximize: pattern.can_maximize().ok(),
+            });
+        }
+
+        if let Ok(pattern) = element.get_pattern::<UITransformPattern>() {
+            facets.transform = Some(UiTransformFacet {
+                can_move: pattern.can_move().ok(),
+                can_resize: pattern.can_resize().ok(),
+                can_rotate: pattern.can_rotate().ok(),
+            });
+        }
+
+        facets
+    }
+
     fn node(
         &mut self,
         element: UIElement,
@@ -254,17 +404,48 @@ impl State {
         if element.get_pattern::<UIExpandCollapsePattern>().is_ok() {
             actions.push("expand");
         }
+        let help = if password {
+            String::new()
+        } else {
+            bounded(element.get_help_text().unwrap_or_default())
+        };
+        let automation_id = bounded(element.get_automation_id().unwrap_or_default());
+        let framework = bounded(element.get_framework_id().unwrap_or_default());
+        let class_name = bounded(element.get_classname().unwrap_or_default());
+        let mut attributes = BTreeMap::new();
+        if !class_name.is_empty() {
+            attributes.insert("class".to_owned(), class_name.clone());
+        }
+        if let Ok(item_status) = element.get_item_status()
+            && !item_status.is_empty()
+        {
+            attributes.insert("item_status".to_owned(), bounded(item_status));
+        }
+        let facets = self.semantic_facets(&element, password);
+        let mut relations = Vec::new();
+        if let Ok(label) = element.get_labeled_by()
+            && let Ok(label_target) = self.remember(label, "ui")
+        {
+            relations.push(json!({
+                "kind": "labelled_by",
+                "targets": [{"$ref": label_target}]
+            }));
+        }
         Ok(json!({
             "$ref": target,
             "role": semantic_role(control),
             "name": name,
             "description": "",
+            "help": help,
+            "accessibility_id": automation_id,
+            "framework": framework,
+            "attributes": attributes,
+            "relations": relations,
+            "facets": facets,
             "states": states,
             "actions": actions,
             "app": format!("pid:{}", element.get_process_id().unwrap_or_default()),
-            "automation_id": bounded(element.get_automation_id().unwrap_or_default()),
-            "framework": bounded(element.get_framework_id().unwrap_or_default()),
-            "class": bounded(element.get_classname().unwrap_or_default()),
+            "class": class_name,
             "enabled": enabled,
             "focused": focused,
             "password": password,

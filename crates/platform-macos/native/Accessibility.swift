@@ -60,6 +60,20 @@ func axSecure(_ e:AXUIElement)->Bool{
     let sub=(try? axString(e,kAXSubroleAttribute,limit:80)) ?? ""
     return Semantic.secure(role,sub)
 }
+func axOptionalNumber(_ e:AXUIElement,_ key:String)->Double?{
+    guard let raw=try? axRaw(e,key),let n=raw as? NSNumber,
+          CFGetTypeID(n) != CFBooleanGetTypeID(),n.doubleValue.isFinite else{return nil}
+    return n.doubleValue
+}
+func axArrayCount(_ e:AXUIElement,_ key:String)->Int?{
+    guard let raw=try? axRaw(e,key),CFGetTypeID(raw)==CFArrayGetTypeID() else{return nil}
+    return CFArrayGetCount(raw as! CFArray)
+}
+func axSettable(_ e:AXUIElement,_ key:String)->Bool?{
+    var settable:DarwinBoolean=false
+    guard AXUIElementIsAttributeSettable(e,key as CFString,&settable) == .success else{return nil}
+    return settable.boolValue
+}
 private let observe:AXObserverCallback={_,element,_,_ in
     var pid:pid_t=0
     guard AXUIElementGetPid(element,&pid) == .success else{return}
@@ -140,7 +154,65 @@ private let observe:AXObserverCallback={_,element,_,_ in
             if !secure,let tuple=try? axElements(e,kAXChildrenAttribute,limit:128){children=tuple.0;total=tuple.1}
             if total>children.count{partial=true}
             if depth>=maxDepth && total>0{partial=true;children=[]}
-            var node:[String:Any]=["ref":["$ref":s.json],"role":Semantic.role(raw),"name":secure ? "":((try? axString(e,kAXTitleAttribute,limit:1024)) ?? ""),"description":secure ? "":((try? axString(e,kAXDescriptionAttribute,limit:512)) ?? ""),"states":Semantic.states(enabled:axBool(e,kAXEnabledAttribute),focused:axBool(e,kAXFocusedAttribute),selected:axBool(e,kAXSelectedAttribute),expanded:axBool(e,kAXExpandedAttribute)),"actions":actions,"app":appID(app),"children_count":min(total,2000),"parent_ref":parent.map{["$ref":$0.json]} as Any? ?? NSNull(),"bounds":NSNull()]
+            let name=secure ? "":((try? axString(e,kAXTitleAttribute,limit:1024)) ?? "")
+            let description=secure ? "":((try? axString(e,kAXDescriptionAttribute,limit:512)) ?? "")
+            let help=secure ? "":((try? axString(e,kAXHelpAttribute,limit:1024)) ?? "")
+            let accessibilityID=secure ? "":((try? axString(e,kAXIdentifierAttribute,limit:512)) ?? "")
+            let subrole=(try? axString(e,kAXSubroleAttribute,limit:128)) ?? ""
+            var attributes:[String:String]=["ax_role":raw]
+            if !subrole.isEmpty{attributes["ax_subrole"]=subrole}
+            var facets:[String:Any]=[:]
+            if let count=axOptionalNumber(e,kAXNumberOfCharactersAttribute){
+                let selections=axArrayCount(e,kAXSelectedTextRangesAttribute)
+                    ?? ((try? axRaw(e,kAXSelectedTextRangeAttribute)) == nil ? nil : 1)
+                facets["text"]=[
+                    "character_count":max(0,Int(count)),
+                    "selection_count":selections as Any,
+                    "editable":axBool(e,kAXIsEditableAttribute),
+                    "password":secure,
+                ]
+            }
+            if let current=axOptionalNumber(e,kAXValueAttribute){
+                var value:[String:Any]=["current":current]
+                if let minimum=axOptionalNumber(e,kAXMinValueAttribute){value["minimum"]=minimum}
+                if let maximum=axOptionalNumber(e,kAXMaxValueAttribute){value["maximum"]=maximum}
+                if let increment=axOptionalNumber(e,kAXValueIncrementAttribute){value["increment"]=increment}
+                facets["value"]=value
+            }
+            let selectedChildren=axArrayCount(e,kAXSelectedChildrenAttribute)
+            if selectedChildren != nil || axBool(e,kAXSelectedAttribute){
+                var selection:[String:Any]=["selected":axBool(e,kAXSelectedAttribute)]
+                if let selectedChildren=selectedChildren{selection["selected_count"]=selectedChildren}
+                selection["child_count"]=min(total,2000)
+                facets["selection"]=selection
+            }
+            if raw=="AXWindow"{
+                facets["window"]=[
+                    "modal":axBool(e,kAXModalAttribute),
+                    "minimized":axBool(e,kAXMinimizedAttribute),
+                ]
+                facets["transform"]=[
+                    "can_move":axSettable(e,kAXPositionAttribute) as Any,
+                    "can_resize":axSettable(e,kAXSizeAttribute) as Any,
+                ]
+            }
+            var node:[String:Any]=[
+                "ref":["$ref":s.json],
+                "role":Semantic.role(raw),
+                "name":name,
+                "description":description,
+                "help":help,
+                "accessibility_id":accessibilityID,
+                "framework":"appkit-ax",
+                "attributes":attributes,
+                "facets":facets,
+                "states":Semantic.states(enabled:axBool(e,kAXEnabledAttribute),focused:axBool(e,kAXFocusedAttribute),selected:axBool(e,kAXSelectedAttribute),expanded:axBool(e,kAXExpandedAttribute)),
+                "actions":actions,
+                "app":appID(app),
+                "children_count":min(total,2000),
+                "parent_ref":parent.map{["$ref":$0.json]} as Any? ?? NSNull(),
+                "bounds":NSNull()
+            ]
             if let b=try? axBounds(e){node["bounds"]=b.json}
             let size=(try? JSONSerialization.data(withJSONObject:node).count) ?? 1_048_576
             if used+size>900_000{partial=true;break};used+=size
