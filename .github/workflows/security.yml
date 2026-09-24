@@ -78,7 +78,7 @@ jobs:
       - run: cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
       - run: |
           mkdir -p verification/fuzz-ci
-          for target in protocol selector recipe plugin path video_domain_model video_domain_edit video_domain_contract video_domain_render figma_bridge_envelope figma_snapshot figma_refs figma_tokens figma_motion; do
+          for target in protocol selector recipe plugin path video_domain_model video_domain_edit video_domain_contract video_domain_render figma_bridge_envelope figma_snapshot figma_refs figma_tokens figma_motion godot_bridge_auth godot_config_json godot_diff godot_catalog; do
             cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=10 -timeout=3 -rss_limit_mb=1024 -max_len=8192 2>&1 | tee "verification/fuzz-ci/$target.log"
           done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

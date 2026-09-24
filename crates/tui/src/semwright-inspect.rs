@@ -30,6 +30,9 @@ struct Args {
     socket: Option<PathBuf>,
     #[arg(long)]
     session_file: Option<PathBuf>,
+    /// Inspect one session-scoped broker job. The session file must own the job ID.
+    #[arg(long)]
+    job: Option<String>,
 }
 struct Restore;
 impl Drop for Restore {
@@ -38,7 +41,7 @@ impl Drop for Restore {
         let _ = execute!(io::stdout(), LeaveAlternateScreen);
     }
 }
-const PANES: [(&str, &str); 9] = [
+const PANES: [(&str, &str); 10] = [
     ("Doctor", "doctor"),
     ("Windows", "window.list"),
     ("Apps", "app.list"),
@@ -48,6 +51,7 @@ const PANES: [(&str, &str); 9] = [
     ("Policy", "capabilities.list"),
     ("Audit", "audit.tail"),
     ("Plugins", "plugin.list"),
+    ("Job", "jobs.get"),
 ];
 fn escaped(text: &str) -> String {
     text.chars()
@@ -108,12 +112,23 @@ fn render_value(value: &Value, pane: usize) -> Result<String> {
         Ok(escaped(&serde_json::to_string_pretty(value)?))
     }
 }
-async fn fetch(socket: &std::path::Path, ticket: &std::path::Path, pane: usize) -> Result<Value> {
-    let mut client = connect_persistent(socket, ticket).await?;
+async fn fetch(
+    socket: &std::path::Path,
+    ticket: &std::path::Path,
+    pane: usize,
+    job: Option<String>,
+) -> Result<Value> {
     let command = PANES[pane].1;
+    if command == "jobs.get" && job.is_none() {
+        return Ok(json!({
+            "hint":"Pass --job <job-id> with the owning --session-file to inspect a job."
+        }));
+    }
+    let mut client = connect_persistent(socket, ticket).await?;
     let args = match command {
         "ui.snapshot" => json!({"max_nodes":200,"max_depth":5}),
         "audit.tail" => json!({"limit":50}),
+        "jobs.get" => json!({"job_id":job.expect("job checked above")}),
         _ => json!({}),
     };
     let envelope = client
@@ -140,6 +155,7 @@ async fn run() -> Result<()> {
     let ticket = args
         .session_file
         .unwrap_or(socket.with_file_name("cli.session"));
+    let job = args.job;
     enable_raw_mode()?;
     let _restore = Restore;
     execute!(io::stdout(), EnterAlternateScreen)?;
@@ -155,7 +171,8 @@ async fn run() -> Result<()> {
             }
             let s = socket.clone();
             let t = ticket.clone();
-            task = Some(tokio::spawn(async move { fetch(&s, &t, pane).await }));
+            let j = job.clone();
+            task = Some(tokio::spawn(async move { fetch(&s, &t, pane, j).await }));
             requested = false;
             body = "Loading from broker…".into();
         }
@@ -289,5 +306,10 @@ mod tests {
     #[test]
     fn jobs_pane_uses_session_scoped_job_listing() {
         assert_eq!(PANES[5], ("Jobs", "jobs.list"));
+    }
+
+    #[test]
+    fn job_pane_uses_session_scoped_job_lookup() {
+        assert_eq!(PANES[9], ("Job", "jobs.get"));
     }
 }
