@@ -11404,5 +11404,1355 @@
     "backends": [
       "core"
     ]
+  },
+  {
+    "name": "workflow.patterns.list",
+    "version": "1.0",
+    "description": "List repeated workflow patterns derived deterministically from explicit recorded traces.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "min_occurrences": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 32
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "patterns": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "const": 1
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^pattern-[0-9a-f]{24}$",
+                "maxLength": 40
+              },
+              "suggestion_id": {
+                "type": "string",
+                "pattern": "^suggestion-[0-9a-f]{24}$",
+                "maxLength": 40
+              },
+              "fingerprint": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "commands": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "occurrences": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 256
+              },
+              "compile_ready_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 256
+              },
+              "trace_ids": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 256,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 7,
+                  "maxLength": 96
+                }
+              },
+              "compile_trace_ids": {
+                "type": "array",
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 7,
+                  "maxLength": 96
+                }
+              },
+              "first_seen_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "last_seen_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "suggested_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "varying_arguments": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 63
+                    },
+                    "pointer": {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    "kind": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "observations": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 256
+                    }
+                  },
+                  "required": [
+                    "step",
+                    "pointer",
+                    "kind",
+                    "observations"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "dismissed": {
+                "type": "boolean"
+              },
+              "resurfaced": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "version",
+              "id",
+              "suggestion_id",
+              "fingerprint",
+              "commands",
+              "occurrences",
+              "compile_ready_count",
+              "trace_ids",
+              "compile_trace_ids",
+              "first_seen_unix_ms",
+              "last_seen_unix_ms",
+              "suggested_name",
+              "varying_arguments",
+              "dismissed",
+              "resurfaced"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "min_occurrences": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 32
+        }
+      },
+      "required": [
+        "patterns",
+        "min_occurrences"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.pattern.get",
+    "version": "1.0",
+    "description": "Inspect one repeated workflow pattern without exposing recorded values.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "pattern_id": {
+          "type": "string",
+          "pattern": "^pattern-[0-9a-f]{24}$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "pattern_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^pattern-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "suggestion_id": {
+              "type": "string",
+              "pattern": "^suggestion-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "commands": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            },
+            "occurrences": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 256
+            },
+            "compile_ready_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 256
+            },
+            "trace_ids": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 256,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 96
+              }
+            },
+            "compile_trace_ids": {
+              "type": "array",
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 96
+              }
+            },
+            "first_seen_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "last_seen_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "suggested_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "varying_arguments": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "pointer": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "kind": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "observations": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "maximum": 256
+                  }
+                },
+                "required": [
+                  "step",
+                  "pointer",
+                  "kind",
+                  "observations"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "dismissed": {
+              "type": "boolean"
+            },
+            "resurfaced": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "id",
+            "suggestion_id",
+            "fingerprint",
+            "commands",
+            "occurrences",
+            "compile_ready_count",
+            "trace_ids",
+            "compile_trace_ids",
+            "first_seen_unix_ms",
+            "last_seen_unix_ms",
+            "suggested_name",
+            "varying_arguments",
+            "dismissed",
+            "resurfaced"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "pattern"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.suggestions.list",
+    "version": "1.0",
+    "description": "List repeated workflow suggestions; dismissed suggestions stay hidden unless requested.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "min_occurrences": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 32
+        },
+        "include_dismissed": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "suggestions": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "const": 1
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^pattern-[0-9a-f]{24}$",
+                "maxLength": 40
+              },
+              "suggestion_id": {
+                "type": "string",
+                "pattern": "^suggestion-[0-9a-f]{24}$",
+                "maxLength": 40
+              },
+              "fingerprint": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "commands": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "occurrences": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 256
+              },
+              "compile_ready_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 256
+              },
+              "trace_ids": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 256,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 7,
+                  "maxLength": 96
+                }
+              },
+              "compile_trace_ids": {
+                "type": "array",
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 7,
+                  "maxLength": 96
+                }
+              },
+              "first_seen_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "last_seen_unix_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "suggested_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "varying_arguments": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 63
+                    },
+                    "pointer": {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    "kind": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "observations": {
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 256
+                    }
+                  },
+                  "required": [
+                    "step",
+                    "pointer",
+                    "kind",
+                    "observations"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "dismissed": {
+                "type": "boolean"
+              },
+              "resurfaced": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "version",
+              "id",
+              "suggestion_id",
+              "fingerprint",
+              "commands",
+              "occurrences",
+              "compile_ready_count",
+              "trace_ids",
+              "compile_trace_ids",
+              "first_seen_unix_ms",
+              "last_seen_unix_ms",
+              "suggested_name",
+              "varying_arguments",
+              "dismissed",
+              "resurfaced"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "min_occurrences": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 32
+        },
+        "include_dismissed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "suggestions",
+        "min_occurrences",
+        "include_dismissed"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.suggestion.get",
+    "version": "1.0",
+    "description": "Inspect one workflow suggestion and its bounded structural evidence.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "suggestion_id": {
+          "type": "string",
+          "pattern": "^suggestion-[0-9a-f]{24}$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "suggestion_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "suggestion": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^pattern-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "suggestion_id": {
+              "type": "string",
+              "pattern": "^suggestion-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "commands": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            },
+            "occurrences": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 256
+            },
+            "compile_ready_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 256
+            },
+            "trace_ids": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 256,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 96
+              }
+            },
+            "compile_trace_ids": {
+              "type": "array",
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 96
+              }
+            },
+            "first_seen_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "last_seen_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "suggested_name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "varying_arguments": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "pointer": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "kind": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "observations": {
+                    "type": "integer",
+                    "minimum": 2,
+                    "maximum": 256
+                  }
+                },
+                "required": [
+                  "step",
+                  "pointer",
+                  "kind",
+                  "observations"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "dismissed": {
+              "type": "boolean"
+            },
+            "resurfaced": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "id",
+            "suggestion_id",
+            "fingerprint",
+            "commands",
+            "occurrences",
+            "compile_ready_count",
+            "trace_ids",
+            "compile_trace_ids",
+            "first_seen_unix_ms",
+            "last_seen_unix_ms",
+            "suggested_name",
+            "varying_arguments",
+            "dismissed",
+            "resurfaced"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "suggestion"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.suggestion.dismiss",
+    "version": "1.0",
+    "description": "Dismiss a workflow suggestion; temporary dismissals resurface after new matching evidence.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "suggestion_id": {
+          "type": "string",
+          "pattern": "^suggestion-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "permanent": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "suggestion_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "dismissed": {
+          "type": "boolean",
+          "const": true
+        },
+        "dismissal": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "pattern_id": {
+              "type": "string",
+              "pattern": "^pattern-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "dismissed_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "dismissed_through_occurrences": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 256
+            },
+            "permanent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "pattern_id",
+            "fingerprint",
+            "dismissed_unix_ms",
+            "dismissed_through_occurrences",
+            "permanent"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "dismissed",
+        "dismissal"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.suggestion.restore",
+    "version": "1.0",
+    "description": "Restore a previously dismissed workflow suggestion.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "suggestion_id": {
+          "type": "string",
+          "pattern": "^suggestion-[0-9a-f]{24}$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "suggestion_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "restored": {
+          "type": "boolean",
+          "const": true
+        },
+        "dismissal": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "pattern_id": {
+              "type": "string",
+              "pattern": "^pattern-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "dismissed_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "dismissed_through_occurrences": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 256
+            },
+            "permanent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "pattern_id",
+            "fingerprint",
+            "dismissed_unix_ms",
+            "dismissed_through_occurrences",
+            "permanent"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "restored",
+        "dismissal"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.suggestion.compile",
+    "version": "1.0",
+    "description": "Compile a repeated workflow suggestion using the existing Recipe v1 compiler.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "parameters": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 63
+              },
+              "pointer": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "secret": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "step",
+              "pointer"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "suggestion_id": {
+          "type": "string",
+          "pattern": "^suggestion-[0-9a-f]{24}$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "suggestion_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "candidate": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 7,
+              "maxLength": 96
+            },
+            "recipe": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "inputs": {
+                  "type": "object",
+                  "maxProperties": 64,
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "integer",
+                          "boolean",
+                          "object",
+                          "array"
+                        ]
+                      },
+                      "secret": {
+                        "type": "boolean"
+                      },
+                      "default": {
+                        "anyOf": [
+                          {
+                            "type": [
+                              "object",
+                              "array",
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "secret",
+                      "default"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "steps": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "command": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "args": {
+                        "type": [
+                          "object",
+                          "array",
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "timeout_ms": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300000
+                      },
+                      "retry": {
+                        "type": "object",
+                        "properties": {
+                          "attempts": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "backoff_ms": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 5000
+                          }
+                        },
+                        "required": [
+                          "attempts",
+                          "backoff_ms"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "when": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "left": {
+                                "type": [
+                                  "object",
+                                  "array",
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "op": {
+                                "type": "string",
+                                "enum": [
+                                  "equals",
+                                  "not_equals",
+                                  "truthy",
+                                  "exists",
+                                  "count_equals"
+                                ]
+                              },
+                              "right": {
+                                "type": [
+                                  "object",
+                                  "array",
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "left",
+                              "op",
+                              "right"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "assertions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "left": {
+                              "type": [
+                                "object",
+                                "array",
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "equals",
+                                "not_equals",
+                                "truthy",
+                                "exists",
+                                "count_equals"
+                              ]
+                            },
+                            "right": {
+                              "type": [
+                                "object",
+                                "array",
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "left",
+                            "op",
+                            "right"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "command",
+                      "args",
+                      "timeout_ms",
+                      "retry",
+                      "when",
+                      "assertions"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "outputs": {
+                  "type": "object",
+                  "maxProperties": 64,
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "integer",
+                          "boolean",
+                          "object",
+                          "array"
+                        ]
+                      },
+                      "value": {
+                        "type": [
+                          "object",
+                          "array",
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "secret": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value",
+                      "secret"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "version",
+                "name",
+                "description",
+                "inputs",
+                "steps",
+                "outputs"
+              ],
+              "additionalProperties": false
+            },
+            "source_trace_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 96
+              }
+            },
+            "source_descriptor_sha256": {
+              "type": "object",
+              "maxProperties": 64,
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "compiled_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "static_verified": {
+              "type": "boolean"
+            },
+            "successful_replays": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "version",
+            "id",
+            "recipe",
+            "source_trace_ids",
+            "source_descriptor_sha256",
+            "compiled_unix_ms",
+            "fingerprint",
+            "static_verified",
+            "successful_replays"
+          ],
+          "additionalProperties": false
+        },
+        "suggestion_id": {
+          "type": "string",
+          "pattern": "^suggestion-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "pattern_id": {
+          "type": "string",
+          "pattern": "^pattern-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "evidence": {
+          "type": "object",
+          "properties": {
+            "occurrences": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 256
+            },
+            "compile_ready_count": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 256
+            },
+            "source_traces": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 96
+              }
+            }
+          },
+          "required": [
+            "occurrences",
+            "compile_ready_count",
+            "source_traces"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "candidate",
+        "suggestion_id",
+        "pattern_id",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
   }
 ]
