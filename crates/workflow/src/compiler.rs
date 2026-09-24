@@ -177,8 +177,28 @@ fn compile_value(
         return Ok(binding);
     }
     let first = values[0];
-    if values.iter().all(|value| *value == first) && hint_for(hints, step, pointer).is_none() {
-        return Ok(first.clone());
+    let hint = hint_for(hints, step, pointer);
+    if hint.is_some() {
+        let kind = value_type(first)?;
+        if values
+            .iter()
+            .any(|value| value_type(value).ok() != Some(kind))
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Traces disagree on the type of an explicitly parameterized workflow input",
+            ));
+        }
+        let name = make_input_name(hint, step, pointer, used)?;
+        inputs.insert(
+            name.clone(),
+            Input {
+                kind,
+                secret: hint.is_some_and(|value| value.secret),
+                default: None,
+            },
+        );
+        return Ok(json!({"$var":format!("/inputs/{name}")}));
     }
 
     if values.iter().all(|value| value.is_object()) {
@@ -227,6 +247,16 @@ fn compile_value(
         return Ok(Value::Array(out));
     }
 
+    if values.iter().all(|value| *value == first) {
+        if first.as_str().is_some_and(looks_like_ref) {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Workflow contains an unbound opaque reference; derive it from a prior step or parameterize it explicitly",
+            ));
+        }
+        return Ok(first.clone());
+    }
+
     let kind = value_type(first)?;
     if values
         .iter()
@@ -237,13 +267,12 @@ fn compile_value(
             "Traces disagree on the type of an inferred workflow input",
         ));
     }
-    let hint = hint_for(hints, step, pointer);
-    let name = make_input_name(hint, step, pointer, used)?;
+    let name = make_input_name(None, step, pointer, used)?;
     inputs.insert(
         name.clone(),
         Input {
             kind,
-            secret: hint.is_some_and(|value| value.secret),
+            secret: false,
             default: None,
         },
     );
@@ -956,5 +985,101 @@ mod tests {
                 .code,
             ErrorCode::InvalidArgument
         );
+    }
+
+    fn direct_ref_trace(reference: &str, lookup: &Lookup) -> WorkflowTrace {
+        let invoke = lookup.describe("ui.invoke").unwrap();
+        WorkflowTrace {
+            version: 1,
+            id: "trace-direct-ref".into(),
+            name: "direct-ref".into(),
+            intent: "Invoke a caller-owned target".into(),
+            started_unix_ms: 1,
+            ended_unix_ms: 2,
+            capture_values: true,
+            successful: true,
+            steps: vec![crate::TraceStep {
+                index: 0,
+                command: "ui.invoke".into(),
+                args: json!({"ref":reference}),
+                result: Some(json!({"invoked":true})),
+                ok: true,
+                error_code: None,
+                outcome_known: true,
+                risk: Risk::Mutating,
+                idempotency: Idempotency::NonIdempotent,
+                capability_version: invoke.version.clone(),
+                descriptor_sha256: digest(&invoke),
+                backend: "fake".into(),
+                provider: None,
+                duration_ms: 1,
+                redacted: false,
+            }],
+        }
+    }
+
+    #[test]
+    fn unbound_opaque_reference_is_never_baked_into_recipe() {
+        let lookup = lookup();
+        let trace = direct_ref_trace("video:00000000000000000000000000000001", &lookup);
+        assert_eq!(
+            compile(&[trace], "invoke-target", "", &[], &lookup)
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+    }
+
+    #[test]
+    fn explicit_opaque_reference_parameter_is_allowed() {
+        let lookup = lookup();
+        let trace = direct_ref_trace("obs-scene:00000000000000000000000000000001", &lookup);
+        let candidate = compile(
+            &[trace],
+            "invoke-target",
+            "",
+            &[ParameterHint {
+                name: "target".into(),
+                step: 0,
+                pointer: "/ref".into(),
+                secret: false,
+            }],
+            &lookup,
+        )
+        .unwrap();
+        assert_eq!(
+            candidate.recipe.steps[0].args["ref"],
+            json!({"$var":"/inputs/target"})
+        );
+        assert_eq!(candidate.recipe.inputs["target"].kind, ValueType::String);
+    }
+
+    #[test]
+    fn explicit_object_parameter_is_not_ignored() {
+        let lookup = lookup();
+        let trace = trace(
+            "trace-a",
+            "one.png",
+            "ui:00000000000000000000000000000001",
+            &lookup,
+        );
+        let candidate = compile(
+            &[trace],
+            "find-target",
+            "",
+            &[ParameterHint {
+                name: "selector".into(),
+                step: 0,
+                pointer: "/selector".into(),
+                secret: false,
+            }],
+            &lookup,
+        )
+        .unwrap();
+        assert_eq!(
+            candidate.recipe.steps[0].args["selector"],
+            json!({"$var":"/inputs/selector"})
+        );
+        assert_eq!(candidate.recipe.inputs["selector"].kind, ValueType::Object);
     }
 }

@@ -7,10 +7,12 @@ pub fn looks_like_ref(s: &str) -> bool {
     let Some((kind, id)) = s.split_once(':') else {
         return false;
     };
-    matches!(
-        kind,
-        "ui" | "win" | "app" | "screen" | "dom" | "tab" | "process"
-    ) && id.len() == 32
+    !kind.is_empty()
+        && kind.len() <= 64
+        && kind.bytes().all(|b| {
+            b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'-' | b'_' | b'.')
+        })
+        && id.len() == 32
         && id.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
@@ -119,5 +121,17 @@ mod tests {
         assert_eq!(value["name"], "[VALUE REDACTED]");
         assert_eq!(value["password"], "[REDACTED]");
         assert_eq!(value["ref"], "ui:00000000000000000000000000000001");
+    }
+
+    #[test]
+    fn recognizes_driver_owned_opaque_reference_families() {
+        assert!(looks_like_ref("video:00000000000000000000000000000001"));
+        assert!(looks_like_ref("obs-scene:abcdefabcdefabcdefabcdefabcdefab"));
+        assert!(looks_like_ref(
+            "custom.ref_kind:0123456789abcdef0123456789abcdef"
+        ));
+        assert!(!looks_like_ref("https://example.invalid"));
+        assert!(!looks_like_ref("sha256:0123456789abcdef"));
+        assert!(!looks_like_ref("UPPER:0123456789abcdef0123456789abcdef"));
     }
 }
