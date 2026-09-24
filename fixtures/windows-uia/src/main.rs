@@ -119,7 +119,7 @@ mod app {
                 hwnd,
                 w!("BUTTON"),
                 w!("Invoke me"),
-                BS_PUSHBUTTON,
+                WINDOW_STYLE(BS_PUSHBUTTON as u32),
                 20,
                 20,
                 130,
@@ -130,7 +130,7 @@ mod app {
                 hwnd,
                 w!("EDIT"),
                 w!("fixture text"),
-                WS_BORDER | ES_AUTOHSCROLL,
+                WS_BORDER | WINDOW_STYLE(ES_AUTOHSCROLL as u32),
                 170,
                 20,
                 240,
@@ -141,7 +141,7 @@ mod app {
                 hwnd,
                 w!("BUTTON"),
                 w!("Checked"),
-                BS_AUTOCHECKBOX,
+                WINDOW_STYLE(BS_AUTOCHECKBOX as u32),
                 20,
                 70,
                 130,
@@ -152,7 +152,7 @@ mod app {
                 hwnd,
                 w!("BUTTON"),
                 w!("Radio"),
-                BS_AUTORADIOBUTTON,
+                WINDOW_STYLE(BS_AUTORADIOBUTTON as u32),
                 170,
                 70,
                 130,
@@ -174,7 +174,7 @@ mod app {
                 hwnd,
                 w!("COMBOBOX"),
                 w!(""),
-                CBS_DROPDOWNLIST | WS_VSCROLL,
+                WINDOW_STYLE(CBS_DROPDOWNLIST as u32) | WS_VSCROLL,
                 20,
                 170,
                 190,
@@ -185,7 +185,7 @@ mod app {
                 hwnd,
                 w!("LISTBOX"),
                 w!(""),
-                WS_BORDER | LBS_NOTIFY,
+                WS_BORDER | WINDOW_STYLE(LBS_NOTIFY as u32),
                 230,
                 170,
                 180,
@@ -216,31 +216,31 @@ mod app {
             );
             if let Ok(combo) = GetDlgItem(Some(hwnd), ID_COMBO as i32) {
                 SendMessageW(
-                    Some(combo),
+                    combo,
                     CB_ADDSTRING,
-                    WPARAM(0),
-                    LPARAM(w!("Alpha").0 as isize),
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("Alpha").0 as isize)),
                 );
                 SendMessageW(
-                    Some(combo),
+                    combo,
                     CB_ADDSTRING,
-                    WPARAM(0),
-                    LPARAM(w!("Beta").0 as isize),
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("Beta").0 as isize)),
                 );
-                SendMessageW(Some(combo), CB_SETCURSEL, WPARAM(0), LPARAM(0));
+                SendMessageW(combo, CB_SETCURSEL, Some(WPARAM(0)), Some(LPARAM(0)));
             }
             if let Ok(list) = GetDlgItem(Some(hwnd), ID_LIST as i32) {
                 SendMessageW(
-                    Some(list),
+                    list,
                     LB_ADDSTRING,
-                    WPARAM(0),
-                    LPARAM(w!("List item one").0 as isize),
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("List item one").0 as isize)),
                 );
                 SendMessageW(
-                    Some(list),
+                    list,
                     LB_ADDSTRING,
-                    WPARAM(0),
-                    LPARAM(w!("List item two").0 as isize),
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("List item two").0 as isize)),
                 );
             }
         }
