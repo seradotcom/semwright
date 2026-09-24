@@ -19,12 +19,10 @@ test('render harness is bound to the Driver Host marker and local origin', () =>
   assert.ok(render.includes('landlock-bwrap-v1'));
   assert.ok(!render.includes('chromium.launch('));
   assert.ok(render.includes('chromium.connectOverCDP'));
-  assert.ok(render.includes("'--remote-debugging-address=127.0.0.1'"));
-  assert.ok(render.includes("'--remote-debugging-port=0'"));
-  assert.ok(render.includes('DevToolsActivePort'));
-  assert.ok(!render.includes("'--single-process'"));
-  assert.ok(!render.includes("'--no-zygote'"));
-  assert.ok(render.includes("'--enable-logging=stderr'"));
+  assert.ok(!render.includes('node:child_process'));
+  assert.ok(!render.includes('spawn('));
+  assert.ok(render.includes("['project', 'output', 'config', 'cdp']"));
+  assert.ok(render.includes('127\\.0\\.0\\.1'));
   assert.ok(render.includes('semwright.invalid'));
   assert.ok(render.includes("route.abort('blockedbyclient')"));
 });

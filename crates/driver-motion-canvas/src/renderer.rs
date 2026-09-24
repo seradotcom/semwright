@@ -328,6 +328,102 @@ async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: R
     }
 }
 
+async fn start_browser(
+    runtime: &RendererRuntime,
+    output: &Path,
+    timeout_ms: u64,
+) -> Result<(tokio::process::Child, Option<u32>, String)> {
+    let profile = output.join("chromium-profile");
+    fs::create_dir_all(&profile)?;
+    let mut command = Command::new(&runtime.browser);
+    command
+        .args([
+            "--headless=new",
+            "--no-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--disable-background-networking",
+            "--disable-background-timer-throttling",
+            "--disable-component-update",
+            "--disable-default-apps",
+            "--disable-extensions",
+            "--no-default-browser-check",
+            "--no-first-run",
+            "--password-store=basic",
+            "--use-mock-keychain",
+            "--hide-scrollbars",
+            "--mute-audio",
+            "--remote-debugging-address=127.0.0.1",
+            "--remote-debugging-port=0",
+        ])
+        .arg(format!("--user-data-dir={}", profile.display()))
+        .arg("about:blank")
+        .kill_on_drop(true)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .env_clear()
+        .env("PATH", "/usr/bin:/bin")
+        .env("HOME", "/home")
+        .env("LANG", "C.UTF-8")
+        .env("FONTCONFIG_PATH", "/etc/fonts")
+        .env("FONTCONFIG_FILE", "fonts.conf")
+        .env("TMPDIR", output)
+        .env("TMP", output)
+        .env("TEMP", output)
+        .env("XDG_CACHE_HOME", output.join(".cache"))
+        .env("XDG_CONFIG_HOME", output.join(".config"))
+        .env("XDG_DATA_HOME", output.join(".data"))
+        .env("SEMWRIGHT_DRIVER_SANDBOX", "landlock-bwrap-v1");
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.as_std_mut().process_group(0);
+    }
+    let mut child = command.spawn().map_err(|error| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            format!("Failed to start pinned Chromium from Rust driver: {error}"),
+        )
+    })?;
+    let pid = child.id();
+    let active_port = profile.join("DevToolsActivePort");
+    let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms.min(30_000));
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                format!("Pinned Chromium exited before CDP startup: {status}"),
+            ));
+        }
+        match fs::read_to_string(&active_port) {
+            Ok(text) => {
+                let port = text
+                    .lines()
+                    .next()
+                    .and_then(|line| line.parse::<u16>().ok())
+                    .filter(|port| *port != 0);
+                if let Some(port) = port {
+                    return Ok((child, pid, format!("http://127.0.0.1:{port}")));
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                terminate_tree(pid, &mut child).await;
+                return Err(error.into());
+            }
+        }
+        if std::time::Instant::now() >= deadline {
+            terminate_tree(pid, &mut child).await;
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "Pinned Chromium did not publish a bounded loopback CDP endpoint",
+            ));
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn run_render(
     runtime: &RendererRuntime,
@@ -369,6 +465,20 @@ async fn run_render(
         "timeoutMs": plan.timeout_ms,
     });
     let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
+
+    // Driver Host's Ubuntu AppArmor profile allows the Rust driver to create
+    // descendants, while Node's child_process transition is denied under the
+    // same no-new-privs stack. Keep tool ownership in Rust: Chromium and the
+    // narrow Node helper are siblings inside one Bubblewrap/Landlock boundary.
+    let (mut browser, browser_pid, cdp) =
+        match start_browser(runtime, &output, plan.timeout_ms).await {
+            Ok(browser) => browser,
+            Err(error) => {
+                let _ = fs::remove_dir_all(&output);
+                return Err(error);
+            }
+        };
+
     let mut command = Command::new(&runtime.node);
     command
         .args(NODE_RENDER_FLAGS)
@@ -379,8 +489,8 @@ async fn run_render(
         .arg(&output)
         .arg("--config")
         .arg(encoded)
-        .arg("--browser")
-        .arg(&runtime.browser)
+        .arg("--cdp")
+        .arg(&cdp)
         .kill_on_drop(true)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
@@ -391,10 +501,6 @@ async fn run_render(
         .env("LANG", "C.UTF-8")
         .env("FONTCONFIG_PATH", "/etc/fonts")
         .env("FONTCONFIG_FILE", "fonts.conf")
-        // Keep all renderer/browser ephemeral state inside this job's writable,
-        // owner-granted output directory. This is required because Chromium's
-        // Playwright profile must remain visible across its subprocesses inside
-        // the outer Bubblewrap + Landlock sandbox.
         .env("TMPDIR", &output)
         .env("TMP", &output)
         .env("TEMP", &output)
@@ -407,21 +513,42 @@ async fn run_render(
         use std::os::unix::process::CommandExt;
         command.as_std_mut().process_group(0);
     }
-    let mut child = command.spawn().map_err(|error| {
-        Error::new(
-            ErrorCode::BackendFailed,
-            format!("Failed to start pinned renderer: {error}"),
-        )
-    })?;
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            terminate_tree(browser_pid, &mut browser).await;
+            let _ = fs::remove_dir_all(&output);
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                format!("Failed to start pinned renderer helper: {error}"),
+            ));
+        }
+    };
     let pid = child.id();
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| Error::new(ErrorCode::Internal, "Renderer stdout unavailable"))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| Error::new(ErrorCode::Internal, "Renderer stderr unavailable"))?;
+    let stdout = match child.stdout.take() {
+        Some(stdout) => stdout,
+        None => {
+            terminate_tree(pid, &mut child).await;
+            terminate_tree(browser_pid, &mut browser).await;
+            let _ = fs::remove_dir_all(&output);
+            return Err(Error::new(
+                ErrorCode::Internal,
+                "Renderer stdout unavailable",
+            ));
+        }
+    };
+    let stderr = match child.stderr.take() {
+        Some(stderr) => stderr,
+        None => {
+            terminate_tree(pid, &mut child).await;
+            terminate_tree(browser_pid, &mut browser).await;
+            let _ = fs::remove_dir_all(&output);
+            return Err(Error::new(
+                ErrorCode::Internal,
+                "Renderer stderr unavailable",
+            ));
+        }
+    };
     let out_task = tokio::spawn(async move {
         let mut bytes = vec![];
         stdout
@@ -443,15 +570,18 @@ async fn run_render(
         status = child.wait() => status?,
         _ = cancel.cancelled() => {
             terminate_tree(pid, &mut child).await;
+            terminate_tree(browser_pid, &mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Cancelled, "Render cancelled"));
         }
         _ = tokio::time::sleep(Duration::from_millis(plan.timeout_ms)) => {
             terminate_tree(pid, &mut child).await;
+            terminate_tree(browser_pid, &mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Timeout, "Render exceeded timeout"));
         }
     };
+    terminate_tree(browser_pid, &mut browser).await;
     let stdout = out_task
         .await
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stdout task failed"))??;
@@ -459,6 +589,7 @@ async fn run_render(
         .await
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stderr task failed"))??;
     if stdout.len() > MAX_PROCESS_OUTPUT as usize || stderr.len() > MAX_PROCESS_OUTPUT as usize {
+        let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
             "Renderer process output exceeded byte budget",
@@ -466,6 +597,7 @@ async fn run_render(
     }
     if !status.success() {
         let message = String::from_utf8_lossy(&stderr);
+        let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
             ErrorCode::BackendFailed,
             format!(
@@ -497,12 +629,19 @@ async fn run_render(
         )
     })?;
     if value.get("ok") != Some(&serde_json::Value::Bool(true)) {
+        let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
             ErrorCode::BackendFailed,
             "Renderer did not report success",
         ));
     }
-    validate_artifacts(&output, plan)
+    match validate_artifacts(&output, plan) {
+        Ok(artifact) => Ok(artifact),
+        Err(error) => {
+            let _ = fs::remove_dir_all(&output);
+            Err(error)
+        }
+    }
 }
 
 #[cfg(unix)]
