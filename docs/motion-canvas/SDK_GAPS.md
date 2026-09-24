@@ -26,7 +26,7 @@ Playwright 1.63.0 / Firefox 155.0 repeatedly failed inside the otherwise-conform
 
 ## Resolved experiment: resource ceilings
 
-Earlier Chromium experiments drove temporary larger resource requests without changing the reproducible Chrome-for-Testing `SIGTRAP` startup failure. The Firefox compatibility-pin experiment returns to the existing 4 GiB SDK hard ceiling and 128-task request. Because Firefox 155 also has an upstream content-process SIGSEGV regression, the earlier tab-subprocess failure is not used by itself to justify broader resource authority. No generic resource-limit ceiling is increased by the Motion Canvas driver.
+Earlier Chromium experiments drove temporary larger resource requests without changing the reproducible Chrome-for-Testing `SIGTRAP` startup failure. The Firefox compatibility-pin experiment returns to the existing 4 GiB SDK hard ceiling. CI subsequently showed Firefox 151 WebRender failing thread creation with `EAGAIN` under a 128-task request, so Motion Canvas uses the existing 256-task SDK maximum; this does not require a generic SDK ceiling increase. Because Firefox 155 also has an upstream content-process SIGSEGV regression, the earlier tab-subprocess failure is not used by itself to justify broader resource authority. No generic resource-limit ceiling is increased by the Motion Canvas driver.
 
 ## Resolved during final integration: Windows platform services
 

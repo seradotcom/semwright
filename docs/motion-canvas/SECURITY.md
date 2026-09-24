@@ -6,7 +6,7 @@ The managed format exists because arbitrary TypeScript is executable code. The f
 
 Agent input is untrusted semantic data. Driver Protocol descriptors are strict, digest-pinned schemas. The Rust driver owns policy-relevant validation and never delegates authorization to Node or the browser.
 
-The Driver Host is the execution boundary. Production rendering requires Bubblewrap + Landlock, named owner grants, a pinned driver ELF, `network=false` and bounded process/file/CPU/address-space resources. There is no unsandboxed fallback. The final Firefox route stays within the existing 4 GiB Driver Host virtual-address-space ceiling and requests 128 tasks; the SDK default remains 512 MiB.
+The Driver Host is the execution boundary. Production rendering requires Bubblewrap + Landlock, named owner grants, a pinned driver ELF, `network=false` and bounded process/file/CPU/address-space resources. There is no unsandboxed fallback. The final Firefox route stays within the existing 4 GiB Driver Host virtual-address-space ceiling and requests 256 tasks, the existing SDK hard maximum, after CI observed Firefox 151 WebRender thread creation fail with `EAGAIN` at 128; the SDK default remains 512 MiB.
 
 Ubuntu 24.04 additionally restricts unprivileged user namespaces through AppArmor. CI preserves that system-wide restriction and specializes only the ephemeral distro `bwrap-userns-restrict` profile for Semwright's exact Driver Host exec chain: `/plugin/sandbox` performs the one privilege-dropping stacked transition, then `/plugin/bin`, `/workspace/**` and `/tmp/**` may only inherit (`ix`) the already-enforced confinement. Other descendant exec paths remain denied. An exact-depth probe also sets `no_new_privs` before the driver/tool execs.
 
