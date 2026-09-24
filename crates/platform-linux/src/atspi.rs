@@ -795,6 +795,25 @@ impl Atspi {
             facets.hypertext = Some(UiHypertextFacet { link_count });
         }
 
+        if supports_interface(interfaces, "Image")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Image").await
+        {
+            let description = bounded(proxy.get_property::<String>("ImageDescription"))
+                .await
+                .ok()
+                .filter(|value| !value.is_empty())
+                .map(|value| value.chars().take(1024).collect());
+            let locale = bounded(proxy.get_property::<String>("ImageLocale"))
+                .await
+                .ok()
+                .filter(|value| !value.is_empty())
+                .map(|value| value.chars().take(128).collect());
+            facets.image = Some(UiImageFacet {
+                description,
+                locale,
+            });
+        }
+
         if matches!(role, "window" | "frame" | "dialog") {
             facets.window = Some(UiWindowFacet {
                 modal: states.contains(&"modal").then_some(true),

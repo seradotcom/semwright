@@ -446,6 +446,15 @@ pub struct UiHypertextFacet {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct UiImageFacet {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UiScrollFacet {
     pub horizontal_percent: Option<f64>,
     pub vertical_percent: Option<f64>,
@@ -474,6 +483,7 @@ pub struct UiTransformFacet {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct UiFacets {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<UiTextFacet>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<UiValueFacet>,
@@ -485,6 +495,8 @@ pub struct UiFacets {
     pub document: Option<UiDocumentFacet>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hypertext: Option<UiHypertextFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<UiImageFacet>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scroll: Option<UiScrollFacet>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -501,6 +513,7 @@ impl UiFacets {
             && self.table.is_none()
             && self.document.is_none()
             && self.hypertext.is_none()
+            && self.image.is_none()
             && self.scroll.is_none()
             && self.window.is_none()
             && self.transform.is_none()
@@ -514,6 +527,7 @@ impl UiFacets {
             "table" => self.table.is_some(),
             "document" => self.document.is_some(),
             "hypertext" => self.hypertext.is_some(),
+            "image" => self.image.is_some(),
             "scroll" => self.scroll.is_some(),
             "window" => self.window.is_some(),
             "transform" => self.transform.is_some(),
@@ -610,10 +624,10 @@ pub struct UiNode {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Bounds {
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
     pub coordinate_space: String,
 }
 impl Selector {
@@ -902,6 +916,21 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(selector.unique(&[n]).unwrap().reference, "ui:1");
+    }
+
+    #[test]
+    fn fractional_bounds_roundtrip_for_hidpi_platforms() {
+        let bounds = Bounds {
+            x: -10.25,
+            y: 20.5,
+            width: 640.5,
+            height: 360.25,
+            coordinate_space: "screen".into(),
+        };
+        let value = serde_json::to_value(&bounds).unwrap();
+        let back: Bounds = serde_json::from_value(value).unwrap();
+        assert_eq!(back.x, -10.25);
+        assert_eq!(back.width, 640.5);
     }
 
     #[test]

@@ -1,8 +1,8 @@
 use crate::roles::semantic_role;
 use semwright_platform_windows_sys::window::process_creation_time;
 use semwright_types::{
-    Error, ErrorCode, NativeTarget, Result, UiFacets, UiScrollFacet, UiSelectionFacet,
-    UiTableFacet, UiTextFacet, UiTransformFacet, UiValueFacet, UiWindowFacet,
+    Error, ErrorCode, NativeTarget, Result, UiFacets, UiImageFacet, UiScrollFacet,
+    UiSelectionFacet, UiTableFacet, UiTextFacet, UiTransformFacet, UiValueFacet, UiWindowFacet,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -299,6 +299,23 @@ impl State {
             facets.table = Some(table);
         }
 
+        if element
+            .get_control_type()
+            .ok()
+            .is_some_and(|control| semantic_role(control) == "image")
+        {
+            let description = element
+                .get_help_text()
+                .ok()
+                .filter(|value| !value.is_empty())
+                .or_else(|| element.get_name().ok().filter(|value| !value.is_empty()))
+                .map(bounded);
+            facets.image = Some(UiImageFacet {
+                description,
+                locale: None,
+            });
+        }
+
         if let Ok(pattern) = element.get_pattern::<UIScrollPattern>() {
             facets.scroll = Some(UiScrollFacet {
                 horizontal_percent: pattern.get_horizontal_scroll_percent().ok(),
@@ -447,11 +464,13 @@ impl State {
             "states": states,
             "actions": actions,
             "app": format!("pid:{}", element.get_process_id().unwrap_or_default()),
-            "class": class_name,
-            "enabled": enabled,
-            "focused": focused,
-            "password": password,
-            "bounds": rect.map(|r| json!({"x":r.get_left(),"y":r.get_top(),"width":r.get_width(),"height":r.get_height()})),
+            "bounds": rect.map(|r| json!({
+                "x":r.get_left(),
+                "y":r.get_top(),
+                "width":r.get_width(),
+                "height":r.get_height(),
+                "coordinate_space":"windows_virtual_desktop"
+            })),
             "children": children,
         }))
     }

@@ -9,7 +9,7 @@ Every projected node keeps the stable v1 core (ref, role, name, states, actions,
 - help, accessibility identity and framework metadata;
 - bounded native attributes that remain data, never authority;
 - typed relations such as labelled_by and described_by;
-- optional typed facets for text, value, selection, table, document, hypertext, scrolling, window state and transforms.
+- optional typed facets for text, value, selection, table, document, hypertext, images, scrolling, window state and transforms.
 
 Missing facets mean “not observed/supported”, not false. Platform-native handles, constants and object types never cross the portable contract.
 
@@ -38,6 +38,7 @@ Missing facets mean “not observed/supported”, not false. Platform-native han
 | Table facet | yes | yes | yes |
 | Document facet | yes | partial/future | partial/future |
 | Hypertext facet | yes | partial/future | partial/future |
+| Image facet | yes | partial/future | yes |
 | Scroll facet | protocol-dependent | yes | yes |
 | Window facet | yes | yes | yes |
 | Transform facet | protocol-dependent | yes | yes |
