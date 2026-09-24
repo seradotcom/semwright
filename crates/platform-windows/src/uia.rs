@@ -533,12 +533,7 @@ impl State {
         Ok(json!({
             "nodes": nodes,
             "partial": partial,
-            "revision": self.next_revision,
-            "view": "control",
-            "node_count": count,
-            "max_nodes": MAX_NODES,
-            "max_depth": MAX_DEPTH,
-            "time_budget_ms": 1500
+            "revision": self.next_revision
         }))
     }
 
