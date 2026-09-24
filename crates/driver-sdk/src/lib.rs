@@ -86,8 +86,11 @@ impl ApplicationMatch {
 pub struct DriverMount {
     pub root: String,
     pub read_only: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_false")]
     pub execute: bool,
+}
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 /// Owner-granted configuration exposed read-only at its canonical system location.
@@ -980,6 +983,18 @@ mod tests {
             execute: true,
         });
         candidate.validate().unwrap();
+        let encoded = serde_json::to_value(&candidate).unwrap();
+        assert_eq!(encoded["mounts"][0]["execute"], true);
+
+        let mut data_only = manifest();
+        data_only.mounts.push(DriverMount {
+            root: "media".into(),
+            read_only: true,
+            execute: false,
+        });
+        let encoded = serde_json::to_value(&data_only).unwrap();
+        assert!(encoded["mounts"][0].get("execute").is_none());
+
         candidate.mounts[0].read_only = false;
         assert!(candidate.validate().is_err());
     }
