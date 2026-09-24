@@ -512,10 +512,11 @@ pub fn compile(
         steps: recipe_steps,
         outputs,
     };
-    let source_trace_ids = traces
+    let mut source_trace_ids = traces
         .iter()
         .map(|trace| trace.id.clone())
         .collect::<Vec<_>>();
+    source_trace_ids.sort();
     let fingerprint = candidate_fingerprint(&recipe, &source_trace_ids, &descriptor_digests)?;
     Ok(Candidate {
         version: CANDIDATE_VERSION,
@@ -941,6 +942,40 @@ mod tests {
             json!({"$var":"/steps/step-1/nodes/0/ref"})
         );
         assert_eq!(candidate.recipe.steps[1].assertions.len(), 1);
+    }
+
+    #[test]
+    fn equivalent_trace_sets_compile_to_the_same_candidate_identity() {
+        let lookup = lookup();
+        let first = trace(
+            "trace-a",
+            "one.png",
+            "ui:00000000000000000000000000000001",
+            &lookup,
+        );
+        let second = trace(
+            "trace-b",
+            "two.png",
+            "ui:00000000000000000000000000000002",
+            &lookup,
+        );
+        let forward = compile(
+            &[first.clone(), second.clone()],
+            "export",
+            "Export a file",
+            &[],
+            &lookup,
+        )
+        .unwrap();
+        let reverse = compile(&[second, first], "export", "Export a file", &[], &lookup).unwrap();
+
+        assert_eq!(
+            serde_json::to_value(&forward.recipe).unwrap(),
+            serde_json::to_value(&reverse.recipe).unwrap()
+        );
+        assert_eq!(forward.source_trace_ids, reverse.source_trace_ids);
+        assert_eq!(forward.fingerprint, reverse.fingerprint);
+        assert_eq!(forward.id, reverse.id);
     }
 
     #[test]
