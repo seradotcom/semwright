@@ -244,6 +244,9 @@ pub enum Window {
     },
 }
 #[derive(Subcommand, Debug)]
+// `Ui::Find` intentionally owns its clap-parsed selector strings. Boxing individual CLI
+// fields would add indirection to one-shot parser state without reducing persistent memory.
+#[allow(clippy::large_enum_variant)]
 pub enum Ui {
     Snapshot {
         #[arg(long)]

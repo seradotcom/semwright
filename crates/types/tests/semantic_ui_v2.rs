@@ -232,7 +232,10 @@ fn inverted_or_nonfinite_value_ranges_are_rejected() {
         ..Default::default()
     };
     assert_eq!(
-        inverted.select(&[node.clone()]).unwrap_err().code,
+        inverted
+            .select(std::slice::from_ref(&node))
+            .unwrap_err()
+            .code,
         ErrorCode::InvalidArgument
     );
     let nonfinite = Selector {

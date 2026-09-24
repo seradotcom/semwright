@@ -597,13 +597,13 @@ impl Atspi {
                     if let Ok((start, end)) =
                         bounded(proxy.call::<_, _, (i32, i32)>("GetSelection", &(index as i32,)))
                             .await
+                        && start >= 0
+                        && end >= start
                     {
-                        if start >= 0 && end >= start {
-                            selections.push(UiTextRange {
-                                start: i64::from(start),
-                                end: i64::from(end),
-                            });
-                        }
+                        selections.push(UiTextRange {
+                            start: i64::from(start),
+                            end: i64::from(end),
+                        });
                     }
                 }
             }

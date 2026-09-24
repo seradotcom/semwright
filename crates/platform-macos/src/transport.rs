@@ -166,7 +166,7 @@ mod ffi {
                     .get("payload")
                     .filter(|value| value.is_object())
                     .cloned()
-                    .unwrap_or_else(|| json!({}));
+                    .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
                 Ok(ProviderSignal::Event {
                     kind: kind.to_owned(),
                     payload,
