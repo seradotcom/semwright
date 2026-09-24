@@ -17,7 +17,7 @@ describe("security surface",()=>{
  it("has no eval or Function constructor",()=>{expect(allCode).not.toMatch(/\beval\s*\(/);expect(allCode).not.toMatch(/new\s+Function/);});
  it("uses dynamic page access",()=>expect(manifest.documentAccess).toBe("dynamic-page"));
  it("does not allow wildcard network",()=>expect(manifest.networkAccess.allowedDomains).toEqual(["none"]));
- it("limits dev websocket to loopback",()=>expect(manifest.networkAccess.devAllowedDomains).toEqual(["ws://127.0.0.1:38471"]));
+ it("limits dev websocket to loopback",()=>expect(manifest.networkAccess.devAllowedDomains).toEqual(["ws://localhost:38471"]));
  it("uses async node lookup",()=>expect(code).toContain("getNodeByIdAsync"));
  it("uses async page switching",()=>expect(code).toContain("setCurrentPageAsync"));
  it("loads fonts before text mutation",()=>expect(code).toContain("loadFontAsync"));
@@ -29,7 +29,7 @@ describe("security surface",()=>{
  it("ships a dedicated codegen Dev Mode manifest",()=>{expect(devCodegen.editorType).toEqual(["dev"]);expect(devCodegen.capabilities).toEqual(["codegen","vscode"]);expect(devCodegen.codegenLanguages.length).toBeGreaterThan(0);});
  it("ships a dedicated text-review manifest",()=>{expect(textReview.editorType).toEqual(["figma","figjam"]);expect(textReview.capabilities).toEqual(["textreview"]);expect(textReview.permissions).toBeUndefined();});
  it("keeps collaboration permissions out of the default manifest",()=>{expect(manifest.permissions).toEqual(["teamlibrary"]);expect(collaboration.permissions).toEqual(["teamlibrary","currentuser","activeusers","fileusers"]);});
- it("keeps every manifest offline except the loopback development bridge",()=>{for(const m of [manifest,collaboration,devInspect,devCodegen,textReview]){expect(m.networkAccess.allowedDomains).toEqual(["none"]);expect(m.networkAccess.devAllowedDomains).toEqual(["ws://127.0.0.1:38471"]);}});
+ it("keeps every manifest offline except the loopback development bridge",()=>{for(const m of [manifest,collaboration,devInspect,devCodegen,textReview]){expect(m.networkAccess.allowedDomains).toEqual(["none"]);expect(m.networkAccess.devAllowedDomains).toEqual(["ws://localhost:38471"]);}});
 });
 describe("advanced API",()=>{
  it("implements Motion style operations",()=>expect(code).toContain("applyAnimationStyle"));
@@ -69,5 +69,5 @@ describe("authenticated loopback bridge",()=>{
  it("uses WebCrypto HMAC SHA-256",()=>{expect(ui).toContain("crypto.subtle.importKey");expect(ui).toContain('name:"HMAC"');});
  it("waits for a server-generated challenge",()=>{expect(ui).toContain('type:"hello",protocol:2');expect(ui).toContain('m.type==="challenge"');});
  it("authenticates the server challenge with a separate HMAC proof",()=>{expect(ui).toContain('type:"authenticate"');expect(ui).toContain("proof:authProof");expect(ui).toContain("m.nonce");});
- it("only opens a loopback websocket",()=>expect(ui).toContain('ws://127.0.0.1:'));
+ it("only opens a loopback websocket",()=>{expect(ui).toContain('ws://localhost:');expect(ui).not.toContain('ws://127.0.0.1:');});
 });
