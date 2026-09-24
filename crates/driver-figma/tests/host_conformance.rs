@@ -98,6 +98,8 @@ fn manifest(executable: PathBuf) -> Manifest {
         request_timeout_ms: 5_000,
         interfaces: DriverInterfaces {
             events: true,
+            progress: true,
+            artifacts: true,
             health: true,
             ..DriverInterfaces::default()
         },

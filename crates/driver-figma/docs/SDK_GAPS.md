@@ -22,11 +22,11 @@ When a genuinely cancellable long-running Figma operation is introduced, it shou
 
 Protocol v2 supports dynamic capability notifications. The Figma driver intentionally keeps a stable typed semantic catalog generated from the pinned public API baselines and performs editor/session/Motion/plan availability checks at execution time. Catalog consistency and semantic-completeness gates prevent advertising operations without handlers or classified transport semantics.
 
-## G05 — Binary artifacts / streams — DRIVER IMPLEMENTED WITH LOCAL ARTIFACT TOKENS / GENERIC PROMOTION OPEN
+## G05 — Binary artifacts / streams — METADATA PROMOTION RESOLVED / BINARY HANDOFF GAP REMAINS
 
-Figma static and animated exports are advertised and avoid giant JSON byte arrays: the plugin stores bounded binary artifacts and exposes tokenized chunk reads/releases over the authenticated bridge. Protocol v2 also supports generic artifact metadata, but the Figma child does not yet negotiate `artifacts=true` or promote plugin artifact tokens into broker-native artifacts automatically.
+Figma static, animated and textual exports avoid giant JSON byte arrays: the plugin stores bounded binary artifacts and exposes tokenized chunk reads/releases over the authenticated bridge. The child now negotiates protocol-v2 `progress=true` and `artifacts=true`; successful export operations promote those tokens into correlated `JobArtifact` metadata using `artifact:figma:<token>` references.
 
-A future generic promotion path can remove the driver-local read/release lifecycle without changing the semantic export operations.
+The remaining generic gap is byte transport/storage, not artifact discovery. Driver Protocol v2 carries artifact metadata but does not yet provide a generic child-to-host binary stream or artifact-store handoff. Until that exists, consumers retrieve bytes through bounded `artifact.read` chunks and explicitly release the plugin-held artifact.
 
 ## G06 — Persistent-process CPU accounting — GAP
 
@@ -34,9 +34,9 @@ The local bridge is long-lived while Linux Driver Host CPU seconds are cumulativ
 
 Do not remove resource limits; a renewable/windowed accounting model would be the generic solution.
 
-## G07 — Child progress — SDK SUPPORTED / FIGMA NOT ENABLED
+## G07 — Child progress — RESOLVED FOR ARTIFACT COMPLETION
 
-Protocol v2 can report child-originated progress and artifacts. The current Figma operations are bounded request/response calls, so no progress interface is negotiated. A future long-running export path can adopt the existing protocol-v2 mechanism without another protocol change.
+The Figma driver now negotiates protocol-v2 progress/artifacts and reports terminal progress with `JobArtifact` metadata for successful export-producing commands. Most Plugin API operations remain bounded request/response calls and therefore do not emit synthetic intermediate percentages. Cooperative cancellation remains separate because Figma cannot guarantee rollback after a mutation has been dispatched.
 
 ## G08 — Application-native refs — SUPPORTED WITH LIMITATION
 

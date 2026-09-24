@@ -1,8 +1,12 @@
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, DriverChildEvent, DriverInterfaces};
+use semwright_driver_sdk::{
+    Capability, Driver, DriverChildEvent, DriverExecutionContext, DriverInterfaces,
+};
 use semwright_figma_driver::bridge::{BridgeError, BridgeHub, pairing_status};
 use semwright_figma_driver::{model, rest::RestClient, schemas, snapshot};
-use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Risk};
+use semwright_types::{
+    CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Risk,
+};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use tokio::sync::mpsc;
@@ -1534,6 +1538,49 @@ fn capability(o: Op) -> Capability {
             .unwrap_or_default(),
     }
 }
+fn artifact_from_result(command: &str, value: &Value) -> Option<JobArtifact> {
+    let operation = command.strip_prefix("driver.figma.")?;
+    if !matches!(
+        operation,
+        "export.node"
+            | "motion.export"
+            | "image.export"
+            | "design_system.export.css"
+            | "design_system.export.tailwind"
+            | "node.export.jsx"
+            | "node.export.storybook"
+    ) {
+        return None;
+    }
+    let object = value.as_object()?;
+    let token = object.get("token")?.as_str()?;
+    let bytes = object.get("bytes")?.as_u64()?;
+    let media_type = object.get("mediaType")?.as_str()?;
+    let raw_name = object.get("name")?.as_str()?;
+    if token.is_empty()
+        || token.len() > 128
+        || token.chars().any(char::is_control)
+        || media_type.is_empty()
+        || media_type.len() > 128
+        || media_type.chars().any(char::is_control)
+    {
+        return None;
+    }
+    let name =
+        if raw_name.is_empty() || raw_name.len() > 128 || raw_name.chars().any(char::is_control) {
+            format!("figma-{}", operation.replace('.', "-"))
+        } else {
+            raw_name.to_owned()
+        };
+    Some(JobArtifact {
+        name,
+        reference: format!("artifact:figma:{token}"),
+        media_type: Some(media_type.to_owned()),
+        sha256: None,
+        bytes: Some(bytes),
+    })
+}
+
 struct FigmaDriver {
     descriptors: BTreeMap<String, String>,
     ops: BTreeMap<String, Op>,
@@ -1625,6 +1672,8 @@ impl Driver for FigmaDriver {
     fn interfaces(&self) -> DriverInterfaces {
         DriverInterfaces {
             events: true,
+            progress: true,
+            artifacts: true,
             health: true,
             ..DriverInterfaces::default()
         }
@@ -1745,6 +1794,28 @@ impl Driver for FigmaDriver {
         }
     }
 
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> semwright_types::Result<Value> {
+        context.check_cancelled()?;
+        let value = self.execute(command, digest, args).await?;
+        if let Some(artifact) = artifact_from_result(command, &value) {
+            context.report_progress(
+                JobProgress {
+                    completed: 1,
+                    total: Some(1),
+                    message: Some("Figma artifact ready".into()),
+                },
+                vec![artifact],
+            )?;
+        }
+        Ok(value)
+    }
+
     async fn health(&mut self) -> semwright_types::Result<Value> {
         let sessions = self.hub.sessions().await;
         Ok(json!({
@@ -1807,5 +1878,37 @@ mod catalog_tests {
             .map(|op| op.name)
             .collect::<std::collections::BTreeSet<_>>();
         assert_eq!(operations.len(), unique.len());
+    }
+
+    #[test]
+    fn export_results_are_promoted_to_driver_artifacts() {
+        let value = json!({
+            "token":"artifact-token",
+            "bytes":4096,
+            "mediaType":"image/png",
+            "name":"preview.png"
+        });
+        let artifact =
+            artifact_from_result("driver.figma.export.node", &value).expect("artifact metadata");
+        assert_eq!(artifact.name, "preview.png");
+        assert_eq!(artifact.reference, "artifact:figma:artifact-token");
+        assert_eq!(artifact.media_type.as_deref(), Some("image/png"));
+        assert_eq!(artifact.bytes, Some(4096));
+        artifact.validate().expect("valid JobArtifact");
+        assert!(artifact_from_result("driver.figma.node.get", &value).is_none());
+    }
+
+    #[test]
+    fn artifact_metadata_falls_back_from_oversized_names() {
+        let value = json!({
+            "token":"artifact-token",
+            "bytes":32,
+            "mediaType":"text/css",
+            "name":"x".repeat(256)
+        });
+        let artifact = artifact_from_result("driver.figma.design_system.export.css", &value)
+            .expect("artifact metadata");
+        assert_eq!(artifact.name, "figma-design_system-export-css");
+        artifact.validate().expect("valid fallback JobArtifact");
     }
 }

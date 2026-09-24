@@ -46,7 +46,7 @@ Hosted native integration additionally runs the DriverProvider through the real 
 
 The plugin bridge listens on loopback only and uses an ephemeral 256-bit pairing secret with server nonce/HMAC challenge-response. Requests are allowlisted and schema-bounded; sessions carry generations and observed document revisions so stale collaborative mutations fail instead of overwriting silently.
 
-The REST transport uses official endpoints only, explicit operation metadata/scopes, bounded bodies, no redirects, secret-header marking and uncertain outcomes for ambiguous network failures on mutations.
+The REST transport uses official endpoints only, explicit operation metadata/scopes, bounded bodies, no redirects, secret-header marking and uncertain outcomes for ambiguous network failures on mutations. Plugin exports are held behind bounded artifact tokens/chunk reads and are also promoted as Driver Protocol v2 `JobArtifact` metadata so Jobs/Inspector can surface produced artifacts without embedding binary payloads in result JSON.
 
 The repository's automated fake-host and sandbox results are not presented as real-Figma certification. Real Figma Design, FigJam, Slides, Buzz, Motion and collaboration acceptance still require an authorized disposable account/file.
 

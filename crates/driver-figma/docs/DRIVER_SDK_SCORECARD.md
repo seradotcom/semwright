@@ -15,7 +15,7 @@
 | Child events | SUPPORTED | protocol v2 transports bounded `figma.*` selection/page/document events |
 | Cooperative cancellation | SUPPORTED_WITH_LIMITATION | SDK supports it; Figma does not negotiate it until operations are safely cancellable |
 | Dynamic capabilities | SUPPORTED_WITH_LIMITATION | SDK supports notifications; Figma intentionally uses a stable catalog plus execution-time availability |
-| Child progress | SUPPORTED_WITH_LIMITATION | SDK supports it; current bounded Figma calls do not negotiate progress |
-| Binary artifacts | SUPPORTED_WITH_LIMITATION | static/animated exports use bounded driver-local artifact tokens and chunk reads; broker-native artifact promotion is not yet negotiated |
+| Child progress | SUPPORTED | protocol v2 is negotiated for progress; successful Figma export operations publish terminal artifact progress correlated to the execution request |
+| Binary artifacts | SUPPORTED_WITH_LIMITATION | static/animated/text exports use bounded driver-local artifact tokens and chunk reads, and are promoted as protocol-v2 `JobArtifact` metadata; the generic SDK still has no child-to-host binary stream/store handoff |
 | Figma refs | SUPPORTED_WITH_LIMITATION | session generation + document revision/node identity; real collaboration acceptance pending |
 | Long-lived CPU accounting | GAP | cumulative process CPU budget is awkward for a persistent event-driven bridge |
