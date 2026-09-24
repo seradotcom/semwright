@@ -143,10 +143,10 @@ impl Host {
         #[cfg(target_os = "windows")]
         {
             let _ = (&descriptor, &args, &cancellation);
-            return Err(Error::new(
+            Err(Error::new(
                 ErrorCode::SandboxDenied,
                 "Windows arbitrary plugin execution is fail-closed until secure pre-exec containment is implemented",
-            ));
+            ))
         }
         #[cfg(unix)]
         {
