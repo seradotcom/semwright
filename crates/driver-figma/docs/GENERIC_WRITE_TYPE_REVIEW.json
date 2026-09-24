@@ -1,0 +1,278 @@
+{
+  "plugin_typings_version": "1.139.0",
+  "schema_version": 1,
+  "types": {
+    "'AUTO' | 'ABSOLUTE'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'AUTO' | 'SPACE_BETWEEN'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'CENTER' | 'INSIDE' | 'OUTSIDE'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'DISABLED' | 'ENDING'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'ELBOWED' | 'STRAIGHT' | 'CURVED'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'FIXED' | 'AUTO'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'FIXED' | 'HUG' | 'FILL'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'MANUAL' | 'ROW_AUTO_FLOW'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'MIN' | 'CENTER' | 'MAX' | 'AUTO'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'MIN' | 'CENTER' | 'MAX' | 'STRETCH' | 'INHERIT'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'MIN' | 'MAX' | 'CENTER' | 'BASELINE'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'MIN' | 'MAX' | 'CENTER' | 'SPACE_BETWEEN' | 'SPACE_EVENLY' | 'SPACE_AROUND'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'NONE' | 'HORIZONTAL' | 'VERTICAL' | 'GRID'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'NONE' | 'ROWS'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'NONE' | 'WIDTH_AND_HEIGHT' | 'HEIGHT' | 'TRUNCATE'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'NO_WRAP' | 'WRAP'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'TOP' | 'CENTER' | 'BOTTOM'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "'UNION' | 'INTERSECT' | 'SUBTRACT' | 'EXCLUDE'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "ArcData": {
+      "kind": "object",
+      "nullable": false
+    },
+    "Array<GridTrackSize>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "BlendMode": {
+      "kind": "string",
+      "nullable": false
+    },
+    "ComplexStrokeProperties": {
+      "kind": "object",
+      "nullable": false
+    },
+    "ConnectorEndpoint": {
+      "kind": "object",
+      "nullable": false
+    },
+    "ConnectorStrokeCap": {
+      "kind": "string",
+      "nullable": false
+    },
+    "Constraints": {
+      "kind": "object",
+      "nullable": false
+    },
+    "DevStatus": {
+      "kind": "object",
+      "nullable": true
+    },
+    "FontName | PluginAPI['mixed']": {
+      "kind": "object",
+      "nullable": false
+    },
+    "HandleMirroring | PluginAPI['mixed']": {
+      "kind": "string",
+      "nullable": false
+    },
+    "HyperlinkTarget | null | PluginAPI['mixed']": {
+      "kind": "object",
+      "nullable": true
+    },
+    "InferredAutoLayoutResult | null": {
+      "kind": "object",
+      "nullable": true
+    },
+    "LeadingTrim | PluginAPI['mixed']": {
+      "kind": "string",
+      "nullable": false
+    },
+    "LetterSpacing | PluginAPI['mixed']": {
+      "kind": "object",
+      "nullable": false
+    },
+    "LineHeight | PluginAPI['mixed']": {
+      "kind": "object",
+      "nullable": false
+    },
+    "MaskType": {
+      "kind": "string",
+      "nullable": false
+    },
+    "OverflowDirection": {
+      "kind": "string",
+      "nullable": false
+    },
+    "ReadonlyArray<Annotation>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<DocumentationLink>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<Effect>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<ExportSettings>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<Guide>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<LayoutGrid>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<Paint>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<Paint> | PluginAPI['mixed']": {
+      "kind": "array",
+      "nullable": false
+    },
+    "ReadonlyArray<number>": {
+      "kind": "array",
+      "nullable": false
+    },
+    "StrokeCap | PluginAPI['mixed']": {
+      "kind": "string",
+      "nullable": false
+    },
+    "StrokeJoin | PluginAPI['mixed']": {
+      "kind": "string",
+      "nullable": false
+    },
+    "TextCase | PluginAPI['mixed']": {
+      "kind": "string",
+      "nullable": false
+    },
+    "TextDecoration | PluginAPI['mixed']": {
+      "kind": "string",
+      "nullable": false
+    },
+    "TextDecorationColor | PluginAPI['mixed'] | null": {
+      "kind": "object",
+      "nullable": true
+    },
+    "TextDecorationOffset | PluginAPI['mixed'] | null": {
+      "kind": "object",
+      "nullable": true
+    },
+    "TextDecorationStyle | PluginAPI['mixed'] | null": {
+      "kind": "string",
+      "nullable": true
+    },
+    "TextDecorationThickness | PluginAPI['mixed'] | null": {
+      "kind": "object",
+      "nullable": true
+    },
+    "TextPathStartData": {
+      "kind": "object",
+      "nullable": false
+    },
+    "TextWrapStyle | PluginAPI['mixed']": {
+      "kind": "string",
+      "nullable": false
+    },
+    "Transform": {
+      "kind": "array",
+      "nullable": false
+    },
+    "TransformModifier[]": {
+      "kind": "array",
+      "nullable": false
+    },
+    "VariableWidthStrokeProperties | null": {
+      "kind": "object",
+      "nullable": true
+    },
+    "VectorPaths": {
+      "kind": "array",
+      "nullable": false
+    },
+    "boolean": {
+      "kind": "boolean",
+      "nullable": false
+    },
+    "boolean | PluginAPI['mixed'] | null": {
+      "kind": "boolean",
+      "nullable": true
+    },
+    "number": {
+      "kind": "number",
+      "nullable": false
+    },
+    "number | PluginAPI['mixed']": {
+      "kind": "number",
+      "nullable": false
+    },
+    "number | null": {
+      "kind": "number",
+      "nullable": true
+    },
+    "string": {
+      "kind": "string",
+      "nullable": false
+    },
+    "| 'SQUARE' | 'ELLIPSE' | 'ROUNDED_RECTANGLE' | 'DIAMOND' | 'TRIANGLE_UP' | 'TRIANGLE_DOWN' | 'PARALLELOGRAM_RIGHT' | 'PARALLELOGRAM_LEFT' | 'ENG_DATABASE' | 'ENG_QUEUE' | 'ENG_FILE' | 'ENG_FOLDER' | 'TRAPEZOID' | 'PREDEFINED_PROCESS' | 'SHIELD' | 'DOCUMENT_SINGLE' | 'DOCUMENT_MULTIPLE' | 'MANUAL_INPUT' | 'HEXAGON' | 'CHEVRON' | 'PENTAGON' | 'OCTAGON' | 'STAR' | 'PLUS' | 'ARROW_LEFT' | 'ARROW_RIGHT' | 'SUMMING_JUNCTION' | 'OR' | 'SPEECH_BUBBLE' | 'INTERNAL_STORAGE'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "| 'TYPESCRIPT' | 'CPP' | 'RUBY' | 'CSS' | 'JAVASCRIPT' | 'HTML' | 'JSON' | 'GRAPHQL' | 'PYTHON' | 'GO' | 'SQL' | 'SWIFT' | 'KOTLIN' | 'RUST' | 'BASH' | 'PLAINTEXT' | 'DART'": {
+      "kind": "string",
+      "nullable": false
+    },
+    "| { [nodeProperty in 'visible' | 'characters' | 'mainComponent']?: string } | null": {
+      "kind": "object",
+      "nullable": true
+    }
+  }
+}

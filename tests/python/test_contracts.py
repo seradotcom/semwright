@@ -13,8 +13,8 @@ COMMANDS = json.loads((ROOT / "schemas/commands.json").read_text())
 REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
-    def test_all_162_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 92)
+    def test_all_212_schemas_valid(self):
+        self.assertEqual(len(COMMANDS), 106)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
@@ -87,6 +87,24 @@ class ContractTests(unittest.TestCase):
         for command in COMMANDS:
             with self.subTest(command=command["name"]):
                 assert_closed(command["output_schema"])
+
+    def test_workflow_outputs_have_no_unbounded_object_escape_hatches(self):
+        def walk(value, path):
+            if isinstance(value, dict):
+                self.assertIsNot(
+                    value.get("additionalProperties"),
+                    True,
+                    f"unbounded workflow output object at {path}",
+                )
+                for key, child in value.items():
+                    walk(child, f"{path}/{key}")
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    walk(child, f"{path}/{index}")
+
+        for command in COMMANDS:
+            if command["name"].startswith("workflow."):
+                walk(command["output_schema"], command["name"])
 
     def test_all_descriptors_bounded(self):
         for command in COMMANDS:
