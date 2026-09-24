@@ -95,7 +95,7 @@ assert dry_doctor["dry_run"] is True and dry_doctor["launched"] is False
 assert dry_doctor["executable_valid"] is True
 assert doctor["healthy"] is True and doctor["launched"] is True
 assert doctor["provider"] == "external-mcp:fixture"
-assert doctor["capabilities"] == 7
+assert doctor["capabilities"] == 8
 print("federation owner management smoke: PASS")
 PY
 
@@ -156,7 +156,7 @@ assert provider["interfaces"]["dynamic_capabilities"] is True
 
 assert search["ok"] is True
 rows = search["data"]["capabilities"]
-assert len(rows) == 7
+assert len(rows) == 8
 assert all(row["provenance"]["provider"] == "external-mcp:fixture" for row in rows)
 assert all(row["provenance"]["source"] == "external_mcp" for row in rows)
 assert all(row["provenance"]["untrusted_metadata"] is True for row in rows)
