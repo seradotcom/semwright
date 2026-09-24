@@ -55,6 +55,8 @@ pub fn commands() -> Vec<CommandDescriptor> {
                     "readonly_write":{"type":"boolean"},
                     "outside_home_write":{"type":"boolean"},
                     "outside_etc_write":{"type":"boolean"},
+                    "null_device_write":{"type":"boolean"},
+                    "other_device_write":{"type":"boolean"},
                     "host_secret_visible":{"type":"boolean"},
                     "host_pid_visible":{"type":"boolean"},
                     "host_loopback_connected":{"type":"boolean"},
@@ -62,8 +64,8 @@ pub fn commands() -> Vec<CommandDescriptor> {
                 },
                 "required":[
                     "allowed_read","allowed_write","readonly_write","outside_home_write",
-                    "outside_etc_write","host_secret_visible","host_pid_visible",
-                    "host_loopback_connected","environment"
+                    "outside_etc_write","null_device_write","other_device_write",
+                    "host_secret_visible","host_pid_visible","host_loopback_connected","environment"
                 ],
                 "additionalProperties":false
             }),
@@ -106,6 +108,8 @@ pub fn dispatch(command: &str, args: Value) -> Result<Value> {
             let readonly_write = std::fs::write("/workspace/ro/blocked.txt", b"blocked").is_ok();
             let outside_home_write = std::fs::write("/home/breakout", b"blocked").is_ok();
             let outside_etc_write = std::fs::write("/etc/breakout", b"blocked").is_ok();
+            let null_device_write = std::fs::write("/dev/null", b"discarded").is_ok();
+            let other_device_write = std::fs::write("/dev/zero", b"blocked").is_ok();
             let host_secret_visible = std::fs::read(host_secret).is_ok();
             let host_pid_visible = std::path::Path::new(&format!("/proc/{host_pid}")).exists();
             let address = SocketAddr::from(([127, 0, 0, 1], port));
@@ -120,6 +124,8 @@ pub fn dispatch(command: &str, args: Value) -> Result<Value> {
                 "readonly_write":readonly_write,
                 "outside_home_write":outside_home_write,
                 "outside_etc_write":outside_etc_write,
+                "null_device_write":null_device_write,
+                "other_device_write":other_device_write,
                 "host_secret_visible":host_secret_visible,
                 "host_pid_visible":host_pid_visible,
                 "host_loopback_connected":host_loopback_connected,
