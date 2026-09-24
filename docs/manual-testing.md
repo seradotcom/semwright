@@ -53,10 +53,14 @@ revoke during use. Check owner-session isolation, session close, pending request
 focus change between observation and action and cancellation without a stuck chooser.
 
 Capture only a disposable fixture. Check artifact permissions, PNG metadata, normal expiry,
-no bytes in audit and cleanup after normal/abnormal termination. Multi-monitor scaling and mapping are not considered solved by either the relative Notify fallback
+no bytes in audit and cleanup after normal/abnormal termination.
+
+Multi-monitor scaling and mapping are not considered solved by either the relative Notify fallback
 or EIS. The EIS protocol transport is implemented and contract-tested, PipeWire frame capture and
-restore-token/clipboard persistence have executed fixtures, but release evidence still requires a
-real portal-granted `ConnectToEIS` session with revocation/cancellation across supported desktops.
+restore-token/clipboard persistence have executed fixtures, and a real GNOME Wayland run now
+certifies owner-approved keyboard+pointer `ConnectToEIS` negotiation plus explicit stop/inactive
+lifecycle. Release evidence still requires focused input/coordinate behavior, cancellation of an
+in-flight input operation and broader portal-granted desktop coverage.
 
 ## App adapters
 
