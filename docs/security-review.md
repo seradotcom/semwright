@@ -75,15 +75,32 @@ python3 -m unittest discover -s tests/python -v
 node --test tests/js/bridge.test.mjs
 ```
 
-The reviewer should also execute the dedicated hostile-process suites on Linux:
+The reviewer should also execute the dedicated hostile-process suites on Linux. The
+plugin/driver hostile tests are feature-gated and ignored by default, so reproduce the
+same explicit opt-in used by hosted CI:
 
 ```sh
-cargo test --locked -p semwright-plugin-host --test adversarial -- --nocapture
-cargo test --locked -p semwright-driver-host --test adversarial_sandbox -- --nocapture
+cargo build --locked -p semwright-plugin-host --features test-tools \
+  --bin semwright-sandbox --bin semwright-adversarial-plugin-fixture
+SEMWRIGHT_TEST_PLUGIN_SANDBOX=1 \
+  cargo test --locked -p semwright-plugin-host --features test-tools \
+  --test adversarial -- --ignored --nocapture
+
+cargo build --locked -p semwright-driver-host --features test-tools \
+  --bin semwright-adversarial-driver-fixture
+SEMWRIGHT_TEST_DRIVER_SANDBOX=1 \
+  SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
+  cargo test --locked -p semwright-driver-host --features test-tools \
+  --test adversarial_sandbox -- --ignored --nocapture
+
 cargo test --locked -p semwright-core --test broker_contract -- --nocapture
 cargo test --locked -p semwright-core --test provider_runtime -- --nocapture
 cargo test --locked -p semwright-platform-linux --test eis_transport -- --nocapture
 ```
+
+A hostile-suite invocation that reports `running 0 tests` is not review evidence. Treat it
+as a harness/configuration failure and correct the feature/ignored-test invocation before
+continuing.
 
 Hosted CI evidence is useful but not a substitute for reviewing the code paths that make
 the test meaningful. For fuzzing, inspect the exact pinned nightly/cargo-fuzz versions and
