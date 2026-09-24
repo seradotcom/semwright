@@ -377,6 +377,27 @@ pub(super) fn operations() -> Vec<Op> {
             true,
         ),
         op(
+            "a11y.vision.analyze",
+            "Analyze bounded color-vision simulations and confusable color pairs",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "a11y.vision.preview",
+            "Create explicit reversible color-vision preview clones next to a target",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "verify.node",
+            "Export a bounded PNG artifact and structural measurement tree in one semantic read",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
             "analysis.typography",
             "Analyze bounded typography usage",
             ReadRisk,

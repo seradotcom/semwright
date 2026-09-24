@@ -14,8 +14,9 @@ function harness(editorType = "figma") {
   const product = fs.readFileSync(path.join(process.cwd(), "src/semantic_product.ts"), "utf8");
   const exports = fs.readFileSync(path.join(process.cwd(), "src/semantic_exports.ts"), "utf8");
   const admin = fs.readFileSync(path.join(process.cwd(), "src/semantic_admin.ts"), "utf8");
+  const verification = fs.readFileSync(path.join(process.cwd(), "src/semantic_verification.ts"), "utf8");
   const code = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
-  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + product + "\n" + exports + "\n" + admin + "\n" + code;
+  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + product + "\n" + exports + "\n" + admin + "\n" + verification + "\n" + code;
   const javascript = ts.transpileModule(source, {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
@@ -45,7 +46,13 @@ function harness(editorType = "figma") {
       animationStyles: [], manualKeyframeTracks: [], animations: [], timelines: [],
       resize(w: number, h: number) { this.width = w; this.height = h; },
       remove() { this.parent?.children.splice(this.parent.children.indexOf(this), 1); nodes.delete(this.id); },
-      clone() { const copy = scene(this.type, this.name + " copy"); copy.x=this.x; copy.y=this.y; page.appendChild(copy); return copy; },
+      clone() {
+        const copy = scene(this.type, this.name + " copy");
+        copy.x=this.x; copy.y=this.y; copy.width=this.width; copy.height=this.height;
+        copy.fills=JSON.parse(JSON.stringify(this.fills)); copy.strokes=JSON.parse(JSON.stringify(this.strokes));
+        copy.effects=JSON.parse(JSON.stringify(this.effects)); page.appendChild(copy); return copy;
+      },
+      async exportAsync() { return new Uint8Array([137,80,78,71,13,10,26,10,1,2,3]); },
       async setReactionsAsync(value: unknown[]) { this.reactions = value; },
       applyAnimationStyle(styleId: string, config: unknown) { this.animationStyles.push({styleId, config}); },
       removeAnimationStyle(styleId: string) { this.animationStyles = this.animationStyles.filter((x:any)=>x.styleId!==styleId); },
@@ -865,5 +872,61 @@ describe("semantic admin and editor-gated runtime",()=> {
     expect(result).toHaveLength(1);
     expect(result[0].language).toBe("JSON");
     expect(JSON.parse(result[0].code).id).toBe(node.id);
+  });
+});
+
+
+describe("semantic verification and color-vision workflows",()=>{
+  it("analyzes color-vision simulations without mutating the document",async()=>{
+    const h=harness();
+    const a=await h.call("rect.create",{name:"Red"});
+    const b=await h.call("rect.create",{name:"Green"},1);
+    h.nodes.get(a.value.id)!.fills=[{type:"SOLID",color:{r:1,g:0,b:0},opacity:1}];
+    h.nodes.get(b.value.id)!.fills=[{type:"SOLID",color:{r:0,g:1,b:0},opacity:1}];
+    const result=await h.call("a11y.vision.analyze",{
+      modes:["protanopia","deuteranopia"],threshold:0.25,minOriginalDistance:0.2,maxPairs:10
+    },2);
+    expect(result.ok).toBe(true);
+    expect(result.revision).toBe(2);
+    expect(result.value.model).toBe("machado-2009-full-severity");
+    expect(result.value.results.map((x:any)=>x.mode)).toEqual(["protanopia","deuteranopia"]);
+    expect(result.value.colorCount).toBe(2);
+  });
+
+  it("creates reversible color-vision preview clones and leaves the source unchanged",async()=>{
+    const h=harness();
+    const source=await h.call("rect.create",{name:"Brand",x:10,y:20,width:120,height:60});
+    const original=h.nodes.get(source.value.id)!;
+    original.fills=[{type:"SOLID",color:{r:1,g:0,b:0},opacity:1}];
+    const preview=await h.call("a11y.vision.preview",{
+      nodeId:source.value.id,modes:["protanopia"],gap:40,namePrefix:"Preview"
+    },1);
+    expect(preview.ok).toBe(true);
+    expect(preview.revision).toBe(2);
+    expect(preview.value.previews).toHaveLength(1);
+    const cloneId=preview.value.previews[0].node.id;
+    expect(cloneId).not.toBe(source.value.id);
+    expect(preview.value.previews[0].transformedPaints).toBe(1);
+    expect(h.nodes.get(source.value.id)!.fills[0].color).toEqual({r:1,g:0,b:0});
+    expect(h.nodes.get(cloneId)!.fills[0].color).not.toEqual({r:1,g:0,b:0});
+    const removed=await h.call("node.remove",{nodeId:cloneId},2);
+    expect(removed.ok).toBe(true);
+    expect(h.nodes.has(cloneId)).toBe(false);
+  });
+
+  it("verifies a node with a bounded PNG artifact plus structural measurements",async()=>{
+    const h=harness();
+    const frame=await h.call("frame.create",{name:"Verification",width:320,height:180});
+    const verified=await h.call("verify.node",{nodeId:frame.value.id,scale:1,name:"verify.png"},1);
+    expect(verified.ok).toBe(true);
+    expect(verified.revision).toBe(1);
+    expect(verified.value.mediaType).toBe("image/png");
+    expect(verified.value.nodeId).toBe(frame.value.id);
+    expect(verified.value.nodeCount).toBeGreaterThanOrEqual(1);
+    expect(verified.value.structure.name).toBe("Verification");
+    const chunk=await h.call("artifact.read",{token:verified.value.token,offset:0,length:64},1);
+    expect(chunk.ok).toBe(true);
+    const raw=globalThis.atob(String(chunk.value.base64));
+    expect([...raw.slice(0,8)].map(x=>x.charCodeAt(0))).toEqual([137,80,78,71,13,10,26,10]);
   });
 });

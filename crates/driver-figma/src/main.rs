@@ -1544,6 +1544,7 @@ fn artifact_from_result(command: &str, value: &Value) -> Option<JobArtifact> {
         operation,
         "export.node"
             | "motion.export"
+            | "verify.node"
             | "image.export"
             | "design_system.export.css"
             | "design_system.export.tailwind"
@@ -1895,6 +1896,11 @@ mod catalog_tests {
         assert_eq!(artifact.media_type.as_deref(), Some("image/png"));
         assert_eq!(artifact.bytes, Some(4096));
         artifact.validate().expect("valid JobArtifact");
+        let verified =
+            artifact_from_result("driver.figma.verify.node", &value).expect("verify artifact");
+        assert_eq!(verified.reference, "artifact:figma:artifact-token");
+        assert_eq!(verified.media_type.as_deref(), Some("image/png"));
+        verified.validate().expect("valid verify JobArtifact");
         assert!(artifact_from_result("driver.figma.node.get", &value).is_none());
     }
 

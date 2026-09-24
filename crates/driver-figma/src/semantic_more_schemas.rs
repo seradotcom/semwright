@@ -57,6 +57,9 @@ pub const OPERATIONS: &[&str] = &[
     "analysis.typography",
     "analysis.spacing",
     "analysis.clusters",
+    "a11y.vision.analyze",
+    "a11y.vision.preview",
+    "verify.node",
     "validate.lint",
     "font.status",
     "viewport.canvas_view.get",
@@ -104,6 +107,34 @@ fn no_args() -> Value {
 }
 fn node_id() -> Value {
     input(vec![("nodeId", s(256))], &["nodeId"])
+}
+fn vision_mode_schema() -> Value {
+    en(&["protanopia", "deuteranopia", "tritanopia"])
+}
+fn vision_rgb_schema(with_opacity: bool) -> Value {
+    let mut properties = Map::new();
+    properties.insert("r".into(), n(0.0, 1.0));
+    properties.insert("g".into(), n(0.0, 1.0));
+    properties.insert("b".into(), n(0.0, 1.0));
+    let mut required = vec!["r", "g", "b"];
+    if with_opacity {
+        properties.insert("opacity".into(), n(0.0, 1.0));
+        required.push("opacity");
+    }
+    json!({"type":"object","properties":properties,"required":required,"additionalProperties":false})
+}
+fn vision_pair_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "colorA":vision_rgb_schema(true),"colorB":vision_rgb_schema(true),
+            "simulatedA":vision_rgb_schema(false),"simulatedB":vision_rgb_schema(false),
+            "originalDistance":n(0.0,2.0),"simulatedDistance":n(0.0,2.0),
+            "nodeIdsA":arr(32,s(256)),"nodeIdsB":arr(32,s(256))
+        },
+        "required":["colorA","colorB","simulatedA","simulatedB","originalDistance","simulatedDistance","nodeIdsA","nodeIdsB"],
+        "additionalProperties":false
+    })
 }
 pub(crate) fn slot_settings_schema() -> Value {
     json!({
@@ -552,6 +583,29 @@ pub fn input_schema(name: &str) -> Option<Value> {
             vec![("nodeId", s(256)), ("slotSettings", slot_settings_schema())],
             &["nodeId", "slotSettings"],
         ),
+        "a11y.vision.analyze" => input(
+            vec![
+                ("rootNodeId", s(256)),
+                ("modes", arr(3, vision_mode_schema())),
+                ("threshold", n(0.0, 2.0)),
+                ("minOriginalDistance", n(0.0, 2.0)),
+                ("maxPairs", u(500)),
+            ],
+            &[],
+        ),
+        "a11y.vision.preview" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("modes", arr(3, vision_mode_schema())),
+                ("gap", n(0.0, 100_000.0)),
+                ("namePrefix", s(64)),
+            ],
+            &["nodeId"],
+        ),
+        "verify.node" => input(
+            vec![("nodeId", s(256)), ("scale", n(0.1, 4.0)), ("name", s(256))],
+            &["nodeId"],
+        ),
         "analysis.colors"
         | "analysis.typography"
         | "analysis.spacing"
@@ -805,6 +859,46 @@ pub fn output_schema(name: &str) -> Option<Value> {
         | "figjam.table.column.move"
         | "figjam.table.row.resize"
         | "figjam.table.column.resize" => loose_output(64),
+        "a11y.vision.analyze" => json!({
+            "type":"object",
+            "properties":{
+                "model":s(64),"metric":s(64),"rootNodeId":s(256),"colorCount":u(500),
+                "threshold":n(0.0,2.0),"minOriginalDistance":n(0.0,2.0),
+                "results":arr(3,json!({
+                    "type":"object",
+                    "properties":{
+                        "mode":vision_mode_schema(),"pairs":arr(500,vision_pair_schema()),
+                        "truncated":{"type":"boolean"}
+                    },
+                    "required":["mode","pairs","truncated"],"additionalProperties":false
+                }))
+            },
+            "required":["model","metric","rootNodeId","colorCount","threshold","minOriginalDistance","results"],
+            "additionalProperties":false
+        }),
+        "a11y.vision.preview" => json!({
+            "type":"object",
+            "properties":{
+                "sourceNodeId":s(256),
+                "previews":arr(3,json!({
+                    "type":"object",
+                    "properties":{
+                        "mode":vision_mode_schema(),"node":loose_output(64),"transformedPaints":u(10000)
+                    },
+                    "required":["mode","node","transformedPaints"],"additionalProperties":false
+                }))
+            },
+            "required":["sourceNodeId","previews"],"additionalProperties":false
+        }),
+        "verify.node" => json!({
+            "type":"object",
+            "properties":{
+                "token":s(128),"bytes":u(16_777_216),"mediaType":s(128),"name":s(256),
+                "nodeId":s(256),"scale":n(0.1,4.0),"nodeCount":u(2000),"structure":loose_output(128)
+            },
+            "required":["token","bytes","mediaType","name","nodeId","scale","nodeCount","structure"],
+            "additionalProperties":false
+        }),
         "analysis.colors" => json!({
             "type":"object",
             "properties":{"colors":arr(500, loose_output(16))},
