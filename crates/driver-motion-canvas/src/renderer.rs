@@ -368,7 +368,7 @@ async fn start_browser(
     runtime: &RendererRuntime,
     output: &Path,
     timeout_ms: u64,
-) -> Result<(tokio::process::Child, Option<u32>, String)> {
+) -> Result<(tokio::process::Child, String)> {
     let profile = output.join("chromium-profile");
     fs::create_dir_all(&profile)?;
     let mut command = Command::new(&runtime.browser);
@@ -411,11 +411,11 @@ async fn start_browser(
         .env("XDG_CONFIG_HOME", output.join(".config"))
         .env("XDG_DATA_HOME", output.join(".data"))
         .env("SEMWRIGHT_DRIVER_SANDBOX", "landlock-bwrap-v1");
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.as_std_mut().process_group(0);
-    }
+    // Keep Chromium free of Rust pre-exec process-group mutations. Earlier CI
+    // proved this exact pinned executable can cross the Driver Host exec boundary
+    // when launched normally; the Rust-owned path added process_group(0) and then
+    // failed before exec with EACCES. Browser lifetime is instead owned through
+    // CDP plus `terminate_browser`, while Bubblewrap remains the outer process tree.
     let mut child = command.spawn().map_err(|error| {
         Error::new(
             ErrorCode::BackendFailed,
@@ -425,7 +425,6 @@ async fn start_browser(
             ),
         )
     })?;
-    let pid = child.id();
     let active_port = profile.join("DevToolsActivePort");
     let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms.min(30_000));
     loop {
@@ -443,17 +442,17 @@ async fn start_browser(
                     .and_then(|line| line.parse::<u16>().ok())
                     .filter(|port| *port != 0);
                 if let Some(port) = port {
-                    return Ok((child, pid, format!("http://127.0.0.1:{port}")));
+                    return Ok((child, format!("http://127.0.0.1:{port}")));
                 }
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => {
-                terminate_tree(pid, &mut child).await;
+                terminate_browser(&mut child).await;
                 return Err(error.into());
             }
         }
         if std::time::Instant::now() >= deadline {
-            terminate_tree(pid, &mut child).await;
+            terminate_browser(&mut child).await;
             return Err(Error::new(
                 ErrorCode::Timeout,
                 "Pinned Chromium did not publish a bounded loopback CDP endpoint",
@@ -509,14 +508,13 @@ async fn run_render(
     // descendants, while Node's child_process transition is denied under the
     // same no-new-privs stack. Keep tool ownership in Rust: Chromium and the
     // narrow Node helper are siblings inside one Bubblewrap/Landlock boundary.
-    let (mut browser, browser_pid, cdp) =
-        match start_browser(runtime, &output, plan.timeout_ms).await {
-            Ok(browser) => browser,
-            Err(error) => {
-                let _ = fs::remove_dir_all(&output);
-                return Err(error);
-            }
-        };
+    let (mut browser, cdp) = match start_browser(runtime, &output, plan.timeout_ms).await {
+        Ok(browser) => browser,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&output);
+            return Err(error);
+        }
+    };
 
     let mut command = Command::new(&runtime.node);
     command
@@ -555,7 +553,7 @@ async fn run_render(
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
-            terminate_tree(browser_pid, &mut browser).await;
+            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -568,7 +566,7 @@ async fn run_render(
         Some(stdout) => stdout,
         None => {
             terminate_tree(pid, &mut child).await;
-            terminate_tree(browser_pid, &mut browser).await;
+            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
                 ErrorCode::Internal,
@@ -580,7 +578,7 @@ async fn run_render(
         Some(stderr) => stderr,
         None => {
             terminate_tree(pid, &mut child).await;
-            terminate_tree(browser_pid, &mut browser).await;
+            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
                 ErrorCode::Internal,
@@ -609,18 +607,18 @@ async fn run_render(
         status = child.wait() => status?,
         _ = cancel.cancelled() => {
             terminate_tree(pid, &mut child).await;
-            terminate_tree(browser_pid, &mut browser).await;
+            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Cancelled, "Render cancelled"));
         }
         _ = tokio::time::sleep(Duration::from_millis(plan.timeout_ms)) => {
             terminate_tree(pid, &mut child).await;
-            terminate_tree(browser_pid, &mut browser).await;
+            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Timeout, "Render exceeded timeout"));
         }
     };
-    terminate_tree(browser_pid, &mut browser).await;
+    terminate_browser(&mut browser).await;
     let stdout = out_task
         .await
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stdout task failed"))??;
@@ -680,6 +678,26 @@ async fn run_render(
             let _ = fs::remove_dir_all(&output);
             Err(error)
         }
+    }
+}
+
+async fn terminate_browser(child: &mut tokio::process::Child) {
+    if child.try_wait().ok().flatten().is_some() {
+        return;
+    }
+    #[cfg(unix)]
+    if let Some(pid) = child.id() {
+        // SAFETY: positive PID targets only the owned Chromium browser process.
+        unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+    }
+    #[cfg(not(unix))]
+    let _ = child.start_kill();
+    if tokio::time::timeout(Duration::from_secs(2), child.wait())
+        .await
+        .is_err()
+    {
+        let _ = child.start_kill();
+        let _ = child.wait().await;
     }
 }
 
