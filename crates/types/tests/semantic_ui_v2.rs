@@ -1,4 +1,7 @@
-use semwright_types::{NameMatch, NameOp, RelationMatch, Selector, UiNode};
+use semwright_types::{
+    ErrorCode, NameMatch, NameOp, RelationMatch, SelectionFacetMatch, Selector, TableFacetMatch,
+    TextFacetMatch, UiNode, UiSelectionFacet, UiTextFacet, ValueFacetMatch,
+};
 use serde_json::json;
 
 fn parse(value: serde_json::Value) -> UiNode {

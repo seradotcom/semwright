@@ -18,7 +18,10 @@ use uiautomation::patterns::{
     UITablePattern, UITextPattern, UITogglePattern, UITransformPattern, UIValuePattern,
     UIWindowPattern,
 };
-use uiautomation::{UIAutomation, UIElement, UITreeWalker, types::Point};
+use uiautomation::{
+    UIAutomation, UIElement, UITreeWalker,
+    types::{Point, WindowVisualState},
+};
 
 const MAX_NODES: usize = 2_000;
 const MAX_DEPTH: usize = 32;
@@ -326,10 +329,11 @@ impl State {
         }
 
         if let Ok(pattern) = element.get_pattern::<UIWindowPattern>() {
+            let visual_state = pattern.get_window_visual_state().ok();
             facets.window = Some(UiWindowFacet {
                 modal: pattern.is_modal().ok(),
-                minimized: pattern.is_minimized().ok(),
-                maximized: pattern.is_maximized().ok(),
+                minimized: visual_state.map(|state| state == WindowVisualState::Minimized),
+                maximized: visual_state.map(|state| state == WindowVisualState::Maximized),
                 can_minimize: pattern.can_minimize().ok(),
                 can_maximize: pattern.can_maximize().ok(),
             });

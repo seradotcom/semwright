@@ -67,7 +67,7 @@ func axOptionalNumber(_ e:AXUIElement,_ key:String)->Double?{
 }
 func axArrayCount(_ e:AXUIElement,_ key:String)->Int?{
     guard let raw=try? axRaw(e,key),CFGetTypeID(raw)==CFArrayGetTypeID() else{return nil}
-    return CFArrayGetCount(raw as! CFArray)
+    return (raw as! NSArray).count
 }
 func axSettable(_ e:AXUIElement,_ key:String)->Bool?{
     var settable:DarwinBoolean=false
