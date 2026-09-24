@@ -24,7 +24,7 @@ Generated source is written to a driver-owned content-addressed tree; agent text
 
 The browser uses a disposable Playwright context, no user profile, no credentials or extensions. Built assets are fulfilled through request interception from the synthetic `semwright.invalid` origin. Other requests are aborted. No Vite server listens on loopback or LAN.
 
-Firefox runs headless inside the mandatory Driver Host Bubblewrap + Landlock boundary; the helper does not expose an agent-controlled browser sandbox switch. Firefox's nested Linux content sandbox is disabled with `MOZ_DISABLE_CONTENT_SANDBOX=1` only after the helper verifies the Driver Host sandbox marker, because the inner tab sandbox cannot create its subprocess boundary inside this outer namespace. The Rust parent pins `TMPDIR` and XDG state to the job-specific owner-granted output directory so Playwright's temporary profile remains visible to Firefox subprocesses. Direct helper execution fails closed.
+Firefox runs headless inside the mandatory Driver Host Bubblewrap + Landlock boundary; the helper does not expose an agent-controlled browser sandbox switch. Firefox's nested Linux content sandbox and content-process split are disabled with `MOZ_DISABLE_CONTENT_SANDBOX=1` / `MOZ_FORCE_DISABLE_E10S=1` only after the helper verifies the Driver Host sandbox marker, because the inner tab sandbox cannot create its subprocess boundary inside this outer namespace. The Rust parent pins `TMPDIR` and XDG state to the job-specific owner-granted output directory so Playwright's temporary profile remains visible to Firefox subprocesses. Direct helper execution fails closed.
 
 ## Jobs and artifacts
 
