@@ -270,6 +270,19 @@ async fn app_scope_filters_discovery() {
     assert_eq!(n["count"], 0);
 }
 #[tokio::test]
+async fn app_scope_blocks_semantic_hit_test_observation() {
+    let mut config = PolicyConfig {
+        profile: Profile::Observe,
+        ..Default::default()
+    };
+    config.apps.insert("different.application".into());
+    let f = Fixture::with_policy(config);
+    let result = f.call("ui.hit_test", json!({"x":10,"y":10})).await;
+    assert_eq!(result.error.unwrap().code, ErrorCode::PolicyDenied);
+    assert_eq!(f.desktop.invocations(), 0);
+}
+
+#[tokio::test]
 async fn denied_audit_is_not_labelled_allow() {
     let f = Fixture::new(Profile::Observe);
     let n = f.find("Export").await;

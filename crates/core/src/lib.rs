@@ -539,10 +539,10 @@ impl Broker {
             .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?;
         walk(session, backend, value, &mut store, &mut BTreeMap::new(), 0)
     }
-    fn filter_apps(&self, value: &mut Value) {
+    fn filter_apps(&self, value: &mut Value) -> Result<()> {
         let apps = &self.policy.config().apps;
         if apps.is_empty() {
-            return;
+            return Ok(());
         }
         for key in ["nodes", "windows", "apps"] {
             if let Some(values) = value.get_mut(key).and_then(Value::as_array_mut) {
@@ -553,6 +553,16 @@ impl Broker {
                 });
             }
         }
+        if let Some(node) = value.get("node").and_then(Value::as_object)
+            && let Some(app) = node.get("app").and_then(Value::as_str)
+            && !apps.contains(app)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Observed semantic target is outside the configured application scope",
+            ));
+        }
+        Ok(())
     }
     pub fn execute(
         self: Arc<Self>,
@@ -927,7 +937,7 @@ impl Broker {
                     .await?
             };
             if request.command != "ui.find" && capability.metadata.source == SourceKind::Builtin {
-                self.filter_apps(&mut output);
+                self.filter_apps(&mut output)?;
                 if selected_provider
                     .as_ref()
                     .is_some_and(|provider| provider.emits_native_refs())
@@ -999,7 +1009,7 @@ impl Broker {
             .ok_or_else(|| Error::unavailable("UI backend missing"))?
             .execute(context, &self.describe("ui.snapshot")?, &snapshot_args)
             .await?;
-        self.filter_apps(&mut output);
+        self.filter_apps(&mut output)?;
         self.materialize(session, backend, &mut output)?;
         let nodes: Vec<UiNode> = serde_json::from_value(output["nodes"].clone())?;
         if let Some(old) = selector.ancestor.clone() {
