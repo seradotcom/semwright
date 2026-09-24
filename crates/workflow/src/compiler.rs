@@ -73,10 +73,10 @@ fn scalar_paths(value: &Value, base: &str, out: &mut Vec<(String, Value)>, depth
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum StructuralValue {
     Reference,
-    Identity,
+    Identity(String),
     Path,
     Digest,
     Revision,
@@ -94,12 +94,12 @@ fn structural_value(pointer: &str, value: &Value) -> Option<StructuralValue> {
         .replace("~0", "~");
     match leaf.as_str() {
         "ref" | "reference" => Some(StructuralValue::Reference),
-        "id" | "job_id" | "artifact_id" => Some(StructuralValue::Identity),
+        "id" | "job_id" | "artifact_id" => Some(StructuralValue::Identity(leaf)),
         "path" | "source_path" | "destination_path" | "resource" => Some(StructuralValue::Path),
         "sha256" | "expected_sha256" | "digest" | "checksum" => Some(StructuralValue::Digest),
         "revision" | "expected_revision" | "resulting_revision" => Some(StructuralValue::Revision),
         "root" | "source_root" | "destination_root" => Some(StructuralValue::Root),
-        _ if leaf.ends_with("_id") => Some(StructuralValue::Identity),
+        _ if leaf.ends_with("_id") => Some(StructuralValue::Identity(leaf)),
         _ => None,
     }
 }
@@ -123,7 +123,9 @@ fn prior_binding(
             let mut scalars = vec![];
             scalar_paths(result, "", &mut scalars, 0);
             for (pointer, value) in scalars {
-                if structural_value(&pointer, &value) == Some(target_kind) && &value == wanted {
+                if structural_value(&pointer, &value).as_ref() == Some(&target_kind)
+                    && &value == wanted
+                {
                     found.push((prior, pointer));
                 }
             }
@@ -1277,6 +1279,17 @@ mod tests {
         );
 
         assert_eq!(prior_binding(&[trace], 1, "/label", &[&path]), None);
+    }
+
+    #[test]
+    fn structural_dataflow_never_crosses_identity_families() {
+        let trace = structural_binding_trace(json!({"artifact_id":"same-id"}));
+        let value = json!("same-id");
+        assert_eq!(
+            prior_binding(&[trace.clone()], 1, "/artifact_id", &[&value]),
+            Some(json!({"$var":"/steps/step-1/artifact_id"}))
+        );
+        assert_eq!(prior_binding(&[trace], 1, "/job_id", &[&value]), None);
     }
 
     #[test]
