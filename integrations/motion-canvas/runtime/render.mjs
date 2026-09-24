@@ -90,6 +90,7 @@ async function main() {
     browser = await firefox.launch({
       headless:true,
       executablePath:a.browser,
+      firefoxUserPrefs:{'dom.ipc.forkserver.enable':false},
       env:{...process.env,MOZ_ASSUME_USER_NS:'0',MOZ_DISABLE_CONTENT_SANDBOX:'1'},
     });
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});

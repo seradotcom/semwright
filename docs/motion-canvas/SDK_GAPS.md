@@ -16,7 +16,7 @@ A later Motion Canvas pass can map its existing job registry onto protocol-v2 pr
 
 ## 3. Browser sandbox composition
 
-The renderer needs a real browser process plus writable temporary/profile state while the driver remains inside Bubblewrap + Landlock with `network=false`. The final Firefox route uses the existing generic Driver-only executable-mount opt-in: the runtime is read-only, execution is explicit, and the helper can launch only the SHA-256-pinned browser path supplied by Rust. Firefox's nested content sandbox is disabled only after the outer Driver Host marker is verified; the outer sandbox remains authoritative.
+The renderer needs a real browser process plus writable temporary/profile state while the driver remains inside Bubblewrap + Landlock with `network=false`. The final Firefox route uses the existing generic Driver-only executable-mount opt-in: the runtime is read-only, execution is explicit, and the helper can launch only the SHA-256-pinned browser path supplied by Rust. Firefox's nested content sandbox is disabled only after the outer Driver Host marker is verified; the outer sandbox remains authoritative. The helper also disables Firefox's Linux fork-server preference because that broker failed to create tab subprocesses inside the already-isolated namespace; this is a fixed compatibility choice, not an agent-controlled escape hatch.
 
 The current driver package model still does not express the complete auxiliary Node/browser bundle or profile storage as a first-class distribution primitive. A future generic tool-dependency package could remove the owner-prepared runtime mount without broadening filesystem access.
 
