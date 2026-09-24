@@ -14,6 +14,7 @@ export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=Hyprland
 export XDG_SESSION_DESKTOP=Hyprland
 export AQ_NO_KMS_REQUIREMENT=1
+export AQ_NO_MODIFIERS=1
 export HYPRLAND_NO_RT=1
 export HYPRLAND_NO_SD_NOTIFY=1
 export HYPRLAND_NO_SD_VARS=1
@@ -29,7 +30,25 @@ misc {
 windowrulev2 = float,title:^(Semwright Hyprland Fixture)$
 CONF
 
-Hyprland --config "$home/hyprland.conf"   >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/hyprland.log" 2>&1 &
+# Aquamarine needs either a usable DRM seat or a parent Wayland compositor. GitHub-hosted
+# Docker has neither, so provide a real Weston headless parent and exercise Hyprland's
+# Wayland backend rather than synthesizing Hyprland IPC state.
+weston --backend=headless-backend.so --socket=wayland-parent --idle-time=0 \
+  >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/weston.log" 2>&1 &
+weston_pid=$!
+for _ in $(seq 1 200); do
+  [ -S "$XDG_RUNTIME_DIR/wayland-parent" ] && break
+  if ! kill -0 "$weston_pid" 2>/dev/null; then
+    cat "$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/weston.log"
+    exit 1
+  fi
+  sleep 0.05
+done
+test -S "$XDG_RUNTIME_DIR/wayland-parent"
+export WAYLAND_DISPLAY=wayland-parent
+
+Hyprland --config "$home/hyprland.conf" \
+  >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/hyprland.log" 2>&1 &
 hyprland_pid=$!
 cleanup() {
   status=$?
@@ -40,6 +59,13 @@ cleanup() {
   done
   kill -KILL "$hyprland_pid" 2>/dev/null || true
   wait "$hyprland_pid" 2>/dev/null || true
+  kill -TERM "$weston_pid" 2>/dev/null || true
+  for _ in $(seq 1 40); do
+    kill -0 "$weston_pid" 2>/dev/null || break
+    sleep 0.05
+  done
+  kill -KILL "$weston_pid" 2>/dev/null || true
+  wait "$weston_pid" 2>/dev/null || true
   rm -rf "$runtime" "$home"
   exit "$status"
 }
@@ -47,7 +73,7 @@ trap cleanup EXIT INT TERM
 
 for _ in $(seq 1 200); do
   instance=$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | head -1 || true)
-  wayland=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name "wayland-*" -printf "%f\n" 2>/dev/null | head -1 || true)
+  wayland=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name "wayland-*" ! -name "wayland-parent" -printf "%f\n" 2>/dev/null | head -1 || true)
   if [ -n "${instance:-}" ] && [ -n "${wayland:-}" ]; then
     export HYPRLAND_INSTANCE_SIGNATURE="$instance"
     export WAYLAND_DISPLAY="$wayland"
