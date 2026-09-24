@@ -237,13 +237,22 @@ jobs:
           done
           if test -f /etc/ld.so.cache; then probe+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache); fi
           probe+=(--ro-bind "$PROBE_DIR/driver" /plugin/bin --ro-bind "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime" /workspace/runtime --bind "$PROBE_DIR/trace" /workspace/trace --setenv PATH /usr/bin:/bin --setenv HOME /home --setenv LANG C.UTF-8 --chdir /tmp)
-          for mode in apparmor_only apparmor_as apparmor_limits apparmor_landlock; do
+          for mode in apparmor_only apparmor_as apparmor_as_40 apparmor_as_48 apparmor_as_64 apparmor_limits apparmor_landlock; do
             if test "$mode" = apparmor_only; then
               source=/usr/bin/setpriv
               args=(--no-new-privs /plugin/bin)
             elif test "$mode" = apparmor_as; then
               source=/usr/bin/setpriv
               args=(--no-new-privs /usr/bin/prlimit --as=17179869184:17179869184 -- /plugin/bin)
+            elif test "$mode" = apparmor_as_40; then
+              source=/usr/bin/setpriv
+              args=(--no-new-privs /usr/bin/prlimit --as=42949672960:42949672960 -- /plugin/bin)
+            elif test "$mode" = apparmor_as_48; then
+              source=/usr/bin/setpriv
+              args=(--no-new-privs /usr/bin/prlimit --as=51539607552:51539607552 -- /plugin/bin)
+            elif test "$mode" = apparmor_as_64; then
+              source=/usr/bin/setpriv
+              args=(--no-new-privs /usr/bin/prlimit --as=68719476736:68719476736 -- /plugin/bin)
             elif test "$mode" = apparmor_limits; then
               source=/usr/bin/setpriv
               args=(--no-new-privs /usr/bin/prlimit --nofile=128:128 --nproc=64:64 --cpu=40:40 --as=17179869184:17179869184 --fsize=16777216:16777216 --core=0:0 -- /plugin/bin)
