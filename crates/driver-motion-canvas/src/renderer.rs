@@ -523,7 +523,22 @@ async fn run_render(
             "Renderer did not report success",
         ));
     }
-    match validate_artifacts(&output, plan) {
+    // Full-film validation decodes and hashes every rendered PNG. Keep that bounded
+    // synchronous work off the current-thread protocol runtime so render.status and
+    // cancellation requests remain responsive while large artifacts are certified.
+    let validation_output = output.clone();
+    let validation_plan = plan.clone();
+    let validation = tokio::task::spawn_blocking(move || {
+        validate_artifacts(&validation_output, &validation_plan)
+    })
+    .await
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Render artifact validation worker failed",
+        )
+    })?;
+    match validation {
         Ok(artifact) => Ok(artifact),
         Err(error) => {
             let _ = fs::remove_dir_all(&output);
