@@ -17,6 +17,7 @@ pub const OPERATIONS: &[&str] = &[
     "image.create",
     "image.export",
     "image.inspect",
+    "instance.main_component.set",
     "media.fill.apply",
     "motion.playhead.get",
     "node.plugin_data.get",
@@ -26,6 +27,7 @@ pub const OPERATIONS: &[&str] = &[
     "page.divider.create",
     "slice.create",
     "video.create",
+    "figjam.stuck_to.set",
     "figjam.table.inspect",
     "figjam.table.cell.inspect",
     "figjam.table.cell.text.set",
@@ -115,6 +117,26 @@ pub fn input_schema(name: &str) -> Option<Value> {
             &["nodeIds"],
         ),
         "group.ungroup" | "figjam.table.inspect" => node_id(),
+        "instance.main_component.set" => input(
+            vec![
+                ("nodeId", s(256)),
+                (
+                    "componentId",
+                    json!({"type":["string","null"],"maxLength":256}),
+                ),
+            ],
+            &["nodeId", "componentId"],
+        ),
+        "figjam.stuck_to.set" => input(
+            vec![
+                ("nodeId", s(256)),
+                (
+                    "targetNodeId",
+                    json!({"type":["string","null"],"maxLength":256}),
+                ),
+            ],
+            &["nodeId", "targetNodeId"],
+        ),
         "slice.create" => input(
             vec![
                 ("name", s(256)),
@@ -419,6 +441,25 @@ pub fn output_schema(name: &str) -> Option<Value> {
         "node.relaunch_data.set" => {
             json!({"type":"object","properties":{"count":u(32)},"required":["count"],"additionalProperties":false})
         }
+        "instance.main_component.set" => json!({
+            "type":"object",
+            "properties":{
+                "nodeId":s(256),
+                "mainComponentId":{"type":["string","null"],"maxLength":256},
+                "overridesCleared":{"type":"boolean"}
+            },
+            "required":["nodeId","mainComponentId","overridesCleared"],
+            "additionalProperties":false
+        }),
+        "figjam.stuck_to.set" => json!({
+            "type":"object",
+            "properties":{
+                "nodeId":s(256),
+                "targetNodeId":{"type":["string","null"],"maxLength":256}
+            },
+            "required":["nodeId","targetNodeId"],
+            "additionalProperties":false
+        }),
         "node.properties.inspect" => json!({
             "type":"object",
             "properties":{

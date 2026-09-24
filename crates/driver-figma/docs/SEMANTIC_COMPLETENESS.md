@@ -33,7 +33,7 @@ The generated Plugin API inventory currently contains 18 global interfaces, 14 a
 
 The REST inventory maps all 54 operationIds in the pinned official OpenAPI snapshot, plus one documented semantic discovery helper. `cloud.status` reports whether the owner-provisioned credential transport is available.
 
-The advertised agent-facing catalog currently contains 383 capabilities: 324 Plugin API operations, 56 cloud operations and three local driver/session operations.
+The advertised agent-facing catalog currently contains 385 capabilities: 326 Plugin API operations, 56 cloud operations and three local driver/session operations.
 
 ## What completeness does not mean
 

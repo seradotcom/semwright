@@ -172,8 +172,8 @@ function harness(editorType = "figma") {
     createComponent: component,
     createComponentFromNode(){ return component(); },
     combineAsVariants(cs:AnyNode[]){ const n=scene("COMPONENT_SET","Variants"); n.children=cs; for(const c of cs)c.parent=n; page.appendChild(n); return n; },
-    createSticky(){ const n=scene("STICKY","Sticky"); page.appendChild(n); return n; },
-    createShapeWithText(){ const n=scene("SHAPE_WITH_TEXT","Shape"); page.appendChild(n); return n; },
+    createSticky(){ const n=scene("STICKY","Sticky"); n.stuckTo=null; page.appendChild(n); return n; },
+    createShapeWithText(){ const n=scene("SHAPE_WITH_TEXT","Shape"); n.stuckTo=null; page.appendChild(n); return n; },
     createConnector(){ const n=scene("CONNECTOR","Connector"); page.appendChild(n); return n; },
     createCodeBlock(){ const n=scene("CODE_BLOCK","Code"); n.code=""; page.appendChild(n); return n; },
     createImage(data:Uint8Array){ const hash=`image:${nextMedia++}`;const bytes=new Uint8Array(data);const image={hash,async getBytesAsync(){return bytes},async getSizeAsync(){return {width:1,height:1}}};images.set(hash,image);return image; },
@@ -374,6 +374,39 @@ describe("plugin runtime behavior",()=>{
     const inspected=await h.call("instance.inspect",{nodeId:instance.value.id},11);
     expect(inspected.value.mainComponent.id).toBe(secondary.value.id);
     expect((await h.call("instance.detach",{nodeId:instance.value.id},11)).ok).toBe(true);
+  });
+
+  it("sets an instance main component explicitly and attaches FigJam stickable nodes",async()=>{
+    const h=harness();
+    const primary=await h.call("component.create",{name:"Primary"});
+    const secondary=await h.call("component.create",{name:"Secondary"},1);
+    const instance=await h.call("instance.create",{componentId:primary.value.id},2);
+    const reassigned=await h.call("instance.main_component.set",{
+      nodeId:instance.value.id,componentId:secondary.value.id
+    },3);
+    expect(reassigned.ok).toBe(true);
+    expect(reassigned.value).toEqual({
+      nodeId:instance.value.id,
+      mainComponentId:secondary.value.id,
+      overridesCleared:true,
+    });
+    expect(h.nodes.get(instance.value.id)!.mainComponent.id).toBe(secondary.value.id);
+
+    const figjam=harness("figjam");
+    const sticky=await figjam.call("figjam.sticky.create",{name:"Note"});
+    const target=await figjam.call("figjam.shape.create",{name:"Target"},1);
+    const attached=await figjam.call("figjam.stuck_to.set",{
+      nodeId:sticky.value.id,targetNodeId:target.value.id
+    },2);
+    expect(attached.ok).toBe(true);
+    expect(attached.value.targetNodeId).toBe(target.value.id);
+    expect(figjam.nodes.get(sticky.value.id)!.stuckTo.id).toBe(target.value.id);
+    const detached=await figjam.call("figjam.stuck_to.set",{
+      nodeId:sticky.value.id,targetNodeId:null
+    },3);
+    expect(detached.ok).toBe(true);
+    expect(detached.value.targetNodeId).toBeNull();
+    expect(figjam.nodes.get(sticky.value.id)!.stuckTo).toBeNull();
   });
 
   it("invalidates stale plans on remote collaborator changes only",async()=>{

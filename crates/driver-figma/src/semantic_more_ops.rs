@@ -181,6 +181,20 @@ pub(super) fn operations() -> Vec<Op> {
             true,
         ),
         op(
+            "instance.main_component.set",
+            "Assign an instance main component directly, clearing overrides per Figma semantics",
+            Destructive,
+            Idempotency::Destructive,
+            false,
+        ),
+        op(
+            "figjam.stuck_to.set",
+            "Attach or detach a stickable FigJam node using a semantic target node ref",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
             "figjam.table.inspect",
             "Inspect a FigJam table",
             ReadRisk,

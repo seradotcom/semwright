@@ -15,7 +15,7 @@ The production route does **not** patch `app.asar`, expose CDP, provide coordina
 
 ## Status
 
-The semantic-completeness branch currently advertises 383 `driver.figma.*` capabilities: 324 typed Plugin API operations, 56 cloud operations (54 pinned official REST operations, one documented semantic discovery helper, plus `cloud.status`), and three local driver/session operations.
+The semantic-completeness branch currently advertises 385 `driver.figma.*` capabilities: 326 typed Plugin API operations, 56 cloud operations (54 pinned official REST operations, one documented semantic discovery helper, plus `cloud.status`), and three local driver/session operations.
 
 The Plugin API coverage compiler is pinned to `@figma/plugin-typings 1.139.0`. Its generated inventory covers 18 global interfaces, 14 auxiliary interfaces, 34 scene-node types, 213 global members, 49 auxiliary method entries, and 3,699 scene-node members with zero unclassified public method names.
 

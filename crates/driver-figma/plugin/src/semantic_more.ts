@@ -144,6 +144,26 @@ async function handleSemanticMore(request: BridgeRequest, a: any): Promise<Bridg
       const clean:Record<string,string>={};for(const [k,v] of Object.entries(data)){if(k.length>128||String(v).length>256)throw new Error("relaunch_data_limit");clean[k]=String(v)}node.setRelaunchData(clean);
       return ok(request.id,{count:Object.keys(clean).length},true);
     }
+    case "instance.main_component.set": {
+      const instance=await nodeById(String(a.nodeId));
+      if(instance.type!=="INSTANCE")throw new Error("not_instance");
+      let component:ComponentNode|null=null;
+      if(a.componentId!==null){
+        const candidate=await nodeById(String(a.componentId));
+        if(candidate.type!=="COMPONENT")throw new Error("not_component");
+        component=candidate;
+      }
+      instance.mainComponent=component;
+      return ok(request.id,{nodeId:instance.id,mainComponentId:component?.id??null,overridesCleared:true},true);
+    }
+    case "figjam.stuck_to.set": {
+      extraRequireEditor("figjam");
+      const node=asScene(await nodeById(String(a.nodeId))) as any;
+      if(!("stuckTo" in node))throw new Error("node_not_stickable");
+      const target=a.targetNodeId===null?null:asScene(await nodeById(String(a.targetNodeId)));
+      node.stuckTo=target;
+      return ok(request.id,{nodeId:node.id,targetNodeId:target?.id??null},true);
+    }
     case "figjam.table.inspect": {
       extraRequireEditor("figjam");return ok(request.id,moreTableSummary(await moreTable(a.nodeId)));
     }
