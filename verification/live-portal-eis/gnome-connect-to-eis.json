@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "status": "PASS_WITH_REMAINING_LIVE_GAPS",
+  "scope": "owner-approved GNOME Wayland RemoteDesktop ConnectToEIS negotiation and lifecycle",
+  "observed_at_utc": "2026-09-24T02:28:40Z",
+  "source": {
+    "baseline_before_fix": "13b486aa67f89c039bc526321cccd869d1a68bd8",
+    "fix_pr": 69,
+    "fix_head": "02d5cdc2e556a39b78232ed293421abd8a7c944b",
+    "merge_commit": "49263f74397cb1b34b6d67f94bd239348fa4e486"
+  },
+  "environment": {
+    "os": "Ubuntu 24.04.1 LTS",
+    "desktop": "GNOME Shell 46.0",
+    "session_type": "wayland",
+    "portal_backend": "xdg-desktop-portal-gnome",
+    "remote_desktop_interface_version_runtime_recheck": 4
+  },
+  "request": {
+    "keyboard": true,
+    "pointer": true,
+    "persist_mode": 0,
+    "clipboard": false
+  },
+  "broker_approval": {
+    "human_console_approval": true,
+    "policy_decision": "allow_after_confirmation",
+    "challenge_or_response_committed": false
+  },
+  "portal_result": {
+    "ok": true,
+    "consent": "granted",
+    "devices": 3,
+    "eis": true,
+    "input_route": "eis",
+    "ephemeral": true,
+    "restore_attempted": false,
+    "restore_saved": false
+  },
+  "lifecycle": {
+    "explicit_stop_audited": true,
+    "post_stop_status_audited": true,
+    "post_stop_eis_inactive": true,
+    "earlier_cancelled_start_audited": true
+  },
+  "certified": {
+    "human_broker_approval": true,
+    "desktop_portal_consent": true,
+    "connect_to_eis_keyboard_pointer_negotiation": true,
+    "explicit_session_stop": true,
+    "post_stop_inactive_state": true
+  },
+  "not_certified": {
+    "focused_input_injection": true,
+    "coordinate_behavior": true,
+    "input_operation_cancellation": true,
+    "multi_desktop_portal_matrix": true
+  },
+  "source_file_sha256": {
+    "portal_start_output": "504094fb04216bf67a4a996fbd528cdcd843df980237472280db82d9bc2209da",
+    "audit_jsonl": "47ca6e92d4d4207178eb6348ee6e96722d5a6217e3623670dac85306b34a0175",
+    "daemon_pty_log": "c825a79d905e313b0515ee6bd4c0e7c862e5a112ff7ac8a0636bea19916a78b0"
+  },
+  "privacy": {
+    "request_ids_committed": false,
+    "session_tags_committed": false,
+    "approval_challenge_committed": false,
+    "session_token_committed": false,
+    "raw_audit_log_committed": false
+  },
+  "notes": [
+    "An earlier owner-approved baseline attempt with keyboard and pointer reached ConnectToEIS but timed out during EIS device negotiation.",
+    "A pointer-only baseline session connected successfully and was explicitly stopped.",
+    "After PR 69, the real keyboard-plus-pointer session negotiated three EIS devices and used the EIS route.",
+    "This evidence intentionally does not convert R02 to PASS until focused input, coordinate behavior and input-operation cancellation are executed."
+  ]
+}
