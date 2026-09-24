@@ -108,7 +108,17 @@ async function startChromium(executable, output, timeoutMs) {
   while (Date.now() < deadline) {
     const spawnError = await Promise.race([spawnFailure, sleep(25).then(() => null)]);
     if (spawnError) {
-      fail(`Chromium spawn failed after X_OK passed (mode=${(metadata.mode & 0o777).toString(8)}): ${String(spawnError)}`);
+      const apparmor = await fs.readFile('/proc/self/attr/current', 'utf8').then(v => v.trim()).catch(error => `unavailable:${String(error)}`);
+      const probe = executable => new Promise(resolve => {
+        let settled = false;
+        const finish = value => { if (!settled) { settled = true; resolve(value); } };
+        const process = spawn(executable, ['--version'], {stdio:'ignore'});
+        process.once('error', error => finish(`error:${String(error)}`));
+        process.once('exit', (code, signal) => finish(`exit:${code}:${signal}`));
+        setTimeout(() => { if (!settled) { process.kill('SIGKILL'); finish('timeout'); } }, 1500);
+      });
+      const [trueProbe, nodeProbe] = await Promise.all([probe('/usr/bin/true'), probe(process.execPath)]);
+      fail(`Chromium spawn failed after X_OK passed (mode=${(metadata.mode & 0o777).toString(8)}, apparmor=${apparmor}, true_probe=${trueProbe}, node_probe=${nodeProbe}): ${String(spawnError)}`);
     }
     if (exited(child)) fail(`Chromium exited before CDP startup (code=${child.exitCode}, signal=${child.signalCode}): ${stderr}`);
     try {

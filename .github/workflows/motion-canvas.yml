@@ -178,6 +178,21 @@ jobs:
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
           cargo test --locked -p semwright-driver-motion-canvas motion_driver_runs_through_real_driver_host_without_network -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/conformance.log
           cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
+      - name: Capture sandbox denial diagnostics
+        if: failure()
+        run: |
+          mkdir -p verification/motion-canvas-host
+          {
+            echo '=== aa-status ==='
+            sudo aa-status || true
+            echo '=== loaded bwrap profile ==='
+            sudo cat /etc/apparmor.d/bwrap-userns-restrict || true
+            echo '=== recent kernel AppArmor/audit ==='
+            sudo journalctl -k --no-pager --since '-20 min' 2>/dev/null | grep -Ei 'apparmor|audit|denied|bwrap|chrome' || true
+            echo '=== dmesg tail ==='
+            sudo dmesg 2>/dev/null | grep -Ei 'apparmor|audit|denied|bwrap|chrome' | tail -300 || true
+          } > verification/motion-canvas-host/sandbox-denials.log 2>&1
+          cat verification/motion-canvas-host/sandbox-denials.log
       - name: Measure Chromium virtual-address-space requirement
         working-directory: integrations/motion-canvas/runtime
         run: |
