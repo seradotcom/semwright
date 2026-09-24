@@ -168,7 +168,7 @@ jobs:
             demos/launch-film/semwright-motion.json \
             "$RUNNER_TEMP/launch-sound.wav" \
             "$RUNNER_TEMP/launch-work" \
-            "$RUNNER_TEMP/launch-output" | tee "$RUNNER_TEMP/launch-build.log"
+            "$RUNNER_TEMP/launch-output" 2>&1 | tee "$RUNNER_TEMP/launch-build.log"
       - name: Capture sandbox denial diagnostics
         if: failure()
         run: |
