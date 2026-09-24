@@ -22,3 +22,5 @@ tokio.workspace = true
 semwright-platform-linux.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 semwright-platform-macos.workspace = true
+[target.'cfg(target_os = "windows")'.dependencies]
+semwright-platform-windows.workspace = true

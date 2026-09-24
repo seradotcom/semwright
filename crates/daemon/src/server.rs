@@ -1,19 +1,24 @@
 //! Peer-authenticated local IPC, resumable bounded sessions and request cancellation.
 use semwright_core::Broker;
-use semwright_protocol::{
-    ClientMessage, ServerMessage, current_uid, private_directory, read_frame, validate_peer,
-    write_frame,
-};
+use semwright_protocol::{ClientMessage, ServerMessage, read_frame, write_frame};
+#[cfg(unix)]
+use semwright_protocol::{current_uid, private_directory};
 use semwright_types::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    os::unix::fs::{MetadataExt, PermissionsExt},
-    path::{Path, PathBuf},
+    path::Path,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+#[cfg(unix)]
+use std::{
+    os::unix::fs::{MetadataExt, PermissionsExt},
+    path::PathBuf,
+};
+#[cfg(unix)]
+use tokio::net::UnixListener;
 use tokio::{
-    net::{UnixListener, UnixStream},
+    io::{AsyncRead, AsyncWrite},
     sync::{Semaphore, mpsc},
     task::JoinSet,
 };
@@ -164,10 +169,12 @@ impl Drop for Running {
         self.sessions.finish(&self.session, &self.id);
     }
 }
+#[cfg(unix)]
 struct SocketFile {
     path: PathBuf,
     inode: u64,
 }
+#[cfg(unix)]
 impl Drop for SocketFile {
     fn drop(&mut self) {
         if std::fs::symlink_metadata(&self.path)
@@ -177,14 +184,16 @@ impl Drop for SocketFile {
         }
     }
 }
-async fn connection(
-    mut stream: UnixStream,
+async fn connection<S>(
+    mut stream: S,
     broker: Arc<Broker>,
     sessions: Arc<Sessions>,
     stop: CancellationToken,
     jobs: TaskTracker,
-) -> Result<()> {
-    validate_peer(&stream)?;
+) -> Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     let message = tokio::time::timeout(
         Duration::from_secs(5),
         read_frame::<_, ClientMessage>(&mut stream),
@@ -226,9 +235,7 @@ async fn connection(
     .await?;
     let id = unique_id();
     let local_stop = stop.child_token();
-    let (read, write) = stream.into_split();
-    let mut read = read;
-    let mut write = write;
+    let (mut read, mut write) = tokio::io::split(stream);
     let (tx, mut rx) = mpsc::channel::<ServerMessage>(32);
     let writer_stop = local_stop.clone();
     let writer = tokio::spawn(async move {
@@ -423,7 +430,10 @@ async fn connection(
     let _ = writer.await;
     Ok(())
 }
+
+#[cfg(unix)]
 pub async fn serve(path: &Path, broker: Arc<Broker>, stop: CancellationToken) -> Result<()> {
+    use semwright_platform_services::validate_peer;
     let parent = path
         .parent()
         .ok_or_else(|| Error::invalid("Broker socket requires an absolute parent directory"))?;
@@ -452,13 +462,54 @@ pub async fn serve(path: &Path, broker: Arc<Broker>, stop: CancellationToken) ->
             _=stop.cancelled()=>break,
             joined=handlers.join_next(),if !handlers.is_empty()=>{let _=joined;},
             accepted=listener.accept()=>{
-                let(stream,_)=accepted?;if validate_peer(&stream).is_err(){continue;}
+                let(stream,_)=accepted?;
+                if validate_peer(&stream).is_err(){continue;}
                 let Ok(permit)=connections.clone().try_acquire_owned()else{continue};
                 let broker=broker.clone();let sessions=sessions.clone();let stop=stop.clone();let jobs=jobs.clone();
                 handlers.spawn(async move{let _permit=permit;let _=connection(stream,broker,sessions,stop,jobs).await;});
             },
         }
     }
+    finish_server(sessions, handlers, jobs, broker).await
+}
+
+#[cfg(target_os = "windows")]
+pub async fn serve(path: &Path, broker: Arc<Broker>, stop: CancellationToken) -> Result<()> {
+    let sessions = Arc::new(Sessions::default());
+    let connections = Arc::new(Semaphore::new(64));
+    let jobs = TaskTracker::new();
+    let mut handlers = JoinSet::new();
+    let mut first = true;
+    let mut listener = semwright_platform_services::windows_pipe_server(path, first)?;
+    first = false;
+
+    loop {
+        tokio::select! {
+            _=stop.cancelled()=>break,
+            joined=handlers.join_next(),if !handlers.is_empty()=>{let _=joined;},
+            connected=listener.connect()=>{
+                connected?;
+                if semwright_platform_services::validate_windows_server_peer(&listener).is_err() {
+                    listener = semwright_platform_services::windows_pipe_server(path, first)?;
+                    continue;
+                }
+                let connected = listener;
+                listener = semwright_platform_services::windows_pipe_server(path, first)?;
+                let Ok(permit)=connections.clone().try_acquire_owned()else{continue};
+                let broker=broker.clone();let sessions=sessions.clone();let stop=stop.clone();let jobs=jobs.clone();
+                handlers.spawn(async move{let _permit=permit;let _=connection(connected,broker,sessions,stop,jobs).await;});
+            },
+        }
+    }
+    finish_server(sessions, handlers, jobs, broker).await
+}
+
+async fn finish_server(
+    sessions: Arc<Sessions>,
+    mut handlers: JoinSet<()>,
+    jobs: TaskTracker,
+    broker: Arc<Broker>,
+) -> Result<()> {
     sessions.cancel_all();
     while handlers.join_next().await.is_some() {}
     jobs.close();
@@ -466,6 +517,7 @@ pub async fn serve(path: &Path, broker: Arc<Broker>, stop: CancellationToken) ->
     broker.shutdown().await;
     Ok(())
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
