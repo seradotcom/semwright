@@ -87,7 +87,7 @@ async function main() {
     // Firefox remains inside the outer Driver Host Bubblewrap + Landlock boundary.
     // Temporary/profile state is pinned by the Rust parent to the job output grant.
     const launch = {headless:true};
-    launch.env = {...process.env, MOZ_ASSUME_USER_NS:'0', MOZ_DISABLE_CONTENT_SANDBOX:'1'};
+    launch.env = {...process.env, MOZ_ASSUME_USER_NS:'0', MOZ_DISABLE_CONTENT_SANDBOX:'1', MOZ_WEBRENDER:'0'};
     if (a.browser) launch.executablePath = a.browser;
     browser = await firefox.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});
