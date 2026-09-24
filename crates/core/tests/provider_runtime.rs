@@ -48,7 +48,11 @@ struct FixtureProvider {
 impl FixtureProvider {
     fn new() -> Arc<Self> {
         let identity = ProviderIdentity::external(SourceKind::Driver, "fixture", "1").unwrap();
-        let commands = vec![command(&identity, "count"), command(&identity, "offline")];
+        let commands = vec![
+            command(&identity, "count"),
+            command(&identity, "offline"),
+            command(&identity, "progress"),
+        ];
         Arc::new(Self {
             identity,
             commands: Mutex::new(commands),
@@ -109,8 +113,8 @@ impl Provider for FixtureProvider {
             dynamic_capabilities: true,
             cooperative_cancellation: true,
             events: true,
-            progress: false,
-            artifacts: false,
+            progress: true,
+            artifacts: true,
             health: true,
         }
     }
@@ -152,6 +156,24 @@ impl Provider for FixtureProvider {
         }
         if self.malformed.load(Ordering::SeqCst) {
             return Ok(json!({"value":"invalid"}));
+        }
+        if descriptor.name.ends_with("progress") {
+            let _ = self.signal.send(ProviderSignal::Progress {
+                request_id: context.request_id.clone(),
+                progress: JobProgress {
+                    completed: 2,
+                    total: Some(2),
+                    message: Some("fixture complete".into()),
+                },
+                artifacts: vec![JobArtifact {
+                    name: "preview".into(),
+                    reference: "artifact:fixture-preview".into(),
+                    media_type: Some("application/octet-stream".into()),
+                    sha256: Some("b".repeat(64)),
+                    bytes: Some(16),
+                }],
+            });
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
         Ok(
             json!({"value":1,"data":{"ref":args.get("ref"),"$ref":{"kind":"win","identity":"not-native","source":"semwright-core"}}}),
@@ -713,6 +735,89 @@ async fn job_cancel_reaches_a_blocked_dynamic_provider_without_waiting_for_execu
     .unwrap();
     assert_eq!(terminal["result"]["error"]["code"], "Cancelled");
     assert!(fixture.provider.cancelled.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn provider_progress_and_artifacts_flow_into_session_scoped_job_snapshot() {
+    let fixture = Fixture::new(true);
+    fixture.mount().await;
+    let session = unique_id();
+    let started = fixture
+        .broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.start".into(),
+                args: json!({"request":{"command":"driver.fixture.progress","args":{}}}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(started.ok, "{started:?}");
+    let id = started.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let terminal = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let result = fixture
+                .broker
+                .clone()
+                .execute(
+                    session.clone(),
+                    unique_id(),
+                    ExecuteRequest {
+                        command: "jobs.get".into(),
+                        args: json!({"job_id":id}),
+                        dry_run: false,
+                        backend: None,
+                    },
+                    CancellationToken::new(),
+                )
+                .await;
+            assert!(result.ok, "{result:?}");
+            let job = result.data.unwrap()["job"].clone();
+            if job["state"] == "succeeded" {
+                break job;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("provider progress job should finish");
+
+    assert_eq!(terminal["progress"]["completed"], 2);
+    assert_eq!(terminal["progress"]["total"], 2);
+    assert_eq!(terminal["progress"]["message"], "fixture complete");
+    assert_eq!(terminal["artifacts"].as_array().unwrap().len(), 1);
+    assert_eq!(terminal["artifacts"][0]["name"], "preview");
+    assert_eq!(
+        terminal["artifacts"][0]["reference"],
+        "artifact:fixture-preview"
+    );
+    assert_eq!(terminal["artifacts"][0]["bytes"], 16);
+
+    let foreign = fixture
+        .broker
+        .clone()
+        .execute(
+            unique_id(),
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.get".into(),
+                args: json!({"job_id":id}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert_eq!(foreign.error.unwrap().code, ErrorCode::NotFound);
 }
 
 #[tokio::test]
