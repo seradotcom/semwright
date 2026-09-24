@@ -53,7 +53,7 @@ generate_one semwright-sandbox crates/plugin-host/Cargo.toml
 
 (
   cd "$OUT"
-  sha256sum *.json | LC_ALL=C sort -k2 > SHA256SUMS
+  sha256sum ./*.json | LC_ALL=C sort -k2 > SHA256SUMS
 )
 
 # Generate a second independent copy with the same SOURCE_DATE_EPOCH and prove byte identity.
