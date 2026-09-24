@@ -1,6 +1,8 @@
 use clap::Parser;
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
-use semwright_daemon::{config, console::Console, server};
+#[cfg(unix)]
+use semwright_daemon::console::Console;
+use semwright_daemon::{config, server};
 use semwright_driver_host::DriverProvider;
 use semwright_federation::{
     ExternalMcpProvider, default_upstream_registry_path, load_upstream_registry,
@@ -182,7 +184,17 @@ async fn run(args: Args) -> Result<()> {
         )?))
     };
     let approver: Arc<dyn Approver> = if args.approval_console {
-        Arc::new(Console)
+        #[cfg(unix)]
+        {
+            Arc::new(Console)
+        }
+        #[cfg(target_os = "windows")]
+        {
+            return Err(Error::new(
+                ErrorCode::ConsentRequired,
+                "Windows interactive approval console is not yet implemented; refusing self-approval",
+            ));
+        }
     } else {
         Arc::new(NoApprover)
     };
