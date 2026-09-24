@@ -3,7 +3,7 @@ use windows::{
     Win32::{
         Foundation::{CloseHandle, HANDLE, HLOCAL, LocalFree},
         Security::Authorization::ConvertSidToStringSidW,
-        Security::{GetLengthSid, GetTokenInformation, PSID, TOKEN_QUERY, TOKEN_USER, TokenUser},
+        Security::{GetLengthSid, GetTokenInformation, TOKEN_QUERY, TOKEN_USER, TokenUser},
         System::{
             RemoteDesktop::ProcessIdToSessionId,
             Threading::{

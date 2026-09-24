@@ -13,7 +13,8 @@ use windows::Win32::{
     Storage::FileSystem::{
         BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_BACKUP_SEMANTICS,
         FILE_FLAG_OPEN_REPARSE_POINT, FILE_NAME_NORMALIZED, FILE_SHARE_DELETE, FILE_SHARE_READ,
-        FILE_SHARE_WRITE, GetFileInformationByHandle, GetFinalPathNameByHandleW, VOLUME_NAME_DOS,
+        FILE_SHARE_WRITE, GETFINALPATHNAMEBYHANDLE_FLAGS, GetFileInformationByHandle,
+        GetFinalPathNameByHandleW, VOLUME_NAME_DOS,
     },
 };
 
@@ -55,7 +56,7 @@ fn final_path(file: &File) -> Result<String> {
         GetFinalPathNameByHandleW(
             handle(file),
             &mut buf,
-            FILE_NAME_NORMALIZED | VOLUME_NAME_DOS,
+            GETFINALPATHNAMEBYHANDLE_FLAGS(FILE_NAME_NORMALIZED.0 | VOLUME_NAME_DOS.0),
         )
     } as usize;
     if n == 0 || n >= buf.len() {

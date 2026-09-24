@@ -35,7 +35,7 @@ impl Mount {
         }
         let p = Path::new(&self.logical_name);
         super::filesystem::validate_relative_path(p)?;
-        if self.logical_name.as_bytes().len() > 255 {
+        if self.logical_name.len() > 255 {
             return Err(Error::invalid("Logical mount name exceeds budget"));
         }
         if self.class == MountClass::SystemConfig && !self.read_only {

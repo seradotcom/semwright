@@ -132,7 +132,7 @@ pub fn host_process_id() -> u32 {
 
 use windows::{
     Win32::{
-        Foundation::{BOOL, HLOCAL, LocalFree},
+        Foundation::{HLOCAL, LocalFree},
         Security::Authorization::{
             ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
         },
@@ -198,7 +198,7 @@ pub fn create_owner_only_server(name: &str) -> Result<OwnedPipe> {
     let attrs = SECURITY_ATTRIBUTES {
         nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
         lpSecurityDescriptor: descriptor.0.0,
-        bInheritHandle: BOOL(0),
+        bInheritHandle: Default::default(),
     };
     let full = HSTRING::from(format!(r"\\.\pipe\semwright-{name}"));
     // SAFETY: explicit non-inheritable security attributes remain live for the create call only.
@@ -224,7 +224,6 @@ pub fn create_owner_only_server(name: &str) -> Result<OwnedPipe> {
 }
 
 use std::{
-    ffi::OsStr,
     os::windows::io::AsRawHandle,
     path::{Path, PathBuf},
 };

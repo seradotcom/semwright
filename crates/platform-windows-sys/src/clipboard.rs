@@ -4,10 +4,10 @@ use windows::Win32::{
     Foundation::{GlobalFree, HANDLE, HGLOBAL},
     System::{
         DataExchange::{
-            CF_UNICODETEXT, CloseClipboard, EmptyClipboard, GetClipboardData, OpenClipboard,
-            SetClipboardData,
+            CloseClipboard, EmptyClipboard, GetClipboardData, OpenClipboard, SetClipboardData,
         },
         Memory::{GMEM_MOVEABLE, GMEM_ZEROINIT, GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock},
+        Ole::CF_UNICODETEXT,
     },
 };
 

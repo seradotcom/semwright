@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use windows::{
     Win32::{
-        Foundation::{BOOL, CloseHandle, FILETIME, HWND, LPARAM, RECT, WPARAM},
+        Foundation::{CloseHandle, FILETIME, HWND, LPARAM, RECT, WPARAM},
         System::Threading::{
             GetProcessTimes, OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
             QueryFullProcessImageNameW,
@@ -14,7 +14,7 @@ use windows::{
             SetForegroundWindow, SetWindowPos, WM_CLOSE,
         },
     },
-    core::PWSTR,
+    core::{BOOL, PWSTR},
 };
 
 #[derive(Clone, Debug)]
