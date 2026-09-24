@@ -94,6 +94,8 @@ jobs:
       - run: scripts/dev/fake-smoke.sh
         env:
           BIN_DIR: target/release
+      - name: Prepare external MCP sandbox on disposable CI runner
+        run: scripts/dev/ci-bwrap-preflight.sh
       - run: scripts/dev/federation-smoke.sh
         env:
           BIN_DIR: target/release
@@ -135,6 +137,9 @@ jobs:
       - run: scripts/dev/fake-smoke.sh
         env:
           BIN_DIR: target/release
+      - name: Prepare external MCP sandbox on disposable CI runner
+        if: matrix.runner == 'ubuntu-24.04'
+        run: scripts/dev/ci-bwrap-preflight.sh
       - name: Federated MCP daemon smoke
         if: matrix.runner == 'ubuntu-24.04'
         run: scripts/dev/federation-smoke.sh

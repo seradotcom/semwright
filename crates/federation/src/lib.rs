@@ -371,6 +371,18 @@ fn sandbox_command(
     })
 }
 
+fn prepare_upstream_state(state: &Path) -> Result<()> {
+    if !state.exists()
+        && let Some(parent) = state.parent()
+        && !parent.exists()
+    {
+        std::fs::create_dir_all(parent)?;
+        #[cfg(unix)]
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
+    }
+    semwright_platform_services::private_directory(state)
+}
+
 fn stage_upstream(
     config: &StdioUpstreamConfig,
     state: &Path,
@@ -384,7 +396,7 @@ fn stage_upstream(
         ));
     }
     config.validate()?;
-    semwright_platform_services::private_directory(state)?;
+    prepare_upstream_state(state)?;
     let bytes = semwright_platform_services::verify_executable(&config.program, &config.sha256)?;
     let staged_path = state.join(format!(
         "mcp-{}-{}",
@@ -836,5 +848,34 @@ impl Provider for ExternalMcpProvider {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod staging_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn upstream_state_creates_private_missing_parent() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root
+            .path()
+            .join("fresh-xdg-state")
+            .join("semwright")
+            .join("mcp-upstreams");
+        prepare_upstream_state(&state).unwrap();
+        assert_eq!(
+            std::fs::metadata(&state).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(state.parent().unwrap())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
     }
 }
