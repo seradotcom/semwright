@@ -1,0 +1,265 @@
+#![cfg_attr(not(windows), allow(dead_code))]
+
+#[cfg(windows)]
+mod app {
+    use windows::{
+        Win32::{
+            Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM},
+            System::LibraryLoader::GetModuleHandleW,
+            UI::{
+                Controls::{InitCommonControls, WC_LISTVIEWW, WC_TREEVIEWW},
+                WindowsAndMessaging::*,
+            },
+        },
+        core::{Result, w},
+    };
+
+    const ID_BUTTON: isize = 101;
+    const ID_EDIT: isize = 102;
+    const ID_CHECK: isize = 103;
+    const ID_RADIO: isize = 104;
+    const ID_SLIDER: isize = 105;
+    const ID_COMBO: isize = 106;
+    const ID_LIST: isize = 107;
+    const ID_TREE: isize = 108;
+    const ID_TABLE: isize = 109;
+
+    unsafe extern "system" fn proc(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
+        match msg {
+            WM_COMMAND => {
+                if (wparam.0 & 0xffff) as isize == ID_BUTTON {
+                    unsafe {
+                        if let Ok(edit) = GetDlgItem(Some(hwnd), ID_EDIT as i32) {
+                            let _ = SetWindowTextW(edit, w!("invoked"));
+                        }
+                    }
+                }
+                LRESULT(0)
+            }
+            WM_DESTROY => {
+                unsafe {
+                    PostQuitMessage(0);
+                }
+                LRESULT(0)
+            }
+            _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+        }
+    }
+
+    unsafe fn child(
+        parent: HWND,
+        class: windows::core::PCWSTR,
+        text: windows::core::PCWSTR,
+        style: WINDOW_STYLE,
+        x: i32,
+        y: i32,
+        wid: i32,
+        hei: i32,
+        id: isize,
+    ) -> HWND {
+        unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                class,
+                text,
+                WS_CHILD | WS_VISIBLE | style,
+                x,
+                y,
+                wid,
+                hei,
+                Some(parent),
+                Some(HMENU(id as *mut core::ffi::c_void)),
+                None,
+                None,
+            )
+        }
+        .unwrap()
+    }
+
+    pub fn run() -> Result<()> {
+        unsafe {
+            InitCommonControls();
+        }
+        let module = unsafe { GetModuleHandleW(None)? };
+        let instance = HINSTANCE(module.0);
+        let class = w!("SemwrightWindowsFixture");
+        let wc = WNDCLASSW {
+            hCursor: unsafe { LoadCursorW(None, IDC_ARROW)? },
+            hInstance: instance,
+            lpszClassName: class,
+            lpfnWndProc: Some(proc),
+            ..Default::default()
+        };
+        unsafe {
+            RegisterClassW(&wc);
+        }
+        let hwnd = unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                class,
+                w!("Semwright UIA Fixture"),
+                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                100,
+                100,
+                760,
+                560,
+                None,
+                None,
+                Some(instance),
+                None,
+            )?
+        };
+        unsafe {
+            child(
+                hwnd,
+                w!("BUTTON"),
+                w!("Invoke me"),
+                WINDOW_STYLE(BS_PUSHBUTTON as u32),
+                20,
+                20,
+                130,
+                32,
+                ID_BUTTON,
+            );
+            child(
+                hwnd,
+                w!("EDIT"),
+                w!("fixture text"),
+                WS_BORDER | WINDOW_STYLE(ES_AUTOHSCROLL as u32),
+                170,
+                20,
+                240,
+                32,
+                ID_EDIT,
+            );
+            child(
+                hwnd,
+                w!("BUTTON"),
+                w!("Checked"),
+                WINDOW_STYLE(BS_AUTOCHECKBOX as u32),
+                20,
+                70,
+                130,
+                28,
+                ID_CHECK,
+            );
+            child(
+                hwnd,
+                w!("BUTTON"),
+                w!("Radio"),
+                WINDOW_STYLE(BS_AUTORADIOBUTTON as u32),
+                170,
+                70,
+                130,
+                28,
+                ID_RADIO,
+            );
+            child(
+                hwnd,
+                w!("msctls_trackbar32"),
+                w!(""),
+                WINDOW_STYLE::default(),
+                20,
+                115,
+                390,
+                42,
+                ID_SLIDER,
+            );
+            child(
+                hwnd,
+                w!("COMBOBOX"),
+                w!(""),
+                WINDOW_STYLE(CBS_DROPDOWNLIST as u32) | WS_VSCROLL,
+                20,
+                170,
+                190,
+                120,
+                ID_COMBO,
+            );
+            child(
+                hwnd,
+                w!("LISTBOX"),
+                w!(""),
+                WS_BORDER | WINDOW_STYLE(LBS_NOTIFY as u32),
+                230,
+                170,
+                180,
+                120,
+                ID_LIST,
+            );
+            child(
+                hwnd,
+                WC_TREEVIEWW,
+                w!(""),
+                WS_BORDER,
+                20,
+                310,
+                190,
+                160,
+                ID_TREE,
+            );
+            child(
+                hwnd,
+                WC_LISTVIEWW,
+                w!(""),
+                WS_BORDER,
+                230,
+                310,
+                360,
+                160,
+                ID_TABLE,
+            );
+            if let Ok(combo) = GetDlgItem(Some(hwnd), ID_COMBO as i32) {
+                SendMessageW(
+                    combo,
+                    CB_ADDSTRING,
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("Alpha").0 as isize)),
+                );
+                SendMessageW(
+                    combo,
+                    CB_ADDSTRING,
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("Beta").0 as isize)),
+                );
+                SendMessageW(combo, CB_SETCURSEL, Some(WPARAM(0)), Some(LPARAM(0)));
+            }
+            if let Ok(list) = GetDlgItem(Some(hwnd), ID_LIST as i32) {
+                SendMessageW(
+                    list,
+                    LB_ADDSTRING,
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("List item one").0 as isize)),
+                );
+                SendMessageW(
+                    list,
+                    LB_ADDSTRING,
+                    Some(WPARAM(0)),
+                    Some(LPARAM(w!("List item two").0 as isize)),
+                );
+            }
+        }
+        let mut msg = MSG::default();
+        while unsafe { GetMessageW(&mut msg, None, 0, 0) }.as_bool() {
+            unsafe {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+fn main() -> windows::core::Result<()> {
+    app::run()
+}
+#[cfg(not(windows))]
+fn main() {
+    eprintln!("Windows-only fixture");
+}

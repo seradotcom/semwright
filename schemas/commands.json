@@ -996,7 +996,8 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -1201,7 +1202,8 @@
       "gnome",
       "kwin",
       "x11",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -1323,7 +1325,8 @@
       "gnome",
       "kwin",
       "x11",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -1444,7 +1447,8 @@
       "gnome",
       "kwin",
       "x11",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -1565,7 +1569,8 @@
       "gnome",
       "kwin",
       "x11",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -1653,6 +1658,24 @@
             "closed"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requested": {
+              "type": "boolean",
+              "const": true
+            },
+            "delivery_verified": {
+              "type": "boolean",
+              "const": false
+            }
+          },
+          "required": [
+            "requested",
+            "delivery_verified"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -1670,7 +1693,8 @@
       "gnome",
       "kwin",
       "x11",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -1878,7 +1902,8 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -2109,13 +2134,14 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
     "name": "ui.set_text",
     "version": "1.0",
-    "description": "Set editable text through AT-SPI, not through keyboard emulation.",
+    "description": "Set editable text through the platform semantic accessibility interface, not keyboard emulation.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -2194,7 +2220,8 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -2287,7 +2314,8 @@
     "interactive_consent": true,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -2380,7 +2408,8 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -2431,7 +2460,8 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -2511,13 +2541,14 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
     "name": "ui.select",
     "version": "1.0",
-    "description": "Select a child through the AT-SPI Selection interface.",
+    "description": "Select a child through the platform semantic selection interface.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -2583,7 +2614,8 @@
     "dry_run": true,
     "interactive_consent": false,
     "backends": [
-      "atspi"
+      "atspi",
+      "windows"
     ]
   },
   {
@@ -2663,7 +2695,8 @@
     "interactive_consent": false,
     "backends": [
       "atspi",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -3138,7 +3171,7 @@
   {
     "name": "input.type",
     "version": "1.0",
-    "description": "Type Unicode using a consented portal or focused X11; semantic set_text is preferred.",
+    "description": "Type Unicode through an explicitly enabled focused input backend; semantic set_text is preferred.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -3235,7 +3268,8 @@
     "interactive_consent": false,
     "backends": [
       "portal",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -3357,7 +3391,8 @@
     "backends": [
       "portal",
       "x11",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -3476,7 +3511,8 @@
     "backends": [
       "portal",
       "x11",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -3597,7 +3633,8 @@
     "interactive_consent": false,
     "backends": [
       "portal",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -3751,7 +3788,8 @@
     "interactive_consent": true,
     "backends": [
       "portal",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -4123,7 +4161,8 @@
     "backends": [
       "clipboard",
       "portal",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {
@@ -4240,7 +4279,8 @@
     "backends": [
       "clipboard",
       "portal",
-      "macos"
+      "macos",
+      "windows"
     ]
   },
   {

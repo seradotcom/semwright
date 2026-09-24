@@ -1,14 +1,17 @@
 //! Append-only metadata journal with bounded rotation and a SHA-256 hash chain.
 //! This detects accidental corruption, not a malicious process with the same Unix UID.
-use semwright_protocol::{current_uid, private_directory};
+#[cfg(unix)]
+use semwright_protocol::current_uid;
+use semwright_protocol::private_directory;
 use semwright_types::*;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::{
     collections::VecDeque,
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::{Instant, SystemTime, UNIX_EPOCH},
@@ -46,6 +49,7 @@ pub struct Audit {
     retention: usize,
     state: Mutex<State>,
 }
+#[cfg(unix)]
 fn open(path: &Path) -> Result<File> {
     let file = OpenOptions::new()
         .append(true)
@@ -63,6 +67,26 @@ fn open(path: &Path) -> Result<File> {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Audit must be a single-link user-owned regular file with mode 0600",
+        ));
+    }
+    Ok(file)
+}
+#[cfg(target_os = "windows")]
+fn open(path: &Path) -> Result<File> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| Error::invalid("Audit path requires a parent directory"))?;
+    semwright_protocol::private_directory(parent)?;
+    let file = OpenOptions::new()
+        .append(true)
+        .read(true)
+        .create(true)
+        .open(path)?;
+    let meta = std::fs::symlink_metadata(path)?;
+    if !meta.is_file() || meta.file_type().is_symlink() {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows audit must be a regular non-link file inside the private state directory",
         ));
     }
     Ok(file)
@@ -335,6 +359,7 @@ mod tests {
         std::fs::write(p, s).unwrap();
         assert!(Audit::open(&d.path().join("audit"), 65536, 2).is_err());
     }
+    #[cfg(unix)]
     #[test]
     fn shared_existing_directory_is_rejected() {
         use std::os::unix::fs::PermissionsExt;
