@@ -123,13 +123,13 @@ async fn real_kwin6_mailbox_controls_window_and_rejects_stale_ref() {
     );
 
     let connection = Connection::session().await.expect("session bus");
+    let backend = Kwin::attach(&connection)
+        .await
+        .expect("attach KWin mailbox");
     connection
         .request_name("org.semwright.Broker")
         .await
         .expect("test must own the broker well-known name");
-    let backend = Kwin::attach(&connection)
-        .await
-        .expect("attach KWin mailbox");
 
     // The mailbox must reject any process that merely knows its object path.
     let foreign = Connection::session().await.expect("foreign bus connection");
