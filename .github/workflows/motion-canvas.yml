@@ -243,7 +243,7 @@ jobs:
           cp /bin/sh "$PROBE_DIR/driver"
           mkdir -p "$PROBE_DIR/trace"
           BROWSER_REL=$(node -p "require('./integrations/motion-canvas/runtime/runtime.json').browser.path")
-          probe=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin --dir /etc)
+          probe=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --perms 1777 --tmpfs /dev/shm --tmpfs /tmp --dir /home --dir /workspace --dir /plugin --dir /etc)
           for root in /usr /lib /lib64; do
             if test -e "$root"; then probe+=(--ro-bind "$root" "$root"); fi
           done
@@ -270,13 +270,13 @@ jobs:
               args=(--no-new-privs /usr/bin/prlimit --nofile=128:128 --nproc=64:64 --cpu=40:40 --as=17179869184:17179869184 --fsize=16777216:16777216 --core=0:0 -- /plugin/bin)
             else
               source="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
-              args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 -- /plugin/bin)
+              args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --exec-root /workspace/runtime -- /plugin/bin)
             fi
             set +e
             printf '"%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$source" /plugin/sandbox -- /plugin/sandbox "${args[@]}" > "verification/motion-canvas-host/$mode-exec.log" 2>&1
             rc=$?
             set -e
-            echo "$mode Chromium exec exit=$rc"
+            echo "$mode Firefox exec exit=$rc"
             tail -30 "verification/motion-canvas-host/$mode-exec.log"
           done
           landlock_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 -- /plugin/bin)
@@ -290,7 +290,7 @@ jobs:
             exit 1
           fi
           grep -q 'Permission denied' verification/motion-canvas-host/other-device-write.log
-          trace_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --write-root /workspace/trace -- /plugin/bin)
+          trace_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --exec-root /workspace/runtime --write-root /workspace/trace -- /plugin/bin)
           set +e
           printf 'exec /usr/bin/strace -ff -s 160 -o /workspace/trace/chrome -e trace=%%file,%%process,%%signal,%%memory,write "%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${trace_args[@]}" > verification/motion-canvas-host/landlock-strace.log 2>&1
           trace_rc=$?
