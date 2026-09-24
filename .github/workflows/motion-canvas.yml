@@ -106,7 +106,7 @@ jobs:
       - name: Install Linux sandbox prerequisite
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap
+          sudo apt-get install -y bubblewrap strace
       - name: Enable Bubblewrap user namespaces with scoped AppArmor profile
         run: |
           sudo apt-get install -y apparmor-profiles apparmor-utils
@@ -229,20 +229,21 @@ jobs:
           PROBE_DIR="$RUNNER_TEMP/motion-landlock-probe"
           mkdir -p "$PROBE_DIR"
           cp /bin/sh "$PROBE_DIR/driver"
+          mkdir -p "$PROBE_DIR/trace"
           BROWSER_REL=$(node -p "require('./integrations/motion-canvas/runtime/runtime.json').browser.path")
           probe=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin --dir /etc)
           for root in /usr /lib /lib64; do
             if test -e "$root"; then probe+=(--ro-bind "$root" "$root"); fi
           done
           if test -f /etc/ld.so.cache; then probe+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache); fi
-          probe+=(--ro-bind "$PROBE_DIR/driver" /plugin/bin --ro-bind "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime" /workspace/runtime --setenv PATH /usr/bin:/bin --setenv HOME /home --setenv LANG C.UTF-8 --chdir /tmp)
+          probe+=(--ro-bind "$PROBE_DIR/driver" /plugin/bin --ro-bind "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime" /workspace/runtime --bind "$PROBE_DIR/trace" /workspace/trace --setenv PATH /usr/bin:/bin --setenv HOME /home --setenv LANG C.UTF-8 --chdir /tmp)
           for mode in apparmor_only apparmor_landlock; do
             if test "$mode" = apparmor_only; then
               source=/usr/bin/setpriv
               args=(--no-new-privs /plugin/bin)
             else
               source="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
-              args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --read-root /workspace/runtime -- /plugin/bin)
+              args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 -- /plugin/bin)
             fi
             set +e
             printf '"%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$source" /plugin/sandbox -- /plugin/sandbox "${args[@]}" > "verification/motion-canvas-host/$mode-exec.log" 2>&1
@@ -251,6 +252,15 @@ jobs:
             echo "$mode Chromium exec exit=$rc"
             tail -30 "verification/motion-canvas-host/$mode-exec.log"
           done
+          trace_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 --write-root /workspace/trace -- /plugin/bin)
+          set +e
+          printf 'exec /usr/bin/strace -ff -s 160 -o /workspace/trace/chrome -e trace=%%file,%%process,%%signal "%s" --version\n' "/workspace/runtime/$BROWSER_REL" | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${trace_args[@]}" > verification/motion-canvas-host/landlock-strace.log 2>&1
+          trace_rc=$?
+          set -e
+          echo "Landlock strace exit=$trace_rc"
+          tail -30 verification/motion-canvas-host/landlock-strace.log
+          cp -a "$PROBE_DIR/trace" verification/motion-canvas-host/trace
+          rg -n 'EACCES|EPERM|SIGTRAP' "$PROBE_DIR/trace" | tail -100 || true
           cargo test --locked -p semwright-driver-motion-canvas motion_driver_runs_through_real_driver_host_without_network -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/conformance.log
           cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
       - name: Capture sandbox denial diagnostics
