@@ -1,108 +1,22 @@
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, DriverChildEvent, DriverInterfaces};
+use semwright_driver_sdk::{
+    Capability, Driver, DriverChildEvent, DriverExecutionContext, DriverInterfaces,
+};
 use semwright_figma_driver::bridge::{BridgeError, BridgeHub, pairing_status};
-use semwright_figma_driver::{model, schemas, snapshot};
-use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Risk};
+use semwright_figma_driver::{model, rest::RestClient, schemas, snapshot};
+use semwright_types::{
+    CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Risk,
+};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use tokio::sync::mpsc;
 
+mod semantic_admin_ops;
+mod semantic_more_ops;
+mod semantic_rest_ops;
+
 const DRIVER_SCOPE: &str = "driver:figma";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-const SUPPORTED_OPERATIONS: &[&str] = &[
-    "doctor",
-    "pairing.begin",
-    "session.list",
-    "document.status",
-    "document.inspect",
-    "page.list",
-    "page.create",
-    "page.inspect",
-    "page.rename",
-    "page.remove",
-    "page.current.get",
-    "page.current.set",
-    "selection.get",
-    "selection.set",
-    "selection.clear",
-    "node.get",
-    "node.children",
-    "node.ancestors",
-    "node.tree",
-    "node.search",
-    "node.patch",
-    "node.rename",
-    "node.move",
-    "node.resize",
-    "node.rotate",
-    "node.remove",
-    "node.clone",
-    "node.reparent",
-    "node.reorder",
-    "frame.create",
-    "section.create",
-    "rect.create",
-    "ellipse.create",
-    "line.create",
-    "polygon.create",
-    "star.create",
-    "text.create",
-    "text.patch",
-    "svg.import",
-    "layout.inspect",
-    "layout.patch",
-    "paint.patch",
-    "stroke.patch",
-    "effects.patch",
-    "text.inspect",
-    "component.create",
-    "component.from_node",
-    "component.inspect",
-    "component_set.create",
-    "component_set.inspect",
-    "variant.list",
-    "instance.create",
-    "instance.inspect",
-    "instance.swap",
-    "instance.detach",
-    "variable.collection.list",
-    "variable.list",
-    "variable.collection.create",
-    "variable.create",
-    "variable.set_value",
-    "variable.set_alias",
-    "variable.bind",
-    "mode.list",
-    "mode.create",
-    "design_system.extract",
-    "snapshot.page",
-    "snapshot.subtree",
-    "snapshot.selection",
-    "snapshot.design_system",
-    "prototype.reaction.list",
-    "prototype.reaction.set",
-    "prototype.reaction.add",
-    "prototype.reaction.remove",
-    "prototype.reaction.clear",
-    "prototype.flow.list",
-    "motion.styles.list",
-    "motion.node.inspect",
-    "motion.keyframes.list",
-    "motion.timelines.list",
-    "motion.spring.normalize",
-    "motion.style.apply",
-    "motion.style.remove",
-    "motion.keyframe.apply",
-    "motion.keyframe.remove",
-    "motion.timeline.set_duration",
-    "figjam.sticky.create",
-    "figjam.shape.create",
-    "figjam.connector.create",
-    "figjam.section.create",
-    "figjam.code_block.create",
-    "dev.css",
-];
 
 #[derive(Clone, Copy)]
 struct Op {
@@ -282,6 +196,13 @@ fn operations() -> Vec<Op> {
         op(
             "node.search",
             "Structured node search",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "node.query",
+            "Bounded semantic scene-graph query without XPath or eval",
             Risk::ReadOnly,
             Idempotency::ReadOnly,
             true,
@@ -874,13 +795,721 @@ fn operations() -> Vec<Op> {
             Idempotency::ReadOnly,
             true,
         ),
+        op(
+            "compose.apply",
+            "Create a bounded declarative Figma subtree",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "compose.batch",
+            "Create multiple bounded declarative Figma subtrees",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "node.inspect.full",
+            "Inspect the bounded semantic property surface of a node",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "node.flatten",
+            "Flatten explicit nodes into a vector",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "node.outline_stroke",
+            "Create outlined stroke geometry from a node",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "text.runs.inspect",
+            "Inspect rich-text styled runs",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "text.range.patch",
+            "Patch a bounded rich-text range",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "text.hyperlink.set",
+            "Set or clear a hyperlink on a text range",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "text.variable.bind_range",
+            "Bind a variable to a text range field",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "text.path.create",
+            "Create text on an existing vector path",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "text.path.inspect",
+            "Inspect text-path semantics",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "font.list",
+            "List available Figma fonts",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "font.variation_axes",
+            "Inspect variable-font axes",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "vector.inspect",
+            "Inspect vector network and paths",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "vector.network.set",
+            "Replace a bounded vector network",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "boolean.create",
+            "Create an empty BooleanOperationNode",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "boolean.union",
+            "Create a boolean union",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "boolean.subtract",
+            "Create a boolean subtraction",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "boolean.intersect",
+            "Create a boolean intersection",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "boolean.exclude",
+            "Create a boolean exclusion",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "transform_group.create",
+            "Create a Figma transform group",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "transform_group.inspect",
+            "Inspect transform-group modifiers",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "style.inspect",
+            "Inspect a local or imported style",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "style.create",
+            "Create a local style",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "style.patch",
+            "Patch a local style",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "style.remove",
+            "Remove a local style",
+            Risk::Destructive,
+            Idempotency::Destructive,
+            false,
+        ),
+        op(
+            "component.property.add",
+            "Add a component property",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "component.property.edit",
+            "Edit a component property",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "component.property.delete",
+            "Delete a component property",
+            Risk::Destructive,
+            Idempotency::Destructive,
+            false,
+        ),
+        op(
+            "component.instances.list",
+            "List component instances",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "component.description.patch",
+            "Patch component descriptions",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "instance.properties.patch",
+            "Patch instance component properties",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "slot.create",
+            "Create a component slot",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "slot.inspect",
+            "Inspect a component slot",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "slot.reset",
+            "Reset slot contents",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "library.variable_collections.list",
+            "List enabled library variable collections",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "library.variables.list",
+            "List variables in an enabled library collection",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "library.component.import",
+            "Import a published component by key",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "library.component_set.import",
+            "Import a published component set by key",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "library.style.import",
+            "Import a published style by key",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "library.variable.import",
+            "Import a published variable by key",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "variable.inspect",
+            "Inspect variable metadata, values and publishing state",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "variable.rename",
+            "Rename a local variable",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "variable.remove",
+            "Remove a local variable",
+            Risk::Destructive,
+            Idempotency::Destructive,
+            false,
+        ),
+        op(
+            "variable.scopes.set",
+            "Set variable picker scopes",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "variable.code_syntax.set",
+            "Set variable platform code syntax",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "variable.code_syntax.remove",
+            "Remove variable platform code syntax",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "variable.collection.inspect",
+            "Inspect a variable collection",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "variable.collection.rename",
+            "Rename a local variable collection",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "variable.collection.remove",
+            "Remove a local variable collection",
+            Risk::Destructive,
+            Idempotency::Destructive,
+            false,
+        ),
+        op(
+            "mode.rename",
+            "Rename a variable mode",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "mode.remove",
+            "Remove a variable mode",
+            Risk::Destructive,
+            Idempotency::Destructive,
+            false,
+        ),
+        op(
+            "variable.mode.set_explicit",
+            "Set an explicit variable mode on a node",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "variable.mode.clear_explicit",
+            "Clear an explicit variable mode on a node",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "shader.list",
+            "List shaders available to the file",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "shader.import",
+            "Import a shader into the file",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "shader.apply_fill",
+            "Apply a shader fill",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "shader.apply_stroke",
+            "Apply a shader stroke",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "shader.apply_effect",
+            "Apply a shader effect",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "viewport.inspect",
+            "Inspect current viewport state",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "viewport.center",
+            "Center the Figma viewport",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "viewport.zoom",
+            "Set viewport zoom",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "viewport.fit",
+            "Fit explicit nodes into the viewport",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "annotation.categories.list",
+            "List annotation categories",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "annotation.category.create",
+            "Create an annotation category",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "annotation.category.patch",
+            "Patch an annotation category",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "annotation.category.remove",
+            "Remove a custom annotation category",
+            Risk::Destructive,
+            Idempotency::Destructive,
+            false,
+        ),
+        op(
+            "annotation.node.inspect",
+            "Inspect node annotations",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "annotation.node.set",
+            "Replace bounded node annotations",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "dev.resources.list",
+            "List Dev Mode resources attached to a node",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "dev.resources.add",
+            "Add a Dev Mode resource",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "dev.resources.edit",
+            "Edit a Dev Mode resource",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "dev.resources.remove",
+            "Remove a Dev Mode resource",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "selection.colors",
+            "Inspect native selection colors",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "file.version.save",
+            "Save a named Figma version-history entry",
+            Risk::Mutating,
+            NonIdempotent,
+            false,
+        ),
+        op(
+            "figjam.table.create",
+            "Create a bounded FigJam table",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "figjam.link_preview.create",
+            "Create a FigJam link preview or embed",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "figjam.gif.create",
+            "Create a FigJam GIF media node from an image hash",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "figjam.timer.status",
+            "Inspect the FigJam timer",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "figjam.timer.start",
+            "Start or reset the FigJam timer",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "figjam.timer.pause",
+            "Pause the FigJam timer",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "figjam.timer.resume",
+            "Resume the FigJam timer",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "figjam.timer.stop",
+            "Stop the FigJam timer",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "canvas.grid.inspect",
+            "Inspect the Slides/Buzz canvas grid",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "canvas.grid.set",
+            "Replace the Slides/Buzz canvas grid",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "canvas.row.create",
+            "Create a Slides/Buzz canvas row",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "canvas.nodes.move",
+            "Move nodes to a Slides/Buzz grid coordinate",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "slides.slide.create",
+            "Create a slide",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "slides.row.create",
+            "Create a slide row",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "slides.view.get",
+            "Inspect Slides grid/single-slide view",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "slides.view.set",
+            "Set Slides grid/single-slide view",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "buzz.frame.create",
+            "Create a Buzz frame",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "buzz.instance.create",
+            "Create a Buzz component instance",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "buzz.asset_type.get",
+            "Inspect a Buzz asset type",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "buzz.asset_type.set",
+            "Set a Buzz asset type",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "buzz.text_content.inspect",
+            "Inspect Buzz dynamic text fields",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "buzz.text_content.set",
+            "Set a Buzz dynamic text field",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "buzz.media_content.inspect",
+            "Inspect Buzz dynamic media fields",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "buzz.smart_resize",
+            "Smart-resize a Buzz asset",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
+        op(
+            "artifact.read",
+            "Read a bounded chunk from an exported Figma artifact",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
+            "artifact.release",
+            "Release an exported Figma artifact",
+            MutatingReversible,
+            Idempotent,
+            true,
+        ),
     ]
 }
 fn advertised_operations() -> Vec<Op> {
-    operations()
-        .into_iter()
-        .filter(|operation| SUPPORTED_OPERATIONS.contains(&operation.name))
-        .collect()
+    let mut operations = operations();
+    operations.extend(semantic_more_ops::operations());
+    operations.extend(semantic_admin_ops::operations());
+    operations.extend(semantic_rest_ops::operations());
+    operations
 }
 
 fn capability(o: Op) -> Capability {
@@ -909,10 +1538,54 @@ fn capability(o: Op) -> Capability {
             .unwrap_or_default(),
     }
 }
+fn artifact_from_result(command: &str, value: &Value) -> Option<JobArtifact> {
+    let operation = command.strip_prefix("driver.figma.")?;
+    if !matches!(
+        operation,
+        "export.node"
+            | "motion.export"
+            | "image.export"
+            | "design_system.export.css"
+            | "design_system.export.tailwind"
+            | "node.export.jsx"
+            | "node.export.storybook"
+    ) {
+        return None;
+    }
+    let object = value.as_object()?;
+    let token = object.get("token")?.as_str()?;
+    let bytes = object.get("bytes")?.as_u64()?;
+    let media_type = object.get("mediaType")?.as_str()?;
+    let raw_name = object.get("name")?.as_str()?;
+    if token.is_empty()
+        || token.len() > 128
+        || token.chars().any(char::is_control)
+        || media_type.is_empty()
+        || media_type.len() > 128
+        || media_type.chars().any(char::is_control)
+    {
+        return None;
+    }
+    let name =
+        if raw_name.is_empty() || raw_name.len() > 128 || raw_name.chars().any(char::is_control) {
+            format!("figma-{}", operation.replace('.', "-"))
+        } else {
+            raw_name.to_owned()
+        };
+    Some(JobArtifact {
+        name,
+        reference: format!("artifact:figma:{token}"),
+        media_type: Some(media_type.to_owned()),
+        sha256: None,
+        bytes: Some(bytes),
+    })
+}
+
 struct FigmaDriver {
     descriptors: BTreeMap<String, String>,
     ops: BTreeMap<String, Op>,
     hub: BridgeHub,
+    rest: RestClient,
     events: Option<mpsc::UnboundedReceiver<DriverChildEvent>>,
 }
 
@@ -930,10 +1603,12 @@ impl FigmaDriver {
         let hub = BridgeHub::start(event_tx)
             .await
             .map_err(|_| Error::unavailable("Figma loopback bridge could not start"))?;
+        let rest = RestClient::new()?;
         Ok(Self {
             descriptors,
             ops,
             hub,
+            rest,
             events: Some(event_rx),
         })
     }
@@ -997,6 +1672,8 @@ impl Driver for FigmaDriver {
     fn interfaces(&self) -> DriverInterfaces {
         DriverInterfaces {
             events: true,
+            progress: true,
+            artifacts: true,
             health: true,
             ..DriverInterfaces::default()
         }
@@ -1066,6 +1743,12 @@ impl Driver for FigmaDriver {
             .as_object()
             .cloned()
             .ok_or_else(|| Error::invalid("Figma capability arguments must be an object"))?;
+        let operation_name = command.strip_prefix("driver.figma.").ok_or_else(|| {
+            Error::new(ErrorCode::Unsupported, "Invalid Figma capability namespace")
+        })?;
+        if operation_name.starts_with("cloud.") {
+            return self.rest.execute(operation_name, &object).await;
+        }
         let session_id = match object.remove("session_id") {
             Some(Value::String(value)) if !value.is_empty() && value.len() <= 128 => Some(value),
             Some(_) => return Err(Error::invalid("session_id must be a bounded string")),
@@ -1083,9 +1766,6 @@ impl Driver for FigmaDriver {
             }
             None => None,
         };
-        let operation_name = command.strip_prefix("driver.figma.").ok_or_else(|| {
-            Error::new(ErrorCode::Unsupported, "Invalid Figma capability namespace")
-        })?;
         let snapshot_mode = object
             .get("mode")
             .and_then(Value::as_str)
@@ -1114,6 +1794,28 @@ impl Driver for FigmaDriver {
         }
     }
 
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> semwright_types::Result<Value> {
+        context.check_cancelled()?;
+        let value = self.execute(command, digest, args).await?;
+        if let Some(artifact) = artifact_from_result(command, &value) {
+            context.report_progress(
+                JobProgress {
+                    completed: 1,
+                    total: Some(1),
+                    message: Some("Figma artifact ready".into()),
+                },
+                vec![artifact],
+            )?;
+        }
+        Ok(value)
+    }
+
     async fn health(&mut self) -> semwright_types::Result<Value> {
         let sessions = self.hub.sessions().await;
         Ok(json!({
@@ -1132,4 +1834,81 @@ impl Driver for FigmaDriver {
 async fn main() -> semwright_types::Result<()> {
     let driver = FigmaDriver::new().await?;
     semwright_driver_sdk::serve(driver).await
+}
+#[cfg(test)]
+mod catalog_tests {
+    use super::*;
+
+    #[test]
+    fn every_advertised_operation_has_strict_input_and_output_schema() {
+        let unsupported = json!({"not":{}});
+        for operation in advertised_operations() {
+            let input = schemas::input_schema(operation.name);
+            let output = schemas::output_schema(operation.name);
+            assert_ne!(
+                input, unsupported,
+                "missing input schema: {}",
+                operation.name
+            );
+            assert_ne!(
+                output, unsupported,
+                "missing output schema: {}",
+                operation.name
+            );
+            assert_eq!(
+                input.get("type").and_then(Value::as_str),
+                Some("object"),
+                "input must be an object schema: {}",
+                operation.name
+            );
+            assert_eq!(
+                input.get("additionalProperties"),
+                Some(&Value::Bool(false)),
+                "input must reject unknown properties: {}",
+                operation.name
+            );
+        }
+    }
+
+    #[test]
+    fn advertised_catalog_has_no_duplicate_names() {
+        let operations = advertised_operations();
+        let unique = operations
+            .iter()
+            .map(|op| op.name)
+            .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(operations.len(), unique.len());
+    }
+
+    #[test]
+    fn export_results_are_promoted_to_driver_artifacts() {
+        let value = json!({
+            "token":"artifact-token",
+            "bytes":4096,
+            "mediaType":"image/png",
+            "name":"preview.png"
+        });
+        let artifact =
+            artifact_from_result("driver.figma.export.node", &value).expect("artifact metadata");
+        assert_eq!(artifact.name, "preview.png");
+        assert_eq!(artifact.reference, "artifact:figma:artifact-token");
+        assert_eq!(artifact.media_type.as_deref(), Some("image/png"));
+        assert_eq!(artifact.bytes, Some(4096));
+        artifact.validate().expect("valid JobArtifact");
+        assert!(artifact_from_result("driver.figma.node.get", &value).is_none());
+    }
+
+    #[test]
+    fn artifact_metadata_falls_back_from_oversized_names() {
+        let value = json!({
+            "token":"artifact-token",
+            "bytes":32,
+            "mediaType":"text/css",
+            "name":"x".repeat(256)
+        });
+        let artifact = artifact_from_result("driver.figma.design_system.export.css", &value)
+            .expect("artifact metadata");
+        assert_eq!(artifact.name, "figma-design_system-export-css");
+        artifact.validate().expect("valid fallback JobArtifact");
+    }
 }

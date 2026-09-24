@@ -1,0 +1,507 @@
+{
+  "documented_extras": [
+    {
+      "capability": "cloud.discovery.text_events",
+      "credential": "oauth_only",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getDiscoveryTextEvents",
+      "path": "/v1/discovery",
+      "reason": "Official documented endpoint not present in pinned OpenAPI",
+      "scope": "org:discovery_read",
+      "source": "https://developers.figma.com/docs/rest-api/discovery-endpoints/"
+    }
+  ],
+  "operation_count": 54,
+  "operations": [
+    {
+      "capability": "cloud.comment.delete",
+      "credential": "oauth_or_pat",
+      "deprecated": false,
+      "method": "DELETE",
+      "operation_id": "deleteComment",
+      "path": "/v1/files/{file_key}/comments/{comment_id}",
+      "scope": "file_comments:write"
+    },
+    {
+      "capability": "cloud.reaction.delete",
+      "credential": "oauth_or_pat",
+      "deprecated": false,
+      "method": "DELETE",
+      "operation_id": "deleteCommentReaction",
+      "path": "/v1/files/{file_key}/comments/{comment_id}/reactions",
+      "scope": "file_comments:write"
+    },
+    {
+      "capability": "cloud.dev_resource.delete",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "DELETE",
+      "operation_id": "deleteDevResource",
+      "path": "/v1/files/{file_key}/dev_resources/{dev_resource_id}",
+      "scope": "file_dev_resources:write"
+    },
+    {
+      "capability": "cloud.webhook.delete",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "DELETE",
+      "operation_id": "deleteWebhook",
+      "path": "/v2/webhooks/{webhook_id}",
+      "scope": "webhooks:write"
+    },
+    {
+      "capability": "cloud.activity_logs.list",
+      "credential": "oauth_only",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getActivityLogs",
+      "path": "/v1/activity_logs",
+      "scope": "org:activity_log_read"
+    },
+    {
+      "capability": "cloud.ai_usage.daily",
+      "credential": "plan_only",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getAiUsageDaily",
+      "path": "/v1/ai_usage/daily",
+      "scope": "org:ai_metering_usage_read"
+    },
+    {
+      "capability": "cloud.reactions.list",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getCommentReactions",
+      "path": "/v1/files/{file_key}/comments/{comment_id}/reactions",
+      "scope": "file_comments:read"
+    },
+    {
+      "capability": "cloud.comments.list",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getComments",
+      "path": "/v1/files/{file_key}/comments",
+      "scope": "file_comments:read"
+    },
+    {
+      "capability": "cloud.library.component.get",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getComponent",
+      "path": "/v1/components/{key}",
+      "scope": "library_assets:read"
+    },
+    {
+      "capability": "cloud.library.component_set.get",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getComponentSet",
+      "path": "/v1/component_sets/{key}",
+      "scope": "library_assets:read"
+    },
+    {
+      "capability": "cloud.dev_resources.list",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getDevResources",
+      "path": "/v1/files/{file_key}/dev_resources",
+      "scope": "file_dev_resources:read"
+    },
+    {
+      "capability": "cloud.developer_logs.query",
+      "credential": "plan_only",
+      "deprecated": false,
+      "method": "POST",
+      "operation_id": "getDeveloperLogs",
+      "path": "/v1/developer_logs",
+      "scope": "org:developer_log_read"
+    },
+    {
+      "capability": "cloud.file.get",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFile",
+      "path": "/v1/files/{file_key}",
+      "scope": "file_content:read"
+    },
+    {
+      "capability": "cloud.file.component_sets",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFileComponentSets",
+      "path": "/v1/files/{file_key}/component_sets",
+      "scope": "library_content:read"
+    },
+    {
+      "capability": "cloud.file.components",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFileComponents",
+      "path": "/v1/files/{file_key}/components",
+      "scope": "library_content:read"
+    },
+    {
+      "capability": "cloud.file.metadata",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFileMeta",
+      "path": "/v1/files/{file_key}/meta",
+      "scope": "file_metadata:read"
+    },
+    {
+      "capability": "cloud.file.nodes",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFileNodes",
+      "path": "/v1/files/{file_key}/nodes",
+      "scope": "file_content:read"
+    },
+    {
+      "capability": "cloud.file.styles",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFileStyles",
+      "path": "/v1/files/{file_key}/styles",
+      "scope": "library_content:read"
+    },
+    {
+      "capability": "cloud.versions.list",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFileVersions",
+      "path": "/v1/files/{file_key}/versions",
+      "scope": "file_versions:read"
+    },
+    {
+      "capability": "cloud.folder.files",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFolderFiles",
+      "path": "/v2/folders/{folder_id}/files",
+      "scope": "folders:read"
+    },
+    {
+      "capability": "cloud.folder.subfolders",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFolderFolders",
+      "path": "/v2/folders/{folder_id}/folders",
+      "scope": "folders:read"
+    },
+    {
+      "capability": "cloud.folder.metadata",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getFolderMeta",
+      "path": "/v2/folders/{folder_id}/meta",
+      "scope": "folder_metadata:read"
+    },
+    {
+      "capability": "cloud.image_fills.list",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getImageFills",
+      "path": "/v1/files/{file_key}/images",
+      "scope": "file_content:read"
+    },
+    {
+      "capability": "cloud.images.render",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getImages",
+      "path": "/v1/images/{file_key}",
+      "scope": "file_content:read"
+    },
+    {
+      "capability": "cloud.library_analytics.component.actions",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getLibraryAnalyticsComponentActions",
+      "path": "/v1/analytics/libraries/{file_key}/component/actions",
+      "scope": "library_analytics:read"
+    },
+    {
+      "capability": "cloud.library_analytics.component.usages",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getLibraryAnalyticsComponentUsages",
+      "path": "/v1/analytics/libraries/{file_key}/component/usages",
+      "scope": "library_analytics:read"
+    },
+    {
+      "capability": "cloud.library_analytics.style.actions",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getLibraryAnalyticsStyleActions",
+      "path": "/v1/analytics/libraries/{file_key}/style/actions",
+      "scope": "library_analytics:read"
+    },
+    {
+      "capability": "cloud.library_analytics.style.usages",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getLibraryAnalyticsStyleUsages",
+      "path": "/v1/analytics/libraries/{file_key}/style/usages",
+      "scope": "library_analytics:read"
+    },
+    {
+      "capability": "cloud.library_analytics.variable.actions",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getLibraryAnalyticsVariableActions",
+      "path": "/v1/analytics/libraries/{file_key}/variable/actions",
+      "scope": "library_analytics:read"
+    },
+    {
+      "capability": "cloud.library_analytics.variable.usages",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getLibraryAnalyticsVariableUsages",
+      "path": "/v1/analytics/libraries/{file_key}/variable/usages",
+      "scope": "library_analytics:read"
+    },
+    {
+      "capability": "cloud.variables.local",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getLocalVariables",
+      "path": "/v1/files/{file_key}/variables/local",
+      "scope": "file_variables:read"
+    },
+    {
+      "capability": "cloud.user.current",
+      "credential": "oauth_or_pat",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getMe",
+      "path": "/v1/me",
+      "scope": "current_user:read"
+    },
+    {
+      "capability": "cloud.oembed.get",
+      "credential": "oauth_or_pat",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getOEmbed",
+      "path": "/v1/oembed",
+      "scope": "file_metadata:read"
+    },
+    {
+      "capability": "cloud.payments.lookup",
+      "credential": "pat_only",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getPayments",
+      "path": "/v1/payments",
+      "scope": "personal_access_token"
+    },
+    {
+      "capability": "cloud.legacy.project.files",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": true,
+      "method": "GET",
+      "operation_id": "getProjectFiles",
+      "path": "/v1/projects/{project_id}/files",
+      "scope": "projects:read"
+    },
+    {
+      "capability": "cloud.legacy.project.metadata",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": true,
+      "method": "GET",
+      "operation_id": "getProjectMeta",
+      "path": "/v1/projects/{project_id}/meta",
+      "scope": "project_metadata:read"
+    },
+    {
+      "capability": "cloud.variables.published",
+      "credential": "oauth_pat_or_plan_enterprise",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getPublishedVariables",
+      "path": "/v1/files/{file_key}/variables/published",
+      "scope": "file_variables:read"
+    },
+    {
+      "capability": "cloud.library.style.get",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getStyle",
+      "path": "/v1/styles/{key}",
+      "scope": "library_assets:read"
+    },
+    {
+      "capability": "cloud.team.component_sets",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getTeamComponentSets",
+      "path": "/v1/teams/{team_id}/component_sets",
+      "scope": "team_library_content:read"
+    },
+    {
+      "capability": "cloud.team.components",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getTeamComponents",
+      "path": "/v1/teams/{team_id}/components",
+      "scope": "team_library_content:read"
+    },
+    {
+      "capability": "cloud.team.folders",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getTeamFolders",
+      "path": "/v2/teams/{team_id}/folders",
+      "scope": "folders:read"
+    },
+    {
+      "capability": "cloud.legacy.team.projects",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": true,
+      "method": "GET",
+      "operation_id": "getTeamProjects",
+      "path": "/v1/teams/{team_id}/projects",
+      "scope": "projects:read"
+    },
+    {
+      "capability": "cloud.team.styles",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getTeamStyles",
+      "path": "/v1/teams/{team_id}/styles",
+      "scope": "team_library_content:read"
+    },
+    {
+      "capability": "cloud.legacy.team.webhooks",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": true,
+      "method": "GET",
+      "operation_id": "getTeamWebhooks",
+      "path": "/v2/teams/{team_id}/webhooks",
+      "scope": "webhooks:read"
+    },
+    {
+      "capability": "cloud.webhook.get",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getWebhook",
+      "path": "/v2/webhooks/{webhook_id}",
+      "scope": "webhooks:read"
+    },
+    {
+      "capability": "cloud.webhook.requests",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getWebhookRequests",
+      "path": "/v2/webhooks/{webhook_id}/requests",
+      "scope": "webhooks:read"
+    },
+    {
+      "capability": "cloud.webhooks.list",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "GET",
+      "operation_id": "getWebhooks",
+      "path": "/v2/webhooks",
+      "scope": "webhooks:read"
+    },
+    {
+      "capability": "cloud.comment.create",
+      "credential": "oauth_or_pat",
+      "deprecated": false,
+      "method": "POST",
+      "operation_id": "postComment",
+      "path": "/v1/files/{file_key}/comments",
+      "scope": "file_comments:write"
+    },
+    {
+      "capability": "cloud.reaction.add",
+      "credential": "oauth_or_pat",
+      "deprecated": false,
+      "method": "POST",
+      "operation_id": "postCommentReaction",
+      "path": "/v1/files/{file_key}/comments/{comment_id}/reactions",
+      "scope": "file_comments:write"
+    },
+    {
+      "capability": "cloud.dev_resources.create",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "POST",
+      "operation_id": "postDevResources",
+      "path": "/v1/dev_resources",
+      "scope": "file_dev_resources:write"
+    },
+    {
+      "capability": "cloud.variables.mutate",
+      "credential": "oauth_or_pat_enterprise_full_seat",
+      "deprecated": false,
+      "method": "POST",
+      "operation_id": "postVariables",
+      "path": "/v1/files/{file_key}/variables",
+      "scope": "file_variables:write"
+    },
+    {
+      "capability": "cloud.webhook.create",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "POST",
+      "operation_id": "postWebhook",
+      "path": "/v2/webhooks",
+      "scope": "webhooks:write"
+    },
+    {
+      "capability": "cloud.dev_resources.update",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "PUT",
+      "operation_id": "putDevResources",
+      "path": "/v1/dev_resources",
+      "scope": "file_dev_resources:write"
+    },
+    {
+      "capability": "cloud.webhook.update",
+      "credential": "oauth_pat_or_plan",
+      "deprecated": false,
+      "method": "PUT",
+      "operation_id": "putWebhook",
+      "path": "/v2/webhooks/{webhook_id}",
+      "scope": "webhooks:write"
+    }
+  ],
+  "rest_api_spec_commit": "04fbbc719706e986fc79f3050d3e068e118275d9",
+  "schema_version": 1,
+  "source": "figma/rest-api-spec openapi/openapi.yaml"
+}

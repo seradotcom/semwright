@@ -1,15 +1,13 @@
-# Figma Plugin API baseline — 2026-09-23
+# Figma API baseline — 2026-09-23
 
-Pinned typings: `@figma/plugin-typings 1.138.0` (npm latest observed at implementation time). Plugin manifest API remains `1.0.0`.
+Pinned Plugin API typings: `@figma/plugin-typings 1.139.0`. Plugin manifest API remains `1.0.0`.
 
-New plugins require `documentAccess: "dynamic-page"`. This pack uses async node/page APIs and page loading rather than assuming the whole document is resident.
+The semantic API compiler inventories the pinned typings and currently records 18 global interfaces, 14 auxiliary interfaces, 34 scene-node types, 213 global members, 49 auxiliary method entries and 3,699 scene-node members. The checked-in coverage file reports zero unclassified public method names.
 
-The official manifest supports scheme-qualified network allowlists and `devAllowedDomains`; the development plugin restricts its bridge to `ws://127.0.0.1:38471` and has no external domains.
+Update 139 adds composed color variables (`VariableComposedColor`) and the `COLOR_OPACITY` scope. Earlier 2026 updates add variable fonts, EASING/TIMING variables, Motion playhead/timelines/keyframes, animated MP4/GIF/WebM export and shaders. These surfaces are represented by the semantic driver rather than reached through arbitrary JavaScript.
 
-Editors recognized by current typings include Figma Design and FigJam plus newer editor-specific node types. This pack explicitly gates FigJam operations and treats unimplemented editor surfaces as unsupported.
+Dynamic-page document access is assumed. Node/page access uses current async APIs and editor-specific operations are gated by the active editor and/or dedicated manifest.
 
-Motion was introduced in Plugin API Update 130 (June 2026) and remains explicitly **Beta** in current official documentation. Current APIs include `figma.motion.figmaAnimationStyles`, `physicalSpringToNormalized`, node animation styles, manual keyframe tracks, timelines and timeline duration. Animated export overloads include MP4, GIF and WebM on supported nodes.
+The optional REST transport is pinned to `figma/rest-api-spec` commit `04fbbc719706e986fc79f3050d3e068e118275d9` and maps all 54 operationIds in that OpenAPI snapshot. Deprecated legacy project endpoints remain explicitly labeled while current folder endpoints are preferred.
 
-Prototype reactions are read through `reactions`; with dynamic-page access mutation uses `setReactionsAsync`.
-
-Variables, local collections, component/instance APIs, FigJam creation APIs, CSS readout where exposed, and standard PNG/JPG/SVG/PDF export are represented in the plugin surface. Shader/Slides support is capability-gated future work, not claimed here.
+Coverage is an exhaustiveness contract for the pinned public APIs, not evidence that every route has been exercised against a real customer file. Real-Figma acceptance remains a separate protected/manual gate.
