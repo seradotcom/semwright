@@ -2922,7 +2922,7 @@ Idempotency: `read_only`. Dry run: `false`.
   "properties": {
     "min_occurrences": {
       "type": "integer",
-      "minimum": 2,
+      "minimum": 3,
       "maximum": 32
     },
     "include_dismissed": {

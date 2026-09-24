@@ -379,6 +379,11 @@ pub fn mine_suggestions(
     dismissals: &BTreeMap<String, PatternDismissal>,
     include_dismissed: bool,
 ) -> Result<Vec<WorkflowPattern>> {
+    if min_occurrences < DEFAULT_MIN_OCCURRENCES {
+        return Err(Error::invalid(
+            "Workflow suggestions require at least three occurrences; use workflow.patterns.list for weaker evidence",
+        ));
+    }
     Ok(mine_patterns(traces, min_occurrences, dismissals)?
         .into_iter()
         .filter(|pattern| include_dismissed || !pattern.dismissed)
@@ -500,6 +505,24 @@ mod tests {
         let patterns = mine_patterns(&traces, 3, &BTreeMap::new()).unwrap();
         assert_eq!(patterns[0].compile_ready_count, 0);
         assert!(patterns[0].compile_trace_ids.is_empty());
+    }
+
+    #[test]
+    fn suggestions_require_stronger_evidence_than_raw_patterns() {
+        let traces = vec![
+            trace("trace-a", "export", "/tmp/a.png", true),
+            trace("trace-b", "export", "/tmp/b.png", true),
+        ];
+        assert_eq!(
+            mine_patterns(&traces, 2, &BTreeMap::new()).unwrap().len(),
+            1
+        );
+        assert_eq!(
+            mine_suggestions(&traces, 2, &BTreeMap::new(), false)
+                .unwrap_err()
+                .code,
+            semwright_types::ErrorCode::InvalidArgument
+        );
     }
 
     #[test]
