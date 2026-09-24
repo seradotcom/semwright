@@ -144,7 +144,7 @@ impl Harness {
 }
 
 #[tokio::test]
-#[ignore = "requires pinned Node/Chromium Motion Canvas runtime plus production Driver Host"]
+#[ignore = "requires pinned Node/Firefox Motion Canvas runtime plus production Driver Host"]
 async fn real_motion_canvas_render_runs_inside_sandbox() {
     if std::env::var_os("SEMWRIGHT_TEST_MOTION_CANVAS_RENDER").is_none() {
         return;

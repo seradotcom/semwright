@@ -13,11 +13,10 @@ The Vite plugin is configured with the documented project import path `./src/pro
 1. Rust validates `semwright-motion.json` and a bounded RenderProfile.
 2. Deterministic generated source is materialized in a content-addressed project tree.
 3. Driver Host supplies an owner-approved read-only runtime mount.
-4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Chrome Headless Shell executable.
-5. A render job starts the pinned Node helper only inside the Driver Host sandbox.
-   Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` so Vite/Undici remain compatible with the existing 4 GiB Driver Host address-space ceiling instead of raising that generic limit.
-6. The helper copies the generated project to a private temporary directory and runs a Vite build with an absolute project entry.
-7. A dedicated Playwright context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
+4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Firefox executable.
+5. A render job starts the pinned Node helper only inside the Driver Host sandbox. Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` so Vite/Undici remain compatible with the existing 4 GiB Driver Host address-space ceiling instead of raising that generic limit.
+6. The parent pins `TMPDIR`, `TMP`, `TEMP` and XDG state to the job-specific writable output directory before the helper starts. The helper copies the generated project into that private area and performs the Vite build there.
+7. A dedicated Playwright Firefox context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
 8. Motion Canvas core `Renderer` invokes the fixed Semwright image-sequence exporter.
 9. The exporter returns PNG data only through an owner-controlled Playwright binding.
 10. Rust validates frame names/count, dimensions, PNG decode, pixel hash and alpha evidence before returning artifact paths.
@@ -28,11 +27,11 @@ The helper never accepts arbitrary JavaScript, npm packages, commands or URLs fr
 
 The Rust job owns a new process group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. Driver Protocol v1 does not transport child progress events, so status exposes observed phases only.
 
-## Chromium sandbox layering
+## Firefox sandbox layering
 
-GitHub Ubuntu 24.04 rejects Chromium's nested user-namespace sandbox. The CI/runtime package therefore selects the exact Playwright-installed Chrome Headless Shell (not an ambient system browser), requires exactly one matching executable and pins its SHA-256 before Driver Host launch. The helper therefore permits `chromiumSandbox:false` only when it inherits `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1`. That marker is created by the Driver Host path, not by an agent request. The outer Bubblewrap + Landlock sandbox remains active and the driver manifest has `network=false`.
+The certified Ubuntu path keeps Firefox inside the already-required Driver Host Bubblewrap + Landlock boundary and does not expose a request-controlled browser sandbox override. The exact Playwright-installed Firefox executable is selected uniquely and SHA-256 pinned in the owner runtime manifest. Because Firefox's own Linux content sandbox cannot create its tab-process boundary inside this outer namespace, the pinned helper sets `MOZ_DISABLE_CONTENT_SANDBOX=1` only after verifying the Driver Host marker; the process still has the outer Bubblewrap/Landlock filesystem, PID and no-network boundary. Playwright's temporary profile is created under the job's writable output root rather than depending on ambient host state. The driver manifest remains `network=false`.
 
-Running `render.mjs` directly outside that boundary fails closed.
+Running `render.mjs` directly outside the Driver Host boundary fails closed.
 
 ## Launch film
 

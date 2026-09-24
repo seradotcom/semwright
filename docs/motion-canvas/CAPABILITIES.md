@@ -1,11 +1,12 @@
 # Motion Canvas capabilities
 
-Driver identity: `driver:motion-canvas`. Protocol catalog count: **17**. The catalog is intentionally compact: type-specific creation and patching are expressed as bounded `project.apply` operations instead of dozens of redundant setters.
+Driver identity: `driver:motion-canvas`. Protocol catalog count: **18**. The catalog is intentionally compact: type-specific creation and patching are expressed as bounded `project.apply` operations instead of dozens of redundant setters.
 
 | Capability | Risk / idempotency | Purpose |
 |---|---|---|
 | `driver.motion-canvas.doctor` | read_only / read_only | Bounded driver/runtime health and capability count. |
-| `project.inspect` | read_only / read_only | Return the authoritative model, source fingerprint, generated inventory and revision-bound refs. |
+| `project.detect` | read_only / read_only | Detect managed/external project metadata and exact Motion Canvas dependency evidence without executing project code. |
+| `project.inspect` | read_only / read_only | Return the authoritative managed model, source fingerprint, generated inventory and revision-bound refs. |
 | `project.validate` | read_only / read_only | Validate model and deterministic compiler without writing. |
 | `project.create` | mutating_reversible / non_idempotent | Create `semwright-motion.json`; supports truthful dry-run. |
 | `project.diff` | read_only / read_only | Apply a prospective transaction in memory and return semantic/generated impact. |

@@ -84,10 +84,10 @@ async function main() {
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
-    // Chromium's user-namespace sandbox is unavailable inside the outer bwrap namespace.
-    // The browser is still confined by Driver Host bubblewrap + Landlock + no-network policy.
+    // Firefox remains inside the outer Driver Host Bubblewrap + Landlock boundary.
+    // Temporary/profile state is pinned by the Rust parent to the job output grant.
     const launch = {headless:true};
-    launch.env = {...process.env, MOZ_ASSUME_USER_NS:'0'};
+    launch.env = {...process.env, MOZ_ASSUME_USER_NS:'0', MOZ_DISABLE_CONTENT_SANDBOX:'1'};
     if (a.browser) launch.executablePath = a.browser;
     browser = await firefox.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});

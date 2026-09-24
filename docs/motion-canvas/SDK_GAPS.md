@@ -4,7 +4,7 @@ This document records only gaps exercised by the implementation; it is not a pro
 
 ## 1. Multi-tool runtime distribution
 
-Driver Registry packages pin a driver executable/manifest but do not currently distribute and attest a complete auxiliary runtime such as Node + Chromium + helper files. Motion Canvas therefore requires an explicit owner `runtime` filesystem grant. The driver itself verifies SHA-256 pins for every executable/helper entry before rendering.
+Driver Registry packages pin a driver executable/manifest but do not currently distribute and attest a complete auxiliary runtime such as Node + Firefox + helper files. Motion Canvas therefore requires an explicit owner `runtime` filesystem grant. The driver itself verifies SHA-256 pins for every executable/helper entry before rendering.
 
 A generic future tool-dependency/package primitive could remove this manual runtime preparation without widening filesystem access.
 
@@ -16,13 +16,13 @@ A later negotiated jobs/events interface could unify this with broker jobs witho
 
 ## 3. Browser sandbox composition
 
-Ubuntu 24.04 GitHub runners reject Chromium's nested user-namespace sandbox while the driver is already inside the required Bubblewrap namespace. This implementation makes that composition explicit: Chromium sandboxing may be disabled only after the helper verifies the Driver Host sandbox marker; the outer Bubblewrap + Landlock and `network=false` remain mandatory.
+The supported renderer needs a real browser process plus writable temporary/profile state while the driver itself remains inside Bubblewrap + Landlock with `network=false`. Firefox's nested Linux content sandbox cannot create its tab-process boundary inside the current outer namespace, so the pinned helper disables that inner layer only after verifying the Driver Host marker. The current generic runtime package model does not express browser profile storage separately, so this driver pins `TMPDIR`/XDG state to its job-specific owner-granted output root and keeps the Playwright-installed Firefox binary in the read-only runtime grant.
 
-A platform service capable of declaring/attesting nested browser sandbox requirements could make this dependency more portable.
+A future platform/tool dependency primitive could make browser runtime/profile requirements explicit without granting broader filesystem or network access.
 
 ## 4. Resource budgets
 
-Motion Canvas + Vite + Chromium needs materially more address space/process budget than small stdio drivers. Protocol v1 permits up to the current 4 GiB ceiling; CI records Node compatibility with that ceiling. The branch does not raise generic limits without evidence.
+Motion Canvas + Vite + Firefox needs materially more address space/process budget than small stdio drivers. Protocol v1 permits up to the current 4 GiB ceiling; CI records Node compatibility with that ceiling. The branch does not raise generic limits without evidence.
 
 ## Not a gap: loopback
 

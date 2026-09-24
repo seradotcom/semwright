@@ -39,3 +39,9 @@ The semantic file is persisted with temp-file, validation, fsync, source recheck
 Generated source is stored in a content-addressed `.semwright-generated-<sha256>` tree under the granted project root. It includes scene TSX, project metadata, fixed exporter integration, TypeScript/Vite config and exact package lock. Same model + compiler/runtime version produces the same generated file inventory.
 
 Assets are copied only from validated project-relative paths, bounded in size and checked against the semantic SHA-256/byte length. The generated tree is verified before reuse.
+
+## External project boundary
+
+The read-only `project.detect` capability inspects bounded package metadata and the conventional project entry without loading or executing user TypeScript. An observed Motion Canvas dependency is reported as evidence; the driver never installs it.
+
+A valid `semwright-motion.json` selects managed mode. Otherwise external projects remain non-mutating: adoption, arbitrary TSX round-trip editing and package installation are outside format v1.

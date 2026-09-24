@@ -130,7 +130,7 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
         .await
         .unwrap();
     let caps = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert_eq!(caps.len(), 17);
+    assert_eq!(caps.len(), 18);
     assert!(
         caps.iter()
             .all(|c| c.descriptor.name.starts_with("driver.motion-canvas."))

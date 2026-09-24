@@ -113,6 +113,23 @@ struct ValidationOutput {
     revision: u64,
     generated_fingerprint: String,
 }
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum ProjectMode {
+    Managed,
+    External,
+    Empty,
+}
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ProjectDetectOutput {
+    mode: ProjectMode,
+    package_json: bool,
+    project_entry: bool,
+    motion_canvas_version: Option<String>,
+    exact_runtime_match: bool,
+    mutation_supported: bool,
+}
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct MutationOutput {
@@ -260,6 +277,29 @@ fn imported_asset(
     })
 }
 
+fn external_motion_canvas_version(bytes: &[u8]) -> Result<Option<String>> {
+    let package: Value = serde_json::from_slice(bytes)?;
+    let object = package
+        .as_object()
+        .ok_or_else(|| Error::invalid("External package.json must contain an object"))?;
+    for section in ["dependencies", "devDependencies"] {
+        if let Some(dependencies) = object.get(section).and_then(Value::as_object)
+            && let Some(value) = dependencies.get("@motion-canvas/core")
+        {
+            let version = value.as_str().ok_or_else(|| {
+                Error::invalid("Motion Canvas dependency version must be a string")
+            })?;
+            if version.is_empty() || version.len() > 64 || version.chars().any(char::is_control) {
+                return Err(Error::invalid(
+                    "Motion Canvas dependency version exceeds bounds",
+                ));
+            }
+            return Ok(Some(version.into()));
+        }
+    }
+    Ok(None)
+}
+
 pub struct MotionDriver {
     roots: BTreeMap<String, PathBuf>,
     store: Option<ProjectStore>,
@@ -339,6 +379,53 @@ impl MotionDriver {
     fn load(&self) -> Result<Snapshot> {
         self.store()?.load()
     }
+    fn optional_project_file(&self, relative: &str, limit: usize) -> Result<Option<Vec<u8>>> {
+        let root = self
+            .roots
+            .get("project")
+            .ok_or_else(|| Error::new(ErrorCode::Unavailable, "Project grant is not mounted"))?;
+        match crate::store::read_granted_file(root, relative, limit) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.code == ErrorCode::NotFound => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+    fn detect_project(&self) -> Result<ProjectDetectOutput> {
+        let semantic =
+            self.optional_project_file(crate::store::SEMANTIC_FILE, MAX_PROJECT_BYTES)?;
+        let package = self.optional_project_file("package.json", 65_536)?;
+        let project_entry = self
+            .optional_project_file("src/project.ts", 262_144)?
+            .is_some();
+        if let Some(bytes) = semantic {
+            validate::parse(&bytes)?;
+            return Ok(ProjectDetectOutput {
+                mode: ProjectMode::Managed,
+                package_json: package.is_some(),
+                project_entry,
+                motion_canvas_version: Some(MOTION_CANVAS_VERSION.into()),
+                exact_runtime_match: true,
+                mutation_supported: true,
+            });
+        }
+        let version = package
+            .as_deref()
+            .map(external_motion_canvas_version)
+            .transpose()?
+            .flatten();
+        Ok(ProjectDetectOutput {
+            mode: if package.is_some() || project_entry {
+                ProjectMode::External
+            } else {
+                ProjectMode::Empty
+            },
+            package_json: package.is_some(),
+            project_entry,
+            exact_runtime_match: version.as_deref() == Some(MOTION_CANVAS_VERSION),
+            motion_canvas_version: version,
+            mutation_supported: false,
+        })
+    }
     fn parse<T: DeserializeOwned>(args: Value) -> Result<T> {
         serde_json::from_value(args).map_err(Into::into)
     }
@@ -377,6 +464,13 @@ impl MotionDriver {
             Self::cap::<EmptyArgs, DoctorOutput>(
                 "driver.motion-canvas.doctor",
                 "Inspect bounded Motion Canvas driver and renderer prerequisites",
+                Risk::ReadOnly,
+                Idempotency::ReadOnly,
+                true,
+            )?,
+            Self::cap::<EmptyArgs, ProjectDetectOutput>(
+                "driver.motion-canvas.project.detect",
+                "Detect managed or external Motion Canvas project metadata without executing project code",
                 Risk::ReadOnly,
                 Idempotency::ReadOnly,
                 true,
@@ -552,6 +646,10 @@ impl MotionDriver {
                     active_jobs: self.renderer.active_count().await,
                     capability_count: Self::catalog()?.len(),
                 })?)
+            }
+            "driver.motion-canvas.project.detect" => {
+                let _: EmptyArgs = Self::parse(args)?;
+                Ok(serde_json::to_value(self.detect_project()?)?)
             }
             "driver.motion-canvas.project.inspect" => {
                 let _: EmptyArgs = Self::parse(args)?;
@@ -967,7 +1065,7 @@ mod tests {
     #[test]
     fn catalog_is_curated_and_descriptor_names_are_owned() {
         let catalog = MotionDriver::catalog().unwrap();
-        assert_eq!(catalog.len(), 17);
+        assert_eq!(catalog.len(), 18);
         assert!(
             catalog
                 .iter()
@@ -1068,7 +1166,7 @@ mod driver_tests {
         let mut driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
         let caps = driver.capabilities().await.unwrap();
-        assert_eq!(caps.len(), 17);
+        assert_eq!(caps.len(), 18);
         let mut names = std::collections::BTreeSet::new();
         for cap in caps {
             assert!(cap.descriptor.name.starts_with("driver.motion-canvas."));
@@ -1089,7 +1187,33 @@ mod driver_tests {
         assert_eq!(out["node_version"], NODE_VERSION);
         assert_eq!(out["network"], false);
         assert_eq!(out["render_available"], false);
-        assert_eq!(out["capability_count"], 17);
+        assert_eq!(out["capability_count"], 18);
+    }
+
+    #[tokio::test]
+    async fn external_detection_never_enables_mutation() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        std::fs::create_dir(root.join("src")).unwrap();
+        std::fs::write(root.join("src/project.ts"), b"").unwrap();
+        std::fs::write(
+            root.join("package.json"),
+            serde_json::to_vec(&json!({"dependencies":{"@motion-canvas/core":"3.17.2"}})).unwrap(),
+        )
+        .unwrap();
+        let mut driver = MotionDriver::for_project_root(&root).unwrap();
+        let out = call(
+            &mut driver,
+            "driver.motion-canvas.project.detect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(out["mode"], "external");
+        assert_eq!(out["project_entry"], true);
+        assert_eq!(out["motion_canvas_version"], MOTION_CANVAS_VERSION);
+        assert_eq!(out["exact_runtime_match"], true);
+        assert_eq!(out["mutation_supported"], false);
     }
 
     #[tokio::test]

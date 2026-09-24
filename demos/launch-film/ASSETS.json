@@ -8,7 +8,7 @@
       "generated_or_original": "original",
       "bundled_binary": false,
       "sha256": "5d3a42347ac610ca88772622fafc674cbd83df8581b86b35d85869cf8ede506a",
-      "note": "The exact SVG is embedded as semantic data; the source repository is read-only and is not bundled."
+      "note": "Brand SVG content is embedded as semantic data from this read-only source; this hash records the source file bytes."
     },
     {
       "file": "Instrument Sans Variable",
@@ -38,7 +38,7 @@
   ],
   "semantic_source": {
     "file": "semwright-motion.json",
-    "sha256": "b8493a7e131974093d9d2070dbbac11d38c5b480f834bd62f4e4a38f043fcd00"
+    "sha256": "f9b63518af4daccf052c2919f887dc7baa3fa2f627fc214ee3a8a99800e30159"
   },
   "runtime_lock": {
     "file": "../../integrations/motion-canvas/runtime/package-lock.json",
