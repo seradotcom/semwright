@@ -134,11 +134,13 @@ jobs:
               "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
               "  allow ix /plugin/bin,",
               "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
               "  allow ix /tmp/**,",
           ])
           child_rules = "\n".join([
               "  allow ix /plugin/bin,",
               "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
               "  allow ix /tmp/**,",
           ])
           if text.count(parent) != 1 or text.count(nested) != 1:
@@ -150,7 +152,8 @@ jobs:
           sudo install -m 0644 "$RUNNER_TEMP/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
           sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
           test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 1)" != "0"
-          bwrap --unshare-all --ro-bind / / -- /usr/bin/true
+          # The exact chained probe below replaces a generic bwrap→/usr/bin/true smoke:
+          # this profile intentionally permits only the Semwright Driver Host exec chain.
           # Model the Driver Host exec depth before installing browsers: bwrap
           # starts the staged sandbox helper, which execs the staged driver,
           # which then execs a runtime tool under the same stacked profile.
@@ -174,7 +177,7 @@ jobs:
           probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/driver" /plugin/bin)
           probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/runtime" /workspace/runtime)
           probe+=(--setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8)
-          "${probe[@]}" -- /plugin/sandbox --no-new-privs /plugin/bin -c '/workspace/runtime/tool'
+          "${probe[@]}" -- /plugin/sandbox --no-new-privs /plugin/bin -c '/workspace/runtime/tool && /usr/bin/true'
       - name: Install exact runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: npm ci --ignore-scripts
