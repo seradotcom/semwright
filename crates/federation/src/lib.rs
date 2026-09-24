@@ -167,7 +167,7 @@ pub struct StdioUpstreamConfig {
     pub sha256: String,
     #[serde(default)]
     pub args: Vec<String>,
-    /// Explicit filesystem views for this upstream. They materialize as /workspace/<name>.
+    /// Explicit filesystem views for this upstream. They materialize as `/workspace/<name>`.
     #[serde(default)]
     pub mounts: Vec<StdioUpstreamMount>,
     /// Network remains isolated unless both this flag and the daemon-wide gate are enabled.
