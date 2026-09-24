@@ -175,11 +175,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Rust's Stdio::null() opens /dev/null for writing when a child redirects
-    // stdout or stderr. Keep every other device node non-writable.
+    // stdout or stderr. Keep every host device node non-writable.
     ruleset = ruleset.add_rule(PathBeneath::new(
         PathFd::new("/dev/null")?,
         AccessFs::ReadFile | AccessFs::WriteFile,
     ))?;
+
+    // Bubblewrap creates these as fresh tmpfs instances inside each sandbox.
+    // Browser subprocesses need writable temporary/shared-memory storage, but
+    // neither location needs Execute and neither exposes host filesystem data.
+    for path in ["/tmp", "/dev/shm"] {
+        if Path::new(path).is_dir() {
+            ruleset = ruleset.add_rule(PathBeneath::new(
+                PathFd::new(path)?,
+                read_write_noexec,
+            ))?;
+        }
+    }
 
     // Writable driver data is deliberately non-executable.  Platform Mount
     // validation already forbids write+execute; Landlock must enforce the same
@@ -209,21 +221,11 @@ mod tests {
         assert!(bounded_limit(Some("1025".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("not-a-number".into()), 32, 1024).is_err());
         assert_eq!(
-            bounded_limit(
-                Some("17179869184".into()),
-                134_217_728,
-                17_179_869_184
-            )
-            .unwrap(),
+            bounded_limit(Some("17179869184".into()), 134_217_728, 17_179_869_184).unwrap(),
             17_179_869_184
         );
         assert!(
-            bounded_limit(
-                Some("17179869185".into()),
-                134_217_728,
-                17_179_869_184
-            )
-            .is_err()
+            bounded_limit(Some("17179869185".into()), 134_217_728, 17_179_869_184).is_err()
         );
     }
 }

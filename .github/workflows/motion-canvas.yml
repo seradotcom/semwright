@@ -281,6 +281,9 @@ jobs:
           done
           landlock_args=(--limit-nofile 128 --limit-nproc 64 --limit-cpu 40 --limit-as 17179869184 --limit-fsize 16777216 -- /plugin/bin)
           printf 'printf smoke >/dev/null\n' | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${landlock_args[@]}"
+          # /tmp and /dev/shm are fresh Bubblewrap tmpfs mounts, not host paths.
+          # Browser child processes require both to remain writable under Landlock.
+          printf ': >/tmp/semwright-private-tmp-write; : >/dev/shm/semwright-private-shm-write\n' | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${landlock_args[@]}"
           set +e
           printf 'printf blocked >/dev/zero\n' | "${probe[@]}" --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox -- /plugin/sandbox "${landlock_args[@]}" > verification/motion-canvas-host/other-device-write.log 2>&1
           device_rc=$?
