@@ -550,9 +550,19 @@ pub fn output_schema(name: &str) -> Option<Value> {
             "properties":{
                 "loaded":{"type":"boolean"},
                 "family":s(256),
-                "style":nullable_string(256)
+                "style":nullable_string(256),
+                "variationSettings":{
+                    "oneOf":[
+                        {"type":"null"},
+                        {
+                            "type":"object",
+                            "maxProperties":32,
+                            "additionalProperties":{"type":"number","minimum":-100000,"maximum":100000}
+                        }
+                    ]
+                }
             },
-            "required":["loaded","family","style"],
+            "required":["loaded","family","style","variationSettings"],
             "additionalProperties":false
         }),
         "dev.focused_node" => json!({"oneOf":[{"type":"null"},node_summary()]}),

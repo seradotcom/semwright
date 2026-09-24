@@ -720,16 +720,15 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
         return ok(request.id, {removed: true}, true);
       }
       case "motion.keyframe.apply": {
-        const keyframes = a.track?.keyframes;
-        if (!Array.isArray(keyframes) || keyframes.length > MAX_KEYFRAMES) throw new Error("keyframe_limit");
         const node = asScene(await nodeById(String(a.nodeId))) as any;
-        node.applyManualKeyframeTrack(a.field, a.track);
-        return ok(request.id, {applied: true}, true);
+        const applied = semanticMotionApply(node, a.field, a.track);
+        return ok(request.id, {applied: true, field: applied.field, end: applied.end}, true);
       }
       case "motion.keyframe.remove": {
         const node = asScene(await nodeById(String(a.nodeId))) as any;
-        node.removeManualKeyframeTrack(a.field);
-        return ok(request.id, {removed: true}, true);
+        const field = semanticMotionField(a.field);
+        node.removeManualKeyframeTrack(field);
+        return ok(request.id, {removed: true, field}, true);
       }
       case "motion.timeline.set_duration": {
         const duration = Number(a.duration);
@@ -784,12 +783,16 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
         if (extra) return extra;
         const more = await handleSemanticMore(request, a);
         if (more) return more;
+        const product = await handleSemanticProduct(request, a);
+        if (product) return product;
         const semanticExport = await handleSemanticExports(request, a);
         if (semanticExport) return semanticExport;
         const semanticProperty = await handleSemanticProperties(request, a);
         if (semanticProperty) return semanticProperty;
         const admin = await handleSemanticAdmin(request, a);
-        return admin ?? fail(request.id, "unsupported", "operation not implemented by plugin build");
+        if (admin) return admin;
+        const verification = await handleSemanticVerification(request, a);
+        return verification ?? fail(request.id, "unsupported", "operation not implemented by plugin build");
       }
     }
   } catch (error) {

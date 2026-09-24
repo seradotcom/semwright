@@ -31,6 +31,30 @@ rest = {
     item["capability"]
     for item in rest_coverage["operations"] + rest_coverage.get("documented_extras", [])
 } | {"cloud.status"}
+plugin_backed = advertised - local - rest
+
+doc_expectations = {
+    root / "README.md": [
+        f"{len(advertised)} `driver.figma.*` capabilities: {len(plugin_backed)} typed Plugin API operations",
+    ],
+    root / "docs/CAPABILITIES.md": [
+        f"{len(advertised)} bounded `driver.figma.*` capabilities",
+        f"- {len(plugin_backed)} operations backed by the typed official Plugin API dispatcher",
+    ],
+    root / "docs/DRIVER_SDK_SCORECARD.md": [
+        f"{len(advertised)} implementation-backed descriptors; {len(plugin_backed)} Plugin API operations",
+    ],
+    root / "docs/SEMANTIC_COMPLETENESS.md": [
+        f"contains {len(advertised)} capabilities: {len(plugin_backed)} Plugin API/product-semantic operations",
+    ],
+}
+for path, needles in doc_expectations.items():
+    content = path.read_text(encoding="utf-8")
+    for needle in needles:
+        if needle not in content:
+            raise SystemExit(
+                f"documented capability totals drifted from catalog: {path.relative_to(root)} missing {needle!r}"
+            )
 
 missing = sorted(advertised - handlers - local - rest)
 extra = sorted(handlers - advertised)
