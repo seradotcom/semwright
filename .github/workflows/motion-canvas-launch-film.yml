@@ -59,16 +59,27 @@ jobs:
           if count != 2:
               raise SystemExit(f"unexpected bwrap AppArmor profile shape: {count} flag matches")
           text = text.replace(old, "flags=(attach_disconnected,mediate_deleted)")
-          # Ubuntu 24.04 ships an older first exec transition (`px`) here.
-          # Current upstream AppArmor uses `pix` plus a stacked target so
-          # no_new_privs descendants can fall back to inheriting the existing
-          # confinement when another profile transition is unavailable.
+          # Specialize only this ephemeral CI profile for Semwright's exact
+          # Driver Host chain.  The first bwrap exec drops into the stacked
+          # unprivileged profile; all later tool execs inherit that confinement
+          # instead of attempting a second transition under no_new_privs.
           parent = "allow px /** -> bwrap//&unpriv_bwrap,"
-          upstream = "allow pix /** -> &bwrap//&unpriv_bwrap,"
           nested = "allow pix /** -> &unpriv_bwrap,"
+          parent_rules = "\n".join([
+              "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /tmp/**,",
+          ])
+          child_rules = "\n".join([
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /tmp/**,",
+          ])
           if text.count(parent) != 1 or text.count(nested) != 1:
               raise SystemExit("unexpected bwrap AppArmor exec-rule shape")
-          text = text.replace(parent, upstream)
+          text = text.replace("  " + parent, parent_rules)
+          text = text.replace("  " + nested, child_rules)
           path.write_text(text)
           PY
           sudo install -m 0644 "$RUNNER_TEMP/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
@@ -80,7 +91,9 @@ jobs:
           # which then execs a runtime tool under the same stacked profile.
           rm -rf "$RUNNER_TEMP/aa-exec-probe"
           mkdir -p "$RUNNER_TEMP/aa-exec-probe/runtime"
-          cp /bin/sh "$RUNNER_TEMP/aa-exec-probe/sandbox"
+          SETPRIV=$(command -v setpriv)
+          test -x "$SETPRIV"
+          cp "$SETPRIV" "$RUNNER_TEMP/aa-exec-probe/sandbox"
           cp /bin/sh "$RUNNER_TEMP/aa-exec-probe/driver"
           cp /usr/bin/true "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
           chmod 0755 "$RUNNER_TEMP/aa-exec-probe/sandbox" "$RUNNER_TEMP/aa-exec-probe/driver" "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
@@ -96,7 +109,7 @@ jobs:
           probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/driver" /plugin/bin)
           probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/runtime" /workspace/runtime)
           probe+=(--setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8)
-          "${probe[@]}" -- /plugin/sandbox -c '/plugin/bin -c /workspace/runtime/tool'
+          "${probe[@]}" -- /plugin/sandbox --no-new-privs /plugin/bin -c '/workspace/runtime/tool'
       - name: Install exact Motion Canvas runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: |
