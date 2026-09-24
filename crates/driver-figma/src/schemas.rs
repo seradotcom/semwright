@@ -36,6 +36,55 @@ fn color_schema() -> Value {
         "additionalProperties":false
     })
 }
+fn motion_easing_schema() -> Value {
+    json!({
+        "oneOf":[
+            {
+                "type":"object",
+                "properties":{
+                    "type":{"type":"string","enum":[
+                        "EASE_IN","EASE_OUT","EASE_IN_AND_OUT","LINEAR",
+                        "EASE_IN_BACK","EASE_OUT_BACK","EASE_IN_AND_OUT_BACK",
+                        "GENTLE","QUICK","BOUNCY","SLOW","HOLD"
+                    ]}
+                },
+                "required":["type"],
+                "additionalProperties":false
+            },
+            {
+                "type":"object",
+                "properties":{
+                    "type":{"const":"CUSTOM_CUBIC_BEZIER"},
+                    "easingFunctionCubicBezier":{
+                        "type":"object",
+                        "properties":{
+                            "x1":{"type":"number"},"y1":{"type":"number"},
+                            "x2":{"type":"number"},"y2":{"type":"number"}
+                        },
+                        "required":["x1","y1","x2","y2"],
+                        "additionalProperties":false
+                    }
+                },
+                "required":["type","easingFunctionCubicBezier"],
+                "additionalProperties":false
+            },
+            {
+                "type":"object",
+                "properties":{
+                    "type":{"const":"CUSTOM_SPRING"},
+                    "easingFunctionSpring":{
+                        "type":"object",
+                        "properties":{"bounce":number_schema(0.0,1.0)},
+                        "required":["bounce"],
+                        "additionalProperties":false
+                    }
+                },
+                "required":["type","easingFunctionSpring"],
+                "additionalProperties":false
+            }
+        ]
+    })
+}
 fn variable_value_schema() -> Value {
     json!({
         "oneOf":[
@@ -53,20 +102,7 @@ fn variable_value_schema() -> Value {
                 "required":["color","opacity"],
                 "additionalProperties":false
             },
-            {
-                "type":"object",
-                "properties":{
-                    "type":{"type":"string","enum":[
-                        "EASE_IN","EASE_OUT","EASE_IN_AND_OUT","LINEAR",
-                        "EASE_IN_BACK","EASE_OUT_BACK","EASE_IN_AND_OUT_BACK",
-                        "CUSTOM_CUBIC_BEZIER","GENTLE","QUICK","BOUNCY","SLOW",
-                        "CUSTOM_SPRING","HOLD"
-                    ]}
-                },
-                "required":["type"],
-                "additionalProperties":true,
-                "maxProperties":16
-            }
+            motion_easing_schema()
         ]
     })
 }
