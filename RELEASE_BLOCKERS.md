@@ -12,19 +12,16 @@ This remains a development snapshot and is not a release candidate.
 | ID | Remaining blocker | Completion evidence needed |
 |---|---|---|
 | R02 | EIS/libei sender transport is implemented and protocol-tested, but a real user-approved portal ConnectToEIS session is not yet certified. | Live portal-granted sessions with consent, revocation, cancellation, coordinate/focus and lifecycle evidence on supported Wayland desktops. |
-| R06 | The cross-desktop live matrix is incomplete. GNOME Shell 46.0 Wayland now has real semantic GTK/AT-SPI mutation/delta/stale-ref evidence; hosted X11 and GTK/Qt fixtures also execute, but Plasma Wayland, Sway, Hyprland and a native desktop X11 session are not all certified. | Versioned remaining-session matrix with negative cases, focus drift, scaling/multi-monitor where available, cancellation and cleanup. |
-| R13 | Core event provenance, session-private jobs and MCP Tasks mapping are implemented; provider-wide progress/artifacts, negotiated driver-child events/cooperative cancellation and richer inspector workflows remain incomplete. | Cross-provider progress/artifact contracts, Driver Protocol task/event/cancellation conformance and inspector/reference workflow evidence. |
-| R14 | Some outputs and availability signals remain broader/generic than the final semantic API should expose. | Tight output schemas and operation-specific probing/compatibility fixtures across representative providers. |
-| R15 | Nix evaluation, SBOM/signing and publication provenance remain uncertified. Native x86_64/ARM64 tar/deb packaging, reproducibility and user install/execute/uninstall are now certified. | Evaluate the Nix path and produce/review SBOM, signing and publication provenance without weakening fail-closed release admission. |
+| R06 | The cross-desktop live matrix is incomplete. GNOME Wayland, Plasma/KWin Wayland, headless Sway and Openbox/EWMH X11 now have executed semantic/native evidence; Hyprland live still cannot be certified on the hosted container because Aquamarine requires a dmabuf-capable parent/DRM path unavailable there, and broader real-login/scaling/multi-monitor coverage remains. | Versioned remaining-session matrix with Hyprland on a suitable hardware/session plus negative cases, focus drift, scaling/multi-monitor where available, cancellation and cleanup. |
 | R16 | No independent security review has closed the remaining host/application attack surface. | Peer review of authorization, prompt-injection containment, cancellation, stale identity, sandbox boundaries and disclosure behavior. |
 
 Closed development blocker **R01**: Rust 1.88 is the declared workspace MSRV and the hosted MSRV job executes the required fmt/check/build/Clippy/tests/doctests/docs/release/fake/federation gate set. Rust 1.98.1 remains the development pin rather than being mislabeled as the minimum.
 
 Closed development blocker **R09**: the real Rust Chromium matrix now exercises bounded per-file/count/total download quotas, CDP cancellation, crash/dead-instance relaunch, screenshot/download artifact lifecycle, stale refs and real multi-frame navigation. These tests retain disposable profiles and do not expand browser authority.
 
-Packaging progress under **R15**: the hosted `Packaging certification` workflow builds the five release executables natively on x86_64 and ARM64, creates normalized tar/deb packages twice, compares hashes, validates payloads, and performs private user install/execute/uninstall including tamper-safe removal. This closes `release_packaging_validation`; Nix evaluation, SBOM/signing and publication provenance remain separate release blockers.
+Supply-chain closure under **R15** now extends the existing native packaging evidence: `Supply-chain certification` evaluates the pinned Nix derivation, generates normalized reproducible CycloneDX SBOMs, builds x86_64/aarch64 certification bundles and emits GitHub artifact/SBOM attestations. `Packaging certification` separately retains normalized tar/deb reproducibility plus private install/execute/uninstall and tamper-safe removal evidence.
 
-Live-matrix progress under **R06**: GNOME Shell 46.0 on a real Wayland login session now executes the production AT-SPI backend against a disposable Zenity/GTK fixture. Discovery, full snapshot, semantic text mutation, delta refresh, application close/resync and stale-ref rejection pass on commit `6bab0cc`. This closes the GNOME/A025/A029 evidence slice only; it does not certify portal input consent, the optional GJS bridge, Plasma, Sway, Hyprland or native desktop X11.
+Live-matrix progress under **R06**: GNOME Shell 46.0 on a real Wayland login session executes the production AT-SPI backend against a disposable Zenity/GTK fixture. Hosted `Plasma Wayland live` executes the KWin 6 mailbox bridge through discovery/focus/resize/move/close/stale-ref lifecycle; the Sway fixture executes the native IPC path on a real headless compositor; and `Native X11 EWMH live` executes the X11 backend against Openbox. Hyprland remains unclosed because the hosted container lacks the dmabuf-capable parent/DRM path required by Aquamarine 0.15; portal input consent and broader scaling/multi-monitor/real-login coverage also remain outside this closure.
 
 Closed development blocker **R03**: the platformized Linux host now implements bounded XDG
 ScreenCast + PipeWire capture. Hosted native integration creates a real synthetic PipeWire source,
@@ -60,6 +57,22 @@ Closed development blocker **R12**: static/local driver distribution uses a boun
 SHA-256-pinned ELF payload, compatibility resolution and safe install/update/remove without
 install-time execution or implicit policy grants. Remote marketplace transport and cryptographic
 publisher identity are explicitly outside this closure.
+
+Closed development blocker **R13**: Provider Runtime progress and artifact signals feed the owning
+session-scoped JobStore, `jobs.list` and inspector Jobs/Refs views are implemented, MCP Tasks map to
+the broker job model, and Driver Protocol v2 negotiates dynamic capabilities, events, progress,
+artifacts and cooperative cancellation. Hosted provider and sandboxed Driver Host conformance tests
+exercise these contracts.
+
+Closed development blocker **R14**: built-in capability output schemas were tightened against the
+real fixture/catalog variants, including strict union deduplication and compatibility regressions;
+the exact-commit quality/native matrices pass with the stricter schemas.
+
+Closed development blocker **R15**: hosted supply-chain certification evaluates the pinned Nix
+derivation, builds native x86_64/aarch64 certification bundles, generates normalized reproducible
+CycloneDX SBOMs, and publishes GitHub artifact/SBOM attestations with scoped OIDC permissions.
+Native tar/deb reproducibility and private install/execute/uninstall remain separately certified.
+This is supply-chain provenance evidence, not an assertion that every distribution channel is signed.
 
 Closed development blocker **R10**: Plugin Protocol v2 mutually attests plugin name, version and
 complete ordered command-descriptor SHA-256 before execution. Hosted hostile plugin and

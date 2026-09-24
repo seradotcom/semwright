@@ -591,18 +591,13 @@ async fn local(cli: &Cli) -> Result<bool> {
             manage_upstream(cli, command).await?;
         }
         Command::Config { .. } => {
-            let runtime = ipc::runtime_directory()?;
-            let home = std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .unwrap_or_default();
-            let config = std::env::var_os("XDG_CONFIG_HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| home.join(".config"));
-            let state = std::env::var_os("XDG_STATE_HOME")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| home.join(".local/state"));
+            let paths = semwright_platform_services::paths()?;
+            let endpoint = match &cli.socket {
+                Some(path) => path.clone(),
+                None => ipc::default_endpoint("broker")?,
+            };
             print_result(
-                &json!({"runtime":runtime,"socket":cli.socket.clone().unwrap_or_else(||runtime.join("broker.sock")),"config":config.join("semwright/daemon.toml"),"state":state.join("semwright")}),
+                &json!({"runtime":paths.runtime,"socket":endpoint,"config":paths.config.join("daemon.toml"),"state":paths.state}),
                 cli.json,
             )?;
         }
@@ -689,7 +684,7 @@ async fn run(cli: &Cli) -> Result<i32> {
         )
         .await?;
         // Never cancel a partially consumed framed read just to send a heartbeat.
-        let (mut read, mut write) = client.stream.into_split();
+        let (mut read, mut write) = tokio::io::split(client.stream);
         let heartbeat = tokio::spawn(async move {
             let mut timer = tokio::time::interval(Duration::from_secs(30));
             loop {

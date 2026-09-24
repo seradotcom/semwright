@@ -38,6 +38,24 @@
     ],
     "untrusted_metadata": false
   },
+  "artifact.handoff": {
+    "aliases": [
+      "artifact.copy"
+    ],
+    "app": null,
+    "object_types": [
+      "artifact"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "artifact",
+      "handoff",
+      "cross-driver"
+    ],
+    "untrusted_metadata": false
+  },
   "audit.tail": {
     "aliases": [],
     "app": null,
@@ -642,47 +660,62 @@
     "untrusted_metadata": false
   },
   "jobs.cancel": {
-    "source": "builtin",
-    "provider": "semwright-core",
-    "source_version": "0.9.0-dev.1",
-    "app": null,
     "aliases": [],
+    "app": null,
+    "object_types": [
+      "job"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
     "tags": [
       "jobs",
       "cancel"
     ],
-    "object_types": [
-      "job"
-    ],
     "untrusted_metadata": false
   },
   "jobs.get": {
-    "source": "builtin",
-    "provider": "semwright-core",
-    "source_version": "0.9.0-dev.1",
-    "app": null,
     "aliases": [],
+    "app": null,
+    "object_types": [
+      "job"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
     "tags": [
       "jobs",
       "get"
     ],
+    "untrusted_metadata": false
+  },
+  "jobs.list": {
+    "aliases": [],
+    "app": null,
     "object_types": [
       "job"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "jobs",
+      "list"
     ],
     "untrusted_metadata": false
   },
   "jobs.start": {
-    "source": "builtin",
-    "provider": "semwright-core",
-    "source_version": "0.9.0-dev.1",
-    "app": null,
     "aliases": [],
+    "app": null,
+    "object_types": [
+      "job"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
     "tags": [
       "jobs",
       "start"
-    ],
-    "object_types": [
-      "job"
     ],
     "untrusted_metadata": false
   },
@@ -953,12 +986,12 @@
     "provider": "semwright-core",
     "source": "builtin",
     "source_version": "0.9.0-dev.1",
-    "untrusted_metadata": false,
     "tags": [
       "screen",
       "stream",
       "capture"
-    ]
+    ],
+    "untrusted_metadata": false
   },
   "screen.stream.start": {
     "aliases": [],
@@ -967,12 +1000,12 @@
     "provider": "semwright-core",
     "source": "builtin",
     "source_version": "0.9.0-dev.1",
-    "untrusted_metadata": false,
     "tags": [
       "screen",
       "stream",
       "start"
-    ]
+    ],
+    "untrusted_metadata": false
   },
   "screen.stream.stop": {
     "aliases": [],
@@ -981,12 +1014,12 @@
     "provider": "semwright-core",
     "source": "builtin",
     "source_version": "0.9.0-dev.1",
-    "untrusted_metadata": false,
     "tags": [
       "screen",
       "stream",
       "stop"
-    ]
+    ],
+    "untrusted_metadata": false
   },
   "screen.stream_info": {
     "aliases": [],

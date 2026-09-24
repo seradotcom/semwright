@@ -4,13 +4,16 @@ use semwright_federation::StdioUpstreamConfig;
 use semwright_platform_common::Application;
 use semwright_plugin_sdk::Manifest;
 use semwright_policy::PolicyConfig;
-use semwright_protocol::{current_uid, private_directory};
+#[cfg(unix)]
+use semwright_protocol::current_uid;
+use semwright_protocol::private_directory;
 use semwright_types::*;
 use serde::Deserialize;
+#[cfg(unix)]
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::{
     collections::BTreeMap,
     io::Read,
-    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 #[derive(Deserialize)]
@@ -62,6 +65,7 @@ impl Default for Config {
         }
     }
 }
+#[cfg(unix)]
 pub fn owner_text(path: &Path, max: usize) -> Result<String> {
     let file = std::fs::OpenOptions::new()
         .read(true)
@@ -77,6 +81,30 @@ pub fn owner_text(path: &Path, max: usize) -> Result<String> {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Owner configuration must be a single-link regular file, owned by this user, mode 0600, within the size limit",
+        ));
+    }
+    let mut text = String::new();
+    file.take(max as u64 + 1).read_to_string(&mut text)?;
+    if text.len() > max {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Configuration grew beyond its budget",
+        ));
+    }
+    Ok(text)
+}
+#[cfg(target_os = "windows")]
+pub fn owner_text(path: &Path, max: usize) -> Result<String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| Error::invalid("Owner configuration requires a parent directory"))?;
+    private_directory(parent)?;
+    let file = std::fs::OpenOptions::new().read(true).open(path)?;
+    let meta = std::fs::symlink_metadata(path)?;
+    if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > max as u64 {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows owner configuration must be a bounded regular non-link file in a private directory",
         ));
     }
     let mut text = String::new();
@@ -116,10 +144,13 @@ pub fn state_directory(fake: bool, runtime: &Path) -> Result<PathBuf> {
     let base = directory
         .parent()
         .ok_or_else(|| Error::invalid("State directory requires a parent"))?;
+    #[cfg(unix)]
     std::fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)
         .create(base)?;
+    #[cfg(target_os = "windows")]
+    std::fs::create_dir_all(base)?;
     private_directory(&directory)?;
     Ok(directory)
 }

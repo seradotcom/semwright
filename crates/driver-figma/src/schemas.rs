@@ -12,6 +12,100 @@ fn integer_schema(max: u64) -> Value {
 fn loose_value() -> Value {
     json!({})
 }
+fn variable_alias_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "type":{"const":"VARIABLE_ALIAS"},
+            "id":string_schema(256)
+        },
+        "required":["type","id"],
+        "additionalProperties":false
+    })
+}
+fn color_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "r":number_schema(0.0,1.0),
+            "g":number_schema(0.0,1.0),
+            "b":number_schema(0.0,1.0),
+            "a":number_schema(0.0,1.0)
+        },
+        "required":["r","g","b"],
+        "additionalProperties":false
+    })
+}
+fn motion_easing_schema() -> Value {
+    json!({
+        "oneOf":[
+            {
+                "type":"object",
+                "properties":{
+                    "type":{"type":"string","enum":[
+                        "EASE_IN","EASE_OUT","EASE_IN_AND_OUT","LINEAR",
+                        "EASE_IN_BACK","EASE_OUT_BACK","EASE_IN_AND_OUT_BACK",
+                        "GENTLE","QUICK","BOUNCY","SLOW","HOLD"
+                    ]}
+                },
+                "required":["type"],
+                "additionalProperties":false
+            },
+            {
+                "type":"object",
+                "properties":{
+                    "type":{"const":"CUSTOM_CUBIC_BEZIER"},
+                    "easingFunctionCubicBezier":{
+                        "type":"object",
+                        "properties":{
+                            "x1":{"type":"number"},"y1":{"type":"number"},
+                            "x2":{"type":"number"},"y2":{"type":"number"}
+                        },
+                        "required":["x1","y1","x2","y2"],
+                        "additionalProperties":false
+                    }
+                },
+                "required":["type","easingFunctionCubicBezier"],
+                "additionalProperties":false
+            },
+            {
+                "type":"object",
+                "properties":{
+                    "type":{"const":"CUSTOM_SPRING"},
+                    "easingFunctionSpring":{
+                        "type":"object",
+                        "properties":{"bounce":number_schema(0.0,1.0)},
+                        "required":["bounce"],
+                        "additionalProperties":false
+                    }
+                },
+                "required":["type","easingFunctionSpring"],
+                "additionalProperties":false
+            }
+        ]
+    })
+}
+fn variable_value_schema() -> Value {
+    json!({
+        "oneOf":[
+            {"type":"boolean"},
+            {"type":"string","maxLength":65536},
+            {"type":"number"},
+            color_schema(),
+            variable_alias_schema(),
+            {
+                "type":"object",
+                "properties":{
+                    "color":{"oneOf":[color_schema(),variable_alias_schema()]},
+                    "opacity":{"oneOf":[number_schema(0.0,1.0),variable_alias_schema()]}
+                },
+                "required":["color","opacity"],
+                "additionalProperties":false
+            },
+            motion_easing_schema()
+        ]
+    })
+}
 fn bounded_object(max: usize) -> Value {
     json!({"type":"object","maxProperties":max})
 }
@@ -241,7 +335,7 @@ pub fn input_schema(name: &str) -> Value {
                 ),
                 (
                     "primaryAxisAlignItems",
-                    json!({"type":"string","enum":["MIN","MAX","CENTER","SPACE_BETWEEN"]}),
+                    json!({"type":"string","enum":["MIN","MAX","CENTER","SPACE_BETWEEN","SPACE_EVENLY","SPACE_AROUND"]}),
                 ),
                 (
                     "counterAxisAlignItems",
@@ -321,7 +415,7 @@ pub fn input_schema(name: &str) -> Value {
                 ("name", string_schema(256)),
                 (
                     "resolvedType",
-                    json!({"type":"string","enum":["BOOLEAN","FLOAT","STRING","COLOR"]}),
+                    json!({"type":"string","enum":["BOOLEAN","FLOAT","STRING","COLOR","EASING","TIMING"]}),
                 ),
             ],
             &["collectionId", "name", "resolvedType"],
@@ -331,7 +425,7 @@ pub fn input_schema(name: &str) -> Value {
             vec![
                 ("variableId", string_schema(256)),
                 ("modeId", string_schema(256)),
-                ("value", json!({})),
+                ("value", variable_value_schema()),
             ],
             &["variableId", "modeId", "value"],
         ),
@@ -492,7 +586,11 @@ pub fn input_schema(name: &str) -> Value {
             &[],
         ),
 
-        _ => json!({"not":{}}),
+        _ => crate::semantic_complete_schemas::input_schema(name)
+            .or_else(|| crate::semantic_more_schemas::input_schema(name))
+            .or_else(|| crate::semantic_admin_schemas::input_schema(name))
+            .or_else(|| crate::semantic_rest_schemas::input_schema(name))
+            .unwrap_or_else(|| json!({"not":{}})),
     }
 }
 
@@ -673,7 +771,11 @@ pub fn output_schema(name: &str) -> Value {
             "additionalProperties":false
         }),
         "dev.css" => bounded_object(256),
-        _ => json!({"not":{}}),
+        _ => crate::semantic_complete_schemas::output_schema(name)
+            .or_else(|| crate::semantic_more_schemas::output_schema(name))
+            .or_else(|| crate::semantic_admin_schemas::output_schema(name))
+            .or_else(|| crate::semantic_rest_schemas::output_schema(name))
+            .unwrap_or_else(|| json!({"not":{}})),
     }
 }
 

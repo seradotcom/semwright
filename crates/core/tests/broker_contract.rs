@@ -559,6 +559,56 @@ async fn jobs_are_not_visible_across_sessions() {
 }
 
 #[tokio::test]
+async fn jobs_list_is_session_scoped_and_newest_first() {
+    let fixture = Fixture::new(Profile::Observe);
+    let first = fixture
+        .call(
+            "jobs.start",
+            json!({"request":{"command":"app.list","args":{}}}),
+        )
+        .await;
+    let first_id = first.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let second = fixture
+        .call(
+            "jobs.start",
+            json!({"request":{"command":"window.list","args":{}}}),
+        )
+        .await;
+    let second_id = second.data.unwrap()["job"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let listed = fixture.call("jobs.list", json!({})).await;
+    assert!(listed.ok, "{listed:?}");
+    let jobs = listed.data.unwrap()["jobs"].as_array().unwrap().clone();
+    assert_eq!(jobs.len(), 2);
+    assert_eq!(jobs[0]["id"].as_str(), Some(second_id.as_str()));
+    assert_eq!(jobs[1]["id"].as_str(), Some(first_id.as_str()));
+
+    let other = fixture
+        .broker
+        .clone()
+        .execute(
+            unique_id(),
+            unique_id(),
+            ExecuteRequest {
+                command: "jobs.list".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(other.ok, "{other:?}");
+    assert_eq!(other.data.unwrap()["jobs"], json!([]));
+}
+
+#[tokio::test]
 async fn job_events_are_visible_only_to_the_owning_session() {
     let fixture = Fixture::new(Profile::Observe);
     let started = fixture

@@ -1,14 +1,18 @@
 use clap::Parser;
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
-use semwright_daemon::{config, console::Console, server};
+#[cfg(unix)]
+use semwright_daemon::console::Console;
+use semwright_daemon::{config, server};
 use semwright_driver_host::DriverProvider;
 use semwright_federation::{
     ExternalMcpProvider, default_upstream_registry_path, load_upstream_registry,
 };
-use semwright_platform_common::filesystem::Filesystem;
+use semwright_platform_common::{artifact::ArtifactHandoff, filesystem::Filesystem};
 use semwright_plugin_host::Host;
 use semwright_policy::Policy;
-use semwright_protocol::{current_uid, private_directory, runtime_directory};
+#[cfg(unix)]
+use semwright_protocol::{current_uid, private_directory};
+use semwright_protocol::{default_endpoint, runtime_directory};
 use semwright_types::*;
 use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
 use tokio_util::sync::CancellationToken;
@@ -36,13 +40,17 @@ struct Args {
 }
 fn main() {
     let args = Args::parse();
+    #[cfg(unix)]
     if current_uid() == 0 && !args.fake {
         eprintln!("PermissionDenied: semwrightd must run as your login user, not root");
         std::process::exit(3);
     }
-    // SAFETY: umask is set once before the asynchronous runtime or worker threads are created.
-    unsafe {
-        libc::umask(0o077);
+    #[cfg(unix)]
+    {
+        // SAFETY: umask is set once before the asynchronous runtime or worker threads are created.
+        unsafe {
+            libc::umask(0o077);
+        }
     }
     if args.log_format == "json" {
         tracing_subscriber::fmt()
@@ -71,13 +79,10 @@ fn main() {
 }
 async fn run(args: Args) -> Result<()> {
     let runtime = runtime_directory()?;
-    let socket = args.socket.unwrap_or_else(|| {
-        runtime.join(if args.fake {
-            "fake.sock"
-        } else {
-            "broker.sock"
-        })
-    });
+    let socket = match args.socket {
+        Some(path) => path,
+        None => default_endpoint(if args.fake { "fake" } else { "broker" })?,
+    };
     let config = config::load(args.config.as_deref())?;
     let upstream_registry_path = if args.fake && args.mcp_upstreams.is_none() {
         None
@@ -110,6 +115,7 @@ async fn run(args: Args) -> Result<()> {
             "MCP upstream slug is defined more than once across owner configuration",
         ));
     }
+    #[cfg(unix)]
     if args.fake
         && current_uid() == 0
         && (!config.policy.filesystem.is_empty()
@@ -136,6 +142,7 @@ async fn run(args: Args) -> Result<()> {
             protected.push(path.clone());
         }
     }
+    #[cfg(unix)]
     if let Some(parent) = socket.parent() {
         private_directory(parent)?;
         protected.push(parent.to_path_buf());
@@ -161,6 +168,7 @@ async fn run(args: Args) -> Result<()> {
     let platform_keepalive = platform.keepalive;
     if !config.policy.filesystem.is_empty() {
         backends.push(Arc::new(Filesystem::new(&config.policy.filesystem)?));
+        backends.push(Arc::new(ArtifactHandoff::new(&config.policy.filesystem)?));
     }
     let sandbox_helper = std::env::current_exe()?
         .parent()
@@ -177,7 +185,17 @@ async fn run(args: Args) -> Result<()> {
         )?))
     };
     let approver: Arc<dyn Approver> = if args.approval_console {
-        Arc::new(Console)
+        #[cfg(unix)]
+        {
+            Arc::new(Console)
+        }
+        #[cfg(target_os = "windows")]
+        {
+            return Err(Error::new(
+                ErrorCode::ConsentRequired,
+                "Windows interactive approval console is not yet implemented; refusing self-approval",
+            ));
+        }
     } else {
         Arc::new(NoApprover)
     };
@@ -224,15 +242,22 @@ async fn run(args: Args) -> Result<()> {
     let stop = CancellationToken::new();
     let signal = stop.clone();
     tokio::spawn(async move {
-        let mut terminate =
-            match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                Ok(signal) => signal,
-                Err(_) => {
-                    signal.cancel();
-                    return;
-                }
-            };
-        tokio::select! {_ = tokio::signal::ctrl_c()=>(),_ = terminate.recv()=>()};
+        #[cfg(unix)]
+        {
+            let mut terminate =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(signal) => signal,
+                    Err(_) => {
+                        signal.cancel();
+                        return;
+                    }
+                };
+            tokio::select! {_ = tokio::signal::ctrl_c()=>(),_ = terminate.recv()=>()};
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let _ = tokio::signal::ctrl_c().await;
+        }
         signal.cancel();
     });
     tracing::info!(

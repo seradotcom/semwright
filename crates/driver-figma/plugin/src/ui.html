@@ -54,7 +54,7 @@ $("connect").onclick=async()=>{
   session=crypto.randomUUID();generation++;
   ws=new WebSocket("ws://127.0.0.1:"+port);
   ws.onopen=()=>{
-   ws.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.2.0",figma_api:"1.138.0",editor_type:context?.editorType??"unknown",session_id:session,document_id:context?.documentId??"unknown",generation,capabilities:["design","prototype","motion_beta","figjam"]}));
+   ws.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.3.0",figma_api:"1.139.0",editor_type:context?.editorType??"unknown",session_id:session,document_id:context?.documentId??"unknown",generation,capabilities:["design","prototype","motion_beta","figjam","slides","buzz","teamlibrary","shaders","semantic_complete"]}));
    state("Awaiting server challenge…");
   };
   ws.onmessage=async e=>{

@@ -29,3 +29,4 @@ ephemeral GitHub Actions runners.
 
 The integration is maintained in PR #49. This mission may push and iterate that
 branch but does not merge the PR.
+A second and final integration refresh was required before certification because `main` advanced to `73ad946379ee4679280d7b80ba0ef602f3f5c6f8` with Windows platformization, artifact handoff, Godot and other already-merged work. The conflict resolution uses current `main` as the base for shared SDK/Host/platform files and reapplies only Motion Canvas-proven generic deltas: explicit read-only executable mounts, the measured 16 GiB virtual-address-space ceiling, Landlock rules for bind-mounted roots and the Motion Canvas fuzz registrations. The historical `BASELINE_SHA` remains unchanged.

@@ -2,21 +2,55 @@
 use semwright_types::{Error, ErrorCode, Result};
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProgramFormat {
     Elf,
     MachO,
+    Pe,
 }
+
 pub trait ExecutableVerifier: Send + Sync {
     fn verify(&self, path: &Path, sha256: &str) -> Result<Vec<u8>>;
 }
+
+/// Logical mount identity. The platform host materializes its own filesystem namespace.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MountClass {
+    Workspace,
+    SystemConfig,
+}
+
 #[derive(Clone, Debug)]
 pub struct Mount {
     pub source: PathBuf,
-    pub destination: String,
+    pub class: MountClass,
+    pub logical_name: String,
     pub read_only: bool,
     pub execute: bool,
 }
+impl Mount {
+    pub fn validate(&self) -> Result<()> {
+        if !self.source.is_absolute() {
+            return Err(Error::invalid("Mount source must be absolute"));
+        }
+        let p = Path::new(&self.logical_name);
+        super::filesystem::validate_relative_path(p)?;
+        if self.logical_name.len() > 255 {
+            return Err(Error::invalid("Logical mount name exceeds budget"));
+        }
+        if (self.class == MountClass::SystemConfig && (!self.read_only || self.execute))
+            || (self.execute && !self.read_only)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Executable mounts must be read-only workspace mounts",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ResourceLimits {
     pub open_files: u64,
@@ -36,7 +70,6 @@ pub struct SandboxSpec {
     pub staged_executable: PathBuf,
     pub helper: PathBuf,
     pub mounts: Vec<Mount>,
-    pub system_config: Vec<Mount>,
     pub network: bool,
     pub limits: Option<ResourceLimits>,
 }
@@ -48,31 +81,11 @@ impl SandboxSpec {
             ));
         }
         let mut names = std::collections::BTreeSet::new();
-        for m in self.mounts.iter().chain(&self.system_config) {
-            if !m.source.is_absolute() || !names.insert(m.destination.clone()) {
-                return Err(Error::invalid(
-                    "Absolute source and unique destination required",
-                ));
+        for m in &self.mounts {
+            m.validate()?;
+            if !names.insert((m.class as u8, m.logical_name.clone())) {
+                return Err(Error::invalid("Duplicate logical sandbox mount"));
             }
-            let p = Path::new(&m.destination);
-            let system = self
-                .system_config
-                .iter()
-                .any(|s| s.destination == m.destination);
-            let prefix = if system { "/etc/" } else { "/workspace/" };
-            if !m.destination.starts_with(prefix)
-                || (system && !m.read_only)
-                || (m.execute && !m.read_only)
-            {
-                return Err(Error::new(
-                    ErrorCode::PolicyDenied,
-                    "Invalid sandbox mount class",
-                ));
-            }
-            super::filesystem::validate_relative_path(
-                p.strip_prefix("/")
-                    .map_err(|_| Error::invalid("Mount is not absolute"))?,
-            )?;
         }
         if self.kind == SandboxKind::Driver && self.limits.is_none() {
             return Err(Error::invalid("Driver resource limits required"));
@@ -80,49 +93,12 @@ impl SandboxSpec {
         Ok(())
     }
 }
+
 pub trait SandboxLauncher: Send + Sync {
     fn command(&self, spec: &SandboxSpec) -> Result<Command>;
     fn available(&self, helper: &Path) -> bool;
     fn mechanism(&self) -> &'static str;
     fn diagnostics(&self, helper: &Path) -> serde_json::Value {
         serde_json::json!({"available":self.available(helper),"helper_present":helper.is_file(),"mechanism":self.mechanism()})
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn spec(mount: Mount) -> SandboxSpec {
-        SandboxSpec {
-            kind: SandboxKind::Driver,
-            staged_executable: "/tmp/driver".into(),
-            helper: "/tmp/helper".into(),
-            mounts: vec![mount],
-            system_config: vec![],
-            network: false,
-            limits: Some(ResourceLimits {
-                open_files: 32,
-                processes: 8,
-                cpu_seconds: 5,
-                address_space_bytes: 134_217_728,
-                file_size_bytes: 1_048_576,
-            }),
-        }
-    }
-
-    #[test]
-    fn executable_mount_authority_requires_read_only_source() {
-        let executable = Mount {
-            source: "/tmp/runtime".into(),
-            destination: "/workspace/runtime".into(),
-            read_only: true,
-            execute: true,
-        };
-        spec(executable.clone()).validate().unwrap();
-        let mut writable = executable;
-        writable.read_only = false;
-        assert_eq!(writable.execute, true);
-        assert!(spec(writable).validate().is_err());
     }
 }

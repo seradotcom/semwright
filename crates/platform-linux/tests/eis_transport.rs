@@ -35,7 +35,13 @@ fn protocol_request(context: &eis::Context) -> Option<eis::Request> {
     }
 }
 
-fn server(stream: UnixStream, seen: Arc<Mutex<Vec<String>>>) {
+#[derive(Clone, Copy)]
+enum KeyboardMode {
+    Text,
+    Keycode,
+}
+
+fn server(stream: UnixStream, seen: Arc<Mutex<Vec<String>>>, keyboard_mode: KeyboardMode) {
     let context = eis::Context::new(stream).unwrap();
     let mut handshaker = reis::handshake::EisHandshaker::new(&context, 1);
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -52,18 +58,19 @@ fn server(stream: UnixStream, seen: Arc<Mutex<Vec<String>>>) {
 
     let mut converter = EisRequestConverter::new(&context, response, 1);
     let connection = converter.handle().clone();
-    let _seat = connection.add_seat(
-        Some("semwright-test"),
-        DeviceCapability::Pointer
-            | DeviceCapability::Button
-            | DeviceCapability::Scroll
-            | DeviceCapability::Text,
-    );
+    let mut advertised =
+        DeviceCapability::Pointer | DeviceCapability::Button | DeviceCapability::Scroll;
+    advertised.insert(match keyboard_mode {
+        KeyboardMode::Text => DeviceCapability::Text,
+        KeyboardMode::Keycode => DeviceCapability::Keyboard,
+    });
+    let _seat = connection.add_seat(Some("semwright-test"), advertised);
     connection.flush().unwrap();
     record(&seen, "connected");
 
     let mut _pointer: Option<reis::request::Device> = None;
     let mut _text: Option<reis::request::Device> = None;
+    let mut _keyboard: Option<reis::request::Device> = None;
     let deadline = Instant::now() + Duration::from_secs(10);
     'events: loop {
         context.read().unwrap();
@@ -89,6 +96,14 @@ fn server(stream: UnixStream, seen: Arc<Mutex<Vec<String>>>) {
                             &connection,
                             "text",
                             DeviceCapability::Text.into(),
+                        ));
+                    }
+                    if bind.capabilities.contains(DeviceCapability::Keyboard) {
+                        _keyboard = Some(add_device(
+                            &bind.seat,
+                            &connection,
+                            "keyboard",
+                            DeviceCapability::Keyboard.into(),
                         ));
                     }
                     record(&seen, "bind");
@@ -124,7 +139,7 @@ async fn real_eis_protocol_negotiates_and_sends_input() {
     let (server_stream, client_stream) = UnixStream::pair().unwrap();
     let seen = Arc::new(Mutex::new(Vec::new()));
     let server_seen = seen.clone();
-    let thread = std::thread::spawn(move || server(server_stream, server_seen));
+    let thread = std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Text));
 
     let client = EisClient::connect(
         client_stream,
@@ -169,4 +184,38 @@ async fn real_eis_protocol_negotiates_and_sends_input() {
     let snapshot = seen.lock().unwrap();
     assert!(snapshot.iter().any(|v| v == "keysym:97"));
     assert!(snapshot.iter().any(|v| v == "start"));
+}
+
+#[tokio::test]
+async fn keycode_only_keyboard_negotiates_without_claiming_text_support() {
+    let (server_stream, client_stream) = UnixStream::pair().unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let server_seen = seen.clone();
+    let thread =
+        std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Keycode));
+
+    let client = EisClient::connect(
+        client_stream,
+        Requested {
+            keyboard: true,
+            pointer: false,
+        },
+    )
+    .await
+    .unwrap();
+    let caps = client.capabilities();
+    assert!(caps.keyboard);
+    assert!(!caps.text);
+
+    let error = client.keysym(0x61).await.unwrap_err();
+    assert_eq!(error.code, semwright_types::ErrorCode::Unsupported);
+    assert!(error.message.contains("ei_keyboard"));
+    let error = client.type_text("a").await.unwrap_err();
+    assert_eq!(error.code, semwright_types::ErrorCode::Unsupported);
+
+    client.stop().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), client.wait_closed())
+        .await
+        .expect("EIS client should observe transport shutdown");
+    thread.join().unwrap();
 }

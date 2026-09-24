@@ -120,21 +120,23 @@ impl Policy {
         target_app: Option<&str>,
     ) -> Decision {
         for cap in &command.requires {
-            if cap.starts_with("filesystem.") {
-                let root = args.get("root").and_then(Value::as_str);
+            if let Some(filesystem) = cap.strip_prefix("filesystem.") {
+                let (operation, argument) =
+                    filesystem.split_once(':').unwrap_or((filesystem, "root"));
+                let root = args.get(argument).and_then(Value::as_str);
                 let matching = self
                     .config
                     .filesystem
                     .iter()
                     .find(|r| Some(r.name.as_str()) == root);
-                let permitted = matching.is_some_and(|r| {
-                    if cap == "filesystem.read" {
-                        r.read
-                    } else {
-                        r.write
-                    }
+                let permitted = matching.is_some_and(|r| match operation {
+                    "read" => r.read,
+                    "write" => r.write,
+                    _ => false,
                 });
-                if !permitted || self.config.deny.contains(cap) {
+                let base = format!("filesystem.{operation}");
+                if !permitted || self.config.deny.contains(cap) || self.config.deny.contains(&base)
+                {
                     return Decision::Deny("No grant for this filesystem root and operation");
                 }
             } else if !self.granted.contains(cap) {
@@ -270,6 +272,75 @@ mod tests {
             assert!(!p.capabilities().contains(s));
         }
     }
+    #[test]
+    fn qualified_filesystem_requirements_bind_to_named_arguments() {
+        let config = PolicyConfig {
+            filesystem: vec![
+                FilesystemGrant {
+                    name: "source".into(),
+                    path: PathBuf::from("/tmp/source"),
+                    read: true,
+                    write: false,
+                },
+                FilesystemGrant {
+                    name: "destination".into(),
+                    path: PathBuf::from("/tmp/destination"),
+                    read: false,
+                    write: true,
+                },
+            ],
+            ..Default::default()
+        };
+        let policy = Policy::new(config).unwrap();
+        let mut command = descriptor("filesystem.read:source_root", Risk::MutatingReversible);
+        command
+            .requires
+            .push("filesystem.write:destination_root".into());
+        assert_eq!(
+            policy.check(
+                &command,
+                &serde_json::json!({
+                    "source_root":"source",
+                    "destination_root":"destination"
+                }),
+                None
+            ),
+            Decision::Allow
+        );
+        assert!(matches!(
+            policy.check(
+                &command,
+                &serde_json::json!({
+                    "source_root":"destination",
+                    "destination_root":"source"
+                }),
+                None
+            ),
+            Decision::Deny(_)
+        ));
+    }
+
+    #[test]
+    fn base_filesystem_deny_blocks_parameterized_requirement() {
+        let mut config = PolicyConfig::default();
+        config.deny.insert("filesystem.write".into());
+        config.filesystem.push(FilesystemGrant {
+            name: "destination".into(),
+            path: PathBuf::from("/tmp/destination"),
+            read: true,
+            write: true,
+        });
+        let policy = Policy::new(config).unwrap();
+        assert!(matches!(
+            policy.check(
+                &descriptor("filesystem.write:destination_root", Risk::Mutating),
+                &serde_json::json!({"destination_root":"destination"}),
+                None
+            ),
+            Decision::Deny(_)
+        ));
+    }
+
     #[test]
     fn terminal_controls_are_escaped() {
         let summary = confirmation_summary(

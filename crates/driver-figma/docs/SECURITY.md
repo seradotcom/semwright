@@ -29,3 +29,15 @@ The repository includes a real DriverProvider host-conformance test. The local d
 ## Real-Figma boundary
 
 No authorized disposable Figma session was available for this closeout. Fake-host and plugin-runtime evidence do not substitute for real Figma F1-F4 acceptance.
+
+## Cloud credential boundary
+
+The optional official REST transport does not accept OAuth/PAT credentials as ordinary capability arguments. It reads one bounded credential frame from an owner-provisioned Unix credential socket under a same-UID private directory, validates ownership/mode/peer credentials, zeroizes the secret after use, disables redirects and limits response bodies.
+
+If the helper is absent, `cloud.status` reports the transport as unconfigured and cloud operations fail closed. The driver never returns the REST credential to the agent.
+
+## Payments boundary
+
+The public PaymentsAPI status/checkout operations are mapped semantically with privilege-sensitive risk where appropriate. `getPluginPaymentTokenAsync()` is deliberately **not** an agent-facing capability because it returns an identity token intended for secure payment-API composition. The API coverage manifest classifies it as `INTERNAL_SECRET_COMPOSITION`.
+
+This is considered semantic coverage, not a missing capability: the protected primitive may be consumed internally by a future broker/REST composition path, but must not appear in model-visible outputs, audit payloads or logs.

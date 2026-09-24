@@ -14,7 +14,7 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_162_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 90)
+        self.assertEqual(len(COMMANDS), 92)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
@@ -23,11 +23,70 @@ class ContractTests(unittest.TestCase):
     def test_unique_command_names(self):
         self.assertEqual(len(COMMANDS), len(REGISTRY))
 
+    def test_schema_unions_have_unique_branches(self):
+        def walk(value, path):
+            if isinstance(value, dict):
+                for union in ("oneOf", "anyOf"):
+                    variants = value.get(union)
+                    if isinstance(variants, list):
+                        canonical = [json.dumps(v, sort_keys=True, separators=(",", ":")) for v in variants]
+                        self.assertEqual(
+                            len(canonical),
+                            len(set(canonical)),
+                            f"duplicate {union} branches at {path}",
+                        )
+                for key, child in value.items():
+                    walk(child, f"{path}/{key}")
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    walk(child, f"{path}/{index}")
+
+        for command in COMMANDS:
+            walk(command["input_schema"], f"{command['name']}/input_schema")
+            walk(command["output_schema"], f"{command['name']}/output_schema")
+
+    def test_job_outputs_accept_bounded_progress_and_artifacts(self):
+        job = {
+            "id": "a" * 32,
+            "command": "driver.fixture.long",
+            "state": "running",
+            "created_at_ms": 1,
+            "cancellation_requested": False,
+            "cancellable": True,
+            "progress": {"completed": 2, "total": 4, "message": "halfway"},
+            "artifacts": [{
+                "name": "preview",
+                "reference": "artifact:fixture-preview",
+                "media_type": "image/png",
+                "sha256": "b" * 64,
+                "bytes": 128,
+            }],
+            "result_omitted": False,
+        }
+        for name in ("jobs.start", "jobs.get", "jobs.cancel"):
+            jsonschema.validate({"job": job}, REGISTRY[name]["output_schema"])
+        jsonschema.validate({"jobs": [job]}, REGISTRY["jobs.list"]["output_schema"])
+
     def test_every_input_is_closed(self):
         for command in COMMANDS:
             with self.subTest(command=command["name"]):
                 self.assertEqual(command["input_schema"]["type"], "object")
                 self.assertIs(command["input_schema"]["additionalProperties"], False)
+
+    def test_every_output_has_a_closed_top_level_contract(self):
+        def assert_closed(schema):
+            if schema.get("type") == "object":
+                self.assertTrue(schema.get("properties"))
+                self.assertIs(schema.get("additionalProperties"), False)
+                return
+            variants = schema.get("oneOf") or schema.get("anyOf") or schema.get("allOf")
+            self.assertTrue(variants)
+            for variant in variants:
+                assert_closed(variant)
+
+        for command in COMMANDS:
+            with self.subTest(command=command["name"]):
+                assert_closed(command["output_schema"])
 
     def test_all_descriptors_bounded(self):
         for command in COMMANDS:

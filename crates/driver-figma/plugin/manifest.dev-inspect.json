@@ -1,0 +1,12 @@
+{
+  "name": "Semwright Figma Bridge — Dev Inspect",
+  "id": "semwright-figma-bridge-dev-inspect",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["dev"],
+  "capabilities": ["inspect", "vscode"],
+  "documentAccess": "dynamic-page",
+  "permissions": ["currentuser", "teamlibrary"],
+  "networkAccess": {"allowedDomains":["none"],"devAllowedDomains":["ws://127.0.0.1:38471"]}
+}

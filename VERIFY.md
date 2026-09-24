@@ -93,9 +93,10 @@ environment and isolated network by default.
 
 The hosted `driver-conformance` job executes a real persistent fixture through handshake,
 capability digest attestation, health, a safe read-only operation and clean shutdown. It also
-executes the broker smoke path and compiles a newly scaffolded driver. Protocol v1 deliberately
-rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
-are negotiated and tested.
+executes the broker smoke path and compiles a newly scaffolded driver. Driver Protocol v2 now
+negotiates dynamic capabilities, provider events, progress/artifacts and cooperative cancellation;
+the sandboxed `protocol_v2` fixture exercises event delivery, catalog change, typed artifact
+metadata, monotonic progress and cancellation while v1 remains the compatibility baseline.
 
 ## Adversarial sandbox and plugin-attestation closure included in this development line
 
@@ -173,9 +174,11 @@ JobStore IDs, `tasks/get` and `tasks/cancel` re-enter normal broker policy, lega
 rejected for task creation, and the official-SDK E2E exercises create/poll/result/cancel behavior.
 Semwright does not fabricate `input_required` transitions that its broker cannot currently emit.
 
-This does not certify a universal provider progress percentage/artifact contract, remote durable task
-persistence or negotiated driver-child job/event/cancellation interfaces. Those remain follow-on
-compatibility work rather than implied capabilities of the core job store.
+Provider Runtime now has a general bounded progress/artifact contract: provider signals update the
+owning session-scoped JobStore, artifacts retain typed metadata, and integration tests prove
+cross-session isolation. Driver Protocol v2 negotiates child events, progress/artifacts, dynamic
+capabilities and cooperative cancellation, while the inspector exposes session Jobs/Refs views.
+Remote durable task persistence remains follow-on work rather than an implied capability.
 
 ## OBS deep-driver closure included in this development line
 
@@ -199,9 +202,10 @@ no user profile and no external streaming target. The production Rust probe auth
 successfully executes read-only `GetVersion` and `GetSceneList`; the accepted evidence explicitly
 records `recording_started=false` and `streaming_started=false`.
 
-This does **not** imply that Driver Protocol v1 transports driver-child events, cooperative
-cancellation, dynamic capability changes or provider-wide progress/artifacts. Those generic
-protocol gaps remain fail-closed/follow-on work rather than being simulated by the OBS driver.
+Driver Protocol v2 now provides the generic negotiated path for driver-child events, dynamic
+capability changes, progress/artifacts and cooperative cancellation. That generic transport does
+not by itself claim complete OBS event forwarding or convert every OBS-specific lifecycle signal
+into a broker-native event; those application-level mappings remain separate from protocol closure.
 
 ## Blender, KiCad and MLT deep-driver closure included in this development line
 
@@ -235,7 +239,9 @@ production AT-SPI path against Zenity 4.0.1 in the active `wayland-0` login sess
 editable text through AT-SPI (without global keyboard/pointer injection), observes a delta, closes
 the fixture, forces structural resync and rejects the old ref as stale. Sanitized evidence is stored
 in `verification/live-gnome/gnome-wayland-atspi.json`. This certifies the GNOME semantic GTK route,
-not the optional GJS bridge, portal input consent or the remaining Plasma/Sway/Hyprland matrix.
+not the optional GJS bridge or portal input consent. Separate hosted jobs now certify Plasma/KWin
+Wayland, real headless Sway IPC and Openbox/EWMH X11; Hyprland and broader interactive/scaling
+coverage remain part of the live matrix.
 
 The RemoteDesktop EIS sender is implemented in the platformized Linux host and a real EIS protocol
 fixture negotiates a sender session and transmits keysym, UTF-8 text, relative pointer motion,
@@ -271,7 +277,7 @@ foundation, not a claim that macOS has feature parity with the Linux semantic ho
 
 The hosted `Packaging certification` workflow runs on native x86_64 and ARM64 Linux runners. It builds the five release executables (`semwright`, `semwrightd`, `semwright-mcp`, `semwright-inspect`, and `semwright-sandbox`), creates normalized tar/deb artifacts twice, compares their hashes, validates package payloads, and exercises a private user install -> execute -> uninstall lifecycle. The uninstall regression also proves modified/tampered installed files are refused rather than deleted blindly.
 
-This closes Semwright's `release_packaging_validation` gate and the development evidence gap for native tar/deb packaging, reproducibility and user install/uninstall. It does **not** claim Nix evaluation, publisher identity, SBOM generation, signing/notarization or publication provenance; those remain separate release/security work and `release-readiness.json` remains fail-closed.
+This closes Semwright's `release_packaging_validation` gate and the development evidence gap for native tar/deb packaging, reproducibility and user install/uninstall. The separate `Supply-chain certification` workflow now evaluates the pinned Nix derivation, generates normalized reproducible CycloneDX SBOMs for the release binaries, builds x86_64/aarch64 certification bundles and emits GitHub artifact/SBOM attestations with scoped OIDC permissions. This does not claim universal publisher identity or platform notarization, and `release-readiness.json` remains fail-closed for the remaining live/security gates.
 
 ## Verification hardening included in the baseline
 
@@ -286,16 +292,16 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 
 ## Evidence boundaries
 
-This baseline does **not** claim Plasma Wayland, Sway, Hyprland or a complete native-desktop
-X11 matrix, nor a real user-approved portal ConnectToEIS session. GNOME Wayland has a real semantic
-GTK/AT-SPI execution, but that does not certify every GNOME extension/portal/scaling path. It does
-not certify a sandbox for same-UID MCP upstream executables, a remote signed driver marketplace or
-cryptographic publisher identity. Adversarial plugin/driver sandbox regressions are executed but do
-not constitute a formal security proof. Rust 1.88 is the executed MSRV, Chromium quota/crash/frame
-hardening, MCP Tasks mapping, reproducible native tar/deb packaging and private user install/uninstall
-are executed. Nix evaluation, SBOM/signing/publication provenance, independent security review,
-provider-wide progress/artifacts and negotiated dynamic driver child event/cancellation interfaces
-remain follow-on work.
+This baseline now claims executed hosted evidence for Plasma/KWin Wayland, real headless Sway IPC
+and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route. It does **not** claim
+Hyprland live certification, a complete real-login/scaling/multi-monitor desktop matrix or a real
+user-approved portal ConnectToEIS lifecycle. It does not certify a sandbox for same-UID MCP upstream
+executables, a remote signed driver marketplace or universal cryptographic publisher identity.
+Adversarial plugin/driver sandbox regressions are executed but do not constitute a formal security
+proof. Rust 1.88 is the executed MSRV; Chromium hardening, MCP Tasks mapping, Provider Runtime
+progress/artifacts, Driver Protocol v2 child events/cancellation, reproducible native tar/deb
+packaging, pinned Nix evaluation, normalized CycloneDX SBOMs and GitHub attestations are executed.
+Independent security review and the remaining live desktop/portal matrix remain open.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

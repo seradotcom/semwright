@@ -26,9 +26,9 @@ The browser process tree also exercises the Driver Host task ceiling: Linux `RLI
 
 Motion Canvas + Vite + modern Chromium needs materially more virtual address space than small stdio drivers. Real Driver Host CI showed Chromium failing under the former 4 GiB `RLIMIT_AS` ceiling after Node/Vite had already succeeded. The branch therefore makes one minimal generic adjustment: keep the 512 MiB default, raise only the validated hard maximum to 16 GiB, and have Motion Canvas opt into 16 GiB explicitly. The Linux helper enforces the same maximum. CI records paired direct Chromium probes at 4 GiB and 16 GiB and requires the 16 GiB probe to launch. This changes virtual address-space reservation, not an ambient RAM grant.
 
-## 5. Windows platform-service composition
+## Resolved during final integration: Windows platform services
 
-The frozen baseline has no Windows implementation of `semwright-platform-services`, while Driver Protocol depends on that crate. A Windows compile of the complete protocol adapter therefore fails before Motion Canvas-specific code. This branch keeps the managed model OS-neutral and verifies the complete adapter on macOS, but does not redesign generic platform services or claim Windows support.
+The frozen implementation baseline originally lacked Windows `semwright-platform-services`. Final integration with current `main` brought the Windows platform host and secure driver-host plumbing into this branch, so that item is no longer an SDK gap. Motion Canvas now checks the complete domain/Driver Protocol adapter on Windows CI. Live browser rendering is still Linux-only evidence and is not promoted to a Windows support claim.
 
 ## Not a gap: isolated loopback
 
