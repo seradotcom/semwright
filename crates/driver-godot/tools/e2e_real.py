@@ -399,7 +399,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         mutate("driver.godot.material.standard.configure", {
             "path": "res://assets/semantic_mat.tres", "albedo_color": [0.15, 0.55, 0.8, 1.0],
             "metallic": 0.2, "roughness": 0.45, "emission_enabled": False,
-            "emission": [0.0, 0.0, 0.0, 1.0], "transparency": 0, "shading_mode": 0,
+            "emission": [0.0, 0.0, 0.0, 1.0], "transparency": 0, "shading_mode": 1,
         })
         material = call("driver.godot.material.standard.inspect", {"session": sid, "path": "res://assets/semantic_mat.tres"})
         assert abs(material["data"]["roughness"] - 0.45) < 0.001
