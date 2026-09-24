@@ -22,6 +22,8 @@ A future platform/tool dependency primitive could make browser runtime/profile r
 
 ## 4. Resource budgets
 
+The browser process tree also exercises the Driver Host task ceiling: Linux `RLIMIT_NPROC` counts both processes and threads. Motion Canvas therefore opts into the existing SDK maximum of 256 tasks rather than the smaller 128-task request used by earlier render probes. This does not raise the generic SDK maximum; it is a driver-specific bounded request and CI must still prove that the exact browser starts under it.
+
 Motion Canvas + Vite + modern Chromium needs materially more virtual address space than small stdio drivers. Real Driver Host CI showed Chromium failing under the former 4 GiB `RLIMIT_AS` ceiling after Node/Vite had already succeeded. The branch therefore makes one minimal generic adjustment: keep the 512 MiB default, raise only the validated hard maximum to 16 GiB, and have Motion Canvas opt into 16 GiB explicitly. The Linux helper enforces the same maximum. CI records paired direct Chromium probes at 4 GiB and 16 GiB and requires the 16 GiB probe to launch. This changes virtual address-space reservation, not an ambient RAM grant.
 
 ## 5. Windows platform-service composition
