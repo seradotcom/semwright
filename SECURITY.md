@@ -2,9 +2,9 @@
 
 ## Current status
 
-This is **uncompiled development source**, not a security-reviewed automation product.
+This is **development software with executed CI and live integration evidence**, not a security-reviewed automation product.
 There is no supported production version and no paid security response commitment.
-Do not attach it to a credential-rich desktop until the release blockers are closed.
+Do not attach it to a credential-rich desktop until the release blockers are closed and an independent security review is complete.
 
 The intended boundary is least-privilege **mediated commands**: a broker policy controls
 all frontends, references identify objects, mutations do not silently retry, and plugin
@@ -27,11 +27,11 @@ No claim of complete isolation or information-flow security is made.
 
 ## Reporting vulnerabilities
 
-No public repository/contact endpoint is established by this source archive. Report
-privately to the person or organization that supplied your copy; do not invent a public
-issue containing credentials or an exploit against a third party. Once published, the
-maintainer must enable GitHub private vulnerability reporting and update this section
-with the actual verified reporting channel before a supported release.
+The public repository is `seradotcom/semwright` on GitHub, and GitHub private
+vulnerability reporting is enabled. Report security issues through the repository's
+private vulnerability-reporting flow; do not open a public issue containing credentials,
+private artifacts, or an exploit against a third party. This is a reporting channel, not
+a promise of production support or a response-time SLA.
 
 Provide the affected commit, minimal local fixture, precise capability/profile, expected
 boundary, actual outcome and redacted environment. Do not include live credentials,
@@ -39,4 +39,5 @@ session tickets, cookies, raw clipboard contents, private screenshots or unrelat
 Tests must target a machine/account you own or are explicitly authorized to assess.
 
 See [threat model](docs/security.md), [permissions](docs/permissions.md),
-[release blockers](RELEASE_BLOCKERS.md) and [verification](VERIFY.md).
+[independent review packet](docs/security-review.md), [release blockers](RELEASE_BLOCKERS.md)
+and [verification](VERIFY.md).
