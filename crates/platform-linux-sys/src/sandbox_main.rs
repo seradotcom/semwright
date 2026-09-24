@@ -149,5 +149,10 @@ mod tests {
         assert!(bounded_limit(Some("31".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("1025".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("not-a-number".into()), 32, 1024).is_err());
+        assert_eq!(
+            bounded_limit(Some("17179869184".into()), 134_217_728, 17_179_869_184).unwrap(),
+            17_179_869_184
+        );
+        assert!(bounded_limit(Some("17179869185".into()), 134_217_728, 17_179_869_184).is_err());
     }
 }

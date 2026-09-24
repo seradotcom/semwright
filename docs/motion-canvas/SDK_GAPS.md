@@ -22,7 +22,7 @@ A future platform/tool dependency primitive could make browser runtime/profile r
 
 ## 4. Resource budgets
 
-Motion Canvas + Vite + Chromium headless shell needs materially more address space/process budget than small stdio drivers. The current driver manifest resource model permits the existing 4 GiB ceiling; CI records Node compatibility with that ceiling. The branch does not raise generic limits without evidence.
+Motion Canvas + Vite + Chromium headless shell needs materially more virtual address space than small stdio drivers. Real Driver Host CI showed Chromium failing under the former 4 GiB `RLIMIT_AS` ceiling after Node/Vite had already succeeded. The branch therefore makes one minimal generic adjustment: keep the 512 MiB default, raise only the validated hard maximum to 16 GiB, and have Motion Canvas opt into 16 GiB explicitly. The Linux helper enforces the same maximum. CI records paired direct Chromium probes at 4 GiB and 16 GiB and requires the 16 GiB probe to launch. This changes virtual address-space reservation, not an ambient RAM grant.
 
 ## 5. Windows platform-service composition
 

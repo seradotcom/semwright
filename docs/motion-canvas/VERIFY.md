@@ -51,7 +51,7 @@ If an optional platform or tool is unavailable, the driver must report it fail-c
 
 ## CI evidence
 
-Pull-request CI performs locked Rust compilation, unit/property/security tests, clippy with warnings denied, formatting and whitespace checks. The dedicated runtime job installs the exact Node lockfile on an ephemeral runner, materializes a managed fixture, typechecks/builds generated source, exercises real Driver Host conformance, renders opaque and transparent PNG sequences, tests cancellation and records the 4 GiB address-space probe.
+Pull-request CI performs locked Rust compilation, unit/property/security tests, clippy with warnings denied, formatting and whitespace checks. The dedicated runtime job installs the exact Node lockfile on an ephemeral runner, materializes a managed fixture, typechecks/builds generated source, exercises real Driver Host conformance, renders opaque and transparent PNG sequences, tests cancellation and records paired Chromium probes at 4 GiB and 16 GiB of virtual address space; 16 GiB must launch successfully.
 
 Six bounded Motion Canvas fuzz targets run in GitHub Actions. They cover the semantic project parser, reference decoder, animation validation, path validation, SVG boundary and code-generation escaping.
 

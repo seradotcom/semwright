@@ -14,7 +14,7 @@ The Vite plugin is configured with the documented project import path `./src/pro
 2. Deterministic generated source is materialized in a content-addressed project tree.
 3. Driver Host supplies an owner-approved read-only runtime mount plus a separate read-only `fontconfig` system-config grant mapped only to `/etc/fonts`.
 4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Chromium headless shell executable.
-5. A render job starts the pinned Node helper only inside the Driver Host sandbox. Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` so Vite/Undici remain compatible with the existing 4 GiB Driver Host address-space ceiling instead of raising that generic limit.
+5. A render job starts the pinned Node helper only inside the Driver Host sandbox. Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` to bound its own heap. The Motion Canvas manifest separately requests the 16 GiB Driver Host virtual-address-space ceiling because real Chromium headless shell could not launch under the former 4 GiB ceiling; this is an `RLIMIT_AS` reservation limit, not a resident-memory allocation.
 6. The parent pins `TMPDIR`, `TMP`, `TEMP` and XDG state to the job-specific writable output directory before the helper starts. The helper copies the generated project into that private area and performs the Vite build there.
 7. A dedicated Playwright Chromium headless shell context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
 8. Motion Canvas core `Renderer` invokes the fixed Semwright image-sequence exporter.

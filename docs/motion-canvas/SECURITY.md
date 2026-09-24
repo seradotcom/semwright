@@ -6,7 +6,7 @@ The managed format exists because arbitrary TypeScript is executable code. The f
 
 Agent input is untrusted semantic data. Driver Protocol descriptors are strict, digest-pinned schemas. The Rust driver owns policy-relevant validation and never delegates authorization to Node or the browser.
 
-The Driver Host is the execution boundary. Production rendering requires Bubblewrap + Landlock, named owner grants, a pinned driver ELF, `network=false` and bounded process/file/CPU/address-space resources. There is no unsandboxed fallback.
+The Driver Host is the execution boundary. Production rendering requires Bubblewrap + Landlock, named owner grants, a pinned driver ELF, `network=false` and bounded process/file/CPU/address-space resources. There is no unsandboxed fallback. Motion Canvas requests 16 GiB of virtual address space while retaining bounded CPU/process/file limits; the SDK default remains 512 MiB. The larger `RLIMIT_AS` ceiling permits Chromium's sparse virtual mappings and does not pre-allocate or grant 16 GiB of resident RAM.
 
 Ubuntu 24.04 additionally restricts unprivileged user namespaces through AppArmor. CI loads the distro `bwrap-userns-restrict` profile specifically for `/usr/bin/bwrap`; it does not disable `kernel.apparmor_restrict_unprivileged_userns` system-wide. This lets Bubblewrap create the isolated namespaces it needs while preserving Ubuntu's global user-namespace mitigation for unrelated processes.
 

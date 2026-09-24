@@ -20,6 +20,8 @@ machinery remains the distribution mechanism; filesystem and policy grants remai
 owner-controlled. The runtime/browser is an explicit, read-only, digest-pinned
 owner grant rather than an implicit host dependency.
 
+Motion Canvas also proved one narrow generic resource constraint during final integration: Chromium headless shell could not start under the previous 4 GiB virtual-address-space hard maximum. The dedicated `fix: allow browser-compatible driver address space` commit keeps the 512 MiB default, raises only the SDK/Linux-helper maximum to 16 GiB, and makes this driver opt in explicitly. CI measures the browser under both ceilings.
+
 Launch-film semantic source, storyboard, visual system, recipe and asset manifest
 are source-controlled. Generated browser profiles, node_modules, PNG sequences,
 intermediates and final binary media remain outside Git and are produced on
