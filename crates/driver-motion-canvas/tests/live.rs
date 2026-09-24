@@ -98,7 +98,7 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
         network: false,
         resources: DriverResources {
             open_files: 512,
-            processes: 256,
+            processes: 128,
             cpu_seconds: 300,
             address_space_bytes: 17_179_869_184,
             file_size_bytes: 1_073_741_824,

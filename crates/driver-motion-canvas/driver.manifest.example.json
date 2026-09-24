@@ -24,7 +24,7 @@
   "network": false,
   "resources": {
     "open_files": 256,
-    "processes": 256,
+    "processes": 128,
     "cpu_seconds": 300,
     "address_space_bytes": 17179869184,
     "file_size_bytes": 1073741824
