@@ -328,7 +328,7 @@ async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: R
     }
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn executable_diagnostics(path: &Path) -> String {
     use std::{
         ffi::CString,
@@ -359,7 +359,7 @@ fn executable_diagnostics(path: &Path) -> String {
     format!("mode={mode:?} uid={uid:?} gid={gid:?} euid={euid} x_ok={x_ok} noexec={noexec:?}")
 }
 
-#[cfg(not(unix))]
+#[cfg(not(target_os = "linux"))]
 fn executable_diagnostics(_path: &Path) -> String {
     "platform_diagnostics_unavailable".into()
 }
