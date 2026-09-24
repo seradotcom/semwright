@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -45,7 +45,7 @@ jobs:
           SEMWRIGHT_TEST_CHROMIUM: /opt/google/chrome/chrome
         run: |
           cargo test --locked --workspace --all-targets --all-features real_chromium_ -- --ignored --nocapture 2>&1 | tee verification/native-ci/chromium.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-chromium-evidence
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -135,7 +135,7 @@ jobs:
             SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
             cargo test --locked -p semwright-driver-host --features test-tools \
             --test adversarial_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-adversarial.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: driver-conformance-evidence
@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -162,7 +162,7 @@ jobs:
         run: |
           cargo build --locked -p semwright-cli --bin semwright
           BIN_DIR=target/debug scripts/dev/driver-registry-smoke.sh 2>&1 | tee verification/native-ci/driver-distribution-smoke.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: driver-distribution-evidence
@@ -175,7 +175,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -242,7 +242,7 @@ jobs:
       - name: Broker, policy, CLI and LibreOffice end-to-end
         run: |
           BIN_DIR=target/debug scripts/dev/libreoffice-driver-smoke.sh 2>&1 | tee verification/native-ci/libreoffice-broker-smoke.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: libreoffice-driver-evidence
@@ -254,7 +254,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -372,7 +372,7 @@ jobs:
       - name: Interactive add-on through Xvfb, broker and Blender main thread
         run: |
           BIN_DIR=target/debug BLENDER_BIN=/usr/local/bin/blender scripts/dev/blender-addon-live-smoke.sh 2>&1 | tee verification/native-ci/blender-addon-live.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: blender-driver-evidence
@@ -383,11 +383,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: "22"
           cache: npm
@@ -453,7 +453,7 @@ jobs:
         run: |
           cargo test --locked -p semwright-driver-figma --features test-tools \
             --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/native-ci/figma-host-conformance.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: figma-driver-evidence
@@ -464,7 +464,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -538,7 +538,7 @@ jobs:
             -p semwright-kicad-driver --bin semwright-kicad-driver
           cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/mlt-driver-live.log
           cargo test --locked -p semwright-kicad-driver fake_kicad_ipc_runs_through_real_sandboxed_driver_host -- --ignored --nocapture 2>&1 | tee verification/native-ci/kicad-driver-live.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: kicad-mlt-driver-evidence
@@ -549,7 +549,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -565,7 +565,7 @@ jobs:
           mkdir -p verification/native-ci
           bash -n scripts/dev/pipewire-screencast-smoke.sh
           dbus-run-session -- bash scripts/dev/pipewire-screencast-smoke.sh             2>&1 | tee verification/native-ci/pipewire-screencast.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: pipewire-screencast-evidence
@@ -576,7 +576,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -595,7 +595,7 @@ jobs:
           SEMWRIGHT_TEST_X11: "1"
         run: |
           xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp"             cargo test --locked -p semwright-backends               real_x11_window_ref_is_focus_checked_and_stales_after_destroy               -- --ignored --nocapture 2>&1 | tee verification/native-ci/x11-backend.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-x11-backend-evidence
@@ -606,7 +606,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -627,7 +627,7 @@ jobs:
           XDG_SESSION_TYPE: x11
           SEMWRIGHT_TEST_ATSPI: "1"
         run: scripts/dev/atspi-live-ci.sh gtk
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-atspi-gtk-evidence
@@ -638,7 +638,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Install maintained Qt accessibility runtime
         run: |
           sudo apt-get update
@@ -700,7 +700,7 @@ jobs:
           done
           xdpyinfo -display "$DISPLAY" >/dev/null
           SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- scripts/dev/atspi-live-ci.sh qt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-atspi-qt-evidence
@@ -711,7 +711,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -776,7 +776,7 @@ jobs:
               -- --ignored --nocapture --test-threads=1 \
             2>&1 | tee verification/native-ci/sway-backend.log
           EOF
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-sway-backend-evidence
