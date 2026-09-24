@@ -6,7 +6,7 @@ pub mod roles;
 pub mod uia;
 
 use async_trait::async_trait;
-use semwright_backend_api::{Backend, Context, feature};
+use semwright_backend_api::{Backend, Context, ProviderSignal, feature};
 use semwright_platform_windows_sys::{capture, clipboard, input, window};
 use semwright_types::{CapabilityStatus, Error, ErrorCode, Feature, NativeTarget, Result};
 use serde_json::{Value, json};
@@ -15,6 +15,7 @@ use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
 };
+use tokio::sync::broadcast;
 use uia::UiaActor;
 use windows::Win32::Foundation::HWND;
 
@@ -57,6 +58,7 @@ pub struct Windows {
     uia: UiaActor,
     windows: Arc<Mutex<BTreeMap<String, WindowStamp>>>,
     next_revision: Arc<Mutex<u64>>,
+    signals: broadcast::Sender<ProviderSignal>,
 }
 
 fn hash_window(pid: u32, start: u64, hwnd: isize, title: &str) -> String {
@@ -109,10 +111,12 @@ fn delta_arg(args: &Value, key: &str, limit: f64) -> Result<i32> {
 impl Windows {
     pub fn new() -> Result<Self> {
         semwright_platform_windows_sys::dll::harden_default_dll_search()?;
+        let (signals, _) = broadcast::channel(512);
         Ok(Self {
-            uia: UiaActor::start()?,
+            uia: UiaActor::start(signals.clone())?,
             windows: Arc::new(Mutex::new(BTreeMap::new())),
             next_revision: Arc::new(Mutex::new(0)),
+            signals,
         })
     }
 
@@ -254,6 +258,10 @@ impl Backend for Windows {
     }
     fn operation_feature(&self, command: &str) -> Option<String> {
         self.supports(command).then(|| command.to_owned())
+    }
+
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.uia.events_active().then(|| self.signals.subscribe())
     }
 
     async fn probe(&self) -> Vec<Feature> {

@@ -1,4 +1,8 @@
-use crate::roles::semantic_role;
+use crate::{
+    events::{semantic_event, semantic_property_event},
+    roles::semantic_role,
+};
+use semwright_backend_api::ProviderSignal;
 use semwright_platform_windows_sys::window::process_creation_time;
 use semwright_types::{
     Error, ErrorCode, NativeTarget, Result, UiFacets, UiImageFacet, UiScrollFacet,
@@ -8,9 +12,19 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    sync::mpsc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+        mpsc,
+    },
     thread,
     time::{Duration, Instant},
+};
+use tokio::sync::broadcast;
+use uiautomation::events::{
+    CustomEventHandlerFn, CustomFocusChangedEventHandlerFn, CustomPropertyChangedEventHandlerFn,
+    CustomStructureChangedEventHandlerFn, UIEventHandler, UIEventType, UIFocusChangedEventHandler,
+    UIPropertyChangedEventHandler, UIStructureChangeEventHandler,
 };
 use uiautomation::patterns::{
     UIExpandCollapsePattern, UIGridItemPattern, UIGridPattern, UIInvokePattern,
@@ -20,7 +34,7 @@ use uiautomation::patterns::{
 };
 use uiautomation::{
     UIAutomation, UIElement, UITreeWalker,
-    types::{Point, WindowVisualState},
+    types::{Point, TreeScope, UIProperty, WindowVisualState},
 };
 
 const MAX_NODES: usize = 2_000;
@@ -28,6 +42,18 @@ const MAX_DEPTH: usize = 32;
 const MAX_CHILDREN: usize = 256;
 const MAX_TEXT: usize = 4_096;
 const SNAPSHOT_BUDGET: Duration = Duration::from_millis(1_500);
+const OBSERVED_EVENTS: &[UIEventType] = &[
+    UIEventType::LayoutInvalidated,
+    UIEventType::SelectionItem_ElementAddedToSelection,
+    UIEventType::SelectionItem_ElementRemovedFromSelection,
+    UIEventType::SelectionItem_ElementSelected,
+    UIEventType::Selection_Invalidated,
+    UIEventType::Text_TextSelectionChanged,
+    UIEventType::Text_TextChanged,
+    UIEventType::TextEdit_TextChanged,
+    UIEventType::Window_WindowOpened,
+    UIEventType::Window_WindowClosed,
+];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Stamp {
@@ -43,6 +69,14 @@ struct Entry {
     element: UIElement,
     stamp: Stamp,
     revision: u64,
+    event_generation: u64,
+}
+
+struct InstalledEvents {
+    _event_handler: UIEventHandler,
+    _focus_handler: UIFocusChangedEventHandler,
+    _property_handler: UIPropertyChangedEventHandler,
+    _structure_handler: UIStructureChangeEventHandler,
 }
 
 struct State {
@@ -50,11 +84,14 @@ struct State {
     walker: UITreeWalker,
     entries: BTreeMap<String, Entry>,
     next_revision: u64,
+    event_generation: Arc<AtomicU64>,
+    _events: Option<InstalledEvents>,
 }
 
 #[derive(Clone)]
 pub struct UiaActor {
     tx: mpsc::Sender<Call>,
+    events_active: bool,
 }
 
 enum Call {
@@ -125,12 +162,140 @@ fn stamp(element: &UIElement) -> Result<Stamp> {
     })
 }
 
+fn install_events(
+    automation: &UIAutomation,
+    signals: broadcast::Sender<ProviderSignal>,
+    event_generation: Arc<AtomicU64>,
+) -> uiautomation::Result<InstalledEvents> {
+    let root = automation.get_root_element()?;
+
+    let generic_signals = signals.clone();
+    let generic_generation = event_generation.clone();
+    let generic: Box<CustomEventHandlerFn> = Box::new(move |sender, event| {
+        let (kind, structural) = semantic_event(event);
+        if structural {
+            generic_generation.fetch_add(1, Ordering::SeqCst);
+        }
+        let _ = generic_signals.send(ProviderSignal::Event {
+            kind: kind.into(),
+            payload: json!({
+                "native_event": format!("{event:?}"),
+                "process_id": sender.get_process_id().ok(),
+                "structural": structural,
+            }),
+        });
+        Ok(())
+    });
+    let event_handler = UIEventHandler::from(generic);
+
+    let focus_signals = signals.clone();
+    let focus: Box<CustomFocusChangedEventHandlerFn> = Box::new(move |sender| {
+        let _ = focus_signals.send(ProviderSignal::Event {
+            kind: semwright_types::semantic_ui_event::FOCUS_CHANGED.into(),
+            payload: json!({
+                "native_event": "AutomationFocusChanged",
+                "process_id": sender.get_process_id().ok(),
+            }),
+        });
+        Ok(())
+    });
+    let focus_handler = UIFocusChangedEventHandler::from(focus);
+
+    let property_signals = signals.clone();
+    let property: Box<CustomPropertyChangedEventHandlerFn> =
+        Box::new(move |sender, property, _new_value| {
+            let _ = property_signals.send(ProviderSignal::Event {
+                kind: semantic_property_event(property).into(),
+                payload: json!({
+                    "native_event": "AutomationPropertyChanged",
+                    "native_property": format!("{property:?}"),
+                    "process_id": sender.get_process_id().ok(),
+                }),
+            });
+            Ok(())
+        });
+    let property_handler = UIPropertyChangedEventHandler::from(property);
+
+    let structure_signals = signals;
+    let structure_generation = event_generation;
+    let structure: Box<CustomStructureChangedEventHandlerFn> =
+        Box::new(move |sender, change_type, runtime_id| {
+            structure_generation.fetch_add(1, Ordering::SeqCst);
+            let runtime_id = runtime_id.map(|ids| ids.iter().take(32).copied().collect::<Vec<_>>());
+            let _ = structure_signals.send(ProviderSignal::Event {
+                kind: semwright_types::semantic_ui_event::STRUCTURE_CHANGED.into(),
+                payload: json!({
+                    "native_event": "StructureChanged",
+                    "change_type": format!("{change_type:?}"),
+                    "process_id": sender.get_process_id().ok(),
+                    "runtime_id": runtime_id,
+                    "structural": true,
+                }),
+            });
+            Ok(())
+        });
+    let structure_handler = UIStructureChangeEventHandler::from(structure);
+
+    let register = || -> uiautomation::Result<()> {
+        for &event in OBSERVED_EVENTS {
+            automation.add_automation_event_handler(
+                event,
+                &root,
+                TreeScope::Subtree,
+                None,
+                &event_handler,
+            )?;
+        }
+        automation.add_structure_changed_event_handler(
+            &root,
+            TreeScope::Subtree,
+            None,
+            &structure_handler,
+        )?;
+        automation.add_property_changed_event_handler(
+            &root,
+            TreeScope::Subtree,
+            None,
+            &property_handler,
+            &[
+                UIProperty::Name,
+                UIProperty::BoundingRectangle,
+                UIProperty::HasKeyboardFocus,
+                UIProperty::IsEnabled,
+                UIProperty::HelpText,
+                UIProperty::IsOffscreen,
+                UIProperty::ItemStatus,
+                UIProperty::ValueValue,
+                UIProperty::RangeValueValue,
+                UIProperty::ExpandCollapseExpandCollapseState,
+                UIProperty::SelectionItemIsSelected,
+                UIProperty::ToggleToggleState,
+            ],
+        )?;
+        automation.add_focus_changed_event_handler(None, &focus_handler)?;
+        Ok(())
+    };
+
+    if let Err(error) = register() {
+        let _ = automation.remove_all_event_handlers();
+        return Err(error);
+    }
+    Ok(InstalledEvents {
+        _event_handler: event_handler,
+        _focus_handler: focus_handler,
+        _property_handler: property_handler,
+        _structure_handler: structure_handler,
+    })
+}
+
 impl State {
     fn remember(&mut self, element: UIElement, kind: &str) -> Result<NativeTarget> {
         let stamp = stamp(&element)?;
         let identity = format!("uia:{}", digest_stamp(&stamp));
+        let event_generation = self.event_generation.load(Ordering::SeqCst);
         if let Some(entry) = self.entries.get_mut(&identity)
             && entry.stamp == stamp
+            && entry.event_generation == event_generation
         {
             entry.element = element;
             return Ok(NativeTarget {
@@ -149,6 +314,7 @@ impl State {
                 element,
                 stamp: stamp.clone(),
                 revision,
+                event_generation,
             },
         );
         Ok(NativeTarget {
@@ -161,12 +327,25 @@ impl State {
     }
 
     fn resolve(&mut self, target: &NativeTarget) -> Result<UIElement> {
-        let (element, expected, revision) = {
+        let current_event_generation = self.event_generation.load(Ordering::SeqCst);
+        let (element, expected, revision, event_generation) = {
             let entry = self.entries.get(&target.identity).ok_or_else(|| {
                 Error::new(ErrorCode::StaleReference, "Unknown Windows UIA reference")
             })?;
-            (entry.element.clone(), entry.stamp.clone(), entry.revision)
+            (
+                entry.element.clone(),
+                entry.stamp.clone(),
+                entry.revision,
+                entry.event_generation,
+            )
         };
+        if event_generation != current_event_generation {
+            self.entries.remove(&target.identity);
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Windows UIA structure changed; take a fresh semantic snapshot",
+            ));
+        }
         if revision != target.revision || digest_stamp(&expected) != target.fingerprint {
             return Err(Error::new(
                 ErrorCode::StaleReference,
@@ -731,9 +910,11 @@ impl State {
 }
 
 impl UiaActor {
-    pub fn start() -> Result<Self> {
+    pub fn start(signals: broadcast::Sender<ProviderSignal>) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<Call>();
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
+        let event_generation = Arc::new(AtomicU64::new(1));
+        let actor_generation = event_generation.clone();
         thread::Builder::new()
             .name("semwright-uia".into())
             .spawn(move || {
@@ -744,13 +925,18 @@ impl UiaActor {
                 });
                 match setup {
                     Ok((automation, walker)) => {
-                        let _ = ready_tx.send(Ok(()));
+                        let events =
+                            install_events(&automation, signals, actor_generation.clone()).ok();
+                        let events_active = events.is_some();
                         let mut state = State {
                             automation,
                             walker,
                             entries: BTreeMap::new(),
                             next_revision: 0,
+                            event_generation: actor_generation,
+                            _events: events,
                         };
+                        let _ = ready_tx.send(Ok(events_active));
                         while let Ok(call) = rx.recv() {
                             let stop = matches!(call, Call::Shutdown(_));
                             dispatch(&mut state, call);
@@ -758,6 +944,7 @@ impl UiaActor {
                                 break;
                             }
                         }
+                        let _ = state.automation.remove_all_event_handlers();
                     }
                     Err(_) => {
                         let _ = ready_tx.send(Err(Error::unavailable(
@@ -767,10 +954,14 @@ impl UiaActor {
                 }
             })
             .map_err(|_| Error::unavailable("UIA actor thread could not start"))?;
-        ready_rx
+        let events_active = ready_rx
             .recv()
             .map_err(|_| Error::unavailable("UIA actor terminated during initialization"))??;
-        Ok(Self { tx })
+        Ok(Self { tx, events_active })
+    }
+
+    pub fn events_active(&self) -> bool {
+        self.events_active
     }
 
     fn request(&self, make: impl FnOnce(mpsc::Sender<Result<Value>>) -> Call) -> Result<Value> {
