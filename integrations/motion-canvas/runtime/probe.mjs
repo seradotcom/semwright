@@ -10,12 +10,12 @@ for (const name of ['@motion-canvas/core', '@motion-canvas/2d', '@motion-canvas/
 }
 let browser;
 try {
-  browser = await firefox.launch({headless: true, chromiumSandbox: true, timeout: 30000, env: {...process.env, MOZ_ASSUME_USER_NS: '0'}});
+  browser = await firefox.launch({headless: true, timeout: 30000, env: {...process.env, MOZ_ASSUME_USER_NS: '0'}});
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.setContent('<canvas width="32" height="32"></canvas>');
   versions.browser = browser.version();
-  versions.browserFamily = true;
+  versions.browserFamily = "firefox";
   versions.canvas = await page.evaluate(() => document.querySelector('canvas').getContext('2d') !== null);
 } catch (error) {
   versions.browser_probe_error = String(error).slice(0, 8000);

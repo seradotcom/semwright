@@ -389,6 +389,16 @@ async fn run_render(
         .env("PATH", "/usr/bin:/bin")
         .env("HOME", "/home")
         .env("LANG", "C.UTF-8")
+        // Keep all renderer/browser ephemeral state inside this job's writable,
+        // owner-granted output directory. This is required because Firefox's
+        // Playwright profile must remain visible across its subprocesses inside
+        // the outer Bubblewrap + Landlock sandbox.
+        .env("TMPDIR", &output)
+        .env("TMP", &output)
+        .env("TEMP", &output)
+        .env("XDG_CACHE_HOME", output.join(".cache"))
+        .env("XDG_CONFIG_HOME", output.join(".config"))
+        .env("XDG_DATA_HOME", output.join(".data"))
         .env("SEMWRIGHT_DRIVER_SANDBOX", "landlock-bwrap-v1");
     #[cfg(unix)]
     {

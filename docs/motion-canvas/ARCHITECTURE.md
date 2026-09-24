@@ -11,7 +11,7 @@ Agent
   -> semwright-motion-canvas-driver
   -> versioned managed motion model
   -> deterministic TS/TSX compiler
-  -> owner-mounted, SHA-256-pinned Node + render helper + Chromium
+  -> owner-mounted, SHA-256-pinned Node + render helper + Firefox
   -> Motion Canvas 3.17.2 Renderer
   -> validated PNG sequence
   -> MLT provider for the launch-film final timeline/encode

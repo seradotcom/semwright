@@ -86,8 +86,7 @@ async function main() {
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
     // Chromium's user-namespace sandbox is unavailable inside the outer bwrap namespace.
     // The browser is still confined by Driver Host bubblewrap + Landlock + no-network policy.
-    const launch = {headless:true,chromiumSandbox:false,args:['--disable-background-networking','--disable-component-update','--no-first-run']};
-    launch.args = [];
+    const launch = {headless:true};
     launch.env = {...process.env, MOZ_ASSUME_USER_NS:'0'};
     if (a.browser) launch.executablePath = a.browser;
     browser = await firefox.launch(launch);
