@@ -29,6 +29,7 @@ semwright-driver-sdk.workspace = true
 semwright-types.workspace = true
 anyhow = { workspace = true, optional = true }
 async-trait.workspace = true
+base64.workspace = true
 futures-util.workspace = true
 hex.workspace = true
 hmac.workspace = true

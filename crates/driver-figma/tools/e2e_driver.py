@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import base64
 import hashlib
 import json
 import os
@@ -44,15 +45,31 @@ def request(proc, value, expected_type=None):
         raise AssertionError((expected_type, response))
     return response
 
-def execute(proc, caps, command, args, request_id):
+def execute(proc, caps, command, args, request_id, progress_out=None):
     cap = caps[command]
-    return request(proc, {
+    send(proc, {
         "type": "execute",
         "id": request_id,
         "command": command,
         "descriptor_sha256": descriptor_digest(cap["descriptor"]),
         "args": args,
     })
+    while True:
+        response = recv(proc)
+        kind = response.get("type")
+        if kind == "progress":
+            if response.get("id") != request_id:
+                raise AssertionError(("progress request id", request_id, response))
+            if progress_out is not None:
+                progress_out.append(response)
+            continue
+        if kind in {"event", "capabilities_changed"}:
+            continue
+        if response.get("id") != request_id:
+            raise AssertionError(("terminal request id", request_id, response))
+        if kind not in {"result", "failure"}:
+            raise AssertionError(("unexpected execute frame", response))
+        return response
 
 def main():
     if not DRIVER.exists() or not FAKE.exists():
@@ -90,8 +107,8 @@ def main():
         assert interfaces["id"] == "interfaces"
         assert interfaces["interfaces"]["events"] is True
         assert interfaces["interfaces"]["cooperative_cancellation"] is False
-        assert interfaces["interfaces"]["progress"] is False
-        assert interfaces["interfaces"]["artifacts"] is False
+        assert interfaces["interfaces"]["progress"] is True
+        assert interfaces["interfaces"]["artifacts"] is True
 
         catalog = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {cap["descriptor"]["name"]: cap for cap in catalog["capabilities"]}
@@ -102,6 +119,8 @@ def main():
             "driver.figma.design_system.extract",
             "driver.figma.motion.keyframes.list",
             "driver.figma.export.node",
+            "driver.figma.artifact.read",
+            "driver.figma.artifact.release",
             "driver.figma.compose.apply",
             "driver.figma.shader.list",
             "driver.figma.slot.list",
@@ -242,6 +261,63 @@ def main():
         )
         assert fetched["type"] == "result", fetched
         assert fetched["value"]["name"] == "E2E Frame"
+
+        artifact_progress = []
+        exported = execute(
+            driver,
+            caps,
+            "driver.figma.export.node",
+            {
+                "session_id": session_id,
+                "expected_revision": revision,
+                "nodeId": node_id,
+                "format": "PNG",
+                "name": "e2e-preview.png",
+            },
+            "export",
+            artifact_progress,
+        )
+        assert exported["type"] == "result", exported
+        assert len(artifact_progress) == 1, artifact_progress
+        artifact = artifact_progress[0]["artifacts"][0]
+        token = exported["value"]["token"]
+        assert artifact_progress[0]["progress"]["completed"] == 1
+        assert artifact_progress[0]["progress"]["total"] == 1
+        assert artifact["name"] == "e2e-preview.png"
+        assert artifact["reference"] == f"artifact:figma:{token}"
+        assert artifact["media_type"] == "image/png"
+        assert artifact["bytes"] == exported["value"]["bytes"]
+
+        chunk = execute(
+            driver,
+            caps,
+            "driver.figma.artifact.read",
+            {
+                "session_id": session_id,
+                "expected_revision": revision,
+                "token": token,
+                "offset": 0,
+                "length": 196608,
+            },
+            "artifact-read",
+        )
+        assert chunk["type"] == "result", chunk
+        assert chunk["value"]["eof"] is True
+        assert base64.b64decode(chunk["value"]["base64"]).startswith(b"\x89PNG\r\n\x1a\n")
+
+        released = execute(
+            driver,
+            caps,
+            "driver.figma.artifact.release",
+            {
+                "session_id": session_id,
+                "expected_revision": revision,
+                "token": token,
+            },
+            "artifact-release",
+        )
+        assert released["type"] == "result", released
+        assert released["value"]["released"] is True
 
         collection = execute(
             driver, caps, "driver.figma.variable.collection.create",
