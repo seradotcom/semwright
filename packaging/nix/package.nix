@@ -41,9 +41,14 @@ rustPlatform.buildRustPackage {
   installPhase = ''
     runHook preInstall
     mkdir -p "$out/bin"
+    release_dir="target/release"
+    if [ -n "''${CARGO_BUILD_TARGET:-}" ]; then
+      release_dir="target/$CARGO_BUILD_TARGET/release"
+    fi
+    test -d "$release_dir"
     for binary in semwright semwrightd semwright-mcp semwright-inspect semwright-sandbox; do
-      test -x "target/release/$binary"
-      install -Dm755 "target/release/$binary" "$out/bin/$binary"
+      test -x "$release_dir/$binary"
+      install -Dm755 "$release_dir/$binary" "$out/bin/$binary"
     done
     runHook postInstall
   '';
