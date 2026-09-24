@@ -209,14 +209,10 @@ jobs:
           mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium-*/chrome-linux*/chrome' -type f -perm -111 -print)
           test "${#BROWSERS[@]}" -eq 1
           BROWSER="${BROWSERS[0]}"
-          BROWSER_DIR=$(dirname "$BROWSER")
-          PINNED_BROWSER="$BROWSER_DIR/semwright-chromium"
-          cp "$BROWSER" "$PINNED_BROWSER"
-          chmod 0755 "$PINNED_BROWSER"
-          BROWSER_REL=$(realpath --relative-to="$PWD" "$PINNED_BROWSER")
+          BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
           NODE_SHA=$(sha256sum .semwright-tools/node | awk '{print $1}')
           HELPER_SHA=$(sha256sum render.mjs | awk '{print $1}')
-          BROWSER_SHA=$(sha256sum "$PINNED_BROWSER" | awk '{print $1}')
+          BROWSER_SHA=$(sha256sum "$BROWSER" | awk '{print $1}')
           BROWSER_REL="$BROWSER_REL" NODE_SHA="$NODE_SHA" HELPER_SHA="$HELPER_SHA" BROWSER_SHA="$BROWSER_SHA" node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('runtime.json', JSON.stringify({node:{path:'.semwright-tools/node',sha256:process.env.NODE_SHA},helper:{path:'render.mjs',sha256:process.env.HELPER_SHA},browser:{path:process.env.BROWSER_REL,sha256:process.env.BROWSER_SHA}},null,2))"
           cat runtime.json
       - name: Real Driver Host conformance and sandboxed render/cancellation
@@ -253,10 +249,6 @@ jobs:
           mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium-*/chrome-linux*/chrome' -type f -perm -111 -print)
           test "${#BROWSERS[@]}" -eq 1
           BROWSER="${BROWSERS[0]}"
-          BROWSER_DIR=$(dirname "$BROWSER")
-          PINNED_BROWSER="$BROWSER_DIR/semwright-chromium"
-          if test ! -x "$PINNED_BROWSER"; then cp "$BROWSER" "$PINNED_BROWSER"; chmod 0755 "$PINNED_BROWSER"; fi
-          BROWSER="$PINNED_BROWSER"
           set +e
           (ulimit -v 4194304; timeout 20s "$BROWSER" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --dump-dom about:blank) >verification/chromium-4g-address-space.log 2>&1
           rc4=$?
