@@ -48,3 +48,11 @@ Portal permission is an additional boundary. Approving a broker action does not 
 a compositor's chooser; approving a chooser does not grant every command in the broker.
 Do not give a model direct access to the operator terminal or a separate unrestricted
 shell and then expect this boundary to contain it.
+
+## Cross-root artifact transfer
+
+`artifact.handoff` never accepts host absolute paths. It requires two parameterized filesystem
+authorities: `filesystem.read:source_root` and `filesystem.write:destination_root`. Policy
+resolves those requirements against the request's named grants independently, so read authority
+on one root cannot satisfy write authority on another. Base denies such as `filesystem.read`
+or `filesystem.write` also deny their parameterized forms.

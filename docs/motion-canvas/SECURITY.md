@@ -6,11 +6,11 @@ The managed format exists because arbitrary TypeScript is executable code. The f
 
 Agent input is untrusted semantic data. Driver Protocol descriptors are strict, digest-pinned schemas. The Rust driver owns policy-relevant validation and never delegates authorization to Node or the browser.
 
-The Driver Host is the execution boundary. Production rendering requires Bubblewrap + Landlock, named owner grants, a pinned driver ELF, `network=false` and bounded process/file/CPU/address-space resources. There is no unsandboxed fallback. Motion Canvas requests 16 GiB of virtual address space while retaining bounded CPU/process/file limits; the SDK default remains 512 MiB. The larger `RLIMIT_AS` ceiling permits Chromium's sparse virtual mappings and does not pre-allocate or grant 16 GiB of resident RAM.
+The Driver Host is the execution boundary. Production rendering requires Bubblewrap + Landlock, named owner grants, a pinned driver ELF, `network=false` and bounded process/file/CPU/address-space resources. There is no unsandboxed fallback. The final Firefox route stays within the existing 4 GiB Driver Host virtual-address-space ceiling and requests 128 tasks; the SDK default remains 512 MiB.
 
 Ubuntu 24.04 additionally restricts unprivileged user namespaces through AppArmor. CI preserves that system-wide restriction and specializes only the ephemeral distro `bwrap-userns-restrict` profile for Semwright's exact Driver Host exec chain: `/plugin/sandbox` performs the one privilege-dropping stacked transition, then `/plugin/bin`, `/workspace/**` and `/tmp/**` may only inherit (`ix`) the already-enforced confinement. Other descendant exec paths remain denied. An exact-depth probe also sets `no_new_privs` before the driver/tool execs.
 
-The Motion runtime is an explicit read-only owner grant with `execute: true`; that executable bit is narrowly attested in the Driver manifest and is not inherited by project/media/config mounts or plugins. Fontconfig is a separate non-executable read-only grant mapped only to `/etc/fonts`, because Driver Host otherwise constructs a minimal `/etc`. Node, renderer helper and the full Chromium executable are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
+The Motion runtime is an explicit read-only owner grant with `execute: true`; that executable bit is narrowly attested in the Driver manifest and is not inherited by project/media/config mounts or plugins. Fontconfig is a separate non-executable read-only grant mapped only to `/etc/fonts`, because Driver Host otherwise constructs a minimal `/etc`. Node, `render.mjs` and the Playwright-pinned Firefox executable are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
 
 ## Files and assets
 
@@ -22,9 +22,11 @@ Generated source is written to a driver-owned content-addressed tree; agent text
 
 ## Browser
 
-The browser uses a disposable profile/context, no user profile, no credentials or extensions. Built assets are fulfilled through request interception from the synthetic `semwright.invalid` origin and other page requests are aborted. No Vite server listens on loopback or LAN. The only listener is Chromium's ephemeral CDP endpoint on `127.0.0.1` inside Bubblewrap's isolated `network=false` namespace, which has loopback only and is not reachable from the host network.
+Firefox uses a disposable Playwright context/profile, no user profile, no credentials and no extensions. Built assets are fulfilled through request interception from the synthetic `semwright.invalid` origin; every other page request is aborted. No Vite server, CDP endpoint or other browser-control listener is exposed.
 
-Full Chromium runs in new-headless mode inside the mandatory Driver Host Bubblewrap + Landlock boundary; the helper exposes no agent-controlled browser flags. After verifying the Driver Host marker, the Rust driver spawns the pinned executable directly with a fixed `--no-sandbox` argument because Driver Host is the outer sandbox; the Node helper only attaches Playwright over a kernel-selected loopback CDP port. The prior Playwright `launch()` path repeatedly terminated Chromium with `SIGTRAP` in CI. The replacement does not widen authority: filesystem grants remain explicit, `network=false` leaves only private loopback, external page requests are aborted, and direct helper execution fails closed. The Rust parent pins `TMPDIR` and XDG state to the job-specific owner-granted output directory and owns the whole process group for cancellation.
+The helper can launch only the SHA-256-pinned Firefox path supplied by Rust. It sets fixed `MOZ_ASSUME_USER_NS=0` and `MOZ_DISABLE_CONTENT_SANDBOX=1` values because Firefox's nested content sandbox is not the authority inside the already-required Bubblewrap + Landlock boundary. These values are not agent-controlled. Node and Firefox inherit one owned process group, so timeout/cancellation terminates descendants as a tree. Filesystem grants remain explicit and `network=false` remains in force.
+
+Chrome-for-Testing/Chromium experiments are not a fallback path. Multiple pinned Chromium runs aborted with upstream-style `SIGTRAP/int3` before CDP startup; the driver does not weaken its sandbox to accommodate that browser failure.
 
 ## Jobs and artifacts
 

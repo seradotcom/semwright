@@ -5,9 +5,9 @@ import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import motionCanvasModule from '@motion-canvas/vite-plugin';
-const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
-import {chromium} from 'playwright';
+import {firefox} from 'playwright';
 
+const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
 function fail(message) { throw new Error(message); }
 function args() {
   const out = {};
@@ -16,7 +16,7 @@ function args() {
     if (!key?.startsWith('--') || value === undefined) fail('invalid arguments');
     out[key.slice(2)] = value;
   }
-  for (const key of ['project', 'output', 'config', 'cdp']) if (!out[key]) fail(`missing --${key}`);
+  for (const key of ['project', 'output', 'config', 'browser']) if (!out[key]) fail(`missing --${key}`);
   return out;
 }
 function harnessPlugin(config, entry) {
@@ -33,13 +33,14 @@ import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
-const state={done:false,result:null,frame:config.firstFrame,error:null};
+const state={done:false,result:null,frame:config.firstFrame,error:null,phase:'created'};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
-renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;});
-const finished=new Promise(resolve=>renderer.onFinished.subscribe(resolve));
+renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
+renderer.onFinished.subscribe(result=>{state.result=result;});
 (async()=>{
   try {
-    renderer.render({
+    state.phase='rendering';
+    await renderer.render({
       name:'frames',
       size:new Vector2(config.width,config.height),
       resolutionScale:1,
@@ -49,10 +50,10 @@ const finished=new Promise(resolve=>renderer.onFinished.subscribe(resolve));
       range:[config.firstFrame/config.fps,(config.endFrameExclusive-1)/config.fps],
       fps:config.fps,
       exporter:{name:'@semwright/driver/image-sequence',options:{}},
-    }).catch(error=>{state.error=String(error);state.done=true;});
-    state.result=await finished;
+    });
+    state.phase='finished';
     state.done=true;
-  } catch(error) { state.error=String(error); state.done=true; }
+  } catch(error) { state.error=String(error); state.phase='error'; state.done=true; }
 })();
 `;
     },
@@ -70,6 +71,8 @@ async function main() {
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-motion-render-'));
   const dist = path.join(work, '.semwright-render-dist');
   let browser; let page; let cancelling = false;
+  const diagnostics = [];
+  const note = (kind, message) => { if (diagnostics.length < 32) diagnostics.push({kind,message:String(message).slice(0,512)}); };
   const cleanup = async () => { try { await browser?.close(); } catch {} await fs.rm(work, {recursive:true,force:true}).catch(()=>{}); };
   const cancel = async () => { if (cancelling) return; cancelling = true; try { await page?.evaluate(() => window.__SEMWRIGHT_RENDER__?.abort()); } catch {} await cleanup(); process.exitCode = 130; };
   process.once('SIGTERM', cancel); process.once('SIGINT', cancel);
@@ -84,14 +87,15 @@ async function main() {
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
-    // Rust owns the attested Chromium process. The helper never spawns executables;
-    // it attaches only to an ephemeral loopback endpoint inside Bubblewrap's private netns.
-    const match = /^http:\/\/127\.0\.0\.1:([0-9]{1,5})$/.exec(a.cdp);
-    const cdpPort = match ? Number(match[1]) : 0;
-    if (cdpPort < 1 || cdpPort > 65535) fail('invalid bounded loopback CDP endpoint');
-    browser = await chromium.connectOverCDP(a.cdp, {timeout:Math.min(config.timeoutMs, 30000)});
+    browser = await firefox.launch({
+      headless:true,
+      executablePath:a.browser,
+      env:{...process.env,MOZ_ASSUME_USER_NS:'0',MOZ_DISABLE_CONTENT_SANDBOX:'1'},
+    });
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});
     page = await context.newPage();
+    page.on('pageerror', error => note('pageerror', error));
+    page.on('console', message => { if (['error','warning'].includes(message.type())) note(`console:${message.type()}`, message.text()); });
     const written = new Set();
     await page.exposeBinding('__SEMWRIGHT_EXPORT_FRAME__', async (_source, payload) => {
       if (!payload || !Number.isSafeInteger(payload.frame) || payload.frame < config.firstFrame || payload.frame >= config.endFrameExclusive || typeof payload.data !== 'string' || !payload.data.startsWith('data:image/png;base64,')) fail('invalid frame payload');
@@ -112,12 +116,17 @@ async function main() {
       catch { await route.fulfill({status:404,body:'not found',contentType:'text/plain'}); }
     });
     await page.goto('http://semwright.invalid/semwright-render.html', {waitUntil:'domcontentloaded',timeout:config.timeoutMs});
-    await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, {timeout:config.timeoutMs});
+    try {
+      await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, {timeout:config.timeoutMs});
+    } catch (error) {
+      const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__?.state ?? null).catch(()=>null);
+      fail(`render wait failed: ${error}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+    }
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) fail(`renderer failed: ${state.error}`);
-    if (state.result !== 0) fail(`renderer result ${state.result}`);
+    if (state.result !== 0) fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     const files = (await fs.readdir(path.join(output,'frames'))).sort();
-    process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
+    process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
   } finally { await cleanup(); }
 }
 main().catch(error => { process.stderr.write(String(error?.stack || error) + '\n'); process.exitCode = 1; });

@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use semwright_driver_registry::{
     Index, IndexEntry, InstallRoots, create_package, inspect_package, install_from_index,
     package_digest, remove_installed,

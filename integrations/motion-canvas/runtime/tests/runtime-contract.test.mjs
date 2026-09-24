@@ -14,15 +14,21 @@ test('runtime dependencies use exact versions', () => {
   assert.equal(pkg.dependencies.playwright, '1.63.0');
 });
 
-test('render harness is bound to the Driver Host marker and local origin', () => {
+test('render harness is bound to Driver Host, pinned Firefox, and local origin', () => {
   assert.ok(render.includes('SEMWRIGHT_DRIVER_SANDBOX'));
   assert.ok(render.includes('landlock-bwrap-v1'));
-  assert.ok(!render.includes('chromium.launch('));
-  assert.ok(render.includes('chromium.connectOverCDP'));
-  assert.ok(!render.includes('node:child_process'));
-  assert.ok(!render.includes('spawn('));
-  assert.ok(render.includes("['project', 'output', 'config', 'cdp']"));
-  assert.ok(render.includes('127\\.0\\.0\\.1'));
+  assert.ok(render.includes('firefox.launch'));
+  assert.ok(render.includes('executablePath:a.browser'));
+  assert.ok(render.includes("MOZ_DISABLE_CONTENT_SANDBOX:'1'"));
+  assert.ok(!render.includes('MOZ_FORCE_DISABLE_E10S'));
+  assert.ok(!render.includes('MOZ_WEBRENDER'));
+  assert.ok(!render.includes('connectOverCDP'));
   assert.ok(render.includes('semwright.invalid'));
   assert.ok(render.includes("route.abort('blockedbyclient')"));
+});
+
+test('render harness reports bounded state when browser rendering stalls', () => {
+  assert.ok(render.includes("phase:'created'"));
+  assert.ok(render.includes('render wait failed:'));
+  assert.ok(render.includes('diagnostics.length < 32'));
 });

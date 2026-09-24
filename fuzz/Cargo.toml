@@ -21,9 +21,10 @@ semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
 semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
-semwright-driver-motion-canvas = { path = "../crates/driver-motion-canvas" }
 semwright-video-domain = { path = "../crates/video-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
+semwright-godot-driver = { package = "semwright-driver-godot", path = "../crates/driver-godot" }
+semwright-driver-motion-canvas = { package = "semwright-driver-motion-canvas", path = "../crates/driver-motion-canvas" }
 
 [[bin]]
 name = "protocol"
@@ -177,6 +178,35 @@ path = "fuzz_targets/figma_motion.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "godot_bridge_auth"
+path = "fuzz_targets/godot_bridge_auth.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "godot_config_json"
+path = "fuzz_targets/godot_config_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "godot_diff"
+path = "fuzz_targets/godot_diff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "godot_catalog"
+path = "fuzz_targets/godot_catalog.rs"
+test = false
+doc = false
+bench = false
+
 [[bin]]
 name = "motion_project"
 path = "fuzz_targets/motion_project.rs"

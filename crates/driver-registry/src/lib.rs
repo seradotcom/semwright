@@ -5,15 +5,23 @@
 //! supplied by a package and never executes package content.
 use semver::{Version, VersionReq};
 use semwright_driver_sdk::Manifest;
-use semwright_protocol::{current_uid, private_directory};
-use semwright_types::{Error, ErrorCode, Result, unique_id};
+#[cfg(unix)]
+use semwright_protocol::current_uid;
+#[cfg(unix)]
+use semwright_protocol::private_directory;
+#[cfg(unix)]
+use semwright_types::unique_id;
+use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::io::Write;
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::{
     collections::BTreeSet,
     fs::OpenOptions,
-    io::{Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+    io::Read,
     path::{Component, Path, PathBuf},
 };
 
@@ -75,6 +83,7 @@ pub struct InstallRoots {
 }
 
 impl InstallRoots {
+    #[cfg(unix)]
     pub fn defaults() -> Result<Self> {
         let home = std::env::var_os("HOME")
             .map(PathBuf::from)
@@ -92,12 +101,22 @@ impl InstallRoots {
         }
         Ok(Self { data, config })
     }
+
+    #[cfg(target_os = "windows")]
+    pub fn defaults() -> Result<Self> {
+        let paths = semwright_platform_services::paths()?;
+        Ok(Self {
+            data: paths.state.join("drivers"),
+            config: paths.config.join("drivers"),
+        })
+    }
 }
 
 fn hex_digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+#[cfg(unix)]
 fn strict_file(path: &Path, max: usize) -> Result<Vec<u8>> {
     let mut file = OpenOptions::new()
         .read(true)
@@ -111,6 +130,36 @@ fn strict_file(path: &Path, max: usize) -> Result<Vec<u8>> {
         ));
     }
     let mut out = Vec::with_capacity(meta.len() as usize);
+    Read::by_ref(&mut file)
+        .take(max as u64 + 1)
+        .read_to_end(&mut out)?;
+    if out.len() > max {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Driver distribution file exceeded its size budget",
+        ));
+    }
+    Ok(out)
+}
+
+#[cfg(target_os = "windows")]
+fn strict_file(path: &Path, max: usize) -> Result<Vec<u8>> {
+    let before = std::fs::symlink_metadata(path)?;
+    if !before.is_file() || before.file_type().is_symlink() || before.len() > max as u64 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Driver distribution file must be a bounded regular non-link file",
+        ));
+    }
+    let mut file = OpenOptions::new().read(true).open(path)?;
+    let after = file.metadata()?;
+    if !after.is_file() || after.len() != before.len() || after.len() > max as u64 {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Driver distribution file changed during open",
+        ));
+    }
+    let mut out = Vec::with_capacity(after.len() as usize);
     Read::by_ref(&mut file)
         .take(max as u64 + 1)
         .read_to_end(&mut out)?;
@@ -257,6 +306,7 @@ pub fn package_digest(path: &Path) -> Result<String> {
     Ok(hex_digest(&strict_file(path, MAX_PACKAGE)?))
 }
 
+#[cfg(unix)]
 fn read_executable(path: &Path) -> Result<Vec<u8>> {
     let bytes = strict_file(path, MAX_EXECUTABLE)?;
     if !bytes.starts_with(b"\x7fELF") {
@@ -268,6 +318,7 @@ fn read_executable(path: &Path) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+#[cfg(unix)]
 pub fn create_package(manifest: &Manifest, semwright: &str, output: &Path) -> Result<String> {
     manifest.validate()?;
     parse_requirement(semwright)?;
@@ -307,6 +358,14 @@ pub fn create_package(manifest: &Manifest, semwright: &str, output: &Path) -> Re
     file.write_all(&executable)?;
     file.sync_all()?;
     package_digest(output)
+}
+
+#[cfg(target_os = "windows")]
+pub fn create_package(_manifest: &Manifest, _semwright: &str, _output: &Path) -> Result<String> {
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "Driver Package v1 contains a pinned ELF payload; Windows packaging requires a future multi-platform package format",
+    ))
 }
 
 pub fn inspect_package(path: &Path) -> Result<(PackageMetadata, Vec<u8>, String)> {
@@ -355,6 +414,7 @@ pub fn inspect_package(path: &Path) -> Result<(PackageMetadata, Vec<u8>, String)
     Ok((metadata, executable, hex_digest(&package)))
 }
 
+#[cfg(unix)]
 fn ensure_private(path: &Path) -> Result<()> {
     if !path.exists() {
         std::fs::create_dir_all(path)?;
@@ -371,6 +431,7 @@ fn ensure_private(path: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 fn write_new(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
     let mut file = OpenOptions::new()
         .write(true)
@@ -382,6 +443,7 @@ fn write_new(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path
         .parent()
@@ -393,6 +455,7 @@ fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 pub fn install_from_index(
     index_path: &Path,
     entry: &IndexEntry,
@@ -479,6 +542,20 @@ pub fn install_from_index(
     Ok(receipt)
 }
 
+#[cfg(target_os = "windows")]
+pub fn install_from_index(
+    _index_path: &Path,
+    _entry: &IndexEntry,
+    _application_version: Option<&str>,
+    _roots: &InstallRoots,
+) -> Result<Receipt> {
+    Err(Error::new(
+        ErrorCode::SandboxDenied,
+        "Windows driver installation is fail-closed until package v2 and secure pre-exec Driver Host containment are implemented",
+    ))
+}
+
+#[cfg(unix)]
 pub fn remove_installed(id: &str, version: &str, roots: &InstallRoots) -> Result<()> {
     parse_semver(version)?;
     semwright_types::provider::ProviderIdentity::external(
@@ -516,4 +593,12 @@ pub fn remove_installed(id: &str, version: &str, roots: &InstallRoots) -> Result
     }
     std::fs::remove_dir_all(&target)?;
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+pub fn remove_installed(_id: &str, _version: &str, _roots: &InstallRoots) -> Result<()> {
+    Err(Error::new(
+        ErrorCode::SandboxDenied,
+        "Windows driver removal is unavailable because Driver Package v1 is not installable on Windows",
+    ))
 }

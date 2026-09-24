@@ -98,7 +98,7 @@ impl Broker {
         if fake
             && map
                 .keys()
-                .any(|name| name != "fake" && name != "filesystem")
+                .any(|name| name != "fake" && name != "filesystem" && name != "artifacts")
         {
             return Err(Error::invalid(
                 "Fake mode cannot instantiate live desktop/application backends",
@@ -703,6 +703,7 @@ impl Broker {
                         serde_json::from_value(request.args["request"].clone())?;
                     json!({"job":self.start_job(session, nested)?})
                 }
+                "jobs.list" => json!({"jobs":self.list_jobs(session)?}),
                 "jobs.get" => {
                     json!({"job":self.get_job(session, arg_str(&request.args, "job_id")?)?})
                 }

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, serve};
+use semwright_driver_sdk::{Capability, Driver, artifact_input_tag, artifact_output_tag, serve};
 use semwright_mlt_video::{app::App, catalog};
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::Value;
@@ -51,12 +51,25 @@ fn sdk_capabilities() -> Result<Vec<Capability>> {
         .map_err(map_error)?
         .into_iter()
         .map(|capability| {
-            serde_json::from_str(&capability.wire).map_err(|_| {
-                Error::new(
-                    ErrorCode::PluginProtocolError,
-                    "MLT capability catalog is incompatible with the Driver SDK",
-                )
-            })
+            let mut capability: Capability =
+                serde_json::from_str(&capability.wire).map_err(|_| {
+                    Error::new(
+                        ErrorCode::PluginProtocolError,
+                        "MLT capability catalog is incompatible with the Driver SDK",
+                    )
+                })?;
+            match capability.descriptor.name.as_str() {
+                "driver.mlt-video.asset.import" => {
+                    capability.tags.push(artifact_input_tag("video/clip")?);
+                    capability.tags.push(artifact_input_tag("audio/sample")?);
+                    capability.tags.push(artifact_input_tag("image/raster")?);
+                }
+                "driver.mlt-video.render.result" => {
+                    capability.tags.push(artifact_output_tag("video/clip")?);
+                }
+                _ => {}
+            }
+            Ok(capability)
         })
         .collect()
 }
@@ -105,5 +118,48 @@ async fn main() {
     if let Err(error) = result {
         eprintln!("{error}");
         std::process::exit(error.exit_code());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sdk_catalog_declares_generic_artifact_ports() {
+        let caps = sdk_capabilities().unwrap();
+        let import = caps
+            .iter()
+            .find(|cap| cap.descriptor.name == "driver.mlt-video.asset.import")
+            .unwrap();
+        assert!(
+            import
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-in:video/clip")
+        );
+        assert!(
+            import
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-in:audio/sample")
+        );
+        assert!(
+            import
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-in:image/raster")
+        );
+
+        let render = caps
+            .iter()
+            .find(|cap| cap.descriptor.name == "driver.mlt-video.render.result")
+            .unwrap();
+        assert!(
+            render
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-out:video/clip")
+        );
     }
 }

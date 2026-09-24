@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 semwright-types.workspace = true
 semwright-protocol.workspace = true
+semwright-platform-services.workspace = true
 semwright-recipes.workspace = true
 semwright-plugin-sdk.workspace = true
 semwright-registry.workspace = true

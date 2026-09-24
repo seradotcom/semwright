@@ -4,30 +4,30 @@ This document records only gaps exercised by the implementation; it is not a pro
 
 ## 1. Multi-tool runtime distribution
 
-Driver Registry packages pin a driver executable/manifest but do not currently distribute and attest a complete auxiliary runtime such as Node + Chromium + helper files. Motion Canvas therefore requires an explicit owner `runtime` filesystem grant with the Driver-only `execute: true` opt-in. Other read-only grants remain non-executable. The driver itself verifies SHA-256 pins for every executable/helper entry before rendering.
+Driver Registry packages pin a driver executable/manifest but do not currently distribute and attest a complete auxiliary runtime such as Node + Firefox + helper files. Motion Canvas therefore requires an explicit owner `runtime` filesystem grant with the Driver-only `execute: true` opt-in. Other read-only grants remain non-executable. The driver verifies SHA-256 pins for Node, the helper and the selected browser executable before rendering.
 
 A generic future tool-dependency/package primitive could remove this manual runtime preparation without widening filesystem access.
 
 ## 2. Protocol-v2 adoption for long-running child jobs
 
-The final integration target now includes Driver Protocol v2 support for progress, artifacts and request cancellation. Motion Canvas deliberately remains on protocol-v1 compatibility in this PR because its tested render lifecycle is already exposed as `render.start/status/cancel/result`; it does not advertise v2 interfaces it has not wired end-to-end. This is now a driver adoption gap, not a generic SDK absence.
+The final integration includes Driver Protocol v2 support for progress, artifacts and request cancellation. Motion Canvas deliberately remains on protocol-v1 compatibility in this PR because its tested render lifecycle is already exposed as `render.start/status/cancel/result`; it does not advertise v2 interfaces it has not wired end-to-end. This is a driver adoption gap, not a generic SDK absence.
 
 A later Motion Canvas pass can map its existing job registry onto protocol-v2 progress/cancellation without changing the semantic render model.
 
 ## 3. Browser sandbox composition
 
-The supported renderer needs a real browser process plus writable temporary/profile state while the driver itself remains inside Bubblewrap + Landlock with `network=false`. Chromium's nested sandbox cannot compose with the outer namespace, and Playwright `launch()` repeatedly crashed the pinned browser through its remote-debugging-pipe path. The driver therefore starts the attested full Chromium executable directly and attaches Playwright via an ephemeral `127.0.0.1` CDP endpoint. This does not require a network grant: Bubblewrap's unshared network namespace exposes loopback only. The current generic runtime package model still does not express the auxiliary Node/browser bundle or profile storage separately, so the driver pins `TMPDIR`/XDG state to its job-specific output root and keeps Chromium in the read-only runtime grant.
+The renderer needs a real browser process plus writable temporary/profile state while the driver remains inside Bubblewrap + Landlock with `network=false`. The final Firefox route uses the existing generic Driver-only executable-mount opt-in: the runtime is read-only, execution is explicit, and the helper can launch only the SHA-256-pinned browser path supplied by Rust. Firefox's nested content sandbox is disabled only after the outer Driver Host marker is verified; the outer sandbox remains authoritative.
 
-A future platform/tool dependency primitive could make browser runtime/profile requirements explicit without granting broader filesystem or network access.
+The current driver package model still does not express the complete auxiliary Node/browser bundle or profile storage as a first-class distribution primitive. A future generic tool-dependency package could remove the owner-prepared runtime mount without broadening filesystem access.
 
-## 4. Resource budgets
+## Resolved experiment: resource ceilings
 
-Motion Canvas + Vite + modern Chromium needs materially more virtual address space than small stdio drivers. Real Driver Host CI showed Chromium failing under the former 4 GiB `RLIMIT_AS` ceiling after Node/Vite had already succeeded. The branch therefore makes one minimal generic adjustment: keep the 512 MiB default, raise only the validated hard maximum to 16 GiB, and have Motion Canvas opt into 16 GiB explicitly. The Linux helper enforces the same maximum. CI records paired direct Chromium probes at 4 GiB and 16 GiB and requires the 16 GiB probe to launch. This changes virtual address-space reservation, not an ambient RAM grant.
+Earlier Chromium experiments drove temporary 16 GiB virtual-address-space and 256-task requests, but neither changed the reproducible Chrome-for-Testing `SIGTRAP` startup failure. The final Firefox path returned to the existing 4 GiB SDK hard ceiling and 128 tasks, which had already been sufficient to start Firefox inside Driver Host. No generic resource-limit expansion remains necessary for Motion Canvas.
 
-## 5. Windows platform-service composition
+## Resolved during final integration: Windows platform services
 
-The frozen baseline has no Windows implementation of `semwright-platform-services`, while Driver Protocol depends on that crate. A Windows compile of the complete protocol adapter therefore fails before Motion Canvas-specific code. This branch keeps the managed model OS-neutral and verifies the complete adapter on macOS, but does not redesign generic platform services or claim Windows support.
+The frozen implementation baseline originally lacked Windows `semwright-platform-services`. Final integration with current `main` brought the Windows platform host and secure driver-host plumbing into this branch, so that item is no longer an SDK gap. Motion Canvas now checks the complete domain/Driver Protocol adapter on Windows CI. Live browser rendering is still Linux-only evidence and is not promoted to a Windows support claim.
 
-## Not a gap: isolated loopback
+## Not a gap: network authority
 
-The renderer requires an ephemeral CDP listener on `127.0.0.1`, but Driver Host `network=false` already creates a private Bubblewrap network namespace containing only loopback. The listener is therefore reachable only by the helper/Chromium processes inside that sandbox and does not require `--share-net`, Internet access or a new policy grant. Static project files continue to use Playwright request interception; no Vite HTTP server is exposed.
+The final renderer opens no Vite server and no browser-control listener. Static built files are delivered through Playwright request interception at a synthetic origin; external page requests are aborted. Driver Host therefore remains `network=false` with no loopback exception or Internet grant.

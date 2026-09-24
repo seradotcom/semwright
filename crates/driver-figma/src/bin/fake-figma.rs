@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, bail};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use futures_util::{SinkExt, StreamExt};
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,7 @@ struct Fake {
     collections: BTreeMap<String, Value>,
     variables: BTreeMap<String, Value>,
     reactions: BTreeMap<String, Vec<Value>>,
+    artifacts: BTreeMap<String, Vec<u8>>,
 }
 
 fn summary(node: &Node) -> Value {
@@ -78,6 +80,7 @@ impl Fake {
             collections: BTreeMap::new(),
             variables: BTreeMap::new(),
             reactions: BTreeMap::new(),
+            artifacts: BTreeMap::new(),
         }
     }
 
@@ -381,6 +384,74 @@ impl Fake {
                 self.nodes.insert(id.clone(), node.clone());
                 self.revision += 1;
                 Ok(summary(&node))
+            }
+            "export.node" | "motion.export" => {
+                let node_id = args["nodeId"].as_str().context("nodeId")?;
+                if !self.nodes.contains_key(node_id) {
+                    bail!("not found");
+                }
+                let format = args
+                    .get("format")
+                    .and_then(Value::as_str)
+                    .unwrap_or(if op == "motion.export" { "MP4" } else { "PNG" })
+                    .to_ascii_uppercase();
+                let (media_type, extension, bytes): (&str, &str, Vec<u8>) = match format.as_str() {
+                    "MP4" => ("video/mp4", "mp4", b"FAKE-MP4-SEMWRIGHT".to_vec()),
+                    "GIF" => ("image/gif", "gif", b"GIF89aFAKE-SEMWRIGHT".to_vec()),
+                    "WEBM" => ("video/webm", "webm", b"FAKE-WEBM-SEMWRIGHT".to_vec()),
+                    "SVG" => (
+                        "image/svg+xml",
+                        "svg",
+                        b"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>".to_vec(),
+                    ),
+                    "PDF" => ("application/pdf", "pdf", b"%PDF-1.4\n%fake\n".to_vec()),
+                    "JPG" => ("image/jpeg", "jpg", b"FAKE-JPEG-SEMWRIGHT".to_vec()),
+                    _ => (
+                        "image/png",
+                        "png",
+                        b"\x89PNG\r\n\x1a\nFAKE-SEMWRIGHT".to_vec(),
+                    ),
+                };
+                let token = format!("fake-artifact-{}", self.artifacts.len() + 1);
+                let name = args
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| format!("figma-export.{extension}"));
+                let length = bytes.len();
+                self.artifacts.insert(token.clone(), bytes);
+                Ok(json!({
+                    "token":token,
+                    "bytes":length,
+                    "mediaType":media_type,
+                    "name":name
+                }))
+            }
+            "artifact.read" => {
+                let token = args["token"].as_str().context("token")?;
+                let bytes = self.artifacts.get(token).context("artifact not found")?;
+                let offset = args.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
+                let requested = args
+                    .get("length")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(196_608)
+                    .min(196_608) as usize;
+                if offset > bytes.len() {
+                    bail!("artifact offset out of bounds");
+                }
+                let end = offset.saturating_add(requested).min(bytes.len());
+                Ok(json!({
+                    "token":token,
+                    "offset":offset,
+                    "nextOffset":end,
+                    "totalBytes":bytes.len(),
+                    "eof":end == bytes.len(),
+                    "base64":BASE64.encode(&bytes[offset..end])
+                }))
+            }
+            "artifact.release" => {
+                let token = args["token"].as_str().context("token")?;
+                Ok(json!({"released":self.artifacts.remove(token).is_some()}))
             }
             _ => bail!("unsupported operation"),
         }

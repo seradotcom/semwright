@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-90 built-in descriptors. A descriptor is not proof of live backend support.
+92 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -21,44 +21,45 @@ for many backends in this development handoff; strengthening them is a release g
 | `recipe.list` | `desktop.observe` | read_only | 10000 ms | core |
 | `recipe.validate` | `desktop.observe` | read_only | 10000 ms | core |
 | `recipe.run` | `desktop.observe` | mutating | 300000 ms | core |
-| `app.list` | `app.observe` | read_only | 10000 ms | atspi, macos |
+| `app.list` | `app.observe` | read_only | 10000 ms | atspi, macos, windows |
 | `app.launch` | `app.launch` | code_execution | 10000 ms | system |
 | `app.close` | `app.close`, `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11 |
-| `window.list` | `window.observe` | read_only | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.focus` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.move` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.resize` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11, macos |
-| `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos |
+| `window.list` | `window.observe` | read_only | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.focus` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.move` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.resize` | `window.manage` | mutating_reversible | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
+| `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos, windows |
 | `ui.find` | `ui.observe` | read_only | 10000 ms | core |
-| `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
-| `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
-| `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos |
-| `ui.set_value` | `ui.invoke` | mutating_reversible | 10000 ms | atspi, macos |
-| `ui.get_value` | `ui.observe` | read_only | 10000 ms | atspi, macos |
-| `ui.toggle` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
-| `ui.select` | `ui.invoke` | mutating | 10000 ms | atspi |
-| `ui.expand` | `ui.invoke` | mutating | 10000 ms | atspi, macos |
+| `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
+| `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
+| `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos, windows |
+| `ui.set_value` | `ui.invoke` | mutating_reversible | 10000 ms | atspi, macos, windows |
+| `ui.get_value` | `ui.observe` | read_only | 10000 ms | atspi, macos, windows |
+| `ui.toggle` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
+| `ui.select` | `ui.invoke` | mutating | 10000 ms | atspi, windows |
+| `ui.expand` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `portal.start` | `input.keyboard`, `input.pointer` | privilege_sensitive | 120000 ms | portal |
 | `portal.stop` | `desktop.observe` | mutating_reversible | 10000 ms | portal |
 | `portal.status` | `desktop.observe` | read_only | 10000 ms | portal |
 | `portal.restore.clear` | `desktop.observe` | mutating | 10000 ms | portal |
 | `input.key` | `input.keyboard` | mutating | 10000 ms | portal, x11, macos |
-| `input.type` | `input.keyboard` | mutating | 10000 ms | portal, macos |
-| `pointer.move` | `input.pointer` | mutating | 10000 ms | portal, x11, macos |
-| `pointer.click` | `input.pointer` | mutating | 10000 ms | portal, x11, macos |
-| `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal, macos |
-| `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal, macos |
+| `input.type` | `input.keyboard` | mutating | 10000 ms | portal, macos, windows |
+| `pointer.move` | `input.pointer` | mutating | 10000 ms | portal, x11, macos, windows |
+| `pointer.click` | `input.pointer` | mutating | 10000 ms | portal, x11, macos, windows |
+| `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal, macos, windows |
+| `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal, macos, windows |
 | `screen.stream_info` | `desktop.observe` | read_only | 10000 ms | portal |
 | `screen.stream.start` | `screen.capture` | secret_access | 120000 ms | portal |
 | `screen.stream.capture` | `screen.capture` | secret_access | 45000 ms | portal |
 | `screen.stream.stop` | `screen.capture` | mutating_reversible | 10000 ms | portal |
-| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, portal, macos |
-| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, portal, macos |
+| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, portal, macos, windows |
+| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, portal, macos, windows |
 | `process.list` | `process.observe` | read_only | 10000 ms | system |
 | `process.signal` | `process.manage` | destructive | 10000 ms | system |
 | `filesystem.read` | `filesystem.read` | read_only | 10000 ms | filesystem |
 | `filesystem.write` | `filesystem.write` | mutating_reversible | 10000 ms | filesystem |
+| `artifact.handoff` | `filesystem.read:source_root`, `filesystem.write:destination_root` | mutating | 30000 ms | artifacts |
 | `notifications.send` | `notifications.send` | mutating | 10000 ms | system |
 | `network.status` | `desktop.observe` | read_only | 10000 ms | system |
 | `systemd.user.status` | `desktop.observe` | read_only | 10000 ms | system |
@@ -99,6 +100,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `capabilities.search` | `desktop.observe` | read_only | 10000 ms | core |
 | `capabilities.describe` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.start` | `desktop.observe` | read_only | 10000 ms | core |
+| `jobs.list` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.get` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.cancel` | `desktop.observe` | read_only | 10000 ms | core |
 
@@ -647,7 +649,7 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `ui.set_text`
 
-Set editable text through AT-SPI, not through keyboard emulation.
+Set editable text through the platform semantic accessibility interface, not keyboard emulation.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
@@ -778,7 +780,7 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `ui.select`
 
-Select a child through the AT-SPI Selection interface.
+Select a child through the platform semantic selection interface.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
@@ -936,7 +938,7 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `input.type`
 
-Type Unicode using a consented portal or focused X11; semantic set_text is preferred.
+Type Unicode through an explicitly enabled focused input backend; semantic set_text is preferred.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
@@ -1319,6 +1321,64 @@ Idempotency: `idempotent`. Dry run: `true`.
     "root",
     "path",
     "text"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `artifact.handoff`
+
+Copy a bounded binary artifact between two explicitly granted filesystem roots without exposing host absolute paths.
+
+Idempotency: `idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source_root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "source_path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "destination_root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "destination_path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "max_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 67108864
+    },
+    "expected_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{64}$"
+    },
+    "semantic_type": {
+      "type": "string",
+      "maxLength": 96,
+      "pattern": "^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*$"
+    },
+    "media_type": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*/[A-Za-z0-9][A-Za-z0-9.+-]*$"
+    }
+  },
+  "required": [
+    "source_root",
+    "source_path",
+    "destination_root",
+    "destination_path"
   ],
   "additionalProperties": false
 }
@@ -2361,6 +2421,20 @@ Idempotency: `non_idempotent`. Dry run: `false`.
       "additionalProperties": false
     }
   },
+  "additionalProperties": false
+}
+```
+
+## `jobs.list`
+
+List retained jobs owned by this broker session, newest first, including bounded progress and artifact metadata.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
   "additionalProperties": false
 }
 ```

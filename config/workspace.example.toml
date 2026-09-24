@@ -13,6 +13,15 @@ path = "/home/YOUR_USER/projects/example"
 read = true
 write = true
 
+# Cross-driver artifact handoff uses named grants, never host absolute paths in commands.
+# A producer and consumer may use distinct roots; artifact.handoff requires source read +
+# destination write authority and preserves SHA-256 across the copy.
+# [[policy.filesystem]]
+# name = "asset-output"
+# path = "/home/YOUR_USER/projects/assets"
+# read = true
+# write = true
+
 [browser]
 executable = "/usr/bin/chromium"
 allowed_origins = ["http://127.0.0.1:8000"]

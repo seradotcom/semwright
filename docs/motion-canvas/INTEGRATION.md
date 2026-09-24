@@ -20,7 +20,7 @@ machinery remains the distribution mechanism; filesystem and policy grants remai
 owner-controlled. The runtime/browser is an explicit, read-only, digest-pinned
 owner grant rather than an implicit host dependency.
 
-Motion Canvas also proved one narrow generic resource constraint during final integration: the browser runtime could not start under the previous 4 GiB virtual-address-space hard maximum in the measured CI configuration. The dedicated `fix: allow browser-compatible driver address space` commit keeps the 512 MiB default, raises only the SDK/Linux-helper maximum to 16 GiB, and makes this driver opt in explicitly. CI measures the browser under both ceilings.
+Chromium compatibility experiments temporarily raised the virtual-address-space and task ceilings, but later CI proved those increases did not affect the pinned Chrome-for-Testing `SIGTRAP` failure. The final Firefox route returns both generic and driver-specific limits to the original 4 GiB hard ceiling and 128-task request. The generic change that remains is narrower: explicit executable authority for read-only Driver mounts, required so an owner-approved Node/browser runtime can execute without making ordinary project/media/config mounts executable.
 
 Launch-film semantic source, storyboard, visual system, recipe and asset manifest
 are source-controlled. Generated browser profiles, node_modules, PNG sequences,
@@ -29,3 +29,4 @@ ephemeral GitHub Actions runners.
 
 The integration is maintained in PR #49. This mission may push and iterate that
 branch but does not merge the PR.
+A second and final integration refresh was required before certification because `main` advanced to `73ad946379ee4679280d7b80ba0ef602f3f5c6f8` with Windows platformization, artifact handoff, Godot and other already-merged work. The conflict resolution uses current `main` as the base for shared SDK/Host/platform files and reapplies only Motion Canvas-proven generic deltas: explicit read-only executable mounts, Landlock rules for authorized bind-mounted roots and the Motion Canvas fuzz registrations. The historical `BASELINE_SHA` remains unchanged.

@@ -17,6 +17,7 @@ pub struct Requested {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Capabilities {
+    pub keyboard: bool,
     pub text: bool,
     pub pointer: bool,
     pub button: bool,
@@ -26,7 +27,7 @@ pub struct Capabilities {
 impl Capabilities {
     #[must_use]
     pub fn satisfies(self, requested: Requested) -> bool {
-        (!requested.keyboard || self.text)
+        (!requested.keyboard || self.text || self.keyboard)
             && (!requested.pointer || (self.pointer && self.button && self.scroll))
     }
 }
@@ -211,6 +212,7 @@ struct LiveDevice {
 fn current_capabilities(devices: &[LiveDevice]) -> Capabilities {
     let mut result = Capabilities::default();
     for live in devices.iter().filter(|d| d.resumed) {
+        result.keyboard |= live.device.has_capability(DeviceCapability::Keyboard);
         result.text |= live.device.has_capability(DeviceCapability::Text);
         result.pointer |= live.device.has_capability(DeviceCapability::Pointer);
         result.button |= live.device.has_capability(DeviceCapability::Button);
@@ -225,6 +227,29 @@ fn find_device(devices: &[LiveDevice], capability: DeviceCapability) -> Result<&
         .find(|d| d.resumed && d.device.has_capability(capability))
         .map(|d| &d.device)
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS capability is not available"))
+}
+
+fn find_text_device(devices: &[LiveDevice]) -> Result<&Device> {
+    if let Some(device) = devices
+        .iter()
+        .find(|d| d.resumed && d.device.has_capability(DeviceCapability::Text))
+        .map(|d| &d.device)
+    {
+        return Ok(device);
+    }
+    if devices
+        .iter()
+        .any(|d| d.resumed && d.device.has_capability(DeviceCapability::Keyboard))
+    {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "EIS server exposes ei_keyboard keycodes but not ei_text; keysym/text translation is unavailable",
+        ));
+    }
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "EIS text capability is not available",
+    ))
 }
 
 fn frame(connection: &reis::event::Connection, device: &Device) -> Result<()> {
@@ -245,6 +270,9 @@ fn set_resumed(devices: &mut [LiveDevice], device: &Device, resumed: bool) {
 fn bind_requested(seat: &reis::event::Seat, requested: Requested) {
     let mut capabilities = BitFlags::empty();
     if requested.keyboard {
+        // EIS implementations may expose either keycode-based ei_keyboard, text-oriented
+        // ei_text, or both. Bind both and preserve the distinction at dispatch time.
+        capabilities.insert(DeviceCapability::Keyboard);
         capabilities.insert(DeviceCapability::Text);
     }
     if requested.pointer {
@@ -346,7 +374,7 @@ fn send_keysym(
     devices: &[LiveDevice],
     keysym: u32,
 ) -> Result<()> {
-    let device = find_device(devices, DeviceCapability::Text)?;
+    let device = find_text_device(devices)?;
     let text = device
         .interface::<ei::Text>()
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
@@ -361,7 +389,7 @@ fn send_text(
     devices: &[LiveDevice],
     text_value: &str,
 ) -> Result<()> {
-    let device = find_device(devices, DeviceCapability::Text)?;
+    let device = find_text_device(devices)?;
     let text = device
         .interface::<ei::Text>()
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
