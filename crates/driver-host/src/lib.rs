@@ -384,10 +384,10 @@ impl DriverProvider {
         #[cfg(target_os = "windows")]
         {
             let _ = (state, helper, roots);
-            return Err(Error::new(
+            Err(Error::new(
                 ErrorCode::SandboxDenied,
                 "Windows arbitrary driver execution is fail-closed until secure pre-exec containment is implemented",
-            ));
+            ))
         }
         #[cfg(unix)]
         {
