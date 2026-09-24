@@ -113,7 +113,7 @@ impl RestClient {
     ) -> Result<Value> {
         let meta = crate::rest_catalog::metadata(operation)
             .ok_or_else(|| Error::new(ErrorCode::Unsupported, "Unknown Figma REST capability"))?;
-        if !credential_allowed(meta.operation_id, credential.kind) {
+        if !credential_allowed(meta.credential, credential.kind) {
             return Err(Error::new(
                 ErrorCode::PermissionDenied,
                 "Configured Figma credential type cannot call this endpoint",
@@ -1025,21 +1025,16 @@ fn webhook_body(args: &Map<String, Value>, create: bool) -> Result<Value> {
     Ok(Value::Object(body))
 }
 
-fn credential_allowed(operation_id: &str, kind: AuthKind) -> bool {
-    match operation_id {
-        "getAiUsageDaily" | "getDeveloperLogs" => matches!(kind, AuthKind::Plan),
-        "getActivityLogs" | "getDiscoveryTextEvents" => matches!(kind, AuthKind::OAuth),
-        "getPayments" => matches!(kind, AuthKind::Personal),
-        "getMe"
-        | "getOEmbed"
-        | "postComment"
-        | "deleteComment"
-        | "postCommentReaction"
-        | "deleteCommentReaction"
-        | "postVariables" => {
+fn credential_allowed(class: &str, kind: AuthKind) -> bool {
+    match class {
+        "oauth_only" => matches!(kind, AuthKind::OAuth),
+        "oauth_or_pat" | "oauth_or_pat_enterprise_full_seat" => {
             matches!(kind, AuthKind::OAuth | AuthKind::Personal)
         }
-        _ => true,
+        "oauth_pat_or_plan" | "oauth_pat_or_plan_enterprise" => true,
+        "pat_only" => matches!(kind, AuthKind::Personal),
+        "plan_only" => matches!(kind, AuthKind::Plan),
+        _ => false,
     }
 }
 
@@ -1197,6 +1192,59 @@ mod tests {
         let mut args = Map::new();
         args.insert("eventType".into(), json!("FILE_UPDATE"));
         assert!(webhook_body(&args, true).is_err());
+    }
+
+    #[test]
+    fn credential_classes_follow_catalog_policy() {
+        use AuthKind::{OAuth, Personal, Plan};
+
+        let cases = [
+            ("oauth_only", [true, false, false]),
+            ("oauth_or_pat", [true, true, false]),
+            ("oauth_or_pat_enterprise_full_seat", [true, true, false]),
+            ("oauth_pat_or_plan", [true, true, true]),
+            ("oauth_pat_or_plan_enterprise", [true, true, true]),
+            ("pat_only", [false, true, false]),
+            ("plan_only", [false, false, true]),
+            ("unknown", [false, false, false]),
+        ];
+        for (class, expected) in cases {
+            assert_eq!(
+                credential_allowed(class, OAuth),
+                expected[0],
+                "{class}/oauth"
+            );
+            assert_eq!(
+                credential_allowed(class, Personal),
+                expected[1],
+                "{class}/pat"
+            );
+            assert_eq!(credential_allowed(class, Plan), expected[2], "{class}/plan");
+        }
+    }
+
+    #[test]
+    fn every_rest_metadata_credential_class_is_known() {
+        for meta in crate::rest_catalog::REST_OPERATIONS
+            .iter()
+            .chain(crate::rest_catalog::REST_DOCUMENTED_EXTRAS.iter())
+        {
+            assert!(
+                matches!(
+                    meta.credential,
+                    "oauth_only"
+                        | "oauth_or_pat"
+                        | "oauth_or_pat_enterprise_full_seat"
+                        | "oauth_pat_or_plan"
+                        | "oauth_pat_or_plan_enterprise"
+                        | "pat_only"
+                        | "plan_only"
+                ),
+                "{} has unknown credential class {}",
+                meta.capability,
+                meta.credential
+            );
+        }
     }
 
     #[test]
