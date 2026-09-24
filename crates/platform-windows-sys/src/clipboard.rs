@@ -37,7 +37,7 @@ fn open() -> Result<ClipboardGuard> {
 pub fn read_text() -> Result<String> {
     let _guard = open()?;
     // SAFETY: clipboard remains open for the lifetime of the returned kernel handle use.
-    let raw = unsafe { GetClipboardData(CF_UNICODETEXT) }
+    let raw = unsafe { GetClipboardData(CF_UNICODETEXT.0 as u32) }
         .map_err(|_| Error::new(ErrorCode::Unavailable, "CF_UNICODETEXT is unavailable"))?;
     let memory = HGLOBAL(raw.0);
     // SAFETY: memory is owned by the clipboard; lock is released before CloseClipboard.
@@ -99,7 +99,7 @@ pub fn write_text(value: &str) -> Result<()> {
             "Clipboard clear failed",
         ));
     }
-    match unsafe { SetClipboardData(CF_UNICODETEXT, Some(HANDLE(memory.0))) } {
+    match unsafe { SetClipboardData(CF_UNICODETEXT.0 as u32, Some(HANDLE(memory.0))) } {
         Ok(_) => Ok(()), // ownership transferred to the system
         Err(_) => {
             let _ = unsafe { GlobalFree(Some(memory)) };

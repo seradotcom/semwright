@@ -18,11 +18,11 @@ tokio.workspace = true
 tokio-util.workspace = true
 semwright-backend-api.workspace = true
 semwright-platform-api.workspace = true
-semwright-platform-windows-sys = { path = "../platform-windows-sys" }
+semwright-platform-windows-sys.workspace = true
 semwright-types.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
-uiautomation = { version = "=0.25.1", default-features = true }
+uiautomation.workspace = true
 windows = { version = "0.62.2", features = [
   "Win32_Foundation",
   "Win32_System_Threading",
