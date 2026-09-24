@@ -164,16 +164,24 @@ jobs:
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
           cargo test --locked -p semwright-driver-motion-canvas motion_driver_runs_through_real_driver_host_without_network -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/conformance.log
           cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
-      - name: Record 4 GiB address-space ceiling compatibility
+      - name: Measure Chromium virtual-address-space requirement
         working-directory: integrations/motion-canvas/runtime
-        if: always()
         run: |
           mkdir -p verification
+          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell' -type f -perm -111 -print)
+          test "${#BROWSERS[@]}" -eq 1
+          BROWSER="${BROWSERS[0]}"
           set +e
-          (ulimit -v 4194304; ./.semwright-tools/node --disable-wasm-trap-handler --max-old-space-size=256 -p 'process.version') >verification/node-4g-address-space.log 2>&1
-          rc=$?
-          echo "exit_code=$rc" >>verification/node-4g-address-space.log
-          cat verification/node-4g-address-space.log
+          (ulimit -v 4194304; timeout 20s "$BROWSER" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --dump-dom about:blank) >verification/chromium-4g-address-space.log 2>&1
+          rc4=$?
+          (ulimit -v 16777216; timeout 20s "$BROWSER" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --dump-dom about:blank) >verification/chromium-16g-address-space.log 2>&1
+          rc16=$?
+          set -e
+          echo "exit_code=$rc4" >>verification/chromium-4g-address-space.log
+          echo "exit_code=$rc16" >>verification/chromium-16g-address-space.log
+          cat verification/chromium-4g-address-space.log
+          cat verification/chromium-16g-address-space.log
+          test "$rc16" -eq 0
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

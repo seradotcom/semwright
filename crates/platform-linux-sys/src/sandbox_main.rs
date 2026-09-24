@@ -68,7 +68,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if !seen.insert(argument.clone()) {
                     return Err("duplicate sandbox resource limit".into());
                 }
-                address_space = bounded_limit(args.next(), 134_217_728, 4_294_967_296)?;
+                address_space = bounded_limit(args.next(), 134_217_728, 17_179_869_184)?;
             }
             "--limit-fsize" => {
                 if !seen.insert(argument.clone()) {
