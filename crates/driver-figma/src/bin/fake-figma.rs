@@ -312,8 +312,17 @@ impl Fake {
                         "baseValue": args["track"].get("baseValue").cloned().unwrap_or(Value::Null),
                         "keyframes": args["track"]["keyframes"]
                     }));
+                let end = args["track"]["keyframes"]
+                    .as_array()
+                    .and_then(|items| {
+                        items
+                            .iter()
+                            .filter_map(|item| item.get("timelinePosition").and_then(Value::as_f64))
+                            .reduce(f64::max)
+                    })
+                    .unwrap_or(0.0);
                 self.revision += 1;
-                Ok(json!({"applied":true}))
+                Ok(json!({"applied":true,"field":args["field"],"end":end}))
             }
             "motion.timeline.set_duration" if self.motion => {
                 let id = args["nodeId"].as_str().context("nodeId")?;

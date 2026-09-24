@@ -381,11 +381,22 @@ def main():
             driver, caps, "driver.figma.motion.keyframe.apply",
             {
                 "session_id": session_id, "expected_revision": 7, "nodeId": node_id,
-                "field": {"type": "x"},
-                "track": {"keyframes": [{"t": 0, "value": 0}, {"t": 1, "value": 100}]},
+                "field": {"type": "PROPERTY", "name": "TRANSLATION_X"},
+                "track": {
+                    "keyframes": [
+                        {"timelinePosition": 0, "value": {"type": "FLOAT", "value": 0}},
+                        {
+                            "timelinePosition": 1,
+                            "value": {"type": "FLOAT", "value": 100},
+                            "easing": {"type": "EASE_OUT"},
+                        },
+                    ]
+                },
             }, "motion-keyframe",
         )
         assert keyframes["type"] == "result", keyframes
+        assert keyframes["value"]["field"] == {"type": "PROPERTY", "name": "TRANSLATION_X"}
+        assert keyframes["value"]["end"] == 1
 
         timeline = execute(
             driver, caps, "driver.figma.motion.timeline.set_duration",

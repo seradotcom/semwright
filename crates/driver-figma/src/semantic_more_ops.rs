@@ -55,6 +55,27 @@ pub(super) fn operations() -> Vec<Op> {
             true,
         ),
         op(
+            "motion.apply",
+            "Apply a bounded multi-node set of official Figma Motion keyframe tracks",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "motion.preset.apply",
+            "Apply a deterministic semantic Motion preset without arbitrary code",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "motion.stagger",
+            "Stagger a semantic Motion preset or property animation across explicit node refs",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
             "history.commit",
             "Commit the current plugin mutation group to Figma undo history",
             MutatingReversible,
@@ -332,6 +353,20 @@ pub(super) fn operations() -> Vec<Op> {
             "Add bounded semantic content to a slot",
             MutatingReversible,
             NonIdempotent,
+            true,
+        ),
+        op(
+            "slot.convert",
+            "Convert an existing frame inside a component into a native SLOT property",
+            MutatingReversible,
+            NonIdempotent,
+            true,
+        ),
+        op(
+            "slot.settings.patch",
+            "Patch native Figma SlotSettings through the owning component property",
+            MutatingReversible,
+            Idempotent,
             true,
         ),
         op(

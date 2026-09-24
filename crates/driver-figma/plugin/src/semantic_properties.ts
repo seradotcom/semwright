@@ -59,15 +59,35 @@ async function spInspectProperties(nodeId:string,args:any){
   const next=Array.isArray(args.properties)?null:(offset+requested.length<allPresent.length?offset+requested.length:null);
   return {nodeId:node.id,nodeType:node.type,values,unavailable,offset,nextOffset:next,totalProperties:allPresent.length};
 }
+function spFontNameInput(value:any):FontNameInput{
+  if(!value||typeof value!=="object"||Array.isArray(value)||typeof value.family!=="string"||value.family.length===0||value.family.length>256)throw new Error("invalid_font_name");
+  if(value.style!==undefined&&(typeof value.style!=="string"||value.style.length===0||value.style.length>256))throw new Error("invalid_font_style");
+  const font:any={family:value.family};
+  if(value.style!==undefined)font.style=value.style;
+  if(value.variationSettings!==undefined){
+    if(!value.variationSettings||typeof value.variationSettings!=="object"||Array.isArray(value.variationSettings))throw new Error("invalid_font_variation_settings");
+    const entries=Object.entries(value.variationSettings);
+    if(entries.length>32)throw new Error("font_variation_axis_limit");
+    const settings:Record<string,number>={};
+    for(const [axis,raw] of entries){
+      if(!/^[A-Za-z0-9]{1,32}$/.test(axis)||typeof raw!=="number"||!Number.isFinite(raw)||raw < -100000||raw > 100000)throw new Error("invalid_font_variation_axis");
+      settings[axis]=raw;
+    }
+    font.variationSettings=settings;
+  }
+  return font as FontNameInput;
+}
 async function spSetProperty(node:any,property:string,value:any){
   if(!SEMWRIGHT_FIGMA_NODE_WRITE_PROPERTIES.has(property))throw new Error("property_not_writable");
   if(property==="mainComponent"||property==="stuckTo")throw new Error("property_requires_semantic_ref_operation");
   if(!(property in node))throw new Error("property_unavailable_on_node");
   if(value==="MIXED")throw new Error("mixed_value_read_only");
   spValidateJson(value);
+  let normalized=value;
   if(property==="fontName"){
-    if(!value||typeof value.family!=="string"||typeof value.style!=="string")throw new Error("invalid_font_name");
-    await figma.loadFontAsync(value as FontName);
+    const font=spFontNameInput(value);
+    await figma.loadFontAsync(font);
+    normalized=font;
   }
   if(property==="characters"&&node.type==="TEXT")await ensureFonts(node as TextNode);
   if(["fills","strokes"].includes(property)&&Array.isArray(value)&&value.length>64)throw new Error("paint_limit");
@@ -76,7 +96,7 @@ async function spSetProperty(node:any,property:string,value:any){
   if(property==="vectorNetwork"){
     if((value?.vertices?.length??0)>4096||(value?.segments?.length??0)>8192||(value?.regions?.length??0)>1024)throw new Error("vector_network_limit");
   }
-  node[property]=value;
+  node[property]=normalized;
 }
 async function spPatchProperties(nodeId:string,properties:any){
   if(!properties||typeof properties!=="object"||Array.isArray(properties))throw new Error("invalid_properties");

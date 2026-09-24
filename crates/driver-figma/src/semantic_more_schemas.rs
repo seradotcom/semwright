@@ -20,6 +20,9 @@ pub const OPERATIONS: &[&str] = &[
     "instance.main_component.set",
     "media.fill.apply",
     "motion.playhead.get",
+    "motion.apply",
+    "motion.preset.apply",
+    "motion.stagger",
     "node.plugin_data.get",
     "node.plugin_data.set",
     "node.relaunch_data.get",
@@ -48,6 +51,8 @@ pub const OPERATIONS: &[&str] = &[
     "slot.list",
     "slot.preferred.set",
     "slot.content.add",
+    "slot.convert",
+    "slot.settings.patch",
     "analysis.colors",
     "analysis.typography",
     "analysis.spacing",
@@ -100,6 +105,189 @@ fn no_args() -> Value {
 fn node_id() -> Value {
     input(vec![("nodeId", s(256))], &["nodeId"])
 }
+pub(crate) fn slot_settings_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "stretchChildOnInsert":{"type":"boolean"},
+            "displayEmptyByDefault":{"type":"boolean"},
+            "minChildren":{"type":["integer","null"],"minimum":0,"maximum":1024},
+            "maxChildren":{"type":["integer","null"],"minimum":0,"maximum":1024},
+            "allowPreferredValuesOnly":{"type":"boolean"}
+        },
+        "additionalProperties":false,
+        "maxProperties":5
+    })
+}
+fn motion_property_name_schema() -> Value {
+    en(&[
+        "CORNER_RADIUS",
+        "STROKE_WEIGHT",
+        "STACK_SPACING",
+        "STACK_PADDING_LEFT",
+        "STACK_PADDING_TOP",
+        "STACK_PADDING_RIGHT",
+        "STACK_PADDING_BOTTOM",
+        "WIDTH",
+        "HEIGHT",
+        "RECTANGLE_TOP_LEFT_CORNER_RADIUS",
+        "RECTANGLE_TOP_RIGHT_CORNER_RADIUS",
+        "RECTANGLE_BOTTOM_LEFT_CORNER_RADIUS",
+        "RECTANGLE_BOTTOM_RIGHT_CORNER_RADIUS",
+        "BORDER_TOP_WEIGHT",
+        "BORDER_BOTTOM_WEIGHT",
+        "BORDER_LEFT_WEIGHT",
+        "BORDER_RIGHT_WEIGHT",
+        "STACK_COUNTER_SPACING",
+        "OPACITY",
+        "GRID_ROW_GAP",
+        "GRID_COLUMN_GAP",
+        "TRANSLATION_X",
+        "TRANSLATION_Y",
+        "TRANSLATION_XY",
+        "ROTATION",
+        "SCALE_X",
+        "SCALE_Y",
+        "SCALE_XY",
+        "PATH_TRIM_START",
+        "PATH_TRIM_END",
+    ])
+}
+fn motion_effect_name_schema() -> Value {
+    en(&[
+        "OFFSET_X",
+        "OFFSET_Y",
+        "RADIUS",
+        "SPREAD",
+        "COLOR",
+        "REFRACTION_RADIUS",
+        "SPECULAR_ANGLE",
+        "SPECULAR_INTENSITY",
+        "CHROMATIC_ABERRATION",
+        "SPLAY",
+        "REFRACTION_INTENSITY",
+        "START_RADIUS",
+        "NOISE_SIZE_X",
+        "NOISE_SIZE_Y",
+        "DENSITY",
+        "EFFECT_OPACITY",
+        "SECONDARY_COLOR",
+    ])
+}
+pub(crate) fn motion_field_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"object","properties":{"type":{"const":"PROPERTY"},"name":motion_property_name_schema()},"required":["type","name"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"INDEXED_ITEM"},"collection":{"enum":["fills","strokes"]},"index":u(1024),"propertyId":s(256)},"required":["type","collection","index"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"INDEXED_ITEM"},"collection":{"const":"effects"},"index":u(1024),"field":motion_effect_name_schema()},"required":["type","collection","index","field"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"INDEXED_ITEM"},"collection":{"const":"effects"},"index":u(1024),"propertyId":s(256)},"required":["type","collection","index","propertyId"],"additionalProperties":false}
+    ]})
+}
+fn motion_rgba_schema() -> Value {
+    json!({"type":"object","properties":{
+        "r":n(0.0,1.0),"g":n(0.0,1.0),"b":n(0.0,1.0),"a":n(0.0,1.0)
+    },"required":["r","g","b","a"],"additionalProperties":false})
+}
+fn motion_easing_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"object","properties":{"type":{"enum":[
+            "EASE_IN","EASE_OUT","EASE_IN_AND_OUT","LINEAR","EASE_IN_BACK","EASE_OUT_BACK",
+            "EASE_IN_AND_OUT_BACK","GENTLE","QUICK","BOUNCY","SLOW","HOLD"
+        ]}},"required":["type"],"additionalProperties":false},
+        {"type":"object","properties":{
+            "type":{"const":"CUSTOM_SPRING"},
+            "easingFunctionSpring":{"type":"object","properties":{"bounce":n(0.0,1.0)},"required":["bounce"],"additionalProperties":false}
+        },"required":["type","easingFunctionSpring"],"additionalProperties":false},
+        {"type":"object","properties":{
+            "type":{"const":"CUSTOM_CUBIC_BEZIER"},
+            "easingFunctionCubicBezier":{"type":"object","properties":{
+                "x1":n(-100.0,100.0),"y1":n(-100.0,100.0),"x2":n(-100.0,100.0),"y2":n(-100.0,100.0)
+            },"required":["x1","y1","x2","y2"],"additionalProperties":false}
+        },"required":["type","easingFunctionCubicBezier"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"VARIABLE_ALIAS"},"id":s(256)},"required":["type","id"],"additionalProperties":false}
+    ]})
+}
+fn motion_keyframe_value_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"object","properties":{"type":{"const":"FLOAT"},"value":{"type":"number"}},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"BOOL"},"value":{"type":"boolean"}},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"TEXT_DATA"},"value":{"type":"string","maxLength":65536}},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"VECTOR"},"value":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"}},"required":["x","y"],"additionalProperties":false}},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"COLOR"},"value":motion_rgba_schema()},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"CIRCLE"},"value":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"radius":{"type":"number"}},"required":["x","y","radius"],"additionalProperties":false}},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"LINE"},"value":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"x2":{"type":"number"},"y2":{"type":"number"}},"required":["x","y","x2","y2"],"additionalProperties":false}},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"CIRCLE_POINT"},"value":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"radius":{"type":"number"},"angle":{"type":"number"}},"required":["x","y","radius","angle"],"additionalProperties":false}},"required":["type","value"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"COLOR_POINT"},"value":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"color":motion_rgba_schema()},"required":["x","y","color"],"additionalProperties":false}},"required":["type","value"],"additionalProperties":false}
+    ]})
+}
+pub(crate) fn motion_track_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "id":s(256),
+            "baseValue":motion_keyframe_value_schema(),
+            "keyframes":arr(1024,json!({
+                "type":"object",
+                "properties":{
+                    "id":s(256),
+                    "timelinePosition":n(0.0,3600.0),
+                    "easing":motion_easing_schema(),
+                    "value":motion_keyframe_value_schema()
+                },
+                "required":["timelinePosition","value"],
+                "additionalProperties":false
+            }))
+        },
+        "required":["keyframes"],
+        "additionalProperties":false
+    })
+}
+fn motion_macro_easing_schema() -> Value {
+    json!({"oneOf":[
+        en(&["linear","ease-in","ease-out","ease-in-out","ease-in-back","ease-out-back",
+            "ease-in-out-back","gentle","quick","bouncy","slow","hold"]),
+        motion_easing_schema()
+    ]})
+}
+fn motion_preset_schema() -> Value {
+    en(&[
+        "fade-in",
+        "fade-out",
+        "fade-up",
+        "fade-down",
+        "slide-left",
+        "slide-right",
+        "pop",
+        "spin",
+    ])
+}
+fn motion_alias_schema() -> Value {
+    en(&[
+        "x",
+        "translateX",
+        "y",
+        "translateY",
+        "translate",
+        "move",
+        "opacity",
+        "fade",
+        "rotate",
+        "rotation",
+        "scale",
+        "scaleX",
+        "scaleY",
+        "radius",
+        "cornerRadius",
+        "width",
+        "w",
+        "height",
+        "h",
+        "strokeWeight",
+        "gap",
+        "spacing",
+        "trimStart",
+        "trimEnd",
+    ])
+}
 pub fn input_schema(name: &str) -> Option<Value> {
     if !OPERATIONS.contains(&name) {
         return None;
@@ -108,6 +296,58 @@ pub fn input_schema(name: &str) -> Option<Value> {
         "file.thumbnail.get" | "motion.playhead.get" | "history.commit" | "history.undo" => {
             no_args()
         }
+        "motion.apply" => input(
+            vec![
+                (
+                    "tracks",
+                    arr(
+                        64,
+                        json!({
+                            "type":"object",
+                            "properties":{"nodeId":s(256),"field":motion_field_schema(),"track":motion_track_schema()},
+                            "required":["nodeId","field","track"],
+                            "additionalProperties":false
+                        }),
+                    ),
+                ),
+                ("duration", n(0.0001, 3600.0)),
+            ],
+            &["tracks"],
+        ),
+        "motion.preset.apply" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("preset", motion_preset_schema()),
+                ("duration", n(0.0001, 3600.0)),
+                ("at", n(0.0, 3600.0)),
+                ("easing", motion_macro_easing_schema()),
+                ("distance", n(-100_000.0, 100_000.0)),
+                ("scaleFrom", n(-1000.0, 1000.0)),
+            ],
+            &["nodeId", "preset"],
+        ),
+        "motion.stagger" => input(
+            vec![
+                ("nodeIds", arr(128, s(256))),
+                ("preset", motion_preset_schema()),
+                ("field", motion_alias_schema()),
+                (
+                    "from",
+                    json!({"oneOf":[{"type":"number"},{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"}},"required":["x","y"],"additionalProperties":false}]}),
+                ),
+                (
+                    "to",
+                    json!({"oneOf":[{"type":"number"},{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"}},"required":["x","y"],"additionalProperties":false}]}),
+                ),
+                ("step", n(0.0, 3600.0)),
+                ("duration", n(0.0001, 3600.0)),
+                ("at", n(0.0, 3600.0)),
+                ("easing", motion_macro_easing_schema()),
+                ("distance", n(-100_000.0, 100_000.0)),
+                ("scaleFrom", n(-1000.0, 1000.0)),
+            ],
+            &["nodeIds"],
+        ),
         "group.create" => input(
             vec![
                 ("nodeIds", arr(128, s(256))),
@@ -298,6 +538,20 @@ pub fn input_schema(name: &str) -> Option<Value> {
             ],
             &["nodeId"],
         ),
+        "slot.convert" => input(
+            vec![
+                ("nodeId", s(256)),
+                ("name", s(256)),
+                ("componentKeys", arr(64, s(256))),
+                ("description", json!({"type":"string","maxLength":4096})),
+                ("slotSettings", slot_settings_schema()),
+            ],
+            &["nodeId"],
+        ),
+        "slot.settings.patch" => input(
+            vec![("nodeId", s(256)), ("slotSettings", slot_settings_schema())],
+            &["nodeId", "slotSettings"],
+        ),
         "analysis.colors"
         | "analysis.typography"
         | "analysis.spacing"
@@ -392,6 +646,43 @@ pub fn output_schema(name: &str) -> Option<Value> {
         "motion.playhead.get" => {
             json!({"type":"object","properties":{"position":{"type":["number","null"]}},"required":["position"],"additionalProperties":false})
         }
+        "motion.apply" => json!({
+            "type":"object",
+            "properties":{
+                "duration":n(0.0,3600.0),
+                "results":arr(64,json!({
+                    "type":"object",
+                    "properties":{"nodeId":s(256),"field":motion_field_schema(),"end":n(0.0,3600.0)},
+                    "required":["nodeId","field","end"],
+                    "additionalProperties":false
+                }))
+            },
+            "required":["duration","results"],
+            "additionalProperties":false
+        }),
+        "motion.preset.apply" => json!({
+            "type":"object",
+            "properties":{
+                "nodeId":s(256),"preset":motion_preset_schema(),"duration":n(0.0,3600.0),
+                "fields":arr(8,motion_field_schema())
+            },
+            "required":["nodeId","preset","duration","fields"],
+            "additionalProperties":false
+        }),
+        "motion.stagger" => json!({
+            "type":"object",
+            "properties":{
+                "duration":n(0.0,3600.0),
+                "results":arr(128,json!({
+                    "type":"object",
+                    "properties":{"nodeId":s(256),"offset":n(0.0,3600.0),"fields":arr(8,motion_field_schema())},
+                    "required":["nodeId","offset","fields"],
+                    "additionalProperties":false
+                }))
+            },
+            "required":["duration","results"],
+            "additionalProperties":false
+        }),
         "artifact.upload.begin" => {
             json!({"type":"object","properties":{"token":s(128),"bytes":u(16_777_216),"mediaType":s(128),"name":s(256)},"required":["token","bytes","mediaType","name"],"additionalProperties":false})
         }
@@ -458,6 +749,25 @@ pub fn output_schema(name: &str) -> Option<Value> {
                 "targetNodeId":{"type":["string","null"],"maxLength":256}
             },
             "required":["nodeId","targetNodeId"],
+            "additionalProperties":false
+        }),
+        "slot.convert" => json!({
+            "type":"object",
+            "properties":{
+                "propertyName":s(512),
+                "node":loose_output(64),
+                "slotSettings":{"oneOf":[{"type":"null"},slot_settings_schema()]}
+            },
+            "required":["propertyName","node","slotSettings"],
+            "additionalProperties":false
+        }),
+        "slot.settings.patch" => json!({
+            "type":"object",
+            "properties":{
+                "propertyName":s(512),
+                "slotSettings":slot_settings_schema()
+            },
+            "required":["propertyName","slotSettings"],
             "additionalProperties":false
         }),
         "node.properties.inspect" => json!({

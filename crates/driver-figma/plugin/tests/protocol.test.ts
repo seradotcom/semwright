@@ -33,7 +33,7 @@ describe("security surface",()=>{
 });
 describe("advanced API",()=>{
  it("implements Motion style operations",()=>expect(code).toContain("applyAnimationStyle"));
- it("implements manual keyframes",()=>expect(code).toContain("applyManualKeyframeTrack"));
+ it("implements manual keyframes",()=>expect(allCode).toContain("applyManualKeyframeTrack"));
  it("implements timeline duration",()=>expect(code).toContain("setTimelineDuration"));
  it("implements spring normalization",()=>expect(code).toContain("physicalSpringToNormalized"));
  it("implements FigJam connectors",()=>expect(code).toContain("createConnector"));
