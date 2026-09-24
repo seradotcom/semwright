@@ -877,3 +877,143 @@ async fn learned_workflow_reacquires_ephemeral_refs_before_mutation() {
     assert!(replayed.ok, "{replayed:?}");
     assert_eq!(fixture.desktop.invocations(), 2);
 }
+
+async fn promote_clipboard_workflow(fixture: &Fixture, slug: &str) -> String {
+    let first = record_clipboard_trace(fixture, "alpha").await;
+    let second = record_clipboard_trace(fixture, "beta").await;
+    let compiled = fixture
+        .call(
+            "workflow.compile",
+            json!({
+                "trace_ids":[first,second],
+                "name":"clipboard-restart",
+                "description":"Write caller-provided text to the clipboard."
+            }),
+        )
+        .await;
+    assert!(compiled.ok, "{compiled:?}");
+    let candidate_id = compiled.data.unwrap()["candidate"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(
+        fixture
+            .call("workflow.verify", json!({"candidate_id":candidate_id}))
+            .await
+            .ok
+    );
+    assert!(
+        fixture
+            .call(
+                "workflow.replay",
+                json!({"candidate_id":candidate_id,"inputs":{"step1_text":"gamma"}}),
+            )
+            .await
+            .ok
+    );
+    let promoted = fixture
+        .call(
+            "workflow.promote",
+            json!({"candidate_id":candidate_id,"slug":slug}),
+        )
+        .await;
+    assert!(promoted.ok, "{promoted:?}");
+    candidate_id
+}
+
+fn restarted_workflow_broker(root: &std::path::Path) -> (Arc<Broker>, Arc<FakeDesktop>, Value) {
+    let mut config = PolicyConfig {
+        profile: Profile::Desktop,
+        ..Default::default()
+    };
+    config.allow.extend(
+        ["workflow.record", "workflow.manage", "clipboard.write"]
+            .into_iter()
+            .map(String::from),
+    );
+    let audit = Audit::open(
+        &root.join(format!("audit-restart-{}", unique_id())),
+        65536,
+        2,
+    )
+    .unwrap();
+    let desktop = Arc::new(FakeDesktop::new());
+    let broker = Arc::new(
+        Broker::new(
+            Policy::new(config).unwrap(),
+            vec![desktop.clone()],
+            audit,
+            Arc::new(NoApprover),
+            None,
+            json!({"fixture":true,"restart":true}),
+            true,
+        )
+        .unwrap(),
+    );
+    let restored = broker.configure_workflows(&root.join("workflows")).unwrap();
+    (broker, desktop, restored)
+}
+
+#[tokio::test]
+async fn learned_workflow_survives_broker_restart_and_executes() {
+    let fixture = workflow_fixture();
+    promote_clipboard_workflow(&fixture, "clipboard-restart").await;
+
+    let (broker, _desktop, restored) = restarted_workflow_broker(fixture._dir.path());
+    assert!(
+        restored["restored"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "recipe.clipboard-restart.run")
+    );
+    assert!(restored["stale"].as_array().unwrap().is_empty());
+
+    let executed = broker
+        .execute(
+            unique_id(),
+            unique_id(),
+            ExecuteRequest {
+                command: "recipe.clipboard-restart.run".into(),
+                args: json!({"step1_text":"after-restart"}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(executed.ok, "{executed:?}");
+    assert_eq!(executed.data.unwrap()["completed"], true);
+}
+
+#[tokio::test]
+async fn descriptor_drift_prevents_restoring_persisted_workflow() {
+    let fixture = workflow_fixture();
+    promote_clipboard_workflow(&fixture, "clipboard-drift").await;
+
+    let store = fixture._dir.path().join("workflows/workflows.json");
+    let mut persisted: Value = serde_json::from_slice(&std::fs::read(&store).unwrap()).unwrap();
+    let promotion = &mut persisted["promotions"].as_array_mut().unwrap()[0];
+    promotion["candidate"]["source_descriptor_sha256"]["clipboard.write"] =
+        Value::String("0".repeat(64));
+    std::fs::write(&store, serde_json::to_vec_pretty(&persisted).unwrap()).unwrap();
+
+    let (broker, _desktop, restored) = restarted_workflow_broker(fixture._dir.path());
+    assert!(restored["restored"].as_array().unwrap().is_empty());
+    assert_eq!(restored["stale"].as_array().unwrap().len(), 1);
+
+    let described = broker
+        .execute(
+            unique_id(),
+            unique_id(),
+            ExecuteRequest {
+                command: "capabilities.describe".into(),
+                args: json!({"name":"recipe.clipboard-drift.run"}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert_eq!(described.error.unwrap().code, ErrorCode::NotFound);
+}
