@@ -3,8 +3,10 @@
 **A cross-platform semantic capability broker that turns applications and desktops into typed commands—not a stream of guessed clicks.**
 
 > **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
-> The accepted development line has a committed `Cargo.lock`, pins Rust 1.98.1, and has
-> passed hosted x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
+> The accepted development line has a committed `Cargo.lock`, uses Rust 1.98.1 as the
+> development toolchain, and declares Rust 1.88 as its minimum supported Rust version (MSRV).
+> Hosted CI separately verifies the MSRV and current development toolchain. The line has passed
+> x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
 > rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz and real Rust Chromium gates.
 > Provider Runtime, governed stdio MCP federation, the persistent App Driver SDK with
 > sandboxed conformance tooling, and non-executing static/local driver distribution are merged
@@ -151,8 +153,9 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 | App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Merged after hosted driver-conformance: pinned fixture handshake/catalog/health/execute/shutdown, broker smoke and generated-driver compile |
 | Driver distribution | Non-executing `.swdp` packages + static/local index | Hosted package/index tests and install/update/remove smoke; SHA-256 integrity/compatibility only, not publisher signatures or a marketplace |
 | LibreOffice | Sandboxed persistent UNO DriverProvider | Real hosted Writer create/read, Calc create/get/set and PDF export through CLI -> daemon -> broker -> driver; curated seven-capability surface, not full UNO |
-| MLT video | Sandboxed persistent semantic timeline DriverProvider | 68-capability bounded model with 206 Rust tests and host-sandbox conformance; real MLT/Kdenlive/Shotcut round-trip certification remains pending |
+| MLT video | Sandboxed persistent semantic timeline DriverProvider | 68-capability MLT backend differentially checked against the backend-neutral semantic video domain, plus host-sandbox conformance; real MLT/Kdenlive/Shotcut round-trip certification remains pending |
 | KiCad | Separately licensed GPL IPC DriverProvider integration | Rust/Go build, native protocol tests and fake IPC host-sandbox conformance; real KiCad interoperability remains pending |
+| Figma | Authenticated loopback DriverProvider + official Figma Plugin API bridge | 91 typed capabilities, fake-Figma production-protocol E2E, plugin runtime tests and host-sandbox CI; real disposable-file Figma acceptance remains pending |
 | Events/jobs | Provenance-aware event stream + bounded session-scoped jobs | Job execution re-enters normal policy/audit; cancellation, session privacy and revocation are integration-tested; generic progress/artifact/task mapping remains follow-on work |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
@@ -198,11 +201,12 @@ assertions. [Plugins](docs/plugins.md) add narrow one-shot sandboxed commands. T
 identity, digest-pinned capabilities and executable conformance. [Driver distribution](docs/driver-distribution.md)
 adds non-executing local packages and static indexes without granting policy authority.
 [Events and jobs](docs/events-jobs.md) document source-bound event delivery and bounded long-operation
-lifecycle. [The inspector](docs/inspector.md)
+lifecycle. [Semantic video domain](docs/video-domain.md) defines the backend-neutral timeline,
+edit and conformance core reused by concrete video drivers. [The inspector](docs/inspector.md)
 is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
 [Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md),
-[MLT video](crates/driver-mlt-video/README.md), and
+[MLT video](crates/driver-mlt-video/README.md), [Figma](crates/driver-figma/README.md), and
 [KiCad](integrations/kicad-driver/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
 [KWin](bridges/kwin/README.md).
 

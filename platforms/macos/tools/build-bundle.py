@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build a NEW unsigned app from explicit local release artifacts. No installation or signing."""
-import argparse,json,os,pathlib,platform,shutil,subprocess
+import argparse,json,pathlib,platform,shutil,subprocess
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--rust-dir',type=pathlib.Path,required=True)
 p.add_argument('--native-library',type=pathlib.Path,required=True)

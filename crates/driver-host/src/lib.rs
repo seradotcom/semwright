@@ -1,8 +1,10 @@
 //! Sandboxed persistent application-driver host. Drivers are mounted into the broker as Providers.
 use async_trait::async_trait;
-use semwright_backend_api::{Context, ProvidedCapability, Provider, ProviderInterfaces};
+use semwright_backend_api::{
+    Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
+};
 use semwright_driver_sdk::{
-    DRIVER_PROTOCOL_VERSION, Manifest, Request, Response, capabilities_digest, descriptor_digest,
+    DriverInterfaces, Manifest, Request, Response, capabilities_digest, descriptor_digest,
 };
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
@@ -19,12 +21,12 @@ use std::{
     io::Write,
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, RwLock as StdRwLock},
     time::Duration,
 };
 use tokio::{
     process::{ChildStdin, ChildStdout, Command},
-    sync::Mutex,
+    sync::{Mutex, broadcast, oneshot},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -88,13 +90,21 @@ fn validate_owner_permissions(
             ));
         }
     }
-    if manifest.interfaces.dynamic_capabilities
-        || manifest.interfaces.cooperative_cancellation
-        || manifest.interfaces.events
+    if manifest.protocol == 1
+        && (manifest.interfaces.dynamic_capabilities
+            || manifest.interfaces.cooperative_cancellation
+            || manifest.interfaces.events
+            || manifest.interfaces.progress
+            || manifest.interfaces.artifacts)
     {
         return Err(Error::new(
             ErrorCode::Unsupported,
-            "Driver protocol v1 host currently supports persistent capabilities and health; dynamic/events/cooperative cancellation require a later negotiated interface version",
+            "Driver protocol v1 cannot negotiate dynamic/events/progress/artifacts/cancellation",
+        ));
+    }
+    if manifest.interfaces.artifacts && !manifest.interfaces.progress {
+        return Err(Error::invalid(
+            "Driver artifact reporting requires negotiated progress reporting",
         ));
     }
     Ok(())
@@ -103,6 +113,160 @@ fn validate_owner_permissions(
 struct Io {
     input: ChildStdin,
     output: ChildStdout,
+}
+
+struct V2Io {
+    input: Mutex<ChildStdin>,
+    pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
+}
+
+enum ProtocolIo {
+    V1(Mutex<Io>),
+    V2(V2Io),
+}
+
+impl V2Io {
+    async fn begin(&self, request: &Request, id: &str) -> Result<oneshot::Receiver<Response>> {
+        let (sender, receiver) = oneshot::channel();
+        {
+            let mut pending = self.pending.lock().await;
+            if pending.insert(id.to_owned(), sender).is_some() {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Driver protocol request ID is already pending",
+                ));
+            }
+        }
+        let result = {
+            let mut input = self.input.lock().await;
+            write_frame(&mut *input, request).await
+        };
+        if let Err(error) = result {
+            self.pending.lock().await.remove(id);
+            return Err(error);
+        }
+        Ok(receiver)
+    }
+
+    async fn request(&self, request: &Request, id: &str, timeout: Duration) -> Result<Response> {
+        let receiver = self.begin(request, id).await?;
+        match tokio::time::timeout(timeout, receiver).await {
+            Ok(Ok(response)) => Ok(response),
+            Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
+            Err(_) => {
+                self.pending.lock().await.remove(id);
+                Err(Error::new(
+                    ErrorCode::Timeout,
+                    "Driver protocol request timed out",
+                ))
+            }
+        }
+    }
+}
+
+fn provider_interfaces(interfaces: DriverInterfaces) -> ProviderInterfaces {
+    ProviderInterfaces {
+        dynamic_capabilities: interfaces.dynamic_capabilities,
+        cooperative_cancellation: interfaces.cooperative_cancellation,
+        events: interfaces.events,
+        progress: interfaces.progress,
+        artifacts: interfaces.artifacts,
+        health: interfaces.health,
+    }
+}
+
+fn response_id(response: &Response) -> Option<&str> {
+    match response {
+        Response::Interfaces { id, .. }
+        | Response::Capabilities { id, .. }
+        | Response::Result { id, .. }
+        | Response::Failure { id, .. }
+        | Response::Cancelled { id, .. }
+        | Response::Healthy { id, .. }
+        | Response::Shutdown { id } => Some(id),
+        Response::Ready { .. }
+        | Response::Event { .. }
+        | Response::CapabilitiesChanged
+        | Response::Progress { .. } => None,
+    }
+}
+
+fn spawn_v2_reader(
+    mut output: ChildStdout,
+    pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
+    signals: broadcast::Sender<ProviderSignal>,
+    interfaces: DriverInterfaces,
+    closed: CancellationToken,
+    terminate: CancellationToken,
+) {
+    tokio::spawn(async move {
+        loop {
+            let response = match read_frame::<_, Response>(&mut output).await {
+                Ok(response) => response,
+                Err(_) => {
+                    terminate.cancel();
+                    closed.cancel();
+                    let _ = signals.send(ProviderSignal::Disconnected);
+                    break;
+                }
+            };
+            match response {
+                Response::Event { kind, payload } => {
+                    if !interfaces.events {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                    let _ = signals.send(ProviderSignal::Event { kind, payload });
+                }
+                Response::CapabilitiesChanged => {
+                    if !interfaces.dynamic_capabilities {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                    let _ = signals.send(ProviderSignal::CapabilitiesChanged);
+                }
+                Response::Progress {
+                    id,
+                    progress,
+                    artifacts,
+                } => {
+                    if !interfaces.progress
+                        || (!artifacts.is_empty() && !interfaces.artifacts)
+                        || progress.validate().is_err()
+                        || artifacts.len() > 32
+                        || artifacts
+                            .iter()
+                            .any(|artifact| artifact.validate().is_err())
+                    {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                    let _ = signals.send(ProviderSignal::Progress {
+                        request_id: id,
+                        progress,
+                        artifacts,
+                    });
+                }
+                other => {
+                    let Some(id) = response_id(&other).map(str::to_owned) else {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    };
+                    let sender = pending.lock().await.remove(&id);
+                    let Some(sender) = sender else {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    };
+                    let _ = sender.send(other);
+                }
+            }
+        }
+    });
 }
 
 async fn request<T: Serialize>(io: &mut Io, request: &T, timeout: Duration) -> Result<Response> {
@@ -175,9 +339,11 @@ fn sandbox_command(
 pub struct DriverProvider {
     identity: ProviderIdentity,
     manifest: Manifest,
-    capabilities: Vec<ProvidedCapability>,
-    descriptor_digests: BTreeMap<String, String>,
-    io: Mutex<Io>,
+    capabilities: StdRwLock<Vec<ProvidedCapability>>,
+    descriptor_digests: StdRwLock<BTreeMap<String, String>>,
+    io: ProtocolIo,
+    signals: Option<broadcast::Sender<ProviderSignal>>,
+    interfaces: ProviderInterfaces,
     closed: CancellationToken,
     terminate: CancellationToken,
     _staged: Arc<StagedFile>,
@@ -224,7 +390,7 @@ impl DriverProvider {
         let hello = request(
             &mut io,
             &Request::Hello {
-                protocol: DRIVER_PROTOCOL_VERSION,
+                protocol: manifest.protocol,
                 provider: identity.clone(),
                 executable_sha256: manifest.sha256.to_ascii_lowercase(),
             },
@@ -233,16 +399,41 @@ impl DriverProvider {
         .await?;
         match hello {
             Response::Ready {
-                protocol: DRIVER_PROTOCOL_VERSION,
+                protocol,
                 id,
                 version,
-            } if id == manifest.id && version == manifest.version => {}
+            } if protocol == manifest.protocol
+                && id == manifest.id
+                && version == manifest.version => {}
             _ => {
                 let _ = child.kill().await;
                 return Err(Error::new(
                     ErrorCode::ProtocolMismatch,
                     "Driver handshake did not attest the expected identity/version",
                 ));
+            }
+        }
+
+        if manifest.protocol >= 2 {
+            let interfaces_id = unique_id();
+            match request(
+                &mut io,
+                &Request::Interfaces {
+                    id: interfaces_id.clone(),
+                },
+                timeout,
+            )
+            .await?
+            {
+                Response::Interfaces { id, interfaces }
+                    if id == interfaces_id && interfaces == manifest.interfaces => {}
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver interface negotiation did not match the owner manifest",
+                    ));
+                }
             }
         }
 
@@ -313,6 +504,36 @@ impl DriverProvider {
 
         let closed = CancellationToken::new();
         let terminate = CancellationToken::new();
+        let interfaces = if manifest.protocol >= 2 {
+            provider_interfaces(manifest.interfaces)
+        } else {
+            ProviderInterfaces {
+                health: manifest.interfaces.health,
+                ..Default::default()
+            }
+        };
+        let (protocol_io, signals) = if manifest.protocol >= 2 {
+            let (signals, _) = broadcast::channel(128);
+            let pending = Arc::new(Mutex::new(BTreeMap::new()));
+            let Io { input, output } = io;
+            spawn_v2_reader(
+                output,
+                pending.clone(),
+                signals.clone(),
+                manifest.interfaces,
+                closed.clone(),
+                terminate.clone(),
+            );
+            (
+                ProtocolIo::V2(V2Io {
+                    input: Mutex::new(input),
+                    pending,
+                }),
+                Some(signals),
+            )
+        } else {
+            (ProtocolIo::V1(Mutex::new(io)), None)
+        };
         let monitor_closed = closed.clone();
         let monitor_terminate = terminate.clone();
         let monitor_staged = staged.clone();
@@ -330,9 +551,11 @@ impl DriverProvider {
         Ok(Arc::new(Self {
             identity,
             manifest,
-            capabilities: provided,
-            descriptor_digests: digests,
-            io: Mutex::new(io),
+            capabilities: StdRwLock::new(provided),
+            descriptor_digests: StdRwLock::new(digests),
+            io: protocol_io,
+            signals,
+            interfaces,
             closed,
             terminate,
             _staged: staged,
@@ -342,6 +565,122 @@ impl DriverProvider {
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
     }
+
+    async fn exchange(
+        &self,
+        request_value: Request,
+        id: &str,
+        timeout: Duration,
+    ) -> Result<Response> {
+        match &self.io {
+            ProtocolIo::V1(io) => {
+                let mut io = io.lock().await;
+                request(&mut io, &request_value, timeout).await
+            }
+            ProtocolIo::V2(io) => io.request(&request_value, id, timeout).await,
+        }
+    }
+
+    fn decode_capabilities(
+        &self,
+        response: Response,
+        id: &str,
+    ) -> Result<(Vec<ProvidedCapability>, BTreeMap<String, String>)> {
+        let capabilities = match response {
+            Response::Capabilities {
+                id: response_id,
+                capabilities,
+                digest,
+            } if response_id == id && digest == capabilities_digest(&capabilities)? => capabilities,
+            Response::Failure {
+                id: response_id,
+                error,
+            } if response_id == id => {
+                return Err(Error::new(
+                    error.code,
+                    "Driver capability refresh failed; child details were redacted",
+                ));
+            }
+            _ => {
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Driver capability response did not match its request",
+                ));
+            }
+        };
+        if capabilities.is_empty() || capabilities.len() > 2048 {
+            return Err(Error::invalid(
+                "Driver returned an invalid capability count",
+            ));
+        }
+        let mut provided = Vec::with_capacity(capabilities.len());
+        let mut digests = BTreeMap::new();
+        for capability in capabilities {
+            capability.validate_for(&self.identity)?;
+            let digest = descriptor_digest(&capability.descriptor)?;
+            if digests
+                .insert(capability.descriptor.name.clone(), digest)
+                .is_some()
+            {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Driver returned duplicate capability names",
+                ));
+            }
+            provided.push(ProvidedCapability {
+                descriptor: capability.descriptor,
+                aliases: capability.aliases,
+                tags: capability.tags,
+                object_types: capability.object_types,
+            });
+        }
+        Ok((provided, digests))
+    }
+
+    async fn refresh_capabilities(&self) -> Result<Vec<ProvidedCapability>> {
+        let id = unique_id();
+        let response = self
+            .exchange(
+                Request::Capabilities { id: id.clone() },
+                &id,
+                Duration::from_millis(self.manifest.request_timeout_ms.min(10_000)),
+            )
+            .await?;
+        let (provided, digests) = self.decode_capabilities(response, &id)?;
+        *self
+            .capabilities
+            .write()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Driver capability cache poisoned"))? =
+            provided.clone();
+        *self
+            .descriptor_digests
+            .write()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Driver digest cache poisoned"))? =
+            digests;
+        Ok(provided)
+    }
+
+    fn execution_result(response: Response, id: &str) -> Result<Value> {
+        match response {
+            Response::Result {
+                id: response_id,
+                value,
+            } if response_id == id => Ok(value),
+            Response::Failure {
+                id: response_id,
+                error,
+            } if response_id == id => Err(Error::new(
+                error.code,
+                "Driver reported an error; untrusted payload was redacted",
+            )
+            .uncertain()),
+            _ => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Driver returned an unexpected execution response",
+            )
+            .uncertain()),
+        }
+    }
 }
 
 #[async_trait]
@@ -350,13 +689,28 @@ impl Provider for DriverProvider {
         &self.identity
     }
     fn supports(&self, command: &str) -> bool {
-        self.descriptor_digests.contains_key(command)
+        self.descriptor_digests
+            .read()
+            .map(|digests| digests.contains_key(command))
+            .unwrap_or(false)
     }
     async fn capabilities(&self) -> Result<Vec<ProvidedCapability>> {
-        Ok(self.capabilities.clone())
+        if self.interfaces.dynamic_capabilities {
+            self.refresh_capabilities().await
+        } else {
+            self.capabilities
+                .read()
+                .map(|capabilities| capabilities.clone())
+                .map_err(|_| Error::new(ErrorCode::Internal, "Driver capability cache poisoned"))
+        }
     }
     async fn probe(&self) -> Vec<Feature> {
-        self.capabilities
+        let capabilities = self
+            .capabilities
+            .read()
+            .map(|capabilities| capabilities.clone())
+            .unwrap_or_default();
+        capabilities
             .iter()
             .map(|capability| Feature {
                 backend: self.identity.id.clone(),
@@ -383,19 +737,17 @@ impl Provider for DriverProvider {
         self.supports(command).then(|| command.to_owned())
     }
     fn interfaces(&self) -> ProviderInterfaces {
-        ProviderInterfaces {
-            dynamic_capabilities: false,
-            cooperative_cancellation: false,
-            events: false,
-            health: self.manifest.interfaces.health,
-        }
+        self.interfaces
+    }
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.signals.as_ref().map(broadcast::Sender::subscribe)
     }
     fn closed(&self) -> Option<CancellationToken> {
         Some(self.closed.clone())
     }
     async fn execute(
         &self,
-        _context: &Context,
+        context: &Context,
         descriptor: &CommandDescriptor,
         args: &Value,
     ) -> Result<Value> {
@@ -404,64 +756,125 @@ impl Provider for DriverProvider {
         }
         let expected = self
             .descriptor_digests
+            .read()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Driver digest cache poisoned"))?
             .get(&descriptor.name)
+            .cloned()
             .ok_or_else(|| {
                 Error::new(ErrorCode::NotFound, "Driver capability is not registered")
             })?;
         let actual = descriptor_digest(descriptor)?;
-        if &actual != expected {
+        if actual != expected {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Pinned driver capability descriptor changed",
             ));
         }
-        let id = unique_id();
-        let mut io = self.io.lock().await;
-        let response = request(
-            &mut io,
-            &Request::Execute {
-                id: id.clone(),
-                command: descriptor.name.clone(),
-                descriptor_sha256: actual,
-                args: args.clone(),
-            },
-            Duration::from_millis(descriptor.timeout_ms.min(self.manifest.request_timeout_ms)),
-        )
-        .await;
-        let response = match response {
-            Ok(response) => response,
-            Err(error) => {
-                self.terminate.cancel();
-                return Err(error.uncertain());
+        let id = if context.request_id.is_empty() {
+            unique_id()
+        } else {
+            context.request_id.clone()
+        };
+        let timeout =
+            Duration::from_millis(descriptor.timeout_ms.min(self.manifest.request_timeout_ms));
+        let execute = Request::Execute {
+            id: id.clone(),
+            command: descriptor.name.clone(),
+            descriptor_sha256: actual,
+            args: args.clone(),
+        };
+
+        let response = match &self.io {
+            ProtocolIo::V1(io) => {
+                let mut io = io.lock().await;
+                tokio::select! {
+                    biased;
+                    _ = context.cancellation.cancelled() => {
+                        self.terminate.cancel();
+                        return Err(Error::new(
+                            ErrorCode::Cancelled,
+                            "Driver v1 execution cancelled by terminating its isolated process",
+                        ).uncertain());
+                    }
+                    response = request(&mut io, &execute, timeout) => response
+                }
+            }
+            ProtocolIo::V2(io) => {
+                let receiver = io.begin(&execute, &id).await?;
+                let response_future = async {
+                    match tokio::time::timeout(timeout, receiver).await {
+                        Ok(Ok(response)) => Ok(response),
+                        Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
+                        Err(_) => {
+                            io.pending.lock().await.remove(&id);
+                            Err(Error::new(ErrorCode::Timeout, "Driver execution timed out"))
+                        }
+                    }
+                };
+                tokio::pin!(response_future);
+                if self.interfaces.cooperative_cancellation {
+                    tokio::select! {
+                        response = &mut response_future => response,
+                        _ = context.cancellation.cancelled() => {
+                            let cancel_id = unique_id();
+                            let ack = io.request(
+                                &Request::Cancel {
+                                    id: cancel_id.clone(),
+                                    target: id.clone(),
+                                },
+                                &cancel_id,
+                                Duration::from_secs(2),
+                            ).await?;
+                            match ack {
+                                Response::Cancelled { id: response_id, target, .. }
+                                    if response_id == cancel_id && target == id => {}
+                                _ => {
+                                    self.terminate.cancel();
+                                    return Err(Error::new(
+                                        ErrorCode::ProtocolMismatch,
+                                        "Driver cancellation acknowledgement mismatch",
+                                    ).uncertain());
+                                }
+                            }
+                            match tokio::time::timeout(Duration::from_secs(3), &mut response_future).await {
+                                Ok(response) => response,
+                                Err(_) => {
+                                    self.terminate.cancel();
+                                    return Err(Error::new(
+                                        ErrorCode::Cancelled,
+                                        "Driver accepted cancellation but did not terminate the request",
+                                    ).uncertain());
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    tokio::select! {
+                        response = &mut response_future => response,
+                        _ = context.cancellation.cancelled() => {
+                            self.terminate.cancel();
+                            return Err(Error::new(
+                                ErrorCode::Cancelled,
+                                "Driver execution cancelled; child has no cooperative cancellation contract",
+                            ).uncertain());
+                        }
+                    }
+                }
             }
         };
+
         match response {
-            Response::Result {
-                id: response_id,
-                value,
-            } if response_id == id => Ok(value),
-            Response::Failure {
-                id: response_id,
-                error,
-            } if response_id == id => Err(Error::new(
-                error.code,
-                "Driver reported an error; untrusted payload was redacted",
-            )
-            .uncertain()),
-            _ => {
+            Ok(response) => Self::execution_result(response, &id),
+            Err(error) => {
                 self.terminate.cancel();
-                Err(Error::new(
-                    ErrorCode::ProtocolMismatch,
-                    "Driver returned an unexpected response",
-                )
-                .uncertain())
+                Err(error.uncertain())
             }
         }
     }
     async fn validate(&self, _target: &NativeTarget) -> Result<()> {
         Err(Error::new(
             ErrorCode::Unsupported,
-            "Driver protocol v1 does not expose native reference validation",
+            "Driver protocol does not expose native reference validation",
         ))
     }
     async fn shutdown(&self) -> Result<()> {
@@ -469,20 +882,19 @@ impl Provider for DriverProvider {
             return Ok(());
         }
         let id = unique_id();
-        let mut io = self.io.lock().await;
-        let response = request(
-            &mut io,
-            &Request::Shutdown { id: id.clone() },
-            Duration::from_secs(3),
-        )
-        .await?;
+        let response = self
+            .exchange(
+                Request::Shutdown { id: id.clone() },
+                &id,
+                Duration::from_secs(3),
+            )
+            .await?;
         if !matches!(response, Response::Shutdown { id: response_id } if response_id == id) {
             return Err(Error::new(
                 ErrorCode::ProtocolMismatch,
                 "Driver shutdown acknowledgement mismatch",
             ));
         }
-        drop(io);
         if tokio::time::timeout(Duration::from_secs(3), self.closed.cancelled())
             .await
             .is_err()
@@ -499,6 +911,7 @@ impl Provider for DriverProvider {
         Ok(())
     }
 }
+
 impl Drop for DriverProvider {
     fn drop(&mut self) {
         self.terminate.cancel();
@@ -549,6 +962,7 @@ pub async fn conformance(
     let executed_read_only = if let Some(capability) = safe {
         let context = Context {
             session: "driver-conformance".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         };
         Provider::execute(

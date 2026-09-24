@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-86 built-in descriptors. A descriptor is not proof of live backend support.
+90 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -42,6 +42,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `portal.start` | `input.keyboard`, `input.pointer` | privilege_sensitive | 120000 ms | portal |
 | `portal.stop` | `desktop.observe` | mutating_reversible | 10000 ms | portal |
 | `portal.status` | `desktop.observe` | read_only | 10000 ms | portal |
+| `portal.restore.clear` | `desktop.observe` | mutating | 10000 ms | portal |
 | `input.key` | `input.keyboard` | mutating | 10000 ms | portal, x11, macos |
 | `input.type` | `input.keyboard` | mutating | 10000 ms | portal, macos |
 | `pointer.move` | `input.pointer` | mutating | 10000 ms | portal, x11, macos |
@@ -49,8 +50,11 @@ for many backends in this development handoff; strengthening them is a release g
 | `pointer.scroll` | `input.pointer` | mutating | 10000 ms | portal, macos |
 | `screen.capture` | `screen.capture` | secret_access | 120000 ms | portal, macos |
 | `screen.stream_info` | `desktop.observe` | read_only | 10000 ms | portal |
-| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, macos |
-| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, macos |
+| `screen.stream.start` | `screen.capture` | secret_access | 120000 ms | portal |
+| `screen.stream.capture` | `screen.capture` | secret_access | 45000 ms | portal |
+| `screen.stream.stop` | `screen.capture` | mutating_reversible | 10000 ms | portal |
+| `clipboard.read` | `clipboard.read` | secret_access | 10000 ms | clipboard, portal, macos |
+| `clipboard.write` | `clipboard.write` | mutating | 10000 ms | clipboard, portal, macos |
 | `process.list` | `process.observe` | read_only | 10000 ms | system |
 | `process.signal` | `process.manage` | destructive | 10000 ms | system |
 | `filesystem.read` | `filesystem.read` | read_only | 10000 ms | filesystem |
@@ -826,7 +830,7 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `portal.start`
 
-Request an ephemeral RemoteDesktop session; the desktop presents native user consent.
+Request a RemoteDesktop session with native consent; persistence and portal clipboard access are explicit opt-ins.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
@@ -839,6 +843,16 @@ Idempotency: `non_idempotent`. Dry run: `true`.
     },
     "pointer": {
       "type": "boolean"
+    },
+    "persist_mode": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "description": "0 ephemeral, 1 process lifetime, 2 persist until desktop permission is revoked"
+    },
+    "clipboard": {
+      "type": "boolean",
+      "description": "Request Clipboard portal integration for this RemoteDesktop session"
     }
   },
   "required": [],
@@ -863,9 +877,24 @@ Idempotency: `idempotent`. Dry run: `true`.
 
 ## `portal.status`
 
-Inspect consent state and portal interface versions.
+Inspect portal consent/session state, interface versions and restore-token availability without exposing token material.
 
 Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `portal.restore.clear`
+
+Forget process-local and durable RemoteDesktop restore tokens without claiming to revoke the desktop portal permission itself.
+
+Idempotency: `idempotent`. Dry run: `true`.
 
 ```json
 {
@@ -1052,9 +1081,84 @@ Idempotency: `non_idempotent`. Dry run: `true`.
 
 ## `screen.stream_info`
 
-Describe portal ScreenCast support; this build does not decode PipeWire frames.
+Describe ScreenCast support and the owner session's active PipeWire streams.
 
 Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `screen.stream.start`
+
+Request a user-consented ScreenCast session for bounded PipeWire frame capture.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": [
+        "any",
+        "monitor",
+        "window"
+      ]
+    },
+    "multiple": {
+      "type": "boolean"
+    },
+    "cursor": {
+      "type": "string",
+      "enum": [
+        "hidden",
+        "embedded"
+      ]
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `screen.stream.capture`
+
+Capture one bounded frame from an active owner ScreenCast stream into a private PNG artifact.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "stream": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 30000
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `screen.stream.stop`
+
+Revoke and close this broker session's active ScreenCast grant.
+
+Idempotency: `idempotent`. Dry run: `true`.
 
 ```json
 {

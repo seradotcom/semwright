@@ -11,6 +11,7 @@ exclude = ["fuzz"]
 [workspace.package]
 version = "0.9.0-dev.1"
 edition = "2024"
+rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 authors = ["Semwright contributors"]
 
@@ -28,28 +29,36 @@ sha2 = "0.10"
 libc = "0.2"
 jsonschema = { version = "0.33", default-features = false }
 serde_yaml_ng = "0.10"
-toml = "0.9"
+toml = "1.1"
 zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
 futures-util = { version = "0.3", features = ["sink"] }
 reis = { version = "=0.7.1", features = ["tokio", "calloop"] }
+pipewire = { version = "=0.10.1", features = ["v0_3_65"] }
+png = "0.18"
 calloop = "0.14"
 x11rb = { version = "0.13", features = ["xtest"] }
-tokio-tungstenite = { version = "0.28", default-features = false, features = ["connect", "handshake"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "handshake"] }
 url = "2"
-base64 = "0.22"
+base64 = "0.23"
+anyhow = "1"
+hex = "0.4"
+hmac = "0.12"
+rand = "0.9"
 landlock = "=0.4.7"
 clap = { version = "4.5", features = ["derive", "env"] }
 clap_complete = "4.5"
-clap_mangen = "0.2"
+clap_mangen = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 rmcp = { version = "=3.4.0", features = ["server", "client", "macros", "schemars", "transport-io", "transport-child-process"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 ratatui = "0.30.2"
 crossterm = "0.29"
 proptest = "1"
 tempfile = "3"
 semver = "1"
 semwright-types = { path = "crates/types", version = "=0.9.0-dev.1" }
+semwright-video-domain = { path = "crates/video-domain", version = "=0.9.0-dev.1" }
 semwright-protocol = { path = "crates/protocol", version = "=0.9.0-dev.1" }
 semwright-registry = { path = "crates/registry", version = "=0.9.0-dev.1" }
 semwright-policy = { path = "crates/policy", version = "=0.9.0-dev.1" }

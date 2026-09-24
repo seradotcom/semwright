@@ -28,12 +28,15 @@ canonical directories. Do not let an unrelated writer replace the configured roo
 startup. Blender file/render operations cannot receive equivalent FD-relative protection
 through bpy and require a separately trusted private workspace.
 
-The plugin launcher checks the binary digest, stages an owned executable, scrubs the
+The plugin/driver launcher checks binary digests, stages owned executables, scrubs the
 environment, provides named mounts, uses resource budgets, and requires bubblewrap plus a
 Landlock helper. Missing isolation is a denial, not permission to run directly. Network
 needs both manifest declaration and owner opt-in. No inherited SSH agent/session-bus/
-cloud-token environment is provided. This code has not been executed against adversarial
-plugins; see the release gate for negative tests and complete handshake validation.
+cloud-token environment is provided. Hosted hostile plugin and DriverProvider regressions
+exercise mount escape, host-file/PID/loopback isolation, environment scrubbing, resource
+limits and descendant cleanup. Plugin Protocol v2 also attests child version and complete
+command-descriptor digest. These regressions reduce known boundary risk but are not a
+formal proof of the kernel/Bubblewrap/Landlock/native-code stack.
 
 Audit stores typed metadata, not input/output bodies. It rotates bounded local files and
 chains hashes to detect accidental corruption. A same-UID attacker can rewrite it, so it
@@ -43,19 +46,20 @@ artifacts; normal expiry handling exists, but crash-recovery cleanup is not yet 
 
 ## Residual risks and required review
 
-X11 calls still block within async methods, and its object fingerprint is not a complete
-lifecycle identity. Some operation-level capability discovery is coarse. Configuration
-changes require restart; there is no independently authenticated multi-principal policy
-service. Recipe taint redaction is conservative but not a formal noninterference guarantee.
+X11 blocking work now crosses a bounded blocking boundary and its refs carry lifecycle epochs,
+but the full native-desktop matrix remains incomplete. Some operation-level capability discovery
+is still coarse. Configuration changes require restart; there is no independently authenticated
+multi-principal policy service. Recipe taint redaction is conservative but not a formal noninterference guarantee.
 Generic output schemas need tightening. CDP downloads need quotas. Existing apps can have
 side effects outside a broker filesystem grant because the apps themselves are not
 sandboxed. A declared action being accepted does not prove the UI has reached the intended
 postcondition; use a fresh observation and assertions.
 
 Test priorities: stale identity reuse, focus drift, consent revocation during input,
-partial mutation on disconnect, duplicate JSON keys, plugin filesystem/network escape,
+partial mutation on disconnect, duplicate JSON keys, same-UID MCP-upstream isolation,
 output flooding, audit failure before/after effect, poisoned text in every rendering
-surface, artifact cleanup after abnormal termination, and configuration TOCTOU boundaries.
+surface, artifact cleanup after abnormal termination, sandbox-kernel variation and
+configuration TOCTOU boundaries.
 No independent security review has been performed in this handoff.
 
 ## Platform-specific enforcement

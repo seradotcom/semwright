@@ -1,0 +1,17 @@
+{
+  "name": "semwright-figma-plugin",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "1.138.0",
+    "typescript": "5.9.2",
+    "vitest": "4.1.11",
+    "@types/node": "24.5.2"
+  }
+}

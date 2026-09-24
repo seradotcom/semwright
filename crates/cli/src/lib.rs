@@ -336,18 +336,48 @@ pub enum Pointer {
 #[derive(Subcommand, Debug)]
 pub enum Portal {
     Start {
+        #[arg(
+            long,
+            num_args = 0..=1,
+            require_equals = true,
+            default_missing_value = "true"
+        )]
+        keyboard: Option<bool>,
+        #[arg(
+            long,
+            num_args = 0..=1,
+            require_equals = true,
+            default_missing_value = "true"
+        )]
+        pointer: Option<bool>,
+        #[arg(long, default_value_t = 0, value_parser = clap::value_parser!(u32).range(0..=2))]
+        persist_mode: u32,
         #[arg(long)]
-        keyboard: bool,
-        #[arg(long)]
-        pointer: bool,
+        clipboard: bool,
     },
     Stop,
     Status,
+    RestoreClear,
 }
 #[derive(Subcommand, Debug)]
 pub enum Screen {
     Capture,
     StreamInfo,
+    StreamStart {
+        #[arg(long, default_value = "any")]
+        source: String,
+        #[arg(long)]
+        multiple: bool,
+        #[arg(long, default_value = "embedded")]
+        cursor: String,
+    },
+    StreamCapture {
+        #[arg(long, default_value_t = 0)]
+        stream: usize,
+        #[arg(long, default_value_t = 5_000)]
+        timeout_ms: u64,
+    },
+    StreamStop,
 }
 #[derive(Subcommand, Debug)]
 pub enum Clipboard {
@@ -767,21 +797,42 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             ),
         },
         Command::Portal { command } => match command {
-            Portal::Start { keyboard, pointer } => (
-                "portal.start".into(),
-                json!({"keyboard":keyboard,"pointer":pointer}),
-            ),
+            Portal::Start {
+                keyboard,
+                pointer,
+                persist_mode,
+                clipboard,
+            } => {
+                let mut args = json!({"persist_mode":persist_mode,"clipboard":clipboard});
+                if let Some(keyboard) = keyboard {
+                    args["keyboard"] = json!(keyboard);
+                }
+                if let Some(pointer) = pointer {
+                    args["pointer"] = json!(pointer);
+                }
+                ("portal.start".into(), args)
+            }
             Portal::Stop => ("portal.stop".into(), json!({})),
             Portal::Status => ("portal.status".into(), json!({})),
+            Portal::RestoreClear => ("portal.restore.clear".into(), json!({})),
         },
-        Command::Screen { command } => (
-            match command {
-                Screen::Capture => "screen.capture",
-                Screen::StreamInfo => "screen.stream_info",
-            }
-            .into(),
-            json!({}),
-        ),
+        Command::Screen { command } => match command {
+            Screen::Capture => ("screen.capture".into(), json!({})),
+            Screen::StreamInfo => ("screen.stream_info".into(), json!({})),
+            Screen::StreamStart {
+                source,
+                multiple,
+                cursor,
+            } => (
+                "screen.stream.start".into(),
+                json!({"source":source,"multiple":multiple,"cursor":cursor}),
+            ),
+            Screen::StreamCapture { stream, timeout_ms } => (
+                "screen.stream.capture".into(),
+                json!({"stream":stream,"timeout_ms":timeout_ms}),
+            ),
+            Screen::StreamStop => ("screen.stream.stop".into(), json!({})),
+        },
         Command::Clipboard { command } => match command {
             Clipboard::Read => ("clipboard.read".into(), json!({})),
             Clipboard::Write { text } => ("clipboard.write".into(), json!({"text":text.value()?})),
@@ -959,6 +1010,43 @@ mod tests {
         }
     }
 
+    #[test]
+    fn portal_start_preserves_backend_defaults_and_supports_explicit_scope() {
+        let default = Cli::try_parse_from(["semwright", "portal", "start"]).unwrap();
+        let default_request = request(&default).unwrap().unwrap();
+        assert_eq!(default_request.command, "portal.start");
+        assert_eq!(default_request.args["persist_mode"], 0);
+        assert_eq!(default_request.args["clipboard"], false);
+        assert!(default_request.args.get("keyboard").is_none());
+        assert!(default_request.args.get("pointer").is_none());
+
+        let scoped = Cli::try_parse_from([
+            "semwright",
+            "portal",
+            "start",
+            "--keyboard=false",
+            "--pointer",
+            "--persist-mode",
+            "2",
+            "--clipboard",
+        ])
+        .unwrap();
+        let scoped_request = request(&scoped).unwrap().unwrap();
+        assert_eq!(scoped_request.args["keyboard"], false);
+        assert_eq!(scoped_request.args["pointer"], true);
+        assert_eq!(scoped_request.args["persist_mode"], 2);
+        assert_eq!(scoped_request.args["clipboard"], true);
+        semwright_registry::Registry::builtin()
+            .unwrap()
+            .validate_input(&scoped_request.command, &scoped_request.args)
+            .unwrap();
+
+        let clear = Cli::try_parse_from(["semwright", "portal", "restore-clear"]).unwrap();
+        assert_eq!(
+            request(&clear).unwrap().unwrap().command,
+            "portal.restore.clear"
+        );
+    }
     #[test]
     fn no_permission_upgrade_flags() {
         assert!(Cli::try_parse_from(["semwright", "--approve", "doctor"]).is_err());

@@ -45,6 +45,7 @@ async fn call(
         provider,
         &Context {
             session: "mlt-video-live".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: CancellationToken::new(),
         },
         &find(capabilities, name).descriptor,

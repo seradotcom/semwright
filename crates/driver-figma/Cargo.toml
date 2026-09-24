@@ -1,0 +1,53 @@
+[package]
+name = "semwright-driver-figma"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Semantic Figma Design/FigJam driver over the official Plugin API"
+
+[lib]
+name = "semwright_figma_driver"
+path = "src/lib.rs"
+
+[[bin]]
+name = "semwright-figma-driver"
+path = "src/main.rs"
+
+[[bin]]
+name = "semwright-fake-figma"
+path = "src/bin/fake-figma.rs"
+required-features = ["test-tools"]
+
+[features]
+default = []
+test-tools = ["dep:anyhow"]
+
+[dependencies]
+semwright-driver-sdk.workspace = true
+semwright-types.workspace = true
+anyhow = { workspace = true, optional = true }
+async-trait.workspace = true
+futures-util.workspace = true
+hex.workspace = true
+hmac.workspace = true
+rand.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+semwright-backend-api.workspace = true
+semwright-driver-host.workspace = true
+tempfile.workspace = true
+tokio-util.workspace = true
+
+[lints]
+workspace = true

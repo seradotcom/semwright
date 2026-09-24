@@ -28,6 +28,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: native-applications
+      - name: Install Linux media development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
       - name: Detect actual browser version
         run: |
           mkdir -p verification/native-ci
@@ -40,8 +44,8 @@ jobs:
         env:
           SEMWRIGHT_TEST_CHROMIUM: /opt/google/chrome/chrome
         run: |
-          cargo test --locked --workspace --all-targets --all-features real_chromium_native_input_navigation_download_denial_and_cleanup -- --ignored --nocapture 2>&1 | tee verification/native-ci/chromium.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+          cargo test --locked --workspace --all-targets --all-features real_chromium_ -- --ignored --nocapture 2>&1 | tee verification/native-ci/chromium.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-chromium-evidence
@@ -63,7 +67,7 @@ jobs:
         run: |
           if ! command -v bwrap >/dev/null; then
             sudo apt-get update
-            sudo apt-get install -y bubblewrap
+            sudo apt-get install -y bubblewrap libpipewire-0.3-dev
           fi
           current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
           if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
@@ -112,8 +116,26 @@ jobs:
           mkdir -p verification/native-ci
           BIN_DIR=target/debug scripts/dev/driver-conformance.sh 2>&1 | tee verification/native-ci/driver-conformance.log
           BIN_DIR=target/debug scripts/dev/driver-broker-smoke.sh 2>&1 | tee verification/native-ci/driver-broker-smoke.log
+          SEMWRIGHT_TEST_DRIVER_V2=1 \
+            SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
+            cargo test --locked -p semwright-driver-host --test protocol_v2 \
+            -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-protocol-v2.log
           cp /tmp/bwrap-version.log verification/native-ci/
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - name: Adversarial plugin sandbox and handshake attestation
+        env:
+          SEMWRIGHT_TEST_PLUGIN_SANDBOX: "1"
+        run: |
+          cargo build --locked -p semwright-plugin-host --features test-tools \
+            --bin semwright-sandbox --bin semwright-adversarial-plugin-fixture
+          cargo test --locked -p semwright-plugin-host --features test-tools \
+            --test adversarial -- --ignored --nocapture 2>&1 | tee verification/native-ci/plugin-adversarial.log
+          cargo build --locked -p semwright-driver-host --features test-tools \
+            --bin semwright-adversarial-driver-fixture
+          SEMWRIGHT_TEST_DRIVER_SANDBOX=1 \
+            SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
+            cargo test --locked -p semwright-driver-host --features test-tools \
+            --test adversarial_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-adversarial.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: driver-conformance-evidence
@@ -140,7 +162,7 @@ jobs:
         run: |
           cargo build --locked -p semwright-cli --bin semwright
           BIN_DIR=target/debug scripts/dev/driver-registry-smoke.sh 2>&1 | tee verification/native-ci/driver-distribution-smoke.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: driver-distribution-evidence
@@ -163,7 +185,7 @@ jobs:
       - name: Install LibreOffice, pyuno and sandbox dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap fontconfig libreoffice-writer libreoffice-calc python3-uno unzip
+          sudo apt-get install -y bubblewrap fontconfig libreoffice-writer libreoffice-calc python3-uno unzip libpipewire-0.3-dev
           mkdir -p verification/native-ci
           soffice --version | tee verification/native-ci/libreoffice-version.log
           /usr/bin/python3 -c 'import uno; print("pyuno=ok")' | tee verification/native-ci/pyuno.log
@@ -220,7 +242,7 @@ jobs:
       - name: Broker, policy, CLI and LibreOffice end-to-end
         run: |
           BIN_DIR=target/debug scripts/dev/libreoffice-driver-smoke.sh 2>&1 | tee verification/native-ci/libreoffice-broker-smoke.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: libreoffice-driver-evidence
@@ -245,7 +267,7 @@ jobs:
           BLENDER_SHA256: 9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap fontconfig xz-utils xvfb xauth
+          sudo apt-get install -y bubblewrap fontconfig xz-utils xvfb xauth libpipewire-0.3-dev
           curl --fail --location --retry 3 --output /tmp/blender.tar.xz "$BLENDER_URL"
           echo "$BLENDER_SHA256  /tmp/blender.tar.xz" | sha256sum --check -
           sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
@@ -350,11 +372,92 @@ jobs:
       - name: Interactive add-on through Xvfb, broker and Blender main thread
         run: |
           BIN_DIR=target/debug BLENDER_BIN=/usr/local/bin/blender scripts/dev/blender-addon-live-smoke.sh 2>&1 | tee verification/native-ci/blender-addon-live.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: blender-driver-evidence
           path: verification/native-ci
+          retention-days: 14
+
+  figma-driver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/driver-figma/plugin/package-lock.json
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: figma-driver
+      - name: Install sandbox dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/native-ci
+      - name: Preflight unprivileged Bubblewrap
+        run: |
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          sandbox_setup=kernel-default
+          if [ "$current_apparmor" = "1" ]; then
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
+              sandbox_setup=apparmor-bwrap-profile
+            else
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+              sandbox_setup=ephemeral-ci-userns-relaxation
+            fi
+          fi
+          bwrap --version | tee verification/native-ci/figma-bwrap-version.log
+          echo "sandbox_setup=$sandbox_setup" | tee verification/native-ci/figma-sandbox-setup.log
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          for runtime in /usr /lib /lib64; do
+            if [ -e "$runtime" ]; then
+              bwrap_args+=(--ro-bind "$runtime" "$runtime")
+            fi
+          done
+          bwrap_args+=(--dir /etc)
+          if [ -e /etc/ld.so.cache ]; then
+            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          fi
+          bwrap "${bwrap_args[@]}" -- /usr/bin/true
+      - name: Build Figma driver and sandbox surface
+        run: |
+          cargo build --locked -p semwright-driver-figma --features test-tools --bins \
+            -p semwright-plugin-host --bin semwright-sandbox
+          python3 crates/driver-figma/tools/catalog_consistency.py | tee verification/native-ci/figma-catalog.log
+      - name: Production Driver Protocol to fake Figma E2E
+        run: |
+          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
+            python3 crates/driver-figma/tools/e2e_driver.py | tee verification/native-ci/figma-e2e.log
+      - name: Build and test the Figma Plugin API bridge
+        working-directory: crates/driver-figma/plugin
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build
+      - name: Sandboxed DriverProvider to fake Figma
+        env:
+          SEMWRIGHT_TEST_FIGMA: "1"
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-figma --features test-tools \
+            --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/native-ci/figma-host-conformance.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: figma-driver-evidence
+          path: verification/native-ci/figma-*
           retention-days: 14
 
   kicad-mlt-drivers:
@@ -375,7 +478,7 @@ jobs:
       - name: Install native driver dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap python3 melt ffmpeg
+          sudo apt-get install -y bubblewrap python3 melt ffmpeg libpipewire-0.3-dev
           mkdir -p verification/native-ci
           melt -version | head -5 | tee verification/native-ci/mlt-version.log
           ffprobe -version | head -3 | tee verification/native-ci/ffprobe-version.log
@@ -435,10 +538,37 @@ jobs:
             -p semwright-kicad-driver --bin semwright-kicad-driver
           cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/mlt-driver-live.log
           cargo test --locked -p semwright-kicad-driver fake_kicad_ipc_runs_through_real_sandboxed_driver_host -- --ignored --nocapture 2>&1 | tee verification/native-ci/kicad-driver-live.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: kicad-mlt-driver-evidence
+          path: verification/native-ci
+          retention-days: 14
+
+  pipewire-screencast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: pipewire-screencast
+      - name: Install private PipeWire video fixture
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             libpipewire-0.3-dev pipewire pipewire-bin wireplumber             dbus-x11 gstreamer1.0-tools gstreamer1.0-pipewire             gstreamer1.0-plugins-base
+      - name: Real synthetic PipeWire frame capture
+        run: |
+          mkdir -p verification/native-ci
+          bash -n scripts/dev/pipewire-screencast-smoke.sh
+          dbus-run-session -- bash scripts/dev/pipewire-screencast-smoke.sh             2>&1 | tee verification/native-ci/pipewire-screencast.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: pipewire-screencast-evidence
           path: verification/native-ci
           retention-days: 14
 
@@ -456,7 +586,7 @@ jobs:
       - name: Install isolated X11 server
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb xauth
+          sudo apt-get install -y xvfb xauth libpipewire-0.3-dev
           mkdir -p verification/native-ci
           Xvfb -version 2>&1 | head -20 | tee verification/native-ci/xvfb-version.log || true
       - name: Real X11 lifecycle and bounded backend
@@ -465,7 +595,7 @@ jobs:
           SEMWRIGHT_TEST_X11: "1"
         run: |
           xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp"             cargo test --locked -p semwright-backends               real_x11_window_ref_is_focus_checked_and_stales_after_destroy               -- --ignored --nocapture 2>&1 | tee verification/native-ci/x11-backend.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-x11-backend-evidence
@@ -486,7 +616,7 @@ jobs:
       - name: Install isolated GTK accessibility fixture
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity libpipewire-0.3-dev
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-gtk"
           chmod 700 "$RUNNER_TEMP/atspi-gtk"
           zenity --version | tee verification/native-ci/zenity-version.log
@@ -497,7 +627,7 @@ jobs:
           XDG_SESSION_TYPE: x11
           SEMWRIGHT_TEST_ATSPI: "1"
         run: scripts/dev/atspi-live-ci.sh gtk
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-atspi-gtk-evidence
@@ -517,7 +647,7 @@ jobs:
             python3-venv libegl1 libgl1 libx11-xcb1 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 \
-            libxkbcommon-x11-0 \
+            libxkbcommon-x11-0 libpipewire-0.3-dev \
             xvfb xauth x11-utils
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
           chmod 700 "$RUNNER_TEMP/atspi-qt"
@@ -533,7 +663,10 @@ jobs:
           qt_xcb=$(find "$RUNNER_TEMP/qt-venv" -path '*/PyQt6/Qt6/plugins/platforms/libqxcb.so' -print -quit)
           test -f "$qt_xcb"
           ldd "$qt_xcb" | tee verification/native-ci/qt-xcb-ldd.log
-          ! grep -q 'not found' verification/native-ci/qt-xcb-ldd.log
+          if grep -q 'not found' verification/native-ci/qt-xcb-ldd.log; then
+            echo "Qt xcb plugin has unresolved shared libraries" >&2
+            exit 1
+          fi
           dpkg-query -W -f='${binary:Package}=${Version}\n' \
             at-spi2-core libxcb-cursor0 libxkbcommon-x11-0 \
             | tee verification/native-ci/atspi-qt-packages.log
@@ -567,9 +700,85 @@ jobs:
           done
           xdpyinfo -display "$DISPLAY" >/dev/null
           SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- scripts/dev/atspi-live-ci.sh qt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-atspi-qt-evidence
+          path: verification/native-ci
+          retention-days: 14
+
+  sway-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: sway-live
+      - name: Install real headless Sway fixture
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            sway zenity dbus-x11 libpipewire-0.3-dev
+          mkdir -p verification/native-ci "$RUNNER_TEMP/sway-runtime"
+          chmod 700 "$RUNNER_TEMP/sway-runtime"
+          sway --version | tee verification/native-ci/sway-version.log
+      - name: Real Sway IPC window lifecycle
+        env:
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/sway-runtime
+          XDG_SESSION_TYPE: wayland
+          WLR_BACKENDS: headless
+          WLR_RENDERER: pixman
+          WLR_LIBINPUT_NO_DEVICES: "1"
+          SEMWRIGHT_TEST_SWAY: "1"
+        run: |
+          cat > "$RUNNER_TEMP/sway-config" <<'EOF'
+          output * resolution 1280x720
+          seat seat0 fallback true
+          for_window [title="Semwright Sway Fixture"] floating enable
+          EOF
+          dbus-run-session -- bash -euo pipefail <<'EOF'
+          sway --unsupported-gpu --config "$RUNNER_TEMP/sway-config" --debug \
+            > verification/native-ci/sway.log 2>&1 &
+          sway_pid=$!
+          cleanup_sway() {
+            kill -TERM "$sway_pid" 2>/dev/null || true
+            for _ in $(seq 1 50); do
+              kill -0 "$sway_pid" 2>/dev/null || break
+              sleep 0.05
+            done
+            kill -KILL "$sway_pid" 2>/dev/null || true
+            wait "$sway_pid" 2>/dev/null || true
+          }
+          trap cleanup_sway EXIT
+          for _ in $(seq 1 160); do
+            SWAYSOCK=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'sway-ipc.*.sock' -print -quit)
+            WAYLAND_DISPLAY=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' -quit)
+            if [ -n "${SWAYSOCK:-}" ] && [ -n "${WAYLAND_DISPLAY:-}" ]; then
+              export SWAYSOCK WAYLAND_DISPLAY
+              break
+            fi
+            if ! kill -0 "$sway_pid" 2>/dev/null; then
+              cat verification/native-ci/sway.log
+              exit 1
+            fi
+            sleep 0.05
+          done
+          test -S "${SWAYSOCK:?Sway IPC socket was not created}"
+          test -S "$XDG_RUNTIME_DIR/${WAYLAND_DISPLAY:?Wayland socket was not created}"
+          swaymsg -s "$SWAYSOCK" -t get_version | tee verification/native-ci/sway-get-version.json
+          timeout --signal=TERM --kill-after=5s 90s \
+            cargo test --locked -p semwright-platform-linux \
+              real_sway_window_lifecycle_uses_native_ipc \
+              -- --ignored --nocapture --test-threads=1 \
+            2>&1 | tee verification/native-ci/sway-backend.log
+          EOF
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: real-sway-backend-evidence
           path: verification/native-ci
           retention-days: 14

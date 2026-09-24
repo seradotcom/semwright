@@ -11,6 +11,8 @@ historical only and is not used to certify this baseline.
 | Workflow/job | Required result | Evidence location |
 |---|---:|---|
 | Quality gates / source contracts | PASS | Commit checks: `Quality gates` |
+| Quality gates / static Ruff/ShellCheck/actionlint | PASS | Commit checks: `Quality gates` |
+| Quality gates / Rust 1.88 MSRV | PASS | Commit checks: `Quality gates` |
 | Quality gates / Rust x86_64 | PASS | Commit checks: `Quality gates` |
 | Quality gates / Rust ARM64 | PASS | Commit checks: `Quality gates` |
 | Dependency, coverage and fuzz / dependencies | PASS | Commit checks: `Dependency, coverage and fuzz gates` |
@@ -20,12 +22,19 @@ historical only and is not used to certify this baseline.
 | Native application integration / Driver conformance | PASS | Commit checks: `Native application integration` |
 | Native application integration / Driver distribution | PASS | Commit checks: `Native application integration` |
 | Native application integration / LibreOffice driver | PASS | Commit checks: `Native application integration` |
+| Native application integration / Blender driver | PASS | Commit checks: Native application integration |
+| Native application integration / KiCad + MLT drivers | PASS | Commit checks: Native application integration |
+| Native application integration / X11 backend | PASS | Commit checks: Native application integration |
+| Native application integration / AT-SPI GTK | PASS | Commit checks: Native application integration |
+| Native application integration / AT-SPI Qt | PASS | Commit checks: Native application integration |
+| Native application integration / PipeWire ScreenCast | PASS | Commit checks: Native application integration |
+| Platformization / Linux regression | PASS | Commit checks: Platformization and macOS |
+| Platformization / native macOS ARM64 | PASS | Commit checks: Platformization and macOS |
+| Platformization / native macOS Intel | PASS | Commit checks: Platformization and macOS |
+| Packaging certification / x86_64 | PASS | Commit checks: `Packaging certification` |
+| Packaging certification / ARM64 | PASS | Commit checks: `Packaging certification` |
 
-The quality matrix uses Rust 1.98.1 and runs, with the locked dependency graph, `fmt`,
-`check`, debug build, Clippy with warnings denied, workspace/all-target tests, doctests,
-rustdoc with warnings denied, release build, and the fake daemon/CLI/recipe/audit smoke path on
-x86_64 and ARM64. Source contracts run Python discovery, Node tests, source/schema validation,
-and the native C/openat2 harness.
+The development matrix uses Rust 1.98.1, while Rust **1.88.0 is the declared and executed MSRV**. The hosted MSRV job runs the required fmt/check/build/Clippy/tests/doctests/docs/release/fake/federation gates at that lower bound. The normal x86_64/ARM64 matrix runs the locked workspace on 1.98.1. Source contracts run Python discovery, Node tests, source/schema validation and the native C/openat2 harness; a separate hosted static-lints job executes pinned Ruff 0.13.2, ShellCheck and actionlint including embedded workflow shell.
 
 The dependency job runs `cargo audit --deny warnings` and `cargo deny --locked check`. Coverage
 produces workspace LCOV and JSON artifacts; no percentage is asserted here. The fuzz job executes
@@ -38,8 +47,11 @@ availability, tab navigation, native input, DOM snapshot, screenshot artifact me
 origin denial, download denial, and profile cleanup. A Chrome 152 target-metadata race discovered
 during this pass is covered by a bounded stabilization regression: transient unparsable target
 metadata may be retried, while malformed user URLs and disallowed origins remain fail-closed. The
-runner normalizes the overly permissive mode of its ephemeral Chrome installation; production
-validation continues to reject executables writable by group or others.
+hardening matrix additionally exercises per-file/count/total download quotas with CDP cancellation,
+dead-instance/crash recovery and relaunch, screenshot/download artifact cleanup, stale references
+and real multi-frame navigation. The runner normalizes the overly permissive mode of its ephemeral
+Chrome installation; production validation continues to reject executables writable by group or
+others.
 
 ## Provider Runtime closure included in this development line
 
@@ -68,7 +80,8 @@ descriptors/results, `tools/list_changed` refresh, crash invalidation and owner-
 
 This certifies the mediated federation path, not the upstream executable itself. A trusted stdio
 upstream still runs as the same Unix user and is not currently sandboxed against that UID. Remote
-MCP transports, task/job bridging and input-required rounds remain follow-on work.
+MCP transports and input-required rounds remain follow-on work; broker jobs are mapped to MCP Tasks
+as described in the Events and Jobs section below.
 
 ## App Driver SDK closure included in this development line
 
@@ -83,6 +96,22 @@ capability digest attestation, health, a safe read-only operation and clean shut
 executes the broker smoke path and compiles a newly scaffolded driver. Protocol v1 deliberately
 rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
 are negotiated and tested.
+
+## Adversarial sandbox and plugin-attestation closure included in this development line
+
+Plugin Protocol v2 now binds the owner-reviewed manifest to the child binary's plugin name, plugin
+version and SHA-256 digest of the complete ordered command descriptors before any plugin command can
+execute. Hosted mismatch tests prove version or descriptor drift fails closed rather than accepting
+an older v1-style identity-only handshake.
+
+The hosted `driver-conformance` job also executes deliberately hostile plugin and DriverProvider
+fixtures through the production Linux Bubblewrap + Landlock launcher. The fixtures prove granted
+read/write mounts behave as declared while writes outside grants, host-secret reads, host PID
+visibility and host-loopback connections are denied. Environment inheritance is reduced to the
+sandbox-controlled allowlist; the DriverProvider fixture additionally observes its requested
+RLIMIT_NOFILE bound. Timeout/provider shutdown tests spawn descendants and verify they cannot survive
+long enough to mutate a writable grant. These are executed regression checks for the configured
+sandbox boundary, not a formal proof against kernel, Bubblewrap, Landlock or native-code defects.
 
 ## Driver distribution closure included in this development line
 
@@ -138,9 +167,15 @@ idempotent cancellation and cancellation of a blocked dynamic provider without w
 execution gate. Retention is bounded and oversized completed result bodies are omitted rather than
 stored indefinitely.
 
-This does not certify a universal provider progress percentage, artifact model, remote task
-persistence, automatic MCP Task mapping or negotiated driver job/event interfaces. Those remain
-follow-on compatibility work rather than implied capabilities of the core job store.
+The MCP adapter now maps Semwright jobs to the negotiated `io.modelcontextprotocol/tasks`
+extension using the official Rust SDK: task creation is opt-in, Task IDs are the session-scoped
+JobStore IDs, `tasks/get` and `tasks/cancel` re-enter normal broker policy, legacy clients are
+rejected for task creation, and the official-SDK E2E exercises create/poll/result/cancel behavior.
+Semwright does not fabricate `input_required` transitions that its broker cannot currently emit.
+
+This does not certify a universal provider progress percentage/artifact contract, remote durable task
+persistence or negotiated driver-child job/event/cancellation interfaces. Those remain follow-on
+compatibility work rather than implied capabilities of the core job store.
 
 ## OBS deep-driver closure included in this development line
 
@@ -157,7 +192,7 @@ responses, reconnect generations, bounded event floods, malformed wire data, con
 shutdown. It also runs the driver through the real Semwright Driver Host, Bubblewrap + Landlock,
 broker policy and CLI path, and executes six bounded OBS fuzz targets.
 
-The hosted `real-obs` job additionally starts a disposable OBS Studio 30.0.2 instance with
+The feature-introduction real-obs job additionally starts a disposable OBS Studio 30.0.2 instance with
 obs-websocket 5.3.4 inside a private user/network namespace and Bubblewrap filesystem view. It uses
 a temporary HOME/XDG tree, an isolated Xvfb display, loopback networking only, no camera/microphone,
 no user profile and no external streaming target. The production Rust probe authenticates and
@@ -168,9 +203,79 @@ This does **not** imply that Driver Protocol v1 transports driver-child events, 
 cancellation, dynamic capability changes or provider-wide progress/artifacts. Those generic
 protocol gaps remain fail-closed/follow-on work rather than being simulated by the OBS driver.
 
+## Blender, KiCad and MLT deep-driver closure included in this development line
+
+The sandboxed Blender DriverProvider executes against real Blender 4.5.14 with bounded curated
+operations plus RNA/operator/add-on introspection. Hosted integration mutates objects/materials,
+renders a deterministic small image and saves a real .blend. A separate Xvfb-backed interactive
+add-on smoke exercises the legacy in-process bridge through the broker and Blender main-thread
+timer. Neither path exposes arbitrary Python or generic operator execution by default.
+
+KiCad and MLT provide two additional integration shapes over the same Driver SDK. KiCad exercises
+structured project/document semantics and compatibility fixtures; the MLT driver models timelines,
+tracks, clips, transitions/effects, frame-rational timing, Kdenlive/Shotcut compatibility and
+round-trip preservation. The certified MLT line executes against a real melt runtime, not only XML
+fixtures.
+
+## Universal Linux runtime closure included in this development line
+
+The X11 fallback no longer performs unbounded synchronous x11rb work on the async executor.
+Operations cross a bounded blocking boundary with timeout/cancellation semantics, and window refs
+carry lifecycle epochs. Hosted Xvfb integration exercises discovery, create/destroy/reuse and stale
+identity behavior.
+
+AT-SPI now supports revisioned semantic snapshots, deltas, structural resync and targeted
+stale-reference invalidation. Dedicated hosted jobs execute real disposable GTK and native Qt
+fixtures through an accessibility bus, mutate editable text, observe deltas, terminate the
+application and prove old refs become stale.
+
+A separate **real GNOME Wayland** execution on Ubuntu 24.04.1 / GNOME Shell 46.0 runs the same
+production AT-SPI path against Zenity 4.0.1 in the active `wayland-0` login session on commit
+`6bab0cc`. Semwright discovers the application, takes a complete semantic snapshot, mutates the
+editable text through AT-SPI (without global keyboard/pointer injection), observes a delta, closes
+the fixture, forces structural resync and rejects the old ref as stale. Sanitized evidence is stored
+in `verification/live-gnome/gnome-wayland-atspi.json`. This certifies the GNOME semantic GTK route,
+not the optional GJS bridge, portal input consent or the remaining Plasma/Sway/Hyprland matrix.
+
+The RemoteDesktop EIS sender is implemented in the platformized Linux host and a real EIS protocol
+fixture negotiates a sender session and transmits keysym, UTF-8 text, relative pointer motion,
+buttons and scrolling. A real user-approved desktop-portal ConnectToEIS session is still pending
+and remains a release blocker.
+
+## PipeWire ScreenCast closure included in this development line
+
+The Linux platform host implements owner-scoped XDG ScreenCast sessions plus bounded PipeWire raw
+frame capture. The exact-commit native job publishes a real synthetic PipeWire source, negotiates
+the stream, copies a frame through the production capture code, validates supported packed formats,
+stride/bounds behavior and writes a private PNG artifact. Stream cancellation, timeout and cleanup
+are bounded. This closes the missing pixel-decoder implementation gap but does not claim that every
+desktop/compositor portal path has been exercised live.
+
+## Portal persistence and clipboard closure included in this development line
+
+RemoteDesktop restore-token state supports private process and durable modes, atomic owner-only
+storage, token rotation/single-use semantics and explicit clearing without exposing token contents.
+Clipboard read/write is integrated into the consented RemoteDesktop session rather than a separate
+implicit authority path. Private D-Bus portal fixtures execute restore rotation and clipboard grant
+lifecycle, including cleanup. Real user-facing portal consent/revocation across the desktop matrix
+remains part of the live-session release gate.
+
+## Platform host and macOS foundation included in this development line
+
+The portable-core/platform-host split now executes Linux regression jobs and native macOS jobs on
+both Apple Silicon and Intel hosted runners. The macOS foundation includes native host plumbing and
+cross-architecture compilation without weakening Linux-only driver behavior. This is a platform
+foundation, not a claim that macOS has feature parity with the Linux semantic host.
+
+## Reproducible packaging and user-install certification included in this development line
+
+The hosted `Packaging certification` workflow runs on native x86_64 and ARM64 Linux runners. It builds the five release executables (`semwright`, `semwrightd`, `semwright-mcp`, `semwright-inspect`, and `semwright-sandbox`), creates normalized tar/deb artifacts twice, compares their hashes, validates package payloads, and exercises a private user install -> execute -> uninstall lifecycle. The uninstall regression also proves modified/tampered installed files are refused rather than deleted blindly.
+
+This closes Semwright's `release_packaging_validation` gate and the development evidence gap for native tar/deb packaging, reproducibility and user install/uninstall. It does **not** claim Nix evaluation, publisher identity, SBOM generation, signing/notarization or publication provenance; those remain separate release/security work and `release-readiness.json` remains fail-closed.
+
 ## Verification hardening included in the baseline
 
-- The command schema contract expects the current 86 descriptors (172 input/output schemas).
+- The command schema contract expects the current 90 descriptors (180 input/output schemas).
 - The local runner bounds time and output, records real exit codes and hashes, persists transitions,
   rejects contradictory PASS reports, and does not overwrite prior evidence.
 - Release admission has an independent required-gate set and rejects malformed/partial metadata,
@@ -181,13 +286,16 @@ protocol gaps remain fail-closed/follow-on work rather than being simulated by t
 
 ## Evidence boundaries
 
-This baseline does **not** claim live GNOME, Plasma, Sway, Hyprland, native X11, portal EIS,
-PipeWire pixel streaming, persistent portal restore tokens, real Blender, hostile plugin-sandbox
-certification, a sandbox for same-UID MCP upstream executables, a remote driver marketplace or
-cryptographic driver-publisher authentication. It does not establish an MSRV, reproducible Semwright
-binary packaging, system installation, SBOM/signing or an
-independent security review. Provider-specific progress/artifacts, MCP task mapping and negotiated
-dynamic driver job/event interfaces remain follow-on work.
+This baseline does **not** claim Plasma Wayland, Sway, Hyprland or a complete native-desktop
+X11 matrix, nor a real user-approved portal ConnectToEIS session. GNOME Wayland has a real semantic
+GTK/AT-SPI execution, but that does not certify every GNOME extension/portal/scaling path. It does
+not certify a sandbox for same-UID MCP upstream executables, a remote signed driver marketplace or
+cryptographic publisher identity. Adversarial plugin/driver sandbox regressions are executed but do
+not constitute a formal security proof. Rust 1.88 is the executed MSRV, Chromium quota/crash/frame
+hardening, MCP Tasks mapping, reproducible native tar/deb packaging and private user install/uninstall
+are executed. Nix evaluation, SBOM/signing/publication provenance, independent security review,
+provider-wide progress/artifacts and negotiated dynamic driver child event/cancellation interfaces
+remain follow-on work.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

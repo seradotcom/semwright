@@ -343,6 +343,7 @@ mod tests {
     fn context() -> Context {
         Context {
             session: "fake-delta-test".into(),
+            request_id: semwright_types::unique_id(),
             cancellation: tokio_util::sync::CancellationToken::new(),
         }
     }

@@ -55,3 +55,13 @@ impl From<std::io::Error> for Error {
         Self::new(code, format!("I/O operation failed ({:?})", value.kind()))
     }
 }
+
+impl From<semwright_video_domain::Error> for Error {
+    fn from(value: semwright_video_domain::Error) -> Self {
+        Self {
+            code: value.code,
+            message: value.message,
+            outcome_known: value.outcome_known,
+        }
+    }
+}

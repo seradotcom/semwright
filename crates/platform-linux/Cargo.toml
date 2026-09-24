@@ -2,6 +2,7 @@
 name = "semwright-platform-linux"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 publish = false
 
@@ -30,6 +31,8 @@ zbus.workspace = true
 x11rb.workspace = true
 futures-util.workspace = true
 reis.workspace = true
+pipewire.workspace = true
+png.workspace = true
 url.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]

@@ -173,6 +173,24 @@ fn profile_unavailable_without_codec_probe() {
         assert!(!p.available(&catalog));
     }
 }
+
+#[test]
+fn native_render_profiles_project_to_semantic_contract() {
+    for profile in RenderProfile::all() {
+        let semantic = profile.semantic();
+        semantic.validate().unwrap();
+        assert_eq!(semantic.id, profile.id);
+        assert_ne!(semantic.video_codec.as_deref(), Some("libx264"));
+    }
+    assert_eq!(
+        RenderProfile::get("h264-1080p")
+            .unwrap()
+            .semantic()
+            .video_codec
+            .as_deref(),
+        Some("h264")
+    );
+}
 #[test]
 fn media_probe_rational_duration() {
     let v=br#"{"streams":[{"codec_type":"video","codec_name":"ffv1","width":160,"height":90,"duration_ts":50,"time_base":"1/25","nb_frames":"50"}],"format":{}}"#;

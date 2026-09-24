@@ -1138,7 +1138,7 @@
   {
     "name": "portal.start",
     "version": "1.0",
-    "description": "Request an ephemeral RemoteDesktop session; the desktop presents native user consent.",
+    "description": "Request a RemoteDesktop session with native consent; persistence and portal clipboard access are explicit opt-ins.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -1147,13 +1147,73 @@
         },
         "pointer": {
           "type": "boolean"
+        },
+        "persist_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "0 ephemeral, 1 process lifetime, 2 persist until desktop permission is revoked"
+        },
+        "clipboard": {
+          "type": "boolean",
+          "description": "Request Clipboard portal integration for this RemoteDesktop session"
         }
       },
       "required": [],
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "consent": {
+          "const": "granted"
+        },
+        "already_active": {
+          "type": "boolean"
+        },
+        "devices": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ephemeral": {
+          "type": "boolean"
+        },
+        "persist_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "restore_saved": {
+          "type": "boolean"
+        },
+        "restore_attempted": {
+          "type": "boolean"
+        },
+        "clipboard_enabled": {
+          "type": "boolean"
+        },
+        "input_route": {
+          "enum": [
+            "eis",
+            "portal_notify"
+          ]
+        },
+        "eis": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "consent",
+        "devices",
+        "ephemeral",
+        "persist_mode",
+        "restore_saved",
+        "restore_attempted",
+        "clipboard_enabled",
+        "input_route",
+        "eis"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "input.keyboard",
@@ -1179,7 +1239,16 @@
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "consent": {
+          "const": "expired"
+        }
+      },
+      "required": [
+        "consent"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "desktop.observe"
@@ -1196,7 +1265,7 @@
   {
     "name": "portal.status",
     "version": "1.0",
-    "description": "Inspect consent state and portal interface versions.",
+    "description": "Inspect portal consent/session state, interface versions and restore-token availability without exposing token material.",
     "input_schema": {
       "type": "object",
       "properties": {},
@@ -1204,7 +1273,78 @@
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "consent": {
+          "enum": [
+            "not_requested",
+            "pending",
+            "granted",
+            "denied",
+            "expired"
+          ]
+        },
+        "remote_desktop_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clipboard_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restore_token_state": {
+          "enum": [
+            "absent",
+            "available",
+            "invalid"
+          ]
+        },
+        "process_restore_token": {
+          "type": "boolean"
+        },
+        "persistent_tokens": {
+          "type": "boolean"
+        },
+        "session_active": {
+          "type": "boolean"
+        },
+        "persist_mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "clipboard_enabled": {
+          "type": "boolean"
+        },
+        "eis": {
+          "enum": [
+            "connected",
+            "not_connected",
+            "inactive"
+          ]
+        },
+        "input_route": {
+          "enum": [
+            "none",
+            "eis",
+            "portal_notify"
+          ]
+        }
+      },
+      "required": [
+        "consent",
+        "remote_desktop_version",
+        "clipboard_version",
+        "restore_token_state",
+        "process_restore_token",
+        "persistent_tokens",
+        "session_active",
+        "persist_mode",
+        "clipboard_enabled",
+        "eis",
+        "input_route"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "desktop.observe"
@@ -1214,6 +1354,56 @@
     "timeout_ms": 10000,
     "dry_run": true,
     "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "portal.restore.clear",
+    "version": "1.0",
+    "description": "Forget process-local and durable RemoteDesktop restore tokens without claiming to revoke the desktop portal permission itself.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "cleared": {
+          "type": "boolean"
+        },
+        "process_token_cleared": {
+          "type": "boolean"
+        },
+        "durable_token_cleared": {
+          "type": "boolean"
+        },
+        "portal_permission_revoked": {
+          "const": false
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cleared",
+        "process_token_cleared",
+        "durable_token_cleared",
+        "portal_permission_revoked",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "desktop.observe"
+    ],
+    "risk": "mutating",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
     "backends": [
       "portal"
     ]
@@ -1464,7 +1654,7 @@
   {
     "name": "screen.stream_info",
     "version": "1.0",
-    "description": "Describe portal ScreenCast support; this build does not decode PipeWire frames.",
+    "description": "Describe ScreenCast support and the owner session's active PipeWire streams.",
     "input_schema": {
       "type": "object",
       "properties": {},
@@ -1472,7 +1662,59 @@
       "additionalProperties": false
     },
     "output_schema": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "screencast_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pixel_stream": {
+          "type": "string",
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "owned_by_session": {
+          "type": "boolean"
+        },
+        "consent": {
+          "type": "string"
+        },
+        "persistent_tokens": {
+          "type": "boolean"
+        },
+        "available_source_types": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "available_cursor_modes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "streams": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "screencast_version",
+        "pixel_stream",
+        "active",
+        "owned_by_session",
+        "consent",
+        "persistent_tokens",
+        "available_source_types",
+        "available_cursor_modes",
+        "streams"
+      ],
+      "additionalProperties": false
     },
     "requires": [
       "desktop.observe"
@@ -1482,6 +1724,209 @@
     "timeout_ms": 10000,
     "dry_run": true,
     "interactive_consent": false,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.stream.start",
+    "version": "1.0",
+    "description": "Request a user-consented ScreenCast session for bounded PipeWire frame capture.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "any",
+            "monitor",
+            "window"
+          ]
+        },
+        "multiple": {
+          "type": "boolean"
+        },
+        "cursor": {
+          "type": "string",
+          "enum": [
+            "hidden",
+            "embedded"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "consent": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "already_active": {
+          "type": "boolean"
+        },
+        "persistent": {
+          "type": "boolean"
+        },
+        "streams": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "consent",
+        "active",
+        "already_active",
+        "persistent",
+        "streams"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 120000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.stream.capture",
+    "version": "1.0",
+    "description": "Capture one bounded frame from an active owner ScreenCast stream into a private PNG artifact.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "stream": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 30000
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "expires_in_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "mime_type": {
+          "const": "image/png"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "source_format": {
+          "type": "string",
+          "enum": [
+            "rgba",
+            "bgra",
+            "rgbx",
+            "bgrx",
+            "rgb",
+            "bgr"
+          ]
+        },
+        "stream": {
+          "type": "object"
+        },
+        "warning": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "artifact",
+        "expires_in_seconds",
+        "mime_type",
+        "width",
+        "height",
+        "source_format",
+        "stream",
+        "warning"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 45000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "portal"
+    ]
+  },
+  {
+    "name": "screen.stream.stop",
+    "version": "1.0",
+    "description": "Revoke and close this broker session's active ScreenCast grant.",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "active": {
+          "const": false
+        },
+        "consent": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "active",
+        "consent"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "screen.capture"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": true,
     "backends": [
       "portal"
     ]
@@ -1515,6 +1960,7 @@
     "interactive_consent": true,
     "backends": [
       "clipboard",
+      "portal",
       "macos"
     ]
   },
@@ -1548,6 +1994,7 @@
     "interactive_consent": false,
     "backends": [
       "clipboard",
+      "portal",
       "macos"
     ]
   },

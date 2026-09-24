@@ -76,6 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fake = Arc::new(FakeDesktop::new());
     let context = Context {
         session: unique_id(),
+        request_id: semwright_types::unique_id(),
         cancellation: CancellationToken::new(),
     };
     let start = Instant::now();

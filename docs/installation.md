@@ -3,7 +3,8 @@
 ## Before installation
 
 No release binary is published yet. The accepted development baseline has a committed
-Cargo.lock, a pinned Rust 1.98.1 toolchain and green hosted build/test gates, but Semwright
+Cargo.lock, a Rust 1.98.1 development toolchain, a declared Rust 1.88 MSRV and green hosted
+build/test gates. The MSRV is verified separately from the newer development toolchain. Semwright
 is still development software with live-desktop and security evidence outstanding. Start
 with the developer instructions in a disposable account/VM before granting access to real
 work. There is no verified release URL and no `curl | sh` installer.
@@ -67,18 +68,9 @@ or sudo for this core. No lingering login service is configured by the installer
 
 ## Distribution packages
 
-`scripts/release/package.py` configures x86_64/aarch64 ELF validation, a tarball, checksums,
-and optional `.deb` via dpkg-deb. Release admission is deliberately blocked by
-`release-readiness.json`. No tarball containing binaries or Debian package was built here.
-The Debian path has no auto-enable maintainer scripts. Its runtime dependencies/ABI must
-be validated on intended distro versions before distribution. RPM is not provided.
+`scripts/release/package.py` performs x86_64/aarch64 ELF validation and produces normalized tarballs, checksums and optional `.deb` packages via `dpkg-deb`. The hosted `Packaging certification` workflow has built the five release executables on native x86_64 and ARM64 runners, produced both package forms twice, compared hashes for reproducibility, validated their payloads and exercised private user install/execute/uninstall including tamper-safe refusal. This is development certification, not a published release; `release-readiness.json` remains blocked by other gates. The Debian path has no auto-enable maintainer scripts. Runtime ABI/distribution support beyond the hosted Ubuntu runners still requires explicit compatibility policy. RPM is not provided.
 
-`packaging/nix/package.nix` is a guarded buildRustPackage expression. The repository now
-has a reviewed development `Cargo.lock`, but the Nix expression itself has not been evaluated;
-no `flake.lock` or Nix build is claimed. Release workflows select native x86_64/ARM runners;
-their source/build gates have run, while package installation remains a separate blocker.
-Publication,
-cryptographic provenance, SBOMs and immutable Actions pinning remain release work.
+`packaging/nix/package.nix` remains a guarded `buildRustPackage` expression. The repository has a reviewed development `Cargo.lock`, but the Nix expression itself has not been evaluated and no `flake.lock` or successful Nix build is claimed. Cryptographic publisher provenance, SBOMs and signing/publication remain release work.
 
 For future downloaded artifacts, verify the checksum file against an independently
 trusted release source before extraction, then run `sha256sum -c SHA256SUMS`. A checksum

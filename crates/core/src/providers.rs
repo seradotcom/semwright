@@ -157,7 +157,8 @@ impl Broker {
         let rows: Vec<_> = catalog.providers.iter().map(|(route, lease)| {
             let features = lease.interfaces();
             json!({"identity":lease.identity,"route":route,"generation":lease.generation,"connected":lease.active(),
-                "interfaces":{"dynamic_capabilities":features.dynamic_capabilities,"cancellation":features.cooperative_cancellation,"events":features.events,"health":features.health}})
+                "interfaces":{"dynamic_capabilities":features.dynamic_capabilities,"cancellation":features.cooperative_cancellation,
+                    "events":features.events,"progress":features.progress,"artifacts":features.artifacts,"health":features.health}})
         }).collect();
         Ok(
             json!({"providers":rows,"revision":catalog.revision(),"registration":"owner configuration only"}),
@@ -502,10 +503,92 @@ impl Broker {
                     Ok(ProviderSignal::Event { kind, payload }) => {
                         let _ = broker.ingest_provider_event(&lease.identity.id, &lease.connection, &kind, payload);
                     }
+                    Ok(ProviderSignal::Progress {
+                        request_id,
+                        progress,
+                        artifacts,
+                    }) => {
+                        let _ = broker.ingest_provider_progress(
+                            &lease.identity.id,
+                            &lease.connection,
+                            &request_id,
+                            progress,
+                            artifacts,
+                        );
+                    }
                 }
             }
         });
     }
+    fn ingest_provider_progress(
+        &self,
+        id: &str,
+        connection: &str,
+        request_id: &str,
+        progress: JobProgress,
+        artifacts: Vec<JobArtifact>,
+    ) -> Result<()> {
+        if request_id.is_empty()
+            || request_id.len() > 128
+            || request_id.chars().any(char::is_control)
+        {
+            return Err(Error::invalid("Provider progress request ID is invalid"));
+        }
+        let current = self
+            .provider(id)
+            .filter(|provider| provider.connection == connection && provider.active())
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Conflict,
+                    "Progress belongs to an inactive provider",
+                )
+            })?;
+        if !current.interfaces().progress {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Provider did not negotiate progress reporting",
+            ));
+        }
+
+        let (owner, command) = self
+            .jobs
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Job store lock poisoned"))?
+            .correlation(request_id)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::NotFound,
+                    "Progress does not target an active job",
+                )
+            })?;
+
+        let invocation = self.invocation(&command)?;
+        if invocation
+            .dynamic_provider
+            .as_ref()
+            .is_none_or(|provider| provider.identity.id != id || provider.connection != connection)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Provider cannot report progress for another provider job",
+            ));
+        }
+
+        let (event_owner, snapshot) = self
+            .jobs
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Job store lock poisoned"))?
+            .update_progress(request_id, progress, artifacts)?;
+        if event_owner != owner {
+            return Err(Error::new(
+                ErrorCode::Internal,
+                "Job ownership changed during progress update",
+            ));
+        }
+        self.job_event(&owner, "job.progress", &snapshot);
+        Ok(())
+    }
+
     fn ingest_provider_event(
         &self,
         id: &str,

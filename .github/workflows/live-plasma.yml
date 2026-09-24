@@ -1,0 +1,84 @@
+name: Plasma Wayland live
+defaults:
+  run:
+    shell: bash
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plasma-live-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  KDE_NEON_IMAGE: invent-registry.kde.org/neon/docker-images/plasma@sha256:1bb5ec13cb413065e39426abeac2d969cd511109f4116e9eea8d1a746b61cf87
+
+jobs:
+  plasma-wayland:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: plasma-wayland-live
+
+      - name: Build the production KWin backend integration test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+          mkdir -p verification/live-plasma-ci
+          cargo test --locked -p semwright-platform-linux --test kwin_live             --no-run --message-format=json             > verification/live-plasma-ci/rust-build.jsonl
+          test_bin=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows = Path("verification/live-plasma-ci/rust-build.jsonl").read_text().splitlines()
+          matches = []
+          for line in rows:
+              try:
+                  row = json.loads(line)
+              except json.JSONDecodeError:
+                  continue
+              target = row.get("target", {})
+              if (
+                  row.get("reason") == "compiler-artifact"
+                  and target.get("name") == "kwin_live"
+                  and "test" in target.get("kind", [])
+                  and row.get("executable")
+              ):
+                  matches.append(row["executable"])
+          if len(matches) != 1:
+              raise SystemExit(f"expected one kwin_live test executable, got {matches!r}")
+          print(matches[0])
+          PY
+          )
+          cp "$test_bin" verification/live-plasma-ci/kwin-live-test
+          chmod 0755 verification/live-plasma-ci/kwin-live-test
+          ldd verification/live-plasma-ci/kwin-live-test             | tee verification/live-plasma-ci/kwin-live-test-ldd.log
+
+      - name: Pull pinned KDE neon Plasma 6 image
+        run: |
+          docker pull "$KDE_NEON_IMAGE"
+          docker image inspect "$KDE_NEON_IMAGE"             --format '{{json .RepoDigests}}'             | tee verification/live-plasma-ci/container-image.log
+          grep -q 'sha256:1bb5ec13cb413065e39426abeac2d969cd511109f4116e9eea8d1a746b61cf87'             verification/live-plasma-ci/container-image.log
+
+      - name: Real KWin 6 virtual Wayland bridge lifecycle
+        run: |
+          docker run --rm --init --network none             --security-opt seccomp=unconfined             --cap-add SYS_NICE             --user "$(id -u):$(id -g)"             --entrypoint /usr/bin/dbus-run-session             -e SEMWRIGHT_KWIN_TEST_BIN=/test/kwin-live             -e SEMWRIGHT_KWIN_EVIDENCE_DIR=/evidence             -v "$GITHUB_WORKSPACE:/workspace:ro"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci:/evidence"             -v "$GITHUB_WORKSPACE/verification/live-plasma-ci/kwin-live-test:/test/kwin-live:ro"             "$KDE_NEON_IMAGE"             -- /usr/bin/bash /workspace/scripts/dev/kwin-live-ci.sh
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: live-plasma-wayland-evidence
+          path: verification/live-plasma-ci
+          retention-days: 14

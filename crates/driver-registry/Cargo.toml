@@ -2,6 +2,7 @@
 name = "semwright-driver-registry"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "Static/local driver index and non-executing verified package installer"
 

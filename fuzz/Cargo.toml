@@ -22,6 +22,8 @@ semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
 semwright-driver-motion-canvas = { path = "../crates/driver-motion-canvas" }
+semwright-video-domain = { path = "../crates/video-domain" }
+semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
 
 [[bin]]
 name = "protocol"
@@ -113,6 +115,68 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "video_domain_model"
+path = "fuzz_targets/video_domain_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "video_domain_edit"
+path = "fuzz_targets/video_domain_edit.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "video_domain_contract"
+path = "fuzz_targets/video_domain_contract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "video_domain_render"
+path = "fuzz_targets/video_domain_render.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "figma_bridge_envelope"
+path = "fuzz_targets/figma_bridge_envelope.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "figma_snapshot"
+path = "fuzz_targets/figma_snapshot.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "figma_refs"
+path = "fuzz_targets/figma_refs.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "figma_tokens"
+path = "fuzz_targets/figma_tokens.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "figma_motion"
+path = "fuzz_targets/figma_motion.rs"
+test = false
+doc = false
+bench = false
 [[bin]]
 name = "motion_project"
 path = "fuzz_targets/motion_project.rs"

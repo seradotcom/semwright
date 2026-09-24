@@ -7,6 +7,8 @@ use crate::{
     model::*,
     time::FrameRange,
 };
+use semwright_video_domain::support::VideoOperation;
+
 #[derive(Clone, Debug)]
 pub enum Edit {
     Profile(Profile),
@@ -166,40 +168,40 @@ pub enum Edit {
     },
 }
 impl Edit {
-    pub fn operation(&self) -> &'static str {
+    pub fn operation(&self) -> VideoOperation {
         match self {
-            Self::Profile(_) => "project.profile.set",
-            Self::SequenceCreate { .. } => "sequence.create",
-            Self::AssetImport { .. } => "asset.import",
-            Self::AssetRelink { .. } => "asset.relink",
-            Self::TrackCreate { .. } => "track.create",
-            Self::TrackRemove { .. } => "track.remove",
-            Self::TrackRename { .. } => "track.rename",
-            Self::TrackMute { .. } => "track.mute",
-            Self::TrackHide { .. } => "track.hide",
-            Self::TrackReorder { .. } => "track.reorder",
-            Self::Insert { .. } => "clip.insert",
-            Self::Move { .. } => "clip.move",
-            Self::Trim { .. } => "clip.trim",
-            Self::Split { .. } => "clip.split",
-            Self::Remove { .. } => "clip.remove",
-            Self::Duplicate { .. } => "clip.duplicate",
-            Self::TransitionAdd { .. } => "transition.add",
-            Self::TransitionPatch { .. } => "transition.patch",
-            Self::TransitionRemove { .. } => "transition.remove",
-            Self::EffectAdd { .. } => "effect.add",
-            Self::EffectPatch { .. } => "effect.patch",
-            Self::EffectRemove { .. } => "effect.remove",
-            Self::EffectEnable { value: true, .. } => "effect.enable",
-            Self::EffectEnable { .. } => "effect.disable",
-            Self::KeyframeSet { .. } => "keyframe.set",
-            Self::KeyframeRemove { .. } => "keyframe.remove",
-            Self::MarkerAdd { .. } => "marker.add",
-            Self::MarkerPatch { .. } => "marker.patch",
-            Self::MarkerRemove { .. } => "marker.remove",
-            Self::AudioVolume { .. } => "audio.volume.set",
-            Self::AudioFade { fade_in: true, .. } => "audio.fade_in",
-            Self::AudioFade { .. } => "audio.fade_out",
+            Self::Profile(_) => VideoOperation::ProjectProfileSet,
+            Self::SequenceCreate { .. } => VideoOperation::SequenceCreate,
+            Self::AssetImport { .. } => VideoOperation::AssetImport,
+            Self::AssetRelink { .. } => VideoOperation::AssetRelink,
+            Self::TrackCreate { .. } => VideoOperation::TrackCreate,
+            Self::TrackRemove { .. } => VideoOperation::TrackRemove,
+            Self::TrackRename { .. } => VideoOperation::TrackRename,
+            Self::TrackMute { .. } => VideoOperation::TrackMute,
+            Self::TrackHide { .. } => VideoOperation::TrackHide,
+            Self::TrackReorder { .. } => VideoOperation::TrackReorder,
+            Self::Insert { .. } => VideoOperation::ClipInsert,
+            Self::Move { .. } => VideoOperation::ClipMove,
+            Self::Trim { .. } => VideoOperation::ClipTrim,
+            Self::Split { .. } => VideoOperation::ClipSplit,
+            Self::Remove { .. } => VideoOperation::ClipRemove,
+            Self::Duplicate { .. } => VideoOperation::ClipDuplicate,
+            Self::TransitionAdd { .. } => VideoOperation::TransitionAdd,
+            Self::TransitionPatch { .. } => VideoOperation::TransitionPatch,
+            Self::TransitionRemove { .. } => VideoOperation::TransitionRemove,
+            Self::EffectAdd { .. } => VideoOperation::EffectAdd,
+            Self::EffectPatch { .. } => VideoOperation::EffectPatch,
+            Self::EffectRemove { .. } => VideoOperation::EffectRemove,
+            Self::EffectEnable { value: true, .. } => VideoOperation::EffectEnable,
+            Self::EffectEnable { .. } => VideoOperation::EffectDisable,
+            Self::KeyframeSet { .. } => VideoOperation::KeyframeSet,
+            Self::KeyframeRemove { .. } => VideoOperation::KeyframeRemove,
+            Self::MarkerAdd { .. } => VideoOperation::MarkerAdd,
+            Self::MarkerPatch { .. } => VideoOperation::MarkerPatch,
+            Self::MarkerRemove { .. } => VideoOperation::MarkerRemove,
+            Self::AudioVolume { .. } => VideoOperation::AudioVolumeSet,
+            Self::AudioFade { fade_in: true, .. } => VideoOperation::AudioFadeIn,
+            Self::AudioFade { .. } => VideoOperation::AudioFadeOut,
         }
     }
 }
@@ -233,7 +235,7 @@ impl ChangePlan {
             ),
             ("before_frames", self.before_frames.into()),
             ("after_frames", self.after_frames.into()),
-            ("support", self.support.name().into()),
+            ("support", adapters::support_name(self.support).into()),
             (
                 "warnings",
                 array(self.warnings.iter().cloned().map(Into::into)),
@@ -269,7 +271,7 @@ pub fn plan(
         return Err(Error::stale());
     }
     let operation = edit.operation();
-    let support = adapters::adapter(project.format).supported_mutation(project, operation);
+    let support = crate::domain::contract(project)?.support(operation);
     if support == Support::Unsupported || support == Support::RenderOnly {
         return Err(Error::unsupported(
             "Mutation is not available for this project graph/format",
@@ -280,6 +282,12 @@ pub fn plan(
             "Native metadata-risk mutation requires explicit acknowledgement; no GUI guarantee",
         ));
     }
+
+    // The portable video domain is an executable semantic specification.
+    // Backend-specific mutation below must remain observationally equivalent.
+    let portable_before = crate::domain::project(project);
+    let portable_edit = crate::domain::edit(&edit);
+
     let mut result = project.clone();
     let mut created = vec![];
     let mut affected = vec![];
@@ -832,6 +840,18 @@ pub fn plan(
         }
     }
     result.validate()?;
+
+    let projected_result = crate::domain::project(&result);
+    semwright_video_domain::conformance::verify_backend_mutation(
+        &portable_before,
+        portable_edit,
+        seed,
+        &actual,
+        &projected_result,
+        &affected,
+        &created,
+    )?;
+
     let serialized = adapters::save(&result)?;
     let reloaded = adapters::load(serialized.as_bytes())?;
     if reloaded.semantic_json() != result.semantic_json() {
@@ -849,7 +869,7 @@ pub fn plan(
     Ok(ChangePlan {
         expected_revision: actual,
         resulting_revision,
-        operation: operation.into(),
+        operation: operation.as_str().into(),
         affected,
         created,
         before_frames: duration(project),

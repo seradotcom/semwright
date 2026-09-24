@@ -12,6 +12,7 @@ use crate::{
     runtime::{RenderProfile, Runtime},
     time::{FrameRange, FrameRate},
 };
+use semwright_video_domain::support::VideoOperation;
 use std::{
     collections::BTreeMap,
     io::{Read, Write},
@@ -203,7 +204,7 @@ impl App {
         revision: &str,
         kind: &str,
     ) -> Result<String> {
-        self.refs.resolve(args.str(key)?, project, revision, kind)
+        Ok(self.refs.resolve(args.str(key)?, project, revision, kind)?)
     }
     fn project_handle(&mut self, id: &str) -> Result<Value> {
         let loaded = self.projects.get(id).ok_or_else(Error::stale)?;
@@ -395,7 +396,7 @@ impl App {
                 ]))
             }
             "project.format" => {
-                let adapter = adapters::adapter(p.format);
+                let contract = crate::domain::contract(p)?;
                 Ok(obj([
                     ("format", p.format.name().into()),
                     (
@@ -421,12 +422,14 @@ impl App {
                                     )
                                 })
                                 .map(|operation| {
+                                    let support = operation
+                                        .parse::<VideoOperation>()
+                                        .map_or(adapters::Support::Unsupported, |operation| {
+                                            contract.support(operation)
+                                        });
                                     obj([
                                         ("operation", operation.into()),
-                                        (
-                                            "support",
-                                            adapter.supported_mutation(p, operation).name().into(),
-                                        ),
+                                        ("support", adapters::support_name(support).into()),
                                     ])
                                 }),
                         ),
@@ -969,8 +972,14 @@ impl App {
                 .ok_or_else(|| Error::invalid("Explicit sequence reference required"))
         };
         let r = |key: &str, kind: &str| self.resolve(a, key, pid, revision, kind);
-        let source = || FrameRange::new(a.uint("source_in")?, a.uint("source_out")?);
-        let range = || FrameRange::new(a.uint("start")?, a.uint("end")?);
+        let source = || -> Result<FrameRange> {
+            Ok(FrameRange::new(
+                a.uint("source_in")?,
+                a.uint("source_out")?,
+            )?)
+        };
+        let range =
+            || -> Result<FrameRange> { Ok(FrameRange::new(a.uint("start")?, a.uint("end")?)?) };
         let value = || a.get("value_milli")?.i64();
         Ok(match op {
             "project.profile.set" => Edit::Profile(parse_profile(a.get("profile")?)?),

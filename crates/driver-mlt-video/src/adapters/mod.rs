@@ -12,23 +12,16 @@ use crate::{
 };
 pub use generic::{GenericMltAdapter, write_normal_form};
 pub use kdenlive::KdenliveAdapter;
+pub use semwright_video_domain::support::{MutationSupport as Support, VideoOperation};
 pub use shotcut::ShotcutAdapter;
 use std::collections::BTreeMap;
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Support {
-    SafeRoundtrip,
-    MetadataRisk,
-    RenderOnly,
-    Unsupported,
-}
-impl Support {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::SafeRoundtrip => "SAFE_ROUNDTRIP",
-            Self::MetadataRisk => "SUPPORTED_WITH_METADATA_RISK",
-            Self::RenderOnly => "MLT_RENDER_ONLY",
-            Self::Unsupported => "UNSUPPORTED",
-        }
+
+pub fn support_name(support: Support) -> &'static str {
+    match support {
+        Support::SafeRoundtrip => "SAFE_ROUNDTRIP",
+        Support::MetadataRisk => "SUPPORTED_WITH_METADATA_RISK",
+        Support::RenderOnly => "MLT_RENDER_ONLY",
+        Support::Unsupported => "UNSUPPORTED",
     }
 }
 pub trait ProjectAdapter {
@@ -36,7 +29,7 @@ pub trait ProjectAdapter {
     fn detect(&self, root: &Node) -> bool;
     fn parse(&self, root: Node) -> Result<Project>;
     fn serialize(&self, project: &Project) -> Result<String>;
-    fn supported_mutation(&self, project: &Project, operation: &str) -> Support;
+    fn supported_mutation(&self, project: &Project, operation: VideoOperation) -> Support;
 }
 pub fn adapter(format: Format) -> Box<dyn ProjectAdapter> {
     match format {
@@ -142,10 +135,10 @@ fn assets(root: &Node, fps: crate::time::FrameRate) -> Result<BTreeMap<String, M
             resource = Resource::Scoped { root, path };
         }
         let frames = if let Some(length) = n.property("length") {
-            Some(fps.parse_mlt(&length)?)
+            Some(fps.parse_clock_or_frame(&length)?)
         } else if let Some(out) = n.a("out") {
             Some(
-                fps.parse_mlt(out)?
+                fps.parse_clock_or_frame(out)?
                     .checked_add(1)
                     .ok_or_else(|| Error::invalid("Asset duration overflow"))?,
             )
@@ -262,7 +255,7 @@ fn lane(
     for entry in n.elements() {
         match entry.name.as_str() {
             "blank" => {
-                let d = fps.parse_mlt(
+                let d = fps.parse_clock_or_frame(
                     entry
                         .a("length")
                         .ok_or_else(|| Error::invalid("Blank missing length"))?,
@@ -298,8 +291,8 @@ fn lane(
                     });
                     aid
                 };
-                let start = fps.parse_mlt(entry.a("in").unwrap_or("0"))?;
-                let end = fps.parse_mlt(entry.a("out").ok_or_else(|| {
+                let start = fps.parse_clock_or_frame(entry.a("in").unwrap_or("0"))?;
+                let end = fps.parse_clock_or_frame(entry.a("out").ok_or_else(|| {
                     Error::unsupported("Unbounded entry duration is inspection-unsupported")
                 })?)?;
                 let range = FrameRange::from_inclusive(start, end)?;
@@ -479,8 +472,12 @@ pub(crate) fn common(root: Node, format: Format, sequence_ids: Vec<String>) -> R
                 a_track: a,
                 b_track: b,
                 range: FrameRange::from_inclusive(
-                    profile.fps.parse_mlt(tr.a("in").unwrap_or("0"))?,
-                    profile.fps.parse_mlt(tr.a("out").unwrap_or("0"))?,
+                    profile
+                        .fps
+                        .parse_clock_or_frame(tr.a("in").unwrap_or("0"))?,
+                    profile
+                        .fps
+                        .parse_clock_or_frame(tr.a("out").unwrap_or("0"))?,
                 )?,
                 reverse: tr.property("reverse").as_deref() == Some("1"),
                 opaque: if curated { None } else { Some(tr.clone()) },

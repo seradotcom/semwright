@@ -2,7 +2,12 @@
 name = "semwright-driver-host"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
+
+[features]
+default = []
+test-tools = []
 
 [dependencies]
 semwright-platform-api.workspace = true
@@ -29,3 +34,8 @@ workspace = true
 [[bin]]
 name = "semwright-driver-fixture"
 path = "src/bin/fixture.rs"
+
+[[bin]]
+name = "semwright-adversarial-driver-fixture"
+path = "src/bin/adversarial_fixture.rs"
+required-features = ["test-tools"]

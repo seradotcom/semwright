@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 set -eo pipefail
-set +u
-BIN_DIR="$BIN_DIR"
+BIN_DIR=${BIN_DIR:-target/debug}
 set -u
-if [[ -z "$BIN_DIR" ]]; then BIN_DIR=target/debug; fi
 
 daemon="$BIN_DIR/semwrightd"
 client="$BIN_DIR/semwright"
@@ -102,7 +100,10 @@ print("federation owner management smoke: PASS")
 PY
 
 # Definition management and policy authority stay separate.
-! grep -q "policy" "$registry"
+if grep -q "policy" "$registry"; then
+  echo "upstream registry unexpectedly contains policy authority" >&2
+  exit 1
+fi
 
 "$daemon" --config "$root/daemon.toml" --mcp-upstreams "$registry" --socket "$socket" --log-format json \
   >"$root/daemon.log" 2>&1 &

@@ -51,7 +51,7 @@ jobs:
       - name: Install fake-server and sandbox prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap python3-websockets apparmor-profiles apparmor-utils
+          sudo apt-get install -y bubblewrap python3-websockets apparmor-profiles apparmor-utils libpipewire-0.3-dev
           mkdir -p verification/obs-ci
           bwrap --version | tee verification/obs-ci/bwrap-version.log
           python3 -c 'import websockets; print(websockets.__version__)' | tee verification/obs-ci/websockets-version.log
@@ -90,7 +90,7 @@ jobs:
         run: |
           cargo build --locked             -p semwright-driver-obs --bin semwright-obs-driver             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-cli --bin semwright             -p semwright-daemon --bin semwrightd
           BIN_DIR=target/debug scripts/dev/obs-driver-smoke.sh 2>&1 | tee verification/obs-ci/broker-smoke.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: obs-conformance-evidence
@@ -117,7 +117,7 @@ jobs:
           for target in obs_message obs_event obs_response obs_reference obs_bounded_json obs_capability_mapping; do
             cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=10 -timeout=3 -rss_limit_mb=1024 -max_len=8192 2>&1 | tee "verification/obs-fuzz-ci/$target.log"
           done
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: obs-fuzz-evidence
@@ -169,7 +169,7 @@ jobs:
       - name: Real isolated OBS WebSocket smoke
         run: |
           python3 crates/driver-obs/tools/real_obs_smoke.py --probe target/release/obs-probe 2>&1 | tee verification/obs-real-ci/real-obs-smoke.log
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: real-obs-evidence
