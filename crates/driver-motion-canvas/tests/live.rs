@@ -36,6 +36,7 @@ async fn call(
         provider,
         &Context {
             session: "motion-canvas-live".into(),
+            request_id: "motion-canvas-live-request".into(),
             cancellation: CancellationToken::new(),
         },
         &find(caps, name).descriptor,

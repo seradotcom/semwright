@@ -23,7 +23,7 @@ Driver identity: `driver:motion-canvas`. Protocol catalog count: **18**. The cat
 | `render.cancel` | mutating_reversible / idempotent | Cancel the owned render process tree. |
 | `render.result` | read_only / read_only | Return validated artifact metadata for a terminal job. |
 
-Every descriptor has strict schemars-derived input/output schemas, owner namespace/scope, bounded timeout, risk, idempotency and truthful dry-run metadata. Descriptor SHA-256 pinning is enforced by Driver Protocol v1.
+Every descriptor has strict schemars-derived input/output schemas, owner namespace/scope, bounded timeout, risk, idempotency and truthful dry-run metadata. Descriptor SHA-256 pinning is enforced by the Driver SDK; this driver currently negotiates protocol v1.
 
 ## Transaction operations
 

@@ -8,11 +8,11 @@ Driver Registry packages pin a driver executable/manifest but do not currently d
 
 A generic future tool-dependency/package primitive could remove this manual runtime preparation without widening filesystem access.
 
-## 2. Long-running child jobs
+## 2. Protocol-v2 adoption for long-running child jobs
 
-Driver Protocol v1 request/response does not negotiate driver child-job progress, events or cooperative cancellation. Motion Canvas exposes `render.start/status/cancel/result` as a driver-local compatibility surface. It reports observed states rather than fabricated percentages.
+The final integration target now includes Driver Protocol v2 support for progress, artifacts and request cancellation. Motion Canvas deliberately remains on protocol-v1 compatibility in this PR because its tested render lifecycle is already exposed as `render.start/status/cancel/result`; it does not advertise v2 interfaces it has not wired end-to-end. This is now a driver adoption gap, not a generic SDK absence.
 
-A later negotiated jobs/events interface could unify this with broker jobs without changing the semantic render model.
+A later Motion Canvas pass can map its existing job registry onto protocol-v2 progress/cancellation without changing the semantic render model.
 
 ## 3. Browser sandbox composition
 
@@ -22,7 +22,7 @@ A future platform/tool dependency primitive could make browser runtime/profile r
 
 ## 4. Resource budgets
 
-Motion Canvas + Vite + Chromium headless shell needs materially more address space/process budget than small stdio drivers. Protocol v1 permits up to the current 4 GiB ceiling; CI records Node compatibility with that ceiling. The branch does not raise generic limits without evidence.
+Motion Canvas + Vite + Chromium headless shell needs materially more address space/process budget than small stdio drivers. The current driver manifest resource model permits the existing 4 GiB ceiling; CI records Node compatibility with that ceiling. The branch does not raise generic limits without evidence.
 
 ## 5. Windows platform-service composition
 

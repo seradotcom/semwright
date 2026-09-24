@@ -25,7 +25,7 @@ The helper never accepts arbitrary JavaScript, npm packages, commands or URLs fr
 
 ## Cancellation and timeout
 
-The Rust job owns a new process group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. Driver Protocol v1 does not transport child progress events, so status exposes observed phases only.
+The Rust job owns a new process group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. The Motion Canvas manifest currently negotiates protocol v1, so this driver does not transport protocol-v2 child progress events; status exposes observed phases only.
 
 ## Chromium headless shell sandbox layering
 

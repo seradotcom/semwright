@@ -34,4 +34,4 @@ PNG artifacts must have exact expected sequential names/count, bounded decode si
 
 ## Known boundaries
 
-Driver Protocol v1 does not negotiate child events or cooperative cancellation; cancellation is driver-local. Registry packages do not yet provide a generic multi-tool runtime distribution primitive. External arbitrary Motion Canvas projects are not safely mutable and are therefore not accepted as managed semantic data.
+The integrated SDK supports Driver Protocol v2, but this driver deliberately negotiates v1 in this PR and does not claim v2 child events/progress/cancellation; render cancellation is driver-local. Registry packages do not yet provide a generic multi-tool runtime distribution primitive. External arbitrary Motion Canvas projects are not safely mutable and are therefore not accepted as managed semantic data.
