@@ -23,6 +23,7 @@ semwright-recipes = { path = "../crates/recipes" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
 semwright-video-domain = { path = "../crates/video-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
+semwright-godot-driver = { package = "semwright-driver-godot", path = "../crates/driver-godot" }
 
 [[bin]]
 name = "protocol"
@@ -173,6 +174,34 @@ bench = false
 [[bin]]
 name = "figma_motion"
 path = "fuzz_targets/figma_motion.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "godot_bridge_auth"
+path = "fuzz_targets/godot_bridge_auth.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "godot_config_json"
+path = "fuzz_targets/godot_config_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "godot_diff"
+path = "fuzz_targets/godot_diff.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "godot_catalog"
+path = "fuzz_targets/godot_catalog.rs"
 test = false
 doc = false
 bench = false

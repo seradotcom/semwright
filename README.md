@@ -206,8 +206,9 @@ edit and conformance core reused by concrete video drivers. [The inspector](docs
 is read-only and uses the same broker socket.
 Application instructions: [Blender](adapters/blender/README.md),
 [Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md),
-[MLT video](crates/driver-mlt-video/README.md), [Figma](crates/driver-figma/README.md), and
-[KiCad](integrations/kicad-driver/README.md). Desktop bridges: [GNOME](bridges/gnome/README.md),
+[MLT video](crates/driver-mlt-video/README.md), [Figma](crates/driver-figma/README.md),
+[Godot](crates/driver-godot/README.md), and [KiCad](integrations/kicad-driver/README.md).
+Desktop bridges: [GNOME](bridges/gnome/README.md),
 [KWin](bridges/kwin/README.md).
 
 ## Security boundary
