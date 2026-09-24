@@ -14,7 +14,10 @@ rustPlatform.buildRustPackage {
   src = lib.cleanSource ../..;
   cargoLock.lockFile = ../../Cargo.lock;
 
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [
+    pkg-config
+    rustPlatform.bindgenHook
+  ];
   buildInputs = [ pipewire ];
 
   cargoBuildFlags = [
