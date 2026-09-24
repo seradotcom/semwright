@@ -1297,19 +1297,24 @@ mod tests {
 
         let revision = json!("rev-42");
         assert_eq!(
-            prior_binding(&[trace.clone()], 1, "/expected_revision", &[&revision]),
+            prior_binding(
+                std::slice::from_ref(&trace),
+                1,
+                "/expected_revision",
+                &[&revision]
+            ),
             Some(json!({"$var":"/steps/step-1/resulting_revision"}))
         );
 
         let path = json!("renders/final.mp4");
         assert_eq!(
-            prior_binding(&[trace.clone()], 1, "/source_path", &[&path]),
+            prior_binding(std::slice::from_ref(&trace), 1, "/source_path", &[&path]),
             Some(json!({"$var":"/steps/step-1/artifact/path"}))
         );
 
         let sha = json!("a".repeat(64));
         assert_eq!(
-            prior_binding(&[trace.clone()], 1, "/expected_sha256", &[&sha]),
+            prior_binding(std::slice::from_ref(&trace), 1, "/expected_sha256", &[&sha]),
             Some(json!({"$var":"/steps/step-1/artifact/sha256"}))
         );
 
@@ -1321,7 +1326,7 @@ mod tests {
         let trace = structural_binding_trace(json!({"artifact_id":"same-id"}));
         let value = json!("same-id");
         assert_eq!(
-            prior_binding(&[trace.clone()], 1, "/artifact_id", &[&value]),
+            prior_binding(std::slice::from_ref(&trace), 1, "/artifact_id", &[&value]),
             Some(json!({"$var":"/steps/step-1/artifact_id"}))
         );
         assert_eq!(prior_binding(&[trace], 1, "/job_id", &[&value]), None);
