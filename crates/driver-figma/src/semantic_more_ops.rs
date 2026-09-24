@@ -397,5 +397,33 @@ pub(super) fn operations() -> Vec<Op> {
             Idempotent,
             true,
         ),
+        op(
+            "design_system.export.css",
+            "Export local variables as deterministic CSS custom properties",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "design_system.export.tailwind",
+            "Export local variables as a deterministic Tailwind theme module",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "node.export.jsx",
+            "Export a bounded node tree as declarative Figma JSX text",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
+        op(
+            "node.export.storybook",
+            "Export a bounded node tree as a self-contained React Storybook snapshot",
+            ReadRisk,
+            ReadOnly,
+            true,
+        ),
     ]
 }

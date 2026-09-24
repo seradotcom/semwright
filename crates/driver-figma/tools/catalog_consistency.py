@@ -11,8 +11,7 @@ rust_sources = [
 main = "\n".join(path.read_text(encoding="utf-8") for path in rust_sources)
 plugin_sources = [
     root / "plugin/src/code.ts",
-    root / "plugin/src/semantic_complete.ts",
-    root / "plugin/src/semantic_more.ts",
+    *sorted((root / "plugin/src").glob("semantic_*.ts")),
 ]
 plugin = "\n".join(path.read_text(encoding="utf-8") for path in plugin_sources)
 

@@ -57,6 +57,10 @@ pub const OPERATIONS: &[&str] = &[
     "variable.bind.paint",
     "variable.bind.effect",
     "variable.bind.layout_grid",
+    "design_system.export.css",
+    "design_system.export.tailwind",
+    "node.export.jsx",
+    "node.export.storybook",
 ];
 fn s(max: usize) -> Value {
     json!({"type":"string","minLength":1,"maxLength":max})
@@ -318,6 +322,12 @@ pub fn input_schema(name: &str) -> Option<Value> {
             ],
             &["nodeId", "index", "field"],
         ),
+        "design_system.export.css" | "design_system.export.tailwind" => {
+            input(vec![("modeName", s(256)), ("name", s(256))], &[])
+        }
+        "node.export.jsx" | "node.export.storybook" => {
+            input(vec![("nodeId", s(256)), ("name", s(256))], &["nodeId"])
+        }
         other => unreachable!("semantic-more operation {other} lacks input schema"),
     };
     Some(schema)
@@ -346,7 +356,11 @@ pub fn output_schema(name: &str) -> Option<Value> {
         "image.create" | "image.inspect" => {
             json!({"type":"object","properties":{"hash":s(256),"width":u(100_000),"height":u(100_000)},"required":["hash","width","height"],"additionalProperties":false})
         }
-        "image.export" => {
+        "image.export"
+        | "design_system.export.css"
+        | "design_system.export.tailwind"
+        | "node.export.jsx"
+        | "node.export.storybook" => {
             json!({"type":"object","properties":{"token":s(128),"bytes":u(16_777_216),"mediaType":s(128),"name":s(256)},"required":["token","bytes","mediaType","name"],"additionalProperties":false})
         }
         "video.create" => {

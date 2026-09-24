@@ -9,8 +9,9 @@ type AnyNode = Record<string, any>;
 function harness(editorType = "figma") {
   const semantic = fs.readFileSync(path.join(process.cwd(), "src/semantic_complete.ts"), "utf8");
   const more = fs.readFileSync(path.join(process.cwd(), "src/semantic_more.ts"), "utf8");
+  const exports = fs.readFileSync(path.join(process.cwd(), "src/semantic_exports.ts"), "utf8");
   const code = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
-  const source = semantic + "\n" + more + "\n" + code;
+  const source = semantic + "\n" + more + "\n" + exports + "\n" + code;
   const javascript = ts.transpileModule(source, {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
@@ -134,7 +135,10 @@ function harness(editorType = "figma") {
         collections.set(id,c); return c;
       },
       createVariable(name:string,c:AnyNode,resolvedType:string){
-        const id=`v:${nextVariable++}`; const v:any={id,name,resolvedType,valuesByMode:{},setValueForMode(mode:string,value:unknown){this.valuesByMode[mode]=value;}};
+        const id=`v:${nextVariable++}`; const v:any={
+          id,name,resolvedType,variableCollectionId:c.id,valuesByMode:{},scopes:[],
+          setValueForMode(mode:string,value:unknown){this.valuesByMode[mode]=value;}
+        };
         variables.set(id,v); c.variableIds.push(id); return v;
       },
       async getVariableCollectionByIdAsync(id:string){return collections.get(id)??null;},
@@ -151,6 +155,7 @@ function harness(editorType = "figma") {
   vm.runInNewContext(javascript, {
     figma, __html__:"", console, setTimeout, clearTimeout,
     atob: globalThis.atob, btoa: globalThis.btoa, crypto: globalThis.crypto,
+    TextEncoder: globalThis.TextEncoder, TextDecoder: globalThis.TextDecoder,
   });
   if (typeof figma.ui.onmessage !== "function") throw new Error("plugin did not install UI message handler");
 
@@ -165,6 +170,20 @@ function harness(editorType = "figma") {
     for(const callback of eventHandlers.get(type)??[]) callback(event);
   }
   return {call, figma, nodes, page, posted, emit};
+}
+
+async function readArtifact(h:ReturnType<typeof harness>,token:string):Promise<string>{
+  let offset=0;
+  const parts:number[]=[];
+  while(true){
+    const result=await h.call("artifact.read",{token,offset,length:4096});
+    if(!result.ok)throw new Error("artifact read failed");
+    const raw=globalThis.atob(String(result.value.base64));
+    for(let i=0;i<raw.length;i++)parts.push(raw.charCodeAt(i));
+    offset=Number(result.value.nextOffset);
+    if(result.value.eof)break;
+  }
+  return new TextDecoder().decode(new Uint8Array(parts));
 }
 
 describe("plugin runtime behavior",()=>{
@@ -365,5 +384,35 @@ describe("extended semantic runtime",()=> {
     expect(set.ok).toBe(true);
     const get=await h.call("node.plugin_data.get",{nodeId:frame.value.id,key:"semantic-role"},2);
     expect(get.value.value).toBe("hero");
+  });
+
+  it("exports CSS Tailwind JSX and Storybook through bounded artifacts",async()=> {
+    const h=harness();
+    const collection=await h.call("variable.collection.create",{name:"Theme"});
+    const variable=await h.call("variable.create",{
+      collectionId:collection.value.id,name:"brand/primary",resolvedType:"COLOR"
+    },1);
+    await h.call("variable.set_value",{
+      variableId:variable.value.id,modeId:"m:1",value:{r:1,g:0,b:0,a:1}
+    },2);
+    const frame=await h.call("frame.create",{name:"Hero",width:320,height:180},3);
+    await h.call("text.create",{name:"Title",characters:"Semantic Figma"},4);
+
+    const css=await h.call("design_system.export.css",{},5);
+    expect(css.ok).toBe(true);
+    expect(await readArtifact(h,css.value.token)).toContain("--brand-primary: #ff0000;");
+
+    const tailwind=await h.call("design_system.export.tailwind",{},5);
+    expect(await readArtifact(h,tailwind.value.token)).toContain('"brand-primary": "var(--brand-primary)"');
+
+    const jsx=await h.call("node.export.jsx",{nodeId:frame.value.id},5);
+    const jsxText=await readArtifact(h,jsx.value.token);
+    expect(jsxText).toContain("<Frame");
+    expect(jsxText).toContain('name={"Hero"}');
+
+    const story=await h.call("node.export.storybook",{nodeId:frame.value.id},5);
+    const storyText=await readArtifact(h,story.value.token);
+    expect(storyText).toContain("StoryObj");
+    expect(storyText).toContain("Figma/Hero");
   });
 });
