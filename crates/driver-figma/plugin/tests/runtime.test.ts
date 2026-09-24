@@ -898,6 +898,7 @@ describe("semantic verification and color-vision workflows",()=>{
     const source=await h.call("rect.create",{name:"Brand",x:10,y:20,width:120,height:60});
     const original=h.nodes.get(source.value.id)!;
     original.fills=[{type:"SOLID",color:{r:1,g:0,b:0},opacity:1}];
+    original.effects=[{type:"DROP_SHADOW",color:{r:1,g:0,b:0,a:0.42},offset:{x:0,y:2},radius:4,spread:0,visible:true,blendMode:"NORMAL"}];
     const preview=await h.call("a11y.vision.preview",{
       nodeId:source.value.id,modes:["protanopia"],gap:40,namePrefix:"Preview"
     },1);
@@ -906,9 +907,11 @@ describe("semantic verification and color-vision workflows",()=>{
     expect(preview.value.previews).toHaveLength(1);
     const cloneId=preview.value.previews[0].node.id;
     expect(cloneId).not.toBe(source.value.id);
-    expect(preview.value.previews[0].transformedPaints).toBe(1);
+    expect(preview.value.previews[0].transformedPaints).toBe(2);
     expect(h.nodes.get(source.value.id)!.fills[0].color).toEqual({r:1,g:0,b:0});
     expect(h.nodes.get(cloneId)!.fills[0].color).not.toEqual({r:1,g:0,b:0});
+    expect(h.nodes.get(cloneId)!.effects[0].color.a).toBe(0.42);
+    expect(h.nodes.get(cloneId)!.effects[0].color).not.toEqual({r:1,g:0,b:0,a:0.42});
     const removed=await h.call("node.remove",{nodeId:cloneId},2);
     expect(removed.ok).toBe(true);
     expect(h.nodes.has(cloneId)).toBe(false);

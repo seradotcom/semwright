@@ -100,7 +100,10 @@ function semanticVisionTransformSubtree(root: SceneNode, mode: SemanticVisionMod
       node.effects = node.effects.map((effect: any) => {
         if (!effect?.color || typeof effect.color.r !== "number") return effect;
         changed++;
-        return {...effect, color: semanticVisionColor(effect.color, mode)};
+        return {
+          ...effect,
+          color: {...semanticVisionColor(effect.color, mode), a: Number(effect.color.a ?? 1)},
+        };
       });
     }
   }
