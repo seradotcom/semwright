@@ -39,6 +39,27 @@ describe("advanced API",()=>{
  it("implements FigJam connectors",()=>expect(code).toContain("createConnector"));
  it("implements variables",()=>expect(code).toContain("getLocalVariablesAsync"));
  it("keeps the pinned SceneNode surface exhaustively classified",()=>{expect(coverage.summary.scene_node_members).toBeGreaterThan(3000);expect(coverage.summary.supported_scene_node_members).toBe(coverage.summary.scene_node_members);expect(coverage.summary.unmapped_method_names).toEqual([]);});
+ it("routes dynamic-page special writes through semantic operations",()=>{
+   const writable=new Set(coverage.generic_property_surface.writable);
+   for(const property of ["reactions","vectorNetwork","explicitVariableModes","resolvedVariableModes","backgroundStyleId","fillStyleId","strokeStyleId","effectStyleId","gridStyleId","textStyleId"]){
+     expect(writable.has(property),property).toBe(false);
+   }
+   expect(coverage.scene_node_types.FRAME.members.reactions.write_capability).toBe("prototype.reaction.set");
+   expect(coverage.scene_node_types.VECTOR.members.vectorNetwork.write_capability).toBe("vector.network.set");
+   expect(coverage.scene_node_types.FRAME.members.explicitVariableModes.write_capability).toBe("variable.mode.set_explicit");
+   expect(coverage.scene_node_types.FRAME.members.resolvedVariableModes.status).toBe("SUPPORTED_COMPUTED_READ_ONLY_PROPERTY");
+ });
+ it("pins an explicit reviewed type for every generic writable property",()=>{
+   const writable=[...coverage.generic_property_surface.writable].sort();
+   const reviewed=coverage.generic_property_surface.write_types;
+   expect(Object.keys(reviewed).sort()).toEqual(writable);
+   for(const property of writable){
+     expect(["number","boolean","string","array","object"]).toContain(reviewed[property].kind);
+     expect(typeof reviewed[property].nullable).toBe("boolean");
+     expect(typeof reviewed[property].type).toBe("string");
+   }
+   expect(generatedSurface).toContain("SEMWRIGHT_FIGMA_NODE_WRITE_TYPES");
+ });
  it("keeps auxiliary public methods exhaustively classified",()=>{expect(coverage.summary.auxiliary_method_entries).toBeGreaterThan(40);expect(coverage.summary.unclassified_auxiliary_methods).toBe(0);});
  it("generates auxiliary property allowlists from typings",()=>{for(const kind of ["STYLE","VARIABLE","COLLECTION"]){expect(coverage.auxiliary_property_surface[kind].readable.length).toBeGreaterThan(0);}expect(generatedSurface).toContain("SEMWRIGHT_FIGMA_AUX_READ_PROPERTIES");expect(generatedSurface).toContain("SEMWRIGHT_FIGMA_AUX_WRITE_PROPERTIES");});
  it("covers privileged auxiliary APIs without eval",()=>{expect(allCode).toContain("addMeasurement");expect(allCode).toContain("valuesByModeForCollectionAsync");expect(allCode).toContain("getStyleConsumersAsync");});

@@ -77,11 +77,24 @@ function spFontNameInput(value:any):FontNameInput{
   }
   return font as FontNameInput;
 }
+function spValidateReviewedPropertyType(property:string,value:any):void{
+  const review=SEMWRIGHT_FIGMA_NODE_WRITE_TYPES[property];
+  if(!review)throw new Error("property_type_not_reviewed");
+  if(value===null){
+    if(!review.nullable)throw new Error("property_null_not_allowed");
+    return;
+  }
+  if(review.kind==="number"&&(typeof value!=="number"||!Number.isFinite(value)))throw new Error("property_type_number");
+  if(review.kind==="boolean"&&typeof value!=="boolean")throw new Error("property_type_boolean");
+  if(review.kind==="string"&&typeof value!=="string")throw new Error("property_type_string");
+  if(review.kind==="array"&&!Array.isArray(value))throw new Error("property_type_array");
+  if(review.kind==="object"&&(!value||typeof value!=="object"||Array.isArray(value)))throw new Error("property_type_object");
+}
 async function spSetProperty(node:any,property:string,value:any){
   if(!SEMWRIGHT_FIGMA_NODE_WRITE_PROPERTIES.has(property))throw new Error("property_not_writable");
-  if(property==="mainComponent"||property==="stuckTo")throw new Error("property_requires_semantic_ref_operation");
   if(!(property in node))throw new Error("property_unavailable_on_node");
   if(value==="MIXED")throw new Error("mixed_value_read_only");
+  spValidateReviewedPropertyType(property,value);
   spValidateJson(value);
   let normalized=value;
   if(property==="fontName"){

@@ -704,6 +704,22 @@ describe("extended semantic runtime",()=> {
       nodeId:frame.value.id,properties:{id:"forbidden"}
     },2);
     expect(readonly.ok).toBe(false);
+
+    const wrongType=await h.call("node.properties.patch",{
+      nodeId:frame.value.id,properties:{itemSpacing:"24"}
+    },2);
+    expect(wrongType.ok).toBe(false);
+    expect(wrongType.error.message).toContain("property_type_number");
+
+    for(const [property,value] of Object.entries({
+      reactions:[],fillStyleId:"S:1",effectStyleId:"S:2",explicitVariableModes:{C:"M"}
+    })){
+      const special=await h.call("node.properties.patch",{
+        nodeId:frame.value.id,properties:{[property]:value}
+      },2);
+      expect(special.ok,property).toBe(false);
+      expect(special.error.message).toContain("property_not_writable");
+    }
   });
 
   it("exports CSS Tailwind JSX and Storybook through bounded artifacts",async()=> {
