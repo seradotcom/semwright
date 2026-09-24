@@ -11,7 +11,7 @@ test('runtime dependencies use exact versions', () => {
   }
   assert.equal(pkg.engines.node, '22.22.0');
   assert.equal(pkg.dependencies['@motion-canvas/core'], '3.17.2');
-  assert.equal(pkg.dependencies.playwright, '1.63.0');
+  assert.equal(pkg.dependencies.playwright, '1.61.1');
 });
 
 test('render harness is bound to Driver Host, pinned Firefox, and local origin', () => {
