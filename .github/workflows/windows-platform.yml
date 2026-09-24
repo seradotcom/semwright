@@ -45,6 +45,9 @@ jobs:
             runs_on: windows-11-vs2026-arm
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 50
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -54,15 +57,15 @@ jobs:
           toolchain: 1.98.1
           components: rustfmt, clippy
       - name: Architecture evidence
-        shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force verification/platform-ci | Out-Null
-          @(
-            "RUNNER_ARCH=$env:RUNNER_ARCH"
-            "PROCESSOR_ARCHITECTURE=$env:PROCESSOR_ARCHITECTURE"
-            (rustc -vV | Out-String)
-            (cargo -V | Out-String)
-          ) | Set-Content "verification/platform-ci/windows-${{ matrix.arch }}.log"
+          set -euo pipefail
+          mkdir -p verification/platform-ci
+          {
+            echo "RUNNER_ARCH=$RUNNER_ARCH"
+            echo "PROCESSOR_ARCHITECTURE=${PROCESSOR_ARCHITECTURE:-unknown}"
+            rustc -vV
+            cargo -V
+          } | tee "verification/platform-ci/windows-${{ matrix.arch }}.log"
       - name: Format
         run: cargo fmt --all -- --check
       - name: Native Windows runtime check
@@ -119,20 +122,19 @@ jobs:
           -p semwright-plugin-host
           -p semwright-daemon
       - name: Native Windows docs
-        shell: pwsh
         run: |
-          $env:RUSTDOCFLAGS='-D warnings'
-          cargo doc --locked -p semwright-platform-api -p semwright-platform-windows-sys -p semwright-platform-windows -p semwright-platform-services -p semwright-platform-host -p semwright-protocol --no-deps
+          set -euo pipefail
+          RUSTDOCFLAGS="-D warnings" cargo doc --locked -p semwright-platform-api -p semwright-platform-windows-sys -p semwright-platform-windows -p semwright-platform-services -p semwright-platform-host -p semwright-protocol --no-deps
       - name: UIA fixture compiles natively
         working-directory: fixtures/windows-uia
         run: cargo check
       - name: Record CI class
-        shell: pwsh
         run: |
-          @'
+          set -euo pipefail
+          cat >"verification/platform-ci/windows-${{ matrix.arch }}-class.txt" <<'EOF'
           PASS_WINDOWS_NATIVE_CI can only be claimed after this job is green.
           This hosted runner is not evidence of PASS_WINDOWS_INTERACTIVE.
-          '@ | Out-File -Encoding utf8 "verification/platform-ci/windows-${{ matrix.arch }}-class.txt"
+          EOF
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

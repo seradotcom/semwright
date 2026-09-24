@@ -122,8 +122,12 @@ type LocalClientStream = UnixStream;
 type LocalClientStream = NamedPipeClient;
 
 #[cfg(unix)]
-fn validate_client_peer(stream: &UnixStream) -> Result<()> {
+pub fn validate_peer(stream: &UnixStream) -> Result<()> {
     semwright_platform_services::validate_peer(stream)
+}
+#[cfg(unix)]
+fn validate_client_peer(stream: &UnixStream) -> Result<()> {
+    validate_peer(stream)
 }
 #[cfg(target_os = "windows")]
 fn validate_client_peer(stream: &NamedPipeClient) -> Result<()> {
