@@ -8,6 +8,8 @@ No stable documented standalone Motion Canvas headless CLI was found for this ba
 
 The Vite plugin is configured with the documented project import path `./src/project.ts` relative to the isolated build root. The disabled editor shim passes its absolute `main.js` module path because Motion Canvas 3.17.2 resolves the configured editor with Node module resolution and then loads `editor.html` and `styles.css` from that resolved module directory.
 
+The controlled build sets Motion Canvas `buildForEditor: true` only to select upstream `editorBootstrap()`. In v3.17.2 the production `bootstrap()` does not resolve the project-level plugin list, so without this switch the generated fixed `semwrightExporterPlugin` is absent from `ProjectMetadata` and `Renderer` returns `RendererResult.Error` before frame 0. No editor UI is launched: the harness still loads only its own render entry, the editor module remains a disabled shim, and agent input cannot supply plugins or JavaScript.
+
 ## Production path
 
 1. Rust validates `semwright-motion.json` and a bounded `RenderProfile`.
