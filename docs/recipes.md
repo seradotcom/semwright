@@ -61,3 +61,7 @@ not exist yet. A failure can leave earlier effects intact. Errors include progre
 several common paths but full uniform progress reporting remains incomplete. There is no
 ACID transaction or automatic compensation/rollback claim. Inspect current state before
 resuming. `recipe test` insists on an explicitly fake broker; it does not launch one.
+
+Semwright can also distill explicitly recorded successful executions into Recipe v1
+candidates and promote verified/replayed candidates into the capability catalog. See
+[Workflow distillation v1](workflow-distillation.md).

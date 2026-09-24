@@ -802,6 +802,706 @@ fn specs() -> Vec<Spec> {
             mutation_out,
         ),
         spec(
+            "tilemap.inspect",
+            "Inspect TileMapLayer cells and bounds",
+            "tilemap",
+            "tilemap",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "tilemap.cell.set",
+            "Set a TileMapLayer cell by semantic tile identity",
+            "tilemap",
+            "tile_cell",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            tilemap_cell_set_in,
+            mutation_out,
+        ),
+        spec(
+            "tilemap.cell.erase",
+            "Erase a TileMapLayer cell",
+            "tilemap",
+            "tile_cell",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            tilemap_cell_target_in,
+            mutation_out,
+        ),
+        spec(
+            "tilemap.clear",
+            "Clear all cells in a TileMapLayer",
+            "tilemap",
+            "tilemap",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            target_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "tileset.inspect",
+            "Inspect TileSet geometry, layers and sources",
+            "tilemap",
+            "tileset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "tileset.configure",
+            "Configure bounded TileSet layout properties",
+            "tilemap",
+            "tileset",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            tileset_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "tileset.atlas.create",
+            "Create a TileSet atlas source from a project texture",
+            "tilemap",
+            "tileset_source",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            20_000,
+            true,
+            true,
+            tileset_atlas_create_in,
+            mutation_out,
+        ),
+        spec(
+            "tileset.tile.create",
+            "Create a tile inside an atlas source",
+            "tilemap",
+            "tile",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            tileset_tile_create_in,
+            mutation_out,
+        ),
+        spec(
+            "navigation.region.inspect",
+            "Inspect a NavigationRegion3D",
+            "navigation",
+            "navigation_region",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "navigation.region.configure",
+            "Configure navigation region costs, layers and mesh",
+            "navigation",
+            "navigation_region",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            navigation_region_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "navigation.region.bake",
+            "Bake a NavigationRegion3D mesh synchronously",
+            "navigation",
+            "navigation_region",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            60_000,
+            true,
+            true,
+            target_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "navigation.agent.inspect",
+            "Inspect NavigationAgent3D pathfinding and avoidance state",
+            "navigation",
+            "navigation_agent",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "navigation.agent.configure",
+            "Configure NavigationAgent3D pathfinding and avoidance",
+            "navigation",
+            "navigation_agent",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            navigation_agent_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "navigation.link.configure",
+            "Configure a NavigationLink3D",
+            "navigation",
+            "navigation_link",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            navigation_link_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "physics.body.inspect",
+            "Inspect a PhysicsBody3D using body-specific semantics",
+            "physics",
+            "physics_body",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "physics.body.configure",
+            "Configure bounded RigidBody3D, CharacterBody3D or StaticBody3D state",
+            "physics",
+            "physics_body",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            physics_body_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "physics.area.inspect",
+            "Inspect an Area3D",
+            "physics",
+            "area",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "physics.area.configure",
+            "Configure Area3D monitoring and physics overrides",
+            "physics",
+            "area",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            physics_area_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "physics.joint.configure",
+            "Configure a Joint3D connection",
+            "physics",
+            "joint",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            physics_joint_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "collision.shape.configure",
+            "Configure a CollisionShape3D",
+            "physics",
+            "collision_shape",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            collision_shape_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "audio.player.inspect",
+            "Inspect an AudioStreamPlayer, 2D or 3D",
+            "audio",
+            "audio_player",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "audio.player.configure",
+            "Configure an AudioStreamPlayer, 2D or 3D",
+            "audio",
+            "audio_player",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            audio_player_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "audio.bus.inspect",
+            "Inspect bounded AudioServer bus state",
+            "audio",
+            "audio_bus",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "audio.bus.create",
+            "Create and persist an audio bus",
+            "audio",
+            "audio_bus",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            audio_bus_create_in,
+            mutation_out,
+        ),
+        spec(
+            "audio.bus.configure",
+            "Configure and persist an audio bus",
+            "audio",
+            "audio_bus",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            audio_bus_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "audio.bus.remove",
+            "Remove and persist a non-Master audio bus",
+            "audio",
+            "audio_bus",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            audio_bus_remove_in,
+            mutation_out,
+        ),
+        spec(
+            "audio.effect.add",
+            "Add a typed AudioEffect resource to a bus",
+            "audio",
+            "audio_effect",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            audio_effect_add_in,
+            mutation_out,
+        ),
+        spec(
+            "audio.effect.remove",
+            "Remove an audio bus effect by index",
+            "audio",
+            "audio_effect",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            audio_effect_remove_in,
+            mutation_out,
+        ),
+        spec(
+            "particles.inspect",
+            "Inspect GPU or CPU particles in 2D or 3D",
+            "particles",
+            "particle_emitter",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "particles.configure",
+            "Configure bounded particle-emitter lifecycle state",
+            "particles",
+            "particle_emitter",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            particles_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "particles.restart",
+            "Restart a particle emitter",
+            "particles",
+            "particle_emitter",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            target_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "particles.material.configure",
+            "Configure a ParticleProcessMaterial",
+            "particles",
+            "particle_material",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            particle_material_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "camera.inspect",
+            "Inspect Camera2D or Camera3D semantic state",
+            "rendering",
+            "camera",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "camera.configure",
+            "Configure Camera2D or Camera3D semantic state",
+            "rendering",
+            "camera",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            camera_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "light.inspect",
+            "Inspect Light2D or Light3D semantic state",
+            "rendering",
+            "light",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "light.configure",
+            "Configure Light2D or Light3D semantic state",
+            "rendering",
+            "light",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            light_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "environment.inspect",
+            "Inspect an Environment resource",
+            "rendering",
+            "environment",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "environment.configure",
+            "Configure bounded environment, fog, glow and tonemap state",
+            "rendering",
+            "environment",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            environment_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "material.standard.inspect",
+            "Inspect a StandardMaterial3D",
+            "rendering",
+            "material",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "material.standard.configure",
+            "Configure bounded StandardMaterial3D PBR state",
+            "rendering",
+            "material",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            material_standard_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "ui.control.inspect",
+            "Inspect a Control node semantic UI state",
+            "ui",
+            "control",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "ui.control.configure",
+            "Configure bounded Control focus, sizing and theme state",
+            "ui",
+            "control",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            ui_control_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "ui.text.configure",
+            "Configure text-bearing UI controls",
+            "ui",
+            "text_control",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            ui_text_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "theme.inspect",
+            "Inspect a Theme resource and bounded item inventory",
+            "ui",
+            "theme",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "theme.configure",
+            "Configure a typed Theme item",
+            "ui",
+            "theme",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            theme_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "theme.apply",
+            "Apply a Theme resource to a Control",
+            "ui",
+            "theme",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            theme_apply_in,
+            mutation_out,
+        ),
+        spec(
+            "skeleton.inspect",
+            "Inspect Skeleton3D bone hierarchy and pose",
+            "skeleton",
+            "skeleton",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "skeleton.bone.add",
+            "Add a bounded Skeleton3D bone",
+            "skeleton",
+            "bone",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            skeleton_bone_add_in,
+            mutation_out,
+        ),
+        spec(
+            "skeleton.bone.configure",
+            "Configure a Skeleton3D bone pose and hierarchy",
+            "skeleton",
+            "bone",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            skeleton_bone_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "skeleton.attachment.configure",
+            "Configure a BoneAttachment3D",
+            "skeleton",
+            "bone_attachment",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            skeleton_attachment_configure_in,
+            mutation_out,
+        ),
+        spec(
             "project.validate",
             "Validate a configured project with pinned Godot",
             "runtime",
@@ -1686,6 +2386,572 @@ fn shader_attach_in() -> Value {
             dry_prop(),
         ]),
         &["session", "target", "path", "expect", "dry_run"],
+    )
+}
+
+fn target_read_in() -> Value {
+    node_target_read_in()
+}
+fn target_mutation_in() -> Value {
+    node_target_mutation_in()
+}
+fn semantic_read_out() -> Value {
+    read_out(json!({"type":"object","maxProperties":128}))
+}
+fn vec2_schema() -> Value {
+    json!({"type":"array","minItems":2,"maxItems":2,"items":{"type":"number"}})
+}
+fn vec2i_schema() -> Value {
+    json!({"type":"array","minItems":2,"maxItems":2,"items":{"type":"integer","minimum":-32768,"maximum":32767}})
+}
+fn vec2i_positive_schema() -> Value {
+    json!({"type":"array","minItems":2,"maxItems":2,"items":{"type":"integer","minimum":1,"maximum":4096}})
+}
+fn vec3_schema() -> Value {
+    json!({"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000000.0,"maximum":1000000000.0}})
+}
+fn quat_schema() -> Value {
+    json!({"type":"array","minItems":4,"maxItems":4,"items":{"type":"number","minimum":-1.0,"maximum":1.0}})
+}
+fn color_array_schema() -> Value {
+    json!({"type":"array","minItems":3,"maxItems":4,"items":{"type":"number","minimum":0.0,"maximum":1.0}})
+}
+fn u32_schema() -> Value {
+    json!({"type":"integer","minimum":0,"maximum":4294967295u64})
+}
+fn optional_path_schema() -> Value {
+    json!({"type":"string","maxLength":240})
+}
+fn bounded_number(min: f64, max: f64) -> Value {
+    json!({"type":"number","minimum":min,"maximum":max})
+}
+fn bounded_int(min: i64, max: i64) -> Value {
+    json!({"type":"integer","minimum":min,"maximum":max})
+}
+fn target_mutation_schema(mut extra: Map<String, Value>, required_extra: &[&str]) -> Value {
+    extra.insert("session".into(), hex_string(32));
+    extra.insert("target".into(), string(240));
+    extra.insert("expect".into(), stamp());
+    extra.insert("dry_run".into(), boolean());
+    let mut required = vec!["session", "target"];
+    required.extend_from_slice(required_extra);
+    required.extend_from_slice(&["expect", "dry_run"]);
+    object(extra, &required)
+}
+fn path_mutation_schema(mut extra: Map<String, Value>, required_extra: &[&str]) -> Value {
+    extra.insert("session".into(), hex_string(32));
+    extra.insert("path".into(), string(240));
+    extra.insert("expect".into(), stamp());
+    extra.insert("dry_run".into(), boolean());
+    let mut required = vec!["session", "path"];
+    required.extend_from_slice(required_extra);
+    required.extend_from_slice(&["expect", "dry_run"]);
+    object(extra, &required)
+}
+fn session_mutation_schema(mut extra: Map<String, Value>, required_extra: &[&str]) -> Value {
+    extra.insert("session".into(), hex_string(32));
+    extra.insert("expect".into(), stamp());
+    extra.insert("dry_run".into(), boolean());
+    let mut required = vec!["session"];
+    required.extend_from_slice(required_extra);
+    required.extend_from_slice(&["expect", "dry_run"]);
+    object(extra, &required)
+}
+
+fn tilemap_cell_set_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("coords".into(), vec2i_schema()),
+            ("source_id".into(), bounded_int(-1, i32::MAX as i64)),
+            ("atlas_coords".into(), vec2i_schema()),
+            ("alternative".into(), bounded_int(0, i32::MAX as i64)),
+        ]),
+        &["coords", "source_id", "atlas_coords"],
+    )
+}
+fn tilemap_cell_target_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([("coords".into(), vec2i_schema())]),
+        &["coords"],
+    )
+}
+fn tileset_configure_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("tile_size".into(), vec2i_positive_schema()),
+            ("tile_shape".into(), bounded_int(0, 3)),
+            ("tile_layout".into(), bounded_int(0, 5)),
+            ("tile_offset_axis".into(), bounded_int(0, 1)),
+            ("uv_clipping".into(), boolean()),
+        ]),
+        &[],
+    )
+}
+fn tileset_atlas_create_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("texture".into(), string(240)),
+            ("region_size".into(), vec2i_positive_schema()),
+            ("margins".into(), vec2i_schema()),
+            ("separation".into(), vec2i_schema()),
+            ("source_id".into(), bounded_int(-1, i32::MAX as i64)),
+        ]),
+        &["texture", "region_size"],
+    )
+}
+fn tileset_tile_create_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("source_id".into(), bounded_int(0, i32::MAX as i64)),
+            ("atlas_coords".into(), vec2i_schema()),
+            ("size".into(), vec2i_positive_schema()),
+        ]),
+        &["source_id", "atlas_coords"],
+    )
+}
+fn navigation_region_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("enabled".into(), boolean()),
+            ("navigation_layers".into(), u32_schema()),
+            ("enter_cost".into(), bounded_number(0.0, 1_000_000.0)),
+            ("travel_cost".into(), bounded_number(0.0, 1_000_000.0)),
+            ("use_edge_connections".into(), boolean()),
+            ("navigation_mesh".into(), optional_path_schema()),
+        ]),
+        &[],
+    )
+}
+fn navigation_agent_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("navigation_layers".into(), u32_schema()),
+            ("target_position".into(), vec3_schema()),
+            (
+                "path_desired_distance".into(),
+                bounded_number(0.0, 1_000_000.0),
+            ),
+            (
+                "target_desired_distance".into(),
+                bounded_number(0.0, 1_000_000.0),
+            ),
+            ("path_max_distance".into(), bounded_number(0.0, 1_000_000.0)),
+            ("radius".into(), bounded_number(0.0, 1_000_000.0)),
+            ("height".into(), bounded_number(0.0, 1_000_000.0)),
+            ("max_speed".into(), bounded_number(0.0, 1_000_000.0)),
+            ("avoidance_enabled".into(), boolean()),
+            ("avoidance_layers".into(), u32_schema()),
+            ("avoidance_mask".into(), u32_schema()),
+            ("avoidance_priority".into(), bounded_number(0.0, 1.0)),
+            ("neighbor_distance".into(), bounded_number(0.0, 1_000_000.0)),
+            ("max_neighbors".into(), bounded_int(0, 4096)),
+            ("use_3d_avoidance".into(), boolean()),
+        ]),
+        &[],
+    )
+}
+fn navigation_link_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("enabled".into(), boolean()),
+            ("bidirectional".into(), boolean()),
+            ("navigation_layers".into(), u32_schema()),
+            ("enter_cost".into(), bounded_number(0.0, 1_000_000.0)),
+            ("travel_cost".into(), bounded_number(0.0, 1_000_000.0)),
+            ("start_position".into(), vec3_schema()),
+            ("end_position".into(), vec3_schema()),
+        ]),
+        &[],
+    )
+}
+fn physics_body_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("collision_layer".into(), u32_schema()),
+            ("collision_mask".into(), u32_schema()),
+            ("mass".into(), bounded_number(0.0001, 1_000_000.0)),
+            ("gravity_scale".into(), bounded_number(-1000.0, 1000.0)),
+            ("linear_damp".into(), bounded_number(-1.0, 1000.0)),
+            ("angular_damp".into(), bounded_number(-1.0, 1000.0)),
+            ("lock_rotation".into(), boolean()),
+            ("freeze".into(), boolean()),
+            ("continuous_cd".into(), boolean()),
+            ("freeze_mode".into(), bounded_int(0, 1)),
+            ("linear_velocity".into(), vec3_schema()),
+            ("angular_velocity".into(), vec3_schema()),
+            ("motion_mode".into(), bounded_int(0, 1)),
+            ("max_slides".into(), bounded_int(1, 64)),
+            ("floor_stop_on_slope".into(), boolean()),
+            (
+                "floor_max_angle".into(),
+                bounded_number(0.0, std::f64::consts::PI),
+            ),
+            ("floor_snap_length".into(), bounded_number(0.0, 1_000_000.0)),
+            (
+                "wall_min_slide_angle".into(),
+                bounded_number(0.0, std::f64::consts::PI),
+            ),
+            ("up_direction".into(), vec3_schema()),
+            ("velocity".into(), vec3_schema()),
+            ("constant_linear_velocity".into(), vec3_schema()),
+            ("constant_angular_velocity".into(), vec3_schema()),
+        ]),
+        &[],
+    )
+}
+fn physics_area_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("monitoring".into(), boolean()),
+            ("monitorable".into(), boolean()),
+            ("priority".into(), bounded_number(-1_000_000.0, 1_000_000.0)),
+            ("gravity_point".into(), boolean()),
+            ("gravity".into(), bounded_number(-1_000_000.0, 1_000_000.0)),
+            ("gravity_space_override".into(), bounded_int(0, 4)),
+            ("linear_damp_space_override".into(), bounded_int(0, 4)),
+            ("linear_damp".into(), bounded_number(-1.0, 1000.0)),
+            ("angular_damp_space_override".into(), bounded_int(0, 4)),
+            ("angular_damp".into(), bounded_number(-1.0, 1000.0)),
+            ("audio_bus_override".into(), boolean()),
+            ("audio_bus_name".into(), string(96)),
+            ("collision_layer".into(), u32_schema()),
+            ("collision_mask".into(), u32_schema()),
+        ]),
+        &[],
+    )
+}
+fn physics_joint_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("node_a".into(), optional_path_schema()),
+            ("node_b".into(), optional_path_schema()),
+            ("solver_priority".into(), bounded_int(1, 64)),
+            ("exclude_nodes_from_collision".into(), boolean()),
+        ]),
+        &[],
+    )
+}
+fn collision_shape_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("shape".into(), optional_path_schema()),
+            ("disabled".into(), boolean()),
+        ]),
+        &[],
+    )
+}
+fn audio_player_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("stream".into(), optional_path_schema()),
+            ("bus".into(), string(96)),
+            ("volume_db".into(), bounded_number(-120.0, 48.0)),
+            ("pitch_scale".into(), bounded_number(0.01, 16.0)),
+            ("autoplay".into(), boolean()),
+            ("max_polyphony".into(), bounded_int(1, 128)),
+            ("max_distance".into(), bounded_number(0.0, 1_000_000.0)),
+            ("unit_size".into(), bounded_number(0.001, 1_000_000.0)),
+            ("panning_strength".into(), bounded_number(0.0, 16.0)),
+            ("attenuation_model".into(), bounded_int(0, 4)),
+            ("doppler_tracking".into(), bounded_int(0, 2)),
+        ]),
+        &[],
+    )
+}
+fn audio_bus_create_in() -> Value {
+    session_mutation_schema(
+        Map::from_iter([
+            ("name".into(), string(96)),
+            ("position".into(), bounded_int(-1, 63)),
+            ("volume_db".into(), bounded_number(-120.0, 48.0)),
+            ("send".into(), string(96)),
+        ]),
+        &["name"],
+    )
+}
+fn audio_bus_configure_in() -> Value {
+    session_mutation_schema(
+        Map::from_iter([
+            ("name".into(), string(96)),
+            ("volume_db".into(), bounded_number(-120.0, 48.0)),
+            ("mute".into(), boolean()),
+            ("solo".into(), boolean()),
+            ("send".into(), string(96)),
+        ]),
+        &["name"],
+    )
+}
+fn audio_bus_remove_in() -> Value {
+    session_mutation_schema(Map::from_iter([("name".into(), string(96))]), &["name"])
+}
+fn audio_effect_add_in() -> Value {
+    session_mutation_schema(
+        Map::from_iter([
+            ("bus".into(), string(96)),
+            ("effect".into(), string(240)),
+            ("position".into(), bounded_int(-1, 31)),
+        ]),
+        &["bus", "effect"],
+    )
+}
+fn audio_effect_remove_in() -> Value {
+    session_mutation_schema(
+        Map::from_iter([
+            ("bus".into(), string(96)),
+            ("index".into(), bounded_int(0, 31)),
+        ]),
+        &["bus", "index"],
+    )
+}
+fn particles_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("amount".into(), bounded_int(1, 1_000_000)),
+            ("lifetime".into(), bounded_number(0.001, 3600.0)),
+            ("emitting".into(), boolean()),
+            ("one_shot".into(), boolean()),
+            ("preprocess".into(), bounded_number(0.0, 3600.0)),
+            ("randomness".into(), bounded_number(0.0, 1.0)),
+            ("speed_scale".into(), bounded_number(0.0, 1000.0)),
+            ("amount_ratio".into(), bounded_number(0.0, 1.0)),
+            ("explosiveness".into(), bounded_number(0.0, 1.0)),
+            ("local_coords".into(), boolean()),
+            ("fixed_fps".into(), bounded_int(0, 1000)),
+            ("use_fixed_seed".into(), boolean()),
+            ("seed".into(), bounded_int(0, i32::MAX as i64)),
+            ("trail_enabled".into(), boolean()),
+            ("trail_lifetime".into(), bounded_number(0.0, 3600.0)),
+            ("process_material".into(), optional_path_schema()),
+        ]),
+        &[],
+    )
+}
+fn particle_material_configure_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("direction".into(), vec3_schema()),
+            ("gravity".into(), vec3_schema()),
+            ("color".into(), color_array_schema()),
+            ("emission_box_extents".into(), vec3_schema()),
+            ("emission_shape".into(), bounded_int(0, 6)),
+            ("spread".into(), bounded_number(0.0, 180.0)),
+            (
+                "initial_velocity_min".into(),
+                bounded_number(-1_000_000.0, 1_000_000.0),
+            ),
+            (
+                "initial_velocity_max".into(),
+                bounded_number(-1_000_000.0, 1_000_000.0),
+            ),
+            ("scale_min".into(), bounded_number(0.0, 1_000_000.0)),
+            ("scale_max".into(), bounded_number(0.0, 1_000_000.0)),
+            ("lifetime_randomness".into(), bounded_number(0.0, 1.0)),
+        ]),
+        &[],
+    )
+}
+fn camera_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("projection".into(), bounded_int(0, 2)),
+            ("fov".into(), bounded_number(1.0, 179.0)),
+            ("size".into(), bounded_number(0.001, 1_000_000.0)),
+            ("near".into(), bounded_number(0.001, 1_000_000.0)),
+            ("far".into(), bounded_number(0.002, 10_000_000.0)),
+            ("keep_aspect".into(), bounded_int(0, 1)),
+            ("current".into(), boolean()),
+            ("cull_mask".into(), u32_schema()),
+            ("environment".into(), optional_path_schema()),
+            ("enabled".into(), boolean()),
+            ("ignore_rotation".into(), boolean()),
+            ("position_smoothing_enabled".into(), boolean()),
+            (
+                "position_smoothing_speed".into(),
+                bounded_number(0.0, 1_000_000.0),
+            ),
+            ("rotation_smoothing_enabled".into(), boolean()),
+            (
+                "rotation_smoothing_speed".into(),
+                bounded_number(0.0, 1_000_000.0),
+            ),
+            ("limit_enabled".into(), boolean()),
+            ("zoom".into(), vec2_schema()),
+            ("offset".into(), vec2_schema()),
+            (
+                "limits".into(),
+                json!({"type":"array","minItems":4,"maxItems":4,"items":{"type":"integer","minimum":-1000000000,"maximum":1000000000}}),
+            ),
+        ]),
+        &[],
+    )
+}
+fn light_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("color".into(), color_array_schema()),
+            ("energy".into(), bounded_number(0.0, 1_000_000.0)),
+            ("indirect_energy".into(), bounded_number(0.0, 1_000_000.0)),
+            ("specular".into(), bounded_number(0.0, 1_000_000.0)),
+            (
+                "volumetric_fog_energy".into(),
+                bounded_number(0.0, 1_000_000.0),
+            ),
+            ("shadow_enabled".into(), boolean()),
+            ("cull_mask".into(), u32_schema()),
+            ("enabled".into(), boolean()),
+            ("blend_mode".into(), bounded_int(0, 3)),
+            ("shadow_cull_mask".into(), u32_schema()),
+        ]),
+        &[],
+    )
+}
+fn environment_configure_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("background_mode".into(), bounded_int(0, 6)),
+            ("background_color".into(), color_array_schema()),
+            (
+                "background_energy_multiplier".into(),
+                bounded_number(0.0, 1000.0),
+            ),
+            ("ambient_light_source".into(), bounded_int(0, 3)),
+            ("ambient_light_color".into(), color_array_schema()),
+            ("ambient_light_energy".into(), bounded_number(0.0, 1000.0)),
+            ("fog_enabled".into(), boolean()),
+            ("fog_density".into(), bounded_number(0.0, 1.0)),
+            ("fog_light_color".into(), color_array_schema()),
+            ("fog_light_energy".into(), bounded_number(0.0, 1000.0)),
+            ("glow_enabled".into(), boolean()),
+            ("glow_intensity".into(), bounded_number(0.0, 1000.0)),
+            ("tonemap_mode".into(), bounded_int(0, 4)),
+        ]),
+        &[],
+    )
+}
+fn material_standard_configure_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("albedo_color".into(), color_array_schema()),
+            ("metallic".into(), bounded_number(0.0, 1.0)),
+            ("roughness".into(), bounded_number(0.0, 1.0)),
+            ("emission_enabled".into(), boolean()),
+            ("emission".into(), color_array_schema()),
+            ("transparency".into(), bounded_int(0, 6)),
+            ("shading_mode".into(), bounded_int(0, 2)),
+        ]),
+        &[],
+    )
+}
+fn ui_control_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("visible".into(), boolean()),
+            ("focus_mode".into(), bounded_int(0, 2)),
+            ("mouse_filter".into(), bounded_int(0, 2)),
+            ("layout_direction".into(), bounded_int(0, 3)),
+            ("size_flags_horizontal".into(), bounded_int(0, 31)),
+            ("size_flags_vertical".into(), bounded_int(0, 31)),
+            (
+                "size_flags_stretch_ratio".into(),
+                bounded_number(0.0, 1000.0),
+            ),
+            (
+                "tooltip_text".into(),
+                json!({"type":"string","maxLength":4096}),
+            ),
+            (
+                "theme_type_variation".into(),
+                json!({"type":"string","maxLength":96}),
+            ),
+            ("minimum_size".into(), vec2_schema()),
+        ]),
+        &[],
+    )
+}
+fn ui_text_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("text".into(), json!({"type":"string","maxLength":262144})),
+            ("horizontal_alignment".into(), bounded_int(0, 3)),
+            ("vertical_alignment".into(), bounded_int(0, 3)),
+            ("autowrap_mode".into(), bounded_int(0, 3)),
+            ("text_overrun_behavior".into(), bounded_int(0, 4)),
+            ("uppercase".into(), boolean()),
+            ("editable".into(), boolean()),
+            ("secret".into(), boolean()),
+        ]),
+        &[],
+    )
+}
+fn theme_configure_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            (
+                "kind".into(),
+                json!({"enum":["color","constant","font_size","font","icon","stylebox","type_variation"]}),
+            ),
+            ("theme_type".into(), json!({"type":"string","maxLength":96})),
+            ("name".into(), json!({"type":"string","maxLength":96})),
+            ("color".into(), color_array_schema()),
+            ("integer".into(), bounded_int(-1_000_000, 1_000_000)),
+            ("resource".into(), optional_path_schema()),
+            ("base_type".into(), json!({"type":"string","maxLength":96})),
+        ]),
+        &["kind", "theme_type", "name"],
+    )
+}
+fn theme_apply_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("theme".into(), optional_path_schema()),
+            (
+                "type_variation".into(),
+                json!({"type":"string","maxLength":96}),
+            ),
+        ]),
+        &["theme"],
+    )
+}
+fn skeleton_bone_add_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("name".into(), string(96)),
+            ("parent".into(), bounded_int(-1, 511)),
+            ("position".into(), vec3_schema()),
+            ("rotation".into(), quat_schema()),
+            ("scale".into(), vec3_schema()),
+        ]),
+        &["name"],
+    )
+}
+fn skeleton_bone_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("index".into(), bounded_int(0, 511)),
+            ("name".into(), string(96)),
+            ("parent".into(), bounded_int(-1, 511)),
+            ("enabled".into(), boolean()),
+            ("position".into(), vec3_schema()),
+            ("rotation".into(), quat_schema()),
+            ("scale".into(), vec3_schema()),
+            ("reset_pose".into(), boolean()),
+        ]),
+        &["index"],
+    )
+}
+fn skeleton_attachment_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("bone_name".into(), json!({"type":"string","maxLength":96})),
+            ("bone_idx".into(), bounded_int(-1, 511)),
+            ("override_pose".into(), boolean()),
+            ("use_external_skeleton".into(), boolean()),
+            (
+                "external_skeleton".into(),
+                json!({"type":"string","maxLength":240}),
+            ),
+        ]),
+        &[],
     )
 }
 
