@@ -651,18 +651,36 @@ fn bounded(mut reader: impl Read, max: usize) -> Result<String> {
     Ok(text)
 }
 pub fn read_file(path: &Path, max: usize) -> Result<String> {
-    use std::os::unix::fs::OpenOptionsExt;
     if path == Path::new("-") {
         return bounded(std::io::stdin().lock(), max);
     }
-    let file = std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
-        .open(path)?;
-    if !file.metadata()?.is_file() {
-        return Err(Error::invalid("Input must be a regular file or stdin"));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
+            .open(path)?;
+        if !file.metadata()?.is_file() {
+            return Err(Error::invalid("Input must be a regular file or stdin"));
+        }
+        return bounded(file, max);
     }
-    bounded(file, max)
+    #[cfg(target_os = "windows")]
+    {
+        let metadata = std::fs::symlink_metadata(path)?;
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(Error::invalid(
+                "Input must be a regular non-link file or stdin",
+            ));
+        }
+        return bounded(std::fs::OpenOptions::new().read(true).open(path)?, max);
+    }
+    #[allow(unreachable_code)]
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "File input is unavailable on this platform",
+    ))
 }
 impl JsonArgs {
     pub fn value(&self) -> Result<Value> {
@@ -1044,12 +1062,14 @@ pub fn print_result(value: &Value, machine: bool) -> Result<()> {
 }
 pub fn create(path: &Path, text: &str) -> Result<()> {
     use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
-    let mut f = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(path)?;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut f = options.open(path)?;
     f.write_all(text.as_bytes())?;
     f.sync_all()?;
     Ok(())

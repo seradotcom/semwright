@@ -6,7 +6,7 @@ members = [
     "integrations/kicad-driver/driver",
     "integrations/kicad-driver/kicad-ipc",
 ]
-exclude = ["fuzz"]
+exclude = ["fuzz", "fixtures/windows-uia"]
 
 [workspace.package]
 version = "0.9.0-dev.1"
@@ -86,7 +86,11 @@ semwright-platform-linux = { path = "crates/platform-linux", version = "=0.9.0-d
 semwright-platform-linux-sys = { path = "crates/platform-linux-sys", version = "=0.9.0-dev.1" }
 semwright-platform-macos = { path = "crates/platform-macos", version = "=0.9.0-dev.1" }
 semwright-platform-macos-sys = { path = "crates/platform-macos-sys", version = "=0.9.0-dev.1" }
+semwright-platform-windows = { path = "crates/platform-windows", version = "=0.9.0-dev.1" }
+semwright-platform-windows-sys = { path = "crates/platform-windows-sys", version = "=0.9.0-dev.1" }
 semwright-platform-services = { path = "crates/platform-services", version = "=0.9.0-dev.1" }
+uiautomation = { version = "=0.25.1", default-features = false, features = ["control", "pattern", "event", "input"] }
+windows-sys = { version = ">=0.59, <=0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_DataExchange", "Win32_System_Diagnostics_Debug", "Win32_System_JobObjects", "Win32_System_Memory", "Win32_System_Pipes", "Win32_System_ProcessStatus", "Win32_System_Threading", "Win32_UI_Accessibility", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_StationsAndDesktops", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

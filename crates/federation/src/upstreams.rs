@@ -1,12 +1,15 @@
 //! Owner-managed upstream definitions. Definitions never grant broker authority.
 use crate::{StdioUpstreamConfig, executable_sha256};
-use semwright_protocol::{current_uid, private_directory};
+#[cfg(unix)]
+use semwright_protocol::current_uid;
+use semwright_protocol::private_directory;
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use serde::{Deserialize, Serialize};
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::{
     collections::BTreeSet,
     io::{Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
 
@@ -103,21 +106,12 @@ impl UpstreamRegistry {
 }
 
 pub fn default_upstream_registry_path() -> Result<PathBuf> {
-    let base = if let Some(path) = std::env::var_os("XDG_CONFIG_HOME") {
-        PathBuf::from(path)
-    } else {
-        PathBuf::from(
-            std::env::var_os("HOME")
-                .ok_or_else(|| Error::unavailable("HOME or XDG_CONFIG_HOME required"))?,
-        )
-        .join(".config")
-    };
-    if !base.is_absolute() {
-        return Err(Error::invalid("XDG_CONFIG_HOME must be absolute"));
-    }
-    Ok(base.join("semwright/mcp-upstreams.toml"))
+    Ok(semwright_platform_services::paths()?
+        .config
+        .join("mcp-upstreams.toml"))
 }
 
+#[cfg(unix)]
 fn check_registry_file(path: &Path, metadata: &std::fs::Metadata) -> Result<()> {
     if !metadata.is_file()
         || metadata.file_type().is_symlink()
@@ -138,13 +132,27 @@ fn check_registry_file(path: &Path, metadata: &std::fs::Metadata) -> Result<()> 
     }
     Ok(())
 }
+#[cfg(target_os = "windows")]
+fn check_registry_file(path: &Path, metadata: &std::fs::Metadata) -> Result<()> {
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() > MAX_REGISTRY as u64
+        || path.parent().is_none()
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows MCP upstream registry must be a bounded regular non-link file in the private config directory",
+        ));
+    }
+    Ok(())
+}
 
 pub fn load_upstream_registry(path: &Path) -> Result<UpstreamRegistry> {
-    let file = match std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(path)
-    {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    let file = match options.open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(UpstreamRegistry::default());
@@ -199,11 +207,11 @@ pub fn save_upstream_registry(path: &Path, registry: &UpstreamRegistry) -> Resul
     }
     let temp = parent.join(format!(".mcp-upstreams-{}.tmp", unique_id()));
     let result = (|| -> Result<()> {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temp)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let mut file = options.open(&temp)?;
         file.write_all(text.as_bytes())?;
         file.sync_all()?;
         std::fs::rename(&temp, path)?;

@@ -18,10 +18,12 @@ use semwright_types::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::io::Read;
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io::Read,
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::PathBuf,
     process::Stdio,
     sync::{Arc, Mutex},
@@ -114,6 +116,7 @@ impl StdioUpstreamConfig {
     }
 }
 
+#[cfg(unix)]
 pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
     if !program.is_absolute() || std::fs::canonicalize(program).ok().as_deref() != Some(program) {
         return Err(Error::invalid(
@@ -149,6 +152,13 @@ pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
         digest.update(&buffer[..read]);
     }
     Ok(format!("{:x}", digest.finalize()))
+}
+#[cfg(target_os = "windows")]
+pub fn executable_sha256(_program: &std::path::Path) -> Result<String> {
+    Err(Error::new(
+        ErrorCode::SandboxDenied,
+        "Windows external MCP executable trust is fail-closed until owner/DACL and signing policy is implemented",
+    ))
 }
 
 #[derive(Clone)]
