@@ -1,23 +1,15 @@
 use super::*;
 use semwright_registry::Metadata;
 use semwright_workflow::{
-    Candidate, DescriptorLookup, ParameterHint, Promotion, TraceStep, WorkflowManager,
-    WorkflowTrace, compile as compile_trace, promoted_descriptor, sanitize, verify_drift,
+    Candidate, DescriptorLookup, ParameterHint, TraceStep, compile as compile_trace,
+    promoted_descriptor, sanitize, verify_drift,
 };
-use sha2::{Digest, Sha256};
 use std::path::Path;
 
 impl DescriptorLookup for Broker {
     fn describe(&self, command: &str) -> Result<CommandDescriptor> {
         Broker::describe(self, command)
     }
-}
-
-fn descriptor_digest(descriptor: &CommandDescriptor) -> Result<String> {
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(descriptor)?)
-    ))
 }
 
 fn learned_recipe_metadata(identity: &ProviderIdentity) -> Metadata {
