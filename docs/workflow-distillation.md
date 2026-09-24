@@ -50,7 +50,11 @@ within the configured size/depth budgets invalidates the trace instead of being 
 omitted.
 The local workflow store is private state. On Unix its directory is mode 0700 and its
 file is mode 0600; symlinked stores are rejected. Writes use a same-directory temporary
-file, fsync, rename and directory fsync. The store is bounded to 8 MiB.
+file, fsync, rename and directory fsync. The store is bounded to 8 MiB. On restore,
+candidate fingerprints are recomputed, descriptor-digest coverage must exactly match the
+recipe commands, every source trace must still exist, and promoted state must resolve to
+a verified/replayed canonical candidate. Corrupt or divergent persisted state fails
+closed instead of being registered as a learned capability.
 
 ## Compile
 
@@ -66,7 +70,7 @@ With multiple traces, scalar argument values that differ are converted into type
 inputs. Values that correspond to a unique prior step result are rewritten as `$var`
 bindings so ephemeral state is reacquired during replay. V1 recognizes only compatible
 structural dataflow classes — opaque refs, identities, filesystem paths/roots, SHA-256
-digests, revisions and provider tokens — so patterns such as
+digests and revisions — so patterns such as
 `resulting_revision → expected_revision` and `artifact.path → source_path` compile
 without binding unrelated equal strings. An opaque reference that cannot be tied to a
 prior result is never baked into a recipe: compilation fails until the caller explicitly

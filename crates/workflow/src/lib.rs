@@ -8,7 +8,9 @@ mod model;
 mod sanitize;
 mod store;
 
-pub use compiler::{DescriptorLookup, compile, promoted_descriptor, verify_drift};
+pub use compiler::{
+    DescriptorLookup, compile, promoted_descriptor, validate_candidate_integrity, verify_drift,
+};
 pub use model::*;
 pub use sanitize::{looks_like_ref, sanitize};
 pub use store::WorkflowManager;

@@ -80,7 +80,6 @@ enum StructuralValue {
     Path,
     Digest,
     Revision,
-    Token,
     Root,
 }
 
@@ -99,7 +98,6 @@ fn structural_value(pointer: &str, value: &Value) -> Option<StructuralValue> {
         "path" | "source_path" | "destination_path" | "resource" => Some(StructuralValue::Path),
         "sha256" | "expected_sha256" | "digest" | "checksum" => Some(StructuralValue::Digest),
         "revision" | "expected_revision" | "resulting_revision" => Some(StructuralValue::Revision),
-        "token" | "artifact_token" => Some(StructuralValue::Token),
         "root" | "source_root" | "destination_root" => Some(StructuralValue::Root),
         _ if leaf.ends_with("_id") => Some(StructuralValue::Identity),
         _ => None,
@@ -516,14 +514,7 @@ pub fn compile(
         .iter()
         .map(|trace| trace.id.clone())
         .collect::<Vec<_>>();
-    let fingerprint = format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(&json!({
-            "recipe":recipe,
-            "traces":source_trace_ids,
-            "digests":descriptor_digests
-        }))?)
-    );
+    let fingerprint = candidate_fingerprint(&recipe, &source_trace_ids, &descriptor_digests)?;
     Ok(Candidate {
         version: CANDIDATE_VERSION,
         id: format!("candidate-{}", &fingerprint[..24]),
@@ -537,13 +528,89 @@ pub fn compile(
     })
 }
 
-pub fn verify_drift(candidate: &Candidate, lookup: &dyn DescriptorLookup) -> Result<Value> {
+pub(crate) fn candidate_fingerprint(
+    recipe: &Recipe,
+    source_trace_ids: &[String],
+    descriptor_digests: &BTreeMap<String, String>,
+) -> Result<String> {
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&json!({
+            "recipe":recipe,
+            "traces":source_trace_ids,
+            "digests":descriptor_digests
+        }))?)
+    ))
+}
+
+pub fn validate_candidate_integrity(candidate: &Candidate) -> Result<()> {
     if candidate.version != CANDIDATE_VERSION {
         return Err(Error::new(
             ErrorCode::ProtocolMismatch,
             "Unsupported workflow candidate version",
         ));
     }
+    if candidate.source_trace_ids.is_empty() || candidate.source_trace_ids.len() > 8 {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Workflow candidate has an invalid source-trace set",
+        ));
+    }
+    let trace_ids = candidate.source_trace_ids.iter().collect::<BTreeSet<_>>();
+    if trace_ids.len() != candidate.source_trace_ids.len()
+        || candidate
+            .source_trace_ids
+            .iter()
+            .any(|id| !id.starts_with("trace-"))
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Workflow candidate source traces are invalid or duplicated",
+        ));
+    }
+
+    let commands = candidate
+        .recipe
+        .steps
+        .iter()
+        .map(|step| step.command.clone())
+        .collect::<BTreeSet<_>>();
+    let digest_commands = candidate
+        .source_descriptor_sha256
+        .keys()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    if commands != digest_commands
+        || candidate.source_descriptor_sha256.values().any(|digest| {
+            digest.len() != 64
+                || !digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        })
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Workflow candidate descriptor coverage or digest is invalid",
+        ));
+    }
+
+    let expected = candidate_fingerprint(
+        &candidate.recipe,
+        &candidate.source_trace_ids,
+        &candidate.source_descriptor_sha256,
+    )?;
+    if candidate.fingerprint != expected || candidate.id != format!("candidate-{}", &expected[..24])
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Workflow candidate fingerprint or identity does not match its contents",
+        ));
+    }
+    Ok(())
+}
+
+pub fn verify_drift(candidate: &Candidate, lookup: &dyn DescriptorLookup) -> Result<Value> {
+    validate_candidate_integrity(candidate)?;
     let mut current = BTreeMap::new();
     for (command, expected) in &candidate.source_descriptor_sha256 {
         let descriptor = lookup.describe(command)?;

@@ -1,6 +1,6 @@
 use crate::{
     ActiveTrace, CANDIDATE_VERSION, Candidate, MAX_PROMOTIONS, MAX_TRACE_STEPS, MAX_TRACES,
-    Promotion, TRACE_VERSION, TraceStep, WorkflowTrace,
+    Promotion, TRACE_VERSION, TraceStep, WorkflowTrace, validate_candidate_integrity,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
@@ -122,17 +122,33 @@ impl WorkflowManager {
                 || trace.steps.is_empty()
                 || trace.steps.len() > MAX_TRACE_STEPS
         });
+        let candidate_by_id = state
+            .candidates
+            .iter()
+            .map(|candidate| (candidate.id.as_str(), candidate))
+            .collect::<BTreeMap<_, _>>();
         let invalid_candidate = state.candidates.iter().any(|candidate| {
-            candidate.version != CANDIDATE_VERSION
-                || !candidate.id.starts_with("candidate-")
-                || candidate.recipe.steps.is_empty()
+            candidate.recipe.steps.is_empty()
                 || candidate.recipe.steps.len() > MAX_TRACE_STEPS
+                || validate_candidate_integrity(candidate).is_err()
+                || candidate
+                    .source_trace_ids
+                    .iter()
+                    .any(|trace_id| !trace_ids.contains(trace_id.as_str()))
         });
         let invalid_promotion = state.promotions.iter().any(|promotion| {
+            let Some(canonical) = candidate_by_id.get(promotion.candidate.id.as_str()) else {
+                return true;
+            };
             promotion.version != 1
                 || !canonical_slug(&promotion.slug)
                 || promotion.capability != format!("recipe.{}.run", promotion.slug)
-                || promotion.candidate.version != CANDIDATE_VERSION
+                || validate_candidate_integrity(&promotion.candidate).is_err()
+                || promotion.candidate.fingerprint != canonical.fingerprint
+                || !promotion.candidate.static_verified
+                || promotion.candidate.successful_replays == 0
+                || !canonical.static_verified
+                || canonical.successful_replays == 0
         });
         if state.version != 1
             || state.traces.len() > MAX_TRACES
@@ -163,7 +179,10 @@ impl WorkflowManager {
         self.promotions = state
             .promotions
             .into_iter()
-            .map(|v| (v.slug.clone(), v))
+            .map(|mut promotion| {
+                promotion.candidate = self.candidates[&promotion.candidate.id].clone();
+                (promotion.slug.clone(), promotion)
+            })
             .collect();
         Ok(())
     }
@@ -369,6 +388,7 @@ impl WorkflowManager {
     }
 
     pub fn store_candidate(&mut self, candidate: Candidate) -> Result<()> {
+        validate_candidate_integrity(&candidate)?;
         if !self.candidates.contains_key(&candidate.id) && self.candidates.len() >= MAX_TRACES {
             return Err(Error::new(
                 ErrorCode::ResourceExhausted,
@@ -475,6 +495,7 @@ impl WorkflowManager {
             ));
         }
         let candidate = self.candidate(candidate_id)?;
+        validate_candidate_integrity(&candidate)?;
         if !candidate.static_verified || candidate.successful_replays == 0 {
             return Err(Error::new(
                 ErrorCode::Conflict,
@@ -550,29 +571,38 @@ mod tests {
     }
 
     fn candidate(trace_id: &str) -> Candidate {
+        let recipe = Recipe {
+            version: 1,
+            name: "test".into(),
+            description: String::new(),
+            inputs: BTreeMap::new(),
+            steps: vec![Step {
+                id: "step-1".into(),
+                command: "doctor".into(),
+                args: json!({}),
+                timeout_ms: 1000,
+                retry: Retry::default(),
+                when: None,
+                assertions: vec![],
+            }],
+            outputs: BTreeMap::new(),
+        };
+        let source_trace_ids = vec![trace_id.into()];
+        let source_descriptor_sha256 = [("doctor".into(), "a".repeat(64))].into_iter().collect();
+        let fingerprint = crate::compiler::candidate_fingerprint(
+            &recipe,
+            &source_trace_ids,
+            &source_descriptor_sha256,
+        )
+        .unwrap();
         Candidate {
             version: CANDIDATE_VERSION,
-            id: "candidate-test".into(),
-            recipe: Recipe {
-                version: 1,
-                name: "test".into(),
-                description: String::new(),
-                inputs: BTreeMap::new(),
-                steps: vec![Step {
-                    id: "step-1".into(),
-                    command: "doctor".into(),
-                    args: json!({}),
-                    timeout_ms: 1000,
-                    retry: Retry::default(),
-                    when: None,
-                    assertions: vec![],
-                }],
-                outputs: BTreeMap::new(),
-            },
-            source_trace_ids: vec![trace_id.into()],
-            source_descriptor_sha256: [("doctor".into(), "a".repeat(64))].into_iter().collect(),
+            id: format!("candidate-{}", &fingerprint[..24]),
+            recipe,
+            source_trace_ids,
+            source_descriptor_sha256,
             compiled_unix_ms: 1,
-            fingerprint: "b".repeat(64),
+            fingerprint,
             static_verified: false,
             successful_replays: 0,
         }
@@ -591,26 +621,19 @@ mod tests {
         let mut manager = WorkflowManager::default();
         manager.configure_persistence(&directory).unwrap();
         let trace = persisted_trace(&mut manager);
-        manager.store_candidate(candidate(&trace.id)).unwrap();
-        manager.mark_static_verified("candidate-test").unwrap();
-        manager.mark_replay("candidate-test").unwrap();
+        let candidate = candidate(&trace.id);
+        let candidate_id = candidate.id.clone();
+        manager.store_candidate(candidate).unwrap();
+        manager.mark_static_verified(&candidate_id).unwrap();
+        manager.mark_replay(&candidate_id).unwrap();
         manager
-            .promote(
-                "demo-workflow",
-                "candidate-test",
-                "recipe.demo-workflow.run",
-            )
+            .promote("demo-workflow", &candidate_id, "recipe.demo-workflow.run")
             .unwrap();
 
         let mut restored = WorkflowManager::default();
         restored.configure_persistence(&directory).unwrap();
         assert_eq!(restored.trace(&trace.id).unwrap().id, trace.id);
-        assert!(
-            restored
-                .candidate("candidate-test")
-                .unwrap()
-                .static_verified
-        );
+        assert!(restored.candidate(&candidate_id).unwrap().static_verified);
         assert_eq!(
             restored
                 .promotion_by_capability("recipe.demo-workflow.run")
@@ -626,38 +649,28 @@ mod tests {
         manager.start("session", "demo", "", true).unwrap();
         manager.record("session", step()).unwrap();
         let trace = manager.stop("session", true).unwrap();
-        manager.store_candidate(candidate(&trace.id)).unwrap();
+        let candidate = candidate(&trace.id);
+        let candidate_id = candidate.id.clone();
+        manager.store_candidate(candidate).unwrap();
 
         assert_eq!(
             manager
-                .promote(
-                    "demo-workflow",
-                    "candidate-test",
-                    "recipe.demo-workflow.run"
-                )
+                .promote("demo-workflow", &candidate_id, "recipe.demo-workflow.run")
                 .unwrap_err()
                 .code,
             ErrorCode::Conflict
         );
-        manager.mark_static_verified("candidate-test").unwrap();
+        manager.mark_static_verified(&candidate_id).unwrap();
         assert_eq!(
             manager
-                .promote(
-                    "demo-workflow",
-                    "candidate-test",
-                    "recipe.demo-workflow.run"
-                )
+                .promote("demo-workflow", &candidate_id, "recipe.demo-workflow.run")
                 .unwrap_err()
                 .code,
             ErrorCode::Conflict
         );
-        manager.mark_replay("candidate-test").unwrap();
+        manager.mark_replay(&candidate_id).unwrap();
         manager
-            .promote(
-                "demo-workflow",
-                "candidate-test",
-                "recipe.demo-workflow.run",
-            )
+            .promote("demo-workflow", &candidate_id, "recipe.demo-workflow.run")
             .unwrap();
     }
 
@@ -667,28 +680,26 @@ mod tests {
         manager.start("session", "demo", "", true).unwrap();
         manager.record("session", step()).unwrap();
         let trace = manager.stop("session", true).unwrap();
-        manager.store_candidate(candidate(&trace.id)).unwrap();
+        let candidate = candidate(&trace.id);
+        let candidate_id = candidate.id.clone();
+        manager.store_candidate(candidate).unwrap();
 
         assert_eq!(
             manager.delete_trace(&trace.id).unwrap_err().code,
             ErrorCode::Conflict
         );
-        manager.mark_static_verified("candidate-test").unwrap();
-        manager.mark_replay("candidate-test").unwrap();
+        manager.mark_static_verified(&candidate_id).unwrap();
+        manager.mark_replay(&candidate_id).unwrap();
         manager
-            .promote(
-                "demo-workflow",
-                "candidate-test",
-                "recipe.demo-workflow.run",
-            )
+            .promote("demo-workflow", &candidate_id, "recipe.demo-workflow.run")
             .unwrap();
         assert_eq!(
-            manager.delete_candidate("candidate-test").unwrap_err().code,
+            manager.delete_candidate(&candidate_id).unwrap_err().code,
             ErrorCode::Conflict
         );
 
         manager.demote("demo-workflow").unwrap();
-        manager.delete_candidate("candidate-test").unwrap();
+        manager.delete_candidate(&candidate_id).unwrap();
         manager.delete_trace(&trace.id).unwrap();
         assert!(manager.list_traces().is_empty());
     }
@@ -699,7 +710,88 @@ mod tests {
         let directory = temp.path().join("workflows");
         let mut manager = WorkflowManager::default();
         manager.configure_persistence(&directory).unwrap();
-        std::fs::write(directory.join("workflows.json"), b"{not-json").unwrap();
+        let file = directory.join("workflows.json");
+        std::fs::write(&file, b"{not-json").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
+
+        let mut restored = WorkflowManager::default();
+        assert_eq!(
+            restored.configure_persistence(&directory).unwrap_err().code,
+            ErrorCode::Conflict
+        );
+    }
+
+    #[test]
+    fn tampered_candidate_contents_fail_closed_on_restore() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        let trace = persisted_trace(&mut manager);
+        manager.store_candidate(candidate(&trace.id)).unwrap();
+
+        let file = directory.join("workflows.json");
+        let mut persisted: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        persisted["candidates"][0]["recipe"]["description"] =
+            Value::String("tampered after compilation".into());
+        std::fs::write(&file, serde_json::to_vec_pretty(&persisted).unwrap()).unwrap();
+
+        let mut restored = WorkflowManager::default();
+        assert_eq!(
+            restored.configure_persistence(&directory).unwrap_err().code,
+            ErrorCode::Conflict
+        );
+    }
+
+    #[test]
+    fn restored_promotion_uses_canonical_replay_evidence() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        let trace = persisted_trace(&mut manager);
+        let candidate = candidate(&trace.id);
+        let candidate_id = candidate.id.clone();
+        manager.store_candidate(candidate).unwrap();
+        manager.mark_static_verified(&candidate_id).unwrap();
+        manager.mark_replay(&candidate_id).unwrap();
+        manager
+            .promote("demo-workflow", &candidate_id, "recipe.demo-workflow.run")
+            .unwrap();
+
+        // A later replay updates the canonical candidate. The embedded promotion
+        // snapshot is intentionally historical and must not become the executable copy.
+        manager.mark_replay(&candidate_id).unwrap();
+
+        let mut restored = WorkflowManager::default();
+        restored.configure_persistence(&directory).unwrap();
+        let promotion = restored
+            .promotion_by_capability("recipe.demo-workflow.run")
+            .unwrap();
+        assert_eq!(promotion.candidate.successful_replays, 2);
+        assert_eq!(
+            promotion.candidate.fingerprint,
+            restored.candidate(&candidate_id).unwrap().fingerprint
+        );
+    }
+
+    #[test]
+    fn candidate_cannot_outlive_its_source_trace_in_persisted_state() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        let trace = persisted_trace(&mut manager);
+        manager.store_candidate(candidate(&trace.id)).unwrap();
+
+        let file = directory.join("workflows.json");
+        let mut persisted: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        persisted["traces"] = json!([]);
+        std::fs::write(&file, serde_json::to_vec_pretty(&persisted).unwrap()).unwrap();
 
         let mut restored = WorkflowManager::default();
         assert_eq!(
