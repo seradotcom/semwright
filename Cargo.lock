@@ -3377,7 +3377,7 @@ dependencies = [
  "tokio",
  "uuid",
  "windows",
- "windows-sys",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
