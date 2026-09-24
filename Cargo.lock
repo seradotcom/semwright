@@ -2458,7 +2458,7 @@ name = "semwright-adapters"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "futures-util",
  "libc",
  "proptest",
@@ -2672,7 +2672,7 @@ name = "semwright-driver-obs"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "futures-util",
  "jsonschema",
  "libc",
