@@ -1,0 +1,51 @@
+# Semwright Godot Driver
+
+First-party semantic Godot 4.x integration built on an authenticated local EditorPlugin bridge plus a pinned Godot runner for validation, runtime tests and exports.
+
+```text
+agent
+  -> Semwright broker / policy / audit
+  -> sandboxed semwright-godot-driver
+  -> authenticated 127.0.0.1 WebSocket bridge
+  -> Semwright Godot EditorPlugin
+  -> official Godot editor / scene / resource APIs
+```
+
+The driver does not expose arbitrary GDScript evaluation, OS.execute, shell execution, coordinate automation or unrestricted object-method invocation.
+
+## Status
+
+The current catalog exposes **53 typed `driver.godot.*` capabilities** with operation-specific strict input/output schemas. Driver Protocol v2 negotiates cooperative cancellation, child events, progress, artifacts and health. The production Rust driver has been exercised end-to-end against both an independent fake editor and Godot 4.7.2-stable.
+The real acceptance harness creates a disposable 3D Lab Room through the production driver, writes resources and managed scripts, creates scene nodes, InputMap actions, signals and animation keyframes, saves/reloads the scene, validates and runs it headlessly, exports a PCK artifact and verifies cancellation. It also verifies real Godot editor events crossing the child-event interface.
+
+## Surface
+
+The curated surface covers project/session inspection, project files and main scene, scenes, typed node creation/mutation/reparenting, groups, InputMap, resources, managed GDScript, signals, animations/tracks/keyframes, AnimationTree configuration, physics layers, Control layout, shaders, resource-filesystem status/rescan, semantic snapshot diff, project/script validation, bounded runtime tests, pack export, executable export and deterministic movie capture.
+
+`export.build` requires owner-installed Godot export templates. `movie.capture` requires an owner-configured X11 display; the driver deliberately refuses that path without one because Godot 4.7.2's dummy headless renderer can crash under `--write-movie`.
+
+## Build and verification
+
+```sh
+cargo fmt --all -- --check
+cargo test -p semwright-driver-godot --all-targets
+cargo clippy -p semwright-driver-godot --all-targets --all-features -- -D warnings
+cargo build -p semwright-driver-godot --bin semwright-godot-driver
+```
+
+Hosted native integration additionally downloads the pinned official Godot 4.7.2 Linux build, checks its SHA-256, runs authenticated real-editor acceptance and runs the driver through the real Linux Driver Host sandbox.
+## Pairing and project safety
+
+Owner configuration assigns each project a 256-bit project identifier and secret. The plugin sends a random nonce, the bridge returns a server challenge, and both sides authenticate the same bounded transcript with HMAC-SHA256 before a session is usable. The listener binds only to 127.0.0.1.
+
+Opening/importing arbitrary Godot projects is a code-execution boundary: projects can contain `@tool` scripts, EditorPlugins, GDExtensions, custom importers and other executable content. Configure only owner-approved project roots and use disposable fixtures for untrusted projects.
+
+Managed script writing rejects `@tool` and is path-confined to the configured project, but scripts remain project source code and execute when the owner later runs the project. Policy must continue to classify those capabilities accordingly.
+
+## Installation
+
+Copy `integrations/godot/addons/semwright/` into the target project's `res://addons/semwright/` and enable the plugin. Start from `driver.manifest.example.json`, replace paths/digests, provide owner filesystem grants for private config/project/output/runtime roots, and explicitly opt in to driver network access.
+
+The current manifest model expresses network as a boolean; the driver itself only listens on loopback.
+
+See [security](docs/SECURITY.md), [compatibility](docs/COMPATIBILITY.md), [capabilities](docs/CAPABILITIES.md), and [SDK gaps](docs/SDK_GAPS.md).

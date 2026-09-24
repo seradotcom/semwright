@@ -1,0 +1,120 @@
+name: Godot driver integration
+defaults:
+  run:
+    shell: bash
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/driver-godot/**"
+      - "integrations/godot/**"
+      - "crates/driver-sdk/**"
+      - "crates/driver-host/**"
+      - "crates/plugin-host/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/godot-integration.yml"
+  pull_request:
+    paths:
+      - "crates/driver-godot/**"
+      - "integrations/godot/**"
+      - "crates/driver-sdk/**"
+      - "crates/driver-host/**"
+      - "crates/plugin-host/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/godot-integration.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: godot-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: godot-conformance
+      - name: Install sandbox prerequisite
+        run: |
+          set -o pipefail
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          mkdir -p verification/godot-ci
+          bwrap --version | tee verification/godot-ci/bwrap-version.log
+      - name: Rust Godot driver suite
+        run: |
+          set -o pipefail
+          cargo fmt --all -- --check
+          cargo check --locked -p semwright-driver-godot --all-targets 2>&1 | tee verification/godot-ci/driver-check.log
+          cargo test --locked -p semwright-driver-godot --all-targets 2>&1 | tee verification/godot-ci/driver-tests.log
+          cargo clippy --locked -p semwright-driver-godot --all-targets --all-features -- -D warnings 2>&1 | tee verification/godot-ci/driver-clippy.log
+      - name: Real Driver Host conformance
+        run: |
+          set -o pipefail
+          cargo build --locked -p semwright-driver-godot --bin semwright-godot-driver -p semwright-plugin-host --bin semwright-sandbox
+          SEMWRIGHT_TEST_GODOT=1 \
+          SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox" \
+            cargo test --locked -p semwright-driver-godot --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/godot-ci/host-conformance.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: godot-conformance-evidence
+          path: verification/godot-ci
+          retention-days: 14
+
+  real-godot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: godot-real
+      - name: Install pinned Godot 4.7.2
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" verification/godot-real-ci
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-real-ci/godot-version.log
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+      - name: Build production driver
+        run: |
+          set -o pipefail
+          cargo build --locked -p semwright-driver-godot --bin semwright-godot-driver 2>&1 | tee verification/godot-real-ci/driver-build.log
+          python3 -m py_compile crates/driver-godot/tools/e2e_real.py
+      - name: Real Godot semantic acceptance
+        env:
+          SEMWRIGHT_TEST_GODOT_BIN: ${{ env.GODOT_BIN }}
+          SEMWRIGHT_GODOT_TRACE: ${{ github.workspace }}/verification/godot-real-ci/godot-real-trace.json
+          BIN_DIR: ${{ github.workspace }}/target/debug
+        run: |
+          set -o pipefail
+          python3 -u crates/driver-godot/tools/e2e_real.py 2>&1 | tee verification/godot-real-ci/godot-real-e2e.log
+          ! grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" verification/godot-real-ci/godot-real-trace.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: godot-real-evidence
+          path: verification/godot-real-ci
+          retention-days: 14
