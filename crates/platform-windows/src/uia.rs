@@ -120,6 +120,18 @@ impl State {
     fn remember(&mut self, element: UIElement, kind: &str) -> Result<NativeTarget> {
         let stamp = stamp(&element)?;
         let identity = format!("uia:{}", digest_stamp(&stamp));
+        if let Some(entry) = self.entries.get_mut(&identity)
+            && entry.stamp == stamp
+        {
+            entry.element = element;
+            return Ok(NativeTarget {
+                kind: kind.into(),
+                identity,
+                revision: entry.revision,
+                fingerprint: digest_stamp(&stamp),
+                app: format!("pid:{}", stamp.pid),
+            });
+        }
         self.next_revision = self.next_revision.saturating_add(1);
         let revision = self.next_revision;
         self.entries.insert(
@@ -209,19 +221,95 @@ impl State {
         } else {
             bounded(element.get_name().unwrap_or_default())
         };
+        let enabled = element.is_enabled().unwrap_or(false);
+        let focused = element.has_keyboard_focus().unwrap_or(false);
+        let mut states = Vec::new();
+        if enabled {
+            states.push("enabled");
+        }
+        if focused {
+            states.push("focused");
+        }
+        if password {
+            states.push("password");
+        }
+        let mut actions = Vec::new();
+        if element.get_pattern::<UIInvokePattern>().is_ok() {
+            actions.push("click");
+        }
+        if element.get_pattern::<UIValuePattern>().is_ok() {
+            actions.push("set_text");
+        }
+        if element.get_pattern::<UIRangeValuePattern>().is_ok() {
+            actions.push("set_value");
+        }
+        if element.get_pattern::<UITogglePattern>().is_ok() {
+            actions.push("toggle");
+        }
+        if element.get_pattern::<UISelectionItemPattern>().is_ok() {
+            actions.push("select");
+        }
+        if element.get_pattern::<UIExpandCollapsePattern>().is_ok() {
+            actions.push("expand");
+        }
         Ok(json!({
             "$ref": target,
             "role": semantic_role(control),
             "name": name,
+            "description": "",
+            "states": states,
+            "actions": actions,
+            "app": format!("pid:{}", element.get_process_id().unwrap_or_default()),
             "automation_id": bounded(element.get_automation_id().unwrap_or_default()),
             "framework": bounded(element.get_framework_id().unwrap_or_default()),
             "class": bounded(element.get_classname().unwrap_or_default()),
-            "enabled": element.is_enabled().unwrap_or(false),
-            "focused": element.has_keyboard_focus().unwrap_or(false),
+            "enabled": enabled,
+            "focused": focused,
             "password": password,
             "bounds": rect.map(|r| json!({"x":r.get_left(),"y":r.get_top(),"width":r.get_width(),"height":r.get_height()})),
             "children": children,
         }))
+    }
+
+    fn flatten_snapshot_node(
+        value: Value,
+        parent: Option<Value>,
+        nodes: &mut Vec<Value>,
+        partial: &mut bool,
+    ) -> Result<()> {
+        let Value::Object(mut object) = value else {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "UIA snapshot node was not an object",
+            ));
+        };
+        if object
+            .get("truncated")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            *partial = true;
+            return Ok(());
+        }
+        let target = object.remove("$ref").ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "UIA snapshot node omitted its native reference",
+            )
+        })?;
+        let children = object
+            .remove("children")
+            .and_then(|value| value.as_array().cloned())
+            .unwrap_or_default();
+        let reference_marker = json!({"$ref": target.clone()});
+        object.insert("ref".into(), reference_marker.clone());
+        object.insert("parent_ref".into(), parent.unwrap_or(Value::Null));
+        object.insert("children_count".into(), json!(children.len()));
+        nodes.push(Value::Object(object));
+        for child in children {
+            Self::flatten_snapshot_node(child, Some(reference_marker.clone()), nodes, partial)?;
+        }
+        Ok(())
     }
 
     fn snapshot(&mut self, target: Option<NativeTarget>) -> Result<Value> {
@@ -234,10 +322,20 @@ impl State {
         };
         let mut count = 0usize;
         let deadline = Instant::now() + SNAPSHOT_BUDGET;
-        let root = self.node(root, 0, &mut count, deadline)?;
-        Ok(
-            json!({"view":"control","node_count":count,"max_nodes":MAX_NODES,"max_depth":MAX_DEPTH,"time_budget_ms":1500,"root":root}),
-        )
+        let tree = self.node(root, 0, &mut count, deadline)?;
+        let mut nodes = Vec::with_capacity(count.min(MAX_NODES));
+        let mut partial = count >= MAX_NODES || Instant::now() >= deadline;
+        Self::flatten_snapshot_node(tree, None, &mut nodes, &mut partial)?;
+        Ok(json!({
+            "nodes": nodes,
+            "partial": partial,
+            "revision": self.next_revision,
+            "view": "control",
+            "node_count": count,
+            "max_nodes": MAX_NODES,
+            "max_depth": MAX_DEPTH,
+            "time_budget_ms": 1500
+        }))
     }
 
     fn invoke(&mut self, target: &NativeTarget) -> Result<Value> {
@@ -503,5 +601,45 @@ fn dispatch(state: &mut State, call: Call) {
         Call::Shutdown(r) => {
             let _ = r.send(Ok(json!({"shutdown":true})));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn target(identity: &str) -> NativeTarget {
+        NativeTarget {
+            kind: "ui".into(),
+            identity: identity.into(),
+            revision: 7,
+            fingerprint: format!("fp:{identity}"),
+            app: "pid:42".into(),
+        }
+    }
+
+    #[test]
+    fn flatten_snapshot_uses_portable_ref_markers() {
+        let tree = json!({
+            "$ref": target("uia:root"),
+            "role": "window",
+            "name": "Root",
+            "children": [{
+                "$ref": target("uia:child"),
+                "role": "button",
+                "name": "Save",
+                "children": []
+            }]
+        });
+        let mut nodes = Vec::new();
+        let mut partial = false;
+        State::flatten_snapshot_node(tree, None, &mut nodes, &mut partial).unwrap();
+        assert!(!partial);
+        assert_eq!(nodes.len(), 2);
+        assert!(nodes[0].get("$ref").is_none());
+        assert_eq!(nodes[0]["ref"]["$ref"]["identity"], "uia:root");
+        assert_eq!(nodes[0]["parent_ref"], Value::Null);
+        assert_eq!(nodes[1]["parent_ref"]["$ref"]["identity"], "uia:root");
+        assert_eq!(nodes[1]["ref"]["$ref"]["identity"], "uia:child");
     }
 }

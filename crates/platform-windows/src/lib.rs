@@ -166,8 +166,7 @@ impl Windows {
         for w in window::enumerate()? {
             let reference = self.remember_window(&w)?;
             let mut value = window::to_json(&w);
-            value["$ref"] = serde_json::to_value(reference)
-                .map_err(|_| Error::new(ErrorCode::Internal, "Window ref serialization failed"))?;
+            value["ref"] = json!({"$ref": reference});
             out.push(value);
         }
         Ok(json!({"windows":out}))
