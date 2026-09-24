@@ -1,5 +1,5 @@
 use semwright_platform_api::launch::{
-    ExecutableVerifier, SandboxKind, SandboxLauncher, SandboxSpec,
+    ExecutableVerifier, Mount, MountClass, SandboxKind, SandboxLauncher, SandboxSpec,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
@@ -53,6 +53,15 @@ impl ExecutableVerifier for LinuxVerifier {
         Ok(bytes)
     }
 }
+fn materialized_destination(mount: &Mount) -> Result<String> {
+    mount.validate()?;
+    let prefix = match mount.class {
+        MountClass::Workspace => "/workspace/",
+        MountClass::SystemConfig => "/etc/",
+    };
+    Ok(format!("{prefix}{}", mount.logical_name))
+}
+
 pub struct LinuxSandbox;
 impl SandboxLauncher for LinuxSandbox {
     fn mechanism(&self) -> &'static str {
@@ -111,17 +120,23 @@ impl SandboxLauncher for LinuxSandbox {
         if s.kind == SandboxKind::Driver && Path::new("/etc/alternatives").is_dir() {
             p.args(["--ro-bind", "/etc/alternatives", "/etc/alternatives"]);
         }
-        for m in &s.system_config {
-            p.arg("--ro-bind").arg(&m.source).arg(&m.destination);
+        for m in s
+            .mounts
+            .iter()
+            .filter(|m| m.class == MountClass::SystemConfig)
+        {
+            let destination = materialized_destination(m)?;
+            p.arg("--ro-bind").arg(&m.source).arg(destination);
         }
         p.arg("--ro-bind")
             .arg(&s.staged_executable)
             .arg("/plugin/bin");
         p.arg("--ro-bind").arg(&s.helper).arg("/plugin/sandbox");
-        for m in &s.mounts {
+        for m in s.mounts.iter().filter(|m| m.class == MountClass::Workspace) {
+            let destination = materialized_destination(m)?;
             p.arg(if m.read_only { "--ro-bind" } else { "--bind" })
                 .arg(&m.source)
-                .arg(&m.destination);
+                .arg(destination);
         }
         p.args([
             "--setenv",
@@ -162,10 +177,12 @@ impl SandboxLauncher for LinuxSandbox {
                 p.arg(flag).arg(n.to_string());
             }
         }
-        for m in &s.mounts {
-            if !m.read_only {
-                p.arg("--write-root").arg(&m.destination);
-            }
+        for m in s
+            .mounts
+            .iter()
+            .filter(|m| m.class == MountClass::Workspace && !m.read_only)
+        {
+            p.arg("--write-root").arg(materialized_destination(m)?);
         }
         p.args(["--", "/plugin/bin"])
             .env_clear()
