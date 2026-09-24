@@ -102,7 +102,6 @@ jobs:
                 "$HYPRLAND_NEVRA" zenity dbus-daemon pipewire-libs mesa-dri-drivers util-linux python3
               test "$(rpm -q hyprland)" = "$HYPRLAND_NEVRA"
               rpm -q hyprland | tee /evidence/hyprland-rpm.log
-              Hyprland --version | tee /evidence/hyprland-version.log
               useradd --uid 1000 --create-home semwright
               chmod 0777 /evidence
               runuser -u semwright -- dbus-run-session -- \
