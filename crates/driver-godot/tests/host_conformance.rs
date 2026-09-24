@@ -329,12 +329,27 @@ async fn godot_driver_runs_through_real_driver_host() {
     assert!(provider_interfaces.health);
 
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert_eq!(capabilities.len(), 53);
+    assert_eq!(capabilities.len(), 47);
     assert!(
         capabilities
             .iter()
             .all(|capability| capability.descriptor.name.starts_with("driver.godot."))
     );
+    for runner_only in [
+        "driver.godot.project.validate",
+        "driver.godot.script.validate",
+        "driver.godot.project.run_test",
+        "driver.godot.export.pack",
+        "driver.godot.export.build",
+        "driver.godot.movie.capture",
+    ] {
+        assert!(
+            capabilities
+                .iter()
+                .all(|capability| capability.descriptor.name != runner_only),
+            "runner-only capability unexpectedly advertised without runner: {runner_only}"
+        );
+    }
 
     let fake = tokio::spawn(fake_editor(
         fixture.port,

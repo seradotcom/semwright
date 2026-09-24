@@ -1,9 +1,11 @@
 # Godot capability surface
 
-The Godot driver exposes 53 curated `driver.godot.*` capabilities. Every advertised
+The Godot driver catalog defines 53 curated `driver.godot.*` capabilities. Every advertised
 capability has an operation-specific input and output schema, descriptor digest, route and
-risk/idempotency classification. The catalog is checked against the production EditorPlugin
-dispatch and runner routes.
+risk/idempotency classification. The 47 core/editor capabilities are available without a
+runner; the 6 validation/runtime/export capabilities are advertised only when an owner-configured,
+digest-pinned Godot executable is present. The catalog is checked against the production
+EditorPlugin dispatch and runner routes.
 
 ## Diagnostics, project and scene
 
