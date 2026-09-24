@@ -293,6 +293,13 @@ fn compile_value(
         return Ok(first.clone());
     }
 
+    if first.as_str().is_some_and(looks_like_ref) {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Workflow contains an unbound opaque reference; derive it from a prior step or parameterize it explicitly",
+        ));
+    }
+
     let kind = value_type(first)?;
     if values
         .iter()
@@ -1167,6 +1174,20 @@ mod tests {
         let trace = direct_ref_trace("video:00000000000000000000000000000001", &lookup);
         assert_eq!(
             compile(&[trace], "invoke-target", "", &[], &lookup)
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+    }
+
+    #[test]
+    fn differing_unbound_opaque_references_are_not_implicitly_parameterized() {
+        let lookup = lookup();
+        let first = direct_ref_trace("video:00000000000000000000000000000001", &lookup);
+        let mut second = direct_ref_trace("video:00000000000000000000000000000002", &lookup);
+        second.id = "trace-direct-ref-2".into();
+        assert_eq!(
+            compile(&[first, second], "invoke-target", "", &[], &lookup)
                 .unwrap_err()
                 .code,
             ErrorCode::Conflict
