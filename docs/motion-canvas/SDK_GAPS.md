@@ -16,7 +16,7 @@ A later Motion Canvas pass can map its existing job registry onto protocol-v2 pr
 
 ## 3. Browser sandbox composition
 
-The supported renderer needs a real browser process plus writable temporary/profile state while the driver itself remains inside Bubblewrap + Landlock with `network=false`. Chromium's nested sandbox cannot compose with the current outer namespace, so the pinned helper uses `chromiumSandbox:false` only after verifying the Driver Host marker. The full Chromium new-headless process tree remains confined by the outer Bubblewrap + Landlock namespace and the existing process limit. CI proved that headless-shell workarounds using `--single-process` or `--no-zygote` abort with `SIGTRAP`, so neither is part of the supported route. The current generic runtime package model does not express this browser composition or profile storage separately, so this driver pins `TMPDIR`/XDG state to its job-specific owner-granted output root and keeps the Playwright-installed full Chromium binary in the read-only runtime grant.
+The supported renderer needs a real browser process plus writable temporary/profile state while the driver itself remains inside Bubblewrap + Landlock with `network=false`. Chromium's nested sandbox cannot compose with the outer namespace, and Playwright `launch()` repeatedly crashed the pinned browser through its remote-debugging-pipe path. The driver therefore starts the attested full Chromium executable directly and attaches Playwright via an ephemeral `127.0.0.1` CDP endpoint. This does not require a network grant: Bubblewrap's unshared network namespace exposes loopback only. The current generic runtime package model still does not express the auxiliary Node/browser bundle or profile storage separately, so the driver pins `TMPDIR`/XDG state to its job-specific output root and keeps Chromium in the read-only runtime grant.
 
 A future platform/tool dependency primitive could make browser runtime/profile requirements explicit without granting broader filesystem or network access.
 
@@ -28,6 +28,6 @@ Motion Canvas + Vite + modern Chromium needs materially more virtual address spa
 
 The frozen baseline has no Windows implementation of `semwright-platform-services`, while Driver Protocol depends on that crate. A Windows compile of the complete protocol adapter therefore fails before Motion Canvas-specific code. This branch keeps the managed model OS-neutral and verifies the complete adapter on macOS, but does not redesign generic platform services or claim Windows support.
 
-## Not a gap: loopback
+## Not a gap: isolated loopback
 
-The render harness intentionally avoids a Vite HTTP listener. Static built files are delivered through Playwright request interception, so no loopback-network exception or full network grant is required.
+The renderer requires an ephemeral CDP listener on `127.0.0.1`, but Driver Host `network=false` already creates a private Bubblewrap network namespace containing only loopback. The listener is therefore reachable only by the helper/Chromium processes inside that sandbox and does not require `--share-net`, Internet access or a new policy grant. Static project files continue to use Playwright request interception; no Vite HTTP server is exposed.

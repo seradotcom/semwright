@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import process from 'node:process';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import motionCanvasModule from '@motion-canvas/vite-plugin';
@@ -58,6 +60,65 @@ const finished=new Promise(resolve=>renderer.onFinished.subscribe(resolve));
     },
   };
 }
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+function exited(child) { return child.exitCode !== null || child.signalCode !== null; }
+async function stopChromium(browser, child) {
+  try {
+    const session = await browser?.newBrowserCDPSession();
+    await session?.send('Browser.close').catch(() => {});
+  } catch {}
+  try { await browser?.close(); } catch {}
+  if (!child || exited(child)) return;
+  child.kill('SIGTERM');
+  await Promise.race([once(child, 'exit'), sleep(2000)]).catch(() => {});
+  if (!exited(child)) child.kill('SIGKILL');
+}
+async function startChromium(executable, output, timeoutMs) {
+  if (!executable) fail('missing --browser');
+  const profile = path.join(output, 'chromium-profile');
+  await fs.mkdir(profile, {recursive:true});
+  const argv = [
+    '--headless=new', '--no-sandbox', '--enable-logging=stderr', '--v=1',
+    '--disable-gpu', '--disable-dev-shm-usage',
+    '--disable-background-networking', '--disable-background-timer-throttling',
+    '--disable-component-update', '--disable-default-apps', '--disable-extensions',
+    '--no-default-browser-check', '--no-first-run', '--password-store=basic',
+    '--use-mock-keychain', '--hide-scrollbars', '--mute-audio',
+    '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0',
+    `--user-data-dir=${profile}`, 'about:blank',
+  ];
+  const child = spawn(executable, argv, {stdio:['ignore','ignore','pipe']});
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-16384); });
+  const activePort = path.join(profile, 'DevToolsActivePort');
+  const deadline = Date.now() + Math.min(timeoutMs, 30000);
+  let port = 0;
+  while (Date.now() < deadline) {
+    if (exited(child)) fail(`Chromium exited before CDP startup (code=${child.exitCode}, signal=${child.signalCode}): ${stderr}`);
+    try {
+      const lines = (await fs.readFile(activePort, 'utf8')).trim().split(/\r?\n/);
+      if (/^[0-9]{1,5}$/.test(lines[0] || '')) {
+        const candidate = Number(lines[0]);
+        if (candidate >= 1 && candidate <= 65535) { port = candidate; break; }
+      }
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    await sleep(25);
+  }
+  if (!port) {
+    await stopChromium(undefined, child);
+    fail(`Chromium did not publish a bounded CDP endpoint: ${stderr}`);
+  }
+  try {
+    const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {timeout:Math.min(timeoutMs, 30000)});
+    return {browser, child};
+  } catch (error) {
+    await stopChromium(undefined, child);
+    fail(`CDP attach failed: ${String(error)}; chromium stderr: ${stderr}`);
+  }
+}
 function contentType(file) {
   const ext = path.extname(file).toLowerCase();
   return ({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.woff2':'font/woff2','.woff':'font/woff','.mp4':'video/mp4','.webm':'video/webm','.wav':'audio/wav','.mp3':'audio/mpeg'})[ext] || 'application/octet-stream';
@@ -69,8 +130,8 @@ async function main() {
   const project = path.resolve(a.project); const output = path.resolve(a.output);
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-motion-render-'));
   const dist = path.join(work, '.semwright-render-dist');
-  let browser; let page; let cancelling = false;
-  const cleanup = async () => { try { await browser?.close(); } catch {} await fs.rm(work, {recursive:true,force:true}).catch(()=>{}); };
+  let browser; let browserProcess; let page; let cancelling = false;
+  const cleanup = async () => { await stopChromium(browser, browserProcess); await fs.rm(work, {recursive:true,force:true}).catch(()=>{}); };
   const cancel = async () => { if (cancelling) return; cancelling = true; try { await page?.evaluate(() => window.__SEMWRIGHT_RENDER__?.abort()); } catch {} await cleanup(); process.exitCode = 130; };
   process.once('SIGTERM', cancel); process.once('SIGINT', cancel);
   try {
@@ -84,12 +145,10 @@ async function main() {
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
-    // Chromium's nested sandbox cannot compose with the already-required Driver Host.
-    // Use Playwright's full Chromium in new-headless mode with its normal process topology;
-    // every browser descendant remains inside the outer Bubblewrap + Landlock boundary.
-    const launch = {headless:true, chromiumSandbox:false, args:['--enable-logging=stderr','--v=1','--disable-gpu','--disable-background-networking','--disable-component-update','--no-first-run']};
-    if (a.browser) launch.executablePath = a.browser;
-    browser = await chromium.launch(launch);
+    // Playwright launch() uses a remote-debugging pipe that crashes the pinned Chromium
+    // under this outer sandbox. Start the already-attested browser directly and attach over
+    // ephemeral loopback CDP. Bubblewrap's network namespace exposes loopback only.
+    ({browser, child:browserProcess} = await startChromium(a.browser, output, config.timeoutMs));
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});
     page = await context.newPage();
     const written = new Set();
