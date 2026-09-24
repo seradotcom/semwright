@@ -12,6 +12,73 @@ fn integer_schema(max: u64) -> Value {
 fn loose_value() -> Value {
     json!({})
 }
+fn variable_alias_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "type":{"const":"VARIABLE_ALIAS"},
+            "id":string_schema(256)
+        },
+        "required":["type","id"],
+        "additionalProperties":false
+    })
+}
+fn color_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "r":number_schema(0.0,1.0),
+            "g":number_schema(0.0,1.0),
+            "b":number_schema(0.0,1.0),
+            "a":number_schema(0.0,1.0)
+        },
+        "required":["r","g","b"],
+        "additionalProperties":false
+    })
+}
+fn variable_value_schema() -> Value {
+    json!({
+        "oneOf":[
+            {"type":"boolean"},
+            {"type":"string","maxLength":65536},
+            {"type":"number"},
+            color_schema(),
+            variable_alias_schema(),
+            {
+                "type":"object",
+                "properties":{
+                    "color":{"oneOf":[color_schema(),variable_alias_schema()]},
+                    "opacity":{"oneOf":[number_schema(0.0,1.0),variable_alias_schema()]}
+                },
+                "required":["color","opacity"],
+                "additionalProperties":false
+            },
+            {
+                "type":"object",
+                "properties":{
+                    "type":{"type":"string","enum":[
+                        "EASE_IN","EASE_OUT","EASE_IN_AND_OUT","LINEAR",
+                        "EASE_IN_BACK","EASE_OUT_BACK","EASE_IN_AND_OUT_BACK",
+                        "CUSTOM_CUBIC_BEZIER","GENTLE","QUICK","BOUNCY","SLOW",
+                        "CUSTOM_SPRING","HOLD"
+                    ]}
+                },
+                "required":["type"],
+                "additionalProperties":true,
+                "maxProperties":16
+            }
+        ]
+    })
+}
+fn variable_scope_schema() -> Value {
+    json!({"type":"string","enum":[
+        "ALL_SCOPES","TEXT_CONTENT","CORNER_RADIUS","WIDTH_HEIGHT","GAP",
+        "ALL_FILLS","FRAME_FILL","SHAPE_FILL","TEXT_FILL","STROKE_COLOR",
+        "STROKE_FLOAT","EFFECT_FLOAT","EFFECT_COLOR","OPACITY","COLOR_OPACITY",
+        "FONT_FAMILY","FONT_STYLE","FONT_WEIGHT","FONT_SIZE","LINE_HEIGHT",
+        "LETTER_SPACING","PARAGRAPH_SPACING","PARAGRAPH_INDENT"
+    ]})
+}
 fn bounded_object(max: usize) -> Value {
     json!({"type":"object","maxProperties":max})
 }
@@ -331,7 +398,7 @@ pub fn input_schema(name: &str) -> Value {
             vec![
                 ("variableId", string_schema(256)),
                 ("modeId", string_schema(256)),
-                ("value", json!({})),
+                ("value", variable_value_schema()),
             ],
             &["variableId", "modeId", "value"],
         ),

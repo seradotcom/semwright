@@ -17,7 +17,11 @@ plugin_sources = [
 plugin = "\n".join(path.read_text(encoding="utf-8") for path in plugin_sources)
 
 advertised = set(re.findall(r'op\(\s*"([^"]+)"', main))
-handlers = set(re.findall(r'case\s+"([^"]+)"', plugin))
+all_cases = set(re.findall(r'case\s+"([^"]+)"', plugin))
+# Operation names are namespaced with a dot. Internal switches (for example
+# VariableResolvedDataType cases like "COLOR") are implementation details,
+# not bridge handlers, and must not inflate the capability surface.
+handlers = {name for name in all_cases if "." in name or name in advertised}
 local = {"doctor", "pairing.begin", "session.list"}
 
 missing = sorted(advertised - handlers - local)

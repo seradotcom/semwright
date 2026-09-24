@@ -139,6 +139,61 @@ function applyBasicSceneArgs(node: SceneNode, args: any) {
   }
 }
 
+function isVariableAliasValue(value: unknown): value is VariableAlias {
+  return Boolean(value) && typeof value === "object" &&
+    (value as any).type === "VARIABLE_ALIAS" &&
+    typeof (value as any).id === "string" &&
+    (value as any).id.length > 0 &&
+    (value as any).id.length <= 256;
+}
+function isColorValue(value: unknown): value is RGB | RGBA {
+  if (!value || typeof value !== "object") return false;
+  const v = value as any;
+  return ["r","g","b"].every(k => typeof v[k] === "number" && Number.isFinite(v[k]) && v[k] >= 0 && v[k] <= 1) &&
+    (v.a === undefined || (typeof v.a === "number" && Number.isFinite(v.a) && v.a >= 0 && v.a <= 1));
+}
+function isMotionEasingValue(value: unknown): value is MotionEasing {
+  if (!value || typeof value !== "object") return false;
+  const type=(value as any).type;
+  return new Set([
+    "EASE_IN","EASE_OUT","EASE_IN_AND_OUT","LINEAR","EASE_IN_BACK","EASE_OUT_BACK",
+    "EASE_IN_AND_OUT_BACK","CUSTOM_CUBIC_BEZIER","GENTLE","QUICK","BOUNCY","SLOW",
+    "CUSTOM_SPRING","HOLD"
+  ]).has(type);
+}
+function validateVariableValue(variable: Variable, value: unknown): asserts value is VariableValue {
+  if (isVariableAliasValue(value)) return;
+  switch (variable.resolvedType) {
+    case "BOOLEAN":
+      if (typeof value !== "boolean") throw new Error("variable_value_type_mismatch");
+      return;
+    case "STRING":
+      if (typeof value !== "string" || value.length > 65_536) throw new Error("variable_value_type_mismatch");
+      return;
+    case "FLOAT":
+    case "TIMING":
+      if (typeof value !== "number" || !Number.isFinite(value)) throw new Error("variable_value_type_mismatch");
+      return;
+    case "EASING":
+      if (!isMotionEasingValue(value)) throw new Error("variable_value_type_mismatch");
+      return;
+    case "COLOR": {
+      if (isColorValue(value)) return;
+      if (!value || typeof value !== "object") throw new Error("variable_value_type_mismatch");
+      const composed=value as any;
+      const colorOk=isColorValue(composed.color)||isVariableAliasValue(composed.color);
+      const opacityOk=isVariableAliasValue(composed.opacity)||
+        (typeof composed.opacity==="number"&&Number.isFinite(composed.opacity)&&composed.opacity>=0&&composed.opacity<=1);
+      if (!colorOk || !opacityOk || (!isVariableAliasValue(composed.color) && !isVariableAliasValue(composed.opacity))) {
+        throw new Error("variable_value_type_mismatch");
+      }
+      return;
+    }
+    default:
+      throw new Error("unsupported_variable_type");
+  }
+}
+
 function patchScene(node: SceneNode, args: any) {
   if (args.name !== undefined) node.name = String(args.name).slice(0, 256);
   if (args.visible !== undefined) node.visible = Boolean(args.visible);
@@ -562,7 +617,8 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
       case "variable.set_value": {
         const variable = await figma.variables.getVariableByIdAsync(String(a.variableId));
         if (!variable) throw new Error("variable_not_found");
-        variable.setValueForMode(String(a.modeId), a.value as VariableValue);
+        validateVariableValue(variable, a.value);
+        variable.setValueForMode(String(a.modeId), a.value);
         return ok(request.id, {id: variable.id, modeId: String(a.modeId), updated: true}, true);
       }
       case "variable.set_alias": {

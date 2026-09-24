@@ -89,6 +89,65 @@ function extraWalk(root: BaseNode, limit = MAX_TREE): BaseNode[] {
   }
   return out;
 }
+function extraQueryComparable(node: BaseNode, field: string): string|number|boolean|null|undefined {
+  if (!SEMWRIGHT_FIGMA_NODE_READ_PROPERTIES.has(field)) throw new Error("query_property_not_allowlisted");
+  const value=(node as any)[field];
+  if(value===figma.mixed)return undefined;
+  return value===null||["string","number","boolean"].includes(typeof value)?value:undefined;
+}
+function extraQueryPredicate(node: BaseNode, predicate: any): boolean {
+  if(!predicate||typeof predicate!=="object")throw new Error("invalid_query_predicate");
+  const field=String(predicate.field??"");
+  const op=String(predicate.op??"eq");
+  const actual=extraQueryComparable(node,field);
+  const expected=predicate.value;
+  if(op==="exists")return actual!==undefined;
+  if(op==="eq")return actual===expected;
+  if(op==="neq")return actual!==expected;
+  if(op==="contains")return typeof actual==="string"&&actual.toLowerCase().includes(String(expected??"").toLowerCase());
+  if(op==="gt"||op==="gte"||op==="lt"||op==="lte"){
+    if(typeof actual!=="number"||typeof expected!=="number"||!Number.isFinite(expected))return false;
+    return op==="gt"?actual>expected:op==="gte"?actual>=expected:op==="lt"?actual<expected:actual<=expected;
+  }
+  throw new Error("unsupported_query_operator");
+}
+async function extraNodeQuery(a:any){
+  const root=a.rootId?await nodeById(String(a.rootId)):figma.currentPage;
+  const types=a.types===undefined?null:new Set(extraBoundedArray(a.types,64,"query_type_limit").map(x=>String(x).toUpperCase()));
+  const predicates=a.predicates===undefined?[]:extraBoundedArray(a.predicates,32,"query_predicate_limit");
+  const mode=String(a.predicateMode??"ALL");
+  if(mode!=="ALL"&&mode!=="ANY")throw new Error("invalid_query_predicate_mode");
+  const maxDepth=Math.min(64,Math.max(0,Number(a.maxDepth??64)));
+  const limit=Math.min(MAX_RESULTS,Math.max(1,Number(a.limit??50)));
+  if(!Number.isInteger(maxDepth)||!Number.isInteger(limit))throw new Error("invalid_query_limit");
+  const queue:Array<{node:BaseNode,depth:number}>=[{node:root,depth:0}];
+  const matches:Record<string,unknown>[]=[];
+  let visited=0;
+  while(queue.length&&visited<MAX_TREE&&matches.length<limit){
+    const {node,depth}=queue.shift()!;visited++;
+    const consider=depth>0||Boolean(a.includeRoot);
+    if(consider&&"type" in node){
+      const n=node as SceneNode;
+      const name=n.name??"";
+      const chars="characters" in n&&typeof (n as any).characters==="string"?(n as any).characters:"";
+      const base=
+        (!types||types.has(n.type))&&
+        (a.nameEquals===undefined||name===String(a.nameEquals))&&
+        (a.nameContains===undefined||name.toLowerCase().includes(String(a.nameContains).toLowerCase()))&&
+        (a.textContains===undefined||chars.toLowerCase().includes(String(a.textContains).toLowerCase()))&&
+        (a.visible===undefined||("visible" in n&&n.visible===Boolean(a.visible)))&&
+        (a.locked===undefined||("locked" in n&&n.locked===Boolean(a.locked)));
+      const predicateMatch=predicates.length===0||(mode==="ALL"
+        ?predicates.every(p=>extraQueryPredicate(n,p))
+        :predicates.some(p=>extraQueryPredicate(n,p)));
+      if(base&&predicateMatch)matches.push(summarize(n));
+    }
+    if(depth<maxDepth&&"children" in node){
+      for(const child of node.children)queue.push({node:child,depth:depth+1});
+    }
+  }
+  return {matches,visited,truncated:queue.length>0||visited>=MAX_TREE};
+}
 function extraDiff(a: any, b: any, limit = 500): any[] {
   const out: any[] = [];
   function walk(path: string, x: any, y: any) {
@@ -155,6 +214,8 @@ async function handleSemanticComplete(request: BridgeRequest, a: any): Promise<B
       return ok(request.id, {changes: extraDiff(a.before, a.after, Math.min(Number(a.limit ?? 500), 1000))});
     case "node.inspect.full":
       return ok(request.id, extraNodeJson(await nodeById(String(a.nodeId))));
+    case "node.query":
+      return ok(request.id, await extraNodeQuery(a));
     case "compose.apply": {
       const node = await extraCreateComposeNode(a.root);
       return ok(request.id, await tree(node), true);
@@ -443,7 +504,16 @@ async function handleSemanticComplete(request: BridgeRequest, a: any): Promise<B
     }
     case "variable.scopes.set": {
       const v=await figma.variables.getVariableByIdAsync(String(a.variableId)); if(!v||v.remote) throw new Error("local_variable_not_found");
-      v.scopes=extraBoundedArray(a.scopes,32) as VariableScope[];
+      const allowed=new Set<VariableScope>([
+        "ALL_SCOPES","TEXT_CONTENT","CORNER_RADIUS","WIDTH_HEIGHT","GAP",
+        "ALL_FILLS","FRAME_FILL","SHAPE_FILL","TEXT_FILL","STROKE_COLOR",
+        "STROKE_FLOAT","EFFECT_FLOAT","EFFECT_COLOR","OPACITY","COLOR_OPACITY",
+        "FONT_FAMILY","FONT_STYLE","FONT_WEIGHT","FONT_SIZE","LINE_HEIGHT",
+        "LETTER_SPACING","PARAGRAPH_SPACING","PARAGRAPH_INDENT"
+      ]);
+      const scopes=extraBoundedArray(a.scopes,32).map(x=>String(x) as VariableScope);
+      if(scopes.some(scope=>!allowed.has(scope)))throw new Error("invalid_variable_scope");
+      v.scopes=scopes;
       return ok(request.id,{id:v.id,scopes:v.scopes},true);
     }
     case "variable.code_syntax.set": {

@@ -196,6 +196,13 @@ fn operations() -> Vec<Op> {
             true,
         ),
         op(
+            "node.query",
+            "Bounded semantic scene-graph query without XPath or eval",
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+            true,
+        ),
+        op(
             "node.patch",
             "Allowlisted node patch",
             MutatingReversible,

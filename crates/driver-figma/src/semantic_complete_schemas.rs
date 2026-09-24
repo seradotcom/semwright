@@ -65,6 +65,7 @@ pub const OPERATIONS: &[&str] = &[
     "motion.export",
     "node.flatten",
     "node.inspect.full",
+    "node.query",
     "node.outline_stroke",
     "prototype.validate",
     "selection.colors",
@@ -137,6 +138,33 @@ fn obj(max: usize) -> Value {
 fn en(values: &[&str]) -> Value {
     json!({"type":"string","enum":values})
 }
+fn variable_scope_schema() -> Value {
+    en(&[
+        "ALL_SCOPES",
+        "TEXT_CONTENT",
+        "CORNER_RADIUS",
+        "WIDTH_HEIGHT",
+        "GAP",
+        "ALL_FILLS",
+        "FRAME_FILL",
+        "SHAPE_FILL",
+        "TEXT_FILL",
+        "STROKE_COLOR",
+        "STROKE_FLOAT",
+        "EFFECT_FLOAT",
+        "EFFECT_COLOR",
+        "OPACITY",
+        "COLOR_OPACITY",
+        "FONT_FAMILY",
+        "FONT_STYLE",
+        "FONT_WEIGHT",
+        "FONT_SIZE",
+        "LINE_HEIGHT",
+        "LETTER_SPACING",
+        "PARAGRAPH_SPACING",
+        "PARAGRAPH_INDENT",
+    ])
+}
 fn input(fields: Vec<(&str, Value)>, required: &[&str]) -> Value {
     let mut properties = Map::new();
     properties.insert("session_id".into(), s(128));
@@ -169,6 +197,19 @@ fn finding_output() -> Value {
         "additionalProperties":false
     })
 }
+fn query_predicate() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "field":s(128),
+            "op":en(&["exists","eq","neq","contains","gt","gte","lt","lte"]),
+            "value":{}
+        },
+        "required":["field","op"],
+        "additionalProperties":false,
+        "maxProperties":3
+    })
+}
 
 pub fn input_schema(name: &str) -> Option<Value> {
     if !OPERATIONS.contains(&name) {
@@ -183,6 +224,23 @@ pub fn input_schema(name: &str) -> Option<Value> {
                 ("limit", u(1000)),
             ],
             &["before", "after"],
+        ),
+        "node.query" => input(
+            vec![
+                ("rootId", s(256)),
+                ("types", arr(64, s(64))),
+                ("nameEquals", s(256)),
+                ("nameContains", s(256)),
+                ("textContains", s(1024)),
+                ("visible", json!({"type":"boolean"})),
+                ("locked", json!({"type":"boolean"})),
+                ("predicateMode", en(&["ALL", "ANY"])),
+                ("predicates", arr(32, query_predicate())),
+                ("includeRoot", json!({"type":"boolean"})),
+                ("maxDepth", u(64)),
+                ("limit", u(200)),
+            ],
+            &[],
         ),
         "node.inspect.full"
         | "node.outline_stroke"
@@ -412,7 +470,7 @@ pub fn input_schema(name: &str) -> Option<Value> {
             let mut fields = vec![("variableId", s(256))];
             match name {
                 "variable.rename" => fields.push(("name", s(256))),
-                "variable.scopes.set" => fields.push(("scopes", arr(32, s(64)))),
+                "variable.scopes.set" => fields.push(("scopes", arr(32, variable_scope_schema()))),
                 "variable.code_syntax.set" => {
                     fields.push(("platform", en(&["WEB", "ANDROID", "iOS"])));
                     fields.push(("value", json!({"type":"string","maxLength":1024})));
@@ -666,6 +724,16 @@ pub fn output_schema(name: &str) -> Option<Value> {
             "type":"object",
             "properties":{"changes":arr(1000,obj(16))},
             "required":["changes"],
+            "additionalProperties":false
+        }),
+        "node.query" => json!({
+            "type":"object",
+            "properties":{
+                "matches":arr(200,obj(32)),
+                "visited":u(100_000),
+                "truncated":{"type":"boolean"}
+            },
+            "required":["matches","visited","truncated"],
             "additionalProperties":false
         }),
         "artifact.read" => json!({

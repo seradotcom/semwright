@@ -272,6 +272,42 @@ describe("plugin runtime behavior",()=>{
     expect(ds.value.variables[0].name).toBe("brand/primary");
   });
 
+  it("supports Update 139 composed colors and COLOR_OPACITY scope with strict validation",async()=>{
+    const h=harness();
+    const collection=await h.call("variable.collection.create",{name:"Theme"});
+    const opacity=await h.call("variable.create",{
+      collectionId:collection.value.id,name:"opacity/disabled",resolvedType:"FLOAT"
+    },1);
+    const color=await h.call("variable.create",{
+      collectionId:collection.value.id,name:"color/disabled",resolvedType:"COLOR"
+    },2);
+
+    const composed=await h.call("variable.set_value",{
+      variableId:color.value.id,modeId:"m:1",
+      value:{color:{r:0.2,g:0.4,b:0.8},opacity:{type:"VARIABLE_ALIAS",id:opacity.value.id}}
+    },3);
+    expect(composed.ok).toBe(true);
+
+    const invalid=await h.call("variable.set_value",{
+      variableId:color.value.id,modeId:"m:1",
+      value:{color:{r:0.2,g:0.4,b:0.8},opacity:0.5}
+    },4);
+    expect(invalid.ok).toBe(false);
+    expect(invalid.error.message).toContain("variable_value_type_mismatch");
+
+    const scoped=await h.call("variable.scopes.set",{
+      variableId:color.value.id,scopes:["COLOR_OPACITY","ALL_FILLS"]
+    },4);
+    expect(scoped.ok).toBe(true);
+    expect(scoped.value.scopes).toContain("COLOR_OPACITY");
+
+    const badScope=await h.call("variable.scopes.set",{
+      variableId:color.value.id,scopes:["MADE_UP_SCOPE"]
+    },5);
+    expect(badScope.ok).toBe(false);
+    expect(badScope.error.message).toContain("invalid_variable_scope");
+  });
+
   it("executes prototype and Motion handlers",async()=>{
     const h=harness();
     const created=await h.call("frame.create",{name:"Interactive"});
@@ -366,6 +402,32 @@ describe("semantic completeness runtime",()=>{
     expect(result.value.children).toHaveLength(1);
     expect(result.value.children[0].name).toBe("Title");
     expect(result.revision).toBe(1);
+  });
+
+  it("queries the scene graph with bounded semantic predicates instead of XPath",async()=>{
+    const h=harness();
+    const frame=await h.call("frame.create",{name:"Pricing Card"});
+    const text=await h.call("text.create",{name:"Title",characters:"Semantic Figma"},1);
+    expect((await h.call("node.reparent",{nodeId:text.value.id,parentId:frame.value.id},2)).ok).toBe(true);
+
+    const result=await h.call("node.query",{
+      rootId:frame.value.id,
+      types:["TEXT"],
+      textContains:"semantic",
+      predicates:[{field:"fontSize",op:"gte",value:16}],
+      maxDepth:4,
+      limit:20
+    },3);
+    expect(result.ok).toBe(true);
+    expect(result.value.matches).toHaveLength(1);
+    expect(result.value.matches[0].id).toBe(text.value.id);
+    expect(result.value.visited).toBeGreaterThanOrEqual(2);
+
+    const denied=await h.call("node.query",{
+      predicates:[{field:"__proto__",op:"exists"}]
+    },3);
+    expect(denied.ok).toBe(false);
+    expect(denied.error.message).toContain("query_property_not_allowlisted");
   });
 
   it("snapshots the document and produces a bounded semantic diff",async()=>{
