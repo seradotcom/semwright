@@ -3,7 +3,8 @@ mod linux {
     use semwright_backend_api::{Context, ProvidedCapability, Provider};
     use semwright_driver_host::DriverProvider;
     use semwright_driver_sdk::{
-        ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+        ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest,
+        SystemConfigMount, Transport,
     };
     use semwright_policy::FilesystemGrant;
     use serde_json::{Value, json};
@@ -211,7 +212,7 @@ mod linux {
         fs::copy(&a.semantic, motion_project.join("semwright-motion.json"))?;
 
         let mut operations = vec![];
-        let motion_manifest = manifest(
+        let mut motion_manifest = manifest(
             "motion-canvas",
             &a.motion_driver,
             "node",
@@ -230,10 +231,15 @@ mod linux {
                 },
             ],
         )?;
+        motion_manifest.system_config.push(SystemConfigMount {
+            root: "fontconfig".into(),
+            destination: "/etc/fonts".into(),
+        });
         let motion_grants = vec![
             grant("project", &motion_project, true)?,
             grant("output", &motion_output, true)?,
             grant("runtime", &a.motion_runtime, false)?,
+            grant("fontconfig", Path::new("/etc/fonts"), false)?,
         ];
         let motion = DriverProvider::connect(
             motion_manifest,
