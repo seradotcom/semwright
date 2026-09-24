@@ -1,6 +1,6 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
-use semwright_workflow::{sanitize, WorkflowTrace};
+use semwright_workflow::{Candidate, WorkflowTrace, sanitize, validate_candidate_integrity};
 
 fuzz_target!(|data: &[u8]| {
     if data.len() > 256 * 1024 {
@@ -12,5 +12,9 @@ fuzz_target!(|data: &[u8]| {
             let _ = sanitize(&value, true);
         }
         let _ = serde_json::to_vec(&trace);
+    }
+    if let Ok(candidate) = serde_json::from_slice::<Candidate>(data) {
+        let _ = validate_candidate_integrity(&candidate);
+        let _ = serde_json::to_vec(&candidate);
     }
 });
