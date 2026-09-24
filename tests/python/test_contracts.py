@@ -23,11 +23,48 @@ class ContractTests(unittest.TestCase):
     def test_unique_command_names(self):
         self.assertEqual(len(COMMANDS), len(REGISTRY))
 
+    def test_schema_unions_have_unique_branches(self):
+        def walk(value, path):
+            if isinstance(value, dict):
+                for union in ("oneOf", "anyOf"):
+                    variants = value.get(union)
+                    if isinstance(variants, list):
+                        canonical = [json.dumps(v, sort_keys=True, separators=(",", ":")) for v in variants]
+                        self.assertEqual(
+                            len(canonical),
+                            len(set(canonical)),
+                            f"duplicate {union} branches at {path}",
+                        )
+                for key, child in value.items():
+                    walk(child, f"{path}/{key}")
+            elif isinstance(value, list):
+                for index, child in enumerate(value):
+                    walk(child, f"{path}/{index}")
+
+        for command in COMMANDS:
+            walk(command["input_schema"], f"{command['name']}/input_schema")
+            walk(command["output_schema"], f"{command['name']}/output_schema")
+
     def test_every_input_is_closed(self):
         for command in COMMANDS:
             with self.subTest(command=command["name"]):
                 self.assertEqual(command["input_schema"]["type"], "object")
                 self.assertIs(command["input_schema"]["additionalProperties"], False)
+
+    def test_every_output_has_a_closed_top_level_contract(self):
+        def assert_closed(schema):
+            if schema.get("type") == "object":
+                self.assertTrue(schema.get("properties"))
+                self.assertIs(schema.get("additionalProperties"), False)
+                return
+            variants = schema.get("oneOf") or schema.get("anyOf") or schema.get("allOf")
+            self.assertTrue(variants)
+            for variant in variants:
+                assert_closed(variant)
+
+        for command in COMMANDS:
+            with self.subTest(command=command["name"]):
+                assert_closed(command["output_schema"])
 
     def test_all_descriptors_bounded(self):
         for command in COMMANDS:
