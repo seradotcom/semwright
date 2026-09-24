@@ -466,6 +466,17 @@ impl WorkflowManager {
                 "Workflow dismissal budget exhausted",
             ));
         }
+        if let Some(existing) = self.dismissals.get(&pattern.id)
+            && (existing.permanent
+                || (!permanent && existing.dismissed_through_occurrences >= pattern.occurrences))
+        {
+            return Ok(existing.clone());
+        }
+        let permanent = permanent
+            || self
+                .dismissals
+                .get(&pattern.id)
+                .is_some_and(|existing| existing.permanent);
         let dismissal = PatternDismissal {
             version: DISMISSAL_VERSION,
             pattern_id: pattern.id.clone(),
@@ -976,6 +987,27 @@ mod tests {
             restored.configure_persistence(&directory).unwrap_err().code,
             ErrorCode::Conflict
         );
+    }
+
+    #[test]
+    fn permanent_dismissal_cannot_be_downgraded_without_restore() {
+        let mut manager = WorkflowManager::default();
+        for index in 0..3 {
+            let session = format!("session-{index}");
+            manager.start(&session, "demo", "", true).unwrap();
+            manager.record(&session, step()).unwrap();
+            manager.stop(&session, true).unwrap();
+        }
+        let suggestion = manager.suggestions(3, false).unwrap().remove(0);
+        let permanent = manager
+            .dismiss_suggestion(&suggestion.suggestion_id, true)
+            .unwrap();
+        let repeated = manager
+            .dismiss_suggestion(&suggestion.suggestion_id, false)
+            .unwrap();
+        assert!(permanent.permanent);
+        assert_eq!(permanent, repeated);
+        assert!(manager.suggestions(3, false).unwrap().is_empty());
     }
 
     #[test]

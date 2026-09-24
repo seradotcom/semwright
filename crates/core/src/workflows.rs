@@ -135,7 +135,8 @@ impl Broker {
             (trace, detected)
         };
         if let Some(pattern) = detected {
-            self.event(
+            self.session_event(
+                session,
                 self.core_event("workflow.pattern.detected")
                     .with_attribute("pattern_id", json!(pattern.id))
                     .with_attribute("suggestion_id", json!(pattern.suggestion_id))

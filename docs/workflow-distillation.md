@@ -187,8 +187,9 @@ evidence arrives; a permanent dismissal stays hidden until explicitly restored. 
 dismissal state is persisted. Patterns and suggestions are recomputed from canonical
 traces so they cannot drift into a second source of truth.
 
-When a pattern reaches the default threshold for the first time, Semwright emits a bounded
-`workflow.pattern.detected` event containing only IDs and the occurrence count.
+When a pattern reaches the default threshold for the first time, Semwright emits a bounded,
+session-scoped `workflow.pattern.detected` event containing only IDs and the occurrence
+count; unrelated sessions cannot observe that learning notification.
 
 ## V2 non-goals
 

@@ -864,6 +864,19 @@ async fn repeated_workflows_surface_suggestions_compile_and_resurface_after_new_
     );
 
     record_clipboard_trace(&fixture, "gamma").await;
+    let own_events = fixture.broker.replay_for(&fixture.session, 0).unwrap();
+    assert!(
+        own_events
+            .iter()
+            .any(|event| event.event.kind == "workflow.pattern.detected")
+    );
+    let stranger_events = fixture.broker.replay_for(&unique_id(), 0).unwrap();
+    assert!(
+        !stranger_events
+            .iter()
+            .any(|event| event.event.kind == "workflow.pattern.detected")
+    );
+
     let suggestions = fixture.call("workflow.suggestions.list", json!({})).await;
     assert!(suggestions.ok, "{suggestions:?}");
     let row = suggestions.data.unwrap()["suggestions"][0].clone();
