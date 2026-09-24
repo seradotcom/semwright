@@ -352,15 +352,178 @@ pub enum NameOp {
     Exact,
     Regex,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RelationMatch {
+    pub kind: String,
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiRelation {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiTextFacet {
+    pub character_count: Option<usize>,
+    pub caret_offset: Option<i64>,
+    pub selection_count: Option<usize>,
+    #[serde(default)]
+    pub editable: bool,
+    #[serde(default)]
+    pub password: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiValueFacet {
+    pub current: Option<f64>,
+    pub minimum: Option<f64>,
+    pub maximum: Option<f64>,
+    pub increment: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiSelectionFacet {
+    pub selected: Option<bool>,
+    pub selected_count: Option<usize>,
+    pub child_count: Option<usize>,
+    pub multi_select: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiTableFacet {
+    pub rows: Option<usize>,
+    pub columns: Option<usize>,
+    pub row: Option<usize>,
+    pub column: Option<usize>,
+    pub row_span: Option<usize>,
+    pub column_span: Option<usize>,
+    pub selected_rows: Option<usize>,
+    pub selected_columns: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub row_headers: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub column_headers: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiDocumentFacet {
+    pub locale: Option<String>,
+    pub page_index: Option<i64>,
+    pub page_count: Option<i64>,
+    pub mime_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiHypertextFacet {
+    pub link_count: Option<usize>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiScrollFacet {
+    pub horizontal_percent: Option<f64>,
+    pub vertical_percent: Option<f64>,
+    pub horizontal_view_size: Option<f64>,
+    pub vertical_view_size: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiWindowFacet {
+    pub modal: Option<bool>,
+    pub minimized: Option<bool>,
+    pub maximized: Option<bool>,
+    pub can_minimize: Option<bool>,
+    pub can_maximize: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiTransformFacet {
+    pub can_move: Option<bool>,
+    pub can_resize: Option<bool>,
+    pub can_rotate: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UiFacets {
+    pub text: Option<UiTextFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<UiValueFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection: Option<UiSelectionFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table: Option<UiTableFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<UiDocumentFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hypertext: Option<UiHypertextFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scroll: Option<UiScrollFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<UiWindowFacet>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<UiTransformFacet>,
+}
+
+impl UiFacets {
+    pub fn is_empty(&self) -> bool {
+        self.text.is_none()
+            && self.value.is_none()
+            && self.selection.is_none()
+            && self.table.is_none()
+            && self.document.is_none()
+            && self.hypertext.is_none()
+            && self.scroll.is_none()
+            && self.window.is_none()
+            && self.transform.is_none()
+    }
+
+    pub fn has(&self, name: &str) -> bool {
+        match name {
+            "text" => self.text.is_some(),
+            "value" => self.value.is_some(),
+            "selection" => self.selection.is_some(),
+            "table" => self.table.is_some(),
+            "document" => self.document.is_some(),
+            "hypertext" => self.hypertext.is_some(),
+            "scroll" => self.scroll.is_some(),
+            "window" => self.window.is_some(),
+            "transform" => self.transform.is_some(),
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Selector {
     pub app: Option<String>,
     pub role: Option<String>,
     pub name: Option<NameMatch>,
+    pub help: Option<NameMatch>,
+    pub framework: Option<String>,
     #[serde(default)]
     pub states: Vec<String>,
     pub action: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub attributes: BTreeMap<String, String>,
+    pub relation: Option<RelationMatch>,
+    pub facet: Option<String>,
     pub ancestor: Option<String>,
     pub nth: Option<usize>,
     /// Discovery only. Never accepted by an invocation command.
@@ -374,6 +537,18 @@ pub struct UiNode {
     pub name: String,
     #[serde(default)]
     pub description: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub help: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub accessibility_id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub framework: String,
+    #[serde(default)]
+    pub attributes: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relations: Vec<UiRelation>,
+    #[serde(default, skip_serializing_if = "UiFacets::is_empty")]
+    pub facets: UiFacets,
     #[serde(default)]
     pub states: Vec<String>,
     #[serde(default)]
@@ -398,23 +573,27 @@ impl Selector {
         if nodes.len() > MAX_NODES {
             return Err(Error::invalid("Node budget exceeded"));
         }
-        let regex = match &self.name {
-            Some(NameMatch {
-                op: NameOp::Regex,
-                value,
-            }) => {
-                if value.len() > 512 {
-                    return Err(Error::invalid("Regex exceeds 512 bytes"));
+        let compile_regex = |matcher: &Option<NameMatch>| -> Result<_> {
+            match matcher {
+                Some(NameMatch {
+                    op: NameOp::Regex,
+                    value,
+                }) => {
+                    if value.len() > 512 {
+                        return Err(Error::invalid("Regex exceeds 512 bytes"));
+                    }
+                    Ok(Some(
+                        RegexBuilder::new(value)
+                            .size_limit(1_000_000)
+                            .build()
+                            .map_err(|_| Error::invalid("Invalid or oversized regex"))?,
+                    ))
                 }
-                Some(
-                    RegexBuilder::new(value)
-                        .size_limit(1_000_000)
-                        .build()
-                        .map_err(|_| Error::invalid("Invalid or oversized regex"))?,
-                )
+                _ => Ok(None),
             }
-            _ => None,
         };
+        let name_regex = compile_regex(&self.name)?;
+        let help_regex = compile_regex(&self.help)?;
         let index: BTreeMap<&str, &UiNode> =
             nodes.iter().map(|n| (n.reference.as_str(), n)).collect();
         let mut found: Vec<&UiNode> = nodes
@@ -422,11 +601,30 @@ impl Selector {
             .filter(|n| {
                 self.app.as_ref().is_none_or(|a| a == &n.app)
                     && self.role.as_ref().is_none_or(|r| r == &n.role)
+                    && self.framework.as_ref().is_none_or(|f| f == &n.framework)
                     && self.states.iter().all(|s| n.states.contains(s))
                     && self.action.as_ref().is_none_or(|a| n.actions.contains(a))
+                    && self
+                        .attributes
+                        .iter()
+                        .all(|(k, v)| n.attributes.get(k) == Some(v))
+                    && self.facet.as_ref().is_none_or(|f| n.facets.has(f))
+                    && self.relation.as_ref().is_none_or(|wanted| {
+                        n.relations.iter().any(|relation| {
+                            relation.kind == wanted.kind
+                                && wanted
+                                    .target
+                                    .as_ref()
+                                    .is_none_or(|target| relation.targets.contains(target))
+                        })
+                    })
                     && self.name.as_ref().is_none_or(|m| match m.op {
                         NameOp::Exact => n.name == m.value,
-                        NameOp::Regex => regex.as_ref().is_some_and(|r| r.is_match(&n.name)),
+                        NameOp::Regex => name_regex.as_ref().is_some_and(|r| r.is_match(&n.name)),
+                    })
+                    && self.help.as_ref().is_none_or(|m| match m.op {
+                        NameOp::Exact => n.help == m.value,
+                        NameOp::Regex => help_regex.as_ref().is_some_and(|r| r.is_match(&n.help)),
                     })
                     && self.ancestor.as_ref().is_none_or(|ancestor| {
                         let mut parent = n.parent_ref.as_deref();
@@ -450,7 +648,17 @@ impl Selector {
             }
             let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
             let score = |n: &&UiNode| -> usize {
-                let text = format!("{} {} {}", n.role, n.name, n.description).to_lowercase();
+                let attribute_text = n
+                    .attributes
+                    .iter()
+                    .map(|(key, value)| format!("{key} {value}"))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let text = format!(
+                    "{} {} {} {} {} {}",
+                    n.role, n.name, n.description, n.help, n.framework, attribute_text
+                )
+                .to_lowercase();
                 words.iter().filter(|w| text.contains(w.as_str())).count()
             };
             found.retain(|n| score(n) > 0);
@@ -512,6 +720,12 @@ mod tests {
             name: name.into(),
             role: "button".into(),
             description: String::new(),
+            help: String::new(),
+            accessibility_id: String::new(),
+            framework: String::new(),
+            attributes: BTreeMap::new(),
+            relations: vec![],
+            facets: UiFacets::default(),
             states: vec!["enabled".into()],
             actions: vec!["click".into()],
             app: "test".into(),
@@ -556,6 +770,61 @@ mod tests {
         };
         assert!(s.select(&[a, b]).unwrap().is_empty());
     }
+    #[test]
+    fn rich_selector_matches_facets_attributes_relations_and_help() {
+        let mut n = node("ui:1", "");
+        n.help = "Adjust opacity".into();
+        n.framework = "gtk4".into();
+        n.attributes
+            .insert("semantic-name".into(), "Opacity".into());
+        n.facets.value = Some(UiValueFacet {
+            current: Some(75.0),
+            minimum: Some(0.0),
+            maximum: Some(100.0),
+            increment: Some(1.0),
+            text: None,
+        });
+        n.relations.push(UiRelation {
+            kind: "labelled_by".into(),
+            targets: vec!["ui:label".into()],
+        });
+        let selector = Selector {
+            help: Some(NameMatch {
+                op: NameOp::Regex,
+                value: "opacity".into(),
+            }),
+            framework: Some("gtk4".into()),
+            attributes: BTreeMap::from([("semantic-name".into(), "Opacity".into())]),
+            relation: Some(RelationMatch {
+                kind: "labelled_by".into(),
+                target: Some("ui:label".into()),
+            }),
+            facet: Some("value".into()),
+            ..Default::default()
+        };
+        assert_eq!(selector.unique(&[n]).unwrap().reference, "ui:1");
+    }
+
+    #[test]
+    fn legacy_ui_node_json_deserializes_with_empty_v2_fields() {
+        let n: UiNode = serde_json::from_value(serde_json::json!({
+            "ref":"ui:1",
+            "role":"button",
+            "name":"Save",
+            "states":[],
+            "actions":["click"],
+            "app":"fixture",
+            "parent_ref":null,
+            "bounds":null,
+            "children_count":0
+        }))
+        .unwrap();
+        assert!(n.help.is_empty());
+        assert!(n.attributes.is_empty());
+        assert!(n.relations.is_empty());
+        assert!(!n.facets.has("text"));
+    }
+
     #[test]
     fn refs_are_session_bound() {
         let mut store = RefStore::new(Duration::from_secs(60), 2);

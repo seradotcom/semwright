@@ -17,6 +17,7 @@ use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 
 type Object = (String, OwnedObjectPath);
 const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
+const APPLICATION: &str = "org.a11y.atspi.Application";
 const ROOT: &str = "/org/a11y/atspi/accessible/root";
 #[derive(Default)]
 struct ObjectGenerations {
@@ -156,6 +157,40 @@ pub fn decode_states(bits: &[u32]) -> Vec<&'static str> {
 }
 fn object_id(o: &Object) -> String {
     format!("{}|{}", o.0, o.1)
+}
+fn relation_name(code: u32) -> String {
+    match code {
+        0 => "null",
+        1 => "label_for",
+        2 => "labelled_by",
+        3 => "controller_for",
+        4 => "controlled_by",
+        5 => "member_of",
+        6 => "tooltip_for",
+        7 => "node_child_of",
+        8 => "node_parent_of",
+        9 => "extended",
+        10 => "flows_to",
+        11 => "flows_from",
+        12 => "subwindow_of",
+        13 => "embeds",
+        14 => "embedded_by",
+        15 => "popup_for",
+        16 => "parent_window_of",
+        17 => "description_for",
+        18 => "described_by",
+        19 => "details",
+        20 => "details_for",
+        21 => "error_message",
+        22 => "error_for",
+        _ => return format!("relation_{code}"),
+    }
+    .into()
+}
+fn supports_interface(interfaces: &[String], name: &str) -> bool {
+    interfaces
+        .iter()
+        .any(|value| value == name || value.rsplit('.').next() == Some(name))
 }
 fn stable_node_id(identity: &str) -> String {
     format!("ui-node:{:x}", Sha256::digest(identity.as_bytes()))
@@ -388,6 +423,214 @@ impl Atspi {
         }
         names
     }
+    async fn app_framework(&self, c: &Connection, app: &Object) -> String {
+        let Ok(proxy) = self.proxy(c, app, APPLICATION).await else {
+            return String::new();
+        };
+        bounded(proxy.get_property::<String>("ToolkitName"))
+            .await
+            .unwrap_or_default()
+            .chars()
+            .take(128)
+            .collect()
+    }
+
+    async fn relations(&self, c: &Connection, object: &Object, app: &str) -> Vec<Value> {
+        let Ok(proxy) = self.proxy(c, object, ACCESSIBLE).await else {
+            return vec![];
+        };
+        let Ok(relations) =
+            bounded(proxy.call::<_, _, Vec<(u32, Vec<Object>)>>("GetRelationSet", &())).await
+        else {
+            return vec![];
+        };
+        let mut out = Vec::new();
+        let mut total_targets = 0usize;
+        for (kind, targets) in relations.into_iter().take(32) {
+            let mut refs = Vec::new();
+            for target in targets.into_iter().take(32) {
+                if total_targets >= 128 {
+                    break;
+                }
+                total_targets += 1;
+                let identity = object_id(&target);
+                let Ok((_, _, fingerprint)) = self.identity(c, &target).await else {
+                    continue;
+                };
+                let target_app = self
+                    .app_name(c, &target)
+                    .await
+                    .unwrap_or_else(|_| app.to_owned());
+                let Ok(revision) = self.object_generations.get_or_assign(&identity) else {
+                    continue;
+                };
+                refs.push(target_marker(NativeTarget {
+                    kind: "ui".into(),
+                    identity,
+                    revision,
+                    fingerprint,
+                    app: target_app,
+                }));
+            }
+            if !refs.is_empty() {
+                out.push(json!({"kind":relation_name(kind),"targets":refs}));
+            }
+        }
+        out
+    }
+
+    async fn facets(
+        &self,
+        c: &Connection,
+        object: &Object,
+        interfaces: &[String],
+        states: &[&str],
+        role: &str,
+        child_count: usize,
+    ) -> UiFacets {
+        let mut facets = UiFacets::default();
+
+        if supports_interface(interfaces, "Text")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Text").await
+        {
+            let character_count = bounded(proxy.get_property::<i32>("CharacterCount"))
+                .await
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            let caret_offset = bounded(proxy.get_property::<i32>("CaretOffset"))
+                .await
+                .ok()
+                .map(i64::from);
+            let selection_count = bounded(proxy.call::<_, _, i32>("GetNSelections", &()))
+                .await
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            facets.text = Some(UiTextFacet {
+                character_count,
+                caret_offset,
+                selection_count,
+                editable: supports_interface(interfaces, "EditableText")
+                    || states.contains(&"editable"),
+                password: role == "password-entry",
+            });
+        }
+
+        if supports_interface(interfaces, "Value")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Value").await
+        {
+            let current = bounded(proxy.get_property::<f64>("CurrentValue"))
+                .await
+                .ok();
+            let minimum = bounded(proxy.get_property::<f64>("MinimumValue"))
+                .await
+                .ok();
+            let maximum = bounded(proxy.get_property::<f64>("MaximumValue"))
+                .await
+                .ok();
+            let increment = bounded(proxy.get_property::<f64>("MinimumIncrement"))
+                .await
+                .ok();
+            let text = bounded(proxy.get_property::<String>("Text"))
+                .await
+                .ok()
+                .filter(|value| !value.is_empty())
+                .map(|value| value.chars().take(1024).collect());
+            facets.value = Some(UiValueFacet {
+                current,
+                minimum,
+                maximum,
+                increment,
+                text,
+            });
+        }
+
+        if supports_interface(interfaces, "Selection")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Selection").await
+        {
+            let selected_count = bounded(proxy.get_property::<i32>("NSelectedChildren"))
+                .await
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            facets.selection = Some(UiSelectionFacet {
+                selected: states.contains(&"selected").then_some(true),
+                selected_count,
+                child_count: Some(child_count),
+                multi_select: None,
+            });
+        }
+
+        if supports_interface(interfaces, "Table")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Table").await
+        {
+            let nonnegative = |value: Result<i32>| {
+                value
+                    .ok()
+                    .and_then(|value| usize::try_from(value.max(0)).ok())
+            };
+            facets.table = Some(UiTableFacet {
+                rows: nonnegative(bounded(proxy.get_property::<i32>("NRows")).await),
+                columns: nonnegative(bounded(proxy.get_property::<i32>("NColumns")).await),
+                row: None,
+                column: None,
+                row_span: None,
+                column_span: None,
+                selected_rows: nonnegative(
+                    bounded(proxy.get_property::<i32>("NSelectedRows")).await,
+                ),
+                selected_columns: nonnegative(
+                    bounded(proxy.get_property::<i32>("NSelectedColumns")).await,
+                ),
+                row_headers: vec![],
+                column_headers: vec![],
+            });
+        }
+
+        if supports_interface(interfaces, "Document")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Document").await
+        {
+            let locale = bounded(proxy.call::<_, _, String>("GetLocale", &()))
+                .await
+                .ok()
+                .filter(|value| !value.is_empty());
+            let page_index = bounded(proxy.get_property::<i32>("CurrentPageNumber"))
+                .await
+                .ok()
+                .map(i64::from);
+            let page_count = bounded(proxy.get_property::<i32>("PageCount"))
+                .await
+                .ok()
+                .map(i64::from);
+            facets.document = Some(UiDocumentFacet {
+                locale,
+                page_index,
+                page_count,
+                mime_type: None,
+            });
+        }
+
+        if supports_interface(interfaces, "Hypertext")
+            && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Hypertext").await
+        {
+            let link_count = bounded(proxy.call::<_, _, i32>("GetNLinks", &()))
+                .await
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok());
+            facets.hypertext = Some(UiHypertextFacet { link_count });
+        }
+
+        if matches!(role, "window" | "frame" | "dialog") {
+            facets.window = Some(UiWindowFacet {
+                modal: states.contains(&"modal").then_some(true),
+                minimized: None,
+                maximized: None,
+                can_minimize: None,
+                can_maximize: None,
+            });
+        }
+
+        facets
+    }
+
     async fn snapshot(&self, ctx: &Context, args: &Value) -> Result<Value> {
         let c = self.connect().await?;
         let revision = self.revision.load(Ordering::SeqCst);
@@ -420,14 +663,15 @@ impl Atspi {
             {
                 continue;
             }
-            queue.push_back((app, 0usize, app_name, None::<String>));
+            let framework = self.app_framework(&c, &app).await;
+            queue.push_back((app, 0usize, app_name, framework, None::<String>));
         }
         let mut seen = BTreeSet::new();
         let mut nodes = vec![];
         let mut nodes_by_identity = BTreeMap::new();
         let mut partial = false;
         let mut visited = 0;
-        while let Some((object, depth, app, parent)) = queue.pop_front() {
+        while let Some((object, depth, app, framework, parent)) = queue.pop_front() {
             ctx.check_cancelled()?;
             if nodes.len() >= budget || visited >= budget.saturating_mul(4) {
                 partial = true;
@@ -474,9 +718,65 @@ impl Atspi {
             if count > 2000 {
                 partial = true;
             }
+            let attributes: BTreeMap<String, String> = bounded(
+                proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
+            )
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .take(128)
+            .map(|(key, value)| {
+                (
+                    key.chars().take(128).collect(),
+                    value.chars().take(1024).collect(),
+                )
+            })
+            .collect();
+            let help: String = bounded(proxy.get_property::<String>("HelpText"))
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(1024)
+                .collect();
+            let accessibility_id: String = bounded(proxy.get_property::<String>("AccessibleId"))
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(512)
+                .collect();
+            let locale: String = bounded(proxy.get_property::<String>("Locale"))
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(128)
+                .collect();
+            let interfaces: Vec<String> =
+                bounded(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .take(64)
+                    .map(|value| value.chars().take(128).collect())
+                    .collect();
+            let relations = self.relations(&c, &object, &app).await;
+            let mut facets = self
+                .facets(&c, &object, &interfaces, &states, &role, count)
+                .await;
+            if facets.document.is_none() && !locale.is_empty() {
+                facets.document = Some(UiDocumentFacet {
+                    locale: Some(locale.clone()),
+                    ..UiDocumentFacet::default()
+                });
+            }
             if depth < max_depth {
                 for child in children.into_iter().take(2000) {
-                    queue.push_back((child, depth + 1, app.clone(), Some(identity.clone())));
+                    queue.push_back((
+                        child,
+                        depth + 1,
+                        app.clone(),
+                        framework.clone(),
+                        Some(identity.clone()),
+                    ));
                 }
             } else if count > 0 {
                 partial = true;
@@ -511,6 +811,12 @@ impl Atspi {
                 "role": role,
                 "name": name,
                 "description": description,
+                "help": help,
+                "accessibility_id": accessibility_id,
+                "framework": framework,
+                "attributes": attributes,
+                "relations": relations,
+                "facets": facets,
                 "states": states,
                 "actions": actions,
                 "app": app,
