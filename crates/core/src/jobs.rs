@@ -189,6 +189,16 @@ impl JobStore {
         Ok((entry.owner.clone(), entry.snapshot.clone()))
     }
 
+    pub fn list(&self, owner: &str) -> Vec<JobSnapshot> {
+        self.order
+            .iter()
+            .rev()
+            .filter_map(|id| self.entries.get(id))
+            .filter(|entry| entry.owner == owner)
+            .map(|entry| entry.snapshot.clone())
+            .collect()
+    }
+
     pub fn get(&self, owner: &str, id: &str) -> Result<JobSnapshot> {
         self.entries
             .get(id)
@@ -285,6 +295,14 @@ impl Broker {
         Ok(snapshot)
     }
 
+    pub(super) fn list_jobs(&self, session: &str) -> Result<Vec<JobSnapshot>> {
+        Ok(self
+            .jobs
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Job store lock poisoned"))?
+            .list(session))
+    }
+
     pub(super) fn get_job(&self, session: &str, id: &str) -> Result<JobSnapshot> {
         self.jobs
             .lock()
@@ -355,6 +373,25 @@ mod tests {
         assert!(token.is_cancelled());
         let (_, changed) = jobs.cancel("session-a", &job.id).unwrap();
         assert!(!changed);
+    }
+
+    #[test]
+    fn list_is_session_scoped_newest_first() {
+        let mut jobs = JobStore::default();
+        let first = jobs
+            .reserve("session-a", "fixture.first", CancellationToken::new())
+            .unwrap();
+        let _other = jobs
+            .reserve("session-b", "fixture.other", CancellationToken::new())
+            .unwrap();
+        let second = jobs
+            .reserve("session-a", "fixture.second", CancellationToken::new())
+            .unwrap();
+        let listed = jobs.list("session-a");
+        assert_eq!(listed.len(), 2);
+        assert_eq!(listed[0].id, second.id);
+        assert_eq!(listed[1].id, first.id);
+        assert!(jobs.list("missing-session").is_empty());
     }
 
     #[test]
