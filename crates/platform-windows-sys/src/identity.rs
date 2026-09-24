@@ -40,6 +40,7 @@ fn current_token() -> Result<OwnedHandle> {
 fn token_user_sid(token: HANDLE) -> Result<Vec<u8>> {
     let mut needed = 0u32;
     // Querying with no output buffer intentionally returns insufficient-buffer and fills `needed`.
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     let _ = unsafe { GetTokenInformation(token, TokenUser, None, 0, &mut needed) };
     if needed == 0 || needed > 65_536 {
         return Err(Error::new(
@@ -65,6 +66,7 @@ fn token_user_sid(token: HANDLE) -> Result<Vec<u8>> {
 fn sid_string_from_token(token: HANDLE) -> Result<String> {
     let bytes = token_user_sid(token)?;
     // TOKEN_USER is at the beginning of the returned buffer and points into that same live buffer.
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     let user = unsafe { &*(bytes.as_ptr().cast::<TOKEN_USER>()) };
     let mut out = PWSTR::null();
     // SAFETY: User.Sid belongs to `bytes`, which remains live through conversion.
@@ -76,6 +78,7 @@ fn sid_string_from_token(token: HANDLE) -> Result<String> {
             "SID conversion returned null",
         ));
     }
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     let value = unsafe { out.to_string() }
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "SID string was invalid"))?;
     // SAFETY: ConvertSidToStringSidW allocates this buffer with LocalAlloc.
@@ -88,7 +91,9 @@ fn sid_string_from_token(token: HANDLE) -> Result<String> {
 pub fn current_user_sid_bytes() -> Result<Vec<u8>> {
     let token = current_token()?;
     let bytes = token_user_sid(token.0)?;
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     let user = unsafe { &*(bytes.as_ptr().cast::<TOKEN_USER>()) };
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     let len = unsafe { GetLengthSid(user.User.Sid) } as usize;
     if len == 0 || len > 4096 {
         return Err(Error::new(
@@ -96,6 +101,7 @@ pub fn current_user_sid_bytes() -> Result<Vec<u8>> {
             "Invalid current user SID length",
         ));
     }
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     Ok(unsafe { std::slice::from_raw_parts(user.User.Sid.0.cast::<u8>(), len) }.to_vec())
 }
 
@@ -107,6 +113,7 @@ pub fn current_user_sid() -> Result<String> {
 pub fn process_user_sid_bytes(pid: u32) -> Result<Vec<u8>> {
     // SAFETY: query-only access to an existing process; no handle inheritance or mutation rights.
     let process =
+        // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
         unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.map_err(|_| {
             Error::new(
                 ErrorCode::PermissionDenied,
@@ -124,7 +131,9 @@ pub fn process_user_sid_bytes(pid: u32) -> Result<Vec<u8>> {
     })?;
     let token = OwnedHandle(token);
     let bytes = token_user_sid(token.0)?;
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     let user = unsafe { &*(bytes.as_ptr().cast::<TOKEN_USER>()) };
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     let len = unsafe { GetLengthSid(user.User.Sid) } as usize;
     if len == 0 || len > 4096 {
         return Err(Error::new(
@@ -132,6 +141,7 @@ pub fn process_user_sid_bytes(pid: u32) -> Result<Vec<u8>> {
             "Invalid peer SID length",
         ));
     }
+    // SAFETY: token/process handles and TOKEN_USER/SID backing storage are live and bounded here; access is query-only and pointer-backed bytes are copied before storage is dropped.
     Ok(unsafe { std::slice::from_raw_parts(user.User.Sid.0.cast::<u8>(), len) }.to_vec())
 }
 

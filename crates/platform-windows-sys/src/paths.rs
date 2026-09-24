@@ -17,6 +17,7 @@ fn known_folder(id: &windows::core::GUID) -> Result<PathBuf> {
             "Windows Known Folder lookup returned null",
         ));
     }
+    // SAFETY: the PWSTR was returned by the documented Known Folder API and remains allocated and valid until the matching CoTaskMemFree below.
     let value = unsafe { raw.to_string() }
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "Known Folder path was invalid"))?;
     // SAFETY: SHGetKnownFolderPath returns CoTaskMem; Windows documents CoTaskMemFree. The
