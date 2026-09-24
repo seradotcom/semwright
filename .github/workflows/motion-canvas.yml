@@ -121,9 +121,9 @@ jobs:
       - name: Runtime contract tests
         working-directory: integrations/motion-canvas/runtime
         run: npm test
-      - name: Install pinned Chromium headless shell only on ephemeral runner
+      - name: Install pinned full Chromium only on ephemeral runner
         working-directory: integrations/motion-canvas/runtime
-        run: npx --no-install playwright install --with-deps chromium
+        run: npx --no-install playwright install --with-deps --no-shell chromium
       - name: Probe exact runtime
         working-directory: integrations/motion-canvas/runtime
         run: npm run probe
@@ -143,7 +143,7 @@ jobs:
           mkdir -p .semwright-tools
           cp "$(command -v node)" .semwright-tools/node
           chmod 0755 .semwright-tools/node
-          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell' -type f -perm -111 -print)
+          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium-*/chrome-linux*/chrome' -type f -perm -111 -print)
           test "${#BROWSERS[@]}" -eq 1
           BROWSER="${BROWSERS[0]}"
           BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
@@ -168,7 +168,7 @@ jobs:
         working-directory: integrations/motion-canvas/runtime
         run: |
           mkdir -p verification
-          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell' -type f -perm -111 -print)
+          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/chromium-*/chrome-linux*/chrome' -type f -perm -111 -print)
           test "${#BROWSERS[@]}" -eq 1
           BROWSER="${BROWSERS[0]}"
           set +e

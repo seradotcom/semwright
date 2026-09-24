@@ -84,10 +84,10 @@ async function main() {
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js')}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
-    // Chromium's nested sandbox cannot compose with the already-required Driver Host
-    // namespace. Keep the normal renderer process topology inside Bubblewrap + Landlock;
-    // CI proved --single-process makes current headless shell abort with SIGTRAP.
-    const launch = {headless:true, chromiumSandbox:false, args:['--no-zygote','--disable-gpu','--disable-background-networking','--disable-component-update','--no-first-run']};
+    // Chromium's nested sandbox cannot compose with the already-required Driver Host.
+    // Use Playwright's full Chromium in new-headless mode with its normal process topology;
+    // every browser descendant remains inside the outer Bubblewrap + Landlock boundary.
+    const launch = {headless:true, chromiumSandbox:false, args:['--disable-gpu','--disable-background-networking','--disable-component-update','--no-first-run']};
     if (a.browser) launch.executablePath = a.browser;
     browser = await chromium.launch(launch);
     const context = await browser.newContext({viewport:{width:config.width,height:config.height},serviceWorkers:'block'});

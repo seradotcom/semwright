@@ -11,7 +11,7 @@ Agent
   -> semwright-motion-canvas-driver
   -> versioned managed motion model
   -> deterministic TS/TSX compiler
-  -> owner-mounted, SHA-256-pinned Node + render helper + Chromium headless shell
+  -> owner-mounted, SHA-256-pinned Node + render helper + full Chromium (new headless)
   -> Motion Canvas 3.17.2 Renderer
   -> validated PNG sequence
   -> MLT provider for the launch-film final timeline/encode
@@ -23,7 +23,7 @@ Motion Canvas does not provide a documented stable standalone headless render CL
 
 The render helper builds a temporary project copy and serves the resulting files to a dedicated Playwright page through request interception at the synthetic `semwright.invalid` origin. It does not open a Vite HTTP listener. Every other browser request is aborted.
 
-On Linux, render execution fails closed unless `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1` was established by Driver Host. Chromium's nested sandbox is disabled only after the helper verifies the outer Bubblewrap + Landlock marker. Renderer children use Chromium's normal process topology inside that boundary while `--no-zygote` avoids the zygote; Driver Host remains the mandatory sandbox boundary. `--single-process` is not used because the pinned headless shell aborts in that mode under CI confinement. Driver Host network remains false.
+On Linux, render execution fails closed unless `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1` was established by Driver Host. Chromium's nested sandbox is disabled only after the helper verifies the outer Bubblewrap + Landlock marker. Playwright's full Chromium runs in new-headless mode with its normal process topology inside that boundary; Driver Host remains the mandatory sandbox boundary. Earlier headless-shell experiments with `--single-process` and `--no-zygote` both aborted with `SIGTRAP` under CI confinement, so neither workaround is part of the production route. Driver Host network remains false.
 
 ## Project transaction
 
@@ -35,4 +35,4 @@ Dry-run stops before any write and returns the same prospective semantic diff/ge
 
 This driver intentionally negotiates protocol v1 and therefore does not use the newer protocol-v2 child progress/events/cancellation interfaces. Rendering remains a driver-local job surface: `render.start/status/cancel/result`. Cancellation terminates the owned process group and removes partial output. Successful jobs validate exact frame names/count, PNG dimensions, decoded pixels, hashes and alpha evidence before returning path metadata.
 
-The driver requests named `project`, `media`, `output` and `runtime` grants plus an explicit read-only `fontconfig` system-config grant mapped only to `/etc/fonts`. The runtime mount is owner-provided and read-only; Node, helper and Chromium headless shell are each SHA-256 pinned. Final binary media is never returned inside protocol JSON.
+The driver requests named `project`, `media`, `output` and `runtime` grants plus an explicit read-only `fontconfig` system-config grant mapped only to `/etc/fonts`. The runtime mount is owner-provided and read-only; Node, helper and the full Chromium executable are each SHA-256 pinned. Final binary media is never returned inside protocol JSON.

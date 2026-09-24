@@ -10,7 +10,7 @@ The Driver Host is the execution boundary. Production rendering requires Bubblew
 
 Ubuntu 24.04 additionally restricts unprivileged user namespaces through AppArmor. CI loads the distro `bwrap-userns-restrict` profile specifically for `/usr/bin/bwrap`; it does not disable `kernel.apparmor_restrict_unprivileged_userns` system-wide. This lets Bubblewrap create the isolated namespaces it needs while preserving Ubuntu's global user-namespace mitigation for unrelated processes.
 
-The Motion runtime is an explicit read-only owner grant. Fontconfig is a separate read-only grant mapped only to `/etc/fonts`, because Driver Host otherwise constructs a minimal `/etc`. Node, renderer helper and Chromium headless shell are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
+The Motion runtime is an explicit read-only owner grant. Fontconfig is a separate read-only grant mapped only to `/etc/fonts`, because Driver Host otherwise constructs a minimal `/etc`. Node, renderer helper and the full Chromium executable are each verified against SHA-256 before use. Runtime configuration parsing is strict and bounded; malformed or stale tools make rendering unavailable.
 
 ## Files and assets
 
@@ -24,7 +24,7 @@ Generated source is written to a driver-owned content-addressed tree; agent text
 
 The browser uses a disposable Playwright context, no user profile, no credentials or extensions. Built assets are fulfilled through request interception from the synthetic `semwright.invalid` origin. Other requests are aborted. No Vite server listens on loopback or LAN.
 
-Chromium headless shell runs inside the mandatory Driver Host Bubblewrap + Landlock boundary; the helper does not expose an agent-controlled browser sandbox switch. Only after the helper verifies the Driver Host marker does it set Playwright `chromiumSandbox:false` with fixed `--no-zygote --disable-gpu` arguments. Chromium renderer children remain inside the outer Bubblewrap + Landlock boundary; `--single-process` is deliberately forbidden because current CI proved that mode aborts the pinned headless shell with `SIGTRAP`. This does not remove the outer Driver Host isolation: filesystem grants remain explicit, `network=false`, external browser requests are aborted, and direct helper execution fails closed. The Rust parent pins `TMPDIR` and XDG state to the job-specific owner-granted output directory.
+Playwright's full Chromium runs in new-headless mode inside the mandatory Driver Host Bubblewrap + Landlock boundary; the helper does not expose an agent-controlled browser sandbox switch. Only after the helper verifies the Driver Host marker does it set `chromiumSandbox:false` with fixed non-security feature flags. Chromium renderer children remain inside the outer Bubblewrap + Landlock boundary. Earlier headless-shell attempts using either `--single-process` or `--no-zygote` aborted with `SIGTRAP`, so those flags are explicitly absent from the production route. This does not remove the outer Driver Host isolation: filesystem grants remain explicit, `network=false`, external browser requests are aborted, and direct helper execution fails closed. The Rust parent pins `TMPDIR` and XDG state to the job-specific owner-granted output directory.
 
 ## Jobs and artifacts
 

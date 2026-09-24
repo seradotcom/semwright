@@ -13,10 +13,10 @@ The Vite plugin is configured with the documented project import path `./src/pro
 1. Rust validates `semwright-motion.json` and a bounded RenderProfile.
 2. Deterministic generated source is materialized in a content-addressed project tree.
 3. Driver Host supplies an owner-approved read-only runtime mount plus a separate read-only `fontconfig` system-config grant mapped only to `/etc/fonts`.
-4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Chromium headless shell executable.
-5. A render job starts the pinned Node helper only inside the Driver Host sandbox. Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` to bound its own heap. The Motion Canvas manifest separately requests the 16 GiB Driver Host virtual-address-space ceiling because real Chromium headless shell could not launch under the former 4 GiB ceiling; this is an `RLIMIT_AS` reservation limit, not a resident-memory allocation.
+4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright full Chromium executable.
+5. A render job starts the pinned Node helper only inside the Driver Host sandbox. Node is launched with `--disable-wasm-trap-handler` and `--max-old-space-size=256` to bound its own heap. The Motion Canvas manifest separately requests the 16 GiB Driver Host virtual-address-space ceiling because the measured Chromium runtime could not launch under the former 4 GiB ceiling; this is an `RLIMIT_AS` reservation limit, not a resident-memory allocation.
 6. The parent pins `TMPDIR`, `TMP`, `TEMP` and XDG state to the job-specific writable output directory before the helper starts. The helper copies the generated project into that private area and performs the Vite build there.
-7. A dedicated Playwright Chromium headless shell context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
+7. A dedicated Playwright full-Chromium new-headless context loads the built output through intercepted requests at `semwright.invalid`; external requests are aborted and there is no listening HTTP socket.
 8. Motion Canvas core `Renderer` invokes the fixed Semwright image-sequence exporter.
 9. The exporter returns PNG data only through an owner-controlled Playwright binding.
 10. Rust validates frame names/count, dimensions, PNG decode, pixel hash and alpha evidence before returning artifact paths.
@@ -27,9 +27,9 @@ The helper never accepts arbitrary JavaScript, npm packages, commands or URLs fr
 
 The Rust job owns a new process group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. The Motion Canvas manifest currently negotiates protocol v1, so this driver does not transport protocol-v2 child progress events; status exposes observed phases only.
 
-## Chromium headless shell sandbox layering
+## Chromium new-headless sandbox layering
 
-The certified Ubuntu path keeps Chromium headless shell inside the already-required Driver Host Bubblewrap + Landlock boundary and does not expose a request-controlled browser sandbox override. The exact Playwright-installed Chromium headless shell executable is selected uniquely and SHA-256 pinned in the owner runtime manifest. After verifying the Driver Host marker, the helper uses Playwright's `chromiumSandbox:false` together with fixed `--no-zygote --disable-gpu` arguments. Chromium keeps its normal renderer child topology inside the Driver Host namespace; CI demonstrated that `--single-process` aborts the pinned headless shell with `SIGTRAP`, so it is not used. The renderer admits only one generated local origin and aborts every external request; the browser remains confined by Bubblewrap/Landlock, the explicit filesystem grants and `network=false`. Playwright's temporary profile is created under the job's writable output root rather than depending on ambient host state.
+The certified Ubuntu path keeps full Chromium in new-headless mode inside the already-required Driver Host Bubblewrap + Landlock boundary and does not expose a request-controlled browser sandbox override. The exact Playwright-installed full Chromium executable is selected uniquely and SHA-256 pinned in the owner runtime manifest. After verifying the Driver Host marker, the helper uses Playwright's `chromiumSandbox:false` with fixed non-security feature flags. Chromium keeps its normal renderer child topology inside the Driver Host namespace; CI demonstrated that headless-shell workarounds with `--single-process` and `--no-zygote` abort with `SIGTRAP`, so neither is used. The renderer admits only one generated local origin and aborts every external request; the browser remains confined by Bubblewrap/Landlock, the explicit filesystem grants and `network=false`. Playwright's temporary profile is created under the job's writable output root rather than depending on ambient host state.
 
 Running `render.mjs` directly outside the Driver Host boundary fails closed.
 
