@@ -6,7 +6,7 @@ members = [
     "integrations/kicad-driver/driver",
     "integrations/kicad-driver/kicad-ipc",
 ]
-exclude = ["fuzz"]
+exclude = ["fuzz", "fixtures/windows-uia"]
 
 [workspace.package]
 version = "0.9.0-dev.1"
