@@ -4,6 +4,7 @@ on:
     branches: [feat/motion-canvas-driver]
   pull_request:
     paths:
+      - 'crates/platform-linux-sys/**'
       - 'crates/driver-motion-canvas/**'
       - 'integrations/motion-canvas/**'
       - 'fixtures/motion-canvas/**'

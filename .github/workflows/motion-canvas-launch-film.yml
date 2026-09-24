@@ -1,6 +1,10 @@
 name: Motion Canvas launch film
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/platform-linux-sys/**'
+      - '.github/workflows/motion-canvas-launch-film.yml'
   push:
     branches: [feat/motion-canvas-driver]
     paths:
