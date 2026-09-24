@@ -34,7 +34,6 @@ pub const COMMANDS: &[&str] = &[
     "ui.toggle",
     "ui.select",
     "ui.expand",
-    "input.key",
     "input.type",
     "pointer.move",
     "pointer.click",
@@ -82,6 +81,28 @@ fn target(args: &Value) -> Result<NativeTarget> {
         })?;
     serde_json::from_value(value.clone())
         .map_err(|_| Error::invalid("Malformed Windows target reference"))
+}
+
+fn integer_arg(args: &Value, key: &str, minimum: i64, maximum: i64) -> Result<i32> {
+    let value = args
+        .get(key)
+        .and_then(Value::as_i64)
+        .ok_or_else(|| Error::invalid(format!("{key} required")))?;
+    if !(minimum..=maximum).contains(&value) {
+        return Err(Error::invalid(format!("{key} outside contract bounds")));
+    }
+    i32::try_from(value).map_err(|_| Error::invalid(format!("{key} out of range")))
+}
+
+fn delta_arg(args: &Value, key: &str, limit: f64) -> Result<i32> {
+    let value = args
+        .get(key)
+        .and_then(Value::as_f64)
+        .ok_or_else(|| Error::invalid(format!("{key} required")))?;
+    if !value.is_finite() || value.abs() > limit {
+        return Err(Error::invalid(format!("{key} outside contract bounds")));
+    }
+    Ok(value.round() as i32)
 }
 
 impl Windows {
@@ -264,27 +285,24 @@ impl Backend for Windows {
                 window::focus(h)?;
                 Ok(json!({"focused":true}))
             }
-            "window.move" | "window.resize" => {
+            "window.move" => {
                 let h = self.resolve_window(&target(args)?)?;
-                let x = args.get("x").and_then(Value::as_i64).unwrap_or(0) as i32;
-                let y = args.get("y").and_then(Value::as_i64).unwrap_or(0) as i32;
-                let width = args
-                    .get("width")
-                    .and_then(Value::as_i64)
-                    .ok_or_else(|| Error::invalid("width required"))?
-                    as i32;
-                let height = args
-                    .get("height")
-                    .and_then(Value::as_i64)
-                    .ok_or_else(|| Error::invalid("height required"))?
-                    as i32;
-                window::move_resize(h, x, y, width, height)?;
-                Ok(json!({"changed":true}))
+                let x = integer_arg(args, "x", -32_768, 32_767)?;
+                let y = integer_arg(args, "y", -32_768, 32_767)?;
+                window::move_window(h, x, y)?;
+                Ok(json!({"applied":true}))
+            }
+            "window.resize" => {
+                let h = self.resolve_window(&target(args)?)?;
+                let width = integer_arg(args, "width", 1, 16_384)?;
+                let height = integer_arg(args, "height", 1, 16_384)?;
+                window::resize_window(h, width, height)?;
+                Ok(json!({"applied":true}))
             }
             "window.close" => {
                 let h = self.resolve_window(&target(args)?)?;
                 window::close(h)?;
-                Ok(json!({"requested":true}))
+                Ok(json!({"requested":true,"delivery_verified":false}))
             }
             "ui.snapshot" => self.uia.snapshot(
                 args.get("_target")
@@ -307,7 +325,14 @@ impl Backend for Windows {
             ),
             "ui.get_value" => self.uia.get_value(target(args)?),
             "ui.toggle" => self.uia.toggle(target(args)?),
-            "ui.select" => self.uia.select(target(args)?),
+            "ui.select" => self.uia.select(
+                target(args)?,
+                args.get("index")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(|| Error::invalid("selection index required"))?
+                    .try_into()
+                    .map_err(|_| Error::invalid("selection index out of range"))?,
+            ),
             "ui.expand" => self.uia.expand(
                 target(args)?,
                 args.get("expand").and_then(Value::as_bool).unwrap_or(true),
@@ -320,53 +345,56 @@ impl Backend for Windows {
                         .and_then(Value::as_str)
                         .ok_or_else(|| Error::invalid("text required"))?,
                 )?;
-                Ok(json!({"typed":true}))
+                Ok(json!({"sent":true}))
             }
-            "input.key" => Err(Error::new(
-                ErrorCode::Unsupported,
-                "Windows virtual-key fallback is not enabled in this source drop; use semantic UIA actions or input.type",
-            )),
             "pointer.move" => {
                 let t = target(args)?;
                 self.ensure_synthetic_target_focused(&t)?;
-                let x = args
-                    .get("normalized_x")
-                    .and_then(Value::as_i64)
-                    .ok_or_else(|| Error::invalid("normalized_x required"))?
-                    as i32;
-                let y = args
-                    .get("normalized_y")
-                    .and_then(Value::as_i64)
-                    .ok_or_else(|| Error::invalid("normalized_y required"))?
-                    as i32;
-                input::mouse_move_absolute(x, y)?;
-                Ok(json!({"moved":true}))
+                let dx = delta_arg(args, "dx", 10_000.0)?;
+                let dy = delta_arg(args, "dy", 10_000.0)?;
+                input::mouse_move_relative(dx, dy)?;
+                Ok(json!({"sent":true}))
             }
             "pointer.click" => {
                 let t = target(args)?;
                 self.ensure_synthetic_target_focused(&t)?;
-                input::left_click()?;
-                Ok(json!({"clicked":true}))
+                input::click(
+                    args.get("button")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| Error::invalid("button required"))?,
+                )?;
+                Ok(json!({"sent":true}))
             }
             "pointer.scroll" => {
                 let t = target(args)?;
                 self.ensure_synthetic_target_focused(&t)?;
-                input::wheel(
-                    args.get("delta")
-                        .and_then(Value::as_i64)
-                        .ok_or_else(|| Error::invalid("delta required"))?
-                        as i32,
-                )?;
-                Ok(json!({"scrolled":true}))
+                let dx = delta_arg(args, "dx", 1_000.0)?;
+                let dy = delta_arg(args, "dy", 1_000.0)?;
+                input::scroll(dx, dy)?;
+                Ok(json!({"sent":true}))
             }
-            "clipboard.read" => Ok(json!({"text":clipboard::read_text()?})),
+            "clipboard.read" => {
+                let max_bytes = args
+                    .get("max_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1_048_576)
+                    .min(1_048_576) as usize;
+                let text = clipboard::read_text()?;
+                if text.len() > max_bytes {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Clipboard text exceeds requested max_bytes",
+                    ));
+                }
+                Ok(json!({"text":text,"bytes":text.len()}))
+            }
             "clipboard.write" => {
-                clipboard::write_text(
-                    args.get("text")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| Error::invalid("text required"))?,
-                )?;
-                Ok(json!({"written":true}))
+                let text = args
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| Error::invalid("text required"))?;
+                clipboard::write_text(text)?;
+                Ok(json!({"written":true,"bytes":text.len()}))
             }
             "screen.capture" => Err(Error::new(
                 ErrorCode::Unavailable,
@@ -391,5 +419,32 @@ impl Backend for Windows {
     }
     async fn shutdown(&self) -> Result<()> {
         self.uia.shutdown()
+    }
+}
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn numeric_helpers_enforce_portable_contract_bounds() {
+        assert_eq!(
+            integer_arg(&json!({"x": -32768}), "x", -32768, 32767).unwrap(),
+            -32768
+        );
+        assert!(integer_arg(&json!({"x": 32768}), "x", -32768, 32767).is_err());
+        assert_eq!(delta_arg(&json!({"dx": 2.6}), "dx", 10_000.0).unwrap(), 3);
+        assert!(delta_arg(&json!({"dx": 10_001.0}), "dx", 10_000.0).is_err());
+        assert!(delta_arg(&json!({"dx": f64::NAN}), "dx", 10_000.0).is_err());
+    }
+
+    #[test]
+    fn unsupported_virtual_key_command_is_not_advertised() {
+        assert!(!COMMANDS.contains(&"input.key"));
+        assert!(COMMANDS.contains(&"input.type"));
+        assert!(COMMANDS.contains(&"pointer.move"));
+        assert!(COMMANDS.contains(&"pointer.click"));
+        assert!(COMMANDS.contains(&"pointer.scroll"));
     }
 }

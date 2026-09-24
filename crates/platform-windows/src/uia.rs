@@ -56,7 +56,7 @@ enum Call {
     SetValue(NativeTarget, f64, mpsc::Sender<Result<Value>>),
     GetValue(NativeTarget, mpsc::Sender<Result<Value>>),
     Toggle(NativeTarget, mpsc::Sender<Result<Value>>),
-    Select(NativeTarget, mpsc::Sender<Result<Value>>),
+    Select(NativeTarget, usize, mpsc::Sender<Result<Value>>),
     Expand(NativeTarget, bool, mpsc::Sender<Result<Value>>),
     Snapshot(Option<NativeTarget>, mpsc::Sender<Result<Value>>),
     Validate(NativeTarget, mpsc::Sender<Result<Value>>),
@@ -376,7 +376,7 @@ impl State {
         }
         p.set_value(value)
             .map_err(|_| Error::new(ErrorCode::BackendFailed, "UIA ValuePattern set failed"))?;
-        Ok(json!({"set":true}))
+        Ok(json!({"changed":true}))
     }
 
     fn read_text(&mut self, target: &NativeTarget) -> Result<Value> {
@@ -409,23 +409,36 @@ impl State {
             .map_err(|_| {
                 Error::new(ErrorCode::BackendFailed, "UIA RangeValuePattern set failed")
             })?;
-        Ok(json!({"set":true,"value":value}))
+        Ok(json!({"applied":true}))
     }
 
     fn get_value(&mut self, target: &NativeTarget) -> Result<Value> {
         let e = self.resolve(target)?;
-        if let Ok(p) = e.get_pattern::<UIRangeValuePattern>() {
-            return Ok(
-                json!({"value":p.get_value().map_err(|_| Error::new(ErrorCode::BackendFailed,"UIA RangeValuePattern read failed"))?}),
-            );
-        }
-        if let Ok(p) = e.get_pattern::<UIValuePattern>() {
-            return Ok(json!({"value":bounded(p.get_value().unwrap_or_default())}));
-        }
-        Err(Error::new(
-            ErrorCode::Unsupported,
-            "UIA element has no value pattern",
-        ))
+        let p = e.get_pattern::<UIRangeValuePattern>().map_err(|_| {
+            Error::new(
+                ErrorCode::Unsupported,
+                "UIA element does not expose a numeric RangeValuePattern",
+            )
+        })?;
+        let value = p.get_value().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "UIA RangeValuePattern read failed",
+            )
+        })?;
+        let minimum = p.get_minimum().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "UIA RangeValuePattern minimum unavailable",
+            )
+        })?;
+        let maximum = p.get_maximum().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "UIA RangeValuePattern maximum unavailable",
+            )
+        })?;
+        Ok(json!({"value":value,"minimum":minimum,"maximum":maximum}))
     }
 
     fn toggle(&mut self, target: &NativeTarget) -> Result<Value> {
@@ -438,16 +451,34 @@ impl State {
         })?;
         p.toggle()
             .map_err(|_| Error::new(ErrorCode::BackendFailed, "UIA TogglePattern failed"))?;
-        Ok(json!({"toggled":true}))
+        Ok(json!({"invoked":true}))
     }
 
-    fn select(&mut self, target: &NativeTarget) -> Result<Value> {
-        let e = self.resolve(target)?;
-        e.get_pattern::<UISelectionItemPattern>()
+    fn select(&mut self, target: &NativeTarget, index: usize) -> Result<Value> {
+        if index > 2_000 {
+            return Err(Error::invalid("UIA selection index exceeds budget"));
+        }
+        let container = self.resolve(target)?;
+        let mut child = self.walker.get_first_child(&container).map_err(|_| {
+            Error::new(
+                ErrorCode::Unsupported,
+                "UIA selection container has no selectable children",
+            )
+        })?;
+        for _ in 0..index {
+            child = self.walker.get_next_sibling(&child).map_err(|_| {
+                Error::new(
+                    ErrorCode::InvalidArgument,
+                    "UIA selection index is outside the container",
+                )
+            })?;
+        }
+        child
+            .get_pattern::<UISelectionItemPattern>()
             .map_err(|_| {
                 Error::new(
                     ErrorCode::Unsupported,
-                    "UIA element does not support SelectionItemPattern",
+                    "UIA child does not support SelectionItemPattern",
                 )
             })?
             .select()
@@ -466,7 +497,7 @@ impl State {
         if expand { p.expand() } else { p.collapse() }.map_err(|_| {
             Error::new(ErrorCode::BackendFailed, "UIA ExpandCollapsePattern failed")
         })?;
-        Ok(json!({"expanded":expand}))
+        Ok(json!({"applied":true}))
     }
 }
 
@@ -540,8 +571,8 @@ impl UiaActor {
     pub fn toggle(&self, t: NativeTarget) -> Result<Value> {
         self.request(|r| Call::Toggle(t, r))
     }
-    pub fn select(&self, t: NativeTarget) -> Result<Value> {
-        self.request(|r| Call::Select(t, r))
+    pub fn select(&self, t: NativeTarget, index: usize) -> Result<Value> {
+        self.request(|r| Call::Select(t, index, r))
     }
     pub fn expand(&self, t: NativeTarget, v: bool) -> Result<Value> {
         self.request(|r| Call::Expand(t, v, r))
@@ -581,8 +612,8 @@ fn dispatch(state: &mut State, call: Call) {
         Call::Toggle(t, r) => {
             let _ = r.send(state.toggle(&t));
         }
-        Call::Select(t, r) => {
-            let _ = r.send(state.select(&t));
+        Call::Select(t, index, r) => {
+            let _ = r.send(state.select(&t, index));
         }
         Call::Expand(t, v, r) => {
             let _ = r.send(state.expand(&t, v));

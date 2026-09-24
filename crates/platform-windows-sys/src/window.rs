@@ -10,8 +10,8 @@ use windows::{
         },
         UI::WindowsAndMessaging::{
             EnumWindows, GetForegroundWindow, GetWindowRect, GetWindowTextW,
-            GetWindowThreadProcessId, IsWindowVisible, PostMessageW, SWP_NOACTIVATE, SWP_NOZORDER,
-            SetForegroundWindow, SetWindowPos, WM_CLOSE,
+            GetWindowThreadProcessId, IsWindowVisible, PostMessageW, SWP_NOACTIVATE, SWP_NOMOVE,
+            SWP_NOSIZE, SWP_NOZORDER, SetForegroundWindow, SetWindowPos, WM_CLOSE,
         },
     },
     core::{BOOL, PWSTR},
@@ -155,23 +155,39 @@ pub fn focus(hwnd: HWND) -> Result<()> {
     Ok(())
 }
 
-pub fn move_resize(hwnd: HWND, x: i32, y: i32, width: i32, height: i32) -> Result<()> {
-    if width <= 0 || height <= 0 {
-        return Err(Error::invalid("Window size must be positive"));
-    }
-    // SAFETY: the HWND/process handle and output storage come from the synchronous Win32 enumeration/query path and remain valid for this call.
+pub fn move_window(hwnd: HWND, x: i32, y: i32) -> Result<()> {
+    // SAFETY: the HWND has been revalidated by the platform backend for this synchronous call.
     unsafe {
         SetWindowPos(
             hwnd,
             None,
             x,
             y,
-            width,
-            height,
-            SWP_NOZORDER | SWP_NOACTIVATE,
+            0,
+            0,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSIZE,
         )
     }
-    .map_err(|_| Error::new(ErrorCode::BackendFailed, "Window geometry change failed"))
+    .map_err(|_| Error::new(ErrorCode::BackendFailed, "Window move failed"))
+}
+
+pub fn resize_window(hwnd: HWND, width: i32, height: i32) -> Result<()> {
+    if width <= 0 || height <= 0 {
+        return Err(Error::invalid("Window size must be positive"));
+    }
+    // SAFETY: the HWND has been revalidated by the platform backend for this synchronous call.
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            width,
+            height,
+            SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE,
+        )
+    }
+    .map_err(|_| Error::new(ErrorCode::BackendFailed, "Window resize failed"))
 }
 
 pub fn close(hwnd: HWND) -> Result<()> {

@@ -1,8 +1,9 @@
 use semwright_types::{Error, ErrorCode, Result};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
-    MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE,
-    MOUSEEVENTF_VIRTUALDESK, MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput, VIRTUAL_KEY,
+    MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN,
+    MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
+    MOUSEEVENTF_WHEEL, MOUSEINPUT, SendInput, VIRTUAL_KEY,
 };
 
 fn send(inputs: &[INPUT]) -> Result<()> {
@@ -55,20 +56,20 @@ pub fn type_unicode(text: &str) -> Result<()> {
     send(&batch)
 }
 
-pub fn mouse_move_absolute(normalized_x: i32, normalized_y: i32) -> Result<()> {
-    if !(0..=65_535).contains(&normalized_x) || !(0..=65_535).contains(&normalized_y) {
+pub fn mouse_move_relative(dx: i32, dy: i32) -> Result<()> {
+    if !(-10_000..=10_000).contains(&dx) || !(-10_000..=10_000).contains(&dy) {
         return Err(Error::invalid(
-            "Absolute mouse coordinates must be normalized to 0..65535",
+            "Relative mouse delta exceeds contract bounds",
         ));
     }
     let input = INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
             mi: MOUSEINPUT {
-                dx: normalized_x,
-                dy: normalized_y,
+                dx,
+                dy,
                 mouseData: 0,
-                dwFlags: MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+                dwFlags: MOUSEEVENTF_MOVE,
                 time: 0,
                 dwExtraInfo: 0,
             },
@@ -77,7 +78,13 @@ pub fn mouse_move_absolute(normalized_x: i32, normalized_y: i32) -> Result<()> {
     send(&[input])
 }
 
-pub fn left_click() -> Result<()> {
+pub fn click(button: &str) -> Result<()> {
+    let (down, up) = match button {
+        "left" => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+        "middle" => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
+        "right" => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
+        _ => return Err(Error::invalid("Unsupported mouse button")),
+    };
     let make = |flags| INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
@@ -91,22 +98,35 @@ pub fn left_click() -> Result<()> {
             },
         },
     };
-    send(&[make(MOUSEEVENTF_LEFTDOWN), make(MOUSEEVENTF_LEFTUP)])
+    send(&[make(down), make(up)])
 }
 
-pub fn wheel(delta: i32) -> Result<()> {
-    let input = INPUT {
+pub fn scroll(dx: i32, dy: i32) -> Result<()> {
+    if !(-1_000..=1_000).contains(&dx) || !(-1_000..=1_000).contains(&dy) {
+        return Err(Error::invalid("Scroll delta exceeds contract bounds"));
+    }
+    let mut inputs = Vec::with_capacity(2);
+    let make = |delta: i32, flags| INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
             mi: MOUSEINPUT {
                 dx: 0,
                 dy: 0,
                 mouseData: delta as u32,
-                dwFlags: MOUSEEVENTF_WHEEL,
+                dwFlags: flags,
                 time: 0,
                 dwExtraInfo: 0,
             },
         },
     };
-    send(&[input])
+    if dx != 0 {
+        inputs.push(make(dx, MOUSEEVENTF_HWHEEL));
+    }
+    if dy != 0 {
+        inputs.push(make(dy, MOUSEEVENTF_WHEEL));
+    }
+    if inputs.is_empty() {
+        return Ok(());
+    }
+    send(&inputs)
 }
