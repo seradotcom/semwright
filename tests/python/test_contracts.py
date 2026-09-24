@@ -29,6 +29,21 @@ class ContractTests(unittest.TestCase):
                 self.assertEqual(command["input_schema"]["type"], "object")
                 self.assertIs(command["input_schema"]["additionalProperties"], False)
 
+    def test_every_output_has_a_closed_top_level_contract(self):
+        def assert_closed(schema):
+            if schema.get("type") == "object":
+                self.assertTrue(schema.get("properties"))
+                self.assertIs(schema.get("additionalProperties"), False)
+                return
+            variants = schema.get("oneOf") or schema.get("anyOf") or schema.get("allOf")
+            self.assertTrue(variants)
+            for variant in variants:
+                assert_closed(variant)
+
+        for command in COMMANDS:
+            with self.subTest(command=command["name"]):
+                assert_closed(command["output_schema"])
+
     def test_all_descriptors_bounded(self):
         for command in COMMANDS:
             with self.subTest(command=command["name"]):
