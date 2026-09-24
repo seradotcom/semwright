@@ -656,13 +656,12 @@ impl Selector {
         };
         let name_regex = compile_regex(&self.name)?;
         let help_regex = compile_regex(&self.help)?;
-        if let Some(value) = &self.value {
-            if value.current_minimum.is_some_and(|v| !v.is_finite())
+        if self.value.as_ref().is_some_and(|value| {
+            value.current_minimum.is_some_and(|v| !v.is_finite())
                 || value.current_maximum.is_some_and(|v| !v.is_finite())
                 || matches!((value.current_minimum, value.current_maximum), (Some(min), Some(max)) if min > max)
-            {
-                return Err(Error::invalid("Value selector range is invalid"));
-            }
+        }) {
+            return Err(Error::invalid("Value selector range is invalid"));
         }
         let index: BTreeMap<&str, &UiNode> =
             nodes.iter().map(|n| (n.reference.as_str(), n)).collect();
