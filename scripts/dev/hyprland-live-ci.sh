@@ -41,7 +41,7 @@ cat > "$home/sway-parent.conf" <<'SWAYCONF'
 output * resolution 1280x720
 seat seat0 fallback true
 SWAYCONF
-WLR_BACKENDS=headless WLR_RENDERER=gles2 WLR_LIBINPUT_NO_DEVICES=1 \
+WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1 \
   sway --unsupported-gpu --config "$home/sway-parent.conf" --debug \
   >"$SEMWRIGHT_HYPRLAND_EVIDENCE_DIR/sway-parent.log" 2>&1 &
 sway_pid=$!
