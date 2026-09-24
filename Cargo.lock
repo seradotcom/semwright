@@ -2605,6 +2605,7 @@ dependencies = [
  "semwright-driver-registry",
  "semwright-driver-sdk",
  "semwright-federation",
+ "semwright-platform-services",
  "semwright-plugin-sdk",
  "semwright-policy",
  "semwright-protocol",
