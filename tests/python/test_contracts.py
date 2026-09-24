@@ -14,7 +14,7 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_162_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 90)
+        self.assertEqual(len(COMMANDS), 91)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
@@ -44,6 +44,28 @@ class ContractTests(unittest.TestCase):
         for command in COMMANDS:
             walk(command["input_schema"], f"{command['name']}/input_schema")
             walk(command["output_schema"], f"{command['name']}/output_schema")
+
+    def test_job_outputs_accept_bounded_progress_and_artifacts(self):
+        job = {
+            "id": "a" * 32,
+            "command": "driver.fixture.long",
+            "state": "running",
+            "created_at_ms": 1,
+            "cancellation_requested": False,
+            "cancellable": True,
+            "progress": {"completed": 2, "total": 4, "message": "halfway"},
+            "artifacts": [{
+                "name": "preview",
+                "reference": "artifact:fixture-preview",
+                "media_type": "image/png",
+                "sha256": "b" * 64,
+                "bytes": 128,
+            }],
+            "result_omitted": False,
+        }
+        for name in ("jobs.start", "jobs.get", "jobs.cancel"):
+            jsonschema.validate({"job": job}, REGISTRY[name]["output_schema"])
+        jsonschema.validate({"jobs": [job]}, REGISTRY["jobs.list"]["output_schema"])
 
     def test_every_input_is_closed(self):
         for command in COMMANDS:

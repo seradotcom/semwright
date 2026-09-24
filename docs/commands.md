@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-90 built-in descriptors. A descriptor is not proof of live backend support.
+91 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -99,6 +99,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `capabilities.search` | `desktop.observe` | read_only | 10000 ms | core |
 | `capabilities.describe` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.start` | `desktop.observe` | read_only | 10000 ms | core |
+| `jobs.list` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.get` | `desktop.observe` | read_only | 10000 ms | core |
 | `jobs.cancel` | `desktop.observe` | read_only | 10000 ms | core |
 
@@ -2361,6 +2362,20 @@ Idempotency: `non_idempotent`. Dry run: `false`.
       "additionalProperties": false
     }
   },
+  "additionalProperties": false
+}
+```
+
+## `jobs.list`
+
+List retained jobs owned by this broker session, newest first, including bounded progress and artifact metadata.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {},
   "additionalProperties": false
 }
 ```
