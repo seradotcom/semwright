@@ -119,11 +119,41 @@ async fn bounded<T>(f: impl std::future::Future<Output = zbus::Result<T>>) -> Re
 }
 pub fn normalize_role(role: &str) -> String {
     match role {
-        "push button" => "button".into(),
-        "text" => "text".into(),
-        "password text" => "password-entry".into(),
-        _ => role.to_lowercase().replace(' ', "-"),
+        "application" => "application",
+        "frame" | "dialog" | "window" => "window",
+        "push button" | "button" => "button",
+        "toggle button" => "toggle_button",
+        "check box" => "check_box",
+        "radio button" => "radio_button",
+        "entry" | "text" => "text",
+        "password text" => "password-entry",
+        "static" | "label" | "accelerator label" => "label",
+        "link" => "link",
+        "menu" | "menu bar" | "popup menu" => "menu",
+        "menu item" | "check menu item" | "radio menu item" => "menu_item",
+        "list" => "list",
+        "list item" => "list_item",
+        "combo box" => "combo_box",
+        "tree" => "tree",
+        "tree item" => "tree_item",
+        "table" => "table",
+        "table cell" => "table_cell",
+        "table row header" | "row header" => "table_row_header",
+        "table column header" | "column header" => "table_column_header",
+        "slider" => "slider",
+        "spin button" => "spinner",
+        "page tab list" => "tab_list",
+        "page tab" => "tab",
+        "tool bar" => "tool_bar",
+        "scroll bar" => "scroll_bar",
+        "scroll pane" => "scroll_pane",
+        "panel" | "root pane" | "option pane" => "pane",
+        "progress bar" => "progress_bar",
+        "image" | "icon" => "image",
+        "grouping" | "section" => "group",
+        other => return other.to_lowercase().replace(' ', "-"),
     }
+    .into()
 }
 pub fn decode_states(bits: &[u32]) -> Vec<&'static str> {
     let states = [
@@ -1437,6 +1467,25 @@ mod tests {
     #[test]
     fn machine_button_role() {
         assert_eq!(normalize_role("push button"), "button");
+    }
+    #[test]
+    fn rich_roles_normalize_to_portable_semantics() {
+        for (native, semantic) in [
+            ("dialog", "window"),
+            ("check box", "check_box"),
+            ("radio button", "radio_button"),
+            ("combo box", "combo_box"),
+            ("table cell", "table_cell"),
+            ("table column header", "table_column_header"),
+            ("page tab list", "tab_list"),
+            ("scroll pane", "scroll_pane"),
+            ("progress bar", "progress_bar"),
+            ("icon", "image"),
+            ("section", "group"),
+        ] {
+            assert_eq!(normalize_role(native), semantic);
+        }
+        assert_eq!(normalize_role("custom thing"), "custom-thing");
     }
     #[test]
     fn unique_owner_required() {
