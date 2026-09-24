@@ -166,7 +166,7 @@ impl DriverResources {
         if !(32..=1024).contains(&self.open_files)
             || !(8..=256).contains(&self.processes)
             || !(5..=300).contains(&self.cpu_seconds)
-            || !(134_217_728..=17_179_869_184).contains(&self.address_space_bytes)
+            || !(134_217_728..=4_294_967_296).contains(&self.address_space_bytes)
             || !(1_048_576..=1_073_741_824).contains(&self.file_size_bytes)
         {
             return Err(Error::invalid(
@@ -993,7 +993,7 @@ mod tests {
         manifest.resources.cpu_seconds = 120;
         manifest.validate().unwrap();
 
-        manifest.resources.address_space_bytes = 17_179_869_185;
+        manifest.resources.address_space_bytes = 4_294_967_297;
         assert!(manifest.validate().is_err());
         manifest.resources.address_space_bytes = 2_147_483_648;
         manifest.resources.processes = 257;
