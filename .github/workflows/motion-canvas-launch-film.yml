@@ -84,11 +84,19 @@ jobs:
           cp /bin/sh "$RUNNER_TEMP/aa-exec-probe/driver"
           cp /usr/bin/true "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
           chmod 0755 "$RUNNER_TEMP/aa-exec-probe/sandbox" "$RUNNER_TEMP/aa-exec-probe/driver" "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
-          bwrap --unshare-all --ro-bind / / --dir /plugin --dir /workspace \
-            --ro-bind "$RUNNER_TEMP/aa-exec-probe/sandbox" /plugin/sandbox \
-            --ro-bind "$RUNNER_TEMP/aa-exec-probe/driver" /plugin/bin \
-            --ro-bind "$RUNNER_TEMP/aa-exec-probe/runtime" /workspace/runtime \
-            -- /plugin/sandbox -c '/plugin/bin -c /workspace/runtime/tool'
+          probe=(bwrap --unshare-all --clearenv --proc /proc --dev /dev --tmpfs /tmp \
+            --dir /home --dir /workspace --dir /plugin --dir /etc)
+          for root in /usr /lib /lib64; do
+            if test -e "$root"; then probe+=(--ro-bind "$root" "$root"); fi
+          done
+          if test -f /etc/ld.so.cache; then
+            probe+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          fi
+          probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/sandbox" /plugin/sandbox)
+          probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/driver" /plugin/bin)
+          probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/runtime" /workspace/runtime)
+          probe+=(--setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8)
+          "${probe[@]}" -- /plugin/sandbox -c '/plugin/bin -c /workspace/runtime/tool'
       - name: Install exact Motion Canvas runtime without package scripts
         working-directory: integrations/motion-canvas/runtime
         run: |
