@@ -396,8 +396,8 @@ pub struct UiTextFacet {
 #[serde(deny_unknown_fields)]
 pub struct UiValueFacet {
     pub current: Option<f64>,
-    pub current_minimum: Option<f64>,
-    pub current_maximum: Option<f64>,
+    pub minimum: Option<f64>,
+    pub maximum: Option<f64>,
     pub increment: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,

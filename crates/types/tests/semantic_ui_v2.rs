@@ -172,8 +172,8 @@ fn facet_specific_selectors_match_semantics_not_platform_details() {
     });
     let selector = Selector {
         value: Some(ValueFacetMatch {
-            minimum: Some(50.0),
-            maximum: Some(60.0),
+            current_minimum: Some(50.0),
+            current_maximum: Some(60.0),
         }),
         text: Some(TextFacetMatch {
             editable: Some(false),
@@ -223,8 +223,8 @@ fn inverted_or_nonfinite_value_ranges_are_rejected() {
     }));
     let inverted = Selector {
         value: Some(ValueFacetMatch {
-            minimum: Some(80.0),
-            maximum: Some(20.0),
+            current_minimum: Some(80.0),
+            current_maximum: Some(20.0),
         }),
         ..Default::default()
     };
@@ -234,8 +234,8 @@ fn inverted_or_nonfinite_value_ranges_are_rejected() {
     );
     let nonfinite = Selector {
         value: Some(ValueFacetMatch {
-            minimum: Some(f64::NAN),
-            maximum: None,
+            current_minimum: Some(f64::NAN),
+            current_maximum: None,
         }),
         ..Default::default()
     };
