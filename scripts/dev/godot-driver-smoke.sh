@@ -190,7 +190,7 @@ python3 - "$search" "$doctor" "$sessions" "$inspect" <<'PY'
 import json,sys
 search,doctor,sessions,inspect=map(json.loads,sys.argv[1:])
 rows=search["data"]["capabilities"]
-assert len(rows)==53, len(rows)
+assert len(rows)==47, len(rows)
 assert all(row["provenance"]["provider"]=="driver:godot" for row in rows)
 assert doctor["ok"] is True
 assert doctor["execution"]["provenance"]["provider"]=="driver:godot"
