@@ -1,11 +1,16 @@
 import {describe,it,expect} from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-const code=fs.readFileSync(path.join(process.cwd(),"src/code.ts"),"utf8");
-const semantic=fs.readFileSync(path.join(process.cwd(),"src/semantic_complete.ts"),"utf8");
-const allCode=semantic+"\n"+code;
-const ui=fs.readFileSync(path.join(process.cwd(),"src/ui.html"),"utf8");
+const sourceDir=path.join(process.cwd(),"src");
+const sourceFiles=fs.readdirSync(sourceDir).filter(name=>name.endsWith(".ts")).sort();
+const allCode=sourceFiles.map(name=>fs.readFileSync(path.join(sourceDir,name),"utf8")).join("\n");
+const code=fs.readFileSync(path.join(sourceDir,"code.ts"),"utf8");
+const ui=fs.readFileSync(path.join(sourceDir,"ui.html"),"utf8");
 const manifest=JSON.parse(fs.readFileSync(path.join(process.cwd(),"manifest.json"),"utf8"));
+const devInspect=JSON.parse(fs.readFileSync(path.join(process.cwd(),"manifest.dev-inspect.json"),"utf8"));
+const devCodegen=JSON.parse(fs.readFileSync(path.join(process.cwd(),"manifest.dev-codegen.json"),"utf8"));
+const textReview=JSON.parse(fs.readFileSync(path.join(process.cwd(),"manifest.textreview.json"),"utf8"));
+const collaboration=JSON.parse(fs.readFileSync(path.join(process.cwd(),"manifest.collaboration.json"),"utf8"));
 describe("security surface",()=>{
  it("has no eval or Function constructor",()=>{expect(allCode).not.toMatch(/\beval\s*\(/);expect(allCode).not.toMatch(/new\s+Function/);});
  it("uses dynamic page access",()=>expect(manifest.documentAccess).toBe("dynamic-page"));
@@ -17,6 +22,12 @@ describe("security surface",()=>{
  it("uses setReactionsAsync",()=>expect(code).toContain("setReactionsAsync"));
  it("sanitizes SVG",()=>expect(code).toContain("rejectUnsafeSvg"));
  it("bounds tree traversal",()=>expect(code).toContain("MAX_TREE"));
+ it("keeps normal editors separate from Dev Mode",()=>{expect(manifest.editorType).toEqual(["figma","figjam","slides","buzz"]);expect(manifest.editorType).not.toContain("dev");});
+ it("ships an inspect-only Dev Mode manifest",()=>{expect(devInspect.editorType).toEqual(["dev"]);expect(devInspect.capabilities).toEqual(["inspect","vscode"]);});
+ it("ships a dedicated codegen Dev Mode manifest",()=>{expect(devCodegen.editorType).toEqual(["dev"]);expect(devCodegen.capabilities).toEqual(["codegen","vscode"]);expect(devCodegen.codegenLanguages.length).toBeGreaterThan(0);});
+ it("ships a dedicated text-review manifest",()=>{expect(textReview.editorType).toEqual(["figma","figjam"]);expect(textReview.capabilities).toEqual(["textreview"]);expect(textReview.permissions).toBeUndefined();});
+ it("keeps collaboration permissions out of the default manifest",()=>{expect(manifest.permissions).toEqual(["teamlibrary"]);expect(collaboration.permissions).toEqual(["teamlibrary","currentuser","activeusers","fileusers"]);});
+ it("keeps every manifest offline except the loopback development bridge",()=>{for(const m of [manifest,collaboration,devInspect,devCodegen,textReview]){expect(m.networkAccess.allowedDomains).toEqual(["none"]);expect(m.networkAccess.devAllowedDomains).toEqual(["ws://127.0.0.1:38471"]);}});
 });
 describe("advanced API",()=>{
  it("implements Motion style operations",()=>expect(code).toContain("applyAnimationStyle"));

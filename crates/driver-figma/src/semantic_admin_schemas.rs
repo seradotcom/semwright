@@ -28,7 +28,28 @@ pub const OPERATIONS: &[&str] = &[
     "layout.grid.child.position",
     "slides.transition.inspect",
     "slides.transition.set",
+    "textreview.status",
+    "textreview.enable",
+    "textreview.disable",
     "widget.find_by_widget_id",
+    "dev.measurement.list",
+    "dev.measurement.for_node",
+    "dev.measurement.add",
+    "dev.measurement.edit",
+    "dev.measurement.remove",
+    "variable.collection.extend",
+    "variable.values_for_collection",
+    "variable.override.remove_mode",
+    "variable.collection.overrides.remove_variable",
+    "variable.resolve_for_consumer",
+    "style.consumers.list",
+    "object.plugin_data.get",
+    "object.plugin_data.set",
+    "object.plugin_data.keys",
+    "object.shared_plugin_data.get",
+    "object.shared_plugin_data.set",
+    "object.shared_plugin_data.keys",
+    "style.variable.bind",
 ];
 
 fn s(max: usize) -> Value {
@@ -147,6 +168,23 @@ fn nullable_node_summary() -> Value {
 fn aspect_ratio_schema() -> Value {
     json!({"oneOf":[{"type":"null"},{"type":"object","properties":{"x":n(-1e9,1e9),"y":n(-1e9,1e9)},"required":["x","y"],"additionalProperties":false}]})
 }
+fn measurement_offset_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"object","properties":{"type":{"const":"INNER"},"relative":n(-1000.0,1000.0)},"required":["type","relative"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"OUTER"},"fixed":n(-1e9,1e9)},"required":["type","fixed"],"additionalProperties":false}
+    ]})
+}
+fn measurement_schema() -> Value {
+    let endpoint = json!({"type":"object","properties":{"node":node_summary(),"side":en(&["TOP","RIGHT","BOTTOM","LEFT"])},"required":["node","side"],"additionalProperties":false});
+    json!({"type":"object","properties":{"id":s(256),"start":endpoint.clone(),"end":endpoint,"offset":measurement_offset_schema(),"freeText":{"type":"string","maxLength":4096}},"required":["id","start","end","offset","freeText"],"additionalProperties":false})
+}
+fn variable_value_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"boolean"},{"type":"number"},{"type":"string","maxLength":65536},
+        {"type":"object","properties":{"r":n(0.0,1.0),"g":n(0.0,1.0),"b":n(0.0,1.0),"a":n(0.0,1.0)},"required":["r","g","b"],"additionalProperties":false},
+        {"type":"object","properties":{"type":{"const":"VARIABLE_ALIAS"},"id":s(256)},"required":["type","id"],"additionalProperties":false}
+    ]})
+}
 pub fn input_schema(name: &str) -> Option<Value> {
     if !OPERATIONS.contains(&name) {
         return None;
@@ -172,7 +210,10 @@ pub fn input_schema(name: &str) -> Option<Value> {
         | "codegen.status"
         | "codegen.refresh"
         | "user.current"
-        | "figjam.active_users" => no_args(),
+        | "figjam.active_users"
+        | "textreview.status"
+        | "textreview.enable"
+        | "textreview.disable" => no_args(),
         "slides.grid.set" => input(vec![("rows", arr(100, arr(100, s(256))))], &["rows"]),
         "annotation.category.inspect" => input(vec![("id", s(256))], &["id"]),
         "font.load" => input(
@@ -232,7 +273,10 @@ pub fn input_schema(name: &str) -> Option<Value> {
         "library.publish_status.inspect" => input(
             vec![
                 ("targetId", s(256)),
-                ("targetKind", en(&["AUTO", "NODE", "STYLE"])),
+                (
+                    "targetKind",
+                    en(&["AUTO", "NODE", "STYLE", "VARIABLE", "COLLECTION"]),
+                ),
             ],
             &["targetId"],
         ),
@@ -274,6 +318,149 @@ pub fn input_schema(name: &str) -> Option<Value> {
                 ("limit", u(500)),
             ],
             &["widgetId"],
+        ),
+        "dev.measurement.list" => no_args(),
+        "dev.measurement.for_node" => input(vec![("nodeId", s(256))], &["nodeId"]),
+        "dev.measurement.add" => input(
+            vec![
+                ("startNodeId", s(256)),
+                ("startSide", en(&["TOP", "RIGHT", "BOTTOM", "LEFT"])),
+                ("endNodeId", s(256)),
+                ("endSide", en(&["TOP", "RIGHT", "BOTTOM", "LEFT"])),
+                ("offset", measurement_offset_schema()),
+                ("freeText", json!({"type":"string","maxLength":4096})),
+            ],
+            &["startNodeId", "startSide", "endNodeId", "endSide"],
+        ),
+        "dev.measurement.edit" => input(
+            vec![
+                ("measurementId", s(256)),
+                ("offset", measurement_offset_schema()),
+                ("freeText", json!({"type":"string","maxLength":4096})),
+            ],
+            &["measurementId"],
+        ),
+        "dev.measurement.remove" => input(vec![("measurementId", s(256))], &["measurementId"]),
+        "variable.collection.extend" => input(
+            vec![("collectionId", s(256)), ("name", s(256))],
+            &["collectionId", "name"],
+        ),
+        "variable.values_for_collection" => input(
+            vec![("variableId", s(256)), ("collectionId", s(256))],
+            &["variableId", "collectionId"],
+        ),
+        "variable.override.remove_mode" => input(
+            vec![("variableId", s(256)), ("modeId", s(256))],
+            &["variableId", "modeId"],
+        ),
+        "variable.collection.overrides.remove_variable" => input(
+            vec![("collectionId", s(256)), ("variableId", s(256))],
+            &["collectionId", "variableId"],
+        ),
+        "variable.resolve_for_consumer" => input(
+            vec![("variableId", s(256)), ("nodeId", s(256))],
+            &["variableId", "nodeId"],
+        ),
+        "style.consumers.list" => {
+            input(vec![("styleId", s(256)), ("limit", u(1000))], &["styleId"])
+        }
+        "object.plugin_data.get" => input(
+            vec![
+                (
+                    "targetKind",
+                    en(&["NODE", "STYLE", "VARIABLE", "COLLECTION"]),
+                ),
+                ("targetId", s(256)),
+                ("key", s(256)),
+            ],
+            &["targetKind", "targetId", "key"],
+        ),
+        "object.plugin_data.keys" => input(
+            vec![
+                (
+                    "targetKind",
+                    en(&["NODE", "STYLE", "VARIABLE", "COLLECTION"]),
+                ),
+                ("targetId", s(256)),
+            ],
+            &["targetKind", "targetId"],
+        ),
+        "object.plugin_data.set" => input(
+            vec![
+                (
+                    "targetKind",
+                    en(&["NODE", "STYLE", "VARIABLE", "COLLECTION"]),
+                ),
+                ("targetId", s(256)),
+                ("key", s(256)),
+                ("value", json!({"type":"string","maxLength":98304})),
+            ],
+            &["targetKind", "targetId", "key", "value"],
+        ),
+        "object.shared_plugin_data.get" => input(
+            vec![
+                (
+                    "targetKind",
+                    en(&["NODE", "STYLE", "VARIABLE", "COLLECTION"]),
+                ),
+                ("targetId", s(256)),
+                (
+                    "namespace",
+                    json!({"type":"string","pattern":"^[A-Za-z0-9]{3,128}$"}),
+                ),
+                ("key", s(256)),
+            ],
+            &["targetKind", "targetId", "namespace", "key"],
+        ),
+        "object.shared_plugin_data.keys" => input(
+            vec![
+                (
+                    "targetKind",
+                    en(&["NODE", "STYLE", "VARIABLE", "COLLECTION"]),
+                ),
+                ("targetId", s(256)),
+                (
+                    "namespace",
+                    json!({"type":"string","pattern":"^[A-Za-z0-9]{3,128}$"}),
+                ),
+            ],
+            &["targetKind", "targetId", "namespace"],
+        ),
+        "object.shared_plugin_data.set" => input(
+            vec![
+                (
+                    "targetKind",
+                    en(&["NODE", "STYLE", "VARIABLE", "COLLECTION"]),
+                ),
+                ("targetId", s(256)),
+                (
+                    "namespace",
+                    json!({"type":"string","pattern":"^[A-Za-z0-9]{3,128}$"}),
+                ),
+                ("key", s(256)),
+                ("value", json!({"type":"string","maxLength":98304})),
+            ],
+            &["targetKind", "targetId", "namespace", "key", "value"],
+        ),
+        "style.variable.bind" => input(
+            vec![
+                ("styleId", s(256)),
+                (
+                    "field",
+                    en(&[
+                        "fontFamily",
+                        "fontSize",
+                        "fontStyle",
+                        "fontWeight",
+                        "letterSpacing",
+                        "lineHeight",
+                        "paragraphSpacing",
+                        "paragraphIndent",
+                    ]),
+                ),
+                ("variableId", nullable_string(256)),
+            ],
+            &["styleId", "field"],
         ),
         other => unreachable!("semantic-admin operation {other} lacks input schema"),
     };
@@ -351,6 +538,12 @@ pub fn output_schema(name: &str) -> Option<Value> {
         }),
         "user.current" => json!({"oneOf":[{"type":"null"},user_schema(false)]}),
         "figjam.active_users" => arr(128, user_schema(true)),
+        "textreview.status" | "textreview.enable" | "textreview.disable" => json!({
+            "type":"object",
+            "properties":{"enabled":{"type":"boolean"}},
+            "required":["enabled"],
+            "additionalProperties":false
+        }),
         "node.top_level_frame" => nullable_node_summary(),
         "node.plugin_data.keys" | "node.shared_plugin_data.keys" => arr(1024, s(1024)),
         "node.shared_plugin_data.get" => json!({
@@ -362,7 +555,7 @@ pub fn output_schema(name: &str) -> Option<Value> {
             "required":["stored","removed","bytes"],"additionalProperties":false
         }),
         "library.publish_status.inspect" => json!({
-            "type":"object","properties":{"targetKind":en(&["NODE","STYLE"]),"targetId":s(256),"status":en(&["UNPUBLISHED","CURRENT","CHANGED"])},
+            "type":"object","properties":{"targetKind":en(&["NODE","STYLE","VARIABLE","COLLECTION"]),"targetId":s(256),"status":en(&["UNPUBLISHED","CURRENT","CHANGED"])},
             "required":["targetKind","targetId","status"],"additionalProperties":false
         }),
         "figjam.stamp.author.inspect" => {
@@ -396,6 +589,49 @@ pub fn output_schema(name: &str) -> Option<Value> {
             "required":["nodeId","transition"],"additionalProperties":false
         }),
         "widget.find_by_widget_id" => arr(500, node_summary()),
+        "dev.measurement.list" | "dev.measurement.for_node" => arr(1000, measurement_schema()),
+        "dev.measurement.add" | "dev.measurement.edit" => measurement_schema(),
+        "dev.measurement.remove" => {
+            json!({"type":"object","properties":{"removed":{"type":"boolean"},"measurementId":s(256)},"required":["removed","measurementId"],"additionalProperties":false})
+        }
+        "variable.collection.extend" => json!({"type":"object","properties":{
+            "id":s(256),"key":s(256),"name":{"type":"string","maxLength":256},"isExtension":{"type":"boolean"},
+            "modeCount":u(128),"variableCount":u(100000)
+        },"required":["id","key","name","isExtension","modeCount","variableCount"],"additionalProperties":false}),
+        "variable.values_for_collection" => json!({"type":"object","properties":{
+            "variableId":s(256),"collectionId":s(256),
+            "values":{"type":"object","maxProperties":128,"additionalProperties":variable_value_schema()}
+        },"required":["variableId","collectionId","values"],"additionalProperties":false}),
+        "variable.override.remove_mode" | "variable.collection.overrides.remove_variable" => {
+            json!({
+                "type":"object","properties":{"removed":{"type":"boolean"}},"required":["removed"],"additionalProperties":false
+            })
+        }
+        "variable.resolve_for_consumer" => json!({"type":"object","properties":{
+            "value":variable_value_schema(),"resolvedType":en(&["BOOLEAN","FLOAT","STRING","COLOR"])
+        },"required":["value","resolvedType"],"additionalProperties":false}),
+        "style.consumers.list" => arr(
+            1000,
+            json!({"type":"object","properties":{
+            "node":node_summary(),"fields":arr(16,s(128))
+        },"required":["node","fields"],"additionalProperties":false}),
+        ),
+        "object.plugin_data.get" => json!({"type":"object","properties":{
+            "targetKind":en(&["NODE","STYLE","VARIABLE","COLLECTION"]),"targetId":s(256),"key":s(256),"value":{"type":"string","maxLength":98304}
+        },"required":["targetKind","targetId","key","value"],"additionalProperties":false}),
+        "object.plugin_data.keys" | "object.shared_plugin_data.keys" => arr(1024, s(1024)),
+        "object.plugin_data.set" | "object.shared_plugin_data.set" => {
+            json!({"type":"object","properties":{
+            "stored":{"type":"boolean"},"removed":{"type":"boolean"},"bytes":u(100000)
+        },"required":["stored","removed","bytes"],"additionalProperties":false})
+        }
+        "object.shared_plugin_data.get" => json!({"type":"object","properties":{
+            "targetKind":en(&["NODE","STYLE","VARIABLE","COLLECTION"]),"targetId":s(256),"namespace":s(128),"key":s(256),"value":{"type":"string","maxLength":98304}
+        },"required":["targetKind","targetId","namespace","key","value"],"additionalProperties":false}),
+        "style.variable.bind" => json!({"type":"object","properties":{
+            "styleId":s(256),"field":en(&["fontFamily","fontSize","fontStyle","fontWeight","letterSpacing","lineHeight","paragraphSpacing","paragraphIndent"]),
+            "bound":{"type":"boolean"},"variableId":nullable_string(256)
+        },"required":["styleId","field","bound","variableId"],"additionalProperties":false}),
         other => unreachable!("semantic-admin operation {other} lacks output schema"),
     };
     Some(schema)

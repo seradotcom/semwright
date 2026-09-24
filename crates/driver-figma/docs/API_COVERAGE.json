@@ -14,19 +14,19 @@
       "skipInvisibleInstanceChildren": "INVENTORIED_INTERNAL",
       "timer": "SUPPORTED",
       "viewport": "SUPPORTED",
-      "currentUser": "INVENTORIED_INTERNAL",
-      "activeUsers": "INVENTORIED_INTERNAL",
-      "textreview": "SEPARATE_EDITOR_MODE",
-      "codegen": "SEPARATE_EDITOR_MODE",
+      "currentUser": "SUPPORTED",
+      "activeUsers": "SUPPORTED",
+      "textreview": "SUPPORTED_SEPARATE_MANIFEST",
+      "codegen": "SUPPORTED_SEPARATE_MANIFEST",
       "vscode": "SEPARATE_EDITOR_MODE",
       "devResources": "INVENTORIED_INTERNAL",
       "payments": "INTERNAL_OR_POLICY_EXCLUDED",
       "closePlugin": "INTERNAL_OR_POLICY_EXCLUDED",
       "notify": "INTERNAL_OR_POLICY_EXCLUDED",
-      "commitUndo": "INVENTORIED_INTERNAL",
-      "triggerUndo": "INVENTORIED_INTERNAL",
-      "saveVersionHistoryAsync": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
-      "openExternal": "INVENTORIED_INTERNAL",
+      "commitUndo": "SUPPORTED",
+      "triggerUndo": "SUPPORTED",
+      "saveVersionHistoryAsync": "SUPPORTED",
+      "openExternal": "POLICY_EXCLUDED_EXTERNAL_NAVIGATION",
       "showUI": "INTERNAL_OR_POLICY_EXCLUDED",
       "ui": "INTERNAL_OR_POLICY_EXCLUDED",
       "util": "INVENTORIED_INTERNAL",
@@ -85,7 +85,7 @@
       "getLocalEffectStyles": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
       "getLocalGridStylesAsync": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
       "getLocalGridStyles": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
-      "getSelectionColors": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
+      "getSelectionColors": "SUPPORTED",
       "moveLocalPaintStyleAfter": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
       "moveLocalTextStyleAfter": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
       "moveLocalEffectStyleAfter": "SEMANTICALLY_MAPPED_OR_CLASSIFIED",
@@ -198,6 +198,58 @@
       "off": "SEPARATE_EDITOR_MODE",
       "preferences": "SEPARATE_EDITOR_MODE",
       "refresh": "SEPARATE_EDITOR_MODE"
+    },
+    "TextReviewAPI": {
+      "requestToBeEnabledAsync": "SUPPORTED_SEPARATE_MANIFEST",
+      "requestToBeDisabledAsync": "SUPPORTED_SEPARATE_MANIFEST",
+      "isEnabled": "SUPPORTED_SEPARATE_MANIFEST"
+    },
+    "DevResourcesAPI": {
+      "on": "SEPARATE_EDITOR_MODE",
+      "once": "SEPARATE_EDITOR_MODE",
+      "off": "SEPARATE_EDITOR_MODE"
+    },
+    "VSCodeAPI": {},
+    "ParametersAPI": {
+      "on": "INVENTORIED_INTERNAL",
+      "once": "INVENTORIED_INTERNAL",
+      "off": "INVENTORIED_INTERNAL"
+    },
+    "ClientStorageAPI": {
+      "getAsync": "INTERNAL_OR_POLICY_EXCLUDED",
+      "setAsync": "INTERNAL_OR_POLICY_EXCLUDED",
+      "deleteAsync": "INTERNAL_OR_POLICY_EXCLUDED",
+      "keysAsync": "INTERNAL_OR_POLICY_EXCLUDED"
+    },
+    "UIAPI": {
+      "show": "INTERNAL_OR_POLICY_EXCLUDED",
+      "hide": "INTERNAL_OR_POLICY_EXCLUDED",
+      "resize": "INTERNAL_OR_POLICY_EXCLUDED",
+      "reposition": "INTERNAL_OR_POLICY_EXCLUDED",
+      "getPosition": "INTERNAL_OR_POLICY_EXCLUDED",
+      "close": "INTERNAL_OR_POLICY_EXCLUDED",
+      "postMessage": "INTERNAL_OR_POLICY_EXCLUDED",
+      "onmessage": "INTERNAL_OR_POLICY_EXCLUDED",
+      "on": "INTERNAL_OR_POLICY_EXCLUDED",
+      "once": "INTERNAL_OR_POLICY_EXCLUDED",
+      "off": "INTERNAL_OR_POLICY_EXCLUDED"
+    },
+    "UtilAPI": {
+      "rgb": "INVENTORIED_INTERNAL",
+      "rgba": "INVENTORIED_INTERNAL",
+      "solidPaint": "INVENTORIED_INTERNAL",
+      "normalizeMarkdown": "INVENTORIED_INTERNAL"
+    },
+    "ConstantsAPI": {
+      "colors": "INVENTORIED_INTERNAL"
+    },
+    "PaymentsAPI": {
+      "status": "INTERNAL_OR_POLICY_EXCLUDED",
+      "setPaymentStatusInDevelopment": "INTERNAL_OR_POLICY_EXCLUDED",
+      "getUserFirstRanSecondsAgo": "INTERNAL_OR_POLICY_EXCLUDED",
+      "initiateCheckoutAsync": "INTERNAL_OR_POLICY_EXCLUDED",
+      "requestCheckout": "INTERNAL_OR_POLICY_EXCLUDED",
+      "getPluginPaymentTokenAsync": "INTERNAL_OR_POLICY_EXCLUDED"
     }
   },
   "scene_node_types": {
@@ -31673,8 +31725,8 @@
     ]
   },
   "summary": {
-    "global_interfaces": 9,
-    "global_members": 178,
+    "global_interfaces": 18,
+    "global_members": 213,
     "scene_nodes": 34,
     "scene_node_members": 3699,
     "supported_scene_node_members": 3699,

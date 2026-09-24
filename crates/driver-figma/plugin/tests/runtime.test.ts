@@ -107,11 +107,21 @@ function harness(editorType = "figma") {
     async getNodeByIdAsync(id:string){ return nodes.get(id) ?? null; },
     async getStyleByIdAsync(id:string){ return styles.get(id) ?? null; },
     async setCurrentPageAsync(p:AnyNode){ this.currentPage=p; },
-    mode: editorType==="dev"?"codegen":"default",
+    mode: editorType==="dev"?"codegen":"default", command:"",
     currentUser:{id:"user:1",name:"Sergio Test",photoUrl:null,color:"#ff0000",sessionId:1},
     activeUsers:[{id:"user:1",name:"Sergio Test",photoUrl:null,color:"#ff0000",sessionId:1,position:{x:10,y:20},viewport:{x:0,y:0,width:800,height:600},selection:[]}],
-    codegen:{preferences:{unit:"PIXEL",scaleFactor:undefined,customSettings:{}},refresh(){figma.codegenRefreshes++;}},
+    codegen:{
+      preferences:{unit:"PIXEL",scaleFactor:undefined,customSettings:{}},
+      refresh(){figma.codegenRefreshes++;},
+      on(type:string,callback:(event:any)=>unknown){figma.codegenHandlers.set(type,callback);}
+    },
     codegenRefreshes:0,
+    codegenHandlers:new Map<string,(event:any)=>unknown>(),
+    textreview:{
+      isEnabled:false,
+      async requestToBeEnabledAsync(){this.isEnabled=true;},
+      async requestToBeDisabledAsync(){this.isEnabled=false;}
+    },
     annotations:{
       async getAnnotationCategoriesAsync(){return [...annotationCategories.values()];},
       async getAnnotationCategoryByIdAsync(id:string){return annotationCategories.get(id)??null;},
@@ -553,5 +563,29 @@ describe("semantic admin and editor-gated runtime",()=> {
     const wrongEditor=await design.call("figjam.active_users");
     expect(wrongEditor.ok).toBe(false);
     expect(wrongEditor.error.message).toContain("unsupported_editor");
+  });
+
+  it("controls text-review enablement without arbitrary text execution",async()=> {
+    const h=harness("figma");
+    const initial=await h.call("textreview.status");
+    expect(initial.ok).toBe(true);
+    expect(initial.value.enabled).toBe(false);
+    const enabled=await h.call("textreview.enable");
+    expect(enabled.ok).toBe(true);
+    expect(enabled.value.enabled).toBe(true);
+    const disabled=await h.call("textreview.disable");
+    expect(disabled.ok).toBe(true);
+    expect(disabled.value.enabled).toBe(false);
+  });
+
+  it("registers a deterministic Dev Codegen result outside the generate callback",async()=> {
+    const dev=harness("dev");
+    const generate=dev.figma.codegenHandlers.get("generate");
+    expect(typeof generate).toBe("function");
+    const node=dev.figma.createFrame();
+    const result=await generate({node});
+    expect(result).toHaveLength(1);
+    expect(result[0].language).toBe("JSON");
+    expect(JSON.parse(result[0].code).id).toBe(node.id);
   });
 });

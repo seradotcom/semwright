@@ -18,7 +18,9 @@ const typingsVersion=JSON.parse(fs.readFileSync(packagePath,"utf8")).version;
 
 const GLOBAL_INTERFACES=[
   "PluginAPI","VariablesAPI","TeamLibraryAPI","MotionAPI","AnnotationsAPI",
-  "BuzzAPI","TimerAPI","ViewportAPI","CodegenAPI",
+  "BuzzAPI","TimerAPI","ViewportAPI","CodegenAPI","TextReviewAPI",
+  "DevResourcesAPI","VSCodeAPI","ParametersAPI","ClientStorageAPI",
+  "UIAPI","UtilAPI","ConstantsAPI","PaymentsAPI",
 ];
 const interfaces=new Map();
 for(const stmt of source.statements){
@@ -208,7 +210,88 @@ for(const node of Object.values(sceneNodes)){
     }
   }
 }
+const AUX_CAPABILITY_BY_METHOD={
+  addMeasurement:"dev.measurement.add",deleteMeasurement:"dev.measurement.remove",editMeasurement:"dev.measurement.edit",
+  getMeasurements:"dev.measurement.list",getMeasurementsForNode:"dev.measurement.for_node",
+  addMode:"mode.create",renameMode:"mode.rename",removeMode:"mode.remove",extend:"variable.collection.extend",
+  valuesByModeForCollectionAsync:"variable.values_for_collection",removeOverrideForMode:"variable.override.remove_mode",
+  removeOverridesForVariable:"variable.collection.overrides.remove_variable",resolveForConsumer:"variable.resolve_for_consumer",
+  setValueForMode:"variable.set_value",setVariableCodeSyntax:"variable.code_syntax.set",removeVariableCodeSyntax:"variable.code_syntax.remove",
+  getStyleConsumersAsync:"style.consumers.list",requestToBeEnabledAsync:"textreview.enable",requestToBeDisabledAsync:"textreview.disable",
+  setColor:"annotation.category.patch",setLabel:"annotation.category.patch",setMediaAsync:"buzz.media_content.set",setValueAsync:"buzz.text_content.set",
+};
+const AUX_CAPABILITY_EXACT={
+  "PluginDataMixin.getPluginData":"object.plugin_data.get","PluginDataMixin.setPluginData":"object.plugin_data.set",
+  "PluginDataMixin.getPluginDataKeys":"object.plugin_data.keys","PluginDataMixin.getSharedPluginData":"object.shared_plugin_data.get",
+  "PluginDataMixin.setSharedPluginData":"object.shared_plugin_data.set","PluginDataMixin.getSharedPluginDataKeys":"object.shared_plugin_data.keys",
+  "PublishableMixin.getPublishStatusAsync":"library.publish_status.inspect","TextStyle.setBoundVariable":"style.variable.bind",
+  "Variable.remove":"variable.remove","VariableCollection.remove":"variable.collection.remove","BaseStyleMixin.remove":"style.remove",
+  "AnnotationCategory.remove":"annotation.category.remove","Image.getBytesAsync":"image.export","Image.getSizeAsync":"image.inspect",
+};
+const AUX_INTERFACE_CLASSIFICATION={
+  UIAPI:"INTERNAL_PLUGIN_UI",ClientStorageAPI:"INTERNAL_PLUGIN_STATE",PaymentsAPI:"POLICY_EXCLUDED_PAYMENT",
+  UtilAPI:"PURE_HELPER_INTERNAL",SuggestionResults:"EVENT_CALLBACK_HELPER",DropFile:"EVENT_PAYLOAD_HELPER",
+  DevResourcesAPI:"EVENT_SOURCE_INTERNAL",ParametersAPI:"EVENT_SOURCE_INTERNAL",
+};
+const AUX_EXACT_CLASSIFICATION={
+  "PageNode.loadAsync":"INTERNAL_DYNAMIC_PAGE_LIFECYCLE",
+};
+const auxiliaryInterfaces={};let auxiliaryMethodEntries=0,unclassifiedAuxiliaryMethods=0;
+for(const [interfaceName,iface] of interfaces){
+  if(sceneInterfaces.has(interfaceName)||GLOBAL_INTERFACES.includes(interfaceName))continue;
+  const methods={};
+  for(const member of ownMembers(iface)){
+    if(member.kind!=="method")continue;
+    auxiliaryMethodEntries++;
+    const key=`${interfaceName}.${member.name}`;
+    const capability=AUX_CAPABILITY_EXACT[key]??AUX_CAPABILITY_BY_METHOD[member.name];
+    const status=capability?"SUPPORTED_METHOD":(AUX_EXACT_CLASSIFICATION[key]??AUX_INTERFACE_CLASSIFICATION[interfaceName]??"UNCLASSIFIED");
+    if(status==="UNCLASSIFIED")unclassifiedAuxiliaryMethods++;
+    methods[member.name]={status,...(capability?{capability}:{})};
+  }
+  if(Object.keys(methods).length)auxiliaryInterfaces[interfaceName]=methods;
+}
 const previous=fs.existsSync(coveragePath)?JSON.parse(fs.readFileSync(coveragePath,"utf8")):{};
+const GLOBAL_INTERFACE_DEFAULTS={
+  TextReviewAPI:"SUPPORTED_SEPARATE_MANIFEST",
+  CodegenAPI:"SUPPORTED_SEPARATE_MANIFEST",
+  DevResourcesAPI:"SEPARATE_EDITOR_MODE",
+  VSCodeAPI:"SEPARATE_EDITOR_MODE",
+  ParametersAPI:"INVENTORIED_INTERNAL",
+  ClientStorageAPI:"INTERNAL_OR_POLICY_EXCLUDED",
+  UIAPI:"INTERNAL_OR_POLICY_EXCLUDED",
+  UtilAPI:"INVENTORIED_INTERNAL",
+  ConstantsAPI:"INVENTORIED_INTERNAL",
+  PaymentsAPI:"INTERNAL_OR_POLICY_EXCLUDED",
+};
+const GLOBAL_MEMBER_OVERRIDES={
+  PluginAPI:{
+    textreview:"SUPPORTED_SEPARATE_MANIFEST",
+    codegen:"SUPPORTED_SEPARATE_MANIFEST",
+    vscode:"SEPARATE_EDITOR_MODE",
+    currentUser:"SUPPORTED",
+    activeUsers:"SUPPORTED",
+    variables:"SUPPORTED",
+    teamLibrary:"SUPPORTED",
+    annotations:"SUPPORTED",
+    buzz:"SUPPORTED",
+    timer:"SUPPORTED",
+    viewport:"SUPPORTED",
+    motion:"BETA_SUPPORTED",
+    commitUndo:"SUPPORTED",
+    triggerUndo:"SUPPORTED",
+    saveVersionHistoryAsync:"SUPPORTED",
+    getSelectionColors:"SUPPORTED",
+    openExternal:"POLICY_EXCLUDED_EXTERNAL_NAVIGATION",
+    payments:"INTERNAL_OR_POLICY_EXCLUDED",
+    clientStorage:"INTERNAL_OR_POLICY_EXCLUDED",
+    parameters:"INTERNAL_OR_POLICY_EXCLUDED",
+    showUI:"INTERNAL_OR_POLICY_EXCLUDED",
+    ui:"INTERNAL_OR_POLICY_EXCLUDED",
+    closePlugin:"INTERNAL_OR_POLICY_EXCLUDED",
+    notify:"INTERNAL_OR_POLICY_EXCLUDED",
+  },
+};
 const globals={};
 let unclassifiedGlobals=0;
 for(const name of GLOBAL_INTERFACES){
@@ -216,7 +299,9 @@ for(const name of GLOBAL_INTERFACES){
   globals[name]={};
   for(const member of ownMembers(iface)){
     const old=previous.interfaces?.[name]?.[member.name];
-    const status=typeof old==="string"?old:(old?.status??"UNCLASSIFIED");
+    const override=GLOBAL_MEMBER_OVERRIDES[name]?.[member.name];
+    const fallback=GLOBAL_INTERFACE_DEFAULTS[name];
+    const status=override ?? (typeof old==="string"?old:(old?.status??fallback??"UNCLASSIFIED"));
     if(status==="UNCLASSIFIED")unclassifiedGlobals++;
     globals[name][member.name]=status;
   }

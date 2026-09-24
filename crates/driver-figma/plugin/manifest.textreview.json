@@ -1,11 +1,11 @@
 {
-  "name": "Semwright Figma Bridge",
-  "id": "semwright-figma-bridge-dev",
+  "name": "Semwright Figma Bridge — Text Review",
+  "id": "semwright-figma-bridge-textreview",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",
-  "editorType": ["figma", "figjam", "slides", "buzz"],
+  "editorType": ["figma", "figjam"],
+  "capabilities": ["textreview"],
   "documentAccess": "dynamic-page",
-  "permissions": ["teamlibrary"],
   "networkAccess": {"allowedDomains":["none"],"devAllowedDomains":["ws://127.0.0.1:38471"]}
 }

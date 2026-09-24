@@ -741,23 +741,25 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
   }
 }
 
-figma.showUI(__html__, {width: 360, height: 280, themeColors: true});
-figma.ui.onmessage = async (message: {type: string; request?: BridgeRequest}) => {
-  if (message.type === "bridge-request" && message.request) {
-    figma.ui.postMessage({type: "bridge-response", response: await handle(message.request)});
-  }
-  if (message.type === "bridge-status") {
-    figma.ui.postMessage({type: "document-context", editorType: figma.editorType, documentId: figma.root.id, pageId: figma.currentPage.id, revision});
-  }
-};
-figma.on("selectionchange", () => {
-  revision++;
-  figma.ui.postMessage({type: "event", kind: "selectionchange", revision});
-});
-figma.on("currentpagechange", () => {
-  revision++;
-  figma.ui.postMessage({type: "event", kind: "currentpagechange", revision});
-});
+function startBridgeRuntime() {
+  figma.showUI(__html__, {width: 360, height: 280, themeColors: true});
+  figma.ui.onmessage = async (message: {type: string; request?: BridgeRequest}) => {
+    if (message.type === "bridge-request" && message.request) {
+      figma.ui.postMessage({type: "bridge-response", response: await handle(message.request)});
+    }
+    if (message.type === "bridge-status") {
+      figma.ui.postMessage({type: "document-context", editorType: figma.editorType, documentId: figma.root.id, pageId: figma.currentPage.id, revision});
+    }
+  };
+  figma.on("selectionchange", () => {
+    revision++;
+    figma.ui.postMessage({type: "event", kind: "selectionchange", revision});
+  });
+  figma.on("currentpagechange", () => {
+    revision++;
+    figma.ui.postMessage({type: "event", kind: "currentpagechange", revision});
+  });
+}
 
 async function enableRemoteDocumentChangeTracking() {
   try {
@@ -790,4 +792,18 @@ async function enableRemoteDocumentChangeTracking() {
     });
   }
 }
-void enableRemoteDocumentChangeTracking();
+
+const automaticTextReviewMode = figma.mode === "textreview" || figma.command === "textreview";
+if (automaticTextReviewMode) {
+  figma.on("textreview", () => []);
+} else {
+  if (figma.editorType === "dev" && figma.mode === "codegen") {
+    figma.codegen.on("generate", ({node}) => [{
+      title: "Semwright semantic node",
+      language: "JSON",
+      code: JSON.stringify(summarize(node), null, 2),
+    }]);
+  }
+  startBridgeRuntime();
+  void enableRemoteDocumentChangeTracking();
+}

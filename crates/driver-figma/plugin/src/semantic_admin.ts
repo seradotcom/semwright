@@ -20,6 +20,25 @@ function saUser(user:User|null){
 function saActiveUser(user:ActiveUser){
   return {...saUser(user),position:user.position,viewport:user.viewport,selection:user.selection.slice(0,512)};
 }
+function saTextReview():TextReviewAPI{
+  if(!figma.textreview)throw new Error("textreview_manifest_required");
+  return figma.textreview;
+}
+function saMeasurement(m:Measurement){
+  return {id:m.id,start:{node:summarize(m.start.node),side:m.start.side},end:{node:summarize(m.end.node),side:m.end.side},offset:m.offset,freeText:m.freeText};
+}
+function saMeasurementAxis(side:string):"H"|"V"{
+  if(side==="LEFT"||side==="RIGHT")return "H";
+  if(side==="TOP"||side==="BOTTOM")return "V";
+  throw new Error("invalid_measurement_side");
+}
+async function saDataTarget(kind:string,id:string):Promise<any>{
+  if(kind==="NODE"){const v=await figma.getNodeByIdAsync(id);if(v)return v;}
+  else if(kind==="STYLE"){const v=await figma.getStyleByIdAsync(id);if(v)return v;}
+  else if(kind==="VARIABLE"){const v=await figma.variables.getVariableByIdAsync(id);if(v)return v;}
+  else if(kind==="COLLECTION"){const v=await figma.variables.getVariableCollectionByIdAsync(id);if(v)return v;}
+  throw new Error("semantic_target_not_found");
+}
 async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeResponse|null>{
   switch(request.operation){
     case "style.order.after": {
@@ -100,6 +119,20 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
       try{users=figma.activeUsers;}catch{throw new Error("permission_activeusers_required");}
       return ok(request.id,users.slice(0,128).map(saActiveUser));
     }
+    case "textreview.status": {
+      const api=saTextReview();
+      return ok(request.id,{enabled:api.isEnabled});
+    }
+    case "textreview.enable": {
+      const api=saTextReview();
+      if(!api.isEnabled)await api.requestToBeEnabledAsync();
+      return ok(request.id,{enabled:api.isEnabled},true);
+    }
+    case "textreview.disable": {
+      const api=saTextReview();
+      if(api.isEnabled)await api.requestToBeDisabledAsync();
+      return ok(request.id,{enabled:api.isEnabled},true);
+    }
     case "node.top_level_frame": {
       const node=asScene(await nodeById(String(a.nodeId))) as any;
       if(typeof node.getTopLevelFrame!=="function")throw new Error("top_level_frame_unavailable");
@@ -133,10 +166,11 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
     }
     case "library.publish_status.inspect": {
       const id=String(a.targetId),kind=String(a.targetKind??"AUTO");
-      let target:any=null,targetKind:"NODE"|"STYLE"="NODE";
-      if(kind!=="STYLE")target=await figma.getNodeByIdAsync(id);
-      if(target&&typeof target.getPublishStatusAsync!=="function")target=null;
-      if(!target&&kind!=="NODE"){target=await figma.getStyleByIdAsync(id);targetKind="STYLE";}
+      let target:any=null,targetKind:"NODE"|"STYLE"|"VARIABLE"|"COLLECTION"="NODE";
+      if(kind==="AUTO"||kind==="NODE"){target=await figma.getNodeByIdAsync(id);targetKind="NODE";if(target&&typeof target.getPublishStatusAsync!=="function")target=null;}
+      if(!target&&(kind==="AUTO"||kind==="STYLE")){target=await figma.getStyleByIdAsync(id);targetKind="STYLE";}
+      if(!target&&(kind==="AUTO"||kind==="VARIABLE")){target=await figma.variables.getVariableByIdAsync(id);targetKind="VARIABLE";}
+      if(!target&&(kind==="AUTO"||kind==="COLLECTION")){target=await figma.variables.getVariableCollectionByIdAsync(id);targetKind="COLLECTION";}
       if(!target||typeof target.getPublishStatusAsync!=="function")throw new Error("publishable_not_found");
       return ok(request.id,{targetKind,targetId:id,status:await target.getPublishStatusAsync()});
     }
@@ -209,6 +243,115 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
       const limit=Math.min(500,Math.max(0,Number(a.limit??100)));
       const nodes=(root as any).findWidgetNodesByWidgetId(String(a.widgetId)) as WidgetNode[];
       return ok(request.id,nodes.slice(0,limit).map(summarize));
+    }
+    case "dev.measurement.list": {
+      saRequireEditor("dev");
+      return ok(request.id,figma.currentPage.getMeasurements().slice(0,1000).map(saMeasurement));
+    }
+    case "dev.measurement.for_node": {
+      saRequireEditor("dev");
+      const node=asScene(await nodeById(String(a.nodeId)));
+      return ok(request.id,figma.currentPage.getMeasurementsForNode(node).slice(0,1000).map(saMeasurement));
+    }
+    case "dev.measurement.add": {
+      saRequireEditor("dev");
+      const startNode=asScene(await nodeById(String(a.startNodeId))),endNode=asScene(await nodeById(String(a.endNodeId)));
+      const startSide=String(a.startSide) as MeasurementSide,endSide=String(a.endSide) as MeasurementSide;
+      if(saMeasurementAxis(startSide)!==saMeasurementAxis(endSide))throw new Error("measurement_axis_mismatch");
+      const options:{offset?:MeasurementOffset;freeText?:string}={};
+      if(a.offset!==undefined)options.offset=a.offset as MeasurementOffset;
+      if(a.freeText!==undefined)options.freeText=String(a.freeText).slice(0,4096);
+      return ok(request.id,saMeasurement(figma.currentPage.addMeasurement({node:startNode,side:startSide},{node:endNode,side:endSide},options)),true);
+    }
+    case "dev.measurement.edit": {
+      saRequireEditor("dev");
+      const value:{offset?:MeasurementOffset;freeText?:string}={};
+      if(a.offset!==undefined)value.offset=a.offset as MeasurementOffset;
+      if(a.freeText!==undefined)value.freeText=String(a.freeText).slice(0,4096);
+      return ok(request.id,saMeasurement(figma.currentPage.editMeasurement(String(a.measurementId),value)),true);
+    }
+    case "dev.measurement.remove":
+      saRequireEditor("dev");figma.currentPage.deleteMeasurement(String(a.measurementId));
+      return ok(request.id,{removed:true,measurementId:String(a.measurementId)},true);
+    case "variable.collection.extend": {
+      const c=await figma.variables.getVariableCollectionByIdAsync(String(a.collectionId));
+      if(!c||c.remote)throw new Error("local_collection_not_found");
+      if(typeof (c as any).extend!=="function")throw new Error("extended_collections_unavailable");
+      const extended=(c as any).extend(String(a.name).slice(0,256)) as ExtendedVariableCollection;
+      return ok(request.id,{id:extended.id,key:extended.key,name:extended.name,isExtension:extended.isExtension,modeCount:extended.modes.length,variableCount:extended.variableIds.length},true);
+    }
+    case "variable.values_for_collection": {
+      const v=await figma.variables.getVariableByIdAsync(String(a.variableId));
+      const c=await figma.variables.getVariableCollectionByIdAsync(String(a.collectionId));
+      if(!v||!c)throw new Error("variable_or_collection_not_found");
+      if(typeof (v as any).valuesByModeForCollectionAsync!=="function")throw new Error("extended_collections_unavailable");
+      const values=await (v as any).valuesByModeForCollectionAsync(c);
+      return ok(request.id,{variableId:v.id,collectionId:c.id,values:spSerializable(values)});
+    }
+    case "variable.override.remove_mode": {
+      const v=await figma.variables.getVariableByIdAsync(String(a.variableId));
+      if(!v||v.remote)throw new Error("local_variable_not_found");
+      if(typeof (v as any).removeOverrideForMode!=="function")throw new Error("extended_collections_unavailable");
+      (v as any).removeOverrideForMode(String(a.modeId));
+      return ok(request.id,{removed:true},true);
+    }
+    case "variable.collection.overrides.remove_variable": {
+      const c=await figma.variables.getVariableCollectionByIdAsync(String(a.collectionId));
+      const v=await figma.variables.getVariableByIdAsync(String(a.variableId));
+      if(!c||!v||c.remote)throw new Error("variable_or_collection_not_found");
+      if(typeof (c as any).removeOverridesForVariable!=="function")throw new Error("extended_collection_required");
+      (c as any).removeOverridesForVariable(v);
+      return ok(request.id,{removed:true},true);
+    }
+    case "variable.resolve_for_consumer": {
+      const v=await figma.variables.getVariableByIdAsync(String(a.variableId));
+      if(!v)throw new Error("variable_not_found");
+      const node=asScene(await nodeById(String(a.nodeId)));
+      const resolved=v.resolveForConsumer(node);
+      return ok(request.id,{value:spSerializable(resolved.value),resolvedType:resolved.resolvedType});
+    }
+    case "style.consumers.list": {
+      const style=await figma.getStyleByIdAsync(String(a.styleId));
+      if(!style)throw new Error("style_not_found");
+      const limit=Math.min(1000,Math.max(0,Number(a.limit??100)));
+      const consumers=await style.getStyleConsumersAsync();
+      return ok(request.id,consumers.slice(0,limit).map(c=>({node:summarize(c.node),fields:[...c.fields]})));
+    }
+    case "object.plugin_data.get": {
+      const kind=String(a.targetKind),id=String(a.targetId),target=await saDataTarget(kind,id),key=String(a.key);
+      return ok(request.id,{targetKind:kind,targetId:id,key,value:target.getPluginData(key)});
+    }
+    case "object.plugin_data.keys": {
+      const target=await saDataTarget(String(a.targetKind),String(a.targetId));
+      return ok(request.id,target.getPluginDataKeys().slice(0,1024));
+    }
+    case "object.plugin_data.set": {
+      const target=await saDataTarget(String(a.targetKind),String(a.targetId)),key=String(a.key),value=String(a.value);
+      const bytes=new TextEncoder().encode(key+value).byteLength;if(bytes>100000)throw new Error("plugin_data_limit");
+      target.setPluginData(key,value);return ok(request.id,{stored:value.length>0,removed:value.length===0,bytes},true);
+    }
+    case "object.shared_plugin_data.get": {
+      const kind=String(a.targetKind),id=String(a.targetId),target=await saDataTarget(kind,id),namespace=String(a.namespace),key=String(a.key);
+      if(!/^[A-Za-z0-9]{3,128}$/.test(namespace))throw new Error("invalid_shared_namespace");
+      return ok(request.id,{targetKind:kind,targetId:id,namespace,key,value:target.getSharedPluginData(namespace,key)});
+    }
+    case "object.shared_plugin_data.keys": {
+      const target=await saDataTarget(String(a.targetKind),String(a.targetId)),namespace=String(a.namespace);
+      if(!/^[A-Za-z0-9]{3,128}$/.test(namespace))throw new Error("invalid_shared_namespace");
+      return ok(request.id,target.getSharedPluginDataKeys(namespace).slice(0,1024));
+    }
+    case "object.shared_plugin_data.set": {
+      const target=await saDataTarget(String(a.targetKind),String(a.targetId)),namespace=String(a.namespace),key=String(a.key),value=String(a.value);
+      if(!/^[A-Za-z0-9]{3,128}$/.test(namespace))throw new Error("invalid_shared_namespace");
+      const bytes=new TextEncoder().encode(namespace+key+value).byteLength;if(bytes>100000)throw new Error("shared_plugin_data_limit");
+      target.setSharedPluginData(namespace,key,value);return ok(request.id,{stored:value.length>0,removed:value.length===0,bytes},true);
+    }
+    case "style.variable.bind": {
+      const style=await figma.getStyleByIdAsync(String(a.styleId));if(!style||style.type!=="TEXT"||style.remote)throw new Error("local_text_style_not_found");
+      const variable=a.variableId==null?null:await figma.variables.getVariableByIdAsync(String(a.variableId));
+      if(a.variableId!=null&&!variable)throw new Error("variable_not_found");
+      const field=String(a.field) as VariableBindableTextField;style.setBoundVariable(field,variable);
+      return ok(request.id,{styleId:style.id,field,bound:variable!==null,variableId:variable?.id??null},true);
     }
     default:return null;
   }
