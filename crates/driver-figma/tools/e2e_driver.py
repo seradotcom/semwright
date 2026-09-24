@@ -95,12 +95,23 @@ def main():
 
         catalog = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {cap["descriptor"]["name"]: cap for cap in catalog["capabilities"]}
-        assert len(caps) == 91, len(caps)
-        assert "driver.figma.node.search" in caps
-        assert "driver.figma.layout.patch" in caps
-        assert "driver.figma.design_system.extract" in caps
-        assert "driver.figma.motion.keyframes.list" in caps
-        assert "driver.figma.export.node" not in caps
+        assert len(caps) == len(catalog["capabilities"]), "duplicate capability names"
+        required_surface = {
+            "driver.figma.node.search",
+            "driver.figma.layout.patch",
+            "driver.figma.design_system.extract",
+            "driver.figma.motion.keyframes.list",
+            "driver.figma.export.node",
+            "driver.figma.compose.apply",
+            "driver.figma.shader.list",
+            "driver.figma.slot.list",
+            "driver.figma.slides.grid.inspect",
+            "driver.figma.buzz.frame.create",
+            "driver.figma.figjam.diagram.create",
+            "driver.figma.validate.a11y",
+        }
+        missing_surface = sorted(required_surface - set(caps))
+        assert not missing_surface, missing_surface
         for cap in caps.values():
             name = cap["descriptor"]["name"]
             input_schema = cap["descriptor"]["input_schema"]

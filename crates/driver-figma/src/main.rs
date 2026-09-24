@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{Capability, Driver, DriverChildEvent, DriverInterfaces};
 use semwright_figma_driver::bridge::{BridgeError, BridgeHub, pairing_status};
-use semwright_figma_driver::{model, schemas, snapshot};
+use semwright_figma_driver::{model, rest::RestClient, schemas, snapshot};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Risk};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -9,6 +9,7 @@ use tokio::sync::mpsc;
 
 mod semantic_admin_ops;
 mod semantic_more_ops;
+mod semantic_rest_ops;
 
 const DRIVER_SCOPE: &str = "driver:figma";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -1503,6 +1504,7 @@ fn advertised_operations() -> Vec<Op> {
     let mut operations = operations();
     operations.extend(semantic_more_ops::operations());
     operations.extend(semantic_admin_ops::operations());
+    operations.extend(semantic_rest_ops::operations());
     operations
 }
 
@@ -1536,6 +1538,7 @@ struct FigmaDriver {
     descriptors: BTreeMap<String, String>,
     ops: BTreeMap<String, Op>,
     hub: BridgeHub,
+    rest: RestClient,
     events: Option<mpsc::UnboundedReceiver<DriverChildEvent>>,
 }
 
@@ -1553,10 +1556,12 @@ impl FigmaDriver {
         let hub = BridgeHub::start(event_tx)
             .await
             .map_err(|_| Error::unavailable("Figma loopback bridge could not start"))?;
+        let rest = RestClient::new()?;
         Ok(Self {
             descriptors,
             ops,
             hub,
+            rest,
             events: Some(event_rx),
         })
     }
@@ -1689,6 +1694,12 @@ impl Driver for FigmaDriver {
             .as_object()
             .cloned()
             .ok_or_else(|| Error::invalid("Figma capability arguments must be an object"))?;
+        let operation_name = command.strip_prefix("driver.figma.").ok_or_else(|| {
+            Error::new(ErrorCode::Unsupported, "Invalid Figma capability namespace")
+        })?;
+        if operation_name.starts_with("cloud.") {
+            return self.rest.execute(operation_name, &object).await;
+        }
         let session_id = match object.remove("session_id") {
             Some(Value::String(value)) if !value.is_empty() && value.len() <= 128 => Some(value),
             Some(_) => return Err(Error::invalid("session_id must be a bounded string")),
@@ -1706,9 +1717,6 @@ impl Driver for FigmaDriver {
             }
             None => None,
         };
-        let operation_name = command.strip_prefix("driver.figma.").ok_or_else(|| {
-            Error::new(ErrorCode::Unsupported, "Invalid Figma capability namespace")
-        })?;
         let snapshot_mode = object
             .get("mode")
             .and_then(Value::as_str)

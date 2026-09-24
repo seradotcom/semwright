@@ -1,62 +1,53 @@
 # Semwright Figma Driver
 
-First-party semantic Figma integration built on the official Figma Plugin API.
+First-party semantic Figma integration built on the official Figma Plugin API plus an optional official REST transport.
 
 ```text
 agent
   -> Semwright broker / policy / audit
   -> sandboxed semwright-figma-driver
-  -> authenticated 127.0.0.1 WebSocket bridge
-  -> Semwright Figma development plugin
-  -> official Figma Plugin API
+  -> typed semantic capability
+      -> authenticated 127.0.0.1 plugin bridge -> official Plugin API
+      -> protected credential socket -> official Figma REST API
 ```
 
-The production route does **not** patch `app.asar`, expose CDP, use coordinate automation, or provide arbitrary JavaScript evaluation.
+The production route does **not** patch `app.asar`, expose CDP, provide coordinate control as the primary architecture, or execute arbitrary JavaScript.
 
 ## Status
 
-The driver advertises 91 `driver.figma.*` capabilities: 88 bridge-backed operations plus three local driver/session operations. Inputs are operation-specific, bounded schemas and unsupported operations are not advertised.
+The semantic-completeness branch currently advertises 378 `driver.figma.*` capabilities: 319 typed Plugin API operations, 56 cloud operations (54 pinned official REST operations, one documented semantic discovery helper, plus `cloud.status`), and three local driver/session operations.
 
-Automated evidence covers the Rust driver, authenticated bridge, independent fake-Figma E2E, plugin runtime, catalog consistency and sandboxed DriverProvider conformance in hosted CI. Real Figma acceptance remains a separate protected/manual gate using a disposable file.
+The Plugin API coverage compiler is pinned to `@figma/plugin-typings 1.139.0`. Its generated inventory covers 18 global interfaces, 14 auxiliary interfaces, 34 scene-node types, 213 global members, 49 auxiliary method entries, and 3,699 scene-node members with zero unclassified public method names.
+
+Coverage means every pinned public surface is classified and has a semantic route or explicit policy classification. It does **not** substitute for protected acceptance against a real Figma account/file.
 
 ## Surface
 
-The current curated surface includes documents/pages/selection, node inspection and mutation, Auto Layout, paints/strokes/effects, text/fonts, components/variants/instances, variables and design-system extraction, snapshots/diffs, prototyping reactions/flows, Figma Motion Beta, FigJam primitives and Dev Mode CSS inspection.
+The driver includes document/page/selection semantics; bounded node/property inspection and mutation; declarative compose/batch operations; Auto Layout; rich text and variable-font handling; vector networks; images/media/embeds; components, variants, instances and Slots; Variables including modern scopes/types; styles, libraries and shaders; snapshots/diffs; lint/a11y/design-system validation; prototyping; Motion Beta; viewport/editor state; FigJam tables/timer/diagram primitives; Slides; Buzz; Dev Mode/codegen/text-review/collaboration surfaces; artifact-backed static and animated exports; CSS/Tailwind/JSX/Storybook design-system exports; and official REST/cloud operations.
 
-## Build
-
-```sh
-cargo build -p semwright-driver-figma --features test-tools --bins
-cd crates/driver-figma/plugin
-npm ci
-npm test
-npm run typecheck
-npm run build
-```
-
-Load `plugin/manifest.json` as a Figma development plugin after building it. The plugin manifest is deliberately limited to Figma/FigJam, `documentAccess: dynamic-page`, and the fixed development loopback endpoint `ws://127.0.0.1:38471`.
-
-The Driver Host manifest must be owner-configured. Start from `driver.manifest.example.json`, replace the executable path and SHA-256, and explicitly allow driver network access. The current Driver Manifest expresses network as a boolean grant; the driver itself binds only to loopback. This integration uses Semwright Driver Protocol v2 and negotiates child events, while cancellation, progress, artifacts and dynamic capabilities remain disabled until the Figma implementation can satisfy those contracts honestly.
-
-## Pairing
-
-The driver creates an ephemeral 256-bit secret for each process lifetime. Invoke `driver.figma.pairing.begin` through Semwright to obtain the loopback port and pairing code, then enter those values in the plugin UI. The server issues a fresh nonce and the plugin answers with HMAC-SHA256 before the session becomes usable.
-
-Document sessions carry connection generations and observed revisions. Mutations can require `expected_revision`; stale collaborative state returns a conflict instead of overwriting silently.
+The REST transport never accepts credentials in capability arguments. It reads a bounded credential frame from a same-UID protected Unix socket and disables redirects. Without that owner-provisioned helper, `cloud.status` reports unconfigured and cloud operations fail closed.
 
 ## Verification
 
 ```sh
 python3 crates/driver-figma/tools/catalog_consistency.py
-cargo test -p semwright-driver-figma --all-features
+node crates/driver-figma/tools/api_coverage.mjs
+python3 crates/driver-figma/tools/rest_api_coverage.py
+cargo test -p semwright-driver-figma --all-targets --all-features
 cargo build -p semwright-driver-figma --features test-tools --bins
 BIN_DIR=target/debug python3 crates/driver-figma/tools/e2e_driver.py
+cd crates/driver-figma/plugin
+npm ci && npm test && npm run typecheck && npm run build
 ```
 
-The native integration workflow additionally runs the driver through the real Linux Driver Host sandbox and pairs it to the independent fake Figma process.
+Hosted native integration additionally runs the DriverProvider through the real Linux Driver Host sandbox. Heavy Rust, fuzz, coverage and conformance gates are expected to run in GitHub Actions.
 
-No automated fake-host result is presented as real Figma acceptance. Certification against Figma Design, FigJam and Motion requires an authorized disposable account/file and remains documented as pending until executed.
+## Security and acceptance boundary
 
-## Security
+The plugin bridge listens on loopback only and uses an ephemeral 256-bit pairing secret with server nonce/HMAC challenge-response. Requests are allowlisted and schema-bounded; sessions carry generations and observed document revisions so stale collaborative mutations fail instead of overwriting silently.
 
-The bridge listens on loopback only, uses challenge-response pairing, bounds requests and pending work, rejects replayed/stale generations, and exposes a typed allowlisted dispatcher rather than `eval`. Figma document content is untrusted data. See [SECURITY](docs/SECURITY.md), [bridge protocol](docs/BRIDGE_PROTOCOL.md), [capabilities](docs/CAPABILITIES.md), and [SDK gaps](docs/SDK_GAPS.md).
+The REST transport uses official endpoints only, explicit operation metadata/scopes, bounded bodies, no redirects, secret-header marking and uncertain outcomes for ambiguous network failures on mutations.
+
+The repository's automated fake-host and sandbox results are not presented as real-Figma certification. Real Figma Design, FigJam, Slides, Buzz, Motion and collaboration acceptance still require an authorized disposable account/file.
+
+See [API coverage](docs/API_COVERAGE.json), [REST coverage](docs/REST_API_COVERAGE.json), [security](docs/SECURITY.md), [capabilities](docs/CAPABILITIES.md), and [compatibility](docs/COMPATIBILITY.md).
