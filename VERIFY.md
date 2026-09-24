@@ -93,9 +93,11 @@ environment and isolated network by default.
 
 The hosted `driver-conformance` job executes a real persistent fixture through handshake,
 capability digest attestation, health, a safe read-only operation and clean shutdown. It also
-executes the broker smoke path and compiles a newly scaffolded driver. Protocol v1 deliberately
-rejects dynamic capabilities, provider events and cooperative cancellation until those interfaces
-are negotiated and tested.
+executes the broker smoke path and compiles a newly scaffolded driver. Protocol v1 remains a
+compatibility surface and deliberately rejects dynamic capabilities, child events, progress,
+artifacts and cooperative cancellation. Protocol v2 negotiates those interfaces explicitly, and a
+sandboxed fixture exercises event delivery, capability invalidation, progress/artifacts and
+cooperative cancellation end to end.
 
 ## Adversarial sandbox and plugin-attestation closure included in this development line
 
@@ -159,23 +161,24 @@ sequence/replay wire. Replay and live delivery enforce optional session audience
 lifecycle events are not visible to other broker sessions. Provider payload metadata remains
 explicitly untrusted and cannot overwrite reserved provenance fields.
 
-The built-in `jobs.start`, `jobs.get` and `jobs.cancel` commands implement bounded, session-scoped
-long-operation state. Nested requests re-enter the normal broker execution path and therefore keep
-schema validation, policy, confirmation, provider provenance and audit. Tests cover read-only
-completion, mutation denial from an observe-only session, cross-session privacy, revocation,
-idempotent cancellation and cancellation of a blocked dynamic provider without waiting behind its
-execution gate. Retention is bounded and oversized completed result bodies are omitted rather than
-stored indefinitely.
+The built-in `jobs.start`, `jobs.get`, `jobs.list` and `jobs.cancel` commands implement bounded,
+session-scoped long-operation state. Nested requests re-enter the normal broker execution path and
+therefore keep schema validation, policy, confirmation, provider provenance and audit. Tests cover
+read-only completion, mutation denial from an observe-only session, cross-session privacy,
+revocation, newest-first session listing, idempotent cancellation and cancellation of a blocked
+dynamic provider without waiting behind its execution gate.
 
-The MCP adapter now maps Semwright jobs to the negotiated `io.modelcontextprotocol/tasks`
-extension using the official Rust SDK: task creation is opt-in, Task IDs are the session-scoped
-JobStore IDs, `tasks/get` and `tasks/cancel` re-enter normal broker policy, legacy clients are
-rejected for task creation, and the official-SDK E2E exercises create/poll/result/cancel behavior.
-Semwright does not fabricate `input_required` transitions that its broker cannot currently emit.
+Provider Runtime now accepts bounded `JobProgress` and `JobArtifact` signals only from the provider
+executing the correlated job request. Integration tests prove measured progress/artifacts are
+retained in the owning job and remain invisible across broker sessions. Driver Protocol v2 carries
+those signals, child events and cooperative cancellation through the persistent Driver Host; the
+sandboxed v2 conformance fixture also exercises dynamic capability invalidation.
 
-This does not certify a universal provider progress percentage/artifact contract, remote durable task
-persistence or negotiated driver-child job/event/cancellation interfaces. Those remain follow-on
-compatibility work rather than implied capabilities of the core job store.
+The MCP adapter maps Semwright jobs to the negotiated `io.modelcontextprotocol/tasks` extension
+using the official Rust SDK: task creation is opt-in, Task IDs are the session-scoped JobStore IDs,
+task get/result/cancel re-enter normal broker policy, legacy clients are rejected for task creation,
+and the official-SDK E2E exercises create/poll/result/cancel behavior. Semwright does not fabricate
+`input_required` transitions, and jobs remain in-memory rather than durable across daemon restarts.
 
 ## OBS deep-driver closure included in this development line
 
@@ -199,9 +202,10 @@ no user profile and no external streaming target. The production Rust probe auth
 successfully executes read-only `GetVersion` and `GetSceneList`; the accepted evidence explicitly
 records `recording_started=false` and `streaming_started=false`.
 
-This does **not** imply that Driver Protocol v1 transports driver-child events, cooperative
-cancellation, dynamic capability changes or provider-wide progress/artifacts. Those generic
-protocol gaps remain fail-closed/follow-on work rather than being simulated by the OBS driver.
+The OBS driver itself still advertises Driver Protocol v1, so it does **not** claim child events,
+cooperative cancellation, dynamic capability changes or generic progress/artifact transport. The
+platform-level v2 contract is implemented and conformant elsewhere; migrating OBS to v2 remains an
+OBS-specific follow-on rather than a missing Driver SDK transport.
 
 ## Blender, KiCad and MLT deep-driver closure included in this development line
 
@@ -235,12 +239,22 @@ production AT-SPI path against Zenity 4.0.1 in the active `wayland-0` login sess
 editable text through AT-SPI (without global keyboard/pointer injection), observes a delta, closes
 the fixture, forces structural resync and rejects the old ref as stale. Sanitized evidence is stored
 in `verification/live-gnome/gnome-wayland-atspi.json`. This certifies the GNOME semantic GTK route,
-not the optional GJS bridge, portal input consent or the remaining Plasma/Sway/Hyprland matrix.
+not every optional GJS, portal, scaling or multi-monitor path.
 
-The RemoteDesktop EIS sender is implemented in the platformized Linux host and a real EIS protocol
-fixture negotiates a sender session and transmits keysym, UTF-8 text, relative pointer motion,
-buttons and scrolling. A real user-approved desktop-portal ConnectToEIS session is still pending
-and remains a release blocker.
+Separate hosted live gates execute the production KWin 6 bridge on virtual Wayland, native Sway IPC
+on a real headless Sway/wlroots compositor, and EWMH behavior under an Openbox-managed Xvfb session.
+Those gates exercise discovery plus focus/move/resize/close and stale-reference lifecycle where
+applicable. Hyprland remains the missing compositor certificate because the attempted hosted nested
+runtime cannot satisfy Aquamarine's dmabuf/DRM requirement; the failure is retained as evidence
+rather than converted into a synthetic pass.
+
+The RemoteDesktop EIS sender is implemented in the platformized Linux host and protocol fixtures
+exercise text-capable and keycode-only keyboard negotiation plus pointer/button/scroll transport.
+On a real active GNOME Wayland desktop, explicit Semwright human approval plus the portal chooser
+produced a real `ConnectToEIS` session for keyboard + pointer; after the GNOME keycode-only
+negotiation fix the session reported `eis=connected` / `input_route=eis`, and `portal.stop` returned
+it to `eis=inactive`. Cancellation plus focused-window/coordinate behavior and the broader portal
+desktop matrix remain release evidence gaps.
 
 ## PipeWire ScreenCast closure included in this development line
 
@@ -286,16 +300,19 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 
 ## Evidence boundaries
 
-This baseline does **not** claim Plasma Wayland, Sway, Hyprland or a complete native-desktop
-X11 matrix, nor a real user-approved portal ConnectToEIS session. GNOME Wayland has a real semantic
-GTK/AT-SPI execution, but that does not certify every GNOME extension/portal/scaling path. It does
-not certify a sandbox for same-UID MCP upstream executables, a remote signed driver marketplace or
-cryptographic publisher identity. Adversarial plugin/driver sandbox regressions are executed but do
-not constitute a formal security proof. Rust 1.88 is the executed MSRV, Chromium quota/crash/frame
-hardening, MCP Tasks mapping, reproducible native tar/deb packaging and private user install/uninstall
-are executed. Nix evaluation, SBOM/signing/publication provenance, independent security review,
-provider-wide progress/artifacts and negotiated dynamic driver child event/cancellation interfaces
-remain follow-on work.
+This baseline does **not** claim live Hyprland support or a complete physical native-desktop X11,
+scaling and multi-monitor matrix. GNOME Wayland, virtual Plasma/KWin 6, real headless Sway and an
+Openbox-managed EWMH session have executed lifecycle evidence. A real user-approved GNOME
+`ConnectToEIS` keyboard+pointer session also connects and revokes cleanly, but portal cancellation,
+focused-window/coordinate behavior and the broader desktop-consent matrix remain open.
+
+The baseline does not certify a sandbox for same-UID MCP upstream executables, a remote signed driver
+marketplace or cryptographic publisher identity. Adversarial plugin/driver sandbox regressions are
+executed but do not constitute a formal security proof. Rust 1.88 is the executed MSRV; Chromium
+quota/crash/frame hardening, MCP Tasks, provider-wide progress/artifacts, Driver Protocol v2,
+reproducible native tar/deb packaging and private user install/uninstall are executed. Nix/SBOM/
+attestation closure still requires a successful supply-chain run on the exact accepted `main` SHA,
+and independent security review remains a separate release blocker.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

@@ -85,7 +85,7 @@ other commits and local archives is not part of this acceptance decision.
 | A044 | CLI. | PASS | The canonical semwright CLI is built and used by multiple daemon/broker/driver E2E smoke paths. |
 | A045 | JSON CLI mode. | PASS | Machine-readable JSON mode is used and parsed by hosted smoke/conformance workflows. |
 | A046 | MCP using official Rust SDK. | PASS | MCP uses the official Rust SDK; real SDK client E2E covers initialization, discovery, execution and read-only policy. |
-| A047 | TUI/inspector or equivalent high-quality debugging surface. | PASS | semwright-inspect is a read-only seven-pane broker-backed TUI with filtering, refresh, audit/policy/UI views and terminal-injection escaping tests. |
+| A047 | TUI/inspector or equivalent high-quality debugging surface. | PASS | `semwright-inspect` is a read-only nine-pane broker-backed TUI with filtering, refresh, audit/policy/UI plus session-scoped Jobs/Refs views and terminal-injection escaping tests. |
 | A048 | MCP does not bypass policy. | PASS | Official-client MCP integration and broker tests prove MCP requests traverse normal policy and cannot self-approve. |
 | A049 | MCP tool discovery/context-control strategy. | PASS | The bounded discovery/gateway surface is documented and exercised by official-SDK server/client integration tests; application commands remain behind search/describe/execute rather than static tool expansion. |
 
@@ -298,10 +298,10 @@ LibreOffice deep-driver expansion subtotal: **6 PASS, 1 FAIL**.
 | J005 | Cancellation is idempotent and can reach a blocked dynamic provider without waiting behind its execution gate. | PASS | Core and Provider Runtime cancellation regressions. |
 | J006 | Session revocation cancels and forgets only that session's active jobs. | PASS | Revocation regression covers ownership and cleanup. |
 | J007 | Job lifecycle events are source-tagged and private to the owning session. | PASS | Queued/started/cancel-requested/terminal event integration plus audience filtering. |
-| J008 | Providers expose a general, measured progress and artifact contract for long operations. | FAIL | Core lifecycle exists, but progress/artifact semantics are not yet a provider-wide contract. |
-| J009 | MCP Tasks and driver protocol job/event interfaces are negotiated and conformant. | FAIL | Mapping/negotiation remains follow-on work; protocol v1 does not imply these interfaces. |
+| J008 | Providers expose a general, measured progress and artifact contract for long operations. | PASS | Provider Runtime correlates bounded `JobProgress`/`JobArtifact` signals to the owning session-scoped job; integration tests retain the measured state through `jobs.get`. |
+| J009 | MCP Tasks and driver protocol job/event interfaces are negotiated and conformant. | PASS | MCP Tasks create/get/result/cancel run through the official SDK, while Driver Protocol v2 has sandboxed conformance for child events, progress/artifacts, dynamic capability invalidation and cooperative cancellation; v1 remains compatibility-only and fail-closed for these interfaces. |
 
-Events and Jobs expansion subtotal: **7 PASS, 2 FAIL**.
+Events and Jobs expansion subtotal: **9 PASS, 0 FAIL**.
 
 ## OBS deep-driver expansion acceptance
 
@@ -313,7 +313,7 @@ Events and Jobs expansion subtotal: **7 PASS, 2 FAIL**.
 | O004 | OBS driver executes through the real Semwright Driver Host and broker policy path. | PASS | Hosted conformance runs the release driver through Bubblewrap + Landlock and a full broker/policy/CLI smoke against the independent fake OBS server. |
 | O005 | OBS-specific fuzz targets execute in hosted CI. | PASS | Six bounded targets cover messages, events, responses, refs, bounded JSON and capability mapping. |
 | O006 | Production Rust transport executes against a real isolated OBS Studio instance. | PASS | Hosted `real-obs` runs OBS Studio 30.0.2 + obs-websocket 5.3.4 in private namespaces/Xvfb and passes authenticated read-only `GetVersion`/`GetSceneList`; recording and streaming remain off. |
-| O007 | Driver child can emit broker-native events/jobs/progress through Driver Protocol v1. | FAIL | Internal event/lifecycle state exists, but v1 intentionally does not negotiate child events, cooperative cancellation, dynamic capabilities or generic progress/artifact transport. |
+| O007 | The OBS driver child emits broker-native events/jobs/progress through a negotiated Driver Protocol interface. | FAIL | The platform now provides and tests Driver Protocol v2, but the OBS manifest intentionally remains on v1 and therefore does not yet negotiate child events, cooperative cancellation, dynamic capabilities or generic progress/artifact transport. |
 | O008 | OBS secrets/network authority are least-privilege production contracts. | FAIL | Loopback is the driver default and owner network opt-in is enforced, but generic secure secret references and port-scoped network grants remain future Driver SDK work. |
 
 OBS deep-driver expansion subtotal: **6 PASS, 2 FAIL**.

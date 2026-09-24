@@ -1,20 +1,21 @@
 # Events and jobs
 
 Semwright has one broker-owned event stream and a bounded, session-scoped job model.
-Neither mechanism grants authority by itself: policy remains attached to the capability
-that produced an event or to the nested request executed by a job.
+Neither grants authority by itself: policy remains attached to the capability that produced
+an event or to the nested request executed by a job.
 
 ## Event provenance
 
-Events carry typed source/provider provenance without changing the daemon's existing
-sequence/replay transport. Provider-originated payloads remain explicitly untrusted data.
-Reserved provenance fields cannot be smuggled through provider attributes.
+Events carry typed source/provider provenance without changing the daemon's sequence/replay
+transport. Provider-originated payloads remain explicitly untrusted data, and reserved
+provenance fields cannot be smuggled through provider attributes.
 
-Replay and live delivery honor an optional broker session audience. A session cannot use
-the subscription stream to observe job lifecycle events owned by another session.
+Replay and live delivery honor an optional broker-session audience. A session cannot use
+the subscription stream to observe private job lifecycle events owned by another session.
+Provider disconnect and capability-refresh events use the same broker-bound provenance.
 
-Provider disconnect and capability-refresh events use the same broker-bound provenance
-rather than trusting source identity claimed by a provider payload.
+Driver Protocol v2 can transport bounded child events. A driver must negotiate the events
+interface explicitly; protocol v1 remains fail-closed for unsolicited child events.
 
 ## Job control
 
@@ -23,14 +24,17 @@ The built-in commands are:
 ```text
 jobs.start
 jobs.get
+jobs.list
 jobs.cancel
 ```
-
-`jobs.start` accepts a normal Semwright execute request as its nested request. The brokervalidates that request before reserving a job, then executes it by re-entering the normal
+`jobs.start` accepts a normal Semwright execute request as its nested request. The broker
+validates that request before reserving a job, then executes it by re-entering the normal
 broker path. The nested capability therefore receives its own schema validation, policy,
 confirmation, timeout, provider provenance and audit decision.
 
-The job-control command itself cannot turn an observe-only session into mutation authority.
+`jobs.list` is session-scoped and returns retained jobs newest first. `jobs.get` and
+`jobs.cancel` require ownership by the same broker session. Session revocation cancels
+and forgets only that session's active jobs.
 
 Jobs move through:
 
@@ -38,42 +42,40 @@ Jobs move through:
 queued -> running -> succeeded | failed | cancelled
 ```
 
-Cancellation is cooperative through the same cancellation token used by provider execution.
-Repeated cancellation is idempotent. Cancellation and observation are deliberately outside
-the provider execution gate so an operator can stop a blocked long-running operation.
+Cancellation is idempotent. Provider execution uses the same cancellation token, and
+Driver Protocol v2 adds a negotiated cooperative-cancellation acknowledgement for driver
+children. Observation and cancellation remain outside the provider execution gate so an
+operator can stop a blocked long-running operation.
 
-## Scope and bounds
+## Progress and artifacts
 
-Jobs are private to the broker session that created them. Session revocation cancels and
-forgets that session's jobs without exposing or changing jobs owned by another session.
+Provider Runtime accepts progress only from the provider currently executing the correlated
+job request. `JobProgress` contains a completed value, optional total and optional bounded
+message. Providers must report measured state; Semwright does not manufacture percentages.
+A progress update may carry at most 32 validated `JobArtifact` entries. Artifact metadata
+is bounded and retained by reference; repeated references replace prior metadata rather
+than growing the job indefinitely. Progress/artifact state is visible through `jobs.get`,
+`jobs.list`, lifecycle events and the read-only inspector.
 
-The current development implementation bounds retained state to:
+Retained state remains bounded to 256 jobs broker-wide, 64 retained jobs per session,
+16 active jobs per session and 256 KiB maximum retained result envelope per job. Oversized
+terminal result bodies are omitted while lifecycle state remains available.
 
-- 256 jobs broker-wide;
-- 64 retained jobs per session;
-- 16 active jobs per session;
-- 256 KiB maximum retained result envelope per job.
+## MCP Tasks
 
-When a completed result exceeds the retention budget, lifecycle state remains available but
-the result body is omitted rather than retained unboundedly.
+The MCP frontend maps Semwright jobs to the negotiated `io.modelcontextprotocol/tasks`
+extension through the official Rust SDK. `semwright_execute_task` is available only when
+the client negotiated Tasks. Task IDs are the session-scoped JobStore IDs; task get/result
+and cancellation re-enter normal broker policy. Legacy clients cannot create tasks.
 
-Job lifecycle events include queued, started, cancellation-requested and terminal states.
-Those events are audience-scoped to the owning session.
-
-## Deliberate limits
-
-This development line does **not** yet define a universal progress percentage, driver artifact
-model, remote task persistence, or automatic MCP Task mapping. Providers must not invent
-progress that they cannot measure.
-
-Driver protocol v1 also does not yet negotiate dynamic jobs/events as a provider interface.
-Those follow-on contracts remain release blockers and must be added with compatibility and
-conformance tests rather than inferred from this core job store.
+Jobs are in-memory and are not durable across daemon restarts. Semwright currently has no
+`input_required` job transition, so `tasks/update` does not fabricate one.
 
 ## Verification
 
-The workspace integration tests cover read-only completion, policy denial through a job,
-cross-session privacy, session revocation, idempotent cancellation, lifecycle events, and
-cancellation of a blocked dynamic provider. Hosted x86_64/ARM64 quality gates, fuzz, coverage,
-real Chromium and driver conformance must be green on the exact commit before this document
-is treated as accepted development evidence.
+Hosted tests cover policy re-entry, cross-session privacy, revocation, idempotent
+cancellation, lifecycle events, blocked-provider cancellation, provider progress/artifact
+correlation, MCP Tasks create/poll/result/cancel, and a sandboxed Driver Protocol v2 fixture
+that exercises events, dynamic capability invalidation, progress/artifacts and cooperative
+cancellation. Protocol v1 compatibility remains supported without advertising v2-only
+interfaces.
