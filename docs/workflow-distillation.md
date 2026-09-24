@@ -64,7 +64,9 @@ sequences. Every trace must:
 
 With multiple traces, scalar argument values that differ are converted into typed recipe
 inputs. Values that correspond to a unique prior step result (including opaque refs) are
-rewritten as `$var` bindings so ephemeral references are reacquired during replay.
+rewritten as `$var` bindings so ephemeral references are reacquired during replay. An
+opaque reference that cannot be tied to a prior result is never baked into a recipe:
+compilation fails until the caller explicitly parameterizes it.
 
 With a single trace, constants remain constants unless the caller supplies an explicit
 parameter hint:
@@ -72,8 +74,11 @@ parameter hint:
 ```sh
 semwright workflow compile export   --trace TRACE_ID   --parameter filename=0:/filename
 ```
-Parameter names and source locations must be unique. V1 does not ask an LLM to guess
-which constant should become an input.
+Parameter names and source locations must be unique. A parameter hint may mark an input
+as secret; because V1 cannot prove whether an application echoes that secret later, any
+automatically inferred recipe output is conservatively marked secret and redacted at
+runtime when the recipe has a secret input. V1 does not ask an LLM to guess which constant
+should become an input.
 
 The compiler can infer simple success assertions from stable boolean result fields, but it
 does not invent application-specific postconditions.

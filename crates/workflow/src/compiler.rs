@@ -448,6 +448,10 @@ pub fn compile(
                 .unwrap()
         })
         .collect::<Vec<_>>();
+    // The compiler cannot prove that an application will not echo a secret
+    // input in its result. Conservatively taint the inferred output whenever
+    // any learned input is secret.
+    let inferred_output_secret = inputs.values().any(|input| input.secret);
     let mut outputs = BTreeMap::new();
     if let Ok(kind) = value_type(final_results[0])
         && final_results
@@ -459,7 +463,7 @@ pub fn compile(
             Output {
                 kind,
                 value: json!({"$var":format!("/steps/step-{step_count}")}),
-                secret: false,
+                secret: inferred_output_secret,
             },
         );
     }
@@ -1081,5 +1085,69 @@ mod tests {
             json!({"$var":"/inputs/selector"})
         );
         assert_eq!(candidate.recipe.inputs["selector"].kind, ValueType::Object);
+    }
+
+    #[test]
+    fn secret_input_conservatively_taints_inferred_output() {
+        let lookup = lookup();
+        let trace = trace(
+            "trace-a",
+            "one.png",
+            "ui:00000000000000000000000000000001",
+            &lookup,
+        );
+        let candidate = compile(
+            &[trace],
+            "secret-input",
+            "",
+            &[ParameterHint {
+                name: "filename".into(),
+                step: 0,
+                pointer: "/filename".into(),
+                secret: true,
+            }],
+            &lookup,
+        )
+        .unwrap();
+        assert!(candidate.recipe.inputs["filename"].secret);
+        assert!(candidate.recipe.outputs["result"].secret);
+    }
+
+    #[test]
+    fn failed_unknown_or_redacted_traces_never_compile() {
+        let lookup = lookup();
+        let base = trace(
+            "trace-a",
+            "one.png",
+            "ui:00000000000000000000000000000001",
+            &lookup,
+        );
+
+        let mut failed = base.clone();
+        failed.successful = false;
+        assert_eq!(
+            compile(&[failed], "failed", "", &[], &lookup)
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+
+        let mut unknown = base.clone();
+        unknown.steps[0].outcome_known = false;
+        assert_eq!(
+            compile(&[unknown], "unknown", "", &[], &lookup)
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+
+        let mut redacted = base;
+        redacted.steps[0].redacted = true;
+        assert_eq!(
+            compile(&[redacted], "redacted", "", &[], &lookup)
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
     }
 }
