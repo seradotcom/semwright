@@ -684,7 +684,7 @@ async fn run(cli: &Cli) -> Result<i32> {
         )
         .await?;
         // Never cancel a partially consumed framed read just to send a heartbeat.
-        let (mut read, mut write) = client.stream.into_split();
+        let (mut read, mut write) = tokio::io::split(client.stream);
         let heartbeat = tokio::spawn(async move {
             let mut timer = tokio::time::interval(Duration::from_secs(30));
             loop {

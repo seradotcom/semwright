@@ -27,8 +27,10 @@ use std::{
     io::Write,
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
 };
+#[cfg(unix)]
+use tokio::process::Command;
 use tokio::{
-    process::{ChildStdin, ChildStdout, Command},
+    process::{ChildStdin, ChildStdout},
     sync::{Mutex, broadcast, oneshot},
 };
 use tokio_util::sync::CancellationToken;

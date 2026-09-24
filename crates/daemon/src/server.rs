@@ -17,8 +17,6 @@ use std::{
 };
 #[cfg(unix)]
 use tokio::net::UnixListener;
-#[cfg(target_os = "windows")]
-use tokio::net::windows::named_pipe::NamedPipeServer;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::{Semaphore, mpsc},

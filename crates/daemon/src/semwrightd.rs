@@ -11,8 +11,8 @@ use semwright_platform_common::filesystem::Filesystem;
 use semwright_plugin_host::Host;
 use semwright_policy::Policy;
 #[cfg(unix)]
-use semwright_protocol::current_uid;
-use semwright_protocol::{default_endpoint, private_directory, runtime_directory};
+use semwright_protocol::{current_uid, private_directory};
+use semwright_protocol::{default_endpoint, runtime_directory};
 use semwright_types::*;
 use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
 use tokio_util::sync::CancellationToken;
