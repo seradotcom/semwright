@@ -328,163 +328,6 @@ async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: R
     }
 }
 
-#[cfg(target_os = "linux")]
-fn executable_diagnostics(path: &Path) -> String {
-    use std::{
-        ffi::CString,
-        mem::MaybeUninit,
-        os::unix::{ffi::OsStrExt, fs::MetadataExt},
-    };
-    let metadata = fs::metadata(path).ok();
-    let mode = metadata.as_ref().map(|m| m.mode() & 0o7777);
-    let uid = metadata.as_ref().map(MetadataExt::uid);
-    let gid = metadata.as_ref().map(MetadataExt::gid);
-    let c_path = CString::new(path.as_os_str().as_bytes()).ok();
-    let x_ok = c_path.as_ref().is_some_and(|p| {
-        // SAFETY: `p` is a live NUL-terminated path and `access` does not retain it.
-        unsafe { libc::access(p.as_ptr(), libc::X_OK) == 0 }
-    });
-    let noexec = c_path
-        .as_ref()
-        .and_then(|p| {
-            let mut stat = MaybeUninit::<libc::statvfs>::uninit();
-            // SAFETY: `statvfs` initializes `stat` synchronously on success.
-            let ok = unsafe { libc::statvfs(p.as_ptr(), stat.as_mut_ptr()) == 0 };
-            // SAFETY: successful `statvfs` fully initialized the structure above.
-            ok.then(|| unsafe { stat.assume_init() })
-        })
-        .map(|stat| stat.f_flag & libc::ST_NOEXEC != 0);
-    // SAFETY: `geteuid` has no pointer arguments or preconditions.
-    let euid = unsafe { libc::geteuid() };
-    format!("mode={mode:?} uid={uid:?} gid={gid:?} euid={euid} x_ok={x_ok} noexec={noexec:?}")
-}
-
-#[cfg(not(target_os = "linux"))]
-fn executable_diagnostics(_path: &Path) -> String {
-    "platform_diagnostics_unavailable".into()
-}
-
-async fn start_browser(
-    runtime: &RendererRuntime,
-    output: &Path,
-    timeout_ms: u64,
-) -> Result<(tokio::process::Child, String)> {
-    let profile = output.join("chromium-profile");
-    fs::create_dir_all(&profile)?;
-    let stderr_path = output.join("chromium.stderr.log");
-    let stderr_file = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&stderr_path)?;
-    let mut command = Command::new(&runtime.browser);
-    command
-        .args([
-            "--headless=new",
-            "--no-sandbox",
-            "--enable-logging=stderr",
-            "--disable-gpu",
-            "--disable-dev-shm-usage",
-            "--disable-background-networking",
-            "--disable-background-timer-throttling",
-            "--disable-component-update",
-            "--disable-default-apps",
-            "--disable-extensions",
-            "--no-default-browser-check",
-            "--no-first-run",
-            "--password-store=basic",
-            "--use-mock-keychain",
-            "--hide-scrollbars",
-            "--mute-audio",
-            "--remote-debugging-address=127.0.0.1",
-            "--remote-debugging-port=0",
-        ])
-        .arg(format!("--user-data-dir={}", profile.display()))
-        .arg("about:blank")
-        .kill_on_drop(true)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::from(stderr_file))
-        .env_clear()
-        .env("PATH", "/usr/bin:/bin")
-        .env("HOME", "/home")
-        .env("LANG", "C.UTF-8")
-        .env("FONTCONFIG_PATH", "/etc/fonts")
-        .env("FONTCONFIG_FILE", "fonts.conf")
-        .env("TMPDIR", output)
-        .env("TMP", output)
-        .env("TEMP", output)
-        .env("XDG_CACHE_HOME", output.join(".cache"))
-        .env("XDG_CONFIG_HOME", output.join(".config"))
-        .env("XDG_DATA_HOME", output.join(".data"))
-        .env("SEMWRIGHT_DRIVER_SANDBOX", "landlock-bwrap-v1");
-    // Keep Chromium free of Rust pre-exec process-group mutations. Earlier CI
-    // proved this exact pinned executable can cross the Driver Host exec boundary
-    // when launched normally; the Rust-owned path added process_group(0) and then
-    // failed before exec with EACCES. Browser lifetime is instead owned through
-    // CDP plus `terminate_browser`, while Bubblewrap remains the outer process tree.
-    let mut child = command.spawn().map_err(|error| {
-        Error::new(
-            ErrorCode::BackendFailed,
-            format!(
-                "Failed to start pinned Chromium from Rust driver: {error}; {}",
-                executable_diagnostics(&runtime.browser)
-            ),
-        )
-    })?;
-    let active_port = profile.join("DevToolsActivePort");
-    let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms.min(30_000));
-    loop {
-        if let Some(status) = child.try_wait()? {
-            return Err(Error::new(
-                ErrorCode::BackendFailed,
-                format!(
-                    "Pinned Chromium exited before CDP startup: {status}; stderr={}",
-                    bounded_browser_log(&stderr_path)
-                ),
-            ));
-        }
-        match fs::read_to_string(&active_port) {
-            Ok(text) => {
-                let port = text
-                    .lines()
-                    .next()
-                    .and_then(|line| line.parse::<u16>().ok())
-                    .filter(|port| *port != 0);
-                if let Some(port) = port {
-                    return Ok((child, format!("http://127.0.0.1:{port}")));
-                }
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                terminate_browser(&mut child).await;
-                return Err(error.into());
-            }
-        }
-        if std::time::Instant::now() >= deadline {
-            terminate_browser(&mut child).await;
-            return Err(Error::new(
-                ErrorCode::Timeout,
-                format!(
-                    "Pinned Chromium did not publish a bounded loopback CDP endpoint; stderr={}",
-                    bounded_browser_log(&stderr_path)
-                ),
-            ));
-        }
-        tokio::time::sleep(Duration::from_millis(25)).await;
-    }
-}
-
-fn bounded_browser_log(path: &Path) -> String {
-    match fs::read(path) {
-        Ok(bytes) => String::from_utf8_lossy(&bytes)
-            .chars()
-            .filter(|ch| !ch.is_control() || matches!(ch, '\n' | '\t'))
-            .take(16_384)
-            .collect(),
-        Err(_) => "unavailable".into(),
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 async fn run_render(
     runtime: &RendererRuntime,
@@ -527,18 +370,9 @@ async fn run_render(
     });
     let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
 
-    // Driver Host's Ubuntu AppArmor profile allows the Rust driver to create
-    // descendants, while Node's child_process transition is denied under the
-    // same no-new-privs stack. Keep tool ownership in Rust: Chromium and the
-    // narrow Node helper are siblings inside one Bubblewrap/Landlock boundary.
-    let (mut browser, cdp) = match start_browser(runtime, &output, plan.timeout_ms).await {
-        Ok(browser) => browser,
-        Err(error) => {
-            let _ = fs::remove_dir_all(&output);
-            return Err(error);
-        }
-    };
-
+    // The narrow Node helper owns the pinned Firefox process. Both inherit the
+    // same process group plus Driver Host Bubblewrap + Landlock confinement.
+    // No browser flags or executable paths come from agent input.
     let mut command = Command::new(&runtime.node);
     command
         .args(NODE_RENDER_FLAGS)
@@ -549,8 +383,8 @@ async fn run_render(
         .arg(&output)
         .arg("--config")
         .arg(encoded)
-        .arg("--cdp")
-        .arg(&cdp)
+        .arg("--browser")
+        .arg(&runtime.browser)
         .kill_on_drop(true)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
@@ -576,7 +410,6 @@ async fn run_render(
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
-            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -589,7 +422,6 @@ async fn run_render(
         Some(stdout) => stdout,
         None => {
             terminate_tree(pid, &mut child).await;
-            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
                 ErrorCode::Internal,
@@ -601,7 +433,6 @@ async fn run_render(
         Some(stderr) => stderr,
         None => {
             terminate_tree(pid, &mut child).await;
-            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
                 ErrorCode::Internal,
@@ -630,19 +461,15 @@ async fn run_render(
         status = child.wait() => status?,
         _ = cancel.cancelled() => {
             terminate_tree(pid, &mut child).await;
-            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Cancelled, "Render cancelled"));
         }
         _ = tokio::time::sleep(Duration::from_millis(plan.timeout_ms)) => {
             terminate_tree(pid, &mut child).await;
-            terminate_browser(&mut browser).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Timeout, "Render exceeded timeout"));
         }
     };
-    terminate_browser(&mut browser).await;
-    let _ = fs::remove_file(output.join("chromium.stderr.log"));
     let stdout = out_task
         .await
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stdout task failed"))??;
@@ -702,26 +529,6 @@ async fn run_render(
             let _ = fs::remove_dir_all(&output);
             Err(error)
         }
-    }
-}
-
-async fn terminate_browser(child: &mut tokio::process::Child) {
-    if child.try_wait().ok().flatten().is_some() {
-        return;
-    }
-    #[cfg(unix)]
-    if let Some(pid) = child.id() {
-        // SAFETY: positive PID targets only the owned Chromium browser process.
-        unsafe { libc::kill(pid as i32, libc::SIGTERM) };
-    }
-    #[cfg(not(unix))]
-    let _ = child.start_kill();
-    if tokio::time::timeout(Duration::from_secs(2), child.wait())
-        .await
-        .is_err()
-    {
-        let _ = child.start_kill();
-        let _ = child.wait().await;
     }
 }
 

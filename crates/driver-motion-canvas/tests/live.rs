@@ -101,9 +101,9 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
         network: false,
         resources: DriverResources {
             open_files: 512,
-            processes: 256,
+            processes: 128,
             cpu_seconds: 300,
-            address_space_bytes: 17_179_869_184,
+            address_space_bytes: 4_294_967_296,
             file_size_bytes: 1_073_741_824,
         },
         request_timeout_ms: 300_000,
@@ -156,7 +156,7 @@ impl Harness {
 }
 
 #[tokio::test]
-#[ignore = "requires pinned Node/Chromium Motion Canvas runtime plus production Driver Host"]
+#[ignore = "requires pinned Node/Firefox Motion Canvas runtime plus production Driver Host"]
 async fn real_motion_canvas_render_runs_inside_sandbox() {
     if std::env::var_os("SEMWRIGHT_TEST_MOTION_CANVAS_RENDER").is_none() {
         return;

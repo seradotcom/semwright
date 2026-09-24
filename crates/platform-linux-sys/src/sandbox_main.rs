@@ -86,7 +86,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if !seen.insert(argument.clone()) {
                     return Err("duplicate sandbox resource limit".into());
                 }
-                address_space = bounded_limit(args.next(), 134_217_728, 17_179_869_184)?;
+                address_space = bounded_limit(args.next(), 134_217_728, 4_294_967_296)?;
             }
             "--limit-fsize" => {
                 if !seen.insert(argument.clone()) {
@@ -187,9 +187,9 @@ mod tests {
         assert!(bounded_limit(Some("1025".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("not-a-number".into()), 32, 1024).is_err());
         assert_eq!(
-            bounded_limit(Some("17179869184".into()), 134_217_728, 17_179_869_184).unwrap(),
-            17_179_869_184
+            bounded_limit(Some("4294967296".into()), 134_217_728, 4_294_967_296).unwrap(),
+            4_294_967_296
         );
-        assert!(bounded_limit(Some("17179869185".into()), 134_217_728, 17_179_869_184).is_err());
+        assert!(bounded_limit(Some("4294967297".into()), 134_217_728, 4_294_967_296).is_err());
     }
 }

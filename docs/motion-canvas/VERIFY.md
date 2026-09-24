@@ -20,15 +20,15 @@ Unit/property/security tests are small enough for CI and may be run locally when
 `.github/workflows/motion-canvas.yml` runs four verification layers:
 
 - **domain**: complete driver compile, unit/property/security tests, launch-source/audio provenance verification, Clippy, rustfmt and whitespace.
-- **portable-compile**: locked Rust compile of the domain and Driver Protocol adapter on the macOS runner.
-- **real-render-and-host**: exact Node/Motion Canvas install on an ephemeral Linux runner, runtime contract tests, generated-project typecheck/Vite build, SHA-pinned runtime manifest, real Driver Host conformance, opaque render, transparent render/pixel evidence and cancellation.
+- **portable-compile**: locked Rust compile of the complete domain and Driver Protocol adapter on macOS and Windows runners.
+- **real-render-and-host**: exact Node/Motion Canvas/Firefox install on an ephemeral Linux runner, runtime contract tests, generated-project typecheck/Vite build, SHA-pinned runtime manifest, real Driver Host conformance, opaque render, transparent render/pixel evidence and cancellation.
 - **fuzz**: bounded smoke for semantic parser, refs, animation validation, path validation, SVG boundary and codegen escaping.
 
-The render test is accepted only through the real Driver Host with `network=false`; direct unsandboxed helper rendering is intentionally not an acceptance path.
+The render test is accepted only through the real Driver Host with `network=false`; direct unsandboxed helper rendering is intentionally not an acceptance path. The runtime job also verifies that the pinned Firefox build can initialize Canvas under the original 4 GiB virtual-address-space ceiling.
 
 ## Full film
 
-The expensive 52-second render is isolated in the manual `.github/workflows/motion-canvas-launch-film.yml`. It builds both first-party providers, renders 1,560 Motion Canvas frames through Driver Host, creates a fixed mezzanine, and uses the real MLT provider for final H.264/AAC assembly.
+The expensive 52-second render is isolated in `.github/workflows/motion-canvas-launch-film.yml`. It builds both first-party providers, renders 1,560 Motion Canvas frames through Driver Host, creates a fixed mezzanine, and uses the real MLT provider for final H.264/AAC assembly.
 
 Success requires:
 
@@ -51,10 +51,10 @@ If an optional platform or tool is unavailable, the driver must report it fail-c
 
 ## CI evidence
 
-Pull-request CI performs locked Rust compilation, unit/property/security tests, clippy with warnings denied, formatting and whitespace checks. The dedicated runtime job installs the exact Node lockfile on an ephemeral runner, materializes a managed fixture, typechecks/builds generated source, exercises real Driver Host conformance, renders opaque and transparent PNG sequences, tests cancellation and records paired Chromium probes at 4 GiB and 16 GiB of virtual address space; 16 GiB must launch successfully.
+Pull-request CI performs locked Rust compilation, unit/property/security tests, Clippy with warnings denied, formatting and whitespace checks. The dedicated runtime job installs the exact Node lockfile and Playwright-pinned Firefox on an ephemeral runner, materializes a managed fixture, typechecks/builds generated source, exercises real Driver Host conformance, renders opaque and transparent PNG sequences, tests cancellation and checks the pinned browser under the same 4 GiB ceiling used by the driver.
 
 Six bounded Motion Canvas fuzz targets run in GitHub Actions. They cover the semantic project parser, reference decoder, animation validation, path validation, SVG boundary and code-generation escaping.
 
-The separate manual launch-film workflow renders all 1,560 frames at 1920x1080/30fps, generates the deterministic 52-second original WAV bed, uses the MLT driver for final H.264/AAC assembly, validates final media metadata and uploads the MP4, poster, review frames and trace evidence.
+The separate launch-film workflow renders all 1,560 frames at 1920×1080/30fps, generates the deterministic 52-second original WAV bed, uses the MLT driver for final H.264/AAC assembly, validates final media metadata and uploads the MP4, poster, review frames and trace evidence.
 
 A green result applies only to the exact commit named by the Actions run. Source-only compilation is not proof of successful browser rendering.
