@@ -312,8 +312,17 @@ impl Fake {
                         "baseValue": args["track"].get("baseValue").cloned().unwrap_or(Value::Null),
                         "keyframes": args["track"]["keyframes"]
                     }));
+                let end = args["track"]["keyframes"]
+                    .as_array()
+                    .and_then(|items| {
+                        items
+                            .iter()
+                            .filter_map(|item| item.get("timelinePosition").and_then(Value::as_f64))
+                            .reduce(f64::max)
+                    })
+                    .unwrap_or(0.0);
                 self.revision += 1;
-                Ok(json!({"applied":true}))
+                Ok(json!({"applied":true,"field":args["field"],"end":end}))
             }
             "motion.timeline.set_duration" if self.motion => {
                 let id = args["nodeId"].as_str().context("nodeId")?;
@@ -384,6 +393,93 @@ impl Fake {
                 self.nodes.insert(id.clone(), node.clone());
                 self.revision += 1;
                 Ok(summary(&node))
+            }
+            "a11y.vision.analyze" => {
+                let root = args
+                    .get("rootNodeId")
+                    .and_then(Value::as_str)
+                    .unwrap_or(&self.page);
+                if !self.nodes.contains_key(root) {
+                    bail!("not found");
+                }
+                let modes = args
+                    .get("modes")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        vec![
+                            json!("protanopia"),
+                            json!("deuteranopia"),
+                            json!("tritanopia"),
+                        ]
+                    });
+                let results = modes
+                    .into_iter()
+                    .map(|mode| json!({"mode":mode,"pairs":[],"truncated":false}))
+                    .collect::<Vec<_>>();
+                Ok(json!({
+                    "model":"machado-2009-full-severity","metric":"euclidean-srgb","rootNodeId":root,
+                    "colorCount":0,"threshold":args.get("threshold").and_then(Value::as_f64).unwrap_or(0.10),
+                    "minOriginalDistance":args.get("minOriginalDistance").and_then(Value::as_f64).unwrap_or(0.15),
+                    "results":results
+                }))
+            }
+            "a11y.vision.preview" => {
+                let source_id = args["nodeId"].as_str().context("nodeId")?;
+                let source = self.nodes.get(source_id).context("not found")?.clone();
+                let modes = args
+                    .get("modes")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        vec![
+                            json!("protanopia"),
+                            json!("deuteranopia"),
+                            json!("tritanopia"),
+                        ]
+                    });
+                let gap = args.get("gap").and_then(Value::as_f64).unwrap_or(80.0);
+                let mut previews = Vec::new();
+                for (index, mode) in modes.into_iter().enumerate() {
+                    let id = format!("1:{}", self.nodes.len() + 1);
+                    let mut clone = source.clone();
+                    clone.id = id.clone();
+                    clone.name = format!(
+                        "[Semwright vision:{}] {}",
+                        mode.as_str().unwrap_or("vision"),
+                        source.name
+                    );
+                    clone.x = source.x + (source.w + gap) * (index as f64 + 1.0);
+                    self.nodes.insert(id.clone(), clone.clone());
+                    self.nodes
+                        .get_mut(&self.page)
+                        .expect("page fixture")
+                        .children
+                        .push(id);
+                    previews
+                        .push(json!({"mode":mode,"node":summary(&clone),"transformedPaints":0}));
+                }
+                self.revision += 1;
+                Ok(json!({"sourceNodeId":source_id,"previews":previews}))
+            }
+            "verify.node" => {
+                let node_id = args["nodeId"].as_str().context("nodeId")?;
+                let node = self.nodes.get(node_id).context("not found")?;
+                let bytes = b"\x89PNG\r\n\x1a\nFAKE-VERIFY".to_vec();
+                let token = format!("fake-artifact-{}", self.artifacts.len() + 1);
+                let name = args
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("figma-verify.png")
+                    .to_owned();
+                let length = bytes.len();
+                let structure = summary(node);
+                self.artifacts.insert(token.clone(), bytes);
+                Ok(json!({
+                    "token":token,"bytes":length,"mediaType":"image/png","name":name,
+                    "nodeId":node_id,"scale":args.get("scale").and_then(Value::as_f64).unwrap_or(1.0),
+                    "nodeCount":1,"structure":structure
+                }))
             }
             "export.node" | "motion.export" => {
                 let node_id = args["nodeId"].as_str().context("nodeId")?;

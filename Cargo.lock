@@ -2896,6 +2896,7 @@ dependencies = [
  "semwright-recipes",
  "semwright-registry",
  "semwright-types",
+ "semwright-workflow",
  "serde",
  "serde_json",
  "sha2",
@@ -3510,6 +3511,20 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "uuid",
+]
+
+[[package]]
+name = "semwright-workflow"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "semwright-recipes",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
  "uuid",
 ]
 

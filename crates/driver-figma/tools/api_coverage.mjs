@@ -11,10 +11,16 @@ const ts=require(path.join(root,"plugin/node_modules/typescript"));
 const typingsPath=path.join(root,"plugin/node_modules/@figma/plugin-typings/plugin-api.d.ts");
 const packagePath=path.join(root,"plugin/node_modules/@figma/plugin-typings/package.json");
 const coveragePath=path.join(root,"docs/API_COVERAGE.json");
+const writeTypeReviewPath=path.join(root,"docs/GENERIC_WRITE_TYPE_REVIEW.json");
 const generatedPath=path.join(root,"plugin/src/generated_api_surface.ts");
 const sourceText=fs.readFileSync(typingsPath,"utf8");
 const source=ts.createSourceFile(typingsPath,sourceText,ts.ScriptTarget.Latest,true);
 const typingsVersion=JSON.parse(fs.readFileSync(packagePath,"utf8")).version;
+const writeTypeReview=JSON.parse(fs.readFileSync(writeTypeReviewPath,"utf8"));
+if(writeTypeReview.schema_version!==1||writeTypeReview.plugin_typings_version!==typingsVersion){
+  throw new Error("Generic-write type review is missing or pinned to a different @figma/plugin-typings version");
+}
+const reviewedWriteTypes=writeTypeReview.types??{};
 
 const GLOBAL_INTERFACES=[
   "PluginAPI","VariablesAPI","TeamLibraryAPI","MotionAPI","AnnotationsAPI",
@@ -105,8 +111,93 @@ const SCENE_PROPERTY_SPECIAL={
     genericRead:true,
     genericWrite:false,
   },
+  reactions:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"prototype.reaction.list",
+    writeCapability:"prototype.reaction.set",
+    genericRead:true,
+    genericWrite:false,
+  },
+  vectorNetwork:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"vector.network.set",
+    genericRead:true,
+    genericWrite:false,
+  },
+  explicitVariableModes:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.bindings.inspect",
+    writeCapability:"variable.mode.set_explicit",
+    genericRead:true,
+    genericWrite:false,
+  },
+  resolvedVariableModes:{
+    status:"SUPPORTED_COMPUTED_READ_ONLY_PROPERTY",
+    readCapability:"node.bindings.inspect",
+    genericRead:true,
+    genericWrite:false,
+  },
+  backgroundStyleId:{
+    status:"SEMANTICALLY_SUPERSEDED_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"style.apply",
+    genericRead:true,
+    genericWrite:false,
+  },
+  fillStyleId:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"style.apply",
+    genericRead:true,
+    genericWrite:false,
+  },
+  strokeStyleId:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"style.apply",
+    genericRead:true,
+    genericWrite:false,
+  },
+  effectStyleId:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"style.apply",
+    genericRead:true,
+    genericWrite:false,
+  },
+  gridStyleId:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"style.apply",
+    genericRead:true,
+    genericWrite:false,
+  },
+  textStyleId:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"style.apply",
+    genericRead:true,
+    genericWrite:false,
+  },
 };
 const readProperties=new Set(), writeProperties=new Set(), methodNames=new Set();
+const writePropertyTypes=new Map(), usedReviewedWriteTypes=new Set();
+function normalizedType(type){return String(type??"unknown").replace(/\s+/g," ").trim();}
+function reviewedWriteType(property,type){
+  const normalized=normalizedType(type);
+  const review=reviewedWriteTypes[normalized];
+  if(!review||!["number","boolean","string","array","object"].includes(review.kind)||typeof review.nullable!=="boolean"){
+    throw new Error(`Writable Figma property ${property} uses unreviewed type ${normalized}`);
+  }
+  usedReviewedWriteTypes.add(normalized);
+  const previous=writePropertyTypes.get(property);
+  const descriptor={type:normalized,kind:review.kind,nullable:review.nullable};
+  if(previous&&JSON.stringify(previous)!==JSON.stringify(descriptor)){
+    throw new Error(`Writable Figma property ${property} has inconsistent types across SceneNodes`);
+  }
+  writePropertyTypes.set(property,descriptor);
+}
 for(const interfaceName of sceneInterfaces){
   const nodeType=nodeTypeLiteral(interfaceName);
   const members={};
@@ -124,7 +215,10 @@ for(const interfaceName of sceneInterfaces){
         };
       }else{
         readProperties.add(member.name);
-        if(!member.readonly)writeProperties.add(member.name);
+        if(!member.readonly){
+          reviewedWriteType(member.name,member.type);
+          writeProperties.add(member.name);
+        }
         members[member.name]={...member,status:member.readonly?"SUPPORTED_GENERIC_READ":"SUPPORTED_GENERIC_READ_WRITE"};
       }
     }else{
@@ -133,6 +227,10 @@ for(const interfaceName of sceneInterfaces){
     }
   }
   sceneNodes[nodeType]={interface:interfaceName,members};
+}
+const staleReviewedWriteTypes=Object.keys(reviewedWriteTypes).filter(type=>!usedReviewedWriteTypes.has(type));
+if(staleReviewedWriteTypes.length){
+  throw new Error("Generic-write type review contains stale types: "+staleReviewedWriteTypes.join(", "));
 }
 const METHOD_MAP={
   remove:"node.remove", clone:"node.clone", resize:"node.resize", rescale:"node.resize",
@@ -478,6 +576,7 @@ const actual={
   generic_property_surface:{
     readable:[...readProperties].sort(),
     writable:[...writeProperties].sort(),
+    write_types:Object.fromEntries([...writePropertyTypes.entries()].sort(([a],[b])=>a.localeCompare(b))),
   },
   auxiliary_property_surface:auxPropertySurface,
   summary:{
@@ -497,6 +596,7 @@ const generated=[
   "// Do not hand-edit. Public property names only; methods are mapped separately.",
   `const SEMWRIGHT_FIGMA_NODE_READ_PROPERTIES = new Set<string>(${JSON.stringify([...readProperties].sort(),null,2)});`,
   `const SEMWRIGHT_FIGMA_NODE_WRITE_PROPERTIES = new Set<string>(${JSON.stringify([...writeProperties].sort(),null,2)});`,
+  `const SEMWRIGHT_FIGMA_NODE_WRITE_TYPES: Record<string,{type:string,kind:"number"|"boolean"|"string"|"array"|"object",nullable:boolean}> = ${JSON.stringify(Object.fromEntries([...writePropertyTypes.entries()].sort(([a],[b])=>a.localeCompare(b))))};`,
   `const SEMWRIGHT_FIGMA_AUX_READ_PROPERTIES: Record<string, Set<string>> = Object.fromEntries(Object.entries(${JSON.stringify(auxPropertySurface)}).map(([kind,surface]: any)=>[kind,new Set(surface.readable)]));`,
   `const SEMWRIGHT_FIGMA_AUX_WRITE_PROPERTIES: Record<string, Set<string>> = Object.fromEntries(Object.entries(${JSON.stringify(auxPropertySurface)}).map(([kind,surface]: any)=>[kind,new Set(surface.writable)]));`,
   "",

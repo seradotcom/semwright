@@ -92,10 +92,14 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
     case "annotation.category.inspect":
       return ok(request.id,saCategory(await figma.annotations.getAnnotationCategoryByIdAsync(String(a.id))));
     case "font.load": {
-      const family=String(a.family);
-      const font:FontNameInput=a.style===undefined?{family}:{family,style:String(a.style)};
+      const font=spFontNameInput(a);
       await figma.loadFontAsync(font);
-      return ok(request.id,{loaded:true,family:font.family,style:font.style??null});
+      return ok(request.id,{
+        loaded:true,
+        family:font.family,
+        style:font.style??null,
+        variationSettings:font.variationSettings??null,
+      });
     }
     case "dev.focused_node": {
       saRequireEditor("dev","slides","buzz");
