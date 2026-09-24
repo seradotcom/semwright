@@ -98,7 +98,7 @@ fn uia_error(_: uiautomation::Error, message: &'static str) -> Error {
 fn stamp(element: &UIElement) -> Result<Stamp> {
     let pid = element
         .get_process_id()
-        .map_err(|e| uia_error(e, "UIA process identity unavailable"))? as u32;
+        .map_err(|e| uia_error(e, "UIA process identity unavailable"))?;
     Ok(Stamp {
         pid,
         process_start: process_creation_time(pid)?,
@@ -202,17 +202,19 @@ impl State {
         )?;
         let rect = element.get_bounding_rectangle().ok();
         let mut children = Vec::new();
-        if depth < MAX_DEPTH && *count < MAX_NODES && Instant::now() < deadline {
-            if let Ok(mut child) = self.walker.get_first_child(&element) {
-                for _ in 0..MAX_CHILDREN {
-                    children.push(self.node(child.clone(), depth + 1, count, deadline)?);
-                    if *count >= MAX_NODES || Instant::now() >= deadline {
-                        break;
-                    }
-                    match self.walker.get_next_sibling(&child) {
-                        Ok(next) => child = next,
-                        Err(_) => break,
-                    }
+        if depth < MAX_DEPTH
+            && *count < MAX_NODES
+            && Instant::now() < deadline
+            && let Ok(mut child) = self.walker.get_first_child(&element)
+        {
+            for _ in 0..MAX_CHILDREN {
+                children.push(self.node(child.clone(), depth + 1, count, deadline)?);
+                if *count >= MAX_NODES || Instant::now() >= deadline {
+                    break;
+                }
+                match self.walker.get_next_sibling(&child) {
+                    Ok(next) => child = next,
+                    Err(_) => break,
                 }
             }
         }
