@@ -28,6 +28,34 @@ fn schemas_are_strict_for_mutations() {
     assert!(schema["properties"]["y"].is_object());
 }
 #[test]
+fn variable_easing_schema_has_no_open_object_escape() {
+    let schema = schemas::input_schema("variable.set_value");
+    let encoded = serde_json::to_string(&schema).unwrap();
+    assert!(!encoded.contains(r#""additionalProperties":true"#));
+    assert!(encoded.contains("CUSTOM_CUBIC_BEZIER"));
+    assert!(encoded.contains("CUSTOM_SPRING"));
+    assert!(encoded.contains("easingFunctionCubicBezier"));
+    assert!(encoded.contains("easingFunctionSpring"));
+}
+#[test]
+fn payments_inputs_are_strict_and_tokenless() {
+    for name in [
+        "payments.status",
+        "payments.first_run_age",
+        "payments.checkout",
+        "payments.checkout.request",
+        "payments.dev.status.set",
+    ] {
+        let schema = schemas::input_schema(name);
+        assert_eq!(schema["additionalProperties"], false, "{name}");
+        let encoded = serde_json::to_string(&schema).unwrap();
+        assert!(
+            !encoded.to_ascii_lowercase().contains("paymenttoken"),
+            "{name}"
+        );
+    }
+}
+#[test]
 fn portable_snapshot_strips_ids() {
     let v = json!({"id":"1","name":"x","x":1.234567});
     let c = snapshot::canonicalize(&v, snapshot::SnapshotMode::Portable);

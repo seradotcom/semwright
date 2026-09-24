@@ -27,8 +27,8 @@
     "dynamic_capabilities": false,
     "cooperative_cancellation": false,
     "events": true,
-    "progress": false,
-    "artifacts": false,
+    "progress": true,
+    "artifacts": true,
     "health": true
   }
 }

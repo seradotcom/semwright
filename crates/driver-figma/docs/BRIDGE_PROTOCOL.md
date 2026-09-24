@@ -16,7 +16,7 @@ A fresh 256-bit pairing secret is generated per driver lifetime. The proof binds
 
 Requests carry correlation IDs, session/generation and optional expected revision. Responses from the wrong generation are stale. Duplicate/late IDs are rejected. Remote document-change events advance revision state.
 
-Limits include a 1 MiB control-message ceiling, bounded pending requests, bounded session metadata and operation-specific semantic budgets. BinaryStart/Chunk/End remain reserved for a future artifact transport; large media exports must not be encoded as ordinary JSON arrays.
+Limits include a 1 MiB control-message ceiling, bounded pending requests, bounded session metadata and operation-specific semantic budgets. Export bytes are retained behind bounded plugin artifact tokens and retrieved with paginated `artifact.read` chunks rather than giant JSON arrays; successful export operations are promoted to Driver Protocol v2 `JobArtifact` metadata. A generic child-to-host binary stream/store handoff remains future SDK work.
 
 The production Rust driver starts this bridge and `Driver::execute` dispatches bridge-backed operations through it. This bridge protocol is distinct from Semwright Driver Protocol v2: the driver negotiates `events=true` at the child-driver layer and forwards allowlisted plugin events as bounded `figma.*` child events. The production fake-Figma E2E exercises Driver Protocol v2 -> WebSocket -> fake-plugin request/response flow.
 

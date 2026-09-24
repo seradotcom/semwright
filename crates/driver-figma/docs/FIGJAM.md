@@ -1,5 +1,5 @@
 # FigJam
 
-Curated semantic subset: sticky, shape-with-text, connector, section, code block catalog entry and bounded diagram helper. The plugin implements sticky/shape/connector/section creation and gates them on editorType=figjam. Connector endpoints are node IDs with AUTO magnets, not coordinate-only wiring.
+Curated semantic surface: sticky, shape-with-text, connector, section, code block, tables, timer and bounded diagram composition. The plugin implements these operations through the official FigJam Plugin API and gates editor-specific mutations on `editorType=figjam`. Connector endpoints use semantic node IDs with Figma connector magnets rather than coordinate-only wiring.
 
-Diagram helper orchestration and code-block creation remain cataloged but not yet implemented in the plugin dispatcher; they return unsupported until integration fills those operations.
+`figjam.diagram.create` creates a bounded graph from explicit semantic nodes/edges, while the lower-level sticky/shape/connector/table operations remain available for incremental edits. Code-block creation is implemented in the main plugin dispatcher. Real-FigJam acceptance remains a separate protected live-evidence gate.

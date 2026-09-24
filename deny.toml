@@ -9,6 +9,10 @@ name = "kicad-ipc"
 [[licenses.exceptions]]
 allow = ["GPL-3.0-or-later"]
 name = "semwright-kicad-driver"
+
+[[licenses.exceptions]]
+allow = ["CDLA-Permissive-2.0"]
+name = "webpki-roots"
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

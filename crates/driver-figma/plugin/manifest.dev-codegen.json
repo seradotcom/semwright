@@ -1,0 +1,13 @@
+{
+  "name": "Semwright Figma Bridge — Dev Codegen",
+  "id": "semwright-figma-bridge-dev-codegen",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["dev"],
+  "capabilities": ["codegen", "vscode"],
+  "codegenLanguages": [{"label":"Semwright JSON","value":"semwright-json"}],
+  "documentAccess": "dynamic-page",
+  "permissions": ["currentuser", "teamlibrary"],
+  "networkAccess": {"allowedDomains":["none"],"devAllowedDomains":["ws://127.0.0.1:38471"]}
+}
