@@ -155,12 +155,34 @@ async fn figma_driver_runs_through_real_driver_host() {
         .await
         .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert_eq!(capabilities.len(), 91);
+    assert!(!capabilities.is_empty());
     assert!(
         capabilities
             .iter()
             .all(|capability| capability.descriptor.name.starts_with("driver.figma."))
     );
+    let names = capabilities
+        .iter()
+        .map(|capability| capability.descriptor.name.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        names.len(),
+        capabilities.len(),
+        "duplicate Figma capabilities"
+    );
+    for required in [
+        "driver.figma.pairing.begin",
+        "driver.figma.document.status",
+        "driver.figma.compose.apply",
+        "driver.figma.export.node",
+        "driver.figma.payments.status",
+        "driver.figma.cloud.status",
+    ] {
+        assert!(
+            names.contains(required),
+            "missing required semantic surface: {required}"
+        );
+    }
 
     let pairing = call(
         provider.as_ref(),

@@ -20,11 +20,13 @@ When a genuinely cancellable long-running Figma operation is introduced, it shou
 
 ## G04 — Dynamic capabilities — SDK SUPPORTED / FIGMA NOT ENABLED
 
-Protocol v2 supports dynamic capability notifications. The Figma driver intentionally keeps a stable 91-capability catalog and performs editor/session/Motion availability checks at execution time. Operations without production handlers are not advertised.
+Protocol v2 supports dynamic capability notifications. The Figma driver intentionally keeps a stable typed semantic catalog generated from the pinned public API baselines and performs editor/session/Motion/plan availability checks at execution time. Catalog consistency and semantic-completeness gates prevent advertising operations without handlers or classified transport semantics.
 
-## G05 — Binary artifacts / streams — SDK SUPPORTED, DRIVER DEFERRED
+## G05 — Binary artifacts / streams — DRIVER IMPLEMENTED WITH LOCAL ARTIFACT TOKENS / GENERIC PROMOTION OPEN
 
-Protocol v2 supports artifact metadata alongside progress. The current Figma catalog does not advertise large binary export operations, so the driver negotiates `progress=false` and `artifacts=false`. Future PNG/PDF/animated export should use that generic artifact path rather than JSON byte arrays.
+Figma static and animated exports are advertised and avoid giant JSON byte arrays: the plugin stores bounded binary artifacts and exposes tokenized chunk reads/releases over the authenticated bridge. Protocol v2 also supports generic artifact metadata, but the Figma child does not yet negotiate `artifacts=true` or promote plugin artifact tokens into broker-native artifacts automatically.
+
+A future generic promotion path can remove the driver-local read/release lifecycle without changing the semantic export operations.
 
 ## G06 — Persistent-process CPU accounting — GAP
 
@@ -44,4 +46,6 @@ This is workable, but real-Figma collaboration/reconnect acceptance is still req
 
 ## Secret delivery note
 
-The default PluginTransport does not need a persisted host-delivered secret: the driver generates an ephemeral per-run pairing secret and reveals it only through the explicit secret-access `pairing.begin` capability. A future optional REST/OAuth transport would need Semwright secret references and must not put tokens in manifests, environment variables or logs.
+The default PluginTransport does not need a persisted host-delivered secret: the driver generates an ephemeral per-run pairing secret and reveals it only through the explicit secret-access `pairing.begin` capability.
+
+The REST transport is now implemented and reads credentials only from an owner-provisioned same-UID protected Unix credential socket. Tokens are not capability arguments, manifests, environment variables, outputs or logs. A generic Semwright SecretRef/credential-helper abstraction would still be preferable to the current per-driver socket convention.
