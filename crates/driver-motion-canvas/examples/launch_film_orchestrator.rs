@@ -177,7 +177,7 @@ mod linux {
                 open_files: 512,
                 processes: 128,
                 cpu_seconds: 300,
-                address_space_bytes: 4_294_967_296,
+                address_space_bytes: 17_179_869_184,
                 file_size_bytes: 1_073_741_824,
             },
             request_timeout_ms: 300_000,

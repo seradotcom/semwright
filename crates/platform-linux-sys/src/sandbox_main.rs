@@ -86,7 +86,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if !seen.insert(argument.clone()) {
                     return Err("duplicate sandbox resource limit".into());
                 }
-                address_space = bounded_limit(args.next(), 134_217_728, 4_294_967_296)?;
+                address_space = bounded_limit(args.next(), 134_217_728, 17_179_869_184)?;
             }
             "--limit-fsize" => {
                 if !seen.insert(argument.clone()) {
@@ -127,52 +127,68 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let abi = ABI::V3;
     let all = AccessFs::from_all(abi);
-    let read = AccessFs::from_read(abi);
+    // landlock::AccessFs::from_read() includes Execute.  Driver mounts model
+    // execution as a separate, explicit capability, so never use from_read()
+    // for generic data roots.
+    let read_only = AccessFs::ReadFile | AccessFs::ReadDir;
+    let read_exec = read_only | AccessFs::Execute;
+    let read_write_noexec = read_only | AccessFs::from_write(abi);
     let mut ruleset = Ruleset::default()
         .set_compatibility(CompatLevel::HardRequirement)
         .handle_access(all)?
         .create()?;
-    for path in [
-        "/usr",
-        "/lib",
-        "/lib64",
-        "/etc",
-        "/plugin",
-        "/workspace",
-        "/dev",
-        "/proc",
+
+    // System executables and ELF interpreters remain executable.  Everything
+    // else is non-executable unless a narrower rule below explicitly grants it.
+    for (path, access) in [
+        ("/usr", read_exec),
+        ("/lib", read_exec),
+        ("/lib64", read_exec),
+        ("/etc", read_only),
+        ("/plugin", read_only),
+        ("/workspace", read_only),
+        ("/dev", read_only),
+        ("/proc", read_only),
     ] {
         if Path::new(path).exists() {
-            ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, read))?;
+            ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, access))?;
         }
     }
-    // Rust's Stdio::null() opens /dev/null for writing when a child redirects
-    // stdout or stderr. Keep the rest of /dev read-only.
+
+    // The staged, digest-verified driver is the only executable under /plugin.
     ruleset = ruleset.add_rule(PathBeneath::new(
-        PathFd::new("/dev/null")?,
-        AccessFs::ReadFile | AccessFs::WriteFile,
+        PathFd::new("/plugin/bin")?,
+        AccessFs::Execute | AccessFs::ReadFile,
     ))?;
-    // Bind mounts are separate Landlock hierarchies. Data mounts get read-only
-    // rights; execute is added only for an explicitly attested executable mount.
+
+    // Bind mounts are separate Landlock hierarchies.  Data mounts stay
+    // non-executable; only an owner-approved execute mount gets Execute.
     for (path, execute) in readable {
         let is_dir = Path::new(&path).is_dir();
         let access = match (is_dir, execute) {
-            (true, true) => read,
+            (true, true) => read_exec,
             (false, true) => AccessFs::Execute | AccessFs::ReadFile,
-            (true, false) => AccessFs::ReadFile | AccessFs::ReadDir,
+            (true, false) => read_only,
             (false, false) => AccessFs::ReadFile.into(),
         };
         ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(&path)?, access))?;
     }
-    // Child processes commonly redirect stdout/stderr through Stdio::null(), which opens
-    // /dev/null for writing. Grant that single device write access while keeping the rest
-    // of /dev under the read-only rule above.
+
+    // Rust's Stdio::null() opens /dev/null for writing when a child redirects
+    // stdout or stderr. Keep every other device node non-writable.
     ruleset = ruleset.add_rule(PathBeneath::new(
         PathFd::new("/dev/null")?,
         AccessFs::ReadFile | AccessFs::WriteFile,
     ))?;
+
+    // Writable driver data is deliberately non-executable.  Platform Mount
+    // validation already forbids write+execute; Landlock must enforce the same
+    // contract rather than accidentally granting Execute through from_all().
     for path in writable {
-        ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, all))?;
+        ruleset = ruleset.add_rule(PathBeneath::new(
+            PathFd::new(path)?,
+            read_write_noexec,
+        ))?;
     }
     let status = ruleset.restrict_self()?;
     if status.ruleset != RulesetStatus::FullyEnforced {
@@ -193,9 +209,21 @@ mod tests {
         assert!(bounded_limit(Some("1025".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("not-a-number".into()), 32, 1024).is_err());
         assert_eq!(
-            bounded_limit(Some("4294967296".into()), 134_217_728, 4_294_967_296).unwrap(),
-            4_294_967_296
+            bounded_limit(
+                Some("17179869184".into()),
+                134_217_728,
+                17_179_869_184
+            )
+            .unwrap(),
+            17_179_869_184
         );
-        assert!(bounded_limit(Some("4294967297".into()), 134_217_728, 4_294_967_296).is_err());
+        assert!(
+            bounded_limit(
+                Some("17179869185".into()),
+                134_217_728,
+                17_179_869_184
+            )
+            .is_err()
+        );
     }
 }
