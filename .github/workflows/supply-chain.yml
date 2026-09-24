@@ -74,12 +74,14 @@ jobs:
           cargo build --locked --release             -p semwright-cli --bin semwright             -p semwright-daemon --bin semwrightd             -p semwright-mcp --bin semwright-mcp             -p semwright-tui --bin semwright-inspect             -p semwright-plugin-host --bin semwright-sandbox
       - name: Generate reproducible CycloneDX SBOMs
         run: |
-          export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          export SOURCE_DATE_EPOCH
           scripts/release/certify-sbom.sh
       - name: Build non-admitted certification packages
         run: |
           set -euo pipefail
-          export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          export SOURCE_DATE_EPOCH
           rm -rf "dist/packages/${{ matrix.arch }}" "supply-chain/${{ matrix.arch }}"
           python3 scripts/release/build-certification-packages.py             --bin-dir target/release             --arch "${{ matrix.arch }}"             --output "dist/packages/${{ matrix.arch }}"             --report "verification/supply-chain/package-${{ matrix.arch }}.json"
           mkdir -p "supply-chain/${{ matrix.arch }}/binaries"                    "supply-chain/${{ matrix.arch }}/packages"                    "supply-chain/${{ matrix.arch }}/sbom"
