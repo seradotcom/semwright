@@ -2866,6 +2866,7 @@ dependencies = [
  "rmcp",
  "semwright-backend-api",
  "semwright-core",
+ "semwright-platform-services",
  "semwright-policy",
  "semwright-protocol",
  "semwright-registry",
