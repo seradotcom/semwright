@@ -172,8 +172,8 @@ function harness(editorType = "figma") {
     createComponent: component,
     createComponentFromNode(){ return component(); },
     combineAsVariants(cs:AnyNode[]){ const n=scene("COMPONENT_SET","Variants"); n.children=cs; for(const c of cs)c.parent=n; page.appendChild(n); return n; },
-    createSticky(){ const n=scene("STICKY","Sticky"); n.stuckTo=null; page.appendChild(n); return n; },
-    createShapeWithText(){ const n=scene("SHAPE_WITH_TEXT","Shape"); n.stuckTo=null; page.appendChild(n); return n; },
+    createSticky(){ const n=scene("STICKY","Sticky"); page.appendChild(n); return n; },
+    createShapeWithText(){ const n=scene("SHAPE_WITH_TEXT","Shape"); page.appendChild(n); return n; },
     createConnector(){ const n=scene("CONNECTOR","Connector"); page.appendChild(n); return n; },
     createCodeBlock(){ const n=scene("CODE_BLOCK","Code"); n.code=""; page.appendChild(n); return n; },
     createImage(data:Uint8Array){ const hash=`image:${nextMedia++}`;const bytes=new Uint8Array(data);const image={hash,async getBytesAsync(){return bytes},async getSizeAsync(){return {width:1,height:1}}};images.set(hash,image);return image; },
@@ -236,7 +236,7 @@ function harness(editorType = "figma") {
   function emit(type:string,event:any){
     for(const callback of eventHandlers.get(type)??[]) callback(event);
   }
-  return {call, figma, nodes, page, posted, emit};
+  return {call, figma, nodes, page, posted, emit, scene};
 }
 
 async function readArtifact(h:ReturnType<typeof harness>,token:string):Promise<string>{
@@ -391,22 +391,41 @@ describe("plugin runtime behavior",()=>{
       overridesCleared:true,
     });
     expect(h.nodes.get(instance.value.id)!.mainComponent.id).toBe(secondary.value.id);
+    const genericMainComponent=await h.call("node.properties.patch",{
+      nodeId:instance.value.id,properties:{mainComponent:primary.value.id}
+    },4);
+    expect(genericMainComponent.ok).toBe(false);
+    expect(genericMainComponent.error.message).toContain("property_not_writable");
 
     const figjam=harness("figjam");
-    const sticky=await figjam.call("figjam.sticky.create",{name:"Note"});
-    const target=await figjam.call("figjam.shape.create",{name:"Target"},1);
+    const stamp=figjam.scene("STAMP","Stamp");
+    stamp.stuckTo=null;
+    figjam.page.appendChild(stamp);
+    const target=await figjam.call("figjam.shape.create",{name:"Target"});
     const attached=await figjam.call("figjam.stuck_to.set",{
-      nodeId:sticky.value.id,targetNodeId:target.value.id
-    },2);
+      nodeId:stamp.id,targetNodeId:target.value.id
+    },1);
     expect(attached.ok).toBe(true);
     expect(attached.value.targetNodeId).toBe(target.value.id);
-    expect(figjam.nodes.get(sticky.value.id)!.stuckTo.id).toBe(target.value.id);
+    expect(figjam.nodes.get(stamp.id)!.stuckTo.id).toBe(target.value.id);
     const detached=await figjam.call("figjam.stuck_to.set",{
-      nodeId:sticky.value.id,targetNodeId:null
-    },3);
+      nodeId:stamp.id,targetNodeId:null
+    },2);
     expect(detached.ok).toBe(true);
     expect(detached.value.targetNodeId).toBeNull();
-    expect(figjam.nodes.get(sticky.value.id)!.stuckTo).toBeNull();
+    expect(figjam.nodes.get(stamp.id)!.stuckTo).toBeNull();
+    const genericStuckTo=await figjam.call("node.properties.patch",{
+      nodeId:stamp.id,properties:{stuckTo:target.value.id}
+    },3);
+    expect(genericStuckTo.ok).toBe(false);
+    expect(genericStuckTo.error.message).toContain("property_not_writable");
+
+    const sticky=await figjam.call("figjam.sticky.create",{name:"Not Stickable"},3);
+    const denied=await figjam.call("figjam.stuck_to.set",{
+      nodeId:sticky.value.id,targetNodeId:target.value.id
+    },4);
+    expect(denied.ok).toBe(false);
+    expect(denied.error.message).toContain("node_not_stickable");
   });
 
   it("invalidates stale plans on remote collaborator changes only",async()=>{

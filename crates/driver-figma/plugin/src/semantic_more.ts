@@ -159,7 +159,9 @@ async function handleSemanticMore(request: BridgeRequest, a: any): Promise<Bridg
     case "figjam.stuck_to.set": {
       extraRequireEditor("figjam");
       const node=asScene(await nodeById(String(a.nodeId))) as any;
-      if(!("stuckTo" in node))throw new Error("node_not_stickable");
+      if(!["STAMP","HIGHLIGHT","WASHI_TAPE","WIDGET"].includes(node.type)||!("stuckTo" in node)){
+        throw new Error("node_not_stickable");
+      }
       const target=a.targetNodeId===null?null:asScene(await nodeById(String(a.targetNodeId)));
       node.stuckTo=target;
       return ok(request.id,{nodeId:node.id,targetNodeId:target?.id??null},true);

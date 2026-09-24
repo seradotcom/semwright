@@ -90,15 +90,43 @@ function markSceneHierarchy(name){
 }
 for(const name of sceneInterfaces)markSceneHierarchy(name);
 const sceneNodes={};
+const SCENE_PROPERTY_SPECIAL={
+  mainComponent:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"instance.inspect",
+    writeCapability:"instance.main_component.set",
+    genericRead:false,
+    genericWrite:false,
+  },
+  stuckTo:{
+    status:"SUPPORTED_SPECIAL_PROPERTY",
+    readCapability:"node.properties.inspect",
+    writeCapability:"figjam.stuck_to.set",
+    genericRead:true,
+    genericWrite:false,
+  },
+};
 const readProperties=new Set(), writeProperties=new Set(), methodNames=new Set();
 for(const interfaceName of sceneInterfaces){
   const nodeType=nodeTypeLiteral(interfaceName);
   const members={};
   for(const member of allMembers(interfaceName)){
     if(member.kind==="property"){
-      readProperties.add(member.name);
-      if(!member.readonly)writeProperties.add(member.name);
-      members[member.name]={...member,status:member.readonly?"SUPPORTED_GENERIC_READ":"SUPPORTED_GENERIC_READ_WRITE"};
+      const special=SCENE_PROPERTY_SPECIAL[member.name];
+      if(special){
+        if(special.genericRead)readProperties.add(member.name);
+        if(!member.readonly&&special.genericWrite)writeProperties.add(member.name);
+        members[member.name]={
+          ...member,
+          status:special.status,
+          read_capability:special.readCapability,
+          write_capability:special.writeCapability,
+        };
+      }else{
+        readProperties.add(member.name);
+        if(!member.readonly)writeProperties.add(member.name);
+        members[member.name]={...member,status:member.readonly?"SUPPORTED_GENERIC_READ":"SUPPORTED_GENERIC_READ_WRITE"};
+      }
     }else{
       methodNames.add(member.name);
       members[member.name]={...member,status:"UNMAPPED_METHOD"};
@@ -201,6 +229,13 @@ for(const [method,mapping] of Object.entries(METHOD_MAP)){
   for(const capability of mapping.split("+")){
     if(!advertisedCapabilities.has(capability)){
       throw new Error(`Scene method ${method} maps to missing capability ${capability}`);
+    }
+  }
+}
+for(const [property,special] of Object.entries(SCENE_PROPERTY_SPECIAL)){
+  for(const capability of [special.readCapability,special.writeCapability]){
+    if(capability&&!advertisedCapabilities.has(capability)){
+      throw new Error(`Scene property ${property} maps to missing capability ${capability}`);
     }
   }
 }

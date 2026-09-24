@@ -31,6 +31,38 @@ def main() -> int:
     if summary.get("scene_node_members") != summary.get("supported_scene_node_members"):
         fail("not every pinned scene-node member is semantically classified")
 
+    generic = plugin.get("generic_property_surface", {})
+    readable = set(generic.get("readable", []))
+    writable = set(generic.get("writable", []))
+    if "mainComponent" in readable or "mainComponent" in writable:
+        fail("InstanceNode.mainComponent must use explicit async-read/ref-write semantics")
+    if "stuckTo" in writable:
+        fail("StickableMixin.stuckTo must use an explicit node-ref mutation")
+    instance_main = (
+        plugin.get("scene_node_types", {})
+        .get("INSTANCE", {})
+        .get("members", {})
+        .get("mainComponent", {})
+    )
+    if (
+        instance_main.get("status") != "SUPPORTED_SPECIAL_PROPERTY"
+        or instance_main.get("read_capability") != "instance.inspect"
+        or instance_main.get("write_capability") != "instance.main_component.set"
+    ):
+        fail("InstanceNode.mainComponent special semantic mapping drifted")
+    for node_type in ("STAMP", "HIGHLIGHT", "WASHI_TAPE", "WIDGET"):
+        stuck_to = (
+            plugin.get("scene_node_types", {})
+            .get(node_type, {})
+            .get("members", {})
+            .get("stuckTo", {})
+        )
+        if (
+            stuck_to.get("status") != "SUPPORTED_SPECIAL_PROPERTY"
+            or stuck_to.get("write_capability") != "figjam.stuck_to.set"
+        ):
+            fail(f"{node_type}.stuckTo special semantic mapping drifted")
+
     classifications = list(classification_strings(plugin))
     forbidden_fragments = (
         "UNCLASSIFIED",

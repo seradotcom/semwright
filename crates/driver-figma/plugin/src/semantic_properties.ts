@@ -61,7 +61,9 @@ async function spInspectProperties(nodeId:string,args:any){
 }
 async function spSetProperty(node:any,property:string,value:any){
   if(!SEMWRIGHT_FIGMA_NODE_WRITE_PROPERTIES.has(property))throw new Error("property_not_writable");
+  if(property==="mainComponent"||property==="stuckTo")throw new Error("property_requires_semantic_ref_operation");
   if(!(property in node))throw new Error("property_unavailable_on_node");
+  if(value==="MIXED")throw new Error("mixed_value_read_only");
   spValidateJson(value);
   if(property==="fontName"){
     if(!value||typeof value.family!=="string"||typeof value.style!=="string")throw new Error("invalid_font_name");

@@ -10314,7 +10314,9 @@
           "readonly": false,
           "optional": false,
           "type": "SceneNode | null",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "figjam.stuck_to.set"
         },
         "targetAspectRatio": {
           "name": "targetAspectRatio",
@@ -11813,7 +11815,9 @@
           "readonly": false,
           "optional": false,
           "type": "ComponentNode | null",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "instance.inspect",
+          "write_capability": "instance.main_component.set"
         },
         "swapComponent": {
           "name": "swapComponent",
@@ -23197,7 +23201,9 @@
           "readonly": false,
           "optional": false,
           "type": "SceneNode | null",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "figjam.stuck_to.set"
         },
         "targetAspectRatio": {
           "name": "targetAspectRatio",
@@ -31005,7 +31011,9 @@
           "readonly": false,
           "optional": false,
           "type": "SceneNode | null",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "figjam.stuck_to.set"
         },
         "targetAspectRatio": {
           "name": "targetAspectRatio",
@@ -31533,7 +31541,9 @@
           "readonly": false,
           "optional": false,
           "type": "SceneNode | null",
-          "status": "SUPPORTED_GENERIC_READ_WRITE"
+          "status": "SUPPORTED_SPECIAL_PROPERTY",
+          "read_capability": "node.properties.inspect",
+          "write_capability": "figjam.stuck_to.set"
         },
         "type": {
           "name": "type",
@@ -31701,7 +31711,6 @@
       "linkUnfurlData",
       "listSpacing",
       "locked",
-      "mainComponent",
       "manualKeyframeTracks",
       "maskType",
       "maxHeight",
@@ -31875,7 +31884,6 @@
       "lineHeight",
       "listSpacing",
       "locked",
-      "mainComponent",
       "maskType",
       "maxHeight",
       "maxLines",
@@ -31914,7 +31922,6 @@
       "strokeWeight",
       "strokes",
       "strokesIncludedInLayout",
-      "stuckTo",
       "textAlignHorizontal",
       "textAlignVertical",
       "textAutoResize",

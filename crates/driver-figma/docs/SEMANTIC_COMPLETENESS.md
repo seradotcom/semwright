@@ -22,6 +22,8 @@ A public API member may be:
 - an internal secret-composition primitive that must never be returned to the agent.
 Examples:
 
+Host object references are never treated as generic JSON writes. Properties such as `InstanceNode.mainComponent` and `StickableMixin.stuckTo` are removed from the generic write allowlist and routed through explicit ref-aware capabilities; `mainComponent` is also removed from generic reads under dynamic-page mode and read through the async instance inspection path.
+
 - `PluginAPI.createImageAsync` is superseded by artifact-backed `image.create`; the driver does not perform arbitrary remote URL fetches inside Figma.
 - `PluginAPI.openExternal` is delegated to Semwright's browser/navigation authority instead of letting document content trigger navigation.
 - `PaymentsAPI.getPluginPaymentTokenAsync` is classified `INTERNAL_SECRET_COMPOSITION`; payment identity tokens are not agent-visible.
