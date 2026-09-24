@@ -328,6 +328,42 @@ async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: R
     }
 }
 
+#[cfg(unix)]
+fn executable_diagnostics(path: &Path) -> String {
+    use std::{
+        ffi::CString,
+        mem::MaybeUninit,
+        os::unix::{ffi::OsStrExt, fs::MetadataExt},
+    };
+    let metadata = fs::metadata(path).ok();
+    let mode = metadata.as_ref().map(|m| m.mode() & 0o7777);
+    let uid = metadata.as_ref().map(MetadataExt::uid);
+    let gid = metadata.as_ref().map(MetadataExt::gid);
+    let c_path = CString::new(path.as_os_str().as_bytes()).ok();
+    let x_ok = c_path.as_ref().is_some_and(|p| {
+        // SAFETY: `p` is a live NUL-terminated path and `access` does not retain it.
+        unsafe { libc::access(p.as_ptr(), libc::X_OK) == 0 }
+    });
+    let noexec = c_path
+        .as_ref()
+        .and_then(|p| {
+            let mut stat = MaybeUninit::<libc::statvfs>::uninit();
+            // SAFETY: `statvfs` initializes `stat` synchronously on success.
+            let ok = unsafe { libc::statvfs(p.as_ptr(), stat.as_mut_ptr()) == 0 };
+            // SAFETY: successful `statvfs` fully initialized the structure above.
+            ok.then(|| unsafe { stat.assume_init() })
+        })
+        .map(|stat| stat.f_flag & libc::ST_NOEXEC != 0);
+    // SAFETY: `geteuid` has no pointer arguments or preconditions.
+    let euid = unsafe { libc::geteuid() };
+    format!("mode={mode:?} uid={uid:?} gid={gid:?} euid={euid} x_ok={x_ok} noexec={noexec:?}")
+}
+
+#[cfg(not(unix))]
+fn executable_diagnostics(_path: &Path) -> String {
+    "platform_diagnostics_unavailable".into()
+}
+
 async fn start_browser(
     runtime: &RendererRuntime,
     output: &Path,
@@ -383,7 +419,10 @@ async fn start_browser(
     let mut child = command.spawn().map_err(|error| {
         Error::new(
             ErrorCode::BackendFailed,
-            format!("Failed to start pinned Chromium from Rust driver: {error}"),
+            format!(
+                "Failed to start pinned Chromium from Rust driver: {error}; {}",
+                executable_diagnostics(&runtime.browser)
+            ),
         )
     })?;
     let pid = child.id();
