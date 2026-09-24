@@ -75,7 +75,7 @@ jobs:
             echo "sandbox_setup=$sandbox_setup"
             echo "kernel.unprivileged_userns_clone=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)"
             echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)"
-          } | tee verification/obs-ci/sandbox-setup.log
+          } | tee verification/godot-ci/sandbox-setup.log
       - name: Rust Godot driver suite
         run: |
           set -o pipefail
