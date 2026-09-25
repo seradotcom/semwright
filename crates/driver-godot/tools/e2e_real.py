@@ -284,6 +284,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node(".", "AnimationTree", "AnimationTree", [("tree_root", Res("res://assets/state_machine.tres"))])
         node(".", "MultiplayerSpawner", "Spawner")
         node(".", "MultiplayerSynchronizer", "Synchronizer")
+        node(".", "MultiplayerSynchronizer", "SynchronizerDry")
         node(".", "TileMapLayer", "Tiles", [("tile_set", Res("res://assets/tileset.tres"))])
         node(".", "NavigationRegion3D", "NavRegion", [("navigation_mesh", Res("res://assets/navigation.tres"))])
         node("Player", "NavigationAgent3D", "Agent")
@@ -595,6 +596,20 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         mutate("driver.godot.multiplayer.spawner.scene.add", {
             "target": "Spawner", "scene": "res://scenes/lab_room.tscn",
         })
+        dry_sync = call("driver.godot.multiplayer.synchronizer.inspect", {
+            "session": sid, "target": "SynchronizerDry",
+        })
+        assert dry_sync["data"]["has_replication_config"] is False
+        dry_add = call("driver.godot.multiplayer.replication.property.add", {
+            "session": sid, "target": "SynchronizerDry", "path": "Player:position",
+            "spawn": True, "mode": 1, "expect": st, "dry_run": True,
+        })
+        assert dry_add["applied"] is False
+        dry_sync = call("driver.godot.multiplayer.synchronizer.inspect", {
+            "session": sid, "target": "SynchronizerDry",
+        })
+        assert dry_sync["data"]["has_replication_config"] is False
+
         mutate("driver.godot.multiplayer.synchronizer.configure", {
             "target": "Synchronizer", "root_path": ".", "replication_interval": 0.1,
             "delta_interval": 0.05, "public_visibility": True, "visibility_update_mode": 0,

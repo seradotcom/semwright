@@ -106,6 +106,7 @@ static func synchronizer_inspect(ctx, args: Dictionary) -> Dictionary:
         "delta_interval": node.delta_interval,
         "public_visibility": node.public_visibility,
         "visibility_update_mode": node.visibility_update_mode,
+        "has_replication_config": config != null,
         "properties": properties,
         "truncated": truncated,
     }}
@@ -129,20 +130,23 @@ static func synchronizer_configure(ctx, args: Dictionary) -> Dictionary:
     ctx._revision += 1
     return ctx._mutation_result(true, [str(args.get("target", ""))], "Configure MultiplayerSynchronizer")
 static func replication_add(ctx, args: Dictionary) -> Dictionary:
-    var resolved = _replication(ctx, args)
-    if resolved is Dictionary:
-        return resolved
+    var node = ctx._resolve_node(str(args.get("target", "")))
+    if not (node is MultiplayerSynchronizer):
+        return ctx._error("not_found", "MultiplayerSynchronizer not found")
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
         return conflict
-    var config: SceneReplicationConfig = resolved
     var path := NodePath(str(args.get("path", "")))
     if path.is_empty():
         return ctx._error("invalid_argument", "replication property path is required")
-    if config.has_property(path):
+    var config: SceneReplicationConfig = node.replication_config
+    if config != null and config.has_property(path):
         return ctx._error("conflict", "replication property already exists")
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [str(path)], "dry-run")
+    if config == null:
+        config = SceneReplicationConfig.new()
+        node.replication_config = config
     config.add_property(path)
     config.property_set_spawn(path, bool(args.get("spawn", true)))
     config.property_set_replication_mode(path, int(args.get("mode", 1)))
@@ -191,5 +195,5 @@ static func _replication(ctx, args: Dictionary):
     if not (node is MultiplayerSynchronizer):
         return ctx._error("not_found", "MultiplayerSynchronizer not found")
     if node.replication_config == null:
-        node.replication_config = SceneReplicationConfig.new()
+        return ctx._error("not_found", "MultiplayerSynchronizer has no replication config")
     return node.replication_config
