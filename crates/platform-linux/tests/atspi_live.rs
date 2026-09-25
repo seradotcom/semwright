@@ -110,6 +110,26 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     assert_eq!(password["facets"]["text"]["selections"], json!([]));
     assert_eq!(password["facets"]["text"]["caret_attributes"], json!({}));
     assert!(password["facets"]["value"].is_null());
+    let password_target: NativeTarget =
+        serde_json::from_value(password["ref"]["$ref"].clone()).unwrap();
+    let read_password = backend
+        .execute(
+            &ctx,
+            "ui.read_text",
+            &json!({"_target":password_target.clone(),"max_chars":64}),
+        )
+        .await
+        .expect_err("generic semantic read must reject protected text");
+    assert_eq!(read_password.code, ErrorCode::PolicyDenied);
+    let write_password = backend
+        .execute(
+            &ctx,
+            "ui.set_text",
+            &json!({"_target":password_target,"text":"not-a-real-secret"}),
+        )
+        .await
+        .expect_err("generic semantic write must reject protected text");
+    assert_eq!(write_password.code, ErrorCode::PolicyDenied);
 
     let slider = nodes
         .iter()

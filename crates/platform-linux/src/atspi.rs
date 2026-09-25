@@ -659,6 +659,9 @@ impl Atspi {
                     || states.contains(&"editable"),
                 password,
             });
+            if password {
+                return facets;
+            }
         }
 
         if supports_interface(interfaces, "Value")
