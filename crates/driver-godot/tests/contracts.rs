@@ -151,7 +151,7 @@ fn catalog_plugin_routes_have_editor_handlers() {
     let catalog = Catalog::load().unwrap();
     let plugin = include_str!("../../../integrations/godot/addons/semwright/plugin.gd");
     let names = catalog.names_for(Route::Plugin);
-    assert_eq!(names.len(), 140);
+    assert_eq!(names.len(), 157);
     for name in names {
         let op = name.strip_prefix("driver.godot.").unwrap();
         let marker = format!("\"{op}\": return ");
@@ -167,9 +167,39 @@ fn catalog_routes_partition_the_full_surface() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     assert_eq!(catalog.names_for(Route::Local).len(), 3);
-    assert_eq!(catalog.names_for(Route::Plugin).len(), 140);
+    assert_eq!(catalog.names_for(Route::Plugin).len(), 157);
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
-    assert_eq!(catalog.capabilities().len(), 149);
+    assert_eq!(catalog.capabilities().len(), 166);
+}
+
+#[test]
+fn gridmap_and_path_schemas_reject_out_of_domain_values() {
+    let catalog = Catalog::load().unwrap();
+
+    let grid = catalog.get("driver.godot.gridmap.cell.set").unwrap();
+    let bad_orientation = json!({
+        "session":"a".repeat(32),
+        "target":"Grid",
+        "position":[0,0,0],
+        "item":0,
+        "orientation":24,
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    assert!(grid.validate_input(&bad_orientation).is_err());
+
+    let follow = catalog.get("driver.godot.path.follow.configure").unwrap();
+    let conflicting_progress = json!({
+        "session":"a".repeat(32),
+        "target":"Rail/Follower",
+        "progress":5.0,
+        "progress_ratio":0.5,
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    // The cross-field conflict is intentionally enforced by the Godot handler,
+    // while both values remain individually valid at the transport schema layer.
+    follow.validate_input(&conflicting_progress).unwrap();
 }
 
 #[test]

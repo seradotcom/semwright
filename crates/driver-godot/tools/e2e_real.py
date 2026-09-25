@@ -178,7 +178,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert interfaces["interfaces"]["artifacts"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
-        assert len(caps) == 149, len(caps)
+        assert len(caps) == 166, len(caps)
 
         env = os.environ.copy()
         env.update({
@@ -260,6 +260,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             ("res://assets/area_shape2d.tres", "CircleShape2D", [("radius", 12.0)]),
             ("res://assets/ui_theme.tres", "Theme", []),
             ("res://assets/state_machine.tres", "AnimationNodeStateMachine", []),
+            ("res://assets/mesh_library.tres", "MeshLibrary", []),
         ]
         for path, klass, props in resources:
             value = call("driver.godot.resource.create", {
@@ -303,6 +304,9 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node(".", "MultiplayerSynchronizer", "Synchronizer")
         node(".", "MultiplayerSynchronizer", "SynchronizerDry")
         node(".", "TileMapLayer", "Tiles", [("tile_set", Res("res://assets/tileset.tres"))])
+        node(".", "GridMap", "Grid", [("mesh_library", Res("res://assets/mesh_library.tres"))])
+        node(".", "Path3D", "Rail3D")
+        node("Rail3D", "PathFollow3D", "Follower")
         node(".", "NavigationRegion3D", "NavRegion", [("navigation_mesh", Res("res://assets/navigation.tres"))])
         node("Player", "NavigationAgent3D", "Agent")
         node(".", "NavigationLink3D", "NavLink")
@@ -317,6 +321,8 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node("TwoD", "StaticBody2D", "AnchorA")
         node("TwoD", "StaticBody2D", "AnchorB")
         node("TwoD", "PinJoint2D", "Joint")
+        node("TwoD", "Path2D", "Rail2D")
+        node("TwoD/Rail2D", "PathFollow2D", "Follower")
         node(".", "AudioStreamPlayer", "Music")
         node(".", "GPUParticles3D", "Particles", [("process_material", Res("res://assets/particles.tres"))])
         node(".", "Skeleton3D", "Rig")
@@ -344,6 +350,111 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         mutate("driver.godot.tilemap.clear", {"target": "Tiles"})
         tilemap = call("driver.godot.tilemap.inspect", {"session": sid, "target": "Tiles"})
         assert tilemap["data"]["tile_set"] == "res://assets/tileset.tres"
+
+        # 3D grid authoring is method-backed in Godot and must not rely on node.patch.
+        mutate("driver.godot.meshlibrary.item.create", {
+            "path": "res://assets/mesh_library.tres", "id": 0, "name": "FloorBlock",
+            "mesh": "res://assets/floor_mesh.tres",
+            "navigation_mesh": "res://assets/navigation.tres", "navigation_layers": 1,
+        })
+        mutate("driver.godot.meshlibrary.item.configure", {
+            "path": "res://assets/mesh_library.tres", "id": 0,
+            "name": "FloorBlockSemantic", "navigation_layers": 3,
+        })
+        mutate("driver.godot.meshlibrary.item.create", {
+            "path": "res://assets/mesh_library.tres", "id": 1, "name": "Temporary",
+            "mesh": "res://assets/door_mesh.tres",
+        })
+        mutate("driver.godot.meshlibrary.item.remove", {
+            "path": "res://assets/mesh_library.tres", "id": 1,
+        })
+        library = call("driver.godot.meshlibrary.inspect", {
+            "session": sid, "path": "res://assets/mesh_library.tres",
+        })
+        assert library["data"]["items"][0]["name"] == "FloorBlockSemantic"
+        mutate("driver.godot.gridmap.configure", {
+            "target": "Grid", "mesh_library": "res://assets/mesh_library.tres",
+            "cell_size": [2.0, 2.0, 2.0], "cell_octant_size": 8, "cell_scale": 1.0,
+            "cell_center_x": True, "cell_center_y": True, "cell_center_z": True,
+            "bake_navigation": False, "collision_layer": 1, "collision_mask": 1,
+        })
+        mutate("driver.godot.gridmap.cell.set", {
+            "target": "Grid", "position": [0, 0, 0], "item": 0, "orientation": 0,
+        })
+        mutate("driver.godot.gridmap.cell.set", {
+            "target": "Grid", "position": [1, 0, 0], "item": 0, "orientation": 1,
+        })
+        mutate("driver.godot.gridmap.cell.erase", {
+            "target": "Grid", "position": [1, 0, 0],
+        })
+        grid = call("driver.godot.gridmap.inspect", {"session": sid, "target": "Grid"})
+        assert grid["data"]["cells"] == [{"position": [0, 0, 0], "item": 0, "orientation": 0}]
+        mutate("driver.godot.gridmap.clear", {"target": "Grid"})
+        mutate("driver.godot.gridmap.cell.set", {
+            "target": "Grid", "position": [0, 0, 0], "item": 0, "orientation": 0,
+        })
+
+        # Bézier path authoring covers both 3D and 2D plus typed follower state.
+        mutate("driver.godot.path.configure", {
+            "target": "Rail3D", "bake_interval": 0.2, "closed": False, "up_vector_enabled": True,
+        })
+        mutate("driver.godot.path.point.add", {
+            "target": "Rail3D", "position": [0.0, 0.0, 0.0],
+            "out": [1.0, 0.0, 0.0], "tilt": 0.0,
+        })
+        mutate("driver.godot.path.point.add", {
+            "target": "Rail3D", "position": [4.0, 1.0, 0.0],
+            "in": [-1.0, 0.0, 0.0], "out": [1.0, 0.0, 1.0], "tilt": 0.1,
+        })
+        mutate("driver.godot.path.point.add", {
+            "target": "Rail3D", "position": [8.0, 1.0, 2.0],
+            "in": [-1.0, 0.0, -1.0], "tilt": 0.2,
+        })
+        mutate("driver.godot.path.point.configure", {
+            "target": "Rail3D", "index": 1, "position": [4.0, 1.5, 0.0],
+            "in": [-1.0, 0.0, 0.0], "out": [1.0, 0.0, 1.0], "tilt": 0.15,
+        })
+        mutate("driver.godot.path.point.remove", {"target": "Rail3D", "index": 2})
+        path3d = call("driver.godot.path.inspect", {"session": sid, "target": "Rail3D"})
+        assert path3d["data"]["dimension"] == 3 and len(path3d["data"]["points"]) == 2
+        assert path3d["data"]["baked_length"] > 0.0
+        mutate("driver.godot.path.follow.configure", {
+            "target": "Rail3D/Follower", "progress_ratio": 0.5, "loop": True,
+            "cubic_interp": True, "rotation_mode": 3, "tilt_enabled": True,
+            "use_model_front": False, "h_offset": 0.0, "v_offset": 0.0,
+        })
+        follow3d = call("driver.godot.path.follow.inspect", {
+            "session": sid, "target": "Rail3D/Follower",
+        })
+        assert follow3d["data"]["dimension"] == 3
+
+        mutate("driver.godot.path.configure", {
+            "target": "TwoD/Rail2D", "bake_interval": 4.0,
+        })
+        mutate("driver.godot.path.point.add", {
+            "target": "TwoD/Rail2D", "position": [0.0, 0.0], "out": [32.0, 0.0],
+        })
+        mutate("driver.godot.path.point.add", {
+            "target": "TwoD/Rail2D", "position": [96.0, 48.0], "in": [-32.0, 0.0],
+        })
+        path2d = call("driver.godot.path.inspect", {"session": sid, "target": "TwoD/Rail2D"})
+        assert path2d["data"]["dimension"] == 2 and path2d["data"]["baked_length"] > 0.0
+        mutate("driver.godot.path.follow.configure", {
+            "target": "TwoD/Rail2D/Follower", "progress_ratio": 0.25,
+            "loop": False, "cubic_interp": True, "rotates": True,
+            "h_offset": 0.0, "v_offset": 0.0,
+        })
+        follow2d = call("driver.godot.path.follow.inspect", {
+            "session": sid, "target": "TwoD/Rail2D/Follower",
+        })
+        assert follow2d["data"]["dimension"] == 2 and follow2d["data"]["rotates"] is True
+        mutate("driver.godot.path.clear", {"target": "TwoD/Rail2D"})
+        mutate("driver.godot.path.point.add", {
+            "target": "TwoD/Rail2D", "position": [0.0, 0.0],
+        })
+        mutate("driver.godot.path.point.add", {
+            "target": "TwoD/Rail2D", "position": [96.0, 48.0],
+        })
 
         mutate("driver.godot.navigation.region.configure", {
             "target": "NavRegion", "enabled": True, "navigation_layers": 1,
@@ -912,7 +1023,8 @@ func _physics_process(_delta: float) -> void:
         names = {x["name"] for x in scene["data"]["nodes"]}
         assert {
             "LabRoom", "Floor", "Player", "Door", "Key", "Animations", "HUD", "Status",
-            "TwoD", "Player2D", "NavRegion", "NavLink", "Area", "Joint",
+            "Grid", "Rail3D", "TwoD", "Player2D", "NavRegion", "NavLink", "Area", "Joint",
+            "Rail2D", "Follower",
         }.issubset(names), sorted(names)
 
         validation, progress = execute(driver, caps, "driver.godot.project.validate", {"project": project_id}, "project-validate")

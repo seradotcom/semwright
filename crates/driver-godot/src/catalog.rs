@@ -914,6 +914,244 @@ fn specs() -> Vec<Spec> {
             mutation_out,
         ),
         spec(
+            "gridmap.inspect",
+            "Inspect GridMap cells and MeshLibrary binding",
+            "gridmap",
+            "gridmap",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "gridmap.configure",
+            "Configure GridMap cell geometry, collision and MeshLibrary",
+            "gridmap",
+            "gridmap",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            gridmap_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "gridmap.cell.set",
+            "Set a GridMap cell item and orthogonal orientation",
+            "gridmap",
+            "grid_cell",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            gridmap_cell_set_in,
+            mutation_out,
+        ),
+        spec(
+            "gridmap.cell.erase",
+            "Erase a GridMap cell",
+            "gridmap",
+            "grid_cell",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            gridmap_cell_target_in,
+            mutation_out,
+        ),
+        spec(
+            "gridmap.clear",
+            "Clear every populated GridMap cell",
+            "gridmap",
+            "gridmap",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            target_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "meshlibrary.inspect",
+            "Inspect bounded MeshLibrary items used by GridMap",
+            "gridmap",
+            "mesh_library",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "meshlibrary.item.create",
+            "Create a MeshLibrary item with mesh and navigation semantics",
+            "gridmap",
+            "mesh_library_item",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            meshlibrary_item_create_in,
+            mutation_out,
+        ),
+        spec(
+            "meshlibrary.item.configure",
+            "Configure a MeshLibrary item",
+            "gridmap",
+            "mesh_library_item",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            meshlibrary_item_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "meshlibrary.item.remove",
+            "Remove a MeshLibrary item",
+            "gridmap",
+            "mesh_library_item",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            meshlibrary_item_target_in,
+            mutation_out,
+        ),
+        spec(
+            "path.inspect",
+            "Inspect Path2D/Path3D curve points and baked length",
+            "path",
+            "path",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "path.configure",
+            "Configure a Path2D/Path3D curve",
+            "path",
+            "path",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "path.point.add",
+            "Add a typed point to a Path2D/Path3D curve",
+            "path",
+            "path_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_point_add_in,
+            mutation_out,
+        ),
+        spec(
+            "path.point.configure",
+            "Configure a Path2D/Path3D curve point",
+            "path",
+            "path_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_point_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "path.point.remove",
+            "Remove a point from a Path2D/Path3D curve",
+            "path",
+            "path_point",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_point_target_in,
+            mutation_out,
+        ),
+        spec(
+            "path.clear",
+            "Clear all points from a Path2D/Path3D curve",
+            "path",
+            "path",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            target_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "path.follow.inspect",
+            "Inspect PathFollow2D/PathFollow3D traversal state",
+            "path",
+            "path_follow",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "path.follow.configure",
+            "Configure PathFollow2D/PathFollow3D traversal state",
+            "path",
+            "path_follow",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_follow_configure_in,
+            mutation_out,
+        ),
+        spec(
             "navigation.region.inspect",
             "Inspect a NavigationRegion2D or NavigationRegion3D",
             "navigation",
@@ -3084,6 +3322,9 @@ fn vec2i_schema() -> Value {
 fn vec2i_positive_schema() -> Value {
     json!({"type":"array","minItems":2,"maxItems":2,"items":{"type":"integer","minimum":1,"maximum":4096}})
 }
+fn vec3i_schema() -> Value {
+    json!({"type":"array","minItems":3,"maxItems":3,"items":{"type":"integer","minimum":-32768,"maximum":32767}})
+}
 fn vec3_schema() -> Value {
     json!({"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000000.0,"maximum":1000000000.0}})
 }
@@ -3196,6 +3437,132 @@ fn tileset_tile_create_in() -> Value {
             ("size".into(), vec2i_positive_schema()),
         ]),
         &["source_id", "atlas_coords"],
+    )
+}
+fn gridmap_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("mesh_library".into(), optional_path_schema()),
+            ("cell_size".into(), vec3_schema()),
+            ("cell_octant_size".into(), bounded_int(1, 1024)),
+            ("cell_scale".into(), bounded_number(0.001, 1000.0)),
+            ("cell_center_x".into(), boolean()),
+            ("cell_center_y".into(), boolean()),
+            ("cell_center_z".into(), boolean()),
+            ("bake_navigation".into(), boolean()),
+            ("collision_layer".into(), u32_schema()),
+            ("collision_mask".into(), u32_schema()),
+        ]),
+        &[],
+    )
+}
+fn gridmap_cell_set_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("position".into(), vec3i_schema()),
+            ("item".into(), bounded_int(0, i32::MAX as i64)),
+            ("orientation".into(), bounded_int(0, 23)),
+        ]),
+        &["position", "item"],
+    )
+}
+fn gridmap_cell_target_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([("position".into(), vec3i_schema())]),
+        &["position"],
+    )
+}
+fn meshlibrary_item_create_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("id".into(), bounded_int(-1, i32::MAX as i64)),
+            ("name".into(), string(96)),
+            ("mesh".into(), optional_path_schema()),
+            ("navigation_mesh".into(), optional_path_schema()),
+            ("navigation_layers".into(), u32_schema()),
+        ]),
+        &[],
+    )
+}
+fn meshlibrary_item_configure_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("id".into(), bounded_int(0, i32::MAX as i64)),
+            ("name".into(), string(96)),
+            ("mesh".into(), optional_path_schema()),
+            ("navigation_mesh".into(), optional_path_schema()),
+            ("navigation_layers".into(), u32_schema()),
+        ]),
+        &["id"],
+    )
+}
+fn meshlibrary_item_target_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([("id".into(), bounded_int(0, i32::MAX as i64))]),
+        &["id"],
+    )
+}
+fn path_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("bake_interval".into(), bounded_number(0.001, 10000.0)),
+            ("closed".into(), boolean()),
+            ("up_vector_enabled".into(), boolean()),
+        ]),
+        &[],
+    )
+}
+fn path_point_add_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("position".into(), vec2_or_vec3_schema()),
+            ("in".into(), vec2_or_vec3_schema()),
+            ("out".into(), vec2_or_vec3_schema()),
+            ("index".into(), bounded_int(-1, 2048)),
+            (
+                "tilt".into(),
+                bounded_number(-std::f64::consts::TAU * 64.0, std::f64::consts::TAU * 64.0),
+            ),
+        ]),
+        &["position"],
+    )
+}
+fn path_point_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("index".into(), bounded_int(0, 2047)),
+            ("position".into(), vec2_or_vec3_schema()),
+            ("in".into(), vec2_or_vec3_schema()),
+            ("out".into(), vec2_or_vec3_schema()),
+            (
+                "tilt".into(),
+                bounded_number(-std::f64::consts::TAU * 64.0, std::f64::consts::TAU * 64.0),
+            ),
+        ]),
+        &["index"],
+    )
+}
+fn path_point_target_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([("index".into(), bounded_int(0, 2047))]),
+        &["index"],
+    )
+}
+fn path_follow_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("progress".into(), bounded_number(0.0, 1_000_000_000.0)),
+            ("progress_ratio".into(), bounded_number(0.0, 1.0)),
+            ("loop".into(), boolean()),
+            ("cubic_interp".into(), boolean()),
+            ("h_offset".into(), bounded_number(-1_000_000.0, 1_000_000.0)),
+            ("v_offset".into(), bounded_number(-1_000_000.0, 1_000_000.0)),
+            ("rotates".into(), boolean()),
+            ("rotation_mode".into(), bounded_int(0, 4)),
+            ("tilt_enabled".into(), boolean()),
+            ("use_model_front".into(), boolean()),
+        ]),
+        &[],
     )
 }
 fn navigation_region_configure_in() -> Value {

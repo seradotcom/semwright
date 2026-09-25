@@ -6,6 +6,8 @@ This matrix defines the boundary for the curated authoring layer. "Covered" mean
 | --- | --- | --- |
 | Projects/scenes/nodes/resources | Covered | project.*, scene.*, node.*, resource.* |
 | 2D tile authoring | Covered | tilemap.*, tileset.* |
+| 3D grid authoring | Covered | gridmap.*, meshlibrary.* |
+| Paths/curves/followers | Covered | path.*, path.point.*, path.follow.* |
 | Navigation 2D/3D | Covered | navigation.region.*, navigation.agent.*, navigation.link.* |
 | Physics 2D/3D | Covered | physics.*, collision.shape.* |
 | Input authoring | Covered | input.* including keyboard, mouse and gamepad bindings |

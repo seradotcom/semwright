@@ -1,6 +1,6 @@
 # Godot capability surface
 
-The Godot driver exposes **149 curated `driver.godot.*` capabilities**. Every advertised
+The Godot driver exposes **166 curated `driver.godot.*` capabilities**. Every advertised
 capability has an operation-specific input and output schema, descriptor digest, route and
 risk/idempotency classification. The catalog is checked against the production EditorPlugin
 dispatch and runner routes. The goal is semantic domain coverage, not a one-tool-per-method
@@ -52,6 +52,27 @@ Track types are explicit and bounded; arbitrary method invocation is not exposed
 
 Tile cell inspection is bounded and reports truncation. TileSet mutation is resource-backed
 and saved through the normal Godot resource pipeline.
+
+## 3D grid authoring
+
+- `gridmap.inspect`, `gridmap.configure`
+- `gridmap.cell.set`, `gridmap.cell.erase`, `gridmap.clear`
+- `meshlibrary.inspect`
+- `meshlibrary.item.create`, `meshlibrary.item.configure`, `meshlibrary.item.remove`
+
+GridMap cells use explicit integer 3D coordinates and Godot's 24 orthogonal orientations.
+MeshLibrary item edits are resource-backed and expose mesh plus navigation associations. More
+complex item transforms/collision-shape arrays are intentionally deferred to the richer Variant
+codec rather than accepting untyped transform payloads.
+
+## Paths and curves
+
+- `path.inspect`, `path.configure`
+- `path.point.add`, `path.point.configure`, `path.point.remove`, `path.clear`
+- `path.follow.inspect`, `path.follow.configure`
+
+Path2D/Curve2D and Path3D/Curve3D share bounded Bézier point semantics while preserving
+dimension-specific fields such as Curve3D tilt/closure/up vectors and PathFollow rotation modes.
 
 ## Navigation
 
