@@ -200,10 +200,9 @@ fn load_secret_file(path: &Path) -> Result<String> {
     #[cfg(unix)]
     let file = {
         use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
-        if metadata.uid() != unsafe { libc::getuid() }
-            || metadata.mode() & 0o077 != 0
-            || metadata.nlink() != 1
-        {
+        // SAFETY: getuid takes no pointers and has no memory-safety preconditions.
+        let uid = unsafe { libc::getuid() };
+        if metadata.uid() != uid || metadata.mode() & 0o077 != 0 || metadata.nlink() != 1 {
             return Err(Error::new(
                 ErrorCode::PermissionDenied,
                 "Godot pairing secret file must be owner-only and single-linked",
