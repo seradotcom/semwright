@@ -34,7 +34,7 @@ use uiautomation::patterns::{
 };
 use uiautomation::{
     UIAutomation, UIElement, UITreeWalker,
-    types::{Point, TreeScope, UIProperty, WindowVisualState},
+    types::{Handle, Point, TreeScope, UIProperty, WindowVisualState},
 };
 
 const MAX_NODES: usize = 2_000;
@@ -104,6 +104,7 @@ enum Call {
     Select(NativeTarget, usize, mpsc::Sender<Result<Value>>),
     Expand(NativeTarget, bool, mpsc::Sender<Result<Value>>),
     Snapshot(Option<NativeTarget>, mpsc::Sender<Result<Value>>),
+    SnapshotHwnd(isize, mpsc::Sender<Result<Value>>),
     Inspect(NativeTarget, mpsc::Sender<Result<Value>>),
     HitTest(i32, i32, mpsc::Sender<Result<Value>>),
     Validate(NativeTarget, mpsc::Sender<Result<Value>>),
@@ -725,14 +726,7 @@ impl State {
         Ok(())
     }
 
-    fn snapshot(&mut self, target: Option<NativeTarget>) -> Result<Value> {
-        let root = match target {
-            Some(t) => self.resolve(&t)?,
-            None => self
-                .automation
-                .get_root_element()
-                .map_err(|e| uia_error(e, "UIA desktop root unavailable"))?,
-        };
+    fn snapshot_element(&mut self, root: UIElement) -> Result<Value> {
         let mut count = 0usize;
         let deadline = Instant::now() + SNAPSHOT_BUDGET;
         let tree = self.node(root, 0, &mut count, deadline)?;
@@ -744,6 +738,31 @@ impl State {
             "partial": partial,
             "revision": self.next_revision
         }))
+    }
+
+    fn snapshot(&mut self, target: Option<NativeTarget>) -> Result<Value> {
+        let root = match target {
+            Some(t) => self.resolve(&t)?,
+            None => self
+                .automation
+                .get_root_element()
+                .map_err(|e| uia_error(e, "UIA desktop root unavailable"))?,
+        };
+        self.snapshot_element(root)
+    }
+
+    fn snapshot_hwnd(&mut self, hwnd: isize) -> Result<Value> {
+        if hwnd == 0 {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Windows window reference no longer has a live HWND",
+            ));
+        }
+        let root = self
+            .automation
+            .element_from_handle(Handle::from(hwnd))
+            .map_err(|e| uia_error(e, "UIA could not resolve the revalidated HWND"))?;
+        self.snapshot_element(root)
     }
 
     fn inspect(&mut self, target: NativeTarget) -> Result<Value> {
@@ -1050,6 +1069,9 @@ impl UiaActor {
     pub fn snapshot(&self, t: Option<NativeTarget>) -> Result<Value> {
         self.request(|r| Call::Snapshot(t, r))
     }
+    pub fn snapshot_hwnd(&self, hwnd: isize) -> Result<Value> {
+        self.request(|r| Call::SnapshotHwnd(hwnd, r))
+    }
     pub fn inspect(&self, t: NativeTarget) -> Result<Value> {
         self.request(|r| Call::Inspect(t, r))
     }
@@ -1096,6 +1118,9 @@ fn dispatch(state: &mut State, call: Call) {
         }
         Call::Snapshot(t, r) => {
             let _ = r.send(state.snapshot(t));
+        }
+        Call::SnapshotHwnd(hwnd, r) => {
+            let _ = r.send(state.snapshot_hwnd(hwnd));
         }
         Call::Inspect(t, r) => {
             let _ = r.send(state.inspect(t));

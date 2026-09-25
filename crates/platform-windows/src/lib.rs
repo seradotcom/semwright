@@ -314,10 +314,18 @@ impl Backend for Windows {
                 window::close(h)?;
                 Ok(json!({"requested":true,"delivery_verified":false}))
             }
-            "ui.snapshot" => self.uia.snapshot(
-                args.get("_target")
-                    .and_then(|v| serde_json::from_value(v.clone()).ok()),
-            ),
+            "ui.snapshot" => {
+                let scoped = args
+                    .get("_target")
+                    .and_then(|v| serde_json::from_value::<NativeTarget>(v.clone()).ok());
+                match scoped {
+                    Some(reference) if reference.identity.starts_with("win:") => {
+                        let hwnd = self.resolve_window(&reference)?;
+                        self.uia.snapshot_hwnd(hwnd.0 as isize)
+                    }
+                    other => self.uia.snapshot(other),
+                }
+            }
             "ui.inspect" => self.uia.inspect(target(args)?),
             "ui.hit_test" => {
                 let x = args
