@@ -1016,15 +1016,15 @@ impl Atspi {
                     .take(128)
                     .collect::<String>()
             };
-            let interfaces_read = async {
+            let interfaces: Vec<String> =
                 bounded(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
                     .await
                     .unwrap_or_default()
                     .into_iter()
                     .take(64)
                     .map(|value| value.chars().take(128).collect())
-                    .collect::<Vec<String>>()
-            };
+                    .collect();
+            let facets_read = self.facets(&c, &object, &interfaces, &states, &role, count);
             let description_read = async {
                 bounded(proxy.get_property::<String>("Description"))
                     .await
@@ -1049,24 +1049,20 @@ impl Atspi {
                 mut help,
                 mut accessibility_id,
                 locale,
-                interfaces,
                 relations,
                 mut description,
                 bounds,
+                mut facets,
             ) = tokio::join!(
                 attributes_read,
                 help_read,
                 accessibility_id_read,
                 locale_read,
-                interfaces_read,
                 self.relations(&c, &object, &app),
                 description_read,
-                bounds_read
+                bounds_read,
+                facets_read
             );
-
-            let mut facets = self
-                .facets(&c, &object, &interfaces, &states, &role, count)
-                .await;
             if facets.document.is_none() && !locale.is_empty() {
                 facets.document = Some(UiDocumentFacet {
                     locale: Some(locale.clone()),
