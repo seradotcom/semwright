@@ -12,7 +12,7 @@ This evidence closes the previously missing live Hyprland native-socket case wit
 - Fixture: native Wayland `foot` client.
 - Container: no network and `no-new-privileges`.
 
-The container recipe is pinned in `scripts/dev/hyprland-kwin-live-cert.Containerfile`. The actual live sequence is `scripts/dev/hyprland-kwin-live-cert.sh`.
+The container recipe is pinned in `scripts/dev/hyprland-kwin-live-cert.Containerfile`. The Hyprland COPR repo uses RPM signature verification; the executed image reports Hyprland signed by key ID `A5B5F0CF64407CDC`, matching the observed COPR key fingerprint `CE4F9876716F2756FE6A576AA5B5F0CF64407CDC`. The actual live sequence is `scripts/dev/hyprland-kwin-live-cert.sh`.
 
 ## Executed assertions
 

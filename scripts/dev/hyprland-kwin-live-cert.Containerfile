@@ -5,8 +5,9 @@ RUN printf '%s\n' \
       'name=Semwright pinned Hyprland COPR runtime' \
       'baseurl=https://download.copr.fedorainfracloud.org/results/nett00n/hyprland/fedora-45-x86_64/' \
       'enabled=1' \
-      'gpgcheck=0' \
+      'gpgcheck=1' \
       'repo_gpgcheck=0' \
+      'gpgkey=https://download.copr.fedorainfracloud.org/results/nett00n/hyprland/pubkey.gpg' \
       > /etc/yum.repos.d/semwright-hyprland.repo \
     && dnf -y --setopt=install_weak_deps=False install \
       hyprland-0.56.2-17.fc45.x86_64 \
