@@ -8,7 +8,7 @@ use std::{sync::mpsc, thread, time::Duration};
 use tokio_util::sync::CancellationToken;
 use windows::{
     Win32::{
-        Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM},
+        Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
         System::LibraryLoader::GetModuleHandleW,
         UI::{
             HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
@@ -213,6 +213,27 @@ fn fixture_owns_point(hwnd: isize, x: i32, y: i32) -> bool {
     }
 }
 
+fn fixture_button_points(hwnd: isize) -> Vec<(i32, i32)> {
+    let fixture = HWND(hwnd as *mut core::ffi::c_void);
+    // SAFETY: fixture is live for this test and ID_BUTTON names a child created by start_fixture.
+    let button =
+        unsafe { GetDlgItem(Some(fixture), ID_BUTTON as i32) }.expect("fixture button HWND");
+    let mut rect = RECT::default();
+    // SAFETY: button is a live child HWND and rect is writable local storage.
+    unsafe { GetWindowRect(button, &mut rect) }.expect("fixture button physical bounds");
+    let width = (rect.right - rect.left).max(1);
+    let height = (rect.bottom - rect.top).max(1);
+    let inset_x = (width / 4).clamp(1, 8);
+    let inset_y = (height / 4).clamp(1, 8);
+    vec![
+        (rect.left + width / 2, rect.top + height / 2),
+        (rect.left + inset_x, rect.top + inset_y),
+        (rect.right - inset_x - 1, rect.top + inset_y),
+        (rect.left + inset_x, rect.bottom - inset_y - 1),
+        (rect.right - inset_x - 1, rect.bottom - inset_y - 1),
+    ]
+}
+
 async fn snapshot_with_owned_hit_point(
     backend: &Windows,
     ctx: &Context,
@@ -255,37 +276,44 @@ async fn snapshot_with_owned_hit_point(
         }
         tokio::time::sleep(Duration::from_millis(120)).await;
 
-        let snapshot = backend
-            .execute(
-                ctx,
-                "ui.snapshot",
-                &json!({"_target":window_target.clone()}),
-            )
-            .await
-            .expect("scoped UIA snapshot after fixture placement");
-        let Some(button) = snapshot["nodes"].as_array().and_then(|nodes| {
-            nodes
-                .iter()
-                .find(|node| node["role"] == "button" && node["name"] == "Invoke me")
-        }) else {
-            continue;
-        };
-        let Some(bounds) = button["bounds"].as_object() else {
-            continue;
-        };
-        let x = (bounds["x"].as_f64().unwrap_or_default()
-            + bounds["width"].as_f64().unwrap_or_default() / 2.0)
-            .round() as i32;
-        let y = (bounds["y"].as_f64().unwrap_or_default()
-            + bounds["height"].as_f64().unwrap_or_default() / 2.0)
-            .round() as i32;
-        last_point = (x, y);
-
-        for _ in 0..20 {
-            if fixture_owns_point(hwnd, x, y) {
-                return (snapshot, x, y);
+        for (x, y) in fixture_button_points(hwnd) {
+            last_point = (x, y);
+            let mut owned = false;
+            for _ in 0..20 {
+                if fixture_owns_point(hwnd, x, y) {
+                    owned = true;
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
             }
-            tokio::time::sleep(Duration::from_millis(25)).await;
+            if !owned {
+                continue;
+            }
+
+            let snapshot = backend
+                .execute(
+                    ctx,
+                    "ui.snapshot",
+                    &json!({"_target":window_target.clone()}),
+                )
+                .await
+                .expect("scoped UIA snapshot after fixture placement");
+            let Some(button) = snapshot["nodes"].as_array().and_then(|nodes| {
+                nodes
+                    .iter()
+                    .find(|node| node["role"] == "button" && node["name"] == "Invoke me")
+            }) else {
+                continue;
+            };
+            let Some(bounds) = button["bounds"].as_object() else {
+                continue;
+            };
+            assert!(
+                bounds["width"].as_f64().is_some_and(|width| width > 0.0)
+                    && bounds["height"].as_f64().is_some_and(|height| height > 0.0),
+                "UIA button bounds must remain non-empty: {button}"
+            );
+            return (snapshot, x, y);
         }
     }
 
