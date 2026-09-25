@@ -76,6 +76,20 @@ def execute(proc, caps, name, args, rid):
         raise AssertionError(out)
     return out["value"], progress
 
+
+def execute_failure(proc, caps, name, args, rid):
+    cap = caps[name]
+    out, progress = request(proc, {
+        "type": "execute",
+        "id": rid,
+        "command": name,
+        "descriptor_sha256": digest(cap["descriptor"]),
+        "args": args,
+    })
+    if out.get("type") != "failure":
+        raise AssertionError(f"{name} unexpectedly succeeded: {out}")
+    return out["error"], progress
+
 def free_port():
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
@@ -746,12 +760,33 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "target": "Synchronizer", "path": "Player:rotation",
         })
 
-        # Editor semantic state and selection.
+        # Editor semantic state and selection. All mutations must reject stale
+        # preconditions before touching editor selection or run state.
+        stale_editor_stamp = dict(st)
         mutate("driver.godot.editor.selection.set", {"nodes": ["Player", "Door"]})
         selection = call("driver.godot.editor.selection.get", {"session": sid})
         assert {row["path"] for row in selection["data"]["nodes"]} == {"Player", "Door"}
         editor_state = call("driver.godot.editor.state", {"session": sid})
         assert editor_state["data"]["scene"] == "res://scenes/lab_room.tscn"
+        for stale_name, stale_args in [
+            ("driver.godot.editor.selection.set", {"nodes": ["Door"]}),
+            ("driver.godot.editor.run.start", {"mode": "main"}),
+            ("driver.godot.editor.run.stop", {}),
+        ]:
+            payload = dict(stale_args)
+            payload.update({
+                "session": sid,
+                "expect": stale_editor_stamp,
+                "dry_run": False,
+            })
+            error, _ = execute_failure(
+                driver, caps, stale_name, payload, f"stale-editor-{stale_name.rsplit('.', 1)[-1]}"
+            )
+            assert error["code"] == "Conflict", (stale_name, error)
+        editor_state = call("driver.godot.editor.state", {"session": sid})
+        assert editor_state["data"]["playing"] is False
+        selection = call("driver.godot.editor.selection.get", {"session": sid})
+        assert {row["path"] for row in selection["data"]["nodes"]} == {"Player", "Door"}
 
         controller = """extends Node3D
 

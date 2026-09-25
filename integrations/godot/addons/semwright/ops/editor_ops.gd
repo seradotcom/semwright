@@ -35,6 +35,9 @@ static func selection_set(ctx, args: Dictionary) -> Dictionary:
     var root := EditorInterface.get_edited_scene_root()
     if root == null:
         return ctx._error("not_found", "no edited scene")
+    var conflict = ctx._check_expect(args)
+    if not conflict.is_empty():
+        return conflict
     var nodes: Array[Node] = []
     for path in args.get("nodes", []):
         var node = ctx._resolve_node(str(path))
@@ -51,6 +54,9 @@ static func selection_set(ctx, args: Dictionary) -> Dictionary:
     return ctx._mutation_result(true, Array(args.get("nodes", [])), "Set editor selection")
 
 static func run_start(ctx, args: Dictionary) -> Dictionary:
+    var conflict = ctx._check_expect(args)
+    if not conflict.is_empty():
+        return conflict
     if EditorInterface.is_playing_scene():
         return ctx._error("conflict", "editor is already playing a scene")
     var mode := str(args.get("mode", "main"))
@@ -76,6 +82,9 @@ static func run_start(ctx, args: Dictionary) -> Dictionary:
     return ctx._mutation_result(true, affected, "Start editor scene")
 
 static func run_stop(ctx, args: Dictionary) -> Dictionary:
+    var conflict = ctx._check_expect(args)
+    if not conflict.is_empty():
+        return conflict
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, ["runtime"], "dry-run")
     if EditorInterface.is_playing_scene():
