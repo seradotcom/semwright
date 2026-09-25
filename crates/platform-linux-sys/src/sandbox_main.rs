@@ -100,8 +100,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let executable = args.next().ok_or("executable missing")?;
-    if executable != "/plugin/bin" || args.next().is_some() {
+    if executable != "/plugin/bin" {
         return Err("sandbox executable is fixed".into());
+    }
+    let executable_args = args.collect::<Vec<_>>();
+    if executable_args.len() > 64
+        || executable_args
+            .iter()
+            .any(|arg| arg.len() > 4096 || arg.contains('\0'))
+    {
+        return Err("sandbox executable arguments exceed bounds".into());
     }
     // SAFETY: prctl with PR_SET_NO_NEW_PRIVS takes integer options only.
     if unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } != 0 {
@@ -190,7 +198,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if status.ruleset != RulesetStatus::FullyEnforced {
         return Err("Landlock was not fully enforced".into());
     }
-    let error = Command::new(executable).exec();
+    let error = Command::new(executable).args(executable_args).exec();
     Err(Box::new(error))
 }
 

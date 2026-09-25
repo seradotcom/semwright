@@ -849,6 +849,122 @@ async fn learned_workflow_infers_input_verifies_replays_promotes_and_executes() 
 }
 
 #[tokio::test]
+async fn repeated_workflows_surface_suggestions_compile_and_resurface_after_new_evidence() {
+    let fixture = workflow_fixture();
+    record_clipboard_trace(&fixture, "alpha").await;
+    record_clipboard_trace(&fixture, "beta").await;
+
+    let early = fixture.call("workflow.suggestions.list", json!({})).await;
+    assert!(early.ok, "{early:?}");
+    assert!(
+        early.data.unwrap()["suggestions"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    record_clipboard_trace(&fixture, "gamma").await;
+    let own_events = fixture.broker.replay_for(&fixture.session, 0).unwrap();
+    assert!(
+        own_events
+            .iter()
+            .any(|event| event.event.kind == "workflow.pattern.detected")
+    );
+    let stranger_events = fixture.broker.replay_for(&unique_id(), 0).unwrap();
+    assert!(
+        !stranger_events
+            .iter()
+            .any(|event| event.event.kind == "workflow.pattern.detected")
+    );
+
+    let suggestions = fixture.call("workflow.suggestions.list", json!({})).await;
+    assert!(suggestions.ok, "{suggestions:?}");
+    let row = suggestions.data.unwrap()["suggestions"][0].clone();
+    assert_eq!(row["occurrences"], 3);
+    assert_eq!(row["compile_ready_count"], 3);
+    assert_eq!(row["suggested_name"], "clipboard-demo");
+    assert!(
+        row["varying_arguments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| {
+                value["step"] == 0
+                    && value["location_digest"]
+                        .as_str()
+                        .is_some_and(|digest| digest.len() == 24)
+                    && value["kind"] == "string"
+            })
+    );
+    let suggestion_id = row["suggestion_id"].as_str().unwrap().to_owned();
+
+    let compiled = fixture
+        .call(
+            "workflow.suggestion.compile",
+            json!({"suggestion_id":suggestion_id}),
+        )
+        .await;
+    assert!(compiled.ok, "{compiled:?}");
+    let candidate = compiled.data.unwrap()["candidate"].clone();
+    assert_eq!(
+        candidate["recipe"]["inputs"]["step1_text"]["kind"],
+        "string"
+    );
+    assert_eq!(candidate["source_trace_ids"].as_array().unwrap().len(), 3);
+
+    let dismissed = fixture
+        .call(
+            "workflow.suggestion.dismiss",
+            json!({"suggestion_id":suggestion_id}),
+        )
+        .await;
+    assert!(dismissed.ok, "{dismissed:?}");
+    let hidden = fixture.call("workflow.suggestions.list", json!({})).await;
+    assert!(hidden.ok, "{hidden:?}");
+    assert!(
+        hidden.data.unwrap()["suggestions"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    record_clipboard_trace(&fixture, "delta").await;
+    let resurfaced = fixture.call("workflow.suggestions.list", json!({})).await;
+    assert!(resurfaced.ok, "{resurfaced:?}");
+    let row = resurfaced.data.unwrap()["suggestions"][0].clone();
+    assert_eq!(row["occurrences"], 4);
+    assert_eq!(row["resurfaced"], true);
+
+    let dismissed = fixture
+        .call(
+            "workflow.suggestion.dismiss",
+            json!({"suggestion_id":suggestion_id,"permanent":true}),
+        )
+        .await;
+    assert!(dismissed.ok, "{dismissed:?}");
+    record_clipboard_trace(&fixture, "epsilon").await;
+    let still_hidden = fixture.call("workflow.suggestions.list", json!({})).await;
+    assert!(still_hidden.ok, "{still_hidden:?}");
+    assert!(
+        still_hidden.data.unwrap()["suggestions"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    let restored = fixture
+        .call(
+            "workflow.suggestion.restore",
+            json!({"suggestion_id":suggestion_id}),
+        )
+        .await;
+    assert!(restored.ok, "{restored:?}");
+    let visible = fixture.call("workflow.suggestions.list", json!({})).await;
+    assert!(visible.ok, "{visible:?}");
+    assert_eq!(visible.data.unwrap()["suggestions"][0]["occurrences"], 5);
+}
+
+#[tokio::test]
 async fn learned_workflow_reacquires_ephemeral_refs_before_mutation() {
     let fixture = workflow_fixture();
     assert!(

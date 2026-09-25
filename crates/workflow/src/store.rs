@@ -1,6 +1,7 @@
 use crate::{
-    ActiveTrace, Candidate, MAX_PROMOTIONS, MAX_TRACE_STEPS, MAX_TRACES, Promotion, TRACE_VERSION,
-    TraceStep, WorkflowTrace, validate_candidate_integrity,
+    ActiveTrace, Candidate, DISMISSAL_VERSION, MAX_DISMISSALS, MAX_PROMOTIONS, MAX_TRACE_STEPS,
+    MAX_TRACES, PatternDismissal, Promotion, TRACE_VERSION, TraceStep, WorkflowPattern,
+    WorkflowTrace, mine_patterns, mine_suggestions, validate_candidate_integrity,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,8 @@ struct Persisted {
     traces: Vec<WorkflowTrace>,
     candidates: Vec<Candidate>,
     promotions: Vec<Promotion>,
+    #[serde(default)]
+    dismissals: Vec<PatternDismissal>,
 }
 
 #[derive(Debug, Default)]
@@ -28,6 +31,7 @@ pub struct WorkflowManager {
     traces: BTreeMap<String, WorkflowTrace>,
     candidates: BTreeMap<String, Candidate>,
     promotions: BTreeMap<String, Promotion>,
+    dismissals: BTreeMap<String, PatternDismissal>,
     persistence: Option<PathBuf>,
 }
 fn now_ms() -> u64 {
@@ -115,6 +119,11 @@ impl WorkflowManager {
             .iter()
             .map(|value| value.slug.as_str())
             .collect::<std::collections::BTreeSet<_>>();
+        let dismissal_ids = state
+            .dismissals
+            .iter()
+            .map(|value| value.pattern_id.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
         let invalid_trace = state.traces.iter().any(|trace| {
             trace.version != TRACE_VERSION
                 || !trace.id.starts_with("trace-")
@@ -146,16 +155,30 @@ impl WorkflowManager {
                 || !canonical.static_verified
                 || canonical.successful_replays == 0
         });
-        if state.version != 1
+        let invalid_dismissal = state.dismissals.iter().any(|dismissal| {
+            dismissal.version != DISMISSAL_VERSION
+                || dismissal.fingerprint.len() != 64
+                || !dismissal
+                    .fingerprint
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                || dismissal.pattern_id != format!("pattern-{}", &dismissal.fingerprint[..24])
+                || !(2..=MAX_TRACES).contains(&dismissal.dismissed_through_occurrences)
+        });
+        if !matches!(state.version, 1 | 2)
+            || (state.version == 1 && !state.dismissals.is_empty())
             || state.traces.len() > MAX_TRACES
             || state.candidates.len() > MAX_TRACES
             || state.promotions.len() > MAX_PROMOTIONS
+            || state.dismissals.len() > MAX_DISMISSALS
             || trace_ids.len() != state.traces.len()
             || candidate_ids.len() != state.candidates.len()
             || promotion_slugs.len() != state.promotions.len()
+            || dismissal_ids.len() != state.dismissals.len()
             || invalid_trace
             || invalid_candidate
             || invalid_promotion
+            || invalid_dismissal
         {
             return Err(Error::new(
                 ErrorCode::Conflict,
@@ -192,6 +215,11 @@ impl WorkflowManager {
                 (promotion.slug.clone(), promotion)
             })
             .collect();
+        self.dismissals = state
+            .dismissals
+            .into_iter()
+            .map(|dismissal| (dismissal.pattern_id.clone(), dismissal))
+            .collect();
         Ok(())
     }
     fn persist(&self) -> Result<()> {
@@ -199,10 +227,11 @@ impl WorkflowManager {
             return Ok(());
         };
         let state = Persisted {
-            version: 1,
+            version: 2,
             traces: self.traces.values().cloned().collect(),
             candidates: self.candidates.values().cloned().collect(),
             promotions: self.promotions.values().cloned().collect(),
+            dismissals: self.dismissals.values().cloned().collect(),
         };
         let bytes = serde_json::to_vec_pretty(&state)?;
         if bytes.len() > 8 * 1024 * 1024 {
@@ -393,6 +422,119 @@ impl WorkflowManager {
             return Err(error);
         }
         Ok(trace)
+    }
+
+    fn trace_values(&self) -> Vec<WorkflowTrace> {
+        self.traces.values().cloned().collect()
+    }
+
+    pub fn patterns(&self, min_occurrences: usize) -> Result<Vec<WorkflowPattern>> {
+        mine_patterns(&self.trace_values(), min_occurrences, &self.dismissals)
+    }
+
+    pub fn pattern(&self, id: &str) -> Result<WorkflowPattern> {
+        self.patterns(2)?
+            .into_iter()
+            .find(|pattern| pattern.id == id)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Workflow pattern not found"))
+    }
+
+    pub fn suggestions(
+        &self,
+        min_occurrences: usize,
+        include_dismissed: bool,
+    ) -> Result<Vec<WorkflowPattern>> {
+        mine_suggestions(
+            &self.trace_values(),
+            min_occurrences,
+            &self.dismissals,
+            include_dismissed,
+        )
+    }
+
+    pub fn suggestion(&self, id: &str) -> Result<WorkflowPattern> {
+        self.suggestions(crate::DEFAULT_MIN_OCCURRENCES, true)?
+            .into_iter()
+            .find(|pattern| pattern.suggestion_id == id)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Workflow suggestion not found"))
+    }
+
+    pub fn dismiss_suggestion(&mut self, id: &str, permanent: bool) -> Result<PatternDismissal> {
+        let pattern = self.suggestion(id)?;
+        if !self.dismissals.contains_key(&pattern.id) && self.dismissals.len() >= MAX_DISMISSALS {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Workflow dismissal budget exhausted",
+            ));
+        }
+        if let Some(existing) = self.dismissals.get(&pattern.id)
+            && (existing.permanent
+                || (!permanent && existing.dismissed_through_occurrences >= pattern.occurrences))
+        {
+            return Ok(existing.clone());
+        }
+        let permanent = permanent
+            || self
+                .dismissals
+                .get(&pattern.id)
+                .is_some_and(|existing| existing.permanent);
+        let dismissal = PatternDismissal {
+            version: DISMISSAL_VERSION,
+            pattern_id: pattern.id.clone(),
+            fingerprint: pattern.fingerprint.clone(),
+            dismissed_unix_ms: now_ms(),
+            dismissed_through_occurrences: pattern.occurrences,
+            permanent,
+        };
+        let previous = self
+            .dismissals
+            .insert(pattern.id.clone(), dismissal.clone());
+        if let Err(error) = self.persist() {
+            match previous {
+                Some(previous) => {
+                    self.dismissals.insert(pattern.id, previous);
+                }
+                None => {
+                    self.dismissals.remove(&pattern.id);
+                }
+            }
+            return Err(error);
+        }
+        Ok(dismissal)
+    }
+
+    pub fn restore_suggestion(&mut self, id: &str) -> Result<PatternDismissal> {
+        let suffix = id
+            .strip_prefix("suggestion-")
+            .ok_or_else(|| Error::invalid("Workflow suggestion ID is invalid"))?;
+        let pattern_id = format!("pattern-{suffix}");
+        let dismissal = self.dismissals.remove(&pattern_id).ok_or_else(|| {
+            Error::new(ErrorCode::NotFound, "Workflow suggestion is not dismissed")
+        })?;
+        if let Err(error) = self.persist() {
+            self.dismissals.insert(pattern_id, dismissal.clone());
+            return Err(error);
+        }
+        Ok(dismissal)
+    }
+
+    pub fn compile_traces_for_suggestion(
+        &self,
+        id: &str,
+    ) -> Result<(WorkflowPattern, Vec<WorkflowTrace>)> {
+        let pattern = self.suggestion(id)?;
+        if pattern.compile_ready_count < 2 || pattern.compile_trace_ids.len() < 2 {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Workflow suggestion needs at least two value-capturing compatible traces before compilation",
+            ));
+        }
+        let traces = pattern
+            .compile_trace_ids
+            .iter()
+            .map(|trace_id| self.trace(trace_id))
+            .collect::<Result<Vec<_>>>()?;
+        Ok((pattern, traces))
     }
 
     pub fn store_candidate(&mut self, candidate: Candidate) -> Result<()> {
@@ -846,6 +988,84 @@ mod tests {
             restored.configure_persistence(&directory).unwrap_err().code,
             ErrorCode::Conflict
         );
+    }
+
+    #[test]
+    fn permanent_dismissal_cannot_be_downgraded_without_restore() {
+        let mut manager = WorkflowManager::default();
+        for index in 0..3 {
+            let session = format!("session-{index}");
+            manager.start(&session, "demo", "", true).unwrap();
+            manager.record(&session, step()).unwrap();
+            manager.stop(&session, true).unwrap();
+        }
+        let suggestion = manager.suggestions(3, false).unwrap().remove(0);
+        let permanent = manager
+            .dismiss_suggestion(&suggestion.suggestion_id, true)
+            .unwrap();
+        let repeated = manager
+            .dismiss_suggestion(&suggestion.suggestion_id, false)
+            .unwrap();
+        assert!(permanent.permanent);
+        assert_eq!(permanent, repeated);
+        assert!(manager.suggestions(3, false).unwrap().is_empty());
+    }
+
+    #[test]
+    fn v1_store_without_dismissals_migrates_forward() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        persisted_trace(&mut manager);
+
+        let file = directory.join("workflows.json");
+        let mut persisted: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        persisted["version"] = json!(1);
+        persisted.as_object_mut().unwrap().remove("dismissals");
+        std::fs::write(&file, serde_json::to_vec_pretty(&persisted).unwrap()).unwrap();
+
+        let mut restored = WorkflowManager::default();
+        restored.configure_persistence(&directory).unwrap();
+        restored.start("second", "demo", "", true).unwrap();
+        restored.record("second", step()).unwrap();
+        restored.stop("second", true).unwrap();
+
+        let migrated: Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        assert_eq!(migrated["version"], 2);
+        assert_eq!(migrated["dismissals"], json!([]));
+    }
+
+    #[test]
+    fn dismissed_suggestion_persists_and_resurfaces_after_new_trace() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+
+        for index in 0..3 {
+            let session = format!("session-{index}");
+            manager.start(&session, "demo", "", true).unwrap();
+            manager.record(&session, step()).unwrap();
+            manager.stop(&session, true).unwrap();
+        }
+        let suggestion = manager.suggestions(3, false).unwrap().remove(0);
+        manager
+            .dismiss_suggestion(&suggestion.suggestion_id, false)
+            .unwrap();
+        assert!(manager.suggestions(3, false).unwrap().is_empty());
+
+        let mut restored = WorkflowManager::default();
+        restored.configure_persistence(&directory).unwrap();
+        assert!(restored.suggestions(3, false).unwrap().is_empty());
+
+        restored.start("session-new", "demo", "", true).unwrap();
+        restored.record("session-new", step()).unwrap();
+        restored.stop("session-new", true).unwrap();
+        let resurfaced = restored.suggestions(3, false).unwrap();
+        assert_eq!(resurfaced.len(), 1);
+        assert!(resurfaced[0].resurfaced);
+        assert_eq!(resurfaced[0].occurrences, 4);
     }
 
     #[cfg(unix)]

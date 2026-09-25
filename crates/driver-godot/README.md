@@ -15,12 +15,12 @@ The driver does not expose arbitrary GDScript evaluation, OS.execute, shell exec
 
 ## Status
 
-The current catalog exposes **53 typed `driver.godot.*` capabilities** with operation-specific strict input/output schemas. Driver Protocol v2 negotiates cooperative cancellation, child events, progress, artifacts and health. The production Rust driver has been exercised end-to-end against both an independent fake editor and Godot 4.7.2-stable.
+The current catalog exposes **103 typed `driver.godot.*` capabilities** with operation-specific strict input/output schemas. Driver Protocol v2 negotiates cooperative cancellation, child events, progress, artifacts and health. The production Rust driver has been exercised end-to-end against both an independent fake editor and Godot 4.7.2-stable.
 The real acceptance harness creates a disposable 3D Lab Room through the production driver, writes resources and managed scripts, creates scene nodes, InputMap actions, signals and animation keyframes, saves/reloads the scene, validates and runs it headlessly, exports a PCK artifact and verifies cancellation. It also verifies real Godot editor events crossing the child-event interface.
 
 ## Surface
 
-The curated surface covers project/session inspection, project files and main scene, scenes, typed node creation/mutation/reparenting, groups, InputMap, resources, managed GDScript, signals, animations/tracks/keyframes, AnimationTree configuration, physics layers, Control layout, shaders, resource-filesystem status/rescan, semantic snapshot diff, project/script validation, bounded runtime tests, pack export, executable export and deterministic movie capture.
+The curated surface covers project/session inspection, project files and main scene, scenes, typed node creation/mutation/reparenting, groups, InputMap, resources, managed GDScript, signals, animations/tracks/keyframes, TileMap/TileSet authoring, navigation regions/agents/links, body/area/joint physics, audio players/buses/effects, particles and process materials, Camera2D/3D, Light2D/3D, Environment, StandardMaterial3D, Control/text/theme semantics, Skeleton3D/bone attachments, shaders, resource-filesystem status/rescan, semantic snapshot diff, project/script validation, bounded runtime tests, pack export, executable export and deterministic movie capture.
 
 `export.build` requires owner-installed Godot export templates. `movie.capture` requires an owner-configured X11 display; the driver deliberately refuses that path without one because Godot 4.7.2's dummy headless renderer can crash under `--write-movie`.
 

@@ -6,13 +6,13 @@ This table separates implementation from evidence. A compile or cross-target che
 |---|---|---|---|
 | Rust toolchain | MSRV 1.88; development pin 1.98.1 | locked workspace CI on both policy points | raise MSRV only through an explicit reviewed change |
 | Linux portable/runtime core | Provider Runtime + platform boundary | workspace fmt/check/Clippy/tests/doctests/docs and source contract gates | live desktop matrix remains separate |
-| GNOME Wayland | AT-SPI + optional GJS bridge + portal | real GNOME Shell 46.0 Wayland semantic GTK/AT-SPI mutation, delta and stale-ref run + hosted contracts | portal consent/revocation, optional GJS bridge, scaling/multi-monitor matrix |
+| GNOME Wayland | AT-SPI + optional GJS bridge + portal | real GNOME Shell 46.0 Wayland semantic GTK/AT-SPI mutation, delta and stale-ref run; owner-approved keyboard+pointer `ConnectToEIS` grant/stop lifecycle; hosted contracts | focused portal input/coordinate behavior, optional GJS bridge, scaling/multi-monitor matrix |
 | Plasma Wayland | AT-SPI + KWin bridge + portal | hosted real KWin 6 Wayland mailbox lifecycle: discover/focus/resize/move/close/stale-ref | portal consent plus broader scaling/multi-monitor failure matrix |
 | Sway / i3-style IPC | typed native socket commands/tree | hosted real headless Sway IPC lifecycle plus Rust tests | broader restart/scaling/multi-output matrix |
 | Hyprland | native JSON socket / dispatch | Rust tests | live version-specific IPC/restart |
 | Native X11 | EWMH + explicit XTEST fallback | hosted real Openbox/EWMH session plus bounded lifecycle/cancellation tests | broader real-login, scaling and multi-monitor matrix |
 | AT-SPI | dedicated accessibility bus | hosted real GTK + native Qt fixtures and real GNOME Wayland GTK run; delta/resync/stale-ref lifecycle | additional desktop/toolkit failure matrices |
-| Portal | portal provider | restore-token/clipboard fixtures, EIS protocol fixture and real synthetic PipeWire frame capture | real user-approved consent/revocation + ConnectToEIS desktop matrix |
+| Portal | portal provider | restore-token/clipboard fixtures, EIS protocol fixture, real synthetic PipeWire frame capture and real GNOME owner-approved keyboard+pointer `ConnectToEIS` grant/stop lifecycle | focused input/coordinate/cancellation evidence plus additional portal-granted desktop coverage |
 | macOS ARM64 / Intel | `platform-macos[-sys]` + Swift/C Apple bridge | native hosted macOS CI on Apple Silicon and Intel plus both Darwin target checks | TCC/live interactive Mac acceptance |
 | macOS Accessibility/Input/Capture | AXUIElement / CoreGraphics / ScreenCaptureKit | source + platform-model tests only until native CI | real authorized interactive Mac |
 | macOS arbitrary drivers/plugins | platform launcher boundary | deliberately unavailable | prove supported isolation model before enabling |
