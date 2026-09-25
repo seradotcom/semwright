@@ -923,7 +923,7 @@ impl Atspi {
             if count > 2000 {
                 partial = true;
             }
-            let attributes: BTreeMap<String, String> = bounded(
+            let mut attributes: BTreeMap<String, String> = bounded(
                 proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
             )
             .await
@@ -1148,7 +1148,7 @@ impl Atspi {
             let actions = self.actions(&c, &hit).await;
             let child_count: i32 = bounded(proxy.get_property("ChildCount")).await.unwrap_or(0);
             let child_count = usize::try_from(child_count.max(0)).unwrap_or(0).min(2000);
-            let attributes: BTreeMap<String, String> = bounded(
+            let mut attributes: BTreeMap<String, String> = bounded(
                 proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
             )
             .await
