@@ -2,12 +2,13 @@
 """Disposable Qt accessibility fixture for hosted AT-SPI conformance."""
 import sys
 
-from PyQt6.QtCore import QLibraryInfo, QTimer, QT_VERSION_STR
+from PyQt6.QtCore import QLibraryInfo, QTimer, QT_VERSION_STR, Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -29,13 +30,26 @@ entry.setAccessibleDescription(
     "Editable field used by the Semwright AT-SPI conformance test"
 )
 entry.setPlaceholderText("Type here")
-button = QPushButton("Close")
-button.clicked.connect(window.close)
+
+password = QLineEdit()
+password.setEchoMode(QLineEdit.EchoMode.Password)
+password.setAccessibleName("Secret fixture input")
+password.setAccessibleDescription("Protected field for redaction conformance")
+
+slider = QSlider(Qt.Orientation.Horizontal)
+slider.setRange(0, 100)
+slider.setValue(25)
+slider.setAccessibleName("Level")
+
+export = QPushButton("Export")
+export.setAccessibleName("Export")
 
 layout.addWidget(label)
 layout.addWidget(entry)
-layout.addWidget(button)
-window.resize(360, 160)
+layout.addWidget(password)
+layout.addWidget(slider)
+layout.addWidget(export)
+window.resize(360, 260)
 window.show()
 
 

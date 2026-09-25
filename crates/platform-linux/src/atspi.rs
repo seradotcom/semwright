@@ -578,19 +578,25 @@ impl Atspi {
         if supports_interface(interfaces, "Text")
             && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Text").await
         {
-            let character_count = bounded(proxy.get_property::<i32>("CharacterCount"))
-                .await
-                .ok()
-                .and_then(|value| usize::try_from(value.max(0)).ok());
-            let caret_offset = bounded(proxy.get_property::<i32>("CaretOffset"))
-                .await
-                .ok()
-                .map(i64::from);
-            let selection_count = bounded(proxy.call::<_, _, i32>("GetNSelections", &()))
-                .await
-                .ok()
-                .and_then(|value| usize::try_from(value.max(0)).ok());
             let password = role == "password-entry";
+            let (character_count, caret_offset, selection_count) = if password {
+                (None, None, None)
+            } else {
+                (
+                    bounded(proxy.get_property::<i32>("CharacterCount"))
+                        .await
+                        .ok()
+                        .and_then(|value| usize::try_from(value.max(0)).ok()),
+                    bounded(proxy.get_property::<i32>("CaretOffset"))
+                        .await
+                        .ok()
+                        .map(i64::from),
+                    bounded(proxy.call::<_, _, i32>("GetNSelections", &()))
+                        .await
+                        .ok()
+                        .and_then(|value| usize::try_from(value.max(0)).ok()),
+                )
+            };
             let mut selections = Vec::new();
             if !password {
                 for index in 0..selection_count.unwrap_or(0).min(8) {
@@ -928,18 +934,19 @@ impl Atspi {
                 )
             })
             .collect();
-            let help: String = bounded(proxy.get_property::<String>("HelpText"))
+            let mut help: String = bounded(proxy.get_property::<String>("HelpText"))
                 .await
                 .unwrap_or_default()
                 .chars()
                 .take(1024)
                 .collect();
-            let accessibility_id: String = bounded(proxy.get_property::<String>("AccessibleId"))
-                .await
-                .unwrap_or_default()
-                .chars()
-                .take(512)
-                .collect();
+            let mut accessibility_id: String =
+                bounded(proxy.get_property::<String>("AccessibleId"))
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(512)
+                    .collect();
             let locale: String = bounded(proxy.get_property::<String>("Locale"))
                 .await
                 .unwrap_or_default()
@@ -984,8 +991,10 @@ impl Atspi {
                 .await
                 .unwrap_or_default();
             if role == "password-entry" {
-                name = "[protected control]".into();
+                name.clear();
                 description.clear();
+                help.clear();
+                accessibility_id.clear();
             }
             name = name.chars().take(1024).collect();
             description = description.chars().take(1024).collect();
@@ -1149,18 +1158,19 @@ impl Atspi {
                 )
             })
             .collect();
-            let help: String = bounded(proxy.get_property::<String>("HelpText"))
+            let mut help: String = bounded(proxy.get_property::<String>("HelpText"))
                 .await
                 .unwrap_or_default()
                 .chars()
                 .take(1024)
                 .collect();
-            let accessibility_id: String = bounded(proxy.get_property::<String>("AccessibleId"))
-                .await
-                .unwrap_or_default()
-                .chars()
-                .take(512)
-                .collect();
+            let mut accessibility_id: String =
+                bounded(proxy.get_property::<String>("AccessibleId"))
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(512)
+                    .collect();
             let locale: String = bounded(proxy.get_property::<String>("Locale"))
                 .await
                 .unwrap_or_default()
@@ -1189,8 +1199,10 @@ impl Atspi {
                 .await
                 .unwrap_or_default();
             if role == "password-entry" {
-                name = "[protected control]".into();
+                name.clear();
                 description.clear();
+                help.clear();
+                accessibility_id.clear();
             }
             let bounds = match self.proxy(&c, &hit, "org.a11y.atspi.Component").await {
                 Ok(component) => {
@@ -1324,6 +1336,12 @@ impl Backend for Atspi {
                 json!({"text":text,"truncated":count>max})
             }
             "ui.set_text" => {
+                if role == "password-entry" {
+                    return Err(Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Credential/password UI is not writable through generic AT-SPI",
+                    ));
+                }
                 let p = self
                     .proxy(&c, &object, "org.a11y.atspi.EditableText")
                     .await?;

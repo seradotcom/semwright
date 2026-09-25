@@ -176,15 +176,20 @@ private let observe:AXObserverCallback={_,element,notification,_ in
         if !subrole.isEmpty{attributes["ax_subrole"]=subrole}
         let childCount=axArrayCount(e,kAXChildrenAttribute) ?? 0
         var facets:[String:Any]=[:]
-        if let count=axOptionalNumber(e,kAXNumberOfCharactersAttribute){
+        if secure {
+            facets["text"]=[
+                "editable":axBool(e,kAXIsEditableAttribute),
+                "password":true,
+            ]
+        } else if let count=axOptionalNumber(e,kAXNumberOfCharactersAttribute){
             facets["text"]=[
                 "character_count":max(0,Int(count)),
                 "selection_count":axArrayCount(e,kAXSelectedTextRangesAttribute) as Any,
                 "editable":axBool(e,kAXIsEditableAttribute),
-                "password":secure,
+                "password":false,
             ]
         }
-        if let current=axOptionalNumber(e,kAXValueAttribute){
+        if !secure,let current=axOptionalNumber(e,kAXValueAttribute){
             var value:[String:Any]=["current":current]
             if let minimum=axOptionalNumber(e,kAXMinValueAttribute){value["minimum"]=minimum}
             if let maximum=axOptionalNumber(e,kAXMaxValueAttribute){value["maximum"]=maximum}
@@ -279,17 +284,22 @@ private let observe:AXObserverCallback={_,element,notification,_ in
             var attributes:[String:String]=["ax_role":raw]
             if !subrole.isEmpty{attributes["ax_subrole"]=subrole}
             var facets:[String:Any]=[:]
-            if let count=axOptionalNumber(e,kAXNumberOfCharactersAttribute){
+            if secure {
+                facets["text"]=[
+                    "editable":axBool(e,kAXIsEditableAttribute),
+                    "password":true,
+                ]
+            } else if let count=axOptionalNumber(e,kAXNumberOfCharactersAttribute){
                 let selections=axArrayCount(e,kAXSelectedTextRangesAttribute)
                     ?? ((try? axRaw(e,kAXSelectedTextRangeAttribute)) == nil ? nil : 1)
                 facets["text"]=[
                     "character_count":max(0,Int(count)),
                     "selection_count":selections as Any,
                     "editable":axBool(e,kAXIsEditableAttribute),
-                    "password":secure,
+                    "password":false,
                 ]
             }
-            if let current=axOptionalNumber(e,kAXValueAttribute){
+            if !secure,let current=axOptionalNumber(e,kAXValueAttribute){
                 var value:[String:Any]=["current":current]
                 if let minimum=axOptionalNumber(e,kAXMinValueAttribute){value["minimum"]=minimum}
                 if let maximum=axOptionalNumber(e,kAXMaxValueAttribute){value["maximum"]=maximum}

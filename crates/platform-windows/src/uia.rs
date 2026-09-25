@@ -368,6 +368,18 @@ impl State {
     fn semantic_facets(&self, element: &UIElement, password: bool) -> UiFacets {
         let mut facets = UiFacets::default();
 
+        if password {
+            facets.text = Some(UiTextFacet {
+                editable: element
+                    .get_pattern::<UIValuePattern>()
+                    .ok()
+                    .is_some_and(|value| !value.is_readonly().unwrap_or(true)),
+                password: true,
+                ..UiTextFacet::default()
+            });
+            return facets;
+        }
+
         if let Ok(pattern) = element.get_pattern::<UITextPattern>() {
             facets.text = Some(UiTextFacet {
                 character_count: None,

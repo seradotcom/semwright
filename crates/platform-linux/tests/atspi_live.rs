@@ -104,6 +104,12 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     assert_eq!(password["description"], "");
     assert_eq!(password["help"], "");
     assert_eq!(password["facets"]["text"]["password"], true);
+    assert!(password["facets"]["text"]["character_count"].is_null());
+    assert!(password["facets"]["text"]["caret_offset"].is_null());
+    assert!(password["facets"]["text"]["selection_count"].is_null());
+    assert_eq!(password["facets"]["text"]["selections"], json!([]));
+    assert_eq!(password["facets"]["text"]["caret_attributes"], json!({}));
+    assert!(password["facets"]["value"].is_null());
 
     let slider = nodes
         .iter()
@@ -234,17 +240,17 @@ async fn live_atspi_gtk_delta_resync_and_stale_refs() {
     if std::env::var_os("SEMWRIGHT_TEST_ATSPI").is_none() {
         return;
     }
-    let child = tokio::process::Command::new("/usr/bin/zenity")
+    let fixture = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_GTK_FIXTURE")
+            .expect("SEMWRIGHT_TEST_GTK_FIXTURE must point to the native GTK fixture"),
+    );
+    assert!(fixture.is_file(), "native GTK fixture must exist");
+    let child = tokio::process::Command::new(fixture)
         .env("GTK_A11Y", "atspi")
         .env_remove("NO_AT_BRIDGE")
-        .args([
-            "--entry",
-            "--title=Semwright AT-SPI Fixture",
-            "--text=Disposable accessibility fixture",
-        ])
         .spawn()
-        .expect("zenity must start");
-    exercise_fixture(child, "zenity").await;
+        .expect("native GTK fixture must start");
+    exercise_fixture(child, "semwright").await;
 }
 
 #[tokio::test]
