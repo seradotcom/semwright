@@ -28,6 +28,7 @@ test('render harness is bound to Driver Host, pinned Firefox, and local origin',
   assert.ok(!render.includes('MOZ_WEBRENDER'));
   assert.ok(!render.includes('connectOverCDP'));
   assert.ok(render.includes('semwright.invalid'));
+  assert.ok(render.includes('undefined, {timeout:config.timeoutMs}'));
   assert.ok(render.includes("route.abort('blockedbyclient')"));
 });
 

@@ -121,7 +121,7 @@ async function main() {
     });
     await page.goto('http://semwright.invalid/semwright-render.html', {waitUntil:'domcontentloaded',timeout:config.timeoutMs});
     try {
-      await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, {timeout:config.timeoutMs});
+      await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, undefined, {timeout:config.timeoutMs});
     } catch (error) {
       const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__?.state ?? null).catch(()=>null);
       fail(`render wait failed: ${error}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
