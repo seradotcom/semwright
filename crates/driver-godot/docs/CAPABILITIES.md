@@ -1,6 +1,6 @@
 # Godot capability surface
 
-The Godot driver exposes **166 curated `driver.godot.*` capabilities**. Every advertised
+The Godot driver exposes **180 curated `driver.godot.*` capabilities**. Every advertised
 capability has an operation-specific input and output schema, descriptor digest, route and
 risk/idempotency classification. The catalog is checked against the production EditorPlugin
 dispatch and runner routes. The goal is semantic domain coverage, not a one-tool-per-method
@@ -180,8 +180,19 @@ ProjectSettings.
 - `animation_tree.transition.add`, `animation_tree.transition.configure`,
   `animation_tree.transition.remove`
 - `animation_tree.parameter.set`
+- `animation_tree.node.inspect`, `animation_tree.node.configure`
+- `animation_tree.blend_tree.inspect`
+- `animation_tree.blend_tree.node.add`, `animation_tree.blend_tree.node.configure`,
+  `animation_tree.blend_tree.node.remove`
+- `animation_tree.blend_tree.connection.set`
+- `animation_tree.blend_space.inspect`, `animation_tree.blend_space.configure`
+- `animation_tree.blend_space.point.add`, `animation_tree.blend_space.point.configure`,
+  `animation_tree.blend_space.point.remove`
+- `animation_tree.blend_space.triangle.add`, `animation_tree.blend_space.triangle.remove`
 
-State creation is limited to an explicit set of AnimationNode classes. Transitions expose
+State machines, BlendTrees and named 1D/2D blend spaces can be addressed recursively through a
+bounded semantic graph path. Node creation is limited to explicit built-in AnimationNode kinds;
+BlendTree connections and BlendSpace points/triangles have typed schemas. Transitions expose
 condition, advance mode, priority, reset, switch mode and cross-fade semantics without arbitrary
 method dispatch.
 

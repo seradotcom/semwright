@@ -151,7 +151,7 @@ fn catalog_plugin_routes_have_editor_handlers() {
     let catalog = Catalog::load().unwrap();
     let plugin = include_str!("../../../integrations/godot/addons/semwright/plugin.gd");
     let names = catalog.names_for(Route::Plugin);
-    assert_eq!(names.len(), 157);
+    assert_eq!(names.len(), 171);
     for name in names {
         let op = name.strip_prefix("driver.godot.").unwrap();
         let marker = format!("\"{op}\": return ");
@@ -167,9 +167,9 @@ fn catalog_routes_partition_the_full_surface() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     assert_eq!(catalog.names_for(Route::Local).len(), 3);
-    assert_eq!(catalog.names_for(Route::Plugin).len(), 157);
+    assert_eq!(catalog.names_for(Route::Plugin).len(), 171);
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
-    assert_eq!(catalog.capabilities().len(), 166);
+    assert_eq!(catalog.capabilities().len(), 180);
 }
 
 #[test]

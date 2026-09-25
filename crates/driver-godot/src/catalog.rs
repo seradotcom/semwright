@@ -2272,6 +2272,202 @@ fn specs() -> Vec<Spec> {
             mutation_out,
         ),
         spec(
+            "animation_tree.node.inspect",
+            "Inspect a recursively-addressed AnimationTree graph node",
+            "animation",
+            "animation_graph_node",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            animation_graph_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.node.configure",
+            "Configure a typed AnimationTree graph node",
+            "animation",
+            "animation_graph_node",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_graph_node_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.inspect",
+            "Inspect nodes and connections in a recursively-addressed BlendTree",
+            "animation",
+            "animation_blend_tree",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            animation_graph_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.node.add",
+            "Add a typed node to a BlendTree",
+            "animation",
+            "animation_blend_tree_node",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_node_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.node.configure",
+            "Configure or reposition a BlendTree node",
+            "animation",
+            "animation_blend_tree_node",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_node_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.node.remove",
+            "Remove a BlendTree node",
+            "animation",
+            "animation_blend_tree_node",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_node_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.connection.set",
+            "Connect or disconnect a typed BlendTree input",
+            "animation",
+            "animation_blend_tree_connection",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_connection_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.inspect",
+            "Inspect a recursively-addressed BlendSpace1D or BlendSpace2D",
+            "animation",
+            "animation_blend_space",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            animation_graph_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.blend_space.configure",
+            "Configure BlendSpace extents, labels, interpolation and synchronization",
+            "animation",
+            "animation_blend_space",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.point.add",
+            "Add a named typed root node to a BlendSpace",
+            "animation",
+            "animation_blend_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_point_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.point.configure",
+            "Configure a BlendSpace point",
+            "animation",
+            "animation_blend_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_point_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.point.remove",
+            "Remove a BlendSpace point",
+            "animation",
+            "animation_blend_point",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_point_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.triangle.add",
+            "Add a manual BlendSpace2D triangle",
+            "animation",
+            "animation_blend_triangle",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_triangle_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.triangle.remove",
+            "Remove a manual BlendSpace2D triangle",
+            "animation",
+            "animation_blend_triangle",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_triangle_target_in,
+            mutation_out,
+        ),
+        spec(
             "multiplayer.spawner.inspect",
             "Inspect MultiplayerSpawner authoring state",
             "multiplayer",
@@ -4398,6 +4594,184 @@ fn animation_tree_parameter_set_in() -> Value {
         &["session", "tree", "parameter", "value", "expect", "dry_run"],
     )
 }
+
+fn animation_graph_read_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("graph".into(), json!({"type":"string","maxLength":1024})),
+        ]),
+        &["session", "tree", "graph"],
+    )
+}
+
+fn animation_graph_mutation_schema(
+    mut extra: Map<String, Value>,
+    required_extra: &[&str],
+) -> Value {
+    extra.insert("session".into(), hex_string(32));
+    extra.insert("tree".into(), string(240));
+    extra.insert("graph".into(), json!({"type":"string","maxLength":1024}));
+    extra.insert("expect".into(), stamp());
+    extra.insert("dry_run".into(), boolean());
+    let mut required = vec!["session", "tree", "graph"];
+    required.extend_from_slice(required_extra);
+    required.extend_from_slice(&["expect", "dry_run"]);
+    object(extra, &required)
+}
+
+fn animation_graph_node_kind_schema() -> Value {
+    json!({"enum":[
+        "animation","state_machine","blend_tree","blend_space_1d","blend_space_2d",
+        "one_shot","transition","time_scale","time_seek","blend2","blend3",
+        "add2","add3","sub2"
+    ]})
+}
+
+fn animation_root_node_kind_schema() -> Value {
+    json!({"enum":[
+        "animation","state_machine","blend_tree","blend_space_1d","blend_space_2d"
+    ]})
+}
+
+fn blend_position_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"number","minimum":-1000000.0,"maximum":1000000.0},
+        vec2_schema()
+    ]})
+}
+
+fn animation_graph_node_properties() -> Map<String, Value> {
+    Map::from_iter([
+        ("position".into(), vec2_schema()),
+        ("animation".into(), json!({"type":"string","maxLength":96})),
+        ("sync".into(), boolean()),
+        ("fadein_time".into(), bounded_number(0.0, 60.0)),
+        ("fadeout_time".into(), bounded_number(0.0, 60.0)),
+        ("mix_mode".into(), bounded_int(0, 1)),
+        ("autorestart".into(), boolean()),
+        ("autorestart_delay".into(), bounded_number(0.0, 3600.0)),
+        (
+            "autorestart_random_delay".into(),
+            bounded_number(0.0, 3600.0),
+        ),
+        ("abort_on_reset".into(), boolean()),
+        ("break_loop_at_end".into(), boolean()),
+        ("input_count".into(), bounded_int(0, 64)),
+        ("xfade_time".into(), bounded_number(0.0, 60.0)),
+        ("allow_transition_to_self".into(), boolean()),
+        (
+            "transition_input".into(),
+            object(
+                Map::from_iter([
+                    ("index".into(), bounded_int(0, 63)),
+                    ("auto_advance".into(), boolean()),
+                    ("reset".into(), boolean()),
+                    ("break_loop_at_end".into(), boolean()),
+                ]),
+                &["index"],
+            ),
+        ),
+        ("graph_offset".into(), vec2_schema()),
+        ("blend_mode".into(), bounded_int(0, 2)),
+        ("sync_mode".into(), bounded_int(0, 2)),
+        ("cyclic_length".into(), bounded_number(0.0, 1000000.0)),
+        ("min_space".into(), blend_position_schema()),
+        ("max_space".into(), blend_position_schema()),
+        ("snap".into(), blend_position_schema()),
+        (
+            "value_label".into(),
+            json!({"type":"string","maxLength":96}),
+        ),
+        ("x_label".into(), json!({"type":"string","maxLength":96})),
+        ("y_label".into(), json!({"type":"string","maxLength":96})),
+        ("auto_triangles".into(), boolean()),
+    ])
+}
+
+fn animation_graph_node_configure_in() -> Value {
+    animation_graph_mutation_schema(animation_graph_node_properties(), &[])
+}
+
+fn animation_blend_tree_node_add_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("name".into(), string(96));
+    props.insert("kind".into(), animation_graph_node_kind_schema());
+    animation_graph_mutation_schema(props, &["name", "kind", "position"])
+}
+
+fn animation_blend_tree_node_configure_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("name".into(), string(96));
+    props.insert("new_name".into(), json!({"type":"string","maxLength":96}));
+    animation_graph_mutation_schema(props, &["name"])
+}
+
+fn animation_blend_tree_node_target_in() -> Value {
+    animation_graph_mutation_schema(Map::from_iter([("name".into(), string(96))]), &["name"])
+}
+
+fn animation_blend_tree_connection_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([
+            ("input_node".into(), string(96)),
+            ("input_index".into(), bounded_int(0, 63)),
+            ("output_node".into(), string(96)),
+            ("connected".into(), boolean()),
+        ]),
+        &["input_node", "input_index", "output_node", "connected"],
+    )
+}
+
+fn animation_blend_space_configure_in() -> Value {
+    animation_graph_mutation_schema(animation_graph_node_properties(), &[])
+}
+
+fn animation_blend_space_point_add_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("name".into(), string(96));
+    props.insert("kind".into(), animation_root_node_kind_schema());
+    props.insert("index".into(), bounded_int(-1, 255));
+    props.insert("position".into(), blend_position_schema());
+    animation_graph_mutation_schema(props, &["name", "kind", "position"])
+}
+
+fn animation_blend_space_point_configure_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.remove("position");
+    props.insert("index".into(), bounded_int(0, 255));
+    props.insert("name".into(), json!({"type":"string","maxLength":96}));
+    props.insert("position".into(), blend_position_schema());
+    animation_graph_mutation_schema(props, &["index"])
+}
+
+fn animation_blend_space_point_target_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([("index".into(), bounded_int(0, 255))]),
+        &["index"],
+    )
+}
+
+fn animation_blend_space_triangle_add_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([
+            ("a".into(), bounded_int(0, 255)),
+            ("b".into(), bounded_int(0, 255)),
+            ("c".into(), bounded_int(0, 255)),
+            ("index".into(), bounded_int(-1, 1023)),
+        ]),
+        &["a", "b", "c"],
+    )
+}
+
+fn animation_blend_space_triangle_target_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([("index".into(), bounded_int(0, 1023))]),
+        &["index"],
+    )
+}
+
 fn multiplayer_spawner_configure_in() -> Value {
     object(
         Map::from_iter([

@@ -178,7 +178,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert interfaces["interfaces"]["artifacts"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
-        assert len(caps) == 166, len(caps)
+        assert len(caps) == 180, len(caps)
 
         env = os.environ.copy()
         env.update({
@@ -819,6 +819,130 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
                    for row in tree["data"]["parameters"])
         mutate("driver.godot.animation_tree.state.remove", {
             "tree": "AnimationTree", "name": "Temporary",
+        })
+
+        # Recursive AnimationTree graph authoring: StateMachine -> BlendTree ->
+        # blend nodes and named 1D/2D blend spaces.
+        mutate("driver.godot.animation_tree.state.add", {
+            "tree": "AnimationTree", "name": "BlendGraph", "kind": "blend_tree",
+            "position": [660.0, 0.0],
+        })
+        blend_root = call("driver.godot.animation_tree.node.inspect", {
+            "session": sid, "tree": "AnimationTree", "graph": "BlendGraph",
+        })
+        assert blend_root["data"]["class"] == "AnimationNodeBlendTree"
+
+        for name, position in [("IdleClip", [0.0, 0.0]), ("RunClip", [0.0, 120.0])]:
+            mutate("driver.godot.animation_tree.blend_tree.node.add", {
+                "tree": "AnimationTree", "graph": "BlendGraph", "name": name,
+                "kind": "animation", "position": position, "animation": "door_open",
+            })
+        mutate("driver.godot.animation_tree.blend_tree.node.add", {
+            "tree": "AnimationTree", "graph": "BlendGraph", "name": "Blend",
+            "kind": "blend2", "position": [220.0, 60.0], "sync": True,
+        })
+        for input_node, input_index, output_node in [
+            ("Blend", 0, "IdleClip"),
+            ("Blend", 1, "RunClip"),
+            ("output", 0, "Blend"),
+        ]:
+            mutate("driver.godot.animation_tree.blend_tree.connection.set", {
+                "tree": "AnimationTree", "graph": "BlendGraph",
+                "input_node": input_node, "input_index": input_index,
+                "output_node": output_node, "connected": True,
+            })
+        blend_tree = call("driver.godot.animation_tree.blend_tree.inspect", {
+            "session": sid, "tree": "AnimationTree", "graph": "BlendGraph",
+        })
+        assert {"IdleClip", "RunClip", "Blend"}.issubset(
+            {row["name"] for row in blend_tree["data"]["nodes"]}
+        )
+        mutate("driver.godot.animation_tree.blend_tree.node.configure", {
+            "tree": "AnimationTree", "graph": "BlendGraph", "name": "Blend",
+            "position": [240.0, 70.0], "sync": False,
+        })
+        blend_node = call("driver.godot.animation_tree.node.inspect", {
+            "session": sid, "tree": "AnimationTree", "graph": "BlendGraph/Blend",
+        })
+        assert blend_node["data"]["class"] == "AnimationNodeBlend2"
+        assert blend_node["data"]["sync"] is False
+
+        mutate("driver.godot.animation_tree.blend_tree.node.add", {
+            "tree": "AnimationTree", "graph": "BlendGraph", "name": "SpeedSpace",
+            "kind": "blend_space_1d", "position": [460.0, 0.0],
+            "min_space": -1.0, "max_space": 1.0, "snap": 0.1,
+        })
+        mutate("driver.godot.animation_tree.blend_space.configure", {
+            "tree": "AnimationTree", "graph": "BlendGraph/SpeedSpace",
+            "min_space": -2.0, "max_space": 2.0, "snap": 0.25,
+            "value_label": "Speed", "blend_mode": 0, "sync_mode": 0,
+            "cyclic_length": 0.0,
+        })
+        for name, position in [("Slow", -1.0), ("Fast", 1.0), ("Temporary", 0.0)]:
+            mutate("driver.godot.animation_tree.blend_space.point.add", {
+                "tree": "AnimationTree", "graph": "BlendGraph/SpeedSpace",
+                "name": name, "kind": "animation", "position": position,
+                "animation": "door_open", "index": -1,
+            })
+        mutate("driver.godot.animation_tree.blend_space.point.configure", {
+            "tree": "AnimationTree", "graph": "BlendGraph/SpeedSpace",
+            "index": 1, "name": "Sprint", "position": 1.5,
+            "animation": "door_open",
+        })
+        speed_space = call("driver.godot.animation_tree.blend_space.inspect", {
+            "session": sid, "tree": "AnimationTree", "graph": "BlendGraph/SpeedSpace",
+        })
+        assert speed_space["data"]["dimension"] == 1
+        assert [row["name"] for row in speed_space["data"]["points"]] == [
+            "Slow", "Sprint", "Temporary"
+        ]
+        mutate("driver.godot.animation_tree.blend_space.point.remove", {
+            "tree": "AnimationTree", "graph": "BlendGraph/SpeedSpace", "index": 2,
+        })
+
+        mutate("driver.godot.animation_tree.blend_tree.node.add", {
+            "tree": "AnimationTree", "graph": "BlendGraph", "name": "DirectionSpace",
+            "kind": "blend_space_2d", "position": [460.0, 220.0],
+            "min_space": [-1.0, -1.0], "max_space": [1.0, 1.0],
+            "snap": [0.1, 0.1], "auto_triangles": False,
+        })
+        for name, position in [
+            ("Left", [-1.0, 0.0]),
+            ("Right", [1.0, 0.0]),
+            ("Forward", [0.0, 1.0]),
+        ]:
+            mutate("driver.godot.animation_tree.blend_space.point.add", {
+                "tree": "AnimationTree", "graph": "BlendGraph/DirectionSpace",
+                "name": name, "kind": "animation", "position": position,
+                "animation": "door_open", "index": -1,
+            })
+        mutate("driver.godot.animation_tree.blend_space.triangle.add", {
+            "tree": "AnimationTree", "graph": "BlendGraph/DirectionSpace",
+            "a": 0, "b": 1, "c": 2, "index": -1,
+        })
+        direction_space = call("driver.godot.animation_tree.blend_space.inspect", {
+            "session": sid, "tree": "AnimationTree",
+            "graph": "BlendGraph/DirectionSpace",
+        })
+        assert direction_space["data"]["dimension"] == 2
+        assert len(direction_space["data"]["triangles"]) == 1
+        mutate("driver.godot.animation_tree.blend_space.triangle.remove", {
+            "tree": "AnimationTree", "graph": "BlendGraph/DirectionSpace", "index": 0,
+        })
+
+        # Exercise disconnect plus reconnect with a different root source.
+        mutate("driver.godot.animation_tree.blend_tree.connection.set", {
+            "tree": "AnimationTree", "graph": "BlendGraph",
+            "input_node": "output", "input_index": 0,
+            "output_node": "Blend", "connected": False,
+        })
+        mutate("driver.godot.animation_tree.blend_tree.connection.set", {
+            "tree": "AnimationTree", "graph": "BlendGraph",
+            "input_node": "output", "input_index": 0,
+            "output_node": "SpeedSpace", "connected": True,
+        })
+        mutate("driver.godot.animation_tree.blend_tree.node.remove", {
+            "tree": "AnimationTree", "graph": "BlendGraph", "name": "RunClip",
         })
 
         # Multiplayer scene-replication authoring without opening sockets.
