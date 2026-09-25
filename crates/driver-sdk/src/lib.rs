@@ -1364,7 +1364,6 @@ mod tests {
         let encoded = serde_json::to_value(&data_only).unwrap();
         assert!(encoded["mounts"][0].get("execute").is_none());
     }
-    }
 
     #[test]
     fn artifact_port_tags_are_machine_readable_and_bounded() {
