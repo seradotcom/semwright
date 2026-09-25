@@ -3409,6 +3409,7 @@ dependencies = [
 name = "semwright-platform-windows-sys"
 version = "0.9.0-dev.1"
 dependencies = [
+ "png",
  "proptest",
  "semwright-platform-api",
  "semwright-types",

@@ -15,12 +15,12 @@ The driver does not expose arbitrary GDScript evaluation, OS.execute, shell exec
 
 ## Status
 
-The current catalog exposes **103 typed `driver.godot.*` capabilities** with operation-specific strict input/output schemas. Driver Protocol v2 negotiates cooperative cancellation, child events, progress, artifacts and health. The production Rust driver has been exercised end-to-end against both an independent fake editor and Godot 4.7.2-stable.
-The real acceptance harness creates a disposable 3D Lab Room through the production driver, writes resources and managed scripts, creates scene nodes, InputMap actions, signals and animation keyframes, saves/reloads the scene, validates and runs it headlessly, exports a PCK artifact and verifies cancellation. It also verifies real Godot editor events crossing the child-event interface.
+The current catalog exposes **188 typed `driver.godot.*` capabilities** with operation-specific strict input/output schemas. Driver Protocol v2 negotiates cooperative cancellation, child events, progress, artifacts and health. The production Rust driver has been exercised end-to-end against both an independent fake editor and Godot 4.7.2-stable.
+The real acceptance harness creates a disposable Lab Room through the production driver with both 3D and 2D authoring subtrees. It writes resources and managed scripts, persists keyboard/mouse/gamepad InputMap actions, exercises typed 2D/3D navigation and physics, creates signals and animation keyframes, saves/reloads the scene, validates and runs it headlessly, exports a PCK artifact and verifies cancellation. It also verifies real Godot editor events crossing the child-event interface.
 
 ## Surface
 
-The curated surface covers project/session inspection, project files and main scene, scenes, typed node creation/mutation/reparenting, groups, InputMap, resources, managed GDScript, signals, animations/tracks/keyframes, TileMap/TileSet authoring, navigation regions/agents/links, body/area/joint physics, audio players/buses/effects, particles and process materials, Camera2D/3D, Light2D/3D, Environment, StandardMaterial3D, Control/text/theme semantics, Skeleton3D/bone attachments, shaders, resource-filesystem status/rescan, semantic snapshot diff, project/script validation, bounded runtime tests, pack export, executable export and deterministic movie capture.
+The curated surface covers project/session inspection, scenes and nodes, project window/rendering/physics/layer settings, autoloads, InputMap, resources, managed GDScript, signals, assets/imports, export presets, localization, animations and recursive AnimationTree state-machine/BlendTree/BlendSpace graphs, TileMap/TileSet, GridMap/MeshLibrary, paths/curves, navigation, physics, audio, particles, rendering, UI/themes, skeletons, multiplayer scene-replication authoring, editor selection/state, bounded editor runs, semantic snapshot diff, validation, runtime tests, pack/build export and deterministic movie capture. A bounded generic substrate additionally exposes read-only ClassDB/project-class introspection, a broad typed Variant codec and provider-owned node/resource/scene refs with freshness validation; discovered methods are never dynamically invoked and refs are never executable handles.
 
 `export.build` requires owner-installed Godot export templates. `movie.capture` requires an owner-configured X11 display; the driver deliberately refuses that path without one because Godot 4.7.2's dummy headless renderer can crash under `--write-movie`.
 
@@ -48,4 +48,4 @@ Copy `integrations/godot/addons/semwright/` into the target project's `res://add
 
 The current manifest model expresses network as a boolean; the driver itself only listens on loopback.
 
-See [security](docs/SECURITY.md), [compatibility](docs/COMPATIBILITY.md), [capabilities](docs/CAPABILITIES.md), and [SDK gaps](docs/SDK_GAPS.md).
+See [security](docs/SECURITY.md), [compatibility](docs/COMPATIBILITY.md), [capabilities](docs/CAPABILITIES.md), [semantic-domain completeness](docs/SEMANTIC_DOMAINS.md), and [SDK gaps](docs/SDK_GAPS.md).
