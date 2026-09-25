@@ -194,6 +194,7 @@ impl Host {
                 staged_executable: staged.clone(),
                 helper: self.helper.clone(),
                 mounts,
+                args: vec![],
                 network: manifest.network,
                 limits: None,
             })?;
