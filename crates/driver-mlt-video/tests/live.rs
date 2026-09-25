@@ -552,51 +552,15 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     assert!(artifact.is_file());
     assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
 
-    // Exercise the same curated H.264 consumer used by the launch film on a
-    // bounded 50-frame timeline. Relink the video to a synthetic 1080p/30 input
-    // first so this tests the film's no-scale geometry instead of MLT 7.22's
-    // unrelated 160x90 -> 1080p scaling path.
-    let assets = call(
+    // Exercise the same curated H.264 consumer used by the launch film in a
+    // separate project born at 1920x1080/30. Reprofiling the earlier 160x90/25
+    // lossless fixture after clips already exist changes the timebase underneath
+    // those clips and does not represent the production launch-film route.
+    let h264_project = call(
         provider.as_ref(),
         &capabilities,
-        "driver.mlt-video.asset.list",
-        json!({"project":project_ref,"limit":100}),
-    )
-    .await
-    .unwrap();
-    let video_row = assets["items"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|row| row["name"] == "Video")
-        .unwrap();
-    let video_ref = video_row["reference"].as_str().unwrap().to_owned();
-    let video_resource = video_row["resource"].as_str().unwrap().to_owned();
-    let relinked = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.asset.relink",
+        "driver.mlt-video.project.create",
         json!({
-            "project":project_ref,
-            "expected_revision":revision,
-            "asset":video_ref,
-            "expected_resource":video_resource,
-            "root":"media",
-            "path":"h264-source.mp4"
-        }),
-    )
-    .await
-    .unwrap();
-    project_ref = relinked["project"].as_str().unwrap().to_owned();
-    revision = relinked["resulting_revision"].as_str().unwrap().to_owned();
-
-    let profiled = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.project.profile.set",
-        json!({
-            "project":project_ref,
-            "expected_revision":revision,
             "profile": {
                 "width":1920,
                 "height":1080,
@@ -614,49 +578,109 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
-    project_ref = profiled["project"].as_str().unwrap().to_owned();
-    revision = profiled["resulting_revision"].as_str().unwrap().to_owned();
+    project_ref = h264_project["project"].as_str().unwrap().to_owned();
+    revision = h264_project["revision"].as_str().unwrap().to_owned();
 
-    // Keep the native H.264 conformance gate bounded. The earlier lossless path
-    // already exercises a 50-frame timeline; the launch-film workflow separately
-    // certifies the full 1,560-frame 1080p H.264/AAC render. Here we retain the
-    // exact curated production profile and real sandbox while trimming both clips
-    // to five frames so synchronous MLT 7.22 processing is a smoke, not a benchmark.
-    for clip_name in ["Video Clip", "Audio Clip"] {
-        let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-        let clips = call(
+    let h264_sequence = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.sequence.create",
+        json!({"project":project_ref,"expected_revision":revision,"name":"H264 Main"}),
+    )
+    .await
+    .unwrap();
+    project_ref = h264_sequence["project"].as_str().unwrap().to_owned();
+    revision = h264_sequence["resulting_revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    for (name, path) in [
+        ("H264 Video", "h264-source.mp4"),
+        ("H264 Audio", "sine.wav"),
+    ] {
+        let value = call(
             provider.as_ref(),
             &capabilities,
-            "driver.mlt-video.clip.list",
-            json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
-        )
-        .await
-        .unwrap();
-        let clip_ref = clips["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|row| row["name"] == clip_name)
-            .and_then(|row| row["reference"].as_str())
-            .unwrap()
-            .to_owned();
-        let trimmed = call(
-            provider.as_ref(),
-            &capabilities,
-            "driver.mlt-video.clip.trim",
+            "driver.mlt-video.asset.import",
             json!({
                 "project":project_ref,
                 "expected_revision":revision,
-                "sequence":current_sequence,
-                "clip":clip_ref,
-                "source_in":0,
-                "source_out":5
+                "kind":"file",
+                "name":name,
+                "root":"media",
+                "path":path
             }),
         )
         .await
         .unwrap();
-        project_ref = trimmed["project"].as_str().unwrap().to_owned();
-        revision = trimmed["resulting_revision"].as_str().unwrap().to_owned();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
+    }
+
+    for (name, kind) in [("H264 Video Track", "video"), ("H264 Audio Track", "audio")] {
+        let sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+        let value = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.track.create",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":sequence,
+                "name":name,
+                "kind":kind
+            }),
+        )
+        .await
+        .unwrap();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
+    }
+
+    for (track_name, asset_name, clip_name) in [
+        ("H264 Video Track", "H264 Video", "H264 Video Clip"),
+        ("H264 Audio Track", "H264 Audio", "H264 Audio Clip"),
+    ] {
+        let assets = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.asset.list",
+            json!({"project":project_ref,"limit":100}),
+        )
+        .await
+        .unwrap();
+        let asset = page_ref(&assets, asset_name);
+        let sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+        let tracks = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.track.list",
+            json!({"project":project_ref,"sequence":sequence,"limit":100}),
+        )
+        .await
+        .unwrap();
+        let track = page_ref(&tracks, track_name);
+        let value = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.clip.insert",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":sequence,
+                "track":track,
+                "asset":asset,
+                "start":0,
+                "source_in":0,
+                "source_out":5,
+                "name":clip_name
+            }),
+        )
+        .await
+        .unwrap();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
     }
 
     let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
