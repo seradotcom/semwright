@@ -151,6 +151,27 @@ fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
                 ID_PASSWORD,
             );
         }
+
+        // Keep the native fixture visibly above runner bootstrap/setup windows. UIA
+        // ElementFromPoint intentionally returns the topmost accessible element, so the
+        // hit-test assertion is only meaningful if this fixture actually owns the pixels
+        // described by its UIA bounds. This changes test z-order only; production targeting
+        // semantics are unchanged.
+        unsafe {
+            SetWindowPos(
+                hwnd,
+                Some(HWND_TOPMOST),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            )
+            .expect("fixture topmost visibility");
+            let _ = SetForegroundWindow(hwnd);
+            UpdateWindow(hwnd).expect("fixture update");
+        }
+
         ready_tx
             .send(hwnd.0 as isize)
             .expect("fixture readiness channel");
