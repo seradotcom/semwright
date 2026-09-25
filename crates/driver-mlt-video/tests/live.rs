@@ -439,13 +439,16 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
-    assert!(
-        profiles["profiles"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|profile| { profile["id"] == "lossless" && profile["available"] == true })
-    );
+    for id in ["lossless", "h264-1080p"] {
+        assert!(
+            profiles["profiles"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|profile| { profile["id"] == id && profile["available"] == true }),
+            "missing live render profile {id}"
+        );
+    }
 
     let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
     let plan = call(
@@ -516,6 +519,77 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let artifact = output.path().join("real-runtime.mkv");
     assert!(artifact.is_file());
     assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
+
+    // Exercise the same curated H.264 consumer used by the launch film on a
+    // bounded 50-frame timeline. This catches mux/frame-duration regressions
+    // without paying for the 52-second Motion Canvas render.
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+    let h264_plan = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.plan",
+        json!({
+            "project":project_ref,
+            "sequence":current_sequence,
+            "profile":"h264-1080p",
+            "output":"real-runtime-h264.mp4"
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(h264_plan["runnable"], true);
+    assert_eq!(h264_plan["frames"], 50);
+
+    let h264_started = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.start",
+        json!({
+            "project":project_ref,
+            "expected_revision":revision,
+            "sequence":current_sequence,
+            "profile":"h264-1080p",
+            "output":"real-runtime-h264.mp4"
+        }),
+    )
+    .await
+    .unwrap();
+    let h264_job = h264_started["job"].as_str().unwrap().to_owned();
+    let h264_terminal = loop {
+        let status = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.status",
+            json!({"job":h264_job}),
+        )
+        .await
+        .unwrap();
+        match status["state"].as_str().unwrap() {
+            "succeeded" | "failed" | "cancelled" | "unknown" => break status,
+            _ => tokio::time::sleep(Duration::from_millis(50)).await,
+        }
+    };
+    assert_eq!(
+        h264_terminal["state"], "succeeded",
+        "H.264 live render: {h264_terminal:#}"
+    );
+    let h264_result = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.result",
+        json!({"job":h264_job}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(h264_result["state"], "succeeded");
+    assert_eq!(h264_result["media"]["video"], true);
+    assert_eq!(h264_result["media"]["audio"], true);
+    assert_eq!(h264_result["media"]["width"], 1920);
+    assert_eq!(h264_result["media"]["height"], 1080);
+    assert_eq!(h264_result["media"]["frames"], 50);
+    let h264_artifact = output.path().join("real-runtime-h264.mp4");
+    assert!(h264_artifact.is_file());
+    assert!(std::fs::metadata(&h264_artifact).unwrap().len() > 100);
 
     Provider::shutdown(provider.as_ref()).await.unwrap();
 }

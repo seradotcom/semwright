@@ -749,6 +749,24 @@ impl Runtime {
             &format!("partial.{}", profile.extension),
             cancel,
         )?;
+        if profile.video_codec.is_some() {
+            if info.width != Some(expected.width) || info.height != Some(expected.height) {
+                return Err(Error::new(
+                    "BackendFailed",
+                    "Rendered dimensions do not match plan",
+                ));
+            }
+            if let Some(observed_frames) = info.frames
+                && observed_frames != frames
+            {
+                return Err(Error::new(
+                    "BackendFailed",
+                    format!(
+                        "Rendered frame count differs from plan: observed {observed_frames}, expected {frames}"
+                    ),
+                ));
+            }
+        }
         if info.duration_num == 0 || info.duration_den == 0 {
             return Err(Error::new(
                 "BackendFailed",
@@ -762,22 +780,15 @@ impl Runtime {
         if actual.abs_diff(wanted) > tolerance {
             return Err(Error::new(
                 "BackendFailed",
-                "Rendered duration differs by more than one project frame",
+                format!(
+                    "Rendered duration differs by more than one project frame: observed {}/{}, expected {} frames at {}/{} fps",
+                    info.duration_num,
+                    info.duration_den,
+                    frames,
+                    expected.fps.num,
+                    expected.fps.den
+                ),
             ));
-        }
-        if profile.video_codec.is_some() {
-            if info.width != Some(expected.width) || info.height != Some(expected.height) {
-                return Err(Error::new(
-                    "BackendFailed",
-                    "Rendered dimensions do not match plan",
-                ));
-            }
-            if info.frames.is_some_and(|f| f != frames) {
-                return Err(Error::new(
-                    "BackendFailed",
-                    "Rendered decoded/frame-count metadata differs from plan",
-                ));
-            }
         }
         if !info.audio {
             return Err(Error::new(
