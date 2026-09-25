@@ -8,7 +8,7 @@ use std::{sync::mpsc, thread, time::Duration};
 use tokio_util::sync::CancellationToken;
 use windows::{
     Win32::{
-        Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM},
+        Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM},
         System::LibraryLoader::GetModuleHandleW,
         UI::WindowsAndMessaging::*,
     },
@@ -201,6 +201,44 @@ fn context() -> Context {
     }
 }
 
+async fn ensure_fixture_owns_point(hwnd: isize, x: i32, y: i32) {
+    let fixture = HWND(hwnd as *mut core::ffi::c_void);
+    for _ in 0..40 {
+        // Reassert the fixture immediately before ElementFromPoint. GitHub-hosted Windows images
+        // may show runner/bootstrap windows after the fixture was first presented; this keeps the
+        // test about native hit-testing rather than the runner's incidental z-order.
+        // SAFETY: fixture is a live top-level HWND created by start_fixture; POINT is screen-space.
+        unsafe {
+            SetWindowPos(
+                fixture,
+                Some(HWND_TOPMOST),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+            )
+            .expect("reassert fixture topmost");
+            let _ = BringWindowToTop(fixture);
+            let _ = SetForegroundWindow(fixture);
+            let hit = WindowFromPoint(POINT { x, y });
+            if !hit.is_invalid() && GetAncestor(hit, GA_ROOT) == fixture {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+
+    // SAFETY: diagnostic-only lookup using the same bounded screen point.
+    let observed = unsafe { WindowFromPoint(POINT { x, y }) };
+    // SAFETY: WindowFromPoint returns either null or a live window; GetAncestor tolerates null.
+    let observed_root = unsafe { GetAncestor(observed, GA_ROOT) };
+    panic!(
+        "fixture could not own hit-test point ({x},{y}); observed={:?} root={:?} fixture={:?}",
+        observed, observed_root, fixture
+    );
+}
+
 fn native_ref(value: &Value) -> NativeTarget {
     serde_json::from_value(value["ref"]["$ref"].clone()).expect("native target marker")
 }
@@ -260,11 +298,14 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
         + bounds["width"].as_f64().expect("button width") / 2.0;
     let y = bounds["y"].as_f64().expect("button y")
         + bounds["height"].as_f64().expect("button height") / 2.0;
+    let hit_x = x.round() as i32;
+    let hit_y = y.round() as i32;
+    ensure_fixture_owns_point(hwnd, hit_x, hit_y).await;
     let hit = backend
         .execute(
             &ctx,
             "ui.hit_test",
-            &json!({"x":x.round() as i64,"y":y.round() as i64}),
+            &json!({"x":i64::from(hit_x),"y":i64::from(hit_y)}),
         )
         .await
         .expect("native UIA hit-test");
