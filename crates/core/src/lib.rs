@@ -677,13 +677,17 @@ impl Broker {
         } = invocation?;
         let descriptor = &capability.descriptor;
         capability.validate_input(&request.args)?;
+        let native_ref_capable = capability.metadata.source == SourceKind::Builtin
+            || dynamic_provider
+                .as_ref()
+                .is_some_and(|provider| provider.emits_native_refs());
         if cancellation.is_cancelled() {
             return Err(Error::new(
                 ErrorCode::Cancelled,
                 "Cancelled before authorization",
             ));
         }
-        let reference = if capability.metadata.source == SourceKind::Builtin {
+        let reference = if native_ref_capable {
             self.resolve_reference(session, &request.args)?
         } else {
             None
@@ -888,7 +892,7 @@ impl Broker {
         if needs_confirmation {
             audit.decision("allow_after_confirmation");
         }
-        let reference = if capability.metadata.source == SourceKind::Builtin {
+        let reference = if native_ref_capable {
             self.resolve_reference(session, &request.args)?
         } else {
             None
@@ -984,8 +988,10 @@ impl Broker {
                     .execute(&context, descriptor, &args)
                     .await?
             };
-            if request.command != "ui.find" && capability.metadata.source == SourceKind::Builtin {
-                self.filter_apps(&mut output);
+            if request.command != "ui.find" {
+                if capability.metadata.source == SourceKind::Builtin {
+                    self.filter_apps(&mut output);
+                }
                 if selected_provider
                     .as_ref()
                     .is_some_and(|provider| provider.emits_native_refs())
@@ -1151,6 +1157,31 @@ impl Broker {
             "workflow.suggestion.restore" => {
                 self.workflow_suggestion_restore(arg_str(args, "suggestion_id")?)
             }
+            "workflow.proposals.list" => self.workflow_proposals(
+                session,
+                args["min_occurrences"].as_u64().unwrap_or(3) as usize,
+                args["include_dismissed"].as_bool().unwrap_or(false),
+            ),
+            "workflow.proposal.get" => {
+                self.workflow_proposal(session, arg_str(args, "proposal_id")?)
+            }
+            "workflow.proposal.plan" => {
+                self.workflow_proposal_plan(
+                    session,
+                    arg_str(args, "proposal_id")?,
+                    args.get("inputs").cloned().unwrap_or_else(|| json!({})),
+                    _cancellation.clone(),
+                )
+                .await
+            }
+            "workflow.proposal.accept" => {
+                self.workflow_proposal_accept(session, arg_str(args, "proposal_id")?)
+            }
+            "workflow.proposal.dismiss" => self.workflow_proposal_dismiss(
+                session,
+                arg_str(args, "proposal_id")?,
+                args["permanent"].as_bool().unwrap_or(false),
+            ),
             "workflow.suggestion.compile" => {
                 let hints: Vec<semwright_workflow::ParameterHint> = serde_json::from_value(
                     args.get("parameters").cloned().unwrap_or_else(|| json!([])),

@@ -87,6 +87,7 @@ impl Driver for Fixture {
             progress: true,
             artifacts: true,
             health: true,
+            native_refs: false,
         }
     }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {

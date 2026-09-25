@@ -35,6 +35,7 @@ fn interfaces() -> DriverInterfaces {
         progress: true,
         artifacts: true,
         health: true,
+        native_refs: true,
         ..DriverInterfaces::default()
     }
 }
@@ -58,10 +59,12 @@ fn manifest(executable: PathBuf) -> Manifest {
             DriverMount {
                 root: "godot-config".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "godot-project".into(),
                 read_only: false,
+                execute: false,
             },
         ],
         system_config: vec![],
@@ -331,7 +334,7 @@ async fn godot_driver_runs_through_real_driver_host() {
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
     // This host fixture deliberately omits runner configuration, so the six
     // digest-pinned headless/runtime capabilities must not be advertised.
-    assert_eq!(capabilities.len(), 97);
+    assert_eq!(capabilities.len(), 182);
     assert!(
         capabilities
             .iter()

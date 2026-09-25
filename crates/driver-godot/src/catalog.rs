@@ -914,8 +914,246 @@ fn specs() -> Vec<Spec> {
             mutation_out,
         ),
         spec(
+            "gridmap.inspect",
+            "Inspect GridMap cells and MeshLibrary binding",
+            "gridmap",
+            "gridmap",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "gridmap.configure",
+            "Configure GridMap cell geometry, collision and MeshLibrary",
+            "gridmap",
+            "gridmap",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            gridmap_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "gridmap.cell.set",
+            "Set a GridMap cell item and orthogonal orientation",
+            "gridmap",
+            "grid_cell",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            gridmap_cell_set_in,
+            mutation_out,
+        ),
+        spec(
+            "gridmap.cell.erase",
+            "Erase a GridMap cell",
+            "gridmap",
+            "grid_cell",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            gridmap_cell_target_in,
+            mutation_out,
+        ),
+        spec(
+            "gridmap.clear",
+            "Clear every populated GridMap cell",
+            "gridmap",
+            "gridmap",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            target_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "meshlibrary.inspect",
+            "Inspect bounded MeshLibrary items used by GridMap",
+            "gridmap",
+            "mesh_library",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "meshlibrary.item.create",
+            "Create a MeshLibrary item with mesh and navigation semantics",
+            "gridmap",
+            "mesh_library_item",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            meshlibrary_item_create_in,
+            mutation_out,
+        ),
+        spec(
+            "meshlibrary.item.configure",
+            "Configure a MeshLibrary item",
+            "gridmap",
+            "mesh_library_item",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            meshlibrary_item_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "meshlibrary.item.remove",
+            "Remove a MeshLibrary item",
+            "gridmap",
+            "mesh_library_item",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            meshlibrary_item_target_in,
+            mutation_out,
+        ),
+        spec(
+            "path.inspect",
+            "Inspect Path2D/Path3D curve points and baked length",
+            "path",
+            "path",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "path.configure",
+            "Configure a Path2D/Path3D curve",
+            "path",
+            "path",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "path.point.add",
+            "Add a typed point to a Path2D/Path3D curve",
+            "path",
+            "path_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_point_add_in,
+            mutation_out,
+        ),
+        spec(
+            "path.point.configure",
+            "Configure a Path2D/Path3D curve point",
+            "path",
+            "path_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_point_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "path.point.remove",
+            "Remove a point from a Path2D/Path3D curve",
+            "path",
+            "path_point",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_point_target_in,
+            mutation_out,
+        ),
+        spec(
+            "path.clear",
+            "Clear all points from a Path2D/Path3D curve",
+            "path",
+            "path",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            target_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "path.follow.inspect",
+            "Inspect PathFollow2D/PathFollow3D traversal state",
+            "path",
+            "path_follow",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "path.follow.configure",
+            "Configure PathFollow2D/PathFollow3D traversal state",
+            "path",
+            "path_follow",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            path_follow_configure_in,
+            mutation_out,
+        ),
+        spec(
             "navigation.region.inspect",
-            "Inspect a NavigationRegion3D",
+            "Inspect a NavigationRegion2D or NavigationRegion3D",
             "navigation",
             "navigation_region",
             Route::Plugin,
@@ -943,7 +1181,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.region.bake",
-            "Bake a NavigationRegion3D mesh synchronously",
+            "Bake a NavigationRegion2D polygon or NavigationRegion3D mesh synchronously",
             "navigation",
             "navigation_region",
             Route::Plugin,
@@ -957,7 +1195,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.agent.inspect",
-            "Inspect NavigationAgent3D pathfinding and avoidance state",
+            "Inspect NavigationAgent2D/3D pathfinding and avoidance state",
             "navigation",
             "navigation_agent",
             Route::Plugin,
@@ -971,7 +1209,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.agent.configure",
-            "Configure NavigationAgent3D pathfinding and avoidance",
+            "Configure NavigationAgent2D/3D pathfinding and avoidance",
             "navigation",
             "navigation_agent",
             Route::Plugin,
@@ -985,7 +1223,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.link.configure",
-            "Configure a NavigationLink3D",
+            "Configure a NavigationLink2D or NavigationLink3D",
             "navigation",
             "navigation_link",
             Route::Plugin,
@@ -999,7 +1237,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.body.inspect",
-            "Inspect a PhysicsBody3D using body-specific semantics",
+            "Inspect a PhysicsBody2D/3D using body-specific semantics",
             "physics",
             "physics_body",
             Route::Plugin,
@@ -1013,7 +1251,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.body.configure",
-            "Configure bounded RigidBody3D, CharacterBody3D or StaticBody3D state",
+            "Configure bounded RigidBody/CharacterBody/StaticBody state in 2D or 3D",
             "physics",
             "physics_body",
             Route::Plugin,
@@ -1027,7 +1265,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.area.inspect",
-            "Inspect an Area3D",
+            "Inspect an Area2D or Area3D",
             "physics",
             "area",
             Route::Plugin,
@@ -1041,7 +1279,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.area.configure",
-            "Configure Area3D monitoring and physics overrides",
+            "Configure Area2D/3D monitoring and physics overrides",
             "physics",
             "area",
             Route::Plugin,
@@ -1055,7 +1293,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.joint.configure",
-            "Configure a Joint3D connection",
+            "Configure a Joint2D/3D connection",
             "physics",
             "joint",
             Route::Plugin,
@@ -1069,7 +1307,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "collision.shape.configure",
-            "Configure a CollisionShape3D",
+            "Configure a CollisionShape2D/3D",
             "physics",
             "collision_shape",
             Route::Plugin,
@@ -1586,6 +1824,958 @@ fn specs() -> Vec<Spec> {
             runner_out,
         ),
         spec(
+            "project.window.inspect",
+            "Inspect curated project window settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.window.configure",
+            "Configure curated project window settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_window_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "project.rendering.inspect",
+            "Inspect curated project rendering settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.rendering.configure",
+            "Configure curated project rendering settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_rendering_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "project.physics.inspect",
+            "Inspect curated project physics settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.physics.configure",
+            "Configure curated project physics settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_physics_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "project.layers.inspect",
+            "Inspect named project layers",
+            "project",
+            "project_layers",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.layers.set",
+            "Set a named project layer",
+            "project",
+            "project_layer",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_layer_set_in,
+            mutation_out,
+        ),
+        spec(
+            "autoload.list",
+            "List project autoload singletons",
+            "project",
+            "autoload",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "autoload.add",
+            "Add a project autoload singleton",
+            "project",
+            "autoload",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            autoload_add_in,
+            mutation_out,
+        ),
+        spec(
+            "autoload.remove",
+            "Remove a project autoload singleton",
+            "project",
+            "autoload",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            autoload_remove_in,
+            mutation_out,
+        ),
+        spec(
+            "asset.inspect",
+            "Inspect a project asset and import state",
+            "asset",
+            "asset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "asset.dependencies",
+            "Inspect bounded resource dependencies",
+            "asset",
+            "asset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "asset.reimport",
+            "Reimport a project asset through EditorFileSystem",
+            "asset",
+            "asset",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            60_000,
+            true,
+            true,
+            path_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "asset.import.inspect",
+            "Inspect existing import parameters",
+            "asset",
+            "asset_import",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "asset.import.configure",
+            "Configure existing import parameters and reimport",
+            "asset",
+            "asset_import",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            60_000,
+            true,
+            true,
+            asset_import_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "export.preset.list",
+            "List non-secret export presets",
+            "export",
+            "export_preset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "export.preset.inspect",
+            "Inspect a non-secret export preset",
+            "export",
+            "export_preset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            export_preset_inspect_in,
+            semantic_read_out,
+        ),
+        spec(
+            "export.preset.configure",
+            "Configure an existing non-secret export preset",
+            "export",
+            "export_preset",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            export_preset_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "localization.inspect",
+            "Inspect project localization configuration",
+            "localization",
+            "localization",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "localization.configure",
+            "Configure project localization resources and fallback",
+            "localization",
+            "localization",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            localization_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "translation.inspect",
+            "Inspect a Translation resource",
+            "localization",
+            "translation",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "translation.create",
+            "Create a Translation resource",
+            "localization",
+            "translation",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            translation_create_in,
+            mutation_out,
+        ),
+        spec(
+            "translation.message.set",
+            "Set a translation message",
+            "localization",
+            "translation_message",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            translation_message_set_in,
+            mutation_out,
+        ),
+        spec(
+            "translation.message.remove",
+            "Remove a translation message",
+            "localization",
+            "translation_message",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            translation_message_remove_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.inspect",
+            "Inspect an AnimationTree state machine graph",
+            "animation",
+            "animation_tree",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            animation_tree_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.state.add",
+            "Add a typed state to an AnimationTree state machine",
+            "animation",
+            "animation_state",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_state_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.state.remove",
+            "Remove a state from an AnimationTree state machine",
+            "animation",
+            "animation_state",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_state_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.transition.add",
+            "Add a state-machine transition",
+            "animation",
+            "animation_transition",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_transition_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.transition.configure",
+            "Configure a state-machine transition",
+            "animation",
+            "animation_transition",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_transition_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.transition.remove",
+            "Remove a state-machine transition",
+            "animation",
+            "animation_transition",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_transition_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.parameter.set",
+            "Set an existing AnimationTree parameter",
+            "animation",
+            "animation_parameter",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            animation_tree_parameter_set_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.node.inspect",
+            "Inspect a recursively-addressed AnimationTree graph node",
+            "animation",
+            "animation_graph_node",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            animation_graph_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.node.configure",
+            "Configure a typed AnimationTree graph node",
+            "animation",
+            "animation_graph_node",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_graph_node_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.inspect",
+            "Inspect nodes and connections in a recursively-addressed BlendTree",
+            "animation",
+            "animation_blend_tree",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            animation_graph_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.node.add",
+            "Add a typed node to a BlendTree",
+            "animation",
+            "animation_blend_tree_node",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_node_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.node.configure",
+            "Configure or reposition a BlendTree node",
+            "animation",
+            "animation_blend_tree_node",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_node_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.node.remove",
+            "Remove a BlendTree node",
+            "animation",
+            "animation_blend_tree_node",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_node_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_tree.connection.set",
+            "Connect or disconnect a typed BlendTree input",
+            "animation",
+            "animation_blend_tree_connection",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_tree_connection_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.inspect",
+            "Inspect a recursively-addressed BlendSpace1D or BlendSpace2D",
+            "animation",
+            "animation_blend_space",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            animation_graph_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.blend_space.configure",
+            "Configure BlendSpace extents, labels, interpolation and synchronization",
+            "animation",
+            "animation_blend_space",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.point.add",
+            "Add a named typed root node to a BlendSpace",
+            "animation",
+            "animation_blend_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_point_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.point.configure",
+            "Configure a BlendSpace point",
+            "animation",
+            "animation_blend_point",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_point_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.point.remove",
+            "Remove a BlendSpace point",
+            "animation",
+            "animation_blend_point",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_point_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.triangle.add",
+            "Add a manual BlendSpace2D triangle",
+            "animation",
+            "animation_blend_triangle",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_triangle_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.blend_space.triangle.remove",
+            "Remove a manual BlendSpace2D triangle",
+            "animation",
+            "animation_blend_triangle",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_blend_space_triangle_target_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.spawner.inspect",
+            "Inspect MultiplayerSpawner authoring state",
+            "multiplayer",
+            "multiplayer_spawner",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "multiplayer.spawner.configure",
+            "Configure MultiplayerSpawner authoring state",
+            "multiplayer",
+            "multiplayer_spawner",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_spawner_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.spawner.scene.add",
+            "Add a spawnable PackedScene",
+            "multiplayer",
+            "spawnable_scene",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_spawner_scene_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.spawner.scene.remove",
+            "Remove a spawnable PackedScene",
+            "multiplayer",
+            "spawnable_scene",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_spawner_scene_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.synchronizer.inspect",
+            "Inspect MultiplayerSynchronizer replication state",
+            "multiplayer",
+            "multiplayer_synchronizer",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "multiplayer.synchronizer.configure",
+            "Configure MultiplayerSynchronizer authoring state",
+            "multiplayer",
+            "multiplayer_synchronizer",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_synchronizer_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.replication.property.add",
+            "Add a replicated property",
+            "multiplayer",
+            "replication_property",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_replication_property_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.replication.property.configure",
+            "Configure a replicated property",
+            "multiplayer",
+            "replication_property",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_replication_property_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.replication.property.remove",
+            "Remove a replicated property",
+            "multiplayer",
+            "replication_property",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_replication_property_target_in,
+            mutation_out,
+        ),
+        spec(
+            "editor.state",
+            "Inspect semantic Godot editor state",
+            "editor",
+            "editor_state",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "editor.selection.get",
+            "Inspect SceneTree editor selection",
+            "editor",
+            "editor_selection",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "editor.selection.set",
+            "Set SceneTree editor selection",
+            "editor",
+            "editor_selection",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            5_000,
+            true,
+            true,
+            editor_selection_set_in,
+            mutation_out,
+        ),
+        spec(
+            "editor.run.start",
+            "Start a bounded scene run from the editor",
+            "editor",
+            "editor_runtime",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            editor_run_start_in,
+            mutation_out,
+        ),
+        spec(
+            "editor.run.stop",
+            "Stop the editor scene run",
+            "editor",
+            "editor_runtime",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "api.search",
+            "Search the versioned Godot ClassDB without invoking methods",
+            "api",
+            "godot_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            api_search_in,
+            api_search_out,
+        ),
+        spec(
+            "api.describe",
+            "Describe Godot ClassDB properties, methods, signals, and enums",
+            "api",
+            "godot_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            api_describe_in,
+            api_describe_out,
+        ),
+        spec(
+            "project.class.list",
+            "List script-defined global project classes",
+            "api",
+            "project_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            project_class_list_in,
+            project_class_list_out,
+        ),
+        spec(
+            "project.class.describe",
+            "Describe metadata for a script-defined global project class",
+            "api",
+            "project_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            project_class_describe_in,
+            project_class_describe_out,
+        ),
+        spec(
+            "ref.node",
+            "Issue a provider-owned reference for a scene node",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            ref_node_in,
+            ref_out,
+        ),
+        spec(
+            "ref.resource",
+            "Issue a provider-owned reference for a saved resource",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            ref_resource_in,
+            ref_out,
+        ),
+        spec(
+            "ref.scene",
+            "Issue a provider-owned reference for the edited scene",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            session_in,
+            ref_out,
+        ),
+        spec(
+            "ref.resolve",
+            "Resolve and refresh a provider-owned Godot reference",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            ref_resolve_in,
+            ref_resolve_out,
+        ),
+        spec(
             "snapshot.diff",
             "Compute a bounded semantic JSON diff",
             "snapshot",
@@ -1760,6 +2950,30 @@ fn node_target_mutation_in() -> Value {
     )
 }
 fn input_set_in() -> Value {
+    let device = json!({"type":"integer","minimum":-1,"maximum":32});
+    let coded = |kind: &str, max_code: i64| {
+        json!({
+            "type":"object",
+            "additionalProperties":false,
+            "required":["type","code"],
+            "properties":{
+                "type":{"const":kind},
+                "code":{"type":"integer","minimum":0,"maximum":max_code},
+                "device":device.clone()
+            }
+        })
+    };
+    let axis = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["type","axis","value"],
+        "properties":{
+            "type":{"const":"joy_axis"},
+            "axis":{"type":"integer","minimum":0,"maximum":15},
+            "value":{"type":"number","minimum":-1.0,"maximum":1.0},
+            "device":device.clone()
+        }
+    });
     object(
         Map::from_iter([
             session_prop(),
@@ -1770,7 +2984,16 @@ fn input_set_in() -> Value {
             ),
             (
                 "events".into(),
-                json!({"type":"array","maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["type","code"],"properties":{"type":{"enum":["key","mouse_button"]},"code":{"type":"integer","minimum":0,"maximum":1000000}}}}),
+                json!({
+                    "type":"array",
+                    "maxItems":32,
+                    "items":{"oneOf":[
+                        coded("key", 1_000_000),
+                        coded("mouse_button", 128),
+                        coded("joy_button", 128),
+                        axis
+                    ]}
+                }),
             ),
             expect_prop(),
             dry_prop(),
@@ -1778,71 +3001,156 @@ fn input_set_in() -> Value {
         &["session", "name", "deadzone", "events", "expect", "dry_run"],
     )
 }
-fn godot_value_schema() -> Value {
+fn tagged_value_schema(kind: &str, value_schema: Value) -> Value {
     json!({
-        "oneOf": [
-            {"type": "null"},
-            {"type": "boolean"},
-            {"type": "number"},
-            {"type": "string", "maxLength": 4096},
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Vector2"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 2,
-                        "maxItems": 2,
-                        "items": {"type": "number"}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Vector3"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 3,
-                        "maxItems": 3,
-                        "items": {"type": "number"}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Color"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 3,
-                        "maxItems": 4,
-                        "items": {"type": "number", "minimum": 0.0, "maximum": 1.0}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "path"],
-                "properties": {
-                    "$type": {"const": "Resource"},
-                    "path": {
-                        "type": "string",
-                        "minLength": 7,
-                        "maxLength": 240,
-                        "pattern": "^res://"
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["$type", "value"],
+        "properties": {
+            "$type": {"const": kind},
+            "value": value_schema
+        }
+    })
+}
+
+fn fixed_number_array(len: usize) -> Value {
+    json!({
+        "type": "array",
+        "minItems": len,
+        "maxItems": len,
+        "items": {"type": "number"}
+    })
+}
+
+fn fixed_integer_array(len: usize) -> Value {
+    json!({
+        "type": "array",
+        "minItems": len,
+        "maxItems": len,
+        "items": {"type": "integer"}
+    })
+}
+
+fn packed_vector_array(width: usize) -> Value {
+    json!({
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+            "type": "array",
+            "minItems": width,
+            "maxItems": width,
+            "items": {"type": "number"}
+        }
+    })
+}
+
+fn godot_value_schema() -> Value {
+    let variants = vec![
+        json!({"type": "null"}),
+        json!({"type": "boolean"}),
+        json!({"type": "number"}),
+        json!({"type": "string", "maxLength": 4096}),
+        tagged_value_schema("StringName", json!({"type":"string","maxLength":4096})),
+        tagged_value_schema("NodePath", json!({"type":"string","maxLength":4096})),
+        tagged_value_schema("Vector2", fixed_number_array(2)),
+        tagged_value_schema("Vector2i", fixed_integer_array(2)),
+        tagged_value_schema("Rect2", fixed_number_array(4)),
+        tagged_value_schema("Rect2i", fixed_integer_array(4)),
+        tagged_value_schema("Vector3", fixed_number_array(3)),
+        tagged_value_schema("Vector3i", fixed_integer_array(3)),
+        tagged_value_schema("Transform2D", fixed_number_array(6)),
+        tagged_value_schema("Vector4", fixed_number_array(4)),
+        tagged_value_schema("Vector4i", fixed_integer_array(4)),
+        tagged_value_schema("Plane", fixed_number_array(4)),
+        tagged_value_schema("Quaternion", fixed_number_array(4)),
+        tagged_value_schema("AABB", fixed_number_array(6)),
+        tagged_value_schema("Basis", fixed_number_array(9)),
+        tagged_value_schema("Transform3D", fixed_number_array(12)),
+        tagged_value_schema("Projection", fixed_number_array(16)),
+        tagged_value_schema(
+            "Color",
+            json!({"type":"array","minItems":3,"maxItems":4,"items":{"type":"number","minimum":0.0,"maximum":1.0}}),
+        ),
+        tagged_value_schema(
+            "PackedByteArray",
+            json!({"type":"string","maxLength":100000,"pattern":"^[A-Za-z0-9+/]*={0,2}$"}),
+        ),
+        tagged_value_schema(
+            "PackedInt32Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"integer","minimum":-2147483648i64,"maximum":2147483647i64}}),
+        ),
+        tagged_value_schema(
+            "PackedInt64Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"integer"}}),
+        ),
+        tagged_value_schema(
+            "PackedFloat32Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"number"}}),
+        ),
+        tagged_value_schema(
+            "PackedFloat64Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"number"}}),
+        ),
+        tagged_value_schema(
+            "PackedStringArray",
+            json!({"type":"array","maxItems":256,"items":{"type":"string","maxLength":4096}}),
+        ),
+        tagged_value_schema("PackedVector2Array", packed_vector_array(2)),
+        tagged_value_schema("PackedVector3Array", packed_vector_array(3)),
+        tagged_value_schema("PackedVector4Array", packed_vector_array(4)),
+        tagged_value_schema(
+            "PackedColorArray",
+            json!({"type":"array","maxItems":256,"items":{"type":"array","minItems":4,"maxItems":4,"items":{"type":"number","minimum":0.0,"maximum":1.0}}}),
+        ),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "path"],
+            "properties": {
+                "$type": {"const":"Resource"},
+                "path": {"type":"string","minLength":7,"maxLength":240,"pattern":"^res://"},
+                "class": {"type":"string","maxLength":96}
+            }
+        }),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "path"],
+            "properties": {
+                "$type": {"const":"NodeRef"},
+                "path": {"type":"string","maxLength":240},
+                "class": {"type":"string","maxLength":96}
+            }
+        }),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "value"],
+            "properties": {
+                "$type": {"const":"Array"},
+                "value": {"type":"array","maxItems":256}
+            }
+        }),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "entries"],
+            "properties": {
+                "$type": {"const":"Dictionary"},
+                "entries": {
+                    "type":"array",
+                    "maxItems":256,
+                    "items":{
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["key","value"],
+                        "properties":{"key":{},"value":{}}
                     }
                 }
             }
-        ]
-    })
+        }),
+    ];
+    json!({"oneOf": variants})
 }
 
 fn property_patch_schema() -> Value {
@@ -1897,12 +3205,22 @@ fn files_out() -> Value {
 }
 fn scene_out() -> Value {
     read_out(
-        json!({"type":"object","additionalProperties":false,"required":["scene","nodes"],"properties":{"scene":{"type":"string"},"nodes":{"type":"array","maxItems":4000,"items":{"type":"object"}}}}),
+        json!({"type":"object","additionalProperties":false,"required":["scene","scene_ref","nodes"],"properties":{
+            "scene":{"type":"string"},
+            "scene_ref":{"anyOf":[{"type":"null"},godot_ref_schema()]},
+            "nodes":{"type":"array","maxItems":4000,"items":{"type":"object"}}
+        }}),
     )
 }
 fn node_out() -> Value {
     read_out(
-        json!({"type":"object","additionalProperties":false,"required":["path","name","class","properties"],"properties":{"path":{"type":"string"},"name":{"type":"string"},"class":{"type":"string"},"properties":{"type":"object"}}}),
+        json!({"type":"object","additionalProperties":false,"required":["path","name","class","ref","properties"],"properties":{
+            "path":{"type":"string"},
+            "name":{"type":"string"},
+            "class":{"type":"string"},
+            "ref":godot_ref_schema(),
+            "properties":{"type":"object"}
+        }}),
     )
 }
 fn input_out() -> Value {
@@ -2407,8 +3725,23 @@ fn vec2i_schema() -> Value {
 fn vec2i_positive_schema() -> Value {
     json!({"type":"array","minItems":2,"maxItems":2,"items":{"type":"integer","minimum":1,"maximum":4096}})
 }
+fn vec3i_schema() -> Value {
+    json!({"type":"array","minItems":3,"maxItems":3,"items":{"type":"integer","minimum":-32768,"maximum":32767}})
+}
 fn vec3_schema() -> Value {
     json!({"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000000.0,"maximum":1000000000.0}})
+}
+fn vec2_or_vec3_schema() -> Value {
+    json!({"oneOf":[vec2_schema(),vec3_schema()]})
+}
+fn number_or_vec3_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"number","minimum":-1000000000.0,"maximum":1000000000.0},
+        vec3_schema()
+    ]})
+}
+fn bool_or_ccd_mode_schema() -> Value {
+    json!({"oneOf":[{"type":"boolean"},{"type":"integer","minimum":0,"maximum":2}]})
 }
 fn quat_schema() -> Value {
     json!({"type":"array","minItems":4,"maxItems":4,"items":{"type":"number","minimum":-1.0,"maximum":1.0}})
@@ -2509,6 +3842,132 @@ fn tileset_tile_create_in() -> Value {
         &["source_id", "atlas_coords"],
     )
 }
+fn gridmap_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("mesh_library".into(), optional_path_schema()),
+            ("cell_size".into(), vec3_schema()),
+            ("cell_octant_size".into(), bounded_int(1, 1024)),
+            ("cell_scale".into(), bounded_number(0.001, 1000.0)),
+            ("cell_center_x".into(), boolean()),
+            ("cell_center_y".into(), boolean()),
+            ("cell_center_z".into(), boolean()),
+            ("bake_navigation".into(), boolean()),
+            ("collision_layer".into(), u32_schema()),
+            ("collision_mask".into(), u32_schema()),
+        ]),
+        &[],
+    )
+}
+fn gridmap_cell_set_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("position".into(), vec3i_schema()),
+            ("item".into(), bounded_int(0, i32::MAX as i64)),
+            ("orientation".into(), bounded_int(0, 23)),
+        ]),
+        &["position", "item"],
+    )
+}
+fn gridmap_cell_target_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([("position".into(), vec3i_schema())]),
+        &["position"],
+    )
+}
+fn meshlibrary_item_create_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("id".into(), bounded_int(-1, i32::MAX as i64)),
+            ("name".into(), string(96)),
+            ("mesh".into(), optional_path_schema()),
+            ("navigation_mesh".into(), optional_path_schema()),
+            ("navigation_layers".into(), u32_schema()),
+        ]),
+        &[],
+    )
+}
+fn meshlibrary_item_configure_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([
+            ("id".into(), bounded_int(0, i32::MAX as i64)),
+            ("name".into(), string(96)),
+            ("mesh".into(), optional_path_schema()),
+            ("navigation_mesh".into(), optional_path_schema()),
+            ("navigation_layers".into(), u32_schema()),
+        ]),
+        &["id"],
+    )
+}
+fn meshlibrary_item_target_in() -> Value {
+    path_mutation_schema(
+        Map::from_iter([("id".into(), bounded_int(0, i32::MAX as i64))]),
+        &["id"],
+    )
+}
+fn path_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("bake_interval".into(), bounded_number(0.001, 10000.0)),
+            ("closed".into(), boolean()),
+            ("up_vector_enabled".into(), boolean()),
+        ]),
+        &[],
+    )
+}
+fn path_point_add_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("position".into(), vec2_or_vec3_schema()),
+            ("in".into(), vec2_or_vec3_schema()),
+            ("out".into(), vec2_or_vec3_schema()),
+            ("index".into(), bounded_int(-1, 2048)),
+            (
+                "tilt".into(),
+                bounded_number(-std::f64::consts::TAU * 64.0, std::f64::consts::TAU * 64.0),
+            ),
+        ]),
+        &["position"],
+    )
+}
+fn path_point_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("index".into(), bounded_int(0, 2047)),
+            ("position".into(), vec2_or_vec3_schema()),
+            ("in".into(), vec2_or_vec3_schema()),
+            ("out".into(), vec2_or_vec3_schema()),
+            (
+                "tilt".into(),
+                bounded_number(-std::f64::consts::TAU * 64.0, std::f64::consts::TAU * 64.0),
+            ),
+        ]),
+        &["index"],
+    )
+}
+fn path_point_target_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([("index".into(), bounded_int(0, 2047))]),
+        &["index"],
+    )
+}
+fn path_follow_configure_in() -> Value {
+    target_mutation_schema(
+        Map::from_iter([
+            ("progress".into(), bounded_number(0.0, 1_000_000_000.0)),
+            ("progress_ratio".into(), bounded_number(0.0, 1.0)),
+            ("loop".into(), boolean()),
+            ("cubic_interp".into(), boolean()),
+            ("h_offset".into(), bounded_number(-1_000_000.0, 1_000_000.0)),
+            ("v_offset".into(), bounded_number(-1_000_000.0, 1_000_000.0)),
+            ("rotates".into(), boolean()),
+            ("rotation_mode".into(), bounded_int(0, 4)),
+            ("tilt_enabled".into(), boolean()),
+            ("use_model_front".into(), boolean()),
+        ]),
+        &[],
+    )
+}
 fn navigation_region_configure_in() -> Value {
     target_mutation_schema(
         Map::from_iter([
@@ -2518,6 +3977,7 @@ fn navigation_region_configure_in() -> Value {
             ("travel_cost".into(), bounded_number(0.0, 1_000_000.0)),
             ("use_edge_connections".into(), boolean()),
             ("navigation_mesh".into(), optional_path_schema()),
+            ("navigation_polygon".into(), optional_path_schema()),
         ]),
         &[],
     )
@@ -2526,7 +3986,7 @@ fn navigation_agent_configure_in() -> Value {
     target_mutation_schema(
         Map::from_iter([
             ("navigation_layers".into(), u32_schema()),
-            ("target_position".into(), vec3_schema()),
+            ("target_position".into(), vec2_or_vec3_schema()),
             (
                 "path_desired_distance".into(),
                 bounded_number(0.0, 1_000_000.0),
@@ -2546,6 +4006,8 @@ fn navigation_agent_configure_in() -> Value {
             ("neighbor_distance".into(), bounded_number(0.0, 1_000_000.0)),
             ("max_neighbors".into(), bounded_int(0, 4096)),
             ("use_3d_avoidance".into(), boolean()),
+            ("time_horizon_agents".into(), bounded_number(0.0, 3600.0)),
+            ("time_horizon_obstacles".into(), bounded_number(0.0, 3600.0)),
         ]),
         &[],
     )
@@ -2558,8 +4020,8 @@ fn navigation_link_configure_in() -> Value {
             ("navigation_layers".into(), u32_schema()),
             ("enter_cost".into(), bounded_number(0.0, 1_000_000.0)),
             ("travel_cost".into(), bounded_number(0.0, 1_000_000.0)),
-            ("start_position".into(), vec3_schema()),
-            ("end_position".into(), vec3_schema()),
+            ("start_position".into(), vec2_or_vec3_schema()),
+            ("end_position".into(), vec2_or_vec3_schema()),
         ]),
         &[],
     )
@@ -2575,10 +4037,10 @@ fn physics_body_configure_in() -> Value {
             ("angular_damp".into(), bounded_number(-1.0, 1000.0)),
             ("lock_rotation".into(), boolean()),
             ("freeze".into(), boolean()),
-            ("continuous_cd".into(), boolean()),
+            ("continuous_cd".into(), bool_or_ccd_mode_schema()),
             ("freeze_mode".into(), bounded_int(0, 1)),
-            ("linear_velocity".into(), vec3_schema()),
-            ("angular_velocity".into(), vec3_schema()),
+            ("linear_velocity".into(), vec2_or_vec3_schema()),
+            ("angular_velocity".into(), number_or_vec3_schema()),
             ("motion_mode".into(), bounded_int(0, 1)),
             ("max_slides".into(), bounded_int(1, 64)),
             ("floor_stop_on_slope".into(), boolean()),
@@ -2591,16 +4053,16 @@ fn physics_body_configure_in() -> Value {
                 "wall_min_slide_angle".into(),
                 bounded_number(0.0, std::f64::consts::PI),
             ),
-            ("up_direction".into(), vec3_schema()),
-            ("velocity".into(), vec3_schema()),
-            ("constant_linear_velocity".into(), vec3_schema()),
-            ("constant_angular_velocity".into(), vec3_schema()),
+            ("up_direction".into(), vec2_or_vec3_schema()),
+            ("velocity".into(), vec2_or_vec3_schema()),
+            ("constant_linear_velocity".into(), vec2_or_vec3_schema()),
+            ("constant_angular_velocity".into(), number_or_vec3_schema()),
         ]),
         &[],
     )
 }
 fn physics_area_configure_in() -> Value {
-    target_mutation_schema(
+    let mut schema = target_mutation_schema(
         Map::from_iter([
             ("monitoring".into(), boolean()),
             ("monitorable".into(), boolean()),
@@ -2614,11 +4076,19 @@ fn physics_area_configure_in() -> Value {
             ("angular_damp".into(), bounded_number(-1.0, 1000.0)),
             ("audio_bus_override".into(), boolean()),
             ("audio_bus_name".into(), string(96)),
+            ("gravity_direction".into(), vec2_or_vec3_schema()),
+            ("gravity_point_center".into(), vec2_or_vec3_schema()),
+            (
+                "gravity_point_unit_distance".into(),
+                bounded_number(0.0, 1_000_000.0),
+            ),
             ("collision_layer".into(), u32_schema()),
             ("collision_mask".into(), u32_schema()),
         ]),
         &[],
-    )
+    );
+    schema["not"] = json!({"required":["gravity_direction","gravity_point_center"]});
+    schema
 }
 fn physics_joint_configure_in() -> Value {
     target_mutation_schema(
@@ -2626,6 +4096,7 @@ fn physics_joint_configure_in() -> Value {
             ("node_a".into(), optional_path_schema()),
             ("node_b".into(), optional_path_schema()),
             ("solver_priority".into(), bounded_int(1, 64)),
+            ("bias".into(), bounded_number(0.0, 1.0)),
             ("exclude_nodes_from_collision".into(), boolean()),
         ]),
         &[],
@@ -2960,9 +4431,67 @@ fn assets_status_out() -> Value {
         json!({"type":"object","additionalProperties":false,"required":["scanning","importing","progress"],"properties":{"scanning":{"type":"boolean"},"importing":{"type":"boolean"},"progress":{"type":"number","minimum":0.0,"maximum":1.0}}}),
     )
 }
+fn godot_ref_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"object","additionalProperties":false,"required":["provider","project","session","generation","revision","fingerprint","kind","path","class","scene"],"properties":{
+            "provider":{"const":"godot"},
+            "project":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+            "session":{"type":"string","pattern":"^[0-9a-f]{32}$"},
+            "generation":{"type":"string","pattern":"^[0-9a-f]{32}$"},
+            "revision":{"type":"integer","minimum":0},
+            "fingerprint":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+            "kind":{"enum":["node","resource","scene"]},
+            "path":{"type":"string","maxLength":240},
+            "class":{"type":"string","maxLength":96},
+            "scene":{"type":"string","maxLength":240}
+        }},
+        {"type":"string","pattern":"^native:[0-9a-f]{32}$"}
+    ]})
+}
+fn ref_node_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("path".into(), string(240))]),
+        &["session", "path"],
+    )
+}
+fn ref_resource_in() -> Value {
+    path_read_in()
+}
+fn ref_resolve_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("ref".into(), godot_ref_schema()),
+            ("require_current".into(), boolean()),
+        ]),
+        &["session", "ref", "require_current"],
+    )
+}
+fn ref_out() -> Value {
+    read_out(object(
+        Map::from_iter([("ref".into(), godot_ref_schema())]),
+        &["ref"],
+    ))
+}
+fn ref_resolve_out() -> Value {
+    read_out(object(
+        Map::from_iter([
+            ("ref".into(), godot_ref_schema()),
+            ("stale".into(), boolean()),
+            ("previous_revision".into(), bounded_int(-1, i64::MAX)),
+        ]),
+        &["ref", "stale", "previous_revision"],
+    ))
+}
+
 fn resource_out() -> Value {
     read_out(
-        json!({"type":"object","additionalProperties":false,"required":["path","class","properties"],"properties":{"path":{"type":"string"},"class":{"type":"string"},"properties":{"type":"object"}}}),
+        json!({"type":"object","additionalProperties":false,"required":["path","class","ref","properties"],"properties":{
+            "path":{"type":"string"},
+            "class":{"type":"string"},
+            "ref":godot_ref_schema(),
+            "properties":{"type":"object"}
+        }}),
     )
 }
 fn script_out() -> Value {
@@ -2979,6 +4508,962 @@ fn animation_out() -> Value {
     read_out(
         json!({"type":"object","additionalProperties":false,"required":["libraries"],"properties":{"libraries":{"type":"array","maxItems":128,"items":{"type":"object"}}}}),
     )
+}
+
+fn scalar_schema() -> Value {
+    json!({"anyOf":[
+        {"type":"boolean"},
+        {"type":"integer"},
+        {"type":"number"},
+        {"type":"string","maxLength":4096}
+    ]})
+}
+fn res_path_schema() -> Value {
+    json!({"type":"string","minLength":7,"maxLength":240,"pattern":"^res://"})
+}
+fn translation_path_schema() -> Value {
+    json!({"type":"string","minLength":19,"maxLength":240,"pattern":"^res://.*\\.translation$"})
+}
+fn project_window_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("viewport_width".into(), bounded_int(1, 16384)),
+            ("viewport_height".into(), bounded_int(1, 16384)),
+            ("window_width_override".into(), bounded_int(0, 16384)),
+            ("window_height_override".into(), bounded_int(0, 16384)),
+            ("mode".into(), bounded_int(0, 4)),
+            ("resizable".into(), boolean()),
+            ("borderless".into(), boolean()),
+            ("always_on_top".into(), boolean()),
+            (
+                "stretch_mode".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            (
+                "stretch_aspect".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn project_rendering_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "rendering_method".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            (
+                "rendering_method_mobile".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            ("msaa_2d".into(), bounded_int(0, 4)),
+            ("msaa_3d".into(), bounded_int(0, 4)),
+            ("taa".into(), boolean()),
+            ("use_debanding".into(), boolean()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn project_physics_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("ticks_per_second".into(), bounded_int(1, 1000)),
+            ("max_steps_per_frame".into(), bounded_int(1, 64)),
+            ("jitter_fix".into(), bounded_number(0.0, 1.0)),
+            ("gravity_2d".into(), bounded_number(0.0, 100000.0)),
+            ("gravity_3d".into(), bounded_number(0.0, 100000.0)),
+            ("gravity_vector_3d".into(), vec3_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn project_layer_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "kind".into(),
+                json!({"enum":["2d_render","2d_physics","3d_render","3d_physics","navigation"]}),
+            ),
+            ("index".into(), bounded_int(1, 32)),
+            ("name".into(), json!({"type":"string","maxLength":96})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "kind", "index", "name", "expect", "dry_run"],
+    )
+}
+fn autoload_add_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "name".into(),
+                json!({"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z_][A-Za-z0-9_]*$"}),
+            ),
+            ("path".into(), res_path_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "name", "path", "expect", "dry_run"],
+    )
+}
+fn autoload_remove_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "name".into(),
+                json!({"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z_][A-Za-z0-9_]*$"}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "name", "expect", "dry_run"],
+    )
+}
+fn asset_import_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), res_path_schema()),
+            (
+                "params".into(),
+                json!({"type":"array","minItems":1,"maxItems":64,"items":{
+                    "type":"object","additionalProperties":false,"required":["key","value"],
+                    "properties":{"key":{"type":"string","minLength":1,"maxLength":160},"value":scalar_schema()}
+                }}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "path", "params", "expect", "dry_run"],
+    )
+}
+fn export_preset_inspect_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("name".into(), string(128))]),
+        &["session", "name"],
+    )
+}
+fn export_preset_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("name".into(), string(128)),
+            (
+                "export_path".into(),
+                json!({"type":"string","maxLength":240}),
+            ),
+            ("runnable".into(), boolean()),
+            (
+                "custom_features".into(),
+                json!({"type":"string","maxLength":1024}),
+            ),
+            (
+                "export_filter".into(),
+                json!({"enum":["all_resources","scenes","resources","exclude","customized"]}),
+            ),
+            (
+                "include_filter".into(),
+                json!({"type":"string","maxLength":2048}),
+            ),
+            (
+                "exclude_filter".into(),
+                json!({"type":"string","maxLength":2048}),
+            ),
+            ("dedicated_server".into(), boolean()),
+            (
+                "options".into(),
+                json!({"type":"array","maxItems":64,"items":{
+                    "type":"object","additionalProperties":false,"required":["key","value"],
+                    "properties":{"key":{"type":"string","minLength":1,"maxLength":160},"value":scalar_schema()}
+                }}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "name", "expect", "dry_run"],
+    )
+}
+fn localization_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("fallback".into(), json!({"type":"string","maxLength":32})),
+            (
+                "test_locale".into(),
+                json!({"type":"string","maxLength":32}),
+            ),
+            (
+                "translations".into(),
+                json!({"type":"array","maxItems":256,"uniqueItems":true,"items":res_path_schema()}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn translation_create_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), translation_path_schema()),
+            (
+                "locale".into(),
+                json!({"type":"string","minLength":1,"maxLength":32}),
+            ),
+            ("register".into(), boolean()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "path", "locale", "register", "expect", "dry_run"],
+    )
+}
+fn translation_message_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), res_path_schema()),
+            ("source".into(), string(4096)),
+            (
+                "translation".into(),
+                json!({"type":"string","maxLength":16384}),
+            ),
+            ("context".into(), json!({"type":"string","maxLength":512})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &[
+            "session",
+            "path",
+            "source",
+            "translation",
+            "expect",
+            "dry_run",
+        ],
+    )
+}
+fn translation_message_remove_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), res_path_schema()),
+            ("source".into(), string(4096)),
+            ("context".into(), json!({"type":"string","maxLength":512})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "path", "source", "expect", "dry_run"],
+    )
+}
+fn animation_tree_read_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("tree".into(), string(240))]),
+        &["session", "tree"],
+    )
+}
+fn animation_tree_state_add_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("name".into(), string(96)),
+            (
+                "kind".into(),
+                json!({"enum":["animation","state_machine","blend_tree","blend_space_1d","blend_space_2d","one_shot","transition","time_scale","sync"]}),
+            ),
+            ("position".into(), vec2_schema()),
+            ("animation".into(), json!({"type":"string","maxLength":96})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &[
+            "session", "tree", "name", "kind", "position", "expect", "dry_run",
+        ],
+    )
+}
+fn animation_tree_state_target_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("name".into(), string(96)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "name", "expect", "dry_run"],
+    )
+}
+fn animation_tree_transition_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("from".into(), string(96)),
+            ("to".into(), string(96)),
+            (
+                "advance_condition".into(),
+                json!({"type":"string","maxLength":96}),
+            ),
+            (
+                "advance_expression".into(),
+                json!({"type":"string","maxLength":1024}),
+            ),
+            ("advance_mode".into(), bounded_int(0, 2)),
+            ("priority".into(), bounded_int(0, 64)),
+            ("reset".into(), boolean()),
+            ("switch_mode".into(), bounded_int(0, 2)),
+            ("xfade_time".into(), bounded_number(0.0, 60.0)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "from", "to", "expect", "dry_run"],
+    )
+}
+fn animation_tree_transition_target_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("from".into(), string(96)),
+            ("to".into(), string(96)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "from", "to", "expect", "dry_run"],
+    )
+}
+fn animation_tree_parameter_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("parameter".into(), string(240)),
+            ("value".into(), godot_value_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "parameter", "value", "expect", "dry_run"],
+    )
+}
+
+fn animation_graph_read_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("graph".into(), json!({"type":"string","maxLength":1024})),
+        ]),
+        &["session", "tree", "graph"],
+    )
+}
+
+fn animation_graph_mutation_schema(
+    mut extra: Map<String, Value>,
+    required_extra: &[&str],
+) -> Value {
+    extra.insert("session".into(), hex_string(32));
+    extra.insert("tree".into(), string(240));
+    extra.insert("graph".into(), json!({"type":"string","maxLength":1024}));
+    extra.insert("expect".into(), stamp());
+    extra.insert("dry_run".into(), boolean());
+    let mut required = vec!["session", "tree", "graph"];
+    required.extend_from_slice(required_extra);
+    required.extend_from_slice(&["expect", "dry_run"]);
+    object(extra, &required)
+}
+
+fn animation_graph_node_kind_schema() -> Value {
+    json!({"enum":[
+        "animation","state_machine","blend_tree","blend_space_1d","blend_space_2d",
+        "one_shot","transition","time_scale","time_seek","blend2","blend3",
+        "add2","add3","sub2"
+    ]})
+}
+
+fn animation_root_node_kind_schema() -> Value {
+    json!({"enum":[
+        "animation","state_machine","blend_tree","blend_space_1d","blend_space_2d"
+    ]})
+}
+
+fn blend_position_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"number","minimum":-1000000.0,"maximum":1000000.0},
+        vec2_schema()
+    ]})
+}
+
+fn animation_graph_node_properties() -> Map<String, Value> {
+    Map::from_iter([
+        ("animation".into(), json!({"type":"string","maxLength":96})),
+        ("sync".into(), boolean()),
+        ("fadein_time".into(), bounded_number(0.0, 60.0)),
+        ("fadeout_time".into(), bounded_number(0.0, 60.0)),
+        ("mix_mode".into(), bounded_int(0, 1)),
+        ("autorestart".into(), boolean()),
+        ("autorestart_delay".into(), bounded_number(0.0, 3600.0)),
+        (
+            "autorestart_random_delay".into(),
+            bounded_number(0.0, 3600.0),
+        ),
+        ("abort_on_reset".into(), boolean()),
+        ("break_loop_at_end".into(), boolean()),
+        ("input_count".into(), bounded_int(0, 64)),
+        ("xfade_time".into(), bounded_number(0.0, 60.0)),
+        ("allow_transition_to_self".into(), boolean()),
+        (
+            "transition_input".into(),
+            object(
+                Map::from_iter([
+                    ("index".into(), bounded_int(0, 63)),
+                    ("auto_advance".into(), boolean()),
+                    ("reset".into(), boolean()),
+                    ("break_loop_at_end".into(), boolean()),
+                ]),
+                &["index"],
+            ),
+        ),
+        ("graph_offset".into(), vec2_schema()),
+        ("blend_mode".into(), bounded_int(0, 2)),
+        ("sync_mode".into(), bounded_int(0, 2)),
+        ("cyclic_length".into(), bounded_number(0.0, 1000000.0)),
+        ("min_space".into(), blend_position_schema()),
+        ("max_space".into(), blend_position_schema()),
+        ("snap".into(), blend_position_schema()),
+        (
+            "value_label".into(),
+            json!({"type":"string","maxLength":96}),
+        ),
+        ("x_label".into(), json!({"type":"string","maxLength":96})),
+        ("y_label".into(), json!({"type":"string","maxLength":96})),
+        ("auto_triangles".into(), boolean()),
+    ])
+}
+
+fn animation_graph_node_configure_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("graph_position".into(), vec2_schema());
+    animation_graph_mutation_schema(props, &[])
+}
+
+fn animation_blend_tree_node_add_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("name".into(), string(96));
+    props.insert("kind".into(), animation_graph_node_kind_schema());
+    props.insert("graph_position".into(), vec2_schema());
+    animation_graph_mutation_schema(props, &["name", "kind", "graph_position"])
+}
+
+fn animation_blend_tree_node_configure_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("name".into(), string(96));
+    props.insert("new_name".into(), json!({"type":"string","maxLength":96}));
+    props.insert("graph_position".into(), vec2_schema());
+    animation_graph_mutation_schema(props, &["name"])
+}
+
+fn animation_blend_tree_node_target_in() -> Value {
+    animation_graph_mutation_schema(Map::from_iter([("name".into(), string(96))]), &["name"])
+}
+
+fn animation_blend_tree_connection_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([
+            ("input_node".into(), string(96)),
+            ("input_index".into(), bounded_int(0, 63)),
+            ("output_node".into(), string(96)),
+            ("connected".into(), boolean()),
+        ]),
+        &["input_node", "input_index", "output_node", "connected"],
+    )
+}
+
+fn animation_blend_space_configure_in() -> Value {
+    animation_graph_mutation_schema(animation_graph_node_properties(), &[])
+}
+
+fn animation_blend_space_point_add_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("name".into(), string(96));
+    props.insert("kind".into(), animation_root_node_kind_schema());
+    props.insert("index".into(), bounded_int(-1, 255));
+    props.insert("position".into(), blend_position_schema());
+    animation_graph_mutation_schema(props, &["name", "kind", "position"])
+}
+
+fn animation_blend_space_point_configure_in() -> Value {
+    let mut props = animation_graph_node_properties();
+    props.insert("index".into(), bounded_int(0, 255));
+    props.insert("name".into(), json!({"type":"string","maxLength":96}));
+    props.insert("position".into(), blend_position_schema());
+    animation_graph_mutation_schema(props, &["index"])
+}
+
+fn animation_blend_space_point_target_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([("index".into(), bounded_int(0, 255))]),
+        &["index"],
+    )
+}
+
+fn animation_blend_space_triangle_add_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([
+            ("a".into(), bounded_int(0, 255)),
+            ("b".into(), bounded_int(0, 255)),
+            ("c".into(), bounded_int(0, 255)),
+            ("index".into(), bounded_int(-1, 1023)),
+        ]),
+        &["a", "b", "c"],
+    )
+}
+
+fn animation_blend_space_triangle_target_in() -> Value {
+    animation_graph_mutation_schema(
+        Map::from_iter([("index".into(), bounded_int(0, 1023))]),
+        &["index"],
+    )
+}
+
+fn multiplayer_spawner_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            (
+                "spawn_path".into(),
+                json!({"type":"string","maxLength":240}),
+            ),
+            ("spawn_limit".into(), bounded_int(0, 100000)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "expect", "dry_run"],
+    )
+}
+fn multiplayer_spawner_scene_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("scene".into(), res_path_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "scene", "expect", "dry_run"],
+    )
+}
+fn multiplayer_synchronizer_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("root_path".into(), json!({"type":"string","maxLength":240})),
+            ("replication_interval".into(), bounded_number(0.0, 3600.0)),
+            ("delta_interval".into(), bounded_number(0.0, 3600.0)),
+            ("public_visibility".into(), boolean()),
+            ("visibility_update_mode".into(), bounded_int(0, 2)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "expect", "dry_run"],
+    )
+}
+fn multiplayer_replication_property_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("path".into(), string(240)),
+            ("spawn".into(), boolean()),
+            ("mode".into(), bounded_int(0, 2)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &[
+            "session", "target", "path", "spawn", "mode", "expect", "dry_run",
+        ],
+    )
+}
+fn multiplayer_replication_property_target_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("path".into(), string(240)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "path", "expect", "dry_run"],
+    )
+}
+fn editor_selection_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "nodes".into(),
+                json!({"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","maxLength":240}}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "nodes", "expect", "dry_run"],
+    )
+}
+fn editor_run_start_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("mode".into(), json!({"enum":["main","current","custom"]})),
+            ("scene".into(), json!({"type":"string","maxLength":240})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "mode", "expect", "dry_run"],
+    )
+}
+
+fn api_search_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("query".into(), json!({"type":"string","maxLength":96})),
+            ("base".into(), json!({"type":"string","maxLength":96})),
+            (
+                "limit".into(),
+                json!({"type":"integer","minimum":1,"maximum":256}),
+            ),
+        ]),
+        &["session"],
+    )
+}
+
+fn api_describe_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("class".into(), string(96)),
+            ("include_inherited".into(), boolean()),
+            ("properties".into(), boolean()),
+            ("methods".into(), boolean()),
+            ("signals".into(), boolean()),
+            ("enums".into(), boolean()),
+        ]),
+        &["session", "class"],
+    )
+}
+
+fn project_class_list_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("query".into(), json!({"type":"string","maxLength":96})),
+            (
+                "limit".into(),
+                json!({"type":"integer","minimum":1,"maximum":256}),
+            ),
+        ]),
+        &["session"],
+    )
+}
+
+fn project_class_describe_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("name".into(), string(96))]),
+        &["session", "name"],
+    )
+}
+
+fn api_type_schema() -> Value {
+    json!({"enum":["core","editor","extension","editor_extension","unknown"]})
+}
+
+fn optional_string(max: u64) -> Value {
+    json!({"type":"string","maxLength":max})
+}
+
+fn introspection_property_schema(with_class_defaults: bool) -> Value {
+    let mut props = Map::from_iter([
+        ("name".into(), optional_string(128)),
+        (
+            "type".into(),
+            json!({"type":"integer","minimum":0,"maximum":39}),
+        ),
+        ("type_name".into(), optional_string(64)),
+        ("class_name".into(), optional_string(128)),
+        ("hint".into(), json!({"type":"integer","minimum":0})),
+        ("hint_string".into(), optional_string(1024)),
+        ("usage".into(), json!({"type":"integer","minimum":0})),
+        ("read_only".into(), boolean()),
+    ]);
+    let mut required = vec![
+        "name",
+        "type",
+        "type_name",
+        "class_name",
+        "hint",
+        "hint_string",
+        "usage",
+        "read_only",
+    ];
+    if with_class_defaults {
+        props.insert("default".into(), json!({}));
+        props.insert("getter".into(), optional_string(128));
+        props.insert("setter".into(), optional_string(128));
+        required.extend_from_slice(&["default", "getter", "setter"]);
+    }
+    object(props, &required)
+}
+
+fn introspection_method_schema() -> Value {
+    object(
+        Map::from_iter([
+            ("name".into(), optional_string(128)),
+            ("flags".into(), json!({"type":"integer","minimum":0})),
+            ("id".into(), json!({"type":"integer","minimum":0})),
+            (
+                "args".into(),
+                json!({"type":"array","maxItems":64,"items":introspection_property_schema(false)}),
+            ),
+            (
+                "default_args".into(),
+                json!({"type":"array","maxItems":64,"items":{}}),
+            ),
+            (
+                "return".into(),
+                json!({
+                    "oneOf":[
+                        introspection_property_schema(false),
+                        {"type":"object","additionalProperties":false,"maxProperties":0}
+                    ]
+                }),
+            ),
+        ]),
+        &["name", "flags", "id", "args", "default_args", "return"],
+    )
+}
+
+fn introspection_enum_schema() -> Value {
+    object(
+        Map::from_iter([
+            ("name".into(), optional_string(128)),
+            ("bitfield".into(), boolean()),
+            (
+                "constants".into(),
+                json!({
+                    "type":"array",
+                    "maxItems":512,
+                    "items":{
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["name","value"],
+                        "properties":{
+                            "name":{"type":"string","maxLength":128},
+                            "value":{"type":"integer"}
+                        }
+                    }
+                }),
+            ),
+        ]),
+        &["name", "bitfield", "constants"],
+    )
+}
+
+fn api_search_out() -> Value {
+    let row = object(
+        Map::from_iter([
+            ("name".into(), string(128)),
+            ("parent".into(), optional_string(128)),
+            ("api_type".into(), api_type_schema()),
+            ("can_instantiate".into(), boolean()),
+            ("enabled".into(), boolean()),
+        ]),
+        &["name", "parent", "api_type", "can_instantiate", "enabled"],
+    );
+    read_out(object(
+        Map::from_iter([
+            ("engine_version".into(), string(128)),
+            ("query".into(), optional_string(96)),
+            ("base".into(), optional_string(96)),
+            (
+                "classes".into(),
+                json!({"type":"array","maxItems":256,"items":row}),
+            ),
+            (
+                "total_matches".into(),
+                json!({"type":"integer","minimum":0}),
+            ),
+            ("truncated".into(), boolean()),
+        ]),
+        &[
+            "engine_version",
+            "query",
+            "base",
+            "classes",
+            "total_matches",
+            "truncated",
+        ],
+    ))
+}
+
+fn api_describe_out() -> Value {
+    read_out(object(
+        Map::from_iter([
+            ("engine_version".into(), string(128)),
+            ("class".into(), string(128)),
+            ("parent".into(), optional_string(128)),
+            ("api_type".into(), api_type_schema()),
+            ("can_instantiate".into(), boolean()),
+            ("enabled".into(), boolean()),
+            (
+                "properties".into(),
+                json!({"type":"array","maxItems":512,"items":introspection_property_schema(true)}),
+            ),
+            (
+                "methods".into(),
+                json!({"type":"array","maxItems":512,"items":introspection_method_schema()}),
+            ),
+            (
+                "signals".into(),
+                json!({"type":"array","maxItems":256,"items":introspection_method_schema()}),
+            ),
+            (
+                "enums".into(),
+                json!({"type":"array","maxItems":128,"items":introspection_enum_schema()}),
+            ),
+        ]),
+        &[
+            "engine_version",
+            "class",
+            "parent",
+            "api_type",
+            "can_instantiate",
+            "enabled",
+            "properties",
+            "methods",
+            "signals",
+            "enums",
+        ],
+    ))
+}
+
+fn project_class_row_schema() -> Value {
+    object(
+        Map::from_iter([
+            ("name".into(), string(128)),
+            ("base".into(), optional_string(128)),
+            ("language".into(), optional_string(64)),
+            ("path".into(), optional_string(240)),
+            ("icon".into(), optional_string(240)),
+        ]),
+        &["name", "base", "language", "path", "icon"],
+    )
+}
+
+fn project_class_list_out() -> Value {
+    read_out(object(
+        Map::from_iter([
+            (
+                "classes".into(),
+                json!({"type":"array","maxItems":256,"items":project_class_row_schema()}),
+            ),
+            (
+                "total_matches".into(),
+                json!({"type":"integer","minimum":0}),
+            ),
+            ("truncated".into(), boolean()),
+        ]),
+        &["classes", "total_matches", "truncated"],
+    ))
+}
+
+fn project_class_describe_out() -> Value {
+    let base_props = Map::from_iter([
+        ("name".into(), string(128)),
+        ("base".into(), optional_string(128)),
+        ("language".into(), optional_string(64)),
+        ("path".into(), optional_string(240)),
+        ("icon".into(), optional_string(240)),
+        ("metadata_available".into(), boolean()),
+    ]);
+    let base_required = [
+        "name",
+        "base",
+        "language",
+        "path",
+        "icon",
+        "metadata_available",
+    ];
+
+    let unavailable = object(base_props.clone(), &base_required);
+
+    let mut available_props = base_props;
+    available_props.insert("global_name".into(), optional_string(128));
+    available_props.insert("instance_base_type".into(), optional_string(128));
+    available_props.insert("can_instantiate".into(), boolean());
+    available_props.insert("tool".into(), boolean());
+    available_props.insert("abstract".into(), boolean());
+    available_props.insert("has_source_code".into(), boolean());
+    available_props.insert(
+        "properties".into(),
+        json!({"type":"array","maxItems":512,"items":introspection_property_schema(false)}),
+    );
+    available_props.insert(
+        "methods".into(),
+        json!({"type":"array","maxItems":512,"items":introspection_method_schema()}),
+    );
+    available_props.insert(
+        "signals".into(),
+        json!({"type":"array","maxItems":256,"items":introspection_method_schema()}),
+    );
+    available_props.insert(
+        "constants".into(),
+        json!({
+            "type":"array",
+            "maxItems":512,
+            "items":{
+                "type":"object",
+                "additionalProperties":false,
+                "required":["name","value"],
+                "properties":{"name":{"type":"string","maxLength":128},"value":{}}
+            }
+        }),
+    );
+    available_props.insert("constants_truncated".into(), boolean());
+    available_props.insert("rpc_config".into(), json!({}));
+    let mut available_required = base_required.to_vec();
+    available_required.extend_from_slice(&[
+        "global_name",
+        "instance_base_type",
+        "can_instantiate",
+        "tool",
+        "abstract",
+        "has_source_code",
+        "properties",
+        "methods",
+        "signals",
+        "constants",
+        "constants_truncated",
+        "rpc_config",
+    ]);
+    let available = object(available_props, &available_required);
+
+    read_out(json!({"oneOf":[unavailable,available]}))
 }
 
 fn runner_project_in() -> Value {
