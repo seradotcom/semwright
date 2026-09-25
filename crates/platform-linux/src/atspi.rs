@@ -20,6 +20,7 @@ const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
 const APPLICATION: &str = "org.a11y.atspi.Application";
 const ROOT: &str = "/org/a11y/atspi/accessible/root";
 const MAX_CHILDREN_PER_NODE: usize = 2_000;
+const SNAPSHOT_OPTIONAL_BUDGET: Duration = Duration::from_millis(250);
 #[derive(Default)]
 struct ObjectGenerations {
     next: AtomicU64,
@@ -117,6 +118,12 @@ async fn bounded<T>(f: impl std::future::Future<Output = zbus::Result<T>>) -> Re
                 "Accessibility object/interface unavailable",
             )
         })
+}
+async fn snapshot_optional<T>(f: impl std::future::Future<Output = zbus::Result<T>>) -> Option<T> {
+    match tokio::time::timeout(SNAPSHOT_OPTIONAL_BUDGET, f).await {
+        Ok(Ok(value)) => Some(value),
+        _ => None,
+    }
 }
 fn bounded_child_count(reported: Option<i32>, observed: usize) -> (usize, bool) {
     let reported = reported.and_then(|count| usize::try_from(count).ok());
@@ -974,7 +981,7 @@ impl Atspi {
             // Rich metadata reads are independent. Execute them concurrently so one slow
             // optional interface does not multiply snapshot latency across every node.
             let attributes_read = async {
-                bounded(
+                snapshot_optional(
                     proxy.call::<_, _, std::collections::HashMap<String, String>>(
                         "GetAttributes",
                         &(),
@@ -993,7 +1000,7 @@ impl Atspi {
                 .collect::<BTreeMap<String, String>>()
             };
             let help_read = async {
-                bounded(proxy.get_property::<String>("HelpText"))
+                snapshot_optional(proxy.get_property::<String>("HelpText"))
                     .await
                     .unwrap_or_default()
                     .chars()
@@ -1001,7 +1008,7 @@ impl Atspi {
                     .collect::<String>()
             };
             let accessibility_id_read = async {
-                bounded(proxy.get_property::<String>("AccessibleId"))
+                snapshot_optional(proxy.get_property::<String>("AccessibleId"))
                     .await
                     .unwrap_or_default()
                     .chars()
@@ -1009,7 +1016,7 @@ impl Atspi {
                     .collect::<String>()
             };
             let locale_read = async {
-                bounded(proxy.get_property::<String>("Locale"))
+                snapshot_optional(proxy.get_property::<String>("Locale"))
                     .await
                     .unwrap_or_default()
                     .chars()
@@ -1017,26 +1024,37 @@ impl Atspi {
                     .collect::<String>()
             };
             let interfaces: Vec<String> =
-                bounded(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
+                snapshot_optional(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
                     .await
                     .unwrap_or_default()
                     .into_iter()
                     .take(64)
                     .map(|value| value.chars().take(128).collect())
                     .collect();
-            let facets_read = self.facets(&c, &object, &interfaces, &states, &role, count);
+            let facets_read = async {
+                tokio::time::timeout(
+                    SNAPSHOT_OPTIONAL_BUDGET,
+                    self.facets(&c, &object, &interfaces, &states, &role, count),
+                )
+                .await
+                .unwrap_or_default()
+            };
+            let relations_read = async {
+                tokio::time::timeout(SNAPSHOT_OPTIONAL_BUDGET, self.relations(&c, &object, &app))
+                    .await
+                    .unwrap_or_default()
+            };
             let description_read = async {
-                bounded(proxy.get_property::<String>("Description"))
+                snapshot_optional(proxy.get_property::<String>("Description"))
                     .await
                     .unwrap_or_default()
             };
             let bounds_read = async {
                 match self.proxy(&c, &object, "org.a11y.atspi.Component").await {
-                    Ok(component) => bounded(
+                    Ok(component) => snapshot_optional(
                         component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)),
                     )
                     .await
-                    .ok()
                     .map(|(x, y, width, height)| {
                         json!({"x":x,"y":y,"width":width,"height":height,
                             "coordinate_space":"atspi_screen_reported"})
@@ -1058,7 +1076,7 @@ impl Atspi {
                 help_read,
                 accessibility_id_read,
                 locale_read,
-                self.relations(&c, &object, &app),
+                relations_read,
                 description_read,
                 bounds_read,
                 facets_read

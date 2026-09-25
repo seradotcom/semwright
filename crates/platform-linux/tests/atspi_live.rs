@@ -99,7 +99,28 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str, expect
     let password = nodes
         .iter()
         .find(|node| node["role"] == "password-entry")
-        .expect("fixture password field should remain semantically identifiable");
+        .unwrap_or_else(|| {
+            let editable_metadata = nodes
+                .iter()
+                .filter(|node| {
+                    node["states"]
+                        .as_array()
+                        .is_some_and(|states| states.iter().any(|state| state == "editable"))
+                })
+                .map(|node| {
+                    json!({
+                        "role": node["role"],
+                        "states": node["states"],
+                        "attributes": node["attributes"],
+                        "facets": node["facets"],
+                        "framework": node["framework"],
+                    })
+                })
+                .collect::<Vec<_>>();
+            panic!(
+                "fixture password field should remain semantically identifiable; editable native metadata: {editable_metadata:?}"
+            )
+        });
     assert_eq!(password["name"], "");
     assert_eq!(password["description"], "");
     assert_eq!(password["help"], "");
