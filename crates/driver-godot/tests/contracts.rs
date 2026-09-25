@@ -92,12 +92,66 @@ async fn local_driver_routes_work() {
 }
 
 #[test]
+fn import_scalar_schema_accepts_integer_values() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog.get("driver.godot.asset.import.configure").unwrap();
+    let input = json!({
+        "session": "a".repeat(32),
+        "path": "res://assets/icon.svg",
+        "params": [{"key": "compress/mode", "value": 0}],
+        "expect": {"revision": 1, "fingerprint": "a".repeat(64)},
+        "dry_run": false
+    });
+    entry.validate_input(&input).unwrap();
+}
+
+#[test]
+fn translation_creation_requires_runtime_loadable_format() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog.get("driver.godot.translation.create").unwrap();
+    let base = json!({
+        "session": "a".repeat(32),
+        "path": "res://locale/es.translation",
+        "locale": "es",
+        "register": true,
+        "expect": {"revision": 1, "fingerprint": "a".repeat(64)},
+        "dry_run": false
+    });
+    entry.validate_input(&base).unwrap();
+
+    let mut invalid = base;
+    invalid["path"] = json!("res://locale/es.tres");
+    assert!(entry.validate_input(&invalid).is_err());
+}
+
+#[test]
+fn editor_mutations_enforce_optimistic_preconditions() {
+    let source = include_str!("../../../integrations/godot/addons/semwright/ops/editor_ops.gd");
+    for function in ["selection_set", "run_start", "run_stop"] {
+        let marker = format!("static func {function}(");
+        let start = source
+            .find(&marker)
+            .unwrap_or_else(|| panic!("missing editor handler {function}"));
+        let tail = &source[start..];
+        let end = tail[marker.len()..]
+            .find("\nstatic func ")
+            .map(|offset| marker.len() + offset)
+            .unwrap_or(tail.len());
+        let body = &tail[..end];
+        assert!(
+            body.contains("_check_expect(args)"),
+            "{function} must enforce expect revision/fingerprint before mutation"
+        );
+    }
+}
+
+#[test]
 fn catalog_plugin_routes_have_editor_handlers() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     let plugin = include_str!("../../../integrations/godot/addons/semwright/plugin.gd");
     let names = catalog.names_for(Route::Plugin);
-    assert_eq!(names.len(), 94);
+    assert_eq!(names.len(), 171);
     for name in names {
         let op = name.strip_prefix("driver.godot.").unwrap();
         let marker = format!("\"{op}\": return ");
@@ -113,7 +167,183 @@ fn catalog_routes_partition_the_full_surface() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     assert_eq!(catalog.names_for(Route::Local).len(), 3);
-    assert_eq!(catalog.names_for(Route::Plugin).len(), 94);
+    assert_eq!(catalog.names_for(Route::Plugin).len(), 171);
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
-    assert_eq!(catalog.capabilities().len(), 103);
+    assert_eq!(catalog.capabilities().len(), 180);
+}
+
+#[test]
+fn gridmap_and_path_schemas_reject_out_of_domain_values() {
+    let catalog = Catalog::load().unwrap();
+
+    let grid = catalog.get("driver.godot.gridmap.cell.set").unwrap();
+    let bad_orientation = json!({
+        "session":"a".repeat(32),
+        "target":"Grid",
+        "position":[0,0,0],
+        "item":0,
+        "orientation":24,
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    assert!(grid.validate_input(&bad_orientation).is_err());
+
+    let follow = catalog.get("driver.godot.path.follow.configure").unwrap();
+    let conflicting_progress = json!({
+        "session":"a".repeat(32),
+        "target":"Rail/Follower",
+        "progress":5.0,
+        "progress_ratio":0.5,
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    // The cross-field conflict is intentionally enforced by the Godot handler,
+    // while both values remain individually valid at the transport schema layer.
+    follow.validate_input(&conflicting_progress).unwrap();
+}
+
+#[test]
+fn animation_graph_schemas_separate_layout_from_blend_positions() {
+    let catalog = Catalog::load().unwrap();
+    let stamp = json!({"revision":1,"fingerprint":"a".repeat(64)});
+
+    let add = catalog
+        .get("driver.godot.animation_tree.blend_tree.node.add")
+        .unwrap();
+    add.validate_input(&json!({
+        "session":"a".repeat(32),
+        "tree":"AnimationTree",
+        "graph":"BlendGraph",
+        "name":"SpeedSpace",
+        "kind":"blend_space_1d",
+        "graph_position":[460.0,0.0],
+        "min_space":-1.0,
+        "max_space":1.0,
+        "snap":0.1,
+        "expect":stamp,
+        "dry_run":false
+    }))
+    .unwrap();
+
+    let ambiguous = json!({
+        "session":"a".repeat(32),
+        "tree":"AnimationTree",
+        "graph":"BlendGraph",
+        "name":"SpeedSpace",
+        "kind":"blend_space_1d",
+        "position":[460.0,0.0],
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    assert!(add.validate_input(&ambiguous).is_err());
+
+    let point = catalog
+        .get("driver.godot.animation_tree.blend_space.point.add")
+        .unwrap();
+    point
+        .validate_input(&json!({
+            "session":"a".repeat(32),
+            "tree":"AnimationTree",
+            "graph":"BlendGraph/SpeedSpace",
+            "name":"Slow",
+            "kind":"animation",
+            "position":-1.0,
+            "animation":"door_open",
+            "index":-1,
+            "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+            "dry_run":false
+        }))
+        .unwrap();
+}
+
+#[test]
+fn input_schema_accepts_gamepad_button_and_axis_bindings() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog.get("driver.godot.input.set").unwrap();
+    let input = json!({
+        "session": "a".repeat(32),
+        "name": "gamepad_move",
+        "deadzone": 0.2,
+        "events": [
+            {"type":"joy_button","code":0,"device":-1},
+            {"type":"joy_axis","axis":0,"value":1.0,"device":-1}
+        ],
+        "expect": {"revision": 1, "fingerprint": "a".repeat(64)},
+        "dry_run": false
+    });
+    entry.validate_input(&input).unwrap();
+}
+
+#[test]
+fn navigation_schema_accepts_2d_vectors_and_polygon_resources() {
+    let catalog = Catalog::load().unwrap();
+    let agent = catalog
+        .get("driver.godot.navigation.agent.configure")
+        .unwrap();
+    agent
+        .validate_input(&json!({
+            "session":"a".repeat(32),
+            "target":"TwoD/Player/Agent",
+            "target_position":[120.0,80.0],
+            "avoidance_enabled":true,
+            "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+            "dry_run":false
+        }))
+        .unwrap();
+
+    let region = catalog
+        .get("driver.godot.navigation.region.configure")
+        .unwrap();
+    region
+        .validate_input(&json!({
+            "session":"a".repeat(32),
+            "target":"TwoD/NavRegion",
+            "navigation_polygon":"res://assets/navigation2d.tres",
+            "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+            "dry_run":false
+        }))
+        .unwrap();
+}
+
+#[test]
+fn physics_schema_accepts_2d_velocity_and_angular_scalar() {
+    let catalog = Catalog::load().unwrap();
+    let body = catalog.get("driver.godot.physics.body.configure").unwrap();
+    body.validate_input(&json!({
+        "session":"a".repeat(32),
+        "target":"TwoD/Player",
+        "linear_velocity":[10.0,20.0],
+        "angular_velocity":1.5,
+        "continuous_cd":1,
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    }))
+    .unwrap();
+
+    let area = catalog.get("driver.godot.physics.area.configure").unwrap();
+    area.validate_input(&json!({
+        "session":"a".repeat(32),
+        "target":"TwoD/Area",
+        "gravity_point":false,
+        "gravity_direction":[0.0,1.0],
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    }))
+    .unwrap();
+}
+
+#[test]
+fn physics_area_schema_rejects_ambiguous_gravity_vector_modes() {
+    let catalog = Catalog::load().unwrap();
+    let area = catalog.get("driver.godot.physics.area.configure").unwrap();
+    let ambiguous = json!({
+        "session":"a".repeat(32),
+        "target":"TwoD/Area",
+        "gravity_point":false,
+        "gravity_direction":[0.0,1.0],
+        "gravity_point_center":[20.0,20.0],
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    assert!(area.validate_input(&ambiguous).is_err());
 }
