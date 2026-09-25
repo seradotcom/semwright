@@ -719,10 +719,11 @@ impl Runtime {
             )
             .into(),
             format!("f={}", profile.container).into(),
-            // MLT real_time=0 performs synchronous offline processing without
-            // the read-ahead buffer or multi-frame worker queue. Keep libx264
-            // parallelism explicit and bounded for sandbox CPU/memory accounting.
-            "real_time=0".into(),
+            // Ubuntu 24.04 ships MLT 7.22 here. Its avformat consumer's stable
+            // offline/no-drop mode is real_time=-1; real_time=0 and multi-worker
+            // modes have both crashed in hosted CI for this composition. Keep MLT
+            // on its single offline processing path and bound only encoder threads.
+            "real_time=-1".into(),
             "threads=4".into(),
         ];
         if let Some(codec) = profile.video_codec {
