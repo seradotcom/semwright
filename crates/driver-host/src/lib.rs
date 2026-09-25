@@ -410,6 +410,7 @@ fn sandbox_command(
                     class: MountClass::Secret,
                     logical_name: secret.name.clone(),
                     read_only: true,
+                    execute: false,
                 })
             })
             .collect::<Result<Vec<_>>>()?,
