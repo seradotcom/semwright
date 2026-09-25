@@ -368,6 +368,7 @@ fn sandbox_command(
                 class: MountClass::Workspace,
                 logical_name: m.root.clone(),
                 read_only: m.read_only,
+                execute: m.execute,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -394,6 +395,7 @@ fn sandbox_command(
                     class: MountClass::SystemConfig,
                     logical_name,
                     read_only: true,
+                    execute: false,
                 })
             })
             .collect::<Result<Vec<_>>>()?,
@@ -419,6 +421,7 @@ fn sandbox_command(
             class: MountClass::Workspace,
             logical_name: loopback::MOUNT_NAME.into(),
             read_only: false,
+            execute: false,
         });
         environment.push((
             "SEMWRIGHT_DRIVER_LOOPBACK_SOCKET".into(),

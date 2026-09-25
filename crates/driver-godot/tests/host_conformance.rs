@@ -59,10 +59,12 @@ fn manifest(executable: PathBuf, network: bool, loopback_port: Option<u16>) -> M
             DriverMount {
                 root: "godot-config".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "godot-project".into(),
                 read_only: false,
+                execute: false,
             },
         ],
         system_config: vec![],

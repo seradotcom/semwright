@@ -87,7 +87,9 @@ network is isolated unless both manifest and owner configuration allow it, and n
 filesystem mounts can only refer to existing policy grants.
 
 Ordinary `mounts` are exposed below `/workspace/<grant>`. A writable mount requires a matching
-owner grant with write authority. `system_config` is narrower: it may expose only a direct
+owner grant with write authority. Read-only mounts are data-only by default; a driver that must
+execute a digest-pinned auxiliary runtime can set `execute: true`, and that opt-in is accepted only
+on a read-only mount. Plugins do not inherit executable mount authority. `system_config` is narrower: it may expose only a direct
 child of `/etc`, always read-only, and only when the owner explicitly granted that canonical
 host directory. This supports packaged applications whose runtime data is split between
 `/usr` and distribution configuration such as `/etc/libreoffice` without granting arbitrary
@@ -198,6 +200,10 @@ The workspace includes several larger integration surfaces in addition to the ex
   independent fake server, the real Semwright Driver Host sandbox, bounded fuzz targets and a
   disposable read-only OBS Studio instance. Driver Protocol v1 still does not transport child
   events, cooperative cancellation or dynamic capability changes into the broker.
+- `crates/driver-motion-canvas` provides 18 curated capabilities over a versioned
+  `semwright-motion.json` model, deterministic Motion Canvas generation, revision-bound refs,
+  atomic semantic transactions and bounded render jobs. Generated media stays disposable and
+  render authority remains inside Driver Host confinement.
 - `crates/driver-figma` provides 91 typed capabilities through an authenticated loopback bridge
   to a Semwright development plugin using the official Figma Plugin API. It covers design nodes,
   Auto Layout, typography, components/variants/instances, variables/design systems, prototypes,

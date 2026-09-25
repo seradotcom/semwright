@@ -14,7 +14,7 @@ use std::{
     io::{Read, Write},
     os::unix::{
         fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
-        process::CommandExt,
+        process::{CommandExt, ExitStatusExt},
     },
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -47,11 +47,13 @@ pub struct ProcessSpec {
     pub cwd: PathBuf,
     pub timeout: Duration,
     pub cpu_seconds: u64,
+    pub address_space_bytes: u64,
     pub environment: BTreeMap<String, String>,
 }
 #[derive(Clone, Debug)]
 pub struct ProcessResult {
     pub exit_code: Option<i32>,
+    pub term_signal: Option<i32>,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub cancelled: bool,
@@ -76,8 +78,8 @@ impl ProcessResult {
             return Err(Error::new(
                 "BackendFailed",
                 format!(
-                    "Tool failed with exit code {:?}; raw logs are not exposed",
-                    self.exit_code
+                    "Tool failed with exit code {:?}, signal {:?}; raw logs are not exposed",
+                    self.exit_code, self.term_signal
                 ),
             ));
         }
@@ -143,6 +145,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         || !spec.cwd.is_absolute()
         || spec.timeout.is_zero()
         || spec.timeout > Duration::from_secs(3600)
+        || !(134_217_728..=4_294_967_296).contains(&spec.address_space_bytes)
     {
         return Err(Error::invalid("Invalid process specification"));
     }
@@ -161,6 +164,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .process_group(0);
     let parent = std::process::id() as i32;
     let cpu = spec.cpu_seconds.clamp(1, 300);
+    let address_space = spec.address_space_bytes;
     // SAFETY: the closure only uses async-signal-safe Linux syscalls and stack values after fork.
     unsafe {
         command.pre_exec(move || {
@@ -173,7 +177,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
                 (0, cpu),
                 (1, 1073741824),
                 (7, 128),
-                (9, 1073741824),
+                (9, address_space),
                 // RLIMIT_NPROC is intentionally owned by the outer DriverProvider sandbox.
                 // Linux accounts it against the real UID, so imposing a second fixed limit here
                 // can reject legitimate child workers when the host UID already has many tasks.
@@ -255,6 +259,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .map_err(|_| Error::new("Internal", "stderr reader failed"))?;
     Ok(ProcessResult {
         exit_code: status.code(),
+        term_signal: status.signal(),
         stdout,
         stderr,
         cancelled,
@@ -508,12 +513,32 @@ impl Runtime {
         timeout: Duration,
     ) -> Result<ProcessSpec> {
         if self.host_sandboxed {
+            // Driver Host deliberately keeps writable scratch roots non-executable.
+            // Execute the original owner-pinned tool from the host's read-only+exec
+            // system/runtime surface instead of the staged /tmp copy used by the
+            // standalone nested-Bubblewrap path. Re-verify the digest immediately
+            // before every spawn so a stale runtime pin fails closed.
+            let pinned = match tool {
+                "melt" => &self.melt,
+                "ffprobe" => &self.ffprobe,
+                _ => return Err(Error::invalid("Unknown pinned runtime tool")),
+            };
+            pinned.verify()?;
+            let (cpu_seconds, address_space_bytes) = match tool {
+                // Curated 1080p H.264 renders are bounded by the outer Driver Host
+                // at the same 4 GiB / 300 CPU-second ceilings. These are limits,
+                // not reservations; ffprobe keeps the smaller probe budget.
+                "melt" => (300, 4_294_967_296),
+                "ffprobe" => (30, 1_073_741_824),
+                _ => return Err(Error::invalid("Unknown pinned runtime tool")),
+            };
             return Ok(ProcessSpec {
-                executable: self.tools.path().join(tool),
+                executable: pinned.path.clone(),
                 args,
                 cwd: work.into(),
                 timeout,
-                cpu_seconds: 120,
+                cpu_seconds,
+                address_space_bytes,
                 environment: Self::environment(),
             });
         }
@@ -579,12 +604,18 @@ impl Runtime {
             format!("/tools/{tool}").into(),
         ]);
         argv.extend(args);
+        let (cpu_seconds, address_space_bytes) = match tool {
+            "melt" => (300, 4_294_967_296),
+            "ffprobe" => (30, 1_073_741_824),
+            _ => return Err(Error::invalid("Unknown pinned runtime tool")),
+        };
         Ok(ProcessSpec {
             executable: self.bubblewrap.path.clone(),
             args: argv,
             cwd: work.into(),
             timeout,
-            cpu_seconds: 120,
+            cpu_seconds,
+            address_space_bytes,
             environment: BTreeMap::from([("LC_ALL".into(), "C".into())]),
         })
     }
@@ -705,17 +736,12 @@ impl Runtime {
             )
             .into(),
             format!("f={}", profile.container).into(),
-            "real_time=-1".into(),
-            "threads=2".into(),
         ];
+        args.extend(render_processing_args(profile));
         if let Some(codec) = profile.video_codec {
             args.push(format!("vcodec={codec}").into());
             if codec == "libx264" {
-                args.extend([
-                    "pix_fmt=yuv420p".into(),
-                    "crf=20".into(),
-                    "preset=medium".into(),
-                ]);
+                args.extend(h264_encoding_args());
             }
         } else {
             args.push("vn=1".into());
@@ -741,6 +767,24 @@ impl Runtime {
             &format!("partial.{}", profile.extension),
             cancel,
         )?;
+        if profile.video_codec.is_some() {
+            if info.width != Some(expected.width) || info.height != Some(expected.height) {
+                return Err(Error::new(
+                    "BackendFailed",
+                    "Rendered dimensions do not match plan",
+                ));
+            }
+            if let Some(observed_frames) = info.frames
+                && observed_frames != frames
+            {
+                return Err(Error::new(
+                    "BackendFailed",
+                    format!(
+                        "Rendered frame count differs from plan: observed {observed_frames}, expected {frames}"
+                    ),
+                ));
+            }
+        }
         if info.duration_num == 0 || info.duration_den == 0 {
             return Err(Error::new(
                 "BackendFailed",
@@ -754,22 +798,15 @@ impl Runtime {
         if actual.abs_diff(wanted) > tolerance {
             return Err(Error::new(
                 "BackendFailed",
-                "Rendered duration differs by more than one project frame",
+                format!(
+                    "Rendered duration differs by more than one project frame: observed {}/{}, expected {} frames at {}/{} fps",
+                    info.duration_num,
+                    info.duration_den,
+                    frames,
+                    expected.fps.num,
+                    expected.fps.den
+                ),
             ));
-        }
-        if profile.video_codec.is_some() {
-            if info.width != Some(expected.width) || info.height != Some(expected.height) {
-                return Err(Error::new(
-                    "BackendFailed",
-                    "Rendered dimensions do not match plan",
-                ));
-            }
-            if info.frames.is_some_and(|f| f != frames) {
-                return Err(Error::new(
-                    "BackendFailed",
-                    "Rendered decoded/frame-count metadata differs from plan",
-                ));
-            }
         }
         if !info.audio {
             return Err(Error::new(
@@ -780,6 +817,32 @@ impl Runtime {
         Ok(info)
     }
 }
+fn h264_encoding_args() -> Vec<OsString> {
+    // The 52-second launch-film render demonstrated that libx264 medium can exceed
+    // the bounded CI wall-clock budget. Keep acceleration inside the encoder only:
+    // CRF 18 preserves high-quality motion graphics while veryfast trades file size
+    // for throughput without changing timeline semantics or MLT processing topology.
+    vec![
+        "pix_fmt=yuv420p".into(),
+        "crf=18".into(),
+        "preset=veryfast".into(),
+    ]
+}
+
+fn render_processing_args(profile: &RenderProfile) -> Vec<OsString> {
+    // MLT real_time=-1 still runs asynchronous frame workers. That path repeatedly
+    // SIGSEGV'd for the 1080p H.264 launch-film graph on Ubuntu's MLT 7.22, so H.264
+    // stays synchronous at the MLT layer. Keep libx264 at two codec threads: a full
+    // 1,560-frame CI film render completed quickly with this setting, while the later
+    // threads=0 experiment caused the bounded 50-frame live conformance render to hit
+    // its 120-second wall-clock deadline.
+    if profile.video_codec == Some("libx264") {
+        vec!["real_time=0".into(), "threads=2".into()]
+    } else {
+        vec!["real_time=-1".into(), "threads=2".into()]
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RenderProfile {
     pub id: &'static str,
@@ -1015,8 +1078,29 @@ impl MediaInfo {
 
 #[cfg(test)]
 mod tool_owner_tests {
-    use super::trusted_tool_owner;
+    use super::{RenderProfile, h264_encoding_args, render_processing_args, trusted_tool_owner};
     use std::path::Path;
+
+    #[test]
+    fn h264_profile_uses_bounded_fast_high_quality_encoding() {
+        let args = h264_encoding_args();
+        let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
+        assert_eq!(args, ["pix_fmt=yuv420p", "crf=18", "preset=veryfast"]);
+    }
+
+    #[test]
+    fn h264_uses_synchronous_mlt_but_other_profiles_keep_certified_async_mode() {
+        for id in ["h264-1080p", "h264-720p"] {
+            let args = render_processing_args(&RenderProfile::get(id).unwrap());
+            let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
+            assert_eq!(args, ["real_time=0", "threads=2"], "profile {id}");
+        }
+        for id in ["lossless", "audio-wav"] {
+            let args = render_processing_args(&RenderProfile::get(id).unwrap());
+            let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
+            assert_eq!(args, ["real_time=-1", "threads=2"], "profile {id}");
+        }
+    }
 
     #[test]
     fn owner_policy_allows_only_explicit_trust_cases() {

@@ -352,6 +352,9 @@ fn sandbox_command(
             class: MountClass::Workspace,
             logical_name: mount.name.clone(),
             read_only: mount.read_only,
+            // External MCP filesystem grants are data-only. Executable authority
+            // stays explicit and is never inherited from a generic mount.
+            execute: false,
         })
         .collect();
     semwright_platform_services::sandbox_command(&SandboxSpec {

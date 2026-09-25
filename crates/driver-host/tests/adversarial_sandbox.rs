@@ -76,6 +76,9 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     }
 
     std::fs::write(ro.path().join("allowed.txt"), b"allowed").unwrap();
+    let ro_tool = ro.path().join("tool");
+    std::fs::copy("/usr/bin/true", &ro_tool).unwrap();
+    std::fs::set_permissions(&ro_tool, std::fs::Permissions::from_mode(0o500)).unwrap();
     let secret_path = secret.path().join("host-secret.txt");
     std::fs::write(&secret_path, b"must-not-be-visible").unwrap();
     std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o600)).unwrap();
@@ -109,10 +112,12 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             DriverMount {
                 root: "ro".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "rw".into(),
                 read_only: false,
+                execute: false,
             },
         ],
         system_config: vec![],
@@ -165,11 +170,13 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     assert_eq!(result["allowed_read"], true);
     assert_eq!(result["allowed_write"], true);
     assert_eq!(result["readonly_write"], false);
+    assert_eq!(result["readonly_execute"], false);
     assert_eq!(result["outside_home_write"], false);
     assert_eq!(result["outside_etc_write"], false);
     assert_eq!(result["host_secret_visible"], false);
     assert_eq!(result["host_pid_visible"], false);
     assert_eq!(result["host_loopback_connected"], false);
+    assert_eq!(result["private_shm_write"], true);
     assert_eq!(result["nofile"], 64);
 
     let environment = result["environment"]
