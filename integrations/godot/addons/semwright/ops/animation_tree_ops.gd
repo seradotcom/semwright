@@ -15,7 +15,7 @@ const NODE_KINDS := {
 
 static func inspect(ctx, args: Dictionary) -> Dictionary:
     var resolved = _state_machine(ctx, args)
-    if resolved is Dictionary:
+    if resolved.has("_error"):
         return resolved
     var machine: AnimationNodeStateMachine = resolved["machine"]
     var rows: Array = []
@@ -52,7 +52,7 @@ static func inspect(ctx, args: Dictionary) -> Dictionary:
     }}
 static func state_add(ctx, args: Dictionary) -> Dictionary:
     var resolved = _state_machine(ctx, args)
-    if resolved is Dictionary:
+    if resolved.has("_error"):
         return resolved
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
@@ -78,7 +78,7 @@ static func state_add(ctx, args: Dictionary) -> Dictionary:
 
 static func state_remove(ctx, args: Dictionary) -> Dictionary:
     var resolved = _state_machine(ctx, args)
-    if resolved is Dictionary:
+    if resolved.has("_error"):
         return resolved
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
@@ -95,7 +95,7 @@ static func state_remove(ctx, args: Dictionary) -> Dictionary:
     return ctx._mutation_result(true, [name], "Remove AnimationTree state")
 static func transition_add(ctx, args: Dictionary) -> Dictionary:
     var resolved = _state_machine(ctx, args)
-    if resolved is Dictionary:
+    if resolved.has("_error"):
         return resolved
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
@@ -118,7 +118,7 @@ static func transition_add(ctx, args: Dictionary) -> Dictionary:
 
 static func transition_configure(ctx, args: Dictionary) -> Dictionary:
     var resolved = _state_machine(ctx, args)
-    if resolved is Dictionary:
+    if resolved.has("_error"):
         return resolved
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
@@ -135,7 +135,7 @@ static func transition_configure(ctx, args: Dictionary) -> Dictionary:
     return ctx._mutation_result(true, ["transition:%d" % idx], "Configure AnimationTree transition")
 static func transition_remove(ctx, args: Dictionary) -> Dictionary:
     var resolved = _state_machine(ctx, args)
-    if resolved is Dictionary:
+    if resolved.has("_error"):
         return resolved
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
