@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 use windows::{
-    Foundation::{IInspectable, TypedEventHandler},
+    Foundation::TypedEventHandler,
     Graphics::{
         Capture::{
             Direct3D11CaptureFrame, Direct3D11CaptureFramePool, GraphicsCaptureItem,
@@ -35,7 +35,7 @@ use windows::{
             Graphics::Capture::IGraphicsCaptureItemInterop,
         },
     },
-    core::{Interface, factory},
+    core::{IInspectable, Interface, factory},
 };
 
 const MAX_DIMENSION: u32 = 4096;
