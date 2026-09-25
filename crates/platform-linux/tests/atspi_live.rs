@@ -90,11 +90,10 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
         .expect("fixture entry should expose editable text semantics");
     assert_eq!(editable["facets"]["text"]["editable"], true);
     assert_eq!(editable["facets"]["text"]["password"], false);
-    assert!(
-        editable["facets"]["text"]["character_count"]
-            .as_u64()
-            .is_some_and(|count| count > 0),
-        "editable text should expose bounded text metadata: {editable}"
+    assert_eq!(
+        editable["facets"]["text"]["character_count"].as_u64(),
+        Some(0),
+        "fixture editable text should begin empty while exposing bounded text metadata: {editable}"
     );
 
     let password = nodes
@@ -171,13 +170,30 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     .await
     .expect("text mutation must produce a delta");
     assert_eq!(delta["resync_required"], false);
-    assert!(
-        delta["nodes"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|node| node["node_id"] == editable_id)
+    let changed_editable = delta["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["node_id"] == editable_id)
+        .expect("text mutation delta must contain the editable node");
+    assert_eq!(
+        changed_editable["facets"]["text"]["character_count"].as_u64(),
+        Some("Semwright delta".chars().count() as u64),
+        "text mutation delta should project the new AT-SPI character count: {changed_editable}"
     );
+    let fresh_editable_target: NativeTarget =
+        serde_json::from_value(changed_editable["ref"]["$ref"].clone())
+            .expect("delta must refresh the semantic target");
+    let read_back = backend
+        .execute(
+            &ctx,
+            "ui.read_text",
+            &json!({"_target":fresh_editable_target,"max_chars":64}),
+        )
+        .await
+        .expect("fresh semantic target should read back edited text");
+    assert_eq!(read_back["text"], "Semwright delta");
+    assert_eq!(read_back["truncated"], false);
     let delta_revision = delta["revision"].as_u64().unwrap();
 
     child.kill().await.ok();
