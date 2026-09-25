@@ -12,9 +12,11 @@ record → compile → verify → replay → promote
                                   ↘ demote
 ```
 
-V1 remains the trust boundary for compilation, replay and promotion. V2 only proposes
-repeated structures and feeds approved suggestions back into that existing compiler. V3
-automatic candidate generation remains a separately verified future step.
+V1 remains the trust boundary for compilation, replay and promotion. V2 proposes
+repeated structures. V3 derives an in-memory compiled proposal from strong V2 evidence,
+runs static Recipe validation automatically, and exposes only sanitized proposal metadata.
+The candidate is not persisted until explicit acceptance and still needs a successful live
+replay plus explicit promotion before it can enter the normal capability catalog.
 
 ## Authorization
 
@@ -206,3 +208,38 @@ V2 still does not:
 
 Automatic candidate proposal is reserved for V3 and must preserve the same broker,
 policy, replay and promotion gates.
+## V3 automatic proposals
+
+V3 is deliberately **automatic about analysis, not authority**. A proposal is eligible only
+when at least three compatible value-capturing traces are available. Semwright compiles the
+latest bounded evidence set in memory with the V1 compiler, checks descriptor drift and
+validates Recipe v1 statically. The public proposal contains command names, inferred input
+types, aggregate permissions/risk and evidence counts, but never the compiled recipe,
+captured constants, raw pointers or source trace IDs.
+
+```sh
+semwright workflow proposals
+semwright workflow proposal PROPOSAL_ID
+semwright workflow plan-proposal PROPOSAL_ID --args-json '{"input":"value"}'
+semwright workflow accept-proposal PROPOSAL_ID
+```
+
+Proposal identity includes the compiled candidate fingerprint. New evidence that changes
+the compilation produces a different proposal ID, so accepting a stale proposal fails
+instead of silently accepting a newer draft.
+
+Evidence tiers (`standard`, `strong`, `very_strong`) are deterministic heuristics over
+occurrence and compile-ready counts. They are **not probabilities of success** and never
+affect policy authority.
+
+`workflow.proposal.plan` always invokes Recipe v1 in dry-run mode. `accept-proposal`
+persists the exact candidate and records its already-completed static verification, but
+does not execute it. The accepted candidate still needs a successful explicit
+`workflow replay` before `workflow promote` can succeed.
+
+When the third compile-ready observation arrives, Semwright emits a session-scoped
+`workflow.proposal.ready` event. No proposal is persisted merely because that event
+exists.
+
+V3 intentionally does not auto-replay mutating operations, auto-promote capabilities,
+infer permissions from model confidence, or use an LLM as an authorization source.

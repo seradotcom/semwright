@@ -1,8 +1,8 @@
 use super::*;
 use semwright_registry::{Metadata, Registry};
 use semwright_workflow::{
-    Candidate, DEFAULT_MIN_OCCURRENCES, DescriptorLookup, ParameterHint, TraceStep,
-    compile as compile_trace, promoted_descriptor, sanitize, verify_drift,
+    Candidate, DEFAULT_MIN_OCCURRENCES, DescriptorLookup, ParameterHint, ProposalBuild, TraceStep,
+    build_proposal, compile as compile_trace, promoted_descriptor, sanitize, verify_drift,
 };
 use std::path::Path;
 
@@ -114,25 +114,42 @@ impl Broker {
             }
         }))
     }
-    pub(super) fn workflow_record_stop(&self, session: &str, successful: bool) -> Result<Value> {
-        let (trace, detected) = {
+    pub(super) fn workflow_record_stop(
+        self: &Arc<Self>,
+        session: &str,
+        successful: bool,
+    ) -> Result<Value> {
+        let (trace, detected, proposal_source) = {
             let mut workflows = self
                 .workflows
                 .lock()
                 .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?;
             let trace = workflows.stop(session, successful)?;
-            let detected = if trace.successful {
-                workflows
-                    .suggestions(DEFAULT_MIN_OCCURRENCES, false)?
-                    .into_iter()
-                    .find(|pattern| {
-                        pattern.occurrences == DEFAULT_MIN_OCCURRENCES
-                            && pattern.trace_ids.iter().any(|id| id == &trace.id)
-                    })
+            let suggestions = if trace.successful {
+                workflows.suggestions(DEFAULT_MIN_OCCURRENCES, false)?
             } else {
-                None
+                vec![]
             };
-            (trace, detected)
+            let detected = suggestions
+                .iter()
+                .find(|pattern| {
+                    pattern.occurrences == DEFAULT_MIN_OCCURRENCES
+                        && pattern.trace_ids.iter().any(|id| id == &trace.id)
+                })
+                .cloned();
+            let proposal_pattern = suggestions
+                .iter()
+                .find(|pattern| {
+                    pattern.compile_ready_count == semwright_workflow::DEFAULT_MIN_PROPOSAL_TRACES
+                        && pattern.compile_trace_ids.iter().any(|id| id == &trace.id)
+                })
+                .cloned();
+            let proposal_source = proposal_pattern.as_ref().and_then(|pattern| {
+                workflows
+                    .compile_traces_for_suggestion(&pattern.suggestion_id)
+                    .ok()
+            });
+            (trace, detected, proposal_source)
         };
         if let Some(pattern) = detected {
             self.session_event(
@@ -143,6 +160,28 @@ impl Broker {
                     .with_attribute("occurrences", json!(pattern.occurrences))
                     .with_attribute("compile_ready_count", json!(pattern.compile_ready_count))
                     .with_attribute("compilable", json!(pattern.compile_ready_count >= 2)),
+            );
+        }
+        if let Some((pattern, traces)) = proposal_source
+            && let Ok(mut build) = build_proposal(&pattern, &traces, self.as_ref())
+            && build
+                .candidate
+                .recipe
+                .validate(&RecipeBridge {
+                    broker: self.clone(),
+                    session: session.into(),
+                })
+                .is_ok()
+        {
+            build.proposal.static_verified = true;
+            self.session_event(
+                session,
+                self.core_event("workflow.proposal.ready")
+                    .with_attribute("proposal_id", json!(build.proposal.id))
+                    .with_attribute("pattern_id", json!(build.proposal.pattern_id))
+                    .with_attribute("suggestion_id", json!(build.proposal.suggestion_id))
+                    .with_attribute("evidence_tier", json!(build.proposal.evidence.tier))
+                    .with_attribute("occurrences", json!(build.proposal.evidence.occurrences)),
             );
         }
         Ok(json!({"recording":false,"trace":trace}))
@@ -285,6 +324,143 @@ impl Broker {
                 "compile_ready_count":pattern.compile_ready_count,
                 "source_traces":pattern.compile_trace_ids
             }
+        }))
+    }
+
+    fn workflow_proposal_builds(
+        self: &Arc<Self>,
+        session: &str,
+        min_occurrences: usize,
+        include_dismissed: bool,
+    ) -> Result<Vec<ProposalBuild>> {
+        let sources = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .proposal_sources(min_occurrences, include_dismissed)?;
+        let mut builds = Vec::new();
+        for (pattern, traces) in sources {
+            let Ok(mut build) = build_proposal(&pattern, &traces, self.as_ref()) else {
+                continue;
+            };
+            if build
+                .candidate
+                .recipe
+                .validate(&RecipeBridge {
+                    broker: self.clone(),
+                    session: session.into(),
+                })
+                .is_err()
+            {
+                continue;
+            }
+            build.proposal.static_verified = true;
+            builds.push(build);
+        }
+        Ok(builds)
+    }
+
+    fn workflow_proposal_build(
+        self: &Arc<Self>,
+        session: &str,
+        proposal_id: &str,
+    ) -> Result<ProposalBuild> {
+        self.workflow_proposal_builds(session, DEFAULT_MIN_OCCURRENCES, true)?
+            .into_iter()
+            .find(|build| build.proposal.id == proposal_id)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Workflow proposal not found or stale"))
+    }
+
+    pub(super) fn workflow_proposals(
+        self: &Arc<Self>,
+        session: &str,
+        min_occurrences: usize,
+        include_dismissed: bool,
+    ) -> Result<Value> {
+        let proposals = self
+            .workflow_proposal_builds(session, min_occurrences, include_dismissed)?
+            .into_iter()
+            .map(|build| build.proposal)
+            .collect::<Vec<_>>();
+        Ok(json!({
+            "proposals":proposals,
+            "min_occurrences":min_occurrences,
+            "include_dismissed":include_dismissed
+        }))
+    }
+
+    pub(super) fn workflow_proposal(
+        self: &Arc<Self>,
+        session: &str,
+        proposal_id: &str,
+    ) -> Result<Value> {
+        let build = self.workflow_proposal_build(session, proposal_id)?;
+        Ok(json!({"proposal":build.proposal}))
+    }
+
+    pub(super) async fn workflow_proposal_plan(
+        self: &Arc<Self>,
+        session: &str,
+        proposal_id: &str,
+        inputs: Value,
+        cancellation: CancellationToken,
+    ) -> Result<Value> {
+        let build = self.workflow_proposal_build(session, proposal_id)?;
+        let output = build
+            .candidate
+            .recipe
+            .run(
+                &RecipeBridge {
+                    broker: self.clone(),
+                    session: session.into(),
+                },
+                inputs,
+                true,
+                cancellation,
+            )
+            .await?;
+        Ok(json!({
+            "proposal_id":build.proposal.id,
+            "candidate_id":build.proposal.candidate_id,
+            "plan":output
+        }))
+    }
+
+    pub(super) fn workflow_proposal_accept(
+        self: &Arc<Self>,
+        session: &str,
+        proposal_id: &str,
+    ) -> Result<Value> {
+        let mut build = self.workflow_proposal_build(session, proposal_id)?;
+        build.candidate.static_verified = true;
+        self.workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .store_candidate(build.candidate.clone())?;
+        Ok(json!({
+            "accepted":true,
+            "proposal":build.proposal,
+            "candidate":build.candidate
+        }))
+    }
+
+    pub(super) fn workflow_proposal_dismiss(
+        self: &Arc<Self>,
+        session: &str,
+        proposal_id: &str,
+        permanent: bool,
+    ) -> Result<Value> {
+        let build = self.workflow_proposal_build(session, proposal_id)?;
+        let dismissal = self
+            .workflows
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Workflow store lock poisoned"))?
+            .dismiss_suggestion(&build.proposal.suggestion_id, permanent)?;
+        Ok(json!({
+            "dismissed":true,
+            "proposal_id":proposal_id,
+            "suggestion_id":build.proposal.suggestion_id,
+            "dismissal":dismissal
         }))
     }
 

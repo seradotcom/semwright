@@ -6,6 +6,7 @@
 mod compiler;
 mod miner;
 mod model;
+mod proposal;
 mod sanitize;
 mod store;
 
@@ -17,5 +18,9 @@ pub use miner::{
     validate_min_occurrences,
 };
 pub use model::*;
+pub use proposal::{
+    DEFAULT_MIN_PROPOSAL_TRACES, EvidenceTier, PROPOSAL_VERSION, ProposalBuild, ProposalEvidence,
+    ProposalInput, WorkflowProposal, build_proposal,
+};
 pub use sanitize::{looks_like_ref, sanitize};
 pub use store::WorkflowManager;
