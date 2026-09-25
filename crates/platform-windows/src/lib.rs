@@ -13,7 +13,9 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
+    time::Duration,
 };
 use tokio::sync::broadcast;
 use uia::UiaActor;
@@ -56,6 +58,7 @@ struct WindowStamp {
 
 pub struct Windows {
     uia: UiaActor,
+    artifacts: PathBuf,
     windows: Arc<Mutex<BTreeMap<String, WindowStamp>>>,
     next_revision: Arc<Mutex<u64>>,
     signals: broadcast::Sender<ProviderSignal>,
@@ -109,11 +112,13 @@ fn delta_arg(args: &Value, key: &str, limit: f64) -> Result<i32> {
 }
 
 impl Windows {
-    pub fn new() -> Result<Self> {
+    pub fn new(artifacts: &Path) -> Result<Self> {
         semwright_platform_windows_sys::dll::harden_default_dll_search()?;
+        semwright_platform_windows_sys::paths::ensure_owner_only_directory(artifacts)?;
         let (signals, _) = broadcast::channel(512);
         Ok(Self {
             uia: UiaActor::start(signals.clone())?,
+            artifacts: artifacts.to_path_buf(),
             windows: Arc::new(Mutex::new(BTreeMap::new())),
             next_revision: Arc::new(Mutex::new(0)),
             signals,
@@ -267,10 +272,21 @@ impl Backend for Windows {
     async fn probe(&self) -> Vec<Feature> {
         COMMANDS.iter().map(|c| {
             if *c == "screen.capture" {
-                let mut f = feature("windows", c, false,
-                    if capture::capture_supported() { "Windows.Graphics.Capture is present; bounded D3D11 single-frame readback is not yet native-verified" } else { "Windows.Graphics.Capture is unavailable on this session" },
-                    "Run LIVE_WINDOWS_TEST_MATRIX.md on an interactive Windows 11 session before enabling capture");
-                f.status = CapabilityStatus::Unavailable;
+                let supported = capture::capture_supported();
+                let mut f = feature(
+                    "windows",
+                    c,
+                    supported,
+                    if supported {
+                        "Windows.Graphics.Capture system picker and bounded D3D11 readback are available"
+                    } else {
+                        "Windows.Graphics.Capture is unavailable on this session"
+                    },
+                    "Capture requires explicit end-user selection in an interactive Windows session",
+                );
+                if !supported {
+                    f.status = CapabilityStatus::Unavailable;
+                }
                 f
             } else {
                 feature("windows", c, true, "Public Windows API implementation present; probe is not an acceptance certificate", "Run native Windows CI and interactive acceptance")
@@ -420,10 +436,42 @@ impl Backend for Windows {
                 clipboard::write_text(text)?;
                 Ok(json!({"written":true,"bytes":text.len()}))
             }
-            "screen.capture" => Err(Error::new(
-                ErrorCode::Unavailable,
-                "Windows.Graphics.Capture target acquisition exists, but D3D11 single-frame readback remains fail-closed pending native verification",
-            )),
+            "screen.capture" => {
+                let artifacts = self.artifacts.clone();
+                let cancellation = ctx.cancellation.clone();
+                let artifact = tokio::task::spawn_blocking(move || {
+                    capture::pick_and_capture_artifact(&artifacts, Duration::from_secs(110), || {
+                        cancellation.is_cancelled()
+                    })
+                })
+                .await
+                .map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Windows capture worker terminated unexpectedly",
+                    )
+                })??;
+                if let Err(error) = ctx.check_cancelled() {
+                    let _ = tokio::fs::remove_file(&artifact.path).await;
+                    return Err(error);
+                }
+                let cleanup = artifact.path.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    let _ = tokio::fs::remove_file(cleanup).await;
+                });
+                Ok(json!({
+                    "path": artifact.path,
+                    "mime_type": "image/png",
+                    "bytes": artifact.bytes,
+                    "width": artifact.width,
+                    "height": artifact.height,
+                    "expires_in_seconds": 60,
+                    "selection": "system_content_picker",
+                    "coordinate_space": "windows_graphics_capture_item_pixels",
+                    "warning": "The user-selected capture may contain sensitive content; image bytes are never audited"
+                }))
+            }
             _ => Err(Error::new(
                 ErrorCode::Unsupported,
                 "Windows operation is not implemented",

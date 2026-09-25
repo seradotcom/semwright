@@ -17,7 +17,7 @@ All rows are `WINDOWS_INTERACTIVE_PENDING` in this source drop because no intera
 | display | 96/125/150/200%, mixed DPI, negative coordinates | coordinate conversions documented/verified |
 | lifecycle | close/recreate, process restart, simulated PID/HWND reuse | old refs become StaleReference |
 | clipboard | contention and >4 MiB | bounded retry/ResourceExhausted |
-| capture | picker/programmatic target, resize/close/device loss | WGC single frame bounded; no private API |
+| capture | public system picker, user cancel, resize/close/device loss; internal CreateForWindow readback fixture | WGC single frame bounded, private expiring PNG, cancellation honored; no private API |
 | session | lock/unlock, sleep/wake | invalidate/reprobe |
 | IPC | wrong SID/session, remote client, DACL inspection | denied + impersonation reverted |
 | Driver Host | safe fixture child | only after secure-spawn contract lands |

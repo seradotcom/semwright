@@ -1,6 +1,6 @@
 # Godot capability surface
 
-The Godot driver exposes **103 curated `driver.godot.*` capabilities**. Every advertised
+The Godot driver exposes **180 curated `driver.godot.*` capabilities**. Every advertised
 capability has an operation-specific input and output schema, descriptor digest, route and
 risk/idempotency classification. The catalog is checked against the production EditorPlugin
 dispatch and runner routes. The goal is semantic domain coverage, not a one-tool-per-method
@@ -19,7 +19,9 @@ mirror of Godot's raw object API.
 - `node.rename`, `node.reparent`, `group.set`
 - `input.list`, `input.set`, `input.remove`
 
-Generic node/resource operations remain the bounded substrate for engine types that do not
+Input actions preserve keyboard, mouse-button, gamepad-button and analog-axis bindings,
+including device identity and signed axis direction. Generic node/resource operations remain
+the bounded substrate for engine types that do not
 need a dedicated semantic workflow. Domain operations below provide higher-level meaning for
 the major authoring systems instead of requiring agents to guess raw property names.
 
@@ -51,14 +53,37 @@ Track types are explicit and bounded; arbitrary method invocation is not exposed
 Tile cell inspection is bounded and reports truncation. TileSet mutation is resource-backed
 and saved through the normal Godot resource pipeline.
 
+## 3D grid authoring
+
+- `gridmap.inspect`, `gridmap.configure`
+- `gridmap.cell.set`, `gridmap.cell.erase`, `gridmap.clear`
+- `meshlibrary.inspect`
+- `meshlibrary.item.create`, `meshlibrary.item.configure`, `meshlibrary.item.remove`
+
+GridMap cells use explicit integer 3D coordinates and Godot's 24 orthogonal orientations.
+MeshLibrary item edits are resource-backed and expose mesh plus navigation associations. More
+complex item transforms/collision-shape arrays are intentionally deferred to the richer Variant
+codec rather than accepting untyped transform payloads.
+
+## Paths and curves
+
+- `path.inspect`, `path.configure`
+- `path.point.add`, `path.point.configure`, `path.point.remove`, `path.clear`
+- `path.follow.inspect`, `path.follow.configure`
+
+Path2D/Curve2D and Path3D/Curve3D share bounded Bézier point semantics while preserving
+dimension-specific fields such as Curve3D tilt/closure/up vectors and PathFollow rotation modes.
+
 ## Navigation
 
 - `navigation.region.inspect`, `navigation.region.configure`, `navigation.region.bake`
 - `navigation.agent.inspect`, `navigation.agent.configure`
 - `navigation.link.configure`
 
-The surface models layers, costs, path tolerances, target position, avoidance and link
-endpoints without exposing arbitrary NavigationServer calls.
+The same typed operations cover NavigationRegion/Agent/Link in both 2D and 3D. Vector
+shape is validated against the target dimension, while region resources remain explicit
+NavigationPolygon (2D) or NavigationMesh (3D). The surface models layers, costs, path
+tolerances, avoidance and link endpoints without exposing arbitrary NavigationServer calls.
 
 ## Physics
 
@@ -68,7 +93,12 @@ endpoints without exposing arbitrary NavigationServer calls.
 - `physics.joint.configure`
 - `collision.shape.configure`
 
-Body configuration distinguishes RigidBody3D, CharacterBody3D and StaticBody3D semantics.
+Body, Area, Joint and CollisionShape operations preserve 2D/3D semantics. RigidBody,
+CharacterBody and StaticBody variants use dimension-correct velocity/angular types, while
+Area gravity vectors and collision resources are validated against the target dimension.
+Directional gravity and point-gravity center are mutually exclusive because Godot stores them
+through the same underlying gravity vector; `gravity_point` selects which semantic
+interpretation is active.
 
 ## Audio
 
@@ -113,6 +143,79 @@ type variations.
 
 Bone inspection and mutation are bounded to 512 bones and expose hierarchy plus pose state.
 
+## Project settings and autoloads
+
+- `project.window.inspect`, `project.window.configure`
+- `project.rendering.inspect`, `project.rendering.configure`
+- `project.physics.inspect`, `project.physics.configure`
+- `project.layers.inspect`, `project.layers.set`
+- `autoload.list`, `autoload.add`, `autoload.remove`
+
+Only curated project settings are writable. Autoload creation is classified as code-execution
+risk because the registered script executes when the project is run.
+
+## Asset import and export configuration
+
+- `asset.inspect`, `asset.dependencies`, `asset.reimport`
+- `asset.import.inspect`, `asset.import.configure`
+- `export.preset.list`, `export.preset.inspect`, `export.preset.configure`
+
+Import configuration can only modify existing scalar keys in an existing `.import` sidecar
+and then reimports through EditorFileSystem. Export configuration is limited to
+`export_presets.cfg`; Semwright never reads or writes `.godot/export_credentials.cfg`.
+
+## Localization
+
+- `localization.inspect`, `localization.configure`
+- `translation.inspect`, `translation.create`
+- `translation.message.set`, `translation.message.remove`
+
+Translation resources are normal Godot resources and project registration is persisted through
+ProjectSettings.
+
+## Deep AnimationTree authoring
+
+- `animation_tree.inspect`
+- `animation_tree.state.add`, `animation_tree.state.remove`
+- `animation_tree.transition.add`, `animation_tree.transition.configure`,
+  `animation_tree.transition.remove`
+- `animation_tree.parameter.set`
+- `animation_tree.node.inspect`, `animation_tree.node.configure`
+- `animation_tree.blend_tree.inspect`
+- `animation_tree.blend_tree.node.add`, `animation_tree.blend_tree.node.configure`,
+  `animation_tree.blend_tree.node.remove`
+- `animation_tree.blend_tree.connection.set`
+- `animation_tree.blend_space.inspect`, `animation_tree.blend_space.configure`
+- `animation_tree.blend_space.point.add`, `animation_tree.blend_space.point.configure`,
+  `animation_tree.blend_space.point.remove`
+- `animation_tree.blend_space.triangle.add`, `animation_tree.blend_space.triangle.remove`
+
+State machines, BlendTrees and named 1D/2D blend spaces can be addressed recursively through a
+bounded semantic graph path. Node creation is limited to explicit built-in AnimationNode kinds;
+BlendTree connections and BlendSpace points/triangles have typed schemas. Transitions expose
+condition, advance mode, priority, reset, switch mode and cross-fade semantics without arbitrary
+method dispatch.
+
+## Multiplayer authoring
+
+- `multiplayer.spawner.inspect`, `multiplayer.spawner.configure`
+- `multiplayer.spawner.scene.add`, `multiplayer.spawner.scene.remove`
+- `multiplayer.synchronizer.inspect`, `multiplayer.synchronizer.configure`
+- `multiplayer.replication.property.add`, `multiplayer.replication.property.configure`,
+  `multiplayer.replication.property.remove`
+
+These capabilities author scene replication metadata only. They do not create peers, open
+network sockets or expose arbitrary RPC execution.
+
+## Editor state
+
+- `editor.state`
+- `editor.selection.get`, `editor.selection.set`
+- `editor.run.start`, `editor.run.stop`
+
+Editor run-start is explicitly code-execution risk. Selection and state use EditorInterface and
+EditorSelection rather than coordinate automation.
+
 ## Headless runner and artifacts
 
 - `project.validate`
@@ -128,9 +231,10 @@ process-group cleanup and Driver Protocol v2 cancellation/progress/artifact fram
 ## Semantic-completeness boundary
 
 This surface intentionally does **not** mirror every ClassDB method. Arbitrary `Object.call`,
-OS execution and unrestricted GDScript evaluation remain unavailable. The next completeness
-layers are API introspection, richer Variant encoding, project/import/export configuration,
-autoloads, deeper AnimationTree graphs and selected multiplayer/editor-state semantics.
+OS execution and unrestricted GDScript evaluation remain unavailable. The curated domain layer
+now covers the major Godot authoring systems. Remaining completeness work belongs to the generic
+semantic substrate: broader Variant encoding, versioned API introspection/search, stronger
+provider-owned refs and cross-platform host polish.
 
 ## Acceptance evidence
 

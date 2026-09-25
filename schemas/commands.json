@@ -5749,6 +5749,60 @@
             "display_identity"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "mime_type": {
+              "const": "image/png"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8388608
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "expires_in_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600
+            },
+            "selection": {
+              "const": "system_content_picker"
+            },
+            "coordinate_space": {
+              "const": "windows_graphics_capture_item_pixels"
+            },
+            "warning": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "path",
+            "mime_type",
+            "bytes",
+            "width",
+            "height",
+            "expires_in_seconds",
+            "selection",
+            "coordinate_space",
+            "warning"
+          ],
+          "additionalProperties": false
         }
       ]
     },

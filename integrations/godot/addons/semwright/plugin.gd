@@ -12,6 +12,8 @@ const SignalOps = preload("res://addons/semwright/ops/signal_ops.gd")
 const AnimationOps = preload("res://addons/semwright/ops/animation_ops.gd")
 const VisualOps = preload("res://addons/semwright/ops/visual_ops.gd")
 const TileMapOps = preload("res://addons/semwright/ops/tilemap_ops.gd")
+const GridMapOps = preload("res://addons/semwright/ops/gridmap_ops.gd")
+const PathOps = preload("res://addons/semwright/ops/path_ops.gd")
 const NavigationOps = preload("res://addons/semwright/ops/navigation_ops.gd")
 const PhysicsOps = preload("res://addons/semwright/ops/physics_ops.gd")
 const AudioOps = preload("res://addons/semwright/ops/audio_ops.gd")
@@ -19,6 +21,14 @@ const ParticlesOps = preload("res://addons/semwright/ops/particles_ops.gd")
 const RenderingOps = preload("res://addons/semwright/ops/rendering_ops.gd")
 const UiThemeOps = preload("res://addons/semwright/ops/ui_theme_ops.gd")
 const SkeletonOps = preload("res://addons/semwright/ops/skeleton_ops.gd")
+const ProjectSemanticsOps = preload("res://addons/semwright/ops/project_semantics_ops.gd")
+const AssetOps = preload("res://addons/semwright/ops/asset_ops.gd")
+const ExportPresetOps = preload("res://addons/semwright/ops/export_preset_ops.gd")
+const LocalizationOps = preload("res://addons/semwright/ops/localization_ops.gd")
+const AnimationTreeOps = preload("res://addons/semwright/ops/animation_tree_ops.gd")
+const AnimationGraphOps = preload("res://addons/semwright/ops/animation_graph_ops.gd")
+const MultiplayerOps = preload("res://addons/semwright/ops/multiplayer_ops.gd")
+const EditorOps = preload("res://addons/semwright/ops/editor_ops.gd")
 
 var _ws: WebSocketPeer
 var _phase := "disconnected"
@@ -284,6 +294,23 @@ func _dispatch(op: String, args: Dictionary) -> Dictionary:
         "tileset.configure": return TileMapOps.tileset_configure(self, args)
         "tileset.atlas.create": return TileMapOps.atlas_create(self, args)
         "tileset.tile.create": return TileMapOps.tile_create(self, args)
+        "gridmap.inspect": return GridMapOps.inspect(self, args)
+        "gridmap.configure": return GridMapOps.configure(self, args)
+        "gridmap.cell.set": return GridMapOps.cell_set(self, args)
+        "gridmap.cell.erase": return GridMapOps.cell_erase(self, args)
+        "gridmap.clear": return GridMapOps.clear(self, args)
+        "meshlibrary.inspect": return GridMapOps.library_inspect(self, args)
+        "meshlibrary.item.create": return GridMapOps.item_create(self, args)
+        "meshlibrary.item.configure": return GridMapOps.item_configure(self, args)
+        "meshlibrary.item.remove": return GridMapOps.item_remove(self, args)
+        "path.inspect": return PathOps.inspect(self, args)
+        "path.configure": return PathOps.configure(self, args)
+        "path.point.add": return PathOps.point_add(self, args)
+        "path.point.configure": return PathOps.point_configure(self, args)
+        "path.point.remove": return PathOps.point_remove(self, args)
+        "path.clear": return PathOps.clear(self, args)
+        "path.follow.inspect": return PathOps.follow_inspect(self, args)
+        "path.follow.configure": return PathOps.follow_configure(self, args)
         "navigation.region.inspect": return NavigationOps.region_inspect(self, args)
         "navigation.region.configure": return NavigationOps.region_configure(self, args)
         "navigation.region.bake": return NavigationOps.region_bake(self, args)
@@ -326,6 +353,66 @@ func _dispatch(op: String, args: Dictionary) -> Dictionary:
         "skeleton.bone.add": return SkeletonOps.bone_add(self, args)
         "skeleton.bone.configure": return SkeletonOps.bone_configure(self, args)
         "skeleton.attachment.configure": return SkeletonOps.attachment_configure(self, args)
+        "project.window.inspect": return ProjectSemanticsOps.window_inspect(self, args)
+        "project.window.configure": return ProjectSemanticsOps.window_configure(self, args)
+        "project.rendering.inspect": return ProjectSemanticsOps.rendering_inspect(self, args)
+        "project.rendering.configure": return ProjectSemanticsOps.rendering_configure(self, args)
+        "project.physics.inspect": return ProjectSemanticsOps.physics_inspect(self, args)
+        "project.physics.configure": return ProjectSemanticsOps.physics_configure(self, args)
+        "project.layers.inspect": return ProjectSemanticsOps.layers_inspect(self, args)
+        "project.layers.set": return ProjectSemanticsOps.layer_set(self, args)
+        "autoload.list": return ProjectSemanticsOps.autoload_list(self, args)
+        "autoload.add": return ProjectSemanticsOps.autoload_add(self, args)
+        "autoload.remove": return ProjectSemanticsOps.autoload_remove(self, args)
+        "asset.inspect": return AssetOps.inspect(self, args)
+        "asset.dependencies": return AssetOps.dependencies(self, args)
+        "asset.reimport": return AssetOps.reimport(self, args)
+        "asset.import.inspect": return AssetOps.import_inspect(self, args)
+        "asset.import.configure": return AssetOps.import_configure(self, args)
+        "export.preset.list": return ExportPresetOps.list(self, args)
+        "export.preset.inspect": return ExportPresetOps.inspect(self, args)
+        "export.preset.configure": return ExportPresetOps.configure(self, args)
+        "localization.inspect": return LocalizationOps.inspect(self, args)
+        "localization.configure": return LocalizationOps.configure(self, args)
+        "translation.inspect": return LocalizationOps.translation_inspect(self, args)
+        "translation.create": return LocalizationOps.translation_create(self, args)
+        "translation.message.set": return LocalizationOps.message_set(self, args)
+        "translation.message.remove": return LocalizationOps.message_remove(self, args)
+        "animation_tree.inspect": return AnimationTreeOps.inspect(self, args)
+        "animation_tree.state.add": return AnimationTreeOps.state_add(self, args)
+        "animation_tree.state.remove": return AnimationTreeOps.state_remove(self, args)
+        "animation_tree.transition.add": return AnimationTreeOps.transition_add(self, args)
+        "animation_tree.transition.configure": return AnimationTreeOps.transition_configure(self, args)
+        "animation_tree.transition.remove": return AnimationTreeOps.transition_remove(self, args)
+        "animation_tree.parameter.set": return AnimationTreeOps.parameter_set(self, args)
+        "animation_tree.node.inspect": return AnimationGraphOps.node_inspect(self, args)
+        "animation_tree.node.configure": return AnimationGraphOps.node_configure(self, args)
+        "animation_tree.blend_tree.inspect": return AnimationGraphOps.blend_tree_inspect(self, args)
+        "animation_tree.blend_tree.node.add": return AnimationGraphOps.blend_tree_node_add(self, args)
+        "animation_tree.blend_tree.node.configure": return AnimationGraphOps.blend_tree_node_configure(self, args)
+        "animation_tree.blend_tree.node.remove": return AnimationGraphOps.blend_tree_node_remove(self, args)
+        "animation_tree.blend_tree.connection.set": return AnimationGraphOps.blend_tree_connection_set(self, args)
+        "animation_tree.blend_space.inspect": return AnimationGraphOps.blend_space_inspect(self, args)
+        "animation_tree.blend_space.configure": return AnimationGraphOps.blend_space_configure(self, args)
+        "animation_tree.blend_space.point.add": return AnimationGraphOps.blend_space_point_add(self, args)
+        "animation_tree.blend_space.point.configure": return AnimationGraphOps.blend_space_point_configure(self, args)
+        "animation_tree.blend_space.point.remove": return AnimationGraphOps.blend_space_point_remove(self, args)
+        "animation_tree.blend_space.triangle.add": return AnimationGraphOps.blend_space_triangle_add(self, args)
+        "animation_tree.blend_space.triangle.remove": return AnimationGraphOps.blend_space_triangle_remove(self, args)
+        "multiplayer.spawner.inspect": return MultiplayerOps.spawner_inspect(self, args)
+        "multiplayer.spawner.configure": return MultiplayerOps.spawner_configure(self, args)
+        "multiplayer.spawner.scene.add": return MultiplayerOps.spawner_scene_add(self, args)
+        "multiplayer.spawner.scene.remove": return MultiplayerOps.spawner_scene_remove(self, args)
+        "multiplayer.synchronizer.inspect": return MultiplayerOps.synchronizer_inspect(self, args)
+        "multiplayer.synchronizer.configure": return MultiplayerOps.synchronizer_configure(self, args)
+        "multiplayer.replication.property.add": return MultiplayerOps.replication_add(self, args)
+        "multiplayer.replication.property.configure": return MultiplayerOps.replication_configure(self, args)
+        "multiplayer.replication.property.remove": return MultiplayerOps.replication_remove(self, args)
+        "editor.state": return EditorOps.state(self, args)
+        "editor.selection.get": return EditorOps.selection_get(self, args)
+        "editor.selection.set": return EditorOps.selection_set(self, args)
+        "editor.run.start": return EditorOps.run_start(self, args)
+        "editor.run.stop": return EditorOps.run_stop(self, args)
         _: return _error("unsupported", "unsupported Godot operation")
 
 func _stamp() -> Dictionary:
@@ -340,7 +427,20 @@ func _fingerprint() -> String:
     for action in _project_input_actions():
         var events: Array = []
         for event in action["events"]:
-            events.append([event["type"], event["code"]])
+            var kind := str(event.get("type", ""))
+            if kind == "joy_axis":
+                events.append([
+                    kind,
+                    int(event.get("axis", 0)),
+                    float(event.get("value", 0.0)),
+                    int(event.get("device", -1)),
+                ])
+            else:
+                events.append([
+                    kind,
+                    int(event.get("code", 0)),
+                    int(event.get("device", -1)),
+                ])
         input_rows.append([action["name"], action["deadzone"], events])
     var state := {
         "scene": "" if root == null else str(root.scene_file_path),
@@ -611,8 +711,9 @@ func _is_resource_ref(value) -> bool:
     return typeof(value) == TYPE_DICTIONARY and str(value.get("$type", "")) == "Resource"
 
 func _project_input_actions() -> Array:
-    # EditorPlugin InputMap APIs expose editor bindings. Project bindings are
-    # persisted under input/* in ProjectSettings, so read those directly.
+    # Project InputMap bindings are persisted under input/* in ProjectSettings.
+    # Preserve device semantics and analog axis direction instead of collapsing
+    # every binding into keyboard/mouse-shaped data.
     var actions: Array = []
     for property in ProjectSettings.get_property_list():
         var setting_name := str(property.get("name", ""))
@@ -627,9 +728,13 @@ func _project_input_actions() -> Array:
         var events: Array = []
         for event in setting.get("events", []):
             if event is InputEventKey:
-                events.append({"type":"key","code":event.physical_keycode})
+                events.append({"type":"key","code":event.physical_keycode,"device":event.device})
             elif event is InputEventMouseButton:
-                events.append({"type":"mouse_button","code":event.button_index})
+                events.append({"type":"mouse_button","code":event.button_index,"device":event.device})
+            elif event is InputEventJoypadButton:
+                events.append({"type":"joy_button","code":event.button_index,"device":event.device})
+            elif event is InputEventJoypadMotion:
+                events.append({"type":"joy_axis","axis":event.axis,"value":event.axis_value,"device":event.device})
         actions.append({
             "name": name,
             "deadzone": float(setting.get("deadzone", 0.5)),
@@ -653,15 +758,27 @@ func _input_set(args: Dictionary) -> Dictionary:
     var persisted_events: Array = []
     for spec in args.get("events", []):
         var event: InputEvent
-        if str(spec.get("type", "")) == "key":
+        var kind := str(spec.get("type", ""))
+        if kind == "key":
             var key := InputEventKey.new()
             key.physical_keycode = int(spec.get("code", 0))
             event = key
-        elif str(spec.get("type", "")) == "mouse_button":
+        elif kind == "mouse_button":
             var button := InputEventMouseButton.new()
             button.button_index = int(spec.get("code", 0))
             event = button
+        elif kind == "joy_button":
+            var joy_button := InputEventJoypadButton.new()
+            joy_button.button_index = int(spec.get("code", 0))
+            event = joy_button
+        elif kind == "joy_axis":
+            var joy_axis := InputEventJoypadMotion.new()
+            joy_axis.axis = int(spec.get("axis", 0))
+            joy_axis.axis_value = float(spec.get("value", 0.0))
+            event = joy_axis
         if event != null:
+            if spec.has("device"):
+                event.device = int(spec["device"])
             persisted_events.append(event)
     ProjectSettings.set_setting("input/" + name, {
         "deadzone": deadzone,
