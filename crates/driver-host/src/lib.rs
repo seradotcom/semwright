@@ -1205,7 +1205,7 @@ mod tests {
         std::fs::write(&staged, b"driver").unwrap();
         std::fs::write(&helper, b"helper").unwrap();
 
-        let command = sandbox_command(&manifest(), &staged, &helper, &[]).unwrap();
+        let command = sandbox_command(&manifest(), &staged, &helper, &[], None).unwrap();
         let args: Vec<_> = command
             .as_std()
             .get_args()
