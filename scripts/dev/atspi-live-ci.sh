@@ -69,6 +69,13 @@ case "$PHASE" in
     ;;
 esac
 
+echo "phase=${PHASE}_compile_start" | tee -a verification/native-ci/atspi-phases.log
+cargo test --locked -p semwright-platform-linux "$test_name" --no-run \
+  > "verification/native-ci/atspi-${PHASE}-compile.log" 2>&1
+cat "verification/native-ci/atspi-${PHASE}-compile.log"
+echo "phase=${PHASE}_compile_done" | tee -a verification/native-ci/atspi-phases.log
+
+# Bound the live accessibility exercise, not cold-cache Rust compilation.
 echo "phase=${PHASE}_start" | tee -a verification/native-ci/atspi-phases.log
 rc=0
 timeout --signal=TERM --kill-after=5s 90s \
