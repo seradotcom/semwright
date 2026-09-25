@@ -92,11 +92,11 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
             read_only: false,
         }],
         system_config: vec![SystemConfigMount {
-            secrets: vec![],
-            tools: vec![],
             root: "font-config".into(),
             destination: "/etc/fonts".into(),
         }],
+        secrets: vec![],
+        tools: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {

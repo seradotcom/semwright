@@ -142,11 +142,11 @@ async fn obs_driver_runs_through_real_driver_host() {
         transport: Transport::StdioV1,
         mounts: vec![],
         system_config: vec![SystemConfigMount {
-            secrets: vec![],
-            tools: vec![],
             root: "obs-config".into(),
             destination: "/etc/semwright-obs".into(),
         }],
+        secrets: vec![],
+        tools: vec![],
         network: true,
         loopback_port: None,
         resources: DriverResources {
