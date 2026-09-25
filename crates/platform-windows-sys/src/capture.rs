@@ -1,8 +1,9 @@
 use semwright_types::{Error, ErrorCode, Result};
 use std::{
-    fs::OpenOptions,
+    fs::{File, OpenOptions},
     io::Write,
-    path::{Path, PathBuf},
+    os::windows::{fs::OpenOptionsExt, io::AsRawHandle},
+    path::{Component, Path, PathBuf},
     sync::mpsc::{self, SyncSender},
     thread,
     time::{Duration, Instant},
@@ -18,7 +19,7 @@ use windows::{
         SizeInt32,
     },
     Win32::{
-        Foundation::{HMODULE, HWND},
+        Foundation::{GENERIC_WRITE, HANDLE, HMODULE, HWND},
         Graphics::{
             Direct3D::{D3D_DRIVER_TYPE, D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP},
             Direct3D11::{
@@ -33,6 +34,12 @@ use windows::{
                 },
                 IDXGIAdapter, IDXGIDevice,
             },
+        },
+        Storage::FileSystem::{
+            BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ATTRIBUTE_DIRECTORY,
+            FILE_ATTRIBUTE_REPARSE_POINT, FILE_DISPOSITION_INFO, FILE_FLAG_BACKUP_SEMANTICS,
+            FILE_FLAG_OPEN_REPARSE_POINT, FILE_NAME_NORMALIZED, FileDispositionInfo,
+            GetFileInformationByHandle, GetFinalPathNameByHandleW, SetFileInformationByHandle,
         },
         System::WinRT::{
             Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess},
@@ -695,26 +702,167 @@ fn encode_png(frame: &CapturedBgra) -> Result<Vec<u8>> {
     Ok(encoded)
 }
 
-fn write_artifact(root: &Path, frame: &CapturedBgra, encoded: &[u8]) -> Result<CaptureArtifact> {
-    crate::paths::ensure_owner_only_directory(root)?;
-    let path = root.join(format!("capture-{}.png", uuid::Uuid::new_v4().simple()));
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&path)
-        .map_err(|_| {
+fn file_info(file: &File) -> Result<BY_HANDLE_FILE_INFORMATION> {
+    let mut out = BY_HANDLE_FILE_INFORMATION::default();
+    // SAFETY: file owns a live HANDLE and out is valid writable storage.
+    unsafe { GetFileInformationByHandle(HANDLE(file.as_raw_handle()), &mut out) }.map_err(
+        |_| {
             Error::new(
                 ErrorCode::BackendFailed,
-                "Windows capture artifact could not be created",
+                "Windows capture artifact identity query failed",
             )
-        })?;
+        },
+    )?;
+    Ok(out)
+}
+
+fn same_file_identity(a: &BY_HANDLE_FILE_INFORMATION, b: &BY_HANDLE_FILE_INFORMATION) -> bool {
+    a.dwVolumeSerialNumber == b.dwVolumeSerialNumber
+        && a.nFileIndexHigh == b.nFileIndexHigh
+        && a.nFileIndexLow == b.nFileIndexLow
+}
+
+fn final_handle_path(file: &File) -> Result<String> {
+    let mut buffer = vec![0u16; 32_768];
+    // SAFETY: file owns a live HANDLE and buffer is writable for the whole call.
+    let length = unsafe {
+        GetFinalPathNameByHandleW(
+            HANDLE(file.as_raw_handle()),
+            &mut buffer,
+            FILE_NAME_NORMALIZED,
+        )
+    };
+    if length == 0 || length as usize >= buffer.len() {
+        return Err(Error::new(
+            ErrorCode::BackendFailed,
+            "Windows capture artifact final path is unavailable or oversized",
+        ));
+    }
+    let value = String::from_utf16(&buffer[..length as usize]).map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Windows capture artifact final path is not valid UTF-16",
+        )
+    })?;
+    Ok(value.trim_end_matches(['\\', '/']).to_ascii_lowercase())
+}
+
+fn mark_delete_on_close(file: &File) {
+    let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+    // SAFETY: the file HANDLE remains live and disposition has the exact structure/size
+    // required by FileDispositionInfo. Failure only leaves a broker-private empty/partial file.
+    let _ = unsafe {
+        SetFileInformationByHandle(
+            HANDLE(file.as_raw_handle()),
+            FileDispositionInfo,
+            (&disposition as *const FILE_DISPOSITION_INFO).cast(),
+            std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32,
+        )
+    };
+}
+
+fn create_private_artifact_file(root: &Path, name: &str) -> Result<(File, PathBuf)> {
+    let mut components = Path::new(name).components();
+    if !matches!(components.next(), Some(Component::Normal(_)))
+        || components.next().is_some()
+        || name.len() > 255
+        || name.contains('\0')
+    {
+        return Err(Error::invalid(
+            "Windows capture artifact name must be one bounded path component",
+        ));
+    }
+
+    crate::paths::ensure_owner_only_directory(root)?;
+
+    let mut root_options = OpenOptions::new();
+    root_options
+        .read(true)
+        .custom_flags((FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT).0);
+    let root_handle = root_options.open(root).map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows capture artifact root could not be pinned",
+        )
+    })?;
+    let root_before = file_info(&root_handle)?;
+    if root_before.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0
+        || root_before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows capture artifact root is not a plain directory",
+        ));
+    }
+    let root_final = final_handle_path(&root_handle)?;
+
+    let path = root.join(name);
+    let mut options = OpenOptions::new();
+    options
+        .write(true)
+        .create_new(true)
+        .access_mode(GENERIC_WRITE.0 | DELETE.0)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+    let file = options.open(&path).map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Windows capture artifact could not be created",
+        )
+    })?;
+
+    let artifact_info = file_info(&file)?;
+    if artifact_info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        || artifact_info.nNumberOfLinks != 1
+    {
+        mark_delete_on_close(&file);
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows capture artifact is a reparse point or multiply-linked file",
+        ));
+    }
+
+    let artifact_final = final_handle_path(&file)?;
+    let expected_prefix = format!("{root_final}\\");
+    if !artifact_final.starts_with(&expected_prefix) {
+        mark_delete_on_close(&file);
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows capture artifact escaped the pinned private root",
+        ));
+    }
+
+    // Re-resolve the named root after creating the empty file. If another same-user process
+    // swapped the directory name for a junction/rename target, fail before sensitive bytes exist.
+    let root_after = root_options.open(root).map_err(|_| {
+        mark_delete_on_close(&file);
+        Error::new(
+            ErrorCode::Conflict,
+            "Windows capture artifact root changed during creation",
+        )
+    })?;
+    let root_after_info = file_info(&root_after)?;
+    if !same_file_identity(&root_before, &root_after_info)
+        || root_after_info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+    {
+        mark_delete_on_close(&file);
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Windows capture artifact root identity changed during creation",
+        ));
+    }
+
+    Ok((file, path))
+}
+
+fn write_artifact(root: &Path, frame: &CapturedBgra, encoded: &[u8]) -> Result<CaptureArtifact> {
+    let name = format!("capture-{}.png", uuid::Uuid::new_v4().simple());
+    let (mut file, path) = create_private_artifact_file(root, &name)?;
     let write_result = (|| -> std::io::Result<()> {
         file.write_all(encoded)?;
         file.sync_all()
     })();
     if write_result.is_err() {
-        drop(file);
-        let _ = std::fs::remove_file(&path);
+        mark_delete_on_close(&file);
         return Err(Error::new(
             ErrorCode::BackendFailed,
             "Windows capture artifact write failed",
@@ -821,6 +969,14 @@ mod tests {
         let png = encode_png(&frame).unwrap();
         assert!(png.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]));
         assert!(png.len() <= MAX_PNG_BYTES);
+    }
+
+    #[test]
+    fn artifact_name_cannot_escape_private_root() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("artifacts");
+        assert!(create_private_artifact_file(&root, "../escape.png").is_err());
+        assert!(create_private_artifact_file(&root, "nested/escape.png").is_err());
     }
 
     #[test]
