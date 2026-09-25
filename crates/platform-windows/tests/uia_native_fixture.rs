@@ -1,0 +1,297 @@
+#![cfg(target_os = "windows")]
+
+use semwright_backend_api::{Backend, Context};
+use semwright_platform_windows::Windows;
+use semwright_types::{ErrorCode, NativeTarget, unique_id};
+use serde_json::{Value, json};
+use std::{sync::mpsc, thread, time::Duration};
+use tokio_util::sync::CancellationToken;
+use windows::{
+    Win32::{
+        Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM},
+        System::LibraryLoader::GetModuleHandleW,
+        UI::WindowsAndMessaging::*,
+    },
+    core::{PCWSTR, w},
+};
+
+const ID_BUTTON: isize = 101;
+const ID_EDIT: isize = 102;
+const ID_PASSWORD: isize = 103;
+
+unsafe extern "system" fn fixture_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    match msg {
+        WM_COMMAND if (wparam.0 & 0xffff) as isize == ID_BUTTON => {
+            if let Ok(edit) = unsafe { GetDlgItem(Some(hwnd), ID_EDIT as i32) } {
+                let _ = unsafe { SetWindowTextW(edit, w!("invoked")) };
+            }
+            LRESULT(0)
+        }
+        WM_DESTROY => {
+            unsafe { PostQuitMessage(0) };
+            LRESULT(0)
+        }
+        _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
+}
+
+unsafe fn child(
+    parent: HWND,
+    class: PCWSTR,
+    text: PCWSTR,
+    style: WINDOW_STYLE,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    id: isize,
+) -> HWND {
+    unsafe {
+        CreateWindowExW(
+            WINDOW_EX_STYLE::default(),
+            class,
+            text,
+            WS_CHILD | WS_VISIBLE | style,
+            x,
+            y,
+            width,
+            height,
+            Some(parent),
+            Some(HMENU(id as *mut core::ffi::c_void)),
+            None,
+            None,
+        )
+    }
+    .expect("fixture child window")
+}
+
+fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
+    let (ready_tx, ready_rx) = mpsc::sync_channel(1);
+    let title = format!("Semwright native UIA fixture {}", std::process::id());
+    let thread_title = title.clone();
+    let handle = thread::spawn(move || {
+        let module = unsafe { GetModuleHandleW(None) }.expect("fixture module");
+        let instance = HINSTANCE(module.0);
+        let class = w!("SemwrightNativeUiaFixture");
+        let wc = WNDCLASSW {
+            hCursor: unsafe { LoadCursorW(None, IDC_ARROW) }.expect("fixture cursor"),
+            hInstance: instance,
+            lpszClassName: class,
+            lpfnWndProc: Some(fixture_proc),
+            ..Default::default()
+        };
+        unsafe { RegisterClassW(&wc) };
+
+        let title_wide: Vec<u16> = thread_title.encode_utf16().chain([0]).collect();
+        let hwnd = unsafe {
+            CreateWindowExW(
+                WINDOW_EX_STYLE::default(),
+                class,
+                PCWSTR(title_wide.as_ptr()),
+                WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                120,
+                120,
+                520,
+                240,
+                None,
+                None,
+                Some(instance),
+                None,
+            )
+        }
+        .expect("fixture top-level window");
+
+        unsafe {
+            child(
+                hwnd,
+                w!("BUTTON"),
+                w!("Invoke me"),
+                WINDOW_STYLE(BS_PUSHBUTTON as u32),
+                20,
+                20,
+                130,
+                32,
+                ID_BUTTON,
+            );
+            child(
+                hwnd,
+                w!("EDIT"),
+                w!("fixture text"),
+                WS_BORDER | WINDOW_STYLE(ES_AUTOHSCROLL as u32),
+                170,
+                20,
+                240,
+                32,
+                ID_EDIT,
+            );
+            child(
+                hwnd,
+                w!("EDIT"),
+                w!("secret"),
+                WS_BORDER | WINDOW_STYLE(ES_PASSWORD as u32),
+                170,
+                72,
+                240,
+                32,
+                ID_PASSWORD,
+            );
+        }
+        ready_tx
+            .send(hwnd.0 as isize)
+            .expect("fixture readiness channel");
+
+        let mut msg = MSG::default();
+        while unsafe { GetMessageW(&mut msg, None, 0, 0) }.as_bool() {
+            unsafe {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+    });
+    let hwnd = ready_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("fixture started");
+    (handle, hwnd, title)
+}
+
+fn context() -> Context {
+    Context {
+        session: "windows-native-fixture".into(),
+        request_id: unique_id(),
+        cancellation: CancellationToken::new(),
+    }
+}
+
+fn native_ref(value: &Value) -> NativeTarget {
+    serde_json::from_value(value["ref"]["$ref"].clone()).expect("native target marker")
+}
+
+fn find_node<'a>(snapshot: &'a Value, predicate: impl Fn(&Value) -> bool) -> &'a Value {
+    snapshot["nodes"]
+        .as_array()
+        .expect("snapshot nodes")
+        .iter()
+        .find(|node| predicate(node))
+        .expect("semantic node")
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
+    let (fixture, hwnd, title) = start_fixture();
+    let backend = Windows::new().expect("Windows backend");
+    let ctx = context();
+
+    let windows = backend
+        .execute(&ctx, "window.list", &json!({}))
+        .await
+        .expect("window enumeration");
+    let row = windows["windows"]
+        .as_array()
+        .expect("windows")
+        .iter()
+        .find(|row| row["title"] == title)
+        .expect("fixture window");
+    let window_target = native_ref(row);
+
+    let snapshot = backend
+        .execute(&ctx, "ui.snapshot", &json!({"_target":window_target}))
+        .await
+        .expect("scoped UIA snapshot");
+    assert_eq!(snapshot["partial"], false);
+
+    let button = find_node(&snapshot, |node| {
+        node["role"] == "button" && node["name"] == "Invoke me"
+    });
+    assert!(
+        button["actions"]
+            .as_array()
+            .is_some_and(|actions| actions.iter().any(|action| action == "click"))
+    );
+    let button_target = native_ref(button);
+
+    let inspected = backend
+        .execute(&ctx, "ui.inspect", &json!({"_target":button_target}))
+        .await
+        .expect("exact UIA inspection");
+    assert_eq!(inspected["node"]["name"], "Invoke me");
+    assert_eq!(inspected["semantic_coverage"], "exact_ref");
+
+    let bounds = &button["bounds"];
+    let x = bounds["x"].as_f64().expect("button x")
+        + bounds["width"].as_f64().expect("button width") / 2.0;
+    let y = bounds["y"].as_f64().expect("button y")
+        + bounds["height"].as_f64().expect("button height") / 2.0;
+    let hit = backend
+        .execute(
+            &ctx,
+            "ui.hit_test",
+            &json!({"x":x.round() as i64,"y":y.round() as i64}),
+        )
+        .await
+        .expect("native UIA hit-test");
+    assert_eq!(hit["node"]["name"], "Invoke me");
+    assert_eq!(hit["semantic_coverage"], "native_hit_test");
+
+    backend
+        .execute(
+            &ctx,
+            "ui.invoke",
+            &json!({"_target":button_target,"action":"click"}),
+        )
+        .await
+        .expect("InvokePattern");
+    tokio::time::sleep(Duration::from_millis(150)).await;
+
+    let refreshed = backend
+        .execute(&ctx, "ui.snapshot", &json!({"_target":window_target}))
+        .await
+        .expect("snapshot after invoke");
+    let edit = find_node(&refreshed, |node| {
+        node["role"] == "text"
+            && node["facets"]["text"]["password"] != true
+            && node["actions"]
+                .as_array()
+                .is_some_and(|actions| actions.iter().any(|action| action == "set_text"))
+    });
+    let edit_target = native_ref(edit);
+    let text = backend
+        .execute(&ctx, "ui.read_text", &json!({"_target":edit_target}))
+        .await
+        .expect("ValuePattern read");
+    assert_eq!(text["text"], "invoked");
+
+    let password = find_node(&refreshed, |node| {
+        node["facets"]["text"]["password"] == true
+    });
+    assert_eq!(password["name"], "");
+    let password_target = native_ref(password);
+    let denied = backend
+        .execute(&ctx, "ui.read_text", &json!({"_target":password_target}))
+        .await
+        .expect_err("password text must stay protected");
+    assert_eq!(denied.code, ErrorCode::PolicyDenied);
+
+    unsafe {
+        PostMessageW(
+            Some(HWND(hwnd as *mut core::ffi::c_void)),
+            WM_CLOSE,
+            WPARAM(0),
+            LPARAM(0),
+        )
+    }
+    .expect("close fixture");
+    fixture.join().expect("fixture thread");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let stale = backend
+        .validate(&button_target)
+        .await
+        .expect_err("destroyed UIA ref must be stale");
+    assert_eq!(stale.code, ErrorCode::StaleReference);
+
+    backend.shutdown().await.expect("shutdown backend");
+}
