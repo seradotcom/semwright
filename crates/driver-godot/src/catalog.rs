@@ -3636,6 +3636,9 @@ fn scalar_schema() -> Value {
 fn res_path_schema() -> Value {
     json!({"type":"string","minLength":7,"maxLength":240,"pattern":"^res://"})
 }
+fn translation_path_schema() -> Value {
+    json!({"type":"string","minLength":19,"maxLength":240,"pattern":"^res://.*\\.translation$"})
+}
 fn project_window_configure_in() -> Value {
     object(
         Map::from_iter([
@@ -3832,7 +3835,7 @@ fn translation_create_in() -> Value {
     object(
         Map::from_iter([
             session_prop(),
-            ("path".into(), res_path_schema()),
+            ("path".into(), translation_path_schema()),
             (
                 "locale".into(),
                 json!({"type":"string","minLength":1,"maxLength":32}),

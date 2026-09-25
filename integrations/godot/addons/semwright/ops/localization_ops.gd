@@ -79,7 +79,7 @@ static func translation_create(ctx, args: Dictionary) -> Dictionary:
         return conflict
     var path := str(args.get("path", ""))
     var locale := str(args.get("locale", ""))
-    if not ctx._safe_res(path) or not path.ends_with(".tres") or locale.is_empty():
+    if not ctx._safe_res(path) or not path.ends_with(".translation") or locale.is_empty():
         return ctx._error("invalid_argument", "invalid translation path or locale")
     if ResourceLoader.exists(path):
         return ctx._error("conflict", "translation resource already exists")

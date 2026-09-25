@@ -514,30 +514,30 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
 
         # Localization resources and project registration.
         mutate("driver.godot.translation.create", {
-            "path": "res://assets/es_translation.tres", "locale": "es", "register": True,
+            "path": "res://assets/es_translation.translation", "locale": "es", "register": True,
         })
         mutate("driver.godot.translation.message.set", {
-            "path": "res://assets/es_translation.tres", "source": "HELLO",
+            "path": "res://assets/es_translation.translation", "source": "HELLO",
             "translation": "Hola", "context": "",
         })
         mutate("driver.godot.translation.message.set", {
-            "path": "res://assets/es_translation.tres", "source": "TEMP",
+            "path": "res://assets/es_translation.translation", "source": "TEMP",
             "translation": "Temporal", "context": "",
         })
         mutate("driver.godot.translation.message.remove", {
-            "path": "res://assets/es_translation.tres", "source": "TEMP", "context": "",
+            "path": "res://assets/es_translation.translation", "source": "TEMP", "context": "",
         })
         translation = call("driver.godot.translation.inspect", {
-            "session": sid, "path": "res://assets/es_translation.tres",
+            "session": sid, "path": "res://assets/es_translation.translation",
         })
         assert any(row["source"] == "HELLO" and row["translation"] == "Hola"
                    for row in translation["data"]["messages"])
         mutate("driver.godot.localization.configure", {
             "fallback": "en", "test_locale": "",
-            "translations": ["res://assets/es_translation.tres"],
+            "translations": ["res://assets/es_translation.translation"],
         })
         localization = call("driver.godot.localization.inspect", {"session": sid})
-        assert "res://assets/es_translation.tres" in localization["data"]["translations"]
+        assert "res://assets/es_translation.translation" in localization["data"]["translations"]
 
         # Deep AnimationTree state-machine authoring.
         mutate("driver.godot.animation_tree.state.add", {
