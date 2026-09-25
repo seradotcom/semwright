@@ -730,6 +730,7 @@ impl Provider for ExternalMcpProvider {
             progress: false,
             artifacts: false,
             health: true,
+            native_refs: false,
         }
     }
 
