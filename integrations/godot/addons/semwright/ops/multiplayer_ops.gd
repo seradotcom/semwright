@@ -67,7 +67,7 @@ static func spawner_scene_remove(ctx, args: Dictionary) -> Dictionary:
     var keep: Array[String] = []
     var found := false
     for i in node.get_spawnable_scene_count():
-        var current := node.get_spawnable_scene(i)
+        var current: String = node.get_spawnable_scene(i)
         if current == scene:
             found = true
         else:

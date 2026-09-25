@@ -62,8 +62,8 @@ static func state_add(ctx, args: Dictionary) -> Dictionary:
     var kind := str(args.get("kind", ""))
     if name.is_empty() or not NODE_KINDS.has(kind) or machine.has_node(StringName(name)):
         return ctx._error("invalid_argument", "invalid or duplicate AnimationTree state")
-    var class_name: String = NODE_KINDS[kind]
-    var node = ClassDB.instantiate(class_name)
+    var node_class: String = NODE_KINDS[kind]
+    var node = ClassDB.instantiate(node_class)
     if not (node is AnimationNode):
         return ctx._error("backend_failed", "failed to instantiate animation node")
     if node is AnimationNodeAnimation and args.has("animation"):
