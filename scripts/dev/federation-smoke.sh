@@ -16,7 +16,7 @@ done
 
 root="$(mktemp -d)"
 daemon_pid=""
-child_pid=""
+sandbox_pid=""
 cleanup() {
   if [[ -n "$daemon_pid" ]] && kill -0 "$daemon_pid" 2>/dev/null; then
     kill -TERM "$daemon_pid" 2>/dev/null || true
@@ -25,9 +25,9 @@ cleanup() {
       sleep 0.1
     done
   fi
-  if [[ -n "$child_pid" ]] && kill -0 "$child_pid" 2>/dev/null; then
-    echo "federated MCP child survived broker shutdown" >&2
-    kill -KILL "$child_pid" 2>/dev/null || true
+  if [[ -n "$sandbox_pid" ]] && kill -0 "$sandbox_pid" 2>/dev/null; then
+    echo "federated MCP sandbox process survived broker shutdown" >&2
+    kill -KILL "$sandbox_pid" 2>/dev/null || true
     rm -rf "$root"
     exit 1
   fi
@@ -95,7 +95,7 @@ assert dry_doctor["dry_run"] is True and dry_doctor["launched"] is False
 assert dry_doctor["executable_valid"] is True
 assert doctor["healthy"] is True and doctor["launched"] is True
 assert doctor["provider"] == "external-mcp:fixture"
-assert doctor["capabilities"] == 7
+assert doctor["capabilities"] == 8
 print("federation owner management smoke: PASS")
 PY
 
@@ -124,13 +124,21 @@ done
 }
 
 for _ in $(seq 1 100); do
-  child_pid="$(pgrep -P "$daemon_pid" -f 'semwright-mcp-fixture' | head -1 || true)"
-  [[ -n "$child_pid" ]] && break
+  # The daemon owns Bubblewrap directly. Inside that namespace the verified upstream is
+  # intentionally renamed to /plugin/bin, so the original executable basename is not a
+  # valid process-observation contract.
+  sandbox_pid="$(pgrep -P "$daemon_pid" | head -1 || true)"
+  [[ -n "$sandbox_pid" ]] && break
   sleep 0.02
 done
-[[ -n "$child_pid" ]] || {
+[[ -n "$sandbox_pid" ]] || {
   cat "$root/daemon.log" >&2
-  echo "federated MCP child was not observed" >&2
+  echo "federated MCP sandbox process was not observed" >&2
+  exit 1
+}
+sandbox_args="$(ps -o args= -p "$sandbox_pid" 2>/dev/null || true)"
+[[ "$sandbox_args" == *"bwrap"* && "$sandbox_args" == *"/plugin/sandbox"* ]] || {
+  echo "unexpected federated MCP sandbox process: $sandbox_args" >&2
   exit 1
 }
 
@@ -151,12 +159,12 @@ providers = doctor["data"]["providers"]["providers"]
 provider = next(p for p in providers if p["identity"]["id"] == "external-mcp:fixture")
 assert provider["connected"] is True
 assert provider["identity"]["kind"] == "external_mcp"
-assert provider["identity"]["origin"] == f"trusted-stdio-sha256:{sha}"
+assert provider["identity"]["origin"] == f"sandboxed-stdio-sha256:{sha}"
 assert provider["interfaces"]["dynamic_capabilities"] is True
 
 assert search["ok"] is True
 rows = search["data"]["capabilities"]
-assert len(rows) == 7
+assert len(rows) == 8
 assert all(row["provenance"]["provider"] == "external-mcp:fixture" for row in rows)
 assert all(row["provenance"]["source"] == "external_mcp" for row in rows)
 assert all(row["provenance"]["untrusted_metadata"] is True for row in rows)
@@ -174,14 +182,14 @@ wait "$daemon_pid"
 daemon_pid=""
 
 for _ in $(seq 1 50); do
-  kill -0 "$child_pid" 2>/dev/null || break
+  kill -0 "$sandbox_pid" 2>/dev/null || break
   sleep 0.1
 done
-kill -0 "$child_pid" 2>/dev/null && {
-  echo "federated MCP child survived broker shutdown" >&2
+kill -0 "$sandbox_pid" 2>/dev/null && {
+  echo "federated MCP sandbox process survived broker shutdown" >&2
   exit 1
 }
-child_pid=""
+sandbox_pid=""
 
 
 "$client" --json --mcp-upstreams "$registry" mcp upstream remove fixture >"$root/upstream-remove.json"

@@ -16,6 +16,7 @@ semwright-types.workspace = true
 toml.workspace = true
 semwright-protocol.workspace = true
 semwright-platform-services.workspace = true
+semwright-platform-api.workspace = true
 semwright-backend-api.workspace = true
 semwright-registry.workspace = true
 async-trait.workspace = true
@@ -35,3 +36,7 @@ tempfile.workspace = true
 [[bin]]
 name = "semwright-mcp-fixture"
 path = "src/bin/fixture.rs"
+
+[[bin]]
+name = "semwright-mcp-sandbox-fixture"
+path = "src/bin/sandbox_fixture.rs"

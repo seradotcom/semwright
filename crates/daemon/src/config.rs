@@ -37,6 +37,8 @@ pub struct Config {
     pub driver_network: bool,
     #[serde(default)]
     pub plugin_network: bool,
+    #[serde(default)]
+    pub mcp_network: bool,
     #[serde(default = "audit_bytes")]
     pub audit_max_bytes: u64,
     #[serde(default = "retention")]
@@ -60,6 +62,7 @@ impl Default for Config {
             drivers: vec![],
             driver_network: false,
             plugin_network: false,
+            mcp_network: false,
             audit_max_bytes: audit_bytes(),
             audit_retention: retention(),
         }
