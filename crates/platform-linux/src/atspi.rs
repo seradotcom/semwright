@@ -19,6 +19,7 @@ type Object = (String, OwnedObjectPath);
 const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
 const APPLICATION: &str = "org.a11y.atspi.Application";
 const ROOT: &str = "/org/a11y/atspi/accessible/root";
+const MAX_CHILDREN_PER_NODE: usize = 2_000;
 #[derive(Default)]
 struct ObjectGenerations {
     next: AtomicU64,
@@ -116,6 +117,14 @@ async fn bounded<T>(f: impl std::future::Future<Output = zbus::Result<T>>) -> Re
                 "Accessibility object/interface unavailable",
             )
         })
+}
+fn bounded_child_count(reported: Option<i32>, observed: usize) -> (usize, bool) {
+    let reported = reported.and_then(|count| usize::try_from(count).ok());
+    let actual = reported.unwrap_or(0).max(observed);
+    (
+        actual.min(MAX_CHILDREN_PER_NODE),
+        actual > MAX_CHILDREN_PER_NODE,
+    )
 }
 pub fn normalize_role(role: &str) -> String {
     match role {
@@ -913,16 +922,32 @@ impl Atspi {
                 app: app.clone(),
             };
             known.insert(identity.clone(), target.clone());
-            let children: Vec<Object> = bounded(proxy.call("GetChildren", &()))
-                .await
-                .unwrap_or_else(|_| {
-                    partial = true;
-                    vec![]
-                });
-            let count = children.len();
-            if count > 2000 {
+            let reported_child_count: Option<i32> =
+                bounded(proxy.get_property::<i32>("ChildCount")).await.ok();
+            let mut children: Vec<Object> = if reported_child_count
+                .and_then(|count| usize::try_from(count).ok())
+                .is_some_and(|count| count > MAX_CHILDREN_PER_NODE)
+            {
+                // Do not request a potentially enormous GetChildren payload. Large/virtualized
+                // containers are explicitly partial and can be searched through bounded native
+                // query paths instead of being materialized wholesale.
+                partial = true;
+                vec![]
+            } else {
+                bounded(proxy.call("GetChildren", &()))
+                    .await
+                    .unwrap_or_else(|_| {
+                        partial = true;
+                        vec![]
+                    })
+            };
+            if children.len() > MAX_CHILDREN_PER_NODE {
+                children.truncate(MAX_CHILDREN_PER_NODE);
                 partial = true;
             }
+            let (count, child_count_truncated) =
+                bounded_child_count(reported_child_count, children.len());
+            partial |= child_count_truncated;
             let mut attributes: BTreeMap<String, String> = bounded(
                 proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
             )
@@ -975,7 +1000,7 @@ impl Atspi {
                 });
             }
             if depth < max_depth {
-                for child in children.into_iter().take(2000) {
+                for child in children.into_iter() {
                     queue.push_back((
                         child,
                         depth + 1,
@@ -1147,7 +1172,7 @@ impl Atspi {
             }
             let actions = self.actions(&c, &hit).await;
             let child_count: i32 = bounded(proxy.get_property("ChildCount")).await.unwrap_or(0);
-            let child_count = usize::try_from(child_count.max(0)).unwrap_or(0).min(2000);
+            let (child_count, _) = bounded_child_count(Some(child_count), 0);
             let mut attributes: BTreeMap<String, String> = bounded(
                 proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
             )
@@ -1560,6 +1585,20 @@ mod tests {
             "semantic.backend.invalidated"
         );
     }
+    #[test]
+    fn child_count_is_bounded_without_trusting_large_accessible_payloads() {
+        assert_eq!(bounded_child_count(Some(12), 12), (12, false));
+        assert_eq!(bounded_child_count(Some(-1), 8), (8, false));
+        assert_eq!(
+            bounded_child_count(Some(50_000), 0),
+            (MAX_CHILDREN_PER_NODE, true)
+        );
+        assert_eq!(
+            bounded_child_count(Some(1), MAX_CHILDREN_PER_NODE + 7),
+            (MAX_CHILDREN_PER_NODE, true)
+        );
+    }
+
     #[test]
     fn object_generations_are_targeted_and_reset_conservatively() {
         let generations = ObjectGenerations::default();
