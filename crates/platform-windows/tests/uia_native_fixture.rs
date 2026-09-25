@@ -10,7 +10,10 @@ use windows::{
     Win32::{
         Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM},
         System::LibraryLoader::GetModuleHandleW,
-        UI::WindowsAndMessaging::*,
+        UI::{
+            HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
+            WindowsAndMessaging::*,
+        },
     },
     core::{PCWSTR, w},
 };
@@ -99,7 +102,7 @@ fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
         // SAFETY: class is registered and title_wide remains live during window creation.
         let hwnd = unsafe {
             CreateWindowExW(
-                WINDOW_EX_STYLE::default(),
+                WS_EX_TOPMOST,
                 class,
                 PCWSTR(title_wide.as_ptr()),
                 WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -254,6 +257,11 @@ fn find_node(snapshot: &Value, predicate: impl Fn(&Value) -> bool) -> &Value {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
+    // Keep UIA bounding rectangles and Win32 point ownership in the same physical-pixel
+    // coordinate space. This must happen before the fixture creates any HWND.
+    // SAFETY: process DPI awareness is configured once at test startup before GUI creation.
+    unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) }
+        .expect("native UIA fixture requires per-monitor-v2 DPI awareness");
     let (fixture, hwnd, title) = start_fixture();
     let backend = Windows::new().expect("Windows backend");
     let ctx = context();
