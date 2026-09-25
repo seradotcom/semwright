@@ -17,6 +17,7 @@ fn spec(mode: &str, dir: &std::path::Path) -> ProcessSpec {
         cwd: dir.into(),
         timeout: Duration::from_secs(3),
         cpu_seconds: 5,
+        address_space_bytes: 1_073_741_824,
         environment: BTreeMap::new(),
     }
 }
@@ -120,6 +121,16 @@ fn process_cwd_is_private() {
         d.path().to_str().unwrap()
     );
 }
+#[test]
+fn process_address_space_budget_is_bounded() {
+    let d = common::temp();
+    let mut s = spec("ok", d.path());
+    s.address_space_bytes = 4_294_967_297;
+    assert!(runtime::run(&s, &AtomicBool::new(false)).is_err());
+    s.address_space_bytes = 134_217_727;
+    assert!(runtime::run(&s, &AtomicBool::new(false)).is_err());
+}
+
 #[test]
 fn process_relative_executable_denied() {
     let d = common::temp();

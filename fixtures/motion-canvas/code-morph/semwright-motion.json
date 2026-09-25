@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "component_version": 1,
+  "id": "code-morph",
+  "generation": "636f64652d6d6f727068000000000000",
+  "revision": 1,
+  "settings": {
+    "width": 640,
+    "height": 360,
+    "fps": 30,
+    "background": "#f7f5ee",
+    "color_space": "srgb"
+  },
+  "theme": {
+    "font_family": "Instrument Sans Variable",
+    "mono_family": "IBM Plex Mono",
+    "font_size": 36.0,
+    "font_weight": 500,
+    "spacing": 16.0,
+    "line_width": 2.0,
+    "radius": 16.0,
+    "colors": {
+      "paper": "#f7f5ee",
+      "surface": "#fdfcf8",
+      "ink": "#202d42",
+      "muted": "#5b6471",
+      "accent": "#234ea2",
+      "line": "#dadbd4",
+      "mint": "#dce9dc",
+      "peach": "#f2ddc8",
+      "lavender": "#e9e2f2",
+      "blue_soft": "#e4ebf8"
+    }
+  },
+  "scenes": [
+    {
+      "id": "code",
+      "name": "Code morph",
+      "duration_ms": 1800,
+      "nodes": [
+        {
+          "id": "snippet",
+          "name": "Code",
+          "kind": "code",
+          "properties": {
+            "code": "agent.perform(\"window.focus\")",
+            "language": "rust",
+            "font_family": "IBM Plex Mono",
+            "font_size": 26,
+            "fill": "@ink",
+            "selection": {
+              "kind": "lines",
+              "start": 0,
+              "end": 0
+            }
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "morph",
+          "target": "snippet",
+          "property": "code",
+          "from": "agent.perform(\"window.focus\")",
+          "to": "agent.perform(\"scene.inspect\")",
+          "at": {
+            "cue": null,
+            "offset_ms": 500
+          },
+          "duration_ms": 650,
+          "easing": "ease_in_out_cubic"
+        }
+      ],
+      "cues": [],
+      "transition": null
+    }
+  ],
+  "assets": [],
+  "audio": []
+}
