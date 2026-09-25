@@ -48,4 +48,4 @@ Copy `integrations/godot/addons/semwright/` into the target project's `res://add
 
 The current manifest model expresses network as a boolean; the driver itself only listens on loopback.
 
-See [security](docs/SECURITY.md), [compatibility](docs/COMPATIBILITY.md), [capabilities](docs/CAPABILITIES.md), and [SDK gaps](docs/SDK_GAPS.md).
+See [security](docs/SECURITY.md), [compatibility](docs/COMPATIBILITY.md), [capabilities](docs/CAPABILITIES.md), [semantic-domain completeness](docs/SEMANTIC_DOMAINS.md), and [SDK gaps](docs/SDK_GAPS.md).
