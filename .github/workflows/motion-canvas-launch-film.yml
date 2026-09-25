@@ -23,8 +23,8 @@ env:
 jobs:
   launch-film:
     runs-on: ubuntu-24.04
-    # Full 1080p MLT software encode keeps libx264 CRF 20 / medium quality while
-    # using two bounded MLT workers, a five-frame buffer and codec-managed encoder threads.
+    # Full 1080p MLT software encode uses CRF 18 / veryfast. H.264 runs the MLT
+    # consumer synchronously (real_time=0) with two bounded libx264 encoder threads.
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

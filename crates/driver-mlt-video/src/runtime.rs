@@ -800,12 +800,20 @@ fn h264_encoding_args() -> Vec<OsString> {
     ]
 }
 
-fn render_processing_args(_profile: &RenderProfile) -> Vec<OsString> {
-    // Keep every curated profile on the previously certified conservative MLT path.
-    // Real CI observed SIGSEGV both when worker parallelism was applied globally and
-    // when the launch-film H.264 profile alone used real_time=-2/buffer=5. Encoder
-    // tuning may vary by curated profile, but MLT frame workers remain single-lane.
-    vec!["real_time=-1".into(), "threads=2".into()]
+fn render_processing_args(profile: &RenderProfile) -> Vec<OsString> {
+    // MLT real_time=-1 still runs an asynchronous consumer thread (without frame
+    // dropping). The 1080p launch-film path repeatedly SIGSEGV'd immediately after
+    // consumer start on Ubuntu's MLT 7.22 even after removing parallel frame workers.
+    // For curated H.264 file renders use MLT's documented synchronous mode instead;
+    // libx264 keeps two bounded encoder threads, so this does not disable codec
+    // parallelism or change timeline semantics. Keep the already-certified async
+    // path for the other profiles until they demonstrate the same need.
+    let scheduling = if profile.video_codec == Some("libx264") {
+        "real_time=0"
+    } else {
+        "real_time=-1"
+    };
+    vec![scheduling.into(), "threads=2".into()]
 }
 
 #[derive(Clone, Debug)]
@@ -1054,8 +1062,13 @@ mod tool_owner_tests {
     }
 
     #[test]
-    fn render_processing_stays_on_the_certified_conservative_path() {
-        for id in ["h264-1080p", "h264-720p", "lossless", "audio-wav"] {
+    fn h264_uses_synchronous_mlt_but_other_profiles_keep_certified_async_mode() {
+        for id in ["h264-1080p", "h264-720p"] {
+            let args = render_processing_args(&RenderProfile::get(id).unwrap());
+            let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
+            assert_eq!(args, ["real_time=0", "threads=2"], "profile {id}");
+        }
+        for id in ["lossless", "audio-wav"] {
             let args = render_processing_args(&RenderProfile::get(id).unwrap());
             let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
             assert_eq!(args, ["real_time=-1", "threads=2"], "profile {id}");
