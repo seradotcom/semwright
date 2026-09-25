@@ -180,6 +180,8 @@ fn verify_executable_acl(file: &File) -> Result<()> {
     let mut dacl: *mut ACL = std::ptr::null_mut();
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
     // Use the already-open handle so path replacement cannot race the ACL/content checks.
+    // SAFETY: the open file owns a valid handle for this call; all output pointers reference
+    // live local variables and the returned security descriptor is released by RAII below.
     let status = unsafe {
         GetSecurityInfo(
             HANDLE(file.as_raw_handle()),
@@ -218,6 +220,8 @@ fn verify_executable_acl(file: &File) -> Result<()> {
     }
 
     let mut acl_info = ACL_SIZE_INFORMATION::default();
+    // SAFETY: the DACL points into the live security descriptor retained by the RAII guard,
+    // and acl_info is a correctly sized writable output buffer for AclSizeInformation.
     unsafe {
         GetAclInformation(
             dacl,
@@ -252,6 +256,8 @@ fn verify_executable_acl(file: &File) -> Result<()> {
 
     for index in 0..acl_info.AceCount {
         let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
+        // SAFETY: the DACL is retained by the security-descriptor guard, index is bounded
+        // by AceCount, and raw is a valid writable out-pointer for the ACE address.
         unsafe { GetAce(dacl, index, &mut raw) }.map_err(|_| {
             Error::new(
                 ErrorCode::PermissionDenied,
@@ -387,6 +393,28 @@ impl ExecutableVerifier for WindowsVerifier {
     }
 }
 
+/// The current shared `SandboxLauncher` contract returns a normal `Command`. On Windows that is
+/// not sufficient to prove CREATE_SUSPENDED -> AppContainer/LPAC token -> Job assignment -> resume
+/// ordering before untrusted code runs. Refuse arbitrary child execution rather than race it.
+pub struct WindowsSandbox;
+impl SandboxLauncher for WindowsSandbox {
+    fn command(&self, spec: &SandboxSpec) -> Result<Command> {
+        spec.validate()?;
+        Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows arbitrary driver/plugin launch is fail-closed until secure pre-exec spawn is part of the platform contract",
+        ))
+    }
+
+    fn available(&self, _helper: &Path) -> bool {
+        false
+    }
+
+    fn mechanism(&self) -> &'static str {
+        "unavailable:windows-appcontainer-lpac-job-preexec-contract"
+    }
+}
+
 #[cfg(test)]
 mod verifier_tests {
     use super::*;
@@ -417,27 +445,5 @@ mod verifier_tests {
         assert!(!system.is_empty());
         assert!(!admins.is_empty());
         assert_ne!(system, admins);
-    }
-}
-
-/// The current shared `SandboxLauncher` contract returns a normal `Command`. On Windows that is
-/// not sufficient to prove CREATE_SUSPENDED -> AppContainer/LPAC token -> Job assignment -> resume
-/// ordering before untrusted code runs. Refuse arbitrary child execution rather than race it.
-pub struct WindowsSandbox;
-impl SandboxLauncher for WindowsSandbox {
-    fn command(&self, spec: &SandboxSpec) -> Result<Command> {
-        spec.validate()?;
-        Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Windows arbitrary driver/plugin launch is fail-closed until secure pre-exec spawn is part of the platform contract",
-        ))
-    }
-
-    fn available(&self, _helper: &Path) -> bool {
-        false
-    }
-
-    fn mechanism(&self) -> &'static str {
-        "unavailable:windows-appcontainer-lpac-job-preexec-contract"
     }
 }
