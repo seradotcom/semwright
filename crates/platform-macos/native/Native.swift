@@ -9,11 +9,13 @@ final class SemanticEventQueue {
     static let shared = SemanticEventQueue()
     private let lock = NSLock()
     private let capacity: Int
+    private let eventEpoch: SemanticEventEpoch
     private var queue: [[String:Any]] = []
     private var invalidated = false
 
-    init(capacity: Int = 512) {
+    init(capacity: Int = 512, eventEpoch: SemanticEventEpoch = .shared) {
         self.capacity = max(1, min(capacity, 512))
+        self.eventEpoch = eventEpoch
     }
 
     func push(kind: String, pid: Int32, notification: String, structural: Bool) {
@@ -22,6 +24,7 @@ final class SemanticEventQueue {
         if queue.count >= capacity {
             queue.removeAll(keepingCapacity: true)
             invalidated = true
+            eventEpoch.bump()
             return
         }
         queue.append([
