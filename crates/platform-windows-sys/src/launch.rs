@@ -52,6 +52,20 @@ enum AuthenticodeStatus {
     Untrusted(i32),
 }
 
+fn require_authenticode_policy(status: AuthenticodeStatus) -> Result<()> {
+    match status {
+        AuthenticodeStatus::Trusted | AuthenticodeStatus::Unsigned => Ok(()),
+        AuthenticodeStatus::ExplicitlyDistrusted => Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows explicitly distrusts this executable signature or publisher",
+        )),
+        AuthenticodeStatus::Untrusted(code) => Err(Error::new(
+            ErrorCode::PermissionDenied,
+            format!("Windows executable Authenticode verification failed ({code:#x})"),
+        )),
+    }
+}
+
 fn authenticode_status(file: &File, path: &Path) -> Result<AuthenticodeStatus> {
     let wide: Vec<u16> = path.as_os_str().encode_wide().chain([0]).collect();
     if wide.len() > 32_768 {
@@ -368,12 +382,7 @@ impl ExecutableVerifier for WindowsVerifier {
             ));
         }
         require_native_architecture(&bytes)?;
-        if authenticode_status(&file, path)? == AuthenticodeStatus::ExplicitlyDistrusted {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Windows explicitly distrusts this executable signature or publisher",
-            ));
-        }
+        require_authenticode_policy(authenticode_status(&file, path)?)?;
         Ok(bytes)
     }
 }
@@ -391,6 +400,14 @@ mod verifier_tests {
             .verify(&path, &digest)
             .expect("native Windows test executable should satisfy trust policy");
         assert_eq!(verified, bytes);
+    }
+
+    #[test]
+    fn authenticode_policy_allows_unsigned_pinned_bytes_but_rejects_broken_signatures() {
+        assert!(require_authenticode_policy(AuthenticodeStatus::Trusted).is_ok());
+        assert!(require_authenticode_policy(AuthenticodeStatus::Unsigned).is_ok());
+        assert!(require_authenticode_policy(AuthenticodeStatus::ExplicitlyDistrusted).is_err());
+        assert!(require_authenticode_policy(AuthenticodeStatus::Untrusted(-1)).is_err());
     }
 
     #[test]
