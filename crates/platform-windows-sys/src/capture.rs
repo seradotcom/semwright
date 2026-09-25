@@ -92,6 +92,8 @@ impl PickerOwner {
     fn new() -> Result<Self> {
         // A hidden top-level STATIC window gives the desktop picker a Semwright-owned HWND.
         // It is never used to infer or steal authority from another foreground application.
+        // SAFETY: STATIC is a predefined process-independent class; all arguments are
+        // immediate values and no borrowed caller pointer is retained by this hidden owner.
         let hwnd = unsafe {
             CreateWindowExW(
                 Default::default(),
@@ -266,6 +268,7 @@ where
         }
         let mut message = MSG::default();
         // The WinRT picker is owned by this STA. Pump only this thread's messages while waiting.
+        // SAFETY: message is writable storage owned by this STA thread; no HWND filter is used.
         while unsafe { PeekMessageW(&mut message, None, 0, 0, PM_REMOVE) }.as_bool() {
             if message.message == WM_QUIT {
                 let _ = operation.Cancel();
@@ -655,7 +658,9 @@ fn bgra_to_rgba(frame: &CapturedBgra) -> Result<Vec<u8>> {
         ));
     }
     let mut rgba = frame.bytes.clone();
-    for pixel in rgba.chunks_exact_mut(4) {
+    let (pixels, remainder) = rgba.as_chunks_mut::<4>();
+    debug_assert!(remainder.is_empty());
+    for pixel in pixels {
         pixel.swap(0, 2);
     }
     Ok(rgba)
