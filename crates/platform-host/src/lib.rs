@@ -64,7 +64,7 @@ async fn native(
 
 #[cfg(target_os = "windows")]
 async fn native(
-    _r: &Path,
+    r: &Path,
     _state: &Path,
     _a: BTreeMap<String, Application>,
     _b: BrowserConfig,
@@ -72,11 +72,13 @@ async fn native(
 ) -> Result<DesktopHost> {
     let principal = semwright_platform_services::current_principal()?;
     Ok(DesktopHost {
-        backends: vec![Arc::new(semwright_platform_windows::Windows::new()?)],
+        backends: vec![Arc::new(semwright_platform_windows::Windows::new(
+            &r.join("artifacts"),
+        )?)],
         environment: serde_json::json!({
             "os":"windows","native_api":"public","minimum_os":"Windows 11",
             "identity":principal,"interactive_session":"required_for_desktop_actions",
-            "uia":"actor_thread","send_input":"uipi_respected","capture":"wgc_targeting_present_readback_pending",
+            "uia":"actor_thread","send_input":"uipi_respected","capture":"wgc_system_picker_bounded_readback",
             "third_party_driver_sandbox":"unavailable_fail_closed"
         }),
         keepalive: Box::new(()),
