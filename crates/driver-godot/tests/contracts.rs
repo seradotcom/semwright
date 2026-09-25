@@ -92,6 +92,39 @@ async fn local_driver_routes_work() {
 }
 
 #[test]
+fn import_scalar_schema_accepts_integer_values() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog.get("driver.godot.asset.import.configure").unwrap();
+    let input = json!({
+        "session": "a".repeat(32),
+        "path": "res://assets/icon.svg",
+        "params": [{"key": "compress/mode", "value": 0}],
+        "expect": {"revision": 1, "fingerprint": "a".repeat(64)},
+        "dry_run": false
+    });
+    entry.validate_input(&input).unwrap();
+}
+
+#[test]
+fn translation_creation_requires_runtime_loadable_format() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog.get("driver.godot.translation.create").unwrap();
+    let base = json!({
+        "session": "a".repeat(32),
+        "path": "res://locale/es.translation",
+        "locale": "es",
+        "register": true,
+        "expect": {"revision": 1, "fingerprint": "a".repeat(64)},
+        "dry_run": false
+    });
+    entry.validate_input(&base).unwrap();
+
+    let mut invalid = base;
+    invalid["path"] = json!("res://locale/es.tres");
+    assert!(entry.validate_input(&invalid).is_err());
+}
+
+#[test]
 fn catalog_plugin_routes_have_editor_handlers() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
