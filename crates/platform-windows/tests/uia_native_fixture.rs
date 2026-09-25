@@ -27,15 +27,19 @@ unsafe extern "system" fn fixture_proc(
 ) -> LRESULT {
     match msg {
         WM_COMMAND if (wparam.0 & 0xffff) as isize == ID_BUTTON => {
+            // SAFETY: hwnd is the live fixture window owned by this UI thread.
             if let Ok(edit) = unsafe { GetDlgItem(Some(hwnd), ID_EDIT as i32) } {
+                // SAFETY: edit is a child HWND returned synchronously from the live fixture.
                 let _ = unsafe { SetWindowTextW(edit, w!("invoked")) };
             }
             LRESULT(0)
         }
         WM_DESTROY => {
+            // SAFETY: called on the fixture UI thread while processing WM_DESTROY.
             unsafe { PostQuitMessage(0) };
             LRESULT(0)
         }
+        // SAFETY: forwards the live HWND and unmodified message tuple.
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
     }
 }
@@ -51,6 +55,7 @@ unsafe fn child(
     height: i32,
     id: isize,
 ) -> HWND {
+    // SAFETY: parent/class/text remain valid for this synchronous child creation call.
     unsafe {
         CreateWindowExW(
             WINDOW_EX_STYLE::default(),
@@ -75,19 +80,23 @@ fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
     let title = format!("Semwright native UIA fixture {}", std::process::id());
     let thread_title = title.clone();
     let handle = thread::spawn(move || {
+        // SAFETY: querying the current process module does not transfer ownership.
         let module = unsafe { GetModuleHandleW(None) }.expect("fixture module");
         let instance = HINSTANCE(module.0);
         let class = w!("SemwrightNativeUiaFixture");
         let wc = WNDCLASSW {
+            // SAFETY: IDC_ARROW is a predefined shared system cursor.
             hCursor: unsafe { LoadCursorW(None, IDC_ARROW) }.expect("fixture cursor"),
             hInstance: instance,
             lpszClassName: class,
             lpfnWndProc: Some(fixture_proc),
             ..Default::default()
         };
+        // SAFETY: wc contains a live module handle, static class name and valid window proc.
         unsafe { RegisterClassW(&wc) };
 
         let title_wide: Vec<u16> = thread_title.encode_utf16().chain([0]).collect();
+        // SAFETY: class is registered and title_wide remains live during window creation.
         let hwnd = unsafe {
             CreateWindowExW(
                 WINDOW_EX_STYLE::default(),
@@ -106,6 +115,7 @@ fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
         }
         .expect("fixture top-level window");
 
+        // SAFETY: hwnd is live and all child class/text pointers are static wide strings.
         unsafe {
             child(
                 hwnd,
@@ -146,9 +156,11 @@ fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
             .expect("fixture readiness channel");
 
         let mut msg = MSG::default();
+        // SAFETY: msg is writable storage owned by this UI thread.
         while unsafe { GetMessageW(&mut msg, None, 0, 0) }.as_bool() {
+            // SAFETY: msg was initialized by GetMessageW for this thread.
             unsafe {
-                TranslateMessage(&msg);
+                let _ = TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             }
         }
@@ -171,7 +183,7 @@ fn native_ref(value: &Value) -> NativeTarget {
     serde_json::from_value(value["ref"]["$ref"].clone()).expect("native target marker")
 }
 
-fn find_node<'a>(snapshot: &'a Value, predicate: impl Fn(&Value) -> bool) -> &'a Value {
+fn find_node(snapshot: &Value, predicate: impl Fn(&Value) -> bool) -> &Value {
     snapshot["nodes"]
         .as_array()
         .expect("snapshot nodes")
@@ -276,6 +288,7 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
         .expect_err("password text must stay protected");
     assert_eq!(denied.code, ErrorCode::PolicyDenied);
 
+    // SAFETY: hwnd came from the live fixture and WM_CLOSE is a standard async message.
     unsafe {
         PostMessageW(
             Some(HWND(hwnd as *mut core::ffi::c_void)),
