@@ -250,3 +250,95 @@ fn inverted_or_nonfinite_value_ranges_are_rejected() {
         ErrorCode::InvalidArgument
     );
 }
+
+fn minimal_node(reference: &str, name: &str, parent_ref: Option<&str>) -> UiNode {
+    parse(json!({
+        "ref": reference,
+        "role": "button",
+        "name": name,
+        "states": ["enabled"],
+        "actions": ["click"],
+        "app": "fixture",
+        "parent_ref": parent_ref,
+        "bounds": null,
+        "children_count": 0
+    }))
+}
+
+#[test]
+fn selector_resource_bounds_fail_closed() {
+    let nodes = (0..=semwright_types::MAX_NODES)
+        .map(|i| minimal_node(&format!("ui:{i}"), "Target", None))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        Selector::default().select(&nodes).unwrap_err().code,
+        ErrorCode::InvalidArgument
+    );
+
+    let one = minimal_node("ui:one", "Target", None);
+    let oversized_regex = Selector {
+        name: Some(NameMatch {
+            op: NameOp::Regex,
+            value: "a".repeat(513),
+        }),
+        ..Default::default()
+    };
+    assert_eq!(
+        oversized_regex
+            .select(std::slice::from_ref(&one))
+            .unwrap_err()
+            .code,
+        ErrorCode::InvalidArgument
+    );
+
+    let oversized_query = Selector {
+        query: Some("q".repeat(257)),
+        ..Default::default()
+    };
+    assert_eq!(
+        oversized_query
+            .select(std::slice::from_ref(&one))
+            .unwrap_err()
+            .code,
+        ErrorCode::InvalidArgument
+    );
+}
+
+#[test]
+fn cyclic_ancestry_terminates_without_false_positive() {
+    let first = minimal_node("ui:first", "First", Some("ui:second"));
+    let second = minimal_node("ui:second", "Second", Some("ui:first"));
+    let selector = Selector {
+        ancestor: Some("ui:missing".into()),
+        ..Default::default()
+    };
+    assert!(selector.select(&[first, second]).unwrap().is_empty());
+}
+
+#[test]
+fn ambiguity_and_discovery_never_silently_authorize_a_target() {
+    let first = minimal_node("ui:first", "Save", None);
+    let second = minimal_node("ui:second", "Save", None);
+    let selector = Selector {
+        role: Some("button".into()),
+        name: Some(NameMatch {
+            op: NameOp::Exact,
+            value: "Save".into(),
+        }),
+        ..Default::default()
+    };
+    let err = selector
+        .unique(&[first.clone(), second.clone()])
+        .unwrap_err();
+    assert_eq!(err.code, ErrorCode::AmbiguousTarget);
+    assert_eq!(err.candidates, vec!["ui:first", "ui:second"]);
+
+    let discovery = Selector {
+        query: Some("save".into()),
+        ..Default::default()
+    };
+    assert_eq!(
+        discovery.unique(&[first, second]).unwrap_err().code,
+        ErrorCode::InvalidArgument
+    );
+}
