@@ -6,7 +6,7 @@ use semwright_backend_api::{Backend, Context, ProviderSignal, feature};
 use semwright_types::*;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::sync::{
     Arc, Mutex as StdMutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -18,12 +18,27 @@ use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 type Object = (String, OwnedObjectPath);
 const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
 const APPLICATION: &str = "org.a11y.atspi.Application";
+const COLLECTION: &str = "org.a11y.atspi.Collection";
 const ROOT: &str = "/org/a11y/atspi/accessible/root";
 // AtspiRole is a stable protocol enum; PASSWORD_TEXT has value 40.
 // Some toolkits (notably Qt) specialize GetRole without specializing GetRoleName.
 const ATSPI_ROLE_PASSWORD_TEXT: u32 = 40;
 const MAX_CHILDREN_PER_NODE: usize = 2_000;
 const SNAPSHOT_OPTIONAL_BUDGET: Duration = Duration::from_millis(250);
+const COLLECTION_MATCH_ALL: i32 = 1;
+const COLLECTION_SORT_CANONICAL: u32 = 1;
+const COLLECTION_CANDIDATE_BUDGET: Duration = Duration::from_millis(1_000);
+type CollectionRule = (
+    Vec<i32>,
+    i32,
+    HashMap<String, String>,
+    i32,
+    Vec<i32>,
+    i32,
+    Vec<String>,
+    i32,
+    bool,
+);
 #[derive(Default)]
 struct ObjectGenerations {
     next: AtomicU64,
@@ -190,32 +205,34 @@ pub fn normalize_role(role: &str) -> String {
     }
     .into()
 }
+const SEMANTIC_STATES: &[(usize, &str)] = &[
+    (1, "active"),
+    (3, "busy"),
+    (4, "checked"),
+    (5, "collapsed"),
+    (6, "defunct"),
+    (7, "editable"),
+    (8, "enabled"),
+    (9, "expandable"),
+    (10, "expanded"),
+    (11, "focusable"),
+    (12, "focused"),
+    (16, "modal"),
+    (20, "pressed"),
+    (22, "selectable"),
+    (23, "selected"),
+    (24, "sensitive"),
+    (25, "showing"),
+    (27, "stale"),
+    (30, "visible"),
+    (41, "checkable"),
+    (43, "read-only"),
+];
+
 pub fn decode_states(bits: &[u32]) -> Vec<&'static str> {
-    let states = [
-        (1, "active"),
-        (3, "busy"),
-        (4, "checked"),
-        (5, "collapsed"),
-        (6, "defunct"),
-        (7, "editable"),
-        (8, "enabled"),
-        (9, "expandable"),
-        (10, "expanded"),
-        (11, "focusable"),
-        (12, "focused"),
-        (16, "modal"),
-        (20, "pressed"),
-        (22, "selectable"),
-        (23, "selected"),
-        (24, "sensitive"),
-        (25, "showing"),
-        (27, "stale"),
-        (30, "visible"),
-        (41, "checkable"),
-        (43, "read-only"),
-    ];
-    states
-        .into_iter()
+    SEMANTIC_STATES
+        .iter()
+        .copied()
         .filter(|(bit, _)| {
             bits.get(bit / 32)
                 .is_some_and(|word| word & (1u32 << (bit % 32)) != 0)
@@ -223,6 +240,98 @@ pub fn decode_states(bits: &[u32]) -> Vec<&'static str> {
         .map(|(_, name)| name)
         .collect()
 }
+
+fn collection_state_bits(states: &[String]) -> Option<Vec<i32>> {
+    if states.is_empty() {
+        return Some(Vec::new());
+    }
+    let mut highest = 0usize;
+    let mut selected = Vec::with_capacity(states.len());
+    for state in states {
+        let bit = SEMANTIC_STATES
+            .iter()
+            .find_map(|(bit, name)| (*name == state).then_some(*bit))?;
+        highest = highest.max(bit);
+        selected.push(bit);
+    }
+    let mut words = vec![0u32; highest / 32 + 1];
+    for bit in selected {
+        words[bit / 32] |= 1u32 << (bit % 32);
+    }
+    Some(words.into_iter().map(|word| word as i32).collect())
+}
+
+fn collection_rule(selector: &Selector) -> Option<CollectionRule> {
+    if selector.role.is_some()
+        || selector.name.is_some()
+        || selector.help.is_some()
+        || selector.framework.is_some()
+        || selector.action.is_some()
+        || selector.relation.is_some()
+        || selector.facet.is_some()
+        || selector.text.is_some()
+        || selector.value.is_some()
+        || selector.selection.is_some()
+        || selector.table.is_some()
+        || selector.ancestor.is_some()
+        || selector.nth.is_some()
+        || selector.query.is_some()
+        || (selector.states.is_empty() && selector.attributes.is_empty())
+    {
+        return None;
+    }
+    let states = collection_state_bits(&selector.states)?;
+    // The ATK bridge parses ':' and '\\' inside attribute values as its own
+    // multi-value escape syntax. Refuse those values here rather than risk a
+    // native false negative; the caller will use the portable bounded path.
+    if selector
+        .attributes
+        .values()
+        .any(|value| value.contains(':') || value.contains('\\'))
+    {
+        return None;
+    }
+    let attributes = selector
+        .attributes
+        .iter()
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+    // MATCH_ALL with an empty criterion is the neutral form implemented by the
+    // current GNOME bridge. MATCH_EMPTY is not neutral: by specification it
+    // requires the object's corresponding set to be empty.
+    Some((
+        states,
+        COLLECTION_MATCH_ALL,
+        attributes,
+        COLLECTION_MATCH_ALL,
+        Vec::new(),
+        COLLECTION_MATCH_ALL,
+        Vec::new(),
+        COLLECTION_MATCH_ALL,
+        false,
+    ))
+}
+fn protect_collection_candidate(
+    role: &str,
+    states: &[&str],
+    name: &mut String,
+    attributes: &mut BTreeMap<String, String>,
+) -> UiFacets {
+    if role != "password-entry" {
+        return UiFacets::default();
+    }
+    name.clear();
+    attributes.clear();
+    UiFacets {
+        text: Some(UiTextFacet {
+            editable: states.contains(&"editable"),
+            password: true,
+            ..UiTextFacet::default()
+        }),
+        ..UiFacets::default()
+    }
+}
+
 fn object_id(o: &Object) -> String {
     format!("{}|{}", o.0, o.1)
 }
@@ -873,6 +982,224 @@ impl Atspi {
         }
 
         facets
+    }
+
+    async fn within_depth(
+        &self,
+        c: &Connection,
+        object: &Object,
+        root: &Object,
+        max_depth: usize,
+    ) -> Result<bool> {
+        let root_id = object_id(root);
+        let mut current = object.clone();
+        for depth in 0..=max_depth {
+            if object_id(&current) == root_id {
+                return Ok(true);
+            }
+            if depth == max_depth {
+                return Ok(false);
+            }
+            let proxy = self.proxy(c, &current, ACCESSIBLE).await?;
+            let parent: Object = bounded(proxy.get_property("Parent")).await?;
+            if parent.0.is_empty() || parent.1.as_str() == "/org/a11y/atspi/null" {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "AT-SPI Collection candidate escaped its application root",
+                ));
+            }
+            current = parent;
+        }
+        Ok(false)
+    }
+
+    async fn collection_candidate_node(
+        &self,
+        c: &Connection,
+        object: &Object,
+        app: &str,
+        framework: &str,
+        selector: &Selector,
+    ) -> Result<Option<Value>> {
+        let (role, mut name, fingerprint) = self.identity(c, object).await?;
+        let proxy = self.proxy(c, object, ACCESSIBLE).await?;
+        let (state_bits, attributes) = tokio::join!(
+            bounded(proxy.call::<_, _, Vec<u32>>("GetState", &())),
+            bounded(proxy.call::<_, _, HashMap<String, String>>("GetAttributes", &()))
+        );
+        let state_bits = state_bits?;
+        let states = decode_states(&state_bits);
+        if states
+            .iter()
+            .any(|state| matches!(*state, "defunct" | "stale"))
+        {
+            return Ok(None);
+        }
+        let mut attributes = attributes?
+            .into_iter()
+            .take(128)
+            .map(|(key, value)| {
+                (
+                    key.chars().take(128).collect::<String>(),
+                    value.chars().take(1024).collect::<String>(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        if !selector
+            .states
+            .iter()
+            .all(|wanted| states.iter().any(|actual| actual == wanted))
+            || !selector
+                .attributes
+                .iter()
+                .all(|(key, value)| attributes.get(key) == Some(value))
+        {
+            return Ok(None);
+        }
+        let facets = protect_collection_candidate(&role, &states, &mut name, &mut attributes);
+        let identity = object_id(object);
+        let target = NativeTarget {
+            kind: "ui".into(),
+            identity: identity.clone(),
+            revision: self.object_generations.get_or_assign(&identity)?,
+            fingerprint,
+            app: app.to_owned(),
+        };
+        Ok(Some(json!({
+            "node_id": stable_node_id(&identity),
+            "ref": target_marker(target),
+            "role": role,
+            "name": name.chars().take(1024).collect::<String>(),
+            "description": "",
+            "help": "",
+            "accessibility_id": "",
+            "framework": framework,
+            "attributes": attributes,
+            "relations": [],
+            "facets": facets,
+            "states": states,
+            "actions": [],
+            "app": app,
+            "parent_ref": Value::Null,
+            "bounds": Value::Null,
+            "children_count": 0
+        })))
+    }
+
+    async fn collection_candidates(
+        &self,
+        ctx: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        let Some(rule) = collection_rule(selector) else {
+            return Ok(None);
+        };
+        let c = self.connect().await?;
+        let revision = self.revision.load(Ordering::SeqCst);
+        let max_nodes = max_nodes.clamp(1, 2_000);
+        let max_depth = max_depth.min(32);
+        let mut nodes = Vec::new();
+        let mut seen = BTreeSet::new();
+        let mut partial = false;
+
+        for app_object in self.apps(&c).await? {
+            ctx.check_cancelled()?;
+            let app = match self.app_name(&c, &app_object).await {
+                Ok(app) => app,
+                Err(_) => continue,
+            };
+            if selector.app.as_ref().is_some_and(|wanted| wanted != &app) {
+                continue;
+            }
+            let framework = self.app_framework(&c, &app_object).await;
+            let root_id = object_id(&app_object);
+            if seen.insert(root_id) {
+                match self
+                    .collection_candidate_node(&c, &app_object, &app, &framework, selector)
+                    .await
+                {
+                    Ok(Some(node)) => {
+                        nodes.push(node);
+                        if nodes.len() >= max_nodes {
+                            partial = true;
+                            break;
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(_) => return Ok(None),
+                }
+            }
+
+            let collection = match self.proxy(&c, &app_object, COLLECTION).await {
+                Ok(collection) => collection,
+                Err(_) => return Ok(None),
+            };
+            let remaining = max_nodes.saturating_sub(nodes.len());
+            if remaining == 0 {
+                partial = true;
+                break;
+            }
+            let count = i32::try_from(remaining)
+                .map_err(|_| Error::invalid("AT-SPI candidate budget out of range"))?;
+            let matches: Vec<Object> = match bounded(collection.call(
+                "GetMatches",
+                &(rule.clone(), COLLECTION_SORT_CANONICAL, count, true),
+            ))
+            .await
+            {
+                Ok(matches) => matches,
+                Err(_) => return Ok(None),
+            };
+            let saturated = matches.len() >= remaining;
+            for object in matches {
+                ctx.check_cancelled()?;
+                let within_depth =
+                    match self.within_depth(&c, &object, &app_object, max_depth).await {
+                        Ok(within_depth) => within_depth,
+                        Err(_) => return Ok(None),
+                    };
+                if !within_depth {
+                    continue;
+                }
+                let identity = object_id(&object);
+                if !seen.insert(identity) {
+                    continue;
+                }
+                match self
+                    .collection_candidate_node(&c, &object, &app, &framework, selector)
+                    .await
+                {
+                    Ok(Some(node)) => {
+                        nodes.push(node);
+                        if nodes.len() >= max_nodes {
+                            partial = true;
+                            break;
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(_) => return Ok(None),
+                }
+            }
+            partial |= saturated;
+            if nodes.len() >= max_nodes {
+                break;
+            }
+        }
+
+        if self.revision.load(Ordering::SeqCst) != revision {
+            // Native pushdown is only an optimization. If accessibility state changed
+            // while collecting candidates, discard it and let the portable path resync.
+            return Ok(None);
+        }
+        Ok(Some(json!({
+            "nodes": nodes,
+            "revision": revision,
+            "partial": partial,
+            "mode": "native_candidates",
+            "semantic_coverage": "atspi_collection_candidates"
+        })))
     }
 
     async fn snapshot(&self, ctx: &Context, args: &Value) -> Result<Value> {
@@ -1566,6 +1893,24 @@ impl Backend for Atspi {
             "Enable accessibility and run within the application user's D-Bus session",
         )]
     }
+    async fn find_ui_candidates(
+        &self,
+        ctx: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        match tokio::time::timeout(
+            COLLECTION_CANDIDATE_BUDGET,
+            self.collection_candidates(ctx, selector, max_nodes, max_depth),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Ok(None),
+        }
+    }
+
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
         ctx.check_cancelled()?;
         if command == "ui.snapshot" {
@@ -1763,6 +2108,90 @@ impl Backend for Atspi {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn selector(value: Value) -> Selector {
+        serde_json::from_value(value).expect("valid selector")
+    }
+
+    #[test]
+    fn collection_rule_encodes_only_proven_state_and_attribute_predicates() {
+        let selector = selector(json!({
+            "app": "org.example.App",
+            "states": ["enabled", "read-only"],
+            "attributes": {"automation": "stable"}
+        }));
+        let rule = collection_rule(&selector).expect("safe Collection rule");
+        assert_eq!(rule.0, vec![1 << 8, 1 << (43 - 32)]);
+        assert_eq!(rule.1, COLLECTION_MATCH_ALL);
+        assert_eq!(rule.2.get("automation").map(String::as_str), Some("stable"));
+        assert_eq!(rule.3, COLLECTION_MATCH_ALL);
+        assert_eq!(rule.5, COLLECTION_MATCH_ALL);
+        assert_eq!(rule.7, COLLECTION_MATCH_ALL);
+        assert!(!rule.8);
+    }
+
+    #[test]
+    fn collection_rule_falls_back_for_unrepresentable_selector_semantics() {
+        for value in [
+            json!({"role": "button", "states": ["enabled"]}),
+            json!({"name": {"op": "exact", "value": "Export"}, "states": ["enabled"]}),
+            json!({"query": "export", "states": ["enabled"]}),
+            json!({"states": ["future-state"]}),
+            json!({"app": "org.example.App"}),
+        ] {
+            assert!(
+                collection_rule(&selector(value)).is_none(),
+                "unsupported semantics must fall back to the portable snapshot"
+            );
+        }
+    }
+
+    #[test]
+    fn collection_rule_uses_vacuous_all_for_unused_dimensions() {
+        let selector = selector(json!({"attributes": {"kind": "primary"}}));
+        let rule = collection_rule(&selector).expect("attribute-only pushdown");
+        assert!(rule.0.is_empty());
+        assert_eq!(rule.1, COLLECTION_MATCH_ALL);
+        assert_eq!(rule.3, COLLECTION_MATCH_ALL);
+        assert!(rule.4.is_empty());
+        assert_eq!(rule.5, COLLECTION_MATCH_ALL);
+        assert!(rule.6.is_empty());
+        assert_eq!(rule.7, COLLECTION_MATCH_ALL);
+    }
+
+    #[test]
+    fn collection_rule_falls_back_for_bridge_attribute_escape_syntax() {
+        for value in [
+            json!({"attributes": {"kind": "one:two"}}),
+            json!({"attributes": {"kind": "one\\two"}}),
+        ] {
+            assert!(
+                collection_rule(&selector(value)).is_none(),
+                "special bridge attribute encodings must use portable filtering"
+            );
+        }
+    }
+
+    #[test]
+    fn collection_password_candidates_are_structural_and_redacted() {
+        let mut name = "Secret fixture input".to_owned();
+        let mut attributes = BTreeMap::from([
+            ("automation".to_owned(), "secret-id".to_owned()),
+            ("placeholder".to_owned(), "sensitive metadata".to_owned()),
+        ]);
+        let facets = protect_collection_candidate(
+            "password-entry",
+            &["enabled", "editable"],
+            &mut name,
+            &mut attributes,
+        );
+        assert!(name.is_empty());
+        assert!(attributes.is_empty());
+        let text = facets.text.expect("password text facet");
+        assert!(text.password);
+        assert!(text.editable);
+        assert!(facets.value.is_none());
+    }
+
     #[test]
     fn state_bits_cross_words() {
         assert_eq!(
