@@ -35,6 +35,7 @@ fn interfaces() -> DriverInterfaces {
         progress: true,
         artifacts: true,
         health: true,
+        native_refs: true,
         ..DriverInterfaces::default()
     }
 }

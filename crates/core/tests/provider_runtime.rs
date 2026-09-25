@@ -116,6 +116,7 @@ impl Provider for FixtureProvider {
             progress: true,
             artifacts: true,
             health: true,
+            native_refs: false,
         }
     }
     fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {

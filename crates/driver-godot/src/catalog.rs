@@ -4432,18 +4432,21 @@ fn assets_status_out() -> Value {
     )
 }
 fn godot_ref_schema() -> Value {
-    json!({"type":"object","additionalProperties":false,"required":["provider","project","session","generation","revision","fingerprint","kind","path","class","scene"],"properties":{
-        "provider":{"const":"godot"},
-        "project":{"type":"string","pattern":"^[0-9a-f]{64}$"},
-        "session":{"type":"string","pattern":"^[0-9a-f]{32}$"},
-        "generation":{"type":"string","pattern":"^[0-9a-f]{32}$"},
-        "revision":{"type":"integer","minimum":0},
-        "fingerprint":{"type":"string","pattern":"^[0-9a-f]{64}$"},
-        "kind":{"enum":["node","resource","scene"]},
-        "path":{"type":"string","maxLength":240},
-        "class":{"type":"string","maxLength":96},
-        "scene":{"type":"string","maxLength":240}
-    }})
+    json!({"oneOf":[
+        {"type":"object","additionalProperties":false,"required":["provider","project","session","generation","revision","fingerprint","kind","path","class","scene"],"properties":{
+            "provider":{"const":"godot"},
+            "project":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+            "session":{"type":"string","pattern":"^[0-9a-f]{32}$"},
+            "generation":{"type":"string","pattern":"^[0-9a-f]{32}$"},
+            "revision":{"type":"integer","minimum":0},
+            "fingerprint":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+            "kind":{"enum":["node","resource","scene"]},
+            "path":{"type":"string","maxLength":240},
+            "class":{"type":"string","maxLength":96},
+            "scene":{"type":"string","maxLength":240}
+        }},
+        {"type":"string","pattern":"^native:[0-9a-f]{32}$"}
+    ]})
 }
 fn ref_node_in() -> Value {
     object(

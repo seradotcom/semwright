@@ -50,6 +50,8 @@ pub struct ProviderInterfaces {
     pub progress: bool,
     pub artifacts: bool,
     pub health: bool,
+    /// Provider can emit broker-internal NativeTarget markers and validate them before reuse.
+    pub native_refs: bool,
 }
 #[async_trait]
 pub trait Provider: Send + Sync {
@@ -140,6 +142,7 @@ impl Provider for NativeProvider {
         ProviderInterfaces {
             health: true,
             cooperative_cancellation: true,
+            native_refs: self.backend.emits_native_refs(),
             ..Default::default()
         }
     }
