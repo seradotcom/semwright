@@ -323,7 +323,8 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
     unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) }
         .expect("native UIA fixture requires per-monitor-v2 DPI awareness");
     let (fixture, hwnd, title) = start_fixture();
-    let backend = Windows::new().expect("Windows backend");
+    let artifacts = std::env::temp_dir().join(format!("semwright-uia-native-{}", unique_id()));
+    let backend = Windows::new(&artifacts).expect("Windows backend");
     let ctx = context();
 
     let windows = backend
@@ -428,4 +429,5 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
     assert_eq!(stale.code, ErrorCode::StaleReference);
 
     backend.shutdown().await.expect("shutdown backend");
+    std::fs::remove_dir_all(&artifacts).expect("remove private artifact directory");
 }
