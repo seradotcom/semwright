@@ -477,10 +477,12 @@ mod linux {
             project_ref = v["project"].as_str().unwrap().to_owned();
             revision = v["resulting_revision"].as_str().unwrap().to_owned();
         }
-        // Every mutating MLT capability advances the project revision, and entity refs
-        // are revision-bound. Refresh all refs from the current project before each
-        // insert instead of carrying track/asset refs across the previous mutation.
-        for (track_name, asset_name) in [("Video", "Motion"), ("Audio", "Sound")] {
+        // MLT refs are revision-bound. Every clip insertion advances the project
+        // revision, so sequence/track/asset refs must be resolved again before
+        // the next mutation instead of carrying stale refs across writes.
+        for (track_name, asset_name, clip_name) in
+            [("Video", "Motion", "Motion"), ("Audio", "Sound", "Sound")]
+        {
             let assets = call(
                 mlt.as_ref(),
                 &mlt_caps,
@@ -490,6 +492,7 @@ mod linux {
                 &mut operations,
             )
             .await?;
+            let asset = named_ref(&assets, asset_name)?;
             let sr = sequence_ref(mlt.as_ref(), &mlt_caps, &project_ref, &mut operations).await?;
             let tracks = call(
                 mlt.as_ref(),
@@ -501,9 +504,8 @@ mod linux {
             )
             .await?;
             let track = named_ref(&tracks, track_name)?;
-            let asset = named_ref(&assets, asset_name)?;
             let v=call(mlt.as_ref(),&mlt_caps,"driver:mlt-video","driver.mlt-video.clip.insert",json!({
-                "project":project_ref,"expected_revision":revision,"sequence":sr,"track":track,"asset":asset,"start":0,"source_in":0,"source_out":1560,"name":asset_name
+                "project":project_ref,"expected_revision":revision,"sequence":sr,"track":track,"asset":asset,"start":0,"source_in":0,"source_out":1560,"name":clip_name
             }),&mut operations).await?;
             project_ref = v["project"].as_str().unwrap().to_owned();
             revision = v["resulting_revision"].as_str().unwrap().to_owned();

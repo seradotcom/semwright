@@ -17,7 +17,8 @@ test('runtime dependencies use exact versions', () => {
 test('render harness is bound to Driver Host, pinned Firefox, and local origin', () => {
   assert.ok(render.includes('SEMWRIGHT_DRIVER_SANDBOX'));
   assert.ok(render.includes('landlock-bwrap-v1'));
-  assert.ok(render.includes('buildForEditor:true'));
+  assert.ok(render.includes('buildForEditor:false'));
+  assert.ok(!render.includes('buildForEditor:true'));
   assert.ok(render.includes('firefox.launchPersistentContext'));
   assert.ok(render.includes('context.pages()[0]'));
   assert.ok(!render.includes('context.newPage()'));
@@ -28,6 +29,7 @@ test('render harness is bound to Driver Host, pinned Firefox, and local origin',
   assert.ok(!render.includes('MOZ_WEBRENDER'));
   assert.ok(!render.includes('connectOverCDP'));
   assert.ok(render.includes('semwright.invalid'));
+  assert.ok(render.includes('undefined, {timeout:config.timeoutMs}'));
   assert.ok(render.includes("route.abort('blockedbyclient')"));
 });
 
