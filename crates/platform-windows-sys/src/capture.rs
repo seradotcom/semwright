@@ -116,9 +116,7 @@ fn validate_size(width: i32, height: i32) -> Result<(u32, u32)> {
     Ok((width, height))
 }
 
-fn create_device_with(
-    driver: D3D_DRIVER_TYPE,
-) -> windows::core::Result<(ID3D11Device, ID3D11DeviceContext)> {
+fn create_device_with(driver: D3D_DRIVER_TYPE) -> Result<(ID3D11Device, ID3D11DeviceContext)> {
     let mut device = None;
     let mut context = None;
     // SAFETY: all out-pointers refer to stack-owned Options, no adapter/software module is used,
@@ -134,17 +132,27 @@ fn create_device_with(
             Some(&mut device),
             None,
             Some(&mut context),
-        )?;
+        )
+        .map_err(|_| Error::unavailable("D3D11 device creation failed"))?;
     }
-    let device = device.ok_or_else(windows::core::Error::from_thread)?;
-    let context = context.ok_or_else(windows::core::Error::from_thread)?;
+    let device = device.ok_or_else(|| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "D3D11 reported success without returning a device",
+        )
+    })?;
+    let context = context.ok_or_else(|| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "D3D11 reported success without returning an immediate context",
+        )
+    })?;
     Ok((device, context))
 }
 
 fn create_device() -> Result<(ID3D11Device, ID3D11DeviceContext, IDirect3DDevice)> {
     let (device, context) = create_device_with(D3D_DRIVER_TYPE_HARDWARE)
-        .or_else(|_| create_device_with(D3D_DRIVER_TYPE_WARP))
-        .map_err(|_| Error::unavailable("D3D11 capture device creation failed"))?;
+        .or_else(|_| create_device_with(D3D_DRIVER_TYPE_WARP))?;
     let dxgi: IDXGIDevice = device
         .cast()
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "D3D11 device is not DXGI"))?;
