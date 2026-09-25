@@ -16,7 +16,7 @@ The driver does not expose arbitrary GDScript evaluation, OS.execute, shell exec
 ## Status
 
 The current catalog exposes **149 typed `driver.godot.*` capabilities** with operation-specific strict input/output schemas. Driver Protocol v2 negotiates cooperative cancellation, child events, progress, artifacts and health. The production Rust driver has been exercised end-to-end against both an independent fake editor and Godot 4.7.2-stable.
-The real acceptance harness creates a disposable 3D Lab Room through the production driver, writes resources and managed scripts, creates scene nodes, InputMap actions, signals and animation keyframes, saves/reloads the scene, validates and runs it headlessly, exports a PCK artifact and verifies cancellation. It also verifies real Godot editor events crossing the child-event interface.
+The real acceptance harness creates a disposable Lab Room through the production driver with both 3D and 2D authoring subtrees. It writes resources and managed scripts, persists keyboard/mouse/gamepad InputMap actions, exercises typed 2D/3D navigation and physics, creates signals and animation keyframes, saves/reloads the scene, validates and runs it headlessly, exports a PCK artifact and verifies cancellation. It also verifies real Godot editor events crossing the child-event interface.
 
 ## Surface
 

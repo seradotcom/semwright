@@ -19,7 +19,9 @@ mirror of Godot's raw object API.
 - `node.rename`, `node.reparent`, `group.set`
 - `input.list`, `input.set`, `input.remove`
 
-Generic node/resource operations remain the bounded substrate for engine types that do not
+Input actions preserve keyboard, mouse-button, gamepad-button and analog-axis bindings,
+including device identity and signed axis direction. Generic node/resource operations remain
+the bounded substrate for engine types that do not
 need a dedicated semantic workflow. Domain operations below provide higher-level meaning for
 the major authoring systems instead of requiring agents to guess raw property names.
 
@@ -57,8 +59,10 @@ and saved through the normal Godot resource pipeline.
 - `navigation.agent.inspect`, `navigation.agent.configure`
 - `navigation.link.configure`
 
-The surface models layers, costs, path tolerances, target position, avoidance and link
-endpoints without exposing arbitrary NavigationServer calls.
+The same typed operations cover NavigationRegion/Agent/Link in both 2D and 3D. Vector
+shape is validated against the target dimension, while region resources remain explicit
+NavigationPolygon (2D) or NavigationMesh (3D). The surface models layers, costs, path
+tolerances, avoidance and link endpoints without exposing arbitrary NavigationServer calls.
 
 ## Physics
 
@@ -68,7 +72,9 @@ endpoints without exposing arbitrary NavigationServer calls.
 - `physics.joint.configure`
 - `collision.shape.configure`
 
-Body configuration distinguishes RigidBody3D, CharacterBody3D and StaticBody3D semantics.
+Body, Area, Joint and CollisionShape operations preserve 2D/3D semantics. RigidBody,
+CharacterBody and StaticBody variants use dimension-correct velocity/angular types, while
+Area gravity vectors and collision resources are validated against the target dimension.
 
 ## Audio
 

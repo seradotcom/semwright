@@ -664,8 +664,9 @@ func _is_resource_ref(value) -> bool:
     return typeof(value) == TYPE_DICTIONARY and str(value.get("$type", "")) == "Resource"
 
 func _project_input_actions() -> Array:
-    # EditorPlugin InputMap APIs expose editor bindings. Project bindings are
-    # persisted under input/* in ProjectSettings, so read those directly.
+    # Project InputMap bindings are persisted under input/* in ProjectSettings.
+    # Preserve device semantics and analog axis direction instead of collapsing
+    # every binding into keyboard/mouse-shaped data.
     var actions: Array = []
     for property in ProjectSettings.get_property_list():
         var setting_name := str(property.get("name", ""))
@@ -680,9 +681,13 @@ func _project_input_actions() -> Array:
         var events: Array = []
         for event in setting.get("events", []):
             if event is InputEventKey:
-                events.append({"type":"key","code":event.physical_keycode})
+                events.append({"type":"key","code":event.physical_keycode,"device":event.device})
             elif event is InputEventMouseButton:
-                events.append({"type":"mouse_button","code":event.button_index})
+                events.append({"type":"mouse_button","code":event.button_index,"device":event.device})
+            elif event is InputEventJoypadButton:
+                events.append({"type":"joy_button","code":event.button_index,"device":event.device})
+            elif event is InputEventJoypadMotion:
+                events.append({"type":"joy_axis","axis":event.axis,"value":event.axis_value,"device":event.device})
         actions.append({
             "name": name,
             "deadzone": float(setting.get("deadzone", 0.5)),
@@ -706,15 +711,27 @@ func _input_set(args: Dictionary) -> Dictionary:
     var persisted_events: Array = []
     for spec in args.get("events", []):
         var event: InputEvent
-        if str(spec.get("type", "")) == "key":
+        var kind := str(spec.get("type", ""))
+        if kind == "key":
             var key := InputEventKey.new()
             key.physical_keycode = int(spec.get("code", 0))
             event = key
-        elif str(spec.get("type", "")) == "mouse_button":
+        elif kind == "mouse_button":
             var button := InputEventMouseButton.new()
             button.button_index = int(spec.get("code", 0))
             event = button
+        elif kind == "joy_button":
+            var joy_button := InputEventJoypadButton.new()
+            joy_button.button_index = int(spec.get("code", 0))
+            event = joy_button
+        elif kind == "joy_axis":
+            var joy_axis := InputEventJoypadMotion.new()
+            joy_axis.axis = int(spec.get("axis", 0))
+            joy_axis.axis_value = float(spec.get("value", 0.0))
+            event = joy_axis
         if event != null:
+            if spec.has("device"):
+                event.device = int(spec["device"])
             persisted_events.append(event)
     ProjectSettings.set_setting("input/" + name, {
         "deadzone": deadzone,

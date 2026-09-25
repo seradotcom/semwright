@@ -915,7 +915,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.region.inspect",
-            "Inspect a NavigationRegion3D",
+            "Inspect a NavigationRegion2D or NavigationRegion3D",
             "navigation",
             "navigation_region",
             Route::Plugin,
@@ -943,7 +943,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.region.bake",
-            "Bake a NavigationRegion3D mesh synchronously",
+            "Bake a NavigationRegion2D polygon or NavigationRegion3D mesh synchronously",
             "navigation",
             "navigation_region",
             Route::Plugin,
@@ -957,7 +957,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.agent.inspect",
-            "Inspect NavigationAgent3D pathfinding and avoidance state",
+            "Inspect NavigationAgent2D/3D pathfinding and avoidance state",
             "navigation",
             "navigation_agent",
             Route::Plugin,
@@ -971,7 +971,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.agent.configure",
-            "Configure NavigationAgent3D pathfinding and avoidance",
+            "Configure NavigationAgent2D/3D pathfinding and avoidance",
             "navigation",
             "navigation_agent",
             Route::Plugin,
@@ -985,7 +985,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "navigation.link.configure",
-            "Configure a NavigationLink3D",
+            "Configure a NavigationLink2D or NavigationLink3D",
             "navigation",
             "navigation_link",
             Route::Plugin,
@@ -999,7 +999,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.body.inspect",
-            "Inspect a PhysicsBody3D using body-specific semantics",
+            "Inspect a PhysicsBody2D/3D using body-specific semantics",
             "physics",
             "physics_body",
             Route::Plugin,
@@ -1013,7 +1013,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.body.configure",
-            "Configure bounded RigidBody3D, CharacterBody3D or StaticBody3D state",
+            "Configure bounded RigidBody/CharacterBody/StaticBody state in 2D or 3D",
             "physics",
             "physics_body",
             Route::Plugin,
@@ -1027,7 +1027,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.area.inspect",
-            "Inspect an Area3D",
+            "Inspect an Area2D or Area3D",
             "physics",
             "area",
             Route::Plugin,
@@ -1041,7 +1041,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.area.configure",
-            "Configure Area3D monitoring and physics overrides",
+            "Configure Area2D/3D monitoring and physics overrides",
             "physics",
             "area",
             Route::Plugin,
@@ -1055,7 +1055,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "physics.joint.configure",
-            "Configure a Joint3D connection",
+            "Configure a Joint2D/3D connection",
             "physics",
             "joint",
             Route::Plugin,
@@ -1069,7 +1069,7 @@ fn specs() -> Vec<Spec> {
         ),
         spec(
             "collision.shape.configure",
-            "Configure a CollisionShape3D",
+            "Configure a CollisionShape2D/3D",
             "physics",
             "collision_shape",
             Route::Plugin,
@@ -2404,6 +2404,30 @@ fn node_target_mutation_in() -> Value {
     )
 }
 fn input_set_in() -> Value {
+    let device = json!({"type":"integer","minimum":-1,"maximum":32});
+    let coded = |kind: &str, max_code: i64| {
+        json!({
+            "type":"object",
+            "additionalProperties":false,
+            "required":["type","code"],
+            "properties":{
+                "type":{"const":kind},
+                "code":{"type":"integer","minimum":0,"maximum":max_code},
+                "device":device.clone()
+            }
+        })
+    };
+    let axis = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["type","axis","value"],
+        "properties":{
+            "type":{"const":"joy_axis"},
+            "axis":{"type":"integer","minimum":0,"maximum":15},
+            "value":{"type":"number","minimum":-1.0,"maximum":1.0},
+            "device":device.clone()
+        }
+    });
     object(
         Map::from_iter([
             session_prop(),
@@ -2414,7 +2438,16 @@ fn input_set_in() -> Value {
             ),
             (
                 "events".into(),
-                json!({"type":"array","maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["type","code"],"properties":{"type":{"enum":["key","mouse_button"]},"code":{"type":"integer","minimum":0,"maximum":1000000}}}}),
+                json!({
+                    "type":"array",
+                    "maxItems":32,
+                    "items":{"oneOf":[
+                        coded("key", 1_000_000),
+                        coded("mouse_button", 128),
+                        coded("joy_button", 128),
+                        axis
+                    ]}
+                }),
             ),
             expect_prop(),
             dry_prop(),
@@ -3054,6 +3087,18 @@ fn vec2i_positive_schema() -> Value {
 fn vec3_schema() -> Value {
     json!({"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000000.0,"maximum":1000000000.0}})
 }
+fn vec2_or_vec3_schema() -> Value {
+    json!({"oneOf":[vec2_schema(),vec3_schema()]})
+}
+fn number_or_vec3_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"number","minimum":-1000000000.0,"maximum":1000000000.0},
+        vec3_schema()
+    ]})
+}
+fn bool_or_ccd_mode_schema() -> Value {
+    json!({"oneOf":[{"type":"boolean"},{"type":"integer","minimum":0,"maximum":2}]})
+}
 fn quat_schema() -> Value {
     json!({"type":"array","minItems":4,"maxItems":4,"items":{"type":"number","minimum":-1.0,"maximum":1.0}})
 }
@@ -3162,6 +3207,7 @@ fn navigation_region_configure_in() -> Value {
             ("travel_cost".into(), bounded_number(0.0, 1_000_000.0)),
             ("use_edge_connections".into(), boolean()),
             ("navigation_mesh".into(), optional_path_schema()),
+            ("navigation_polygon".into(), optional_path_schema()),
         ]),
         &[],
     )
@@ -3170,7 +3216,7 @@ fn navigation_agent_configure_in() -> Value {
     target_mutation_schema(
         Map::from_iter([
             ("navigation_layers".into(), u32_schema()),
-            ("target_position".into(), vec3_schema()),
+            ("target_position".into(), vec2_or_vec3_schema()),
             (
                 "path_desired_distance".into(),
                 bounded_number(0.0, 1_000_000.0),
@@ -3190,6 +3236,8 @@ fn navigation_agent_configure_in() -> Value {
             ("neighbor_distance".into(), bounded_number(0.0, 1_000_000.0)),
             ("max_neighbors".into(), bounded_int(0, 4096)),
             ("use_3d_avoidance".into(), boolean()),
+            ("time_horizon_agents".into(), bounded_number(0.0, 3600.0)),
+            ("time_horizon_obstacles".into(), bounded_number(0.0, 3600.0)),
         ]),
         &[],
     )
@@ -3202,8 +3250,8 @@ fn navigation_link_configure_in() -> Value {
             ("navigation_layers".into(), u32_schema()),
             ("enter_cost".into(), bounded_number(0.0, 1_000_000.0)),
             ("travel_cost".into(), bounded_number(0.0, 1_000_000.0)),
-            ("start_position".into(), vec3_schema()),
-            ("end_position".into(), vec3_schema()),
+            ("start_position".into(), vec2_or_vec3_schema()),
+            ("end_position".into(), vec2_or_vec3_schema()),
         ]),
         &[],
     )
@@ -3219,10 +3267,10 @@ fn physics_body_configure_in() -> Value {
             ("angular_damp".into(), bounded_number(-1.0, 1000.0)),
             ("lock_rotation".into(), boolean()),
             ("freeze".into(), boolean()),
-            ("continuous_cd".into(), boolean()),
+            ("continuous_cd".into(), bool_or_ccd_mode_schema()),
             ("freeze_mode".into(), bounded_int(0, 1)),
-            ("linear_velocity".into(), vec3_schema()),
-            ("angular_velocity".into(), vec3_schema()),
+            ("linear_velocity".into(), vec2_or_vec3_schema()),
+            ("angular_velocity".into(), number_or_vec3_schema()),
             ("motion_mode".into(), bounded_int(0, 1)),
             ("max_slides".into(), bounded_int(1, 64)),
             ("floor_stop_on_slope".into(), boolean()),
@@ -3235,10 +3283,10 @@ fn physics_body_configure_in() -> Value {
                 "wall_min_slide_angle".into(),
                 bounded_number(0.0, std::f64::consts::PI),
             ),
-            ("up_direction".into(), vec3_schema()),
-            ("velocity".into(), vec3_schema()),
-            ("constant_linear_velocity".into(), vec3_schema()),
-            ("constant_angular_velocity".into(), vec3_schema()),
+            ("up_direction".into(), vec2_or_vec3_schema()),
+            ("velocity".into(), vec2_or_vec3_schema()),
+            ("constant_linear_velocity".into(), vec2_or_vec3_schema()),
+            ("constant_angular_velocity".into(), number_or_vec3_schema()),
         ]),
         &[],
     )
@@ -3258,6 +3306,12 @@ fn physics_area_configure_in() -> Value {
             ("angular_damp".into(), bounded_number(-1.0, 1000.0)),
             ("audio_bus_override".into(), boolean()),
             ("audio_bus_name".into(), string(96)),
+            ("gravity_direction".into(), vec2_or_vec3_schema()),
+            ("gravity_point_center".into(), vec2_or_vec3_schema()),
+            (
+                "gravity_point_unit_distance".into(),
+                bounded_number(0.0, 1_000_000.0),
+            ),
             ("collision_layer".into(), u32_schema()),
             ("collision_mask".into(), u32_schema()),
         ]),
@@ -3270,6 +3324,7 @@ fn physics_joint_configure_in() -> Value {
             ("node_a".into(), optional_path_schema()),
             ("node_b".into(), optional_path_schema()),
             ("solver_priority".into(), bounded_int(1, 64)),
+            ("bias".into(), bounded_number(0.0, 1.0)),
             ("exclude_nodes_from_collision".into(), boolean()),
         ]),
         &[],

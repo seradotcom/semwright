@@ -150,3 +150,79 @@ fn catalog_routes_partition_the_full_surface() {
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
     assert_eq!(catalog.capabilities().len(), 149);
 }
+
+#[test]
+fn input_schema_accepts_gamepad_button_and_axis_bindings() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog.get("driver.godot.input.set").unwrap();
+    let input = json!({
+        "session": "a".repeat(32),
+        "name": "gamepad_move",
+        "deadzone": 0.2,
+        "events": [
+            {"type":"joy_button","code":0,"device":-1},
+            {"type":"joy_axis","axis":0,"value":1.0,"device":-1}
+        ],
+        "expect": {"revision": 1, "fingerprint": "a".repeat(64)},
+        "dry_run": false
+    });
+    entry.validate_input(&input).unwrap();
+}
+
+#[test]
+fn navigation_schema_accepts_2d_vectors_and_polygon_resources() {
+    let catalog = Catalog::load().unwrap();
+    let agent = catalog
+        .get("driver.godot.navigation.agent.configure")
+        .unwrap();
+    agent
+        .validate_input(&json!({
+            "session":"a".repeat(32),
+            "target":"TwoD/Player/Agent",
+            "target_position":[120.0,80.0],
+            "avoidance_enabled":true,
+            "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+            "dry_run":false
+        }))
+        .unwrap();
+
+    let region = catalog
+        .get("driver.godot.navigation.region.configure")
+        .unwrap();
+    region
+        .validate_input(&json!({
+            "session":"a".repeat(32),
+            "target":"TwoD/NavRegion",
+            "navigation_polygon":"res://assets/navigation2d.tres",
+            "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+            "dry_run":false
+        }))
+        .unwrap();
+}
+
+#[test]
+fn physics_schema_accepts_2d_velocity_and_angular_scalar() {
+    let catalog = Catalog::load().unwrap();
+    let body = catalog.get("driver.godot.physics.body.configure").unwrap();
+    body.validate_input(&json!({
+        "session":"a".repeat(32),
+        "target":"TwoD/Player",
+        "linear_velocity":[10.0,20.0],
+        "angular_velocity":1.5,
+        "continuous_cd":1,
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    }))
+    .unwrap();
+
+    let area = catalog.get("driver.godot.physics.area.configure").unwrap();
+    area.validate_input(&json!({
+        "session":"a".repeat(32),
+        "target":"TwoD/Area",
+        "gravity_direction":[0.0,1.0],
+        "gravity_point_center":[20.0,20.0],
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    }))
+    .unwrap();
+}

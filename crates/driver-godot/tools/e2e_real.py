@@ -241,6 +241,9 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             ("res://assets/particles.tres", "ParticleProcessMaterial", []),
             ("res://assets/tileset.tres", "TileSet", []),
             ("res://assets/navigation.tres", "NavigationMesh", []),
+            ("res://assets/navigation2d.tres", "NavigationPolygon", []),
+            ("res://assets/player_shape2d.tres", "RectangleShape2D", [("size", V2(24, 24))]),
+            ("res://assets/area_shape2d.tres", "CircleShape2D", [("radius", 12.0)]),
             ("res://assets/ui_theme.tres", "Theme", []),
             ("res://assets/state_machine.tres", "AnimationNodeStateMachine", []),
         ]
@@ -289,6 +292,17 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node(".", "NavigationRegion3D", "NavRegion", [("navigation_mesh", Res("res://assets/navigation.tres"))])
         node("Player", "NavigationAgent3D", "Agent")
         node(".", "NavigationLink3D", "NavLink")
+        node(".", "Node2D", "TwoD")
+        node("TwoD", "CharacterBody2D", "Player2D", [("position", V2(64, 64))])
+        node("TwoD/Player2D", "CollisionShape2D", "Collision", [("shape", Res("res://assets/player_shape2d.tres"))])
+        node("TwoD/Player2D", "NavigationAgent2D", "Agent")
+        node("TwoD", "NavigationRegion2D", "NavRegion", [("navigation_polygon", Res("res://assets/navigation2d.tres"))])
+        node("TwoD", "NavigationLink2D", "NavLink")
+        node("TwoD", "Area2D", "Area")
+        node("TwoD/Area", "CollisionShape2D", "Collision", [("shape", Res("res://assets/area_shape2d.tres"))])
+        node("TwoD", "StaticBody2D", "AnchorA")
+        node("TwoD", "StaticBody2D", "AnchorB")
+        node("TwoD", "PinJoint2D", "Joint")
         node(".", "AudioStreamPlayer", "Music")
         node(".", "GPUParticles3D", "Particles", [("process_material", Res("res://assets/particles.tres"))])
         node(".", "Skeleton3D", "Rig")
@@ -361,6 +375,82 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert area["data"]["monitoring"] is True
         mutate("driver.godot.collision.shape.configure", {
             "target": "Player/Collision", "shape": "res://assets/player_shape.tres", "disabled": False,
+        })
+
+        # The same semantic navigation/physics capabilities must preserve 2D meaning
+        # instead of falling back to generic node.property mutation.
+        mutate("driver.godot.navigation.region.configure", {
+            "target": "TwoD/NavRegion", "enabled": True, "navigation_layers": 2,
+            "enter_cost": 0.25, "travel_cost": 1.25, "use_edge_connections": True,
+            "navigation_polygon": "res://assets/navigation2d.tres",
+        })
+        region2d = call("driver.godot.navigation.region.inspect", {
+            "session": sid, "target": "TwoD/NavRegion",
+        })
+        assert region2d["data"]["dimension"] == "2d"
+        assert region2d["data"]["navigation_polygon"] == "res://assets/navigation2d.tres"
+        bake2d = call("driver.godot.navigation.region.bake", {
+            "session": sid, "target": "TwoD/NavRegion", "expect": st, "dry_run": True,
+        })
+        assert bake2d["applied"] is False
+
+        mutate("driver.godot.navigation.agent.configure", {
+            "target": "TwoD/Player2D/Agent", "navigation_layers": 2,
+            "target_position": [128.0, 96.0], "path_desired_distance": 2.0,
+            "target_desired_distance": 3.0, "path_max_distance": 64.0,
+            "radius": 8.0, "max_speed": 120.0, "avoidance_enabled": True,
+            "avoidance_layers": 2, "avoidance_mask": 2, "avoidance_priority": 0.4,
+            "neighbor_distance": 48.0, "max_neighbors": 6,
+            "time_horizon_agents": 1.5, "time_horizon_obstacles": 1.0,
+        })
+        agent2d = call("driver.godot.navigation.agent.inspect", {
+            "session": sid, "target": "TwoD/Player2D/Agent",
+        })
+        assert agent2d["data"]["dimension"] == "2d"
+        assert agent2d["data"]["target_position"] == [128.0, 96.0]
+
+        mutate("driver.godot.navigation.link.configure", {
+            "target": "TwoD/NavLink", "enabled": True, "bidirectional": True,
+            "navigation_layers": 2, "enter_cost": 0.0, "travel_cost": 1.0,
+            "start_position": [8.0, 16.0], "end_position": [96.0, 16.0],
+        })
+
+        mutate("driver.godot.physics.body.configure", {
+            "target": "TwoD/Player2D", "collision_layer": 2, "collision_mask": 2,
+            "motion_mode": 0, "max_slides": 4, "floor_stop_on_slope": True,
+            "floor_max_angle": 0.785398, "floor_snap_length": 1.0,
+            "wall_min_slide_angle": 0.261799, "up_direction": [0.0, -1.0],
+            "velocity": [24.0, 0.0],
+        })
+        body2d = call("driver.godot.physics.body.inspect", {
+            "session": sid, "target": "TwoD/Player2D",
+        })
+        assert body2d["data"]["dimension"] == "2d"
+        assert body2d["data"]["velocity"] == [24.0, 0.0]
+
+        mutate("driver.godot.physics.area.configure", {
+            "target": "TwoD/Area", "monitoring": True, "monitorable": True,
+            "priority": 0.0, "gravity_point": False, "gravity": 980.0,
+            "gravity_direction": [0.0, 1.0], "gravity_point_center": [0.0, 0.0],
+            "gravity_point_unit_distance": 0.0, "gravity_space_override": 0,
+            "linear_damp_space_override": 0, "linear_damp": 0.1,
+            "angular_damp_space_override": 0, "angular_damp": 0.1,
+            "audio_bus_override": False, "audio_bus_name": "Master",
+            "collision_layer": 2, "collision_mask": 2,
+        })
+        area2d = call("driver.godot.physics.area.inspect", {
+            "session": sid, "target": "TwoD/Area",
+        })
+        assert area2d["data"]["dimension"] == "2d"
+        assert area2d["data"]["gravity_direction"] == [0.0, 1.0]
+
+        mutate("driver.godot.collision.shape.configure", {
+            "target": "TwoD/Player2D/Collision",
+            "shape": "res://assets/player_shape2d.tres", "disabled": False,
+        })
+        mutate("driver.godot.physics.joint.configure", {
+            "target": "TwoD/Joint", "node_a": "../AnchorA", "node_b": "../AnchorB",
+            "bias": 0.2, "exclude_nodes_from_collision": True,
         })
 
         mutate("driver.godot.audio.bus.create", {
@@ -698,6 +788,19 @@ func _physics_process(_delta: float) -> void:
             })
             st = stamp(value)
 
+        mutate("driver.godot.input.set", {
+            "name": "gamepad_semantic", "deadzone": 0.2,
+            "events": [
+                {"type": "joy_button", "code": 0, "device": -1},
+                {"type": "joy_axis", "axis": 0, "value": 1.0, "device": -1},
+            ],
+        })
+        actions = call("driver.godot.input.list", {"session": sid})["data"]
+        gamepad = next(action for action in actions if action["name"] == "gamepad_semantic")
+        assert {event["type"] for event in gamepad["events"]} == {"joy_button", "joy_axis"}
+        axis = next(event for event in gamepad["events"] if event["type"] == "joy_axis")
+        assert axis["axis"] == 0 and abs(axis["value"] - 1.0) < 0.001
+
         value = call("driver.godot.signal.connect", {
             "session": sid, "source": "Key", "target": ".", "signal": "body_entered",
             "method": "_on_key_body_entered", "flags": 8, "expect": st, "dry_run": False,
@@ -747,7 +850,10 @@ func _physics_process(_delta: float) -> void:
 
         scene = call("driver.godot.scene.inspect", {"session": sid})
         names = {x["name"] for x in scene["data"]["nodes"]}
-        assert {"LabRoom", "Floor", "Player", "Door", "Key", "Animations", "HUD", "Status"}.issubset(names), sorted(names)
+        assert {
+            "LabRoom", "Floor", "Player", "Door", "Key", "Animations", "HUD", "Status",
+            "TwoD", "Player2D", "NavRegion", "NavLink", "Area", "Joint",
+        }.issubset(names), sorted(names)
 
         validation, progress = execute(driver, caps, "driver.godot.project.validate", {"project": project_id}, "project-validate")
         trace.append({"id": "project-validate", "command": "driver.godot.project.validate", "args": {"project": project_id}, "result": validation, "progress": progress})
