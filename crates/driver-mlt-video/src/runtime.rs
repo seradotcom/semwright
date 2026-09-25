@@ -718,22 +718,12 @@ impl Runtime {
             )
             .into(),
             format!("f={}", profile.container).into(),
-            // Negative real_time keeps offline/no-drop rendering while abs(value)
-            // selects MLT processing workers. Two workers plus a small frame buffer
-            // stay inside the 1 GiB child address-space budget; libx264 selects its
-            // encoder thread count automatically.
-            "real_time=-2".into(),
-            "buffer=5".into(),
-            "threads=0".into(),
         ];
+        args.extend(render_processing_args(profile));
         if let Some(codec) = profile.video_codec {
             args.push(format!("vcodec={codec}").into());
             if codec == "libx264" {
-                args.extend([
-                    "pix_fmt=yuv420p".into(),
-                    "crf=20".into(),
-                    "preset=medium".into(),
-                ]);
+                args.extend(h264_encoding_args());
             }
         } else {
             args.push("vn=1".into());
@@ -798,6 +788,32 @@ impl Runtime {
         Ok(info)
     }
 }
+fn h264_encoding_args() -> Vec<OsString> {
+    // The 52-second launch-film render demonstrated that the medium preset can
+    // exceed the bounded CI wall-clock budget even with MLT frame workers. CRF
+    // 18 preserves high-quality motion graphics while veryfast removes encoder
+    // efficiency as the bottleneck; the tradeoff is file size, not semantics.
+    vec![
+        "pix_fmt=yuv420p".into(),
+        "crf=18".into(),
+        "preset=veryfast".into(),
+    ]
+}
+
+fn render_processing_args(profile: &RenderProfile) -> Vec<OsString> {
+    if profile.video_codec == Some("libx264") {
+        // Launch-film H.264 is the only profile whose measured CI runtime needs
+        // bounded MLT parallelism. Keep its two offline workers and small buffer
+        // while letting libx264 manage encoder threads.
+        vec!["real_time=-2".into(), "buffer=5".into(), "threads=0".into()]
+    } else {
+        // Lossless/audio profiles remain on the previously certified conservative
+        // path. Applying MLT worker parallelism globally made the real lossless
+        // sandbox test terminate with SIGSEGV.
+        vec!["real_time=-1".into(), "threads=2".into()]
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RenderProfile {
     pub id: &'static str,
@@ -1033,8 +1049,28 @@ impl MediaInfo {
 
 #[cfg(test)]
 mod tool_owner_tests {
-    use super::trusted_tool_owner;
+    use super::{RenderProfile, h264_encoding_args, render_processing_args, trusted_tool_owner};
     use std::path::Path;
+
+    #[test]
+    fn h264_profile_uses_bounded_fast_high_quality_encoding() {
+        let args = h264_encoding_args();
+        let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
+        assert_eq!(args, ["pix_fmt=yuv420p", "crf=18", "preset=veryfast"]);
+    }
+
+    #[test]
+    fn render_parallelism_is_scoped_to_h264_profiles() {
+        let h264 = render_processing_args(&RenderProfile::get("h264-1080p").unwrap());
+        let h264 = h264.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
+        assert_eq!(h264, ["real_time=-2", "buffer=5", "threads=0"]);
+
+        for id in ["lossless", "audio-wav"] {
+            let args = render_processing_args(&RenderProfile::get(id).unwrap());
+            let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
+            assert_eq!(args, ["real_time=-1", "threads=2"], "profile {id}");
+        }
+    }
 
     #[test]
     fn owner_policy_allows_only_explicit_trust_cases() {
