@@ -1,7 +1,7 @@
 //! In-process provider integration through the real registry, broker, policy and audit.
 use async_trait::async_trait;
 use semwright_backend_api::{
-    Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal, feature,
+    Backend, Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal, feature,
 };
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_policy::{Policy, PolicyConfig};
@@ -45,6 +45,50 @@ struct FixtureProvider {
     entered: Notify,
     release: Notify,
 }
+struct BuiltinEventBackend {
+    signal: broadcast::Sender<ProviderSignal>,
+}
+
+impl BuiltinEventBackend {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            signal: broadcast::channel(8).0,
+        })
+    }
+}
+
+#[async_trait]
+impl Backend for BuiltinEventBackend {
+    fn name(&self) -> &'static str {
+        "event-native"
+    }
+    fn supports(&self, _command: &str) -> bool {
+        false
+    }
+    async fn probe(&self) -> Vec<Feature> {
+        vec![]
+    }
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        Some(self.signal.subscribe())
+    }
+    async fn execute(&self, _context: &Context, _command: &str, _args: &Value) -> Result<Value> {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Native event fixture exposes no commands",
+        ))
+    }
+}
+
+fn provider_generation(broker: &Broker, route: &str) -> u64 {
+    broker.provider_status().unwrap()["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["route"] == route)
+        .and_then(|row| row["generation"].as_u64())
+        .unwrap()
+}
+
 impl FixtureProvider {
     fn new() -> Arc<Self> {
         let identity = ProviderIdentity::external(SourceKind::Driver, "fixture", "1").unwrap();
@@ -535,6 +579,108 @@ async fn explicit_cancellation_reaches_provider_and_returns_without_retry() {
     assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 1);
     fixture.broker.shutdown().await;
 }
+#[tokio::test]
+async fn builtin_semantic_events_are_policy_bound_and_invalidation_rotates_generation() {
+    let dir = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&dir.path().join("audit"), 65536, 2).unwrap();
+    let backend = BuiltinEventBackend::new();
+    let broker = Broker::new(
+        Policy::new(PolicyConfig::default()).unwrap(),
+        vec![backend.clone()],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+
+    let before = provider_generation(&broker, "event-native");
+    let mut events = broker.subscribe();
+    backend
+        .signal
+        .send(ProviderSignal::Event {
+            kind: semwright_types::semantic_ui_event::TEXT_CHANGED.into(),
+            payload: json!({"node_id":"fixture:text"}),
+        })
+        .unwrap();
+
+    let text_event = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let event = events.recv().await.unwrap();
+            if event.event.kind == semwright_types::semantic_ui_event::TEXT_CHANGED {
+                break event;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(text_event.event.source, "linux-event-native");
+    assert!(text_event.event.untrusted_payload);
+    assert_eq!(provider_generation(&broker, "event-native"), before);
+
+    backend
+        .signal
+        .send(ProviderSignal::Event {
+            kind: semwright_types::semantic_ui_event::BACKEND_INVALIDATED.into(),
+            payload: json!({"reason":"fixture_event_loss"}),
+        })
+        .unwrap();
+
+    let invalidated = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let event = events.recv().await.unwrap();
+            if event.event.kind == semwright_types::semantic_ui_event::BACKEND_INVALIDATED {
+                break event;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let after = provider_generation(&broker, "event-native");
+    assert!(after > before);
+    assert_eq!(invalidated.event.source, "linux-event-native");
+    assert!(invalidated.event.untrusted_payload);
+    broker.shutdown().await;
+}
+
+#[tokio::test]
+async fn builtin_semantic_events_are_not_subscribed_without_ui_observe() {
+    let dir = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&dir.path().join("audit"), 65536, 2).unwrap();
+    let backend = BuiltinEventBackend::new();
+    let mut config = PolicyConfig::default();
+    config.deny.insert("ui.observe".into());
+    let broker = Broker::new(
+        Policy::new(config).unwrap(),
+        vec![backend.clone()],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    let mut events = broker.subscribe();
+
+    assert!(
+        backend
+            .signal
+            .send(ProviderSignal::Event {
+                kind: semwright_types::semantic_ui_event::TEXT_CHANGED.into(),
+                payload: json!({"node_id":"fixture:hidden"}),
+            })
+            .is_err(),
+        "no native event receiver should exist without ui.observe"
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), events.recv())
+            .await
+            .is_err()
+    );
+    broker.shutdown().await;
+}
+
 #[tokio::test]
 async fn provider_notifications_refresh_without_periodic_polling_and_events_are_source_bound() {
     let fixture = Fixture::new(true);

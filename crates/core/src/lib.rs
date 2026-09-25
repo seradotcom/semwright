@@ -109,7 +109,7 @@ impl Broker {
         let (sender, _) = broadcast::channel(256);
         let runtime_stop = CancellationToken::new();
         let catalog = ProviderCatalog::bootstrap(Registry::builtin()?, map, &runtime_stop);
-        Ok(Arc::new(Self {
+        let broker = Arc::new(Self {
             registry: StdRwLock::new(catalog),
             policy,
             references: StdMutex::new(RefStore::new(Duration::from_secs(60), 65536)),
@@ -131,7 +131,9 @@ impl Broker {
             environment,
             fake,
             started: Instant::now(),
-        }))
+        });
+        broker.start_builtin_provider_watchers()?;
+        Ok(broker)
     }
     pub fn describe(&self, command: &str) -> Result<CommandDescriptor> {
         Ok(self
