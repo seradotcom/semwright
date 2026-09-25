@@ -789,10 +789,10 @@ impl Runtime {
     }
 }
 fn h264_encoding_args() -> Vec<OsString> {
-    // The 52-second launch-film render demonstrated that the medium preset can
-    // exceed the bounded CI wall-clock budget even with MLT frame workers. CRF
-    // 18 preserves high-quality motion graphics while veryfast removes encoder
-    // efficiency as the bottleneck; the tradeoff is file size, not semantics.
+    // The 52-second launch-film render demonstrated that libx264 medium can exceed
+    // the bounded CI wall-clock budget. Keep acceleration inside the encoder only:
+    // CRF 18 preserves high-quality motion graphics while veryfast trades file size
+    // for throughput without changing timeline semantics or MLT processing topology.
     vec![
         "pix_fmt=yuv420p".into(),
         "crf=18".into(),
@@ -800,18 +800,12 @@ fn h264_encoding_args() -> Vec<OsString> {
     ]
 }
 
-fn render_processing_args(profile: &RenderProfile) -> Vec<OsString> {
-    if profile.video_codec == Some("libx264") {
-        // Launch-film H.264 is the only profile whose measured CI runtime needs
-        // bounded MLT parallelism. Keep its two offline workers and small buffer
-        // while letting libx264 manage encoder threads.
-        vec!["real_time=-2".into(), "buffer=5".into(), "threads=0".into()]
-    } else {
-        // Lossless/audio profiles remain on the previously certified conservative
-        // path. Applying MLT worker parallelism globally made the real lossless
-        // sandbox test terminate with SIGSEGV.
-        vec!["real_time=-1".into(), "threads=2".into()]
-    }
+fn render_processing_args(_profile: &RenderProfile) -> Vec<OsString> {
+    // Keep every curated profile on the previously certified conservative MLT path.
+    // Real CI observed SIGSEGV both when worker parallelism was applied globally and
+    // when the launch-film H.264 profile alone used real_time=-2/buffer=5. Encoder
+    // tuning may vary by curated profile, but MLT frame workers remain single-lane.
+    vec!["real_time=-1".into(), "threads=2".into()]
 }
 
 #[derive(Clone, Debug)]
@@ -1060,12 +1054,8 @@ mod tool_owner_tests {
     }
 
     #[test]
-    fn render_parallelism_is_scoped_to_h264_profiles() {
-        let h264 = render_processing_args(&RenderProfile::get("h264-1080p").unwrap());
-        let h264 = h264.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
-        assert_eq!(h264, ["real_time=-2", "buffer=5", "threads=0"]);
-
-        for id in ["lossless", "audio-wav"] {
+    fn render_processing_stays_on_the_certified_conservative_path() {
+        for id in ["h264-1080p", "h264-720p", "lossless", "audio-wav"] {
             let args = render_processing_args(&RenderProfile::get(id).unwrap());
             let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
             assert_eq!(args, ["real_time=-1", "threads=2"], "profile {id}");
