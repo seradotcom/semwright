@@ -420,19 +420,46 @@ async fn keycode_text_cancellation_stops_after_partial_dispatch() {
         .unwrap_err();
     assert_eq!(error.code, semwright_types::ErrorCode::Cancelled);
 
-    let key_events = seen
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let settled_events = seen
         .lock()
         .unwrap()
         .iter()
         .filter(|row| row.starts_with("key:"))
         .count();
     assert!(
-        key_events >= 8,
+        settled_events >= 8,
         "cancellation must happen after dispatch starts"
     );
     assert!(
-        key_events < 20_000,
+        settled_events < 20_000,
         "cancellation must stop before all 5,000 shifted key strokes are sent"
+    );
+    assert_eq!(
+        settled_events % 4,
+        0,
+        "cancellation must finish the current shifted key stroke before stopping"
+    );
+    assert_eq!(
+        seen.lock()
+            .unwrap()
+            .iter()
+            .rfind(|row| row.starts_with("key:"))
+            .map(String::as_str),
+        Some("key:42:Released"),
+        "the final shifted stroke must release Shift"
+    );
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let later_events = seen
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|row| row.starts_with("key:"))
+        .count();
+    assert_eq!(
+        settled_events, later_events,
+        "cancelled EIS input must not keep dispatching after the call returns"
     );
 
     client.stop().await.unwrap();
