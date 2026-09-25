@@ -5,7 +5,6 @@ use rmcp::{
     ClientHandler, RoleClient, ServiceExt,
     model::{CallToolRequest, CallToolRequestParams, ClientRequest, ServerResult},
     service::{NotificationContext, Peer, PeerRequestOptions, RunningServiceCancellationToken},
-    transport::TokioChildProcess,
 };
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
@@ -26,14 +25,10 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io::Write,
     path::{Path, PathBuf},
-    process::Stdio,
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::{
-    process::Command,
-    sync::{RwLock, broadcast},
-};
+use tokio::sync::{RwLock, broadcast};
 use tokio_util::sync::CancellationToken;
 pub use upstreams::{
     UpstreamRegistry, default_upstream_registry_path, load_upstream_registry, new_upstream,
@@ -329,12 +324,12 @@ fn default_upstream_state() -> Result<PathBuf> {
         .join("mcp-upstreams"))
 }
 
-fn sandbox_command(
+fn sandbox_spec(
     config: &StdioUpstreamConfig,
     staged: &Path,
     helper: &Path,
     allow_network: bool,
-) -> Result<Command> {
+) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
@@ -354,7 +349,7 @@ fn sandbox_command(
             read_only: mount.read_only,
         })
         .collect();
-    semwright_platform_services::sandbox_command(&SandboxSpec {
+    Ok(SandboxSpec {
         kind: SandboxKind::ExternalMcp,
         staged_executable: staged.to_path_buf(),
         helper: helper.to_path_buf(),
@@ -448,17 +443,11 @@ impl ExternalMcpProvider {
         let handler = UpstreamClient {
             signals: signals.clone(),
         };
-        let command = sandbox_command(&config, &staged.0, helper, allow_network)?;
-        let (transport, _) = TokioChildProcess::builder(command)
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|_| {
-                Error::new(
-                    ErrorCode::SandboxDenied,
-                    "Failed to launch owner-configured MCP executable in the required sandbox",
-                )
-            })?;
-        let service = tokio::time::timeout(Duration::from_secs(10), handler.serve(transport))
+        let spec = sandbox_spec(&config, &staged.0, helper, allow_network)?;
+        let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+        let output = child.take_stdout()?;
+        let input = child.take_stdin()?;
+        let service = tokio::time::timeout(Duration::from_secs(10), handler.serve((output, input)))
             .await
             .map_err(|_| Error::new(ErrorCode::Timeout, "MCP initialization timed out"))?
             .map_err(|_| {
@@ -511,7 +500,11 @@ impl ExternalMcpProvider {
             _staged: staged,
         });
         tokio::spawn(async move {
-            let _ = service.waiting().await;
+            tokio::select! {
+                _ = service.waiting() => {}
+                _ = child.wait() => {}
+            }
+            let _ = child.kill().await;
             closed.cancel();
             let _ = signals.send(ProviderSignal::Disconnected);
         });

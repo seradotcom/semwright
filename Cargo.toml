@@ -51,7 +51,7 @@ clap_complete = "4.5"
 clap_mangen = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-rmcp = { version = "=3.4.0", features = ["server", "client", "macros", "schemars", "transport-io", "transport-child-process"] }
+rmcp = { version = "=3.4.0", features = ["server", "client", "macros", "schemars", "transport-io", "transport-child-process", "transport-async-rw"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 ratatui = "0.30.2"
 crossterm = "0.29"
