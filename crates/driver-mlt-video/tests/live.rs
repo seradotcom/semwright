@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
+    process::Command,
     time::Duration,
 };
 use tokio_util::sync::CancellationToken;
@@ -114,6 +115,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     );
     let melt = configured_tool("SEMWRIGHT_TEST_MELT");
     let ffprobe = configured_tool("SEMWRIGHT_TEST_FFPROBE");
+    let ffmpeg = configured_tool("SEMWRIGHT_TEST_FFMPEG");
     let bwrap = configured_tool("SEMWRIGHT_TEST_BWRAP");
 
     let project = tempfile::tempdir().unwrap();
@@ -161,6 +163,32 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/media");
     std::fs::copy(fixtures.join("red.mkv"), media.path().join("red.mkv")).unwrap();
     std::fs::copy(fixtures.join("sine.wav"), media.path().join("sine.wav")).unwrap();
+    let h264_source = media.path().join("h264-source.mkv");
+    let status = Command::new(&ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=red:s=1920x1080:r=30:d=2",
+            "-frames:v",
+            "60",
+            "-c:v",
+            "ffv1",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+        ])
+        .arg(&h264_source)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "failed to create 1080p H.264 input fixture"
+    );
 
     let manifest = Manifest {
         manifest_version: 1,
@@ -521,8 +549,70 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
 
     // Exercise the same curated H.264 consumer used by the launch film on a
-    // bounded 50-frame timeline. This catches mux/frame-duration regressions
-    // without paying for the 52-second Motion Canvas render.
+    // bounded 50-frame timeline. Relink the video to a synthetic 1080p/30 input
+    // first so this tests the film's no-scale geometry instead of MLT 7.22's
+    // unrelated 160x90 -> 1080p scaling path.
+    let assets = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.asset.list",
+        json!({"project":project_ref,"limit":100}),
+    )
+    .await
+    .unwrap();
+    let video_row = assets["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["name"] == "Video")
+        .unwrap();
+    let video_ref = video_row["reference"].as_str().unwrap().to_owned();
+    let video_resource = video_row["resource"].as_str().unwrap().to_owned();
+    let relinked = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.asset.relink",
+        json!({
+            "project":project_ref,
+            "expected_revision":revision,
+            "asset":video_ref,
+            "expected_resource":video_resource,
+            "root":"media",
+            "path":"h264-source.mkv"
+        }),
+    )
+    .await
+    .unwrap();
+    project_ref = relinked["project"].as_str().unwrap().to_owned();
+    revision = relinked["resulting_revision"].as_str().unwrap().to_owned();
+
+    let profiled = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.project.profile.set",
+        json!({
+            "project":project_ref,
+            "expected_revision":revision,
+            "profile": {
+                "width":1920,
+                "height":1080,
+                "fps_num":30,
+                "fps_den":1,
+                "progressive":true,
+                "sample_aspect_num":1,
+                "sample_aspect_den":1,
+                "display_aspect_num":16,
+                "display_aspect_den":9,
+                "colorspace":709,
+                "audio_channels":2
+            }
+        }),
+    )
+    .await
+    .unwrap();
+    project_ref = profiled["project"].as_str().unwrap().to_owned();
+    revision = profiled["resulting_revision"].as_str().unwrap().to_owned();
+
     let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
     let h264_plan = call(
         provider.as_ref(),
