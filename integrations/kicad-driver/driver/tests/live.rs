@@ -135,6 +135,7 @@ async fn fake_kicad_ipc_runs_through_real_sandboxed_driver_host() {
         ],
         system_config: vec![],
         network: false,
+        loopback_port: None,
         resources: DriverResources {
             address_space_bytes: 2_147_483_648,
             ..DriverResources::default()

@@ -193,6 +193,10 @@ pub struct Manifest {
     pub system_config: Vec<SystemConfigMount>,
     #[serde(default)]
     pub network: bool,
+    /// Optional owner-selected TCP port exposed through a Host-managed loopback proxy.
+    /// This does not grant the driver a network namespace.
+    #[serde(default)]
+    pub loopback_port: Option<u16>,
     #[serde(default)]
     pub resources: DriverResources,
     #[serde(default = "default_timeout")]
@@ -223,6 +227,20 @@ impl Manifest {
         self.identity()?;
         self.application.validate()?;
         self.resources.validate()?;
+        if self.network && self.loopback_port.is_some() {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver cannot request ambient network and loopback-only authority together",
+            ));
+        }
+        if self
+            .loopback_port
+            .is_some_and(|port| !(1024..=u16::MAX).contains(&port))
+        {
+            return Err(Error::invalid(
+                "Driver loopback port must be an unprivileged TCP port",
+            ));
+        }
         if self.protocol == 1
             && (self.interfaces.dynamic_capabilities
                 || self.interfaces.cooperative_cancellation
@@ -256,7 +274,10 @@ impl Manifest {
         }
         let mut roots = BTreeSet::new();
         for mount in &self.mounts {
-            if !canonical_slug(&mount.root) || !roots.insert(&mount.root) {
+            if mount.root.starts_with("semwright-internal-")
+                || !canonical_slug(&mount.root)
+                || !roots.insert(&mount.root)
+            {
                 return Err(Error::invalid(
                     "Driver mount roots must be unique canonical policy-grant names",
                 ));
@@ -265,7 +286,10 @@ impl Manifest {
         let mut destinations = BTreeSet::new();
         for mount in &self.system_config {
             mount.validate()?;
-            if !roots.insert(&mount.root) || !destinations.insert(&mount.destination) {
+            if mount.root.starts_with("semwright-internal-")
+                || !roots.insert(&mount.root)
+                || !destinations.insert(&mount.destination)
+            {
                 return Err(Error::invalid(
                     "Driver system config roots and destinations must be unique",
                 ));
@@ -1067,6 +1091,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             network: false,
+            loopback_port: None,
             resources: DriverResources::default(),
             request_timeout_ms: 1000,
             interfaces: DriverInterfaces::default(),

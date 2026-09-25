@@ -195,6 +195,7 @@ impl Host {
                 helper: self.helper.clone(),
                 mounts,
                 args: vec![],
+                environment: vec![],
                 network: manifest.network,
                 limits: None,
             })?;

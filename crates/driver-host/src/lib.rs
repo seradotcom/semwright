@@ -1,4 +1,7 @@
 //! Sandboxed persistent application-driver host. Drivers are mounted into the broker as Providers.
+#[cfg(unix)]
+mod loopback;
+
 use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
@@ -298,6 +301,7 @@ fn sandbox_command(
     staged: &Path,
     helper: &Path,
     roots: &[FilesystemGrant],
+    loopback_directory: Option<&Path>,
 ) -> Result<Command> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
@@ -347,12 +351,26 @@ fn sandbox_command(
             })
             .collect::<Result<Vec<_>>>()?,
     );
+    let mut environment = Vec::new();
+    if let Some(directory) = loopback_directory {
+        mounts.push(Mount {
+            source: directory.to_path_buf(),
+            class: MountClass::Workspace,
+            logical_name: loopback::MOUNT_NAME.into(),
+            read_only: false,
+        });
+        environment.push((
+            "SEMWRIGHT_DRIVER_LOOPBACK_SOCKET".into(),
+            loopback::SANDBOX_SOCKET.into(),
+        ));
+    }
     semwright_platform_services::sandbox_command(&SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
         helper: helper.into(),
         mounts,
         args: vec![],
+        environment,
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
@@ -375,6 +393,8 @@ pub struct DriverProvider {
     closed: CancellationToken,
     terminate: CancellationToken,
     _staged: Arc<StagedFile>,
+    #[cfg(unix)]
+    _loopback: Option<Arc<loopback::LoopbackProxy>>,
 }
 
 impl DriverProvider {
@@ -411,7 +431,17 @@ impl DriverProvider {
             file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
             drop(file);
 
-            let mut command = sandbox_command(&manifest, &staged_path, helper, roots)?;
+            let loopback = match manifest.loopback_port {
+                Some(port) => Some(loopback::start(state, port).await?),
+                None => None,
+            };
+            let mut command = sandbox_command(
+                &manifest,
+                &staged_path,
+                helper,
+                roots,
+                loopback.as_deref().map(loopback::LoopbackProxy::directory),
+            )?;
             let mut child = command.spawn().map_err(|_| {
                 Error::new(ErrorCode::SandboxDenied, "Driver sandbox failed to start")
             })?;
@@ -600,6 +630,7 @@ impl DriverProvider {
                 closed,
                 terminate,
                 _staged: staged,
+                _loopback: loopback,
             }))
         }
     }
@@ -1103,6 +1134,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             network: false,
+            loopback_port: None,
             resources: semwright_driver_sdk::DriverResources::default(),
             request_timeout_ms: 1000,
             interfaces: semwright_driver_sdk::DriverInterfaces::default(),
