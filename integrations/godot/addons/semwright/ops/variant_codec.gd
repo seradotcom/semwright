@@ -269,7 +269,7 @@ static func _coerce_property_value(meta: Dictionary, value) -> Dictionary:
     if actual == expected:
         if expected == TYPE_OBJECT:
             var required := str(meta.get("class_name", ""))
-            if not required.is_empty() and value is Object and not value.is_class(required):
+            if not required.is_empty() and value is Object and not _object_matches_class_hint(value, required):
                 return {"ok": false, "code": "invalid_argument", "message": "object property requires %s" % required}
         return _decoded(value)
     if expected == TYPE_FLOAT and actual == TYPE_INT:
@@ -283,6 +283,18 @@ static func _coerce_property_value(meta: Dictionary, value) -> Dictionary:
     if expected == TYPE_NODE_PATH and actual == TYPE_STRING:
         return _decoded(NodePath(value))
     return _type_mismatch(expected, actual)
+
+static func _object_matches_class_hint(value: Object, class_hint: String) -> bool:
+    # Godot property metadata may expose multiple assignable classes as a
+    # comma-separated class_name (for example BaseMaterial3D,ShaderMaterial).
+    # Object.is_class() already follows inheritance, so accept a value when it
+    # derives from any declared class rather than treating the whole hint as
+    # one literal class name.
+    for raw in class_hint.split(",", false):
+        var candidate := str(raw).strip_edges()
+        if not candidate.is_empty() and value.is_class(candidate):
+            return true
+    return false
 
 static func _type_mismatch(expected: int, actual: int) -> Dictionary:
     return {
