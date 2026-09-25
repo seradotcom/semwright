@@ -719,13 +719,9 @@ impl Runtime {
             )
             .into(),
             format!("f={}", profile.container).into(),
-            // MLT documents negative real_time as offline/no-drop processing with
-            // abs(value) worker threads. Use the four vCPUs available on the
-            // certified CI runner instead of serial frame processing; let libx264
-            // select its encoder thread count automatically.
-            // Synchronous offline processing avoids both MLT's read-ahead path
-            // and its multi-frame worker queue. No frame dropping is used, and
-            // encoder parallelism stays explicit/bounded for sandbox accounting.
+            // MLT real_time=0 performs synchronous offline processing without
+            // the read-ahead buffer or multi-frame worker queue. Keep libx264
+            // parallelism explicit and bounded for sandbox CPU/memory accounting.
             "real_time=0".into(),
             "threads=4".into(),
         ];
