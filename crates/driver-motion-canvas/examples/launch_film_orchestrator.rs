@@ -477,36 +477,33 @@ mod linux {
             project_ref = v["project"].as_str().unwrap().to_owned();
             revision = v["resulting_revision"].as_str().unwrap().to_owned();
         }
-        let assets = call(
-            mlt.as_ref(),
-            &mlt_caps,
-            "driver:mlt-video",
-            "driver.mlt-video.asset.list",
-            json!({"project":project_ref,"limit":100}),
-            &mut operations,
-        )
-        .await?;
-        let sr = sequence_ref(mlt.as_ref(), &mlt_caps, &project_ref, &mut operations).await?;
-        let tracks = call(
-            mlt.as_ref(),
-            &mlt_caps,
-            "driver:mlt-video",
-            "driver.mlt-video.track.list",
-            json!({"project":project_ref,"sequence":sr,"limit":100}),
-            &mut operations,
-        )
-        .await?;
-        let video_asset = named_ref(&assets, "Motion")?;
-        let audio_asset = named_ref(&assets, "Sound")?;
-        let video_track = named_ref(&tracks, "Video")?;
-        let audio_track = named_ref(&tracks, "Audio")?;
-        for (track, asset, name) in [
-            (video_track, video_asset, "Motion"),
-            (audio_track, audio_asset, "Sound"),
-        ] {
+        // Every mutating MLT capability advances the project revision, and entity refs
+        // are revision-bound. Refresh all refs from the current project before each
+        // insert instead of carrying track/asset refs across the previous mutation.
+        for (track_name, asset_name) in [("Video", "Motion"), ("Audio", "Sound")] {
+            let assets = call(
+                mlt.as_ref(),
+                &mlt_caps,
+                "driver:mlt-video",
+                "driver.mlt-video.asset.list",
+                json!({"project":project_ref,"limit":100}),
+                &mut operations,
+            )
+            .await?;
             let sr = sequence_ref(mlt.as_ref(), &mlt_caps, &project_ref, &mut operations).await?;
+            let tracks = call(
+                mlt.as_ref(),
+                &mlt_caps,
+                "driver:mlt-video",
+                "driver.mlt-video.track.list",
+                json!({"project":project_ref,"sequence":sr,"limit":100}),
+                &mut operations,
+            )
+            .await?;
+            let track = named_ref(&tracks, track_name)?;
+            let asset = named_ref(&assets, asset_name)?;
             let v=call(mlt.as_ref(),&mlt_caps,"driver:mlt-video","driver.mlt-video.clip.insert",json!({
-                "project":project_ref,"expected_revision":revision,"sequence":sr,"track":track,"asset":asset,"start":0,"source_in":0,"source_out":1560,"name":name
+                "project":project_ref,"expected_revision":revision,"sequence":sr,"track":track,"asset":asset,"start":0,"source_in":0,"source_out":1560,"name":asset_name
             }),&mut operations).await?;
             project_ref = v["project"].as_str().unwrap().to_owned();
             revision = v["resulting_revision"].as_str().unwrap().to_owned();
