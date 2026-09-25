@@ -421,7 +421,6 @@ impl Broker {
             .await?;
         Ok(json!({
             "proposal_id":build.proposal.id,
-            "candidate_id":build.proposal.candidate_id,
             "plan":output
         }))
     }

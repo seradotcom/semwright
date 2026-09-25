@@ -998,6 +998,9 @@ async fn v3_proposal_is_sanitized_plannable_and_requires_acceptance_before_persi
     assert!(!encoded.contains("beta"));
     assert!(!encoded.contains("gamma"));
     assert!(!encoded.contains("trace-"));
+    assert!(proposal.get("fingerprint").is_none());
+    assert!(proposal.get("candidate_id").is_none());
+    assert!(proposal.get("candidate_fingerprint").is_none());
 
     let before = fixture.call("workflow.candidates.list", json!({})).await;
     assert!(before.ok, "{before:?}");
@@ -1017,6 +1020,7 @@ async fn v3_proposal_is_sanitized_plannable_and_requires_acceptance_before_persi
         .await;
     assert!(plan.ok, "{plan:?}");
     assert_eq!(plan.data.as_ref().unwrap()["plan"]["dry_run"], true);
+    assert!(plan.data.as_ref().unwrap().get("candidate_id").is_none());
 
     let still_empty = fixture.call("workflow.candidates.list", json!({})).await;
     assert!(still_empty.ok, "{still_empty:?}");

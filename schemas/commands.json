@@ -12802,19 +12802,6 @@
               "pattern": "^suggestion-[0-9a-f]{24}$",
               "maxLength": 40
             },
-            "fingerprint": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
-            },
-            "candidate_id": {
-              "type": "string",
-              "pattern": "^candidate-[0-9a-f]{24}$",
-              "maxLength": 40
-            },
-            "candidate_fingerprint": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
-            },
             "name": {
               "type": "string",
               "minLength": 1,
@@ -12954,9 +12941,6 @@
             "id",
             "pattern_id",
             "suggestion_id",
-            "fingerprint",
-            "candidate_id",
-            "candidate_fingerprint",
             "name",
             "commands",
             "inputs",
@@ -13460,19 +13444,6 @@
               "pattern": "^suggestion-[0-9a-f]{24}$",
               "maxLength": 40
             },
-            "fingerprint": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
-            },
-            "candidate_id": {
-              "type": "string",
-              "pattern": "^candidate-[0-9a-f]{24}$",
-              "maxLength": 40
-            },
-            "candidate_fingerprint": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
-            },
             "name": {
               "type": "string",
               "minLength": 1,
@@ -13612,9 +13583,6 @@
             "id",
             "pattern_id",
             "suggestion_id",
-            "fingerprint",
-            "candidate_id",
-            "candidate_fingerprint",
             "name",
             "commands",
             "inputs",
@@ -13674,11 +13642,6 @@
         "proposal_id": {
           "type": "string",
           "pattern": "^proposal-[0-9a-f]{24}$",
-          "maxLength": 40
-        },
-        "candidate_id": {
-          "type": "string",
-          "pattern": "^candidate-[0-9a-f]{24}$",
           "maxLength": 40
         },
         "plan": {
@@ -13801,7 +13764,6 @@
       },
       "required": [
         "proposal_id",
-        "candidate_id",
         "plan"
       ],
       "additionalProperties": false
@@ -13863,19 +13825,6 @@
                 "type": "string",
                 "pattern": "^suggestion-[0-9a-f]{24}$",
                 "maxLength": 40
-              },
-              "fingerprint": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{64}$"
-              },
-              "candidate_id": {
-                "type": "string",
-                "pattern": "^candidate-[0-9a-f]{24}$",
-                "maxLength": 40
-              },
-              "candidate_fingerprint": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{64}$"
               },
               "name": {
                 "type": "string",
@@ -14016,9 +13965,6 @@
               "id",
               "pattern_id",
               "suggestion_id",
-              "fingerprint",
-              "candidate_id",
-              "candidate_fingerprint",
               "name",
               "commands",
               "inputs",

@@ -44,9 +44,6 @@ pub struct WorkflowProposal {
     pub id: String,
     pub pattern_id: String,
     pub suggestion_id: String,
-    pub fingerprint: String,
-    pub candidate_id: String,
-    pub candidate_fingerprint: String,
     pub name: String,
     pub commands: Vec<String>,
     pub inputs: Vec<ProposalInput>,
@@ -199,24 +196,31 @@ pub fn build_proposal(
         .iter()
         .map(|step| step.assertions.len())
         .sum();
-    let fingerprint = format!(
+    // Proposal identity must not depend on captured workflow values. Candidate
+    // fingerprints intentionally cover the full compiled recipe and therefore may
+    // contain low-entropy constants. Hash only the structural pattern plus random
+    // trace identities so new evidence invalidates stale proposal IDs without
+    // creating a value-derived side channel.
+    let mut source_trace_ids = traces
+        .iter()
+        .map(|trace| trace.id.clone())
+        .collect::<Vec<_>>();
+    source_trace_ids.sort();
+    let proposal_fingerprint = format!(
         "{:x}",
         Sha256::digest(serde_json::to_vec(&json!({
             "version": PROPOSAL_VERSION,
             "pattern": pattern.fingerprint,
-            "candidate": candidate.fingerprint,
+            "traces": source_trace_ids,
         }))?)
     );
 
     Ok(ProposalBuild {
         proposal: WorkflowProposal {
             version: PROPOSAL_VERSION,
-            id: format!("proposal-{}", &fingerprint[..24]),
+            id: format!("proposal-{}", &proposal_fingerprint[..24]),
             pattern_id: pattern.id.clone(),
             suggestion_id: pattern.suggestion_id.clone(),
-            fingerprint,
-            candidate_id: candidate.id.clone(),
-            candidate_fingerprint: candidate.fingerprint.clone(),
             name: candidate.recipe.name.clone(),
             commands: candidate
                 .recipe

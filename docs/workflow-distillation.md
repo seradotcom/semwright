@@ -224,9 +224,10 @@ semwright workflow plan-proposal PROPOSAL_ID --args-json '{"input":"value"}'
 semwright workflow accept-proposal PROPOSAL_ID
 ```
 
-Proposal identity includes the compiled candidate fingerprint. New evidence that changes
-the compilation produces a different proposal ID, so accepting a stale proposal fails
-instead of silently accepting a newer draft.
+Proposal identity is derived from the structural pattern plus opaque random source-trace
+identities, never from captured values or the compiled candidate fingerprint. New evidence
+therefore produces a different proposal ID, so accepting a stale proposal fails instead of
+silently accepting a newer draft without creating a value-derived metadata side channel.
 
 Evidence tiers (`standard`, `strong`, `very_strong`) are deterministic heuristics over
 occurrence and compile-ready counts. They are **not probabilities of success** and never
