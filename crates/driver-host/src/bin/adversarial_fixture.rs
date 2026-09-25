@@ -60,6 +60,15 @@ fn capabilities() -> Vec<Capability> {
             tags: vec!["test".into(), "sandbox".into()],
             object_types: vec![],
         },
+        Capability {
+            descriptor: descriptor(
+                "driver.adversarial.tool_probe",
+                "Test-only sealed secondary executable probe",
+            ),
+            aliases: vec![],
+            tags: vec!["test".into(), "sandbox".into()],
+            object_types: vec![],
+        },
     ]
 }
 
@@ -155,6 +164,12 @@ impl Driver for Adversarial {
                     .spawn()
                     .map_err(|_| Error::new(ErrorCode::BackendFailed, "descendant spawn failed"))?;
                 Ok(json!({"spawned":true}))
+            }
+            "driver.adversarial.tool_probe" => {
+                let status = Command::new("/plugin/tools/probe").status().map_err(|_| {
+                    Error::new(ErrorCode::BackendFailed, "sealed tool failed to start")
+                })?;
+                Ok(json!({"tool_executed":status.success()}))
             }
             _ => Err(Error::new(
                 ErrorCode::NotFound,

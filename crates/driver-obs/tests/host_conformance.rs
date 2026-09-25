@@ -143,6 +143,7 @@ async fn obs_driver_runs_through_real_driver_host() {
         mounts: vec![],
         system_config: vec![SystemConfigMount {
             secrets: vec![],
+            tools: vec![],
             root: "obs-config".into(),
             destination: "/etc/semwright-obs".into(),
         }],
@@ -242,6 +243,7 @@ async fn obs_driver_network_requires_owner_opt_in() {
         mounts: vec![],
         system_config: vec![],
         secrets: vec![],
+        tools: vec![],
         network: true,
         loopback_port: None,
         resources: DriverResources::default(),

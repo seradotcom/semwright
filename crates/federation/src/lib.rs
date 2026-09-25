@@ -361,6 +361,7 @@ fn sandbox_command(
         mounts,
         args: config.args.clone(),
         environment: vec![],
+        sealed_tools: vec![],
         network: config.network,
         limits: Some(ResourceLimits {
             open_files: config.resources.open_files,

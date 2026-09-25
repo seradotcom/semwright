@@ -196,6 +196,7 @@ impl Host {
                 mounts,
                 args: vec![],
                 environment: vec![],
+                sealed_tools: vec![],
                 network: manifest.network,
                 limits: None,
             })?;

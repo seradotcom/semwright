@@ -196,6 +196,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         ],
         system_config: vec![],
         secrets: vec![],
+        tools: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {

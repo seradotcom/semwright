@@ -108,6 +108,8 @@ impl SandboxLauncher for LinuxSandbox {
             "--dir",
             "/plugin",
             "--dir",
+            "/plugin/tools",
+            "--dir",
             "/run",
             "--dir",
             "/run/secrets",
@@ -136,6 +138,11 @@ impl SandboxLauncher for LinuxSandbox {
         for m in s.mounts.iter().filter(|m| m.class == MountClass::Secret) {
             let destination = materialized_destination(m)?;
             p.arg("--ro-bind").arg(&m.source).arg(destination);
+        }
+        for tool in &s.sealed_tools {
+            p.arg("--ro-bind-fd")
+                .arg(tool.fd.to_string())
+                .arg(format!("/plugin/tools/{}", tool.name));
         }
         p.arg("--ro-bind")
             .arg(&s.staged_executable)

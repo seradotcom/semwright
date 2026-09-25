@@ -27,10 +27,15 @@ use std::{
     sync::{Arc, RwLock as StdRwLock},
     time::Duration,
 };
+#[cfg(target_os = "linux")]
+use std::{ffi::CString, os::fd::FromRawFd};
 #[cfg(unix)]
 use std::{
     io::Write,
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+    os::{
+        fd::AsRawFd,
+        unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+    },
 };
 #[cfg(unix)]
 use tokio::process::Command;
@@ -45,6 +50,66 @@ impl Drop for StagedFile {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.0);
     }
+}
+
+#[cfg(unix)]
+struct SealedTool {
+    name: String,
+    file: std::fs::File,
+}
+#[cfg(unix)]
+impl SealedTool {
+    fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
+        semwright_platform_api::launch::SealedToolMount {
+            fd: self.file.as_raw_fd(),
+            name: self.name.clone(),
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedTool> {
+    let bytes = semwright_platform_services::verify_executable(path, digest)?;
+    let label = CString::new(format!("semwright-tool-{name}"))
+        .map_err(|_| Error::invalid("Invalid tool name"))?;
+    // SAFETY: label is a live NUL-terminated CString and flags contain no pointers.
+    let fd = unsafe { libc::memfd_create(label.as_ptr(), libc::MFD_ALLOW_SEALING) };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: memfd_create returned a new owned descriptor on success.
+    let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    // SAFETY: fd is live and fchmod only reads scalar arguments.
+    if unsafe { libc::fchmod(fd, 0o500) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    let seals = libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
+    // SAFETY: fd is a live memfd created with MFD_ALLOW_SEALING.
+    if unsafe { libc::fcntl(fd, libc::F_ADD_SEALS, seals) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: F_GET_SEALS returns scalar seal bits for a live memfd.
+    let actual = unsafe { libc::fcntl(fd, libc::F_GET_SEALS) };
+    if actual < 0 || actual & seals != seals {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Driver tool memfd could not be sealed",
+        ));
+    }
+    Ok(SealedTool {
+        name: name.to_owned(),
+        file,
+    })
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn seal_verified_tool(_path: &Path, _digest: &str, _name: &str) -> Result<SealedTool> {
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "Sealed Driver Host tools are not implemented on this platform",
+    ))
 }
 
 #[cfg(unix)]
@@ -147,6 +212,18 @@ fn validate_owner_permissions(
             ));
         }
         validate_secret_source(&grant.path)?;
+    }
+    for tool in &manifest.tools {
+        let grant = roots
+            .iter()
+            .find(|grant| grant.name == tool.root)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver tool has no owner grant"))?;
+        if !grant.read || std::fs::canonicalize(&grant.path)? != grant.path {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver tool requires canonical readable owner grant",
+            ));
+        }
     }
     if manifest.protocol == 1
         && (manifest.interfaces.dynamic_capabilities
@@ -349,6 +426,7 @@ fn sandbox_command(
     helper: &Path,
     roots: &[FilesystemGrant],
     loopback_directory: Option<&Path>,
+    sealed_tools: &[SealedTool],
 ) -> Result<Command> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
@@ -432,6 +510,7 @@ fn sandbox_command(
         mounts,
         args: vec![],
         environment,
+        sealed_tools: sealed_tools.iter().map(SealedTool::sandbox_mount).collect(),
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
@@ -456,6 +535,8 @@ pub struct DriverProvider {
     _staged: Arc<StagedFile>,
     #[cfg(unix)]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
+    #[cfg(unix)]
+    _tools: Vec<SealedTool>,
 }
 
 impl DriverProvider {
@@ -492,6 +573,19 @@ impl DriverProvider {
             file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
             drop(file);
 
+            let sealed_tools = manifest
+                .tools
+                .iter()
+                .map(|tool| {
+                    let grant = roots
+                        .iter()
+                        .find(|grant| grant.name == tool.root)
+                        .ok_or_else(|| {
+                            Error::new(ErrorCode::PolicyDenied, "Driver tool grant disappeared")
+                        })?;
+                    seal_verified_tool(&grant.path, &tool.sha256, &tool.name)
+                })
+                .collect::<Result<Vec<_>>>()?;
             let loopback = match manifest.loopback_port {
                 Some(port) => Some(loopback::start(state, port).await?),
                 None => None,
@@ -502,6 +596,7 @@ impl DriverProvider {
                 helper,
                 roots,
                 loopback.as_deref().map(loopback::LoopbackProxy::directory),
+                &sealed_tools,
             )?;
             let mut child = command.spawn().map_err(|_| {
                 Error::new(ErrorCode::SandboxDenied, "Driver sandbox failed to start")
@@ -692,6 +787,7 @@ impl DriverProvider {
                 terminate,
                 _staged: staged,
                 _loopback: loopback,
+                _tools: sealed_tools,
             }))
         }
     }
@@ -1195,6 +1291,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             secrets: vec![],
+            tools: vec![],
             network: false,
             loopback_port: None,
             resources: semwright_driver_sdk::DriverResources::default(),
@@ -1219,6 +1316,29 @@ mod tests {
             validate_owner_permissions(&dynamic, &[], false),
             Err(error) if error.code == ErrorCode::Unsupported
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn sealed_tool_memfd_is_write_sealed() {
+        let source = Path::new("/usr/bin/true");
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let tool = seal_verified_tool(source, &digest, "probe").unwrap();
+        let fd = tool.file.as_raw_fd();
+        let required =
+            libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
+        // SAFETY: fd is a live memfd retained by tool.
+        let actual = unsafe { libc::fcntl(fd, libc::F_GET_SEALS) };
+        assert_eq!(actual & required, required);
+
+        let byte = b"x";
+        // SAFETY: pwrite reads one byte from a live static buffer and targets the live memfd.
+        let written = unsafe { libc::pwrite(fd, byte.as_ptr().cast(), 1, 0) };
+        assert_eq!(written, -1);
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::EPERM)
+        );
     }
 
     #[test]
@@ -1313,7 +1433,7 @@ mod tests {
         std::fs::write(&staged, b"driver").unwrap();
         std::fs::write(&helper, b"helper").unwrap();
 
-        let command = sandbox_command(&manifest(), &staged, &helper, &[], None).unwrap();
+        let command = sandbox_command(&manifest(), &staged, &helper, &[], None, &[]).unwrap();
         let args: Vec<_> = command
             .as_std()
             .get_args()

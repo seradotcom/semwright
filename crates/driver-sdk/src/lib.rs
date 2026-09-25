@@ -119,6 +119,32 @@ impl SystemConfigMount {
     }
 }
 
+/// Owner-granted executable verified and staged immutably by Driver Host.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DriverToolMount {
+    pub root: String,
+    pub name: String,
+    pub sha256: String,
+}
+impl DriverToolMount {
+    fn validate(&self) -> Result<()> {
+        if !canonical_slug(&self.root)
+            || self.root.starts_with("semwright-internal-")
+            || !canonical_slug(&self.name)
+            || self.name.len() > 64
+            || self.name.starts_with("semwright-internal-")
+            || self.sha256.len() != 64
+            || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(Error::invalid(
+                "Driver tools require canonical grant/name and SHA-256 digest",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Owner-granted secret file exposed read-only under /run/secrets/<name>.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -217,6 +243,8 @@ pub struct Manifest {
     #[serde(default)]
     pub secrets: Vec<DriverSecretMount>,
     #[serde(default)]
+    pub tools: Vec<DriverToolMount>,
+    #[serde(default)]
     pub network: bool,
     /// Optional owner-selected TCP port exposed through a Host-managed loopback proxy.
     /// This does not grant the driver a network namespace.
@@ -293,6 +321,7 @@ impl Manifest {
             || self.mounts.len() > 16
             || self.system_config.len() > 8
             || self.secrets.len() > 8
+            || self.tools.len() > 8
             || self.request_timeout_ms == 0
             || self.request_timeout_ms > 300_000
         {
@@ -327,6 +356,15 @@ impl Manifest {
             if !roots.insert(&secret.root) || !secret_names.insert(&secret.name) {
                 return Err(Error::invalid(
                     "Driver secret roots and names must be unique and non-overlapping",
+                ));
+            }
+        }
+        let mut tool_names = BTreeSet::new();
+        for tool in &self.tools {
+            tool.validate()?;
+            if !roots.insert(&tool.root) || !tool_names.insert(&tool.name) {
+                return Err(Error::invalid(
+                    "Driver tool roots and names must be unique and non-overlapping",
                 ));
             }
         }
@@ -1126,6 +1164,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             secrets: vec![],
+            tools: vec![],
             network: false,
             loopback_port: None,
             resources: DriverResources::default(),
@@ -1247,6 +1286,47 @@ mod tests {
             }];
             assert!(candidate.validate().is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn tool_mounts_are_digest_pinned_unique_and_separate_from_other_grants() {
+        let mut valid = manifest();
+        valid.tools = vec![DriverToolMount {
+            root: "godot-runtime".into(),
+            name: "godot".into(),
+            sha256: "a".repeat(64),
+        }];
+        valid.validate().unwrap();
+
+        let mut duplicate_root = valid.clone();
+        duplicate_root.mounts.push(DriverMount {
+            root: "godot-runtime".into(),
+            read_only: true,
+        });
+        assert!(duplicate_root.validate().is_err());
+
+        let mut duplicate_name = manifest();
+        duplicate_name.tools = vec![
+            DriverToolMount {
+                root: "tool-a".into(),
+                name: "godot".into(),
+                sha256: "a".repeat(64),
+            },
+            DriverToolMount {
+                root: "tool-b".into(),
+                name: "godot".into(),
+                sha256: "b".repeat(64),
+            },
+        ];
+        assert!(duplicate_name.validate().is_err());
+
+        let mut bad_digest = manifest();
+        bad_digest.tools = vec![DriverToolMount {
+            root: "tool".into(),
+            name: "godot".into(),
+            sha256: "not-a-digest".into(),
+        }];
+        assert!(bad_digest.validate().is_err());
     }
 
     #[test]
