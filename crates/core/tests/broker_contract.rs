@@ -90,6 +90,20 @@ async fn semantic_hit_test_materializes_a_ref_without_input_side_effects() {
 }
 
 #[tokio::test]
+async fn semantic_inspect_revalidates_and_materializes_one_exact_ref() {
+    let f = Fixture::new(Profile::Observe);
+    let found = f.find("Export").await;
+    let reference = found["nodes"][0]["ref"].as_str().unwrap().to_owned();
+    let result = f.call("ui.inspect", json!({"ref":reference})).await;
+    assert!(result.ok, "{result:?}");
+    let data = result.data.unwrap();
+    assert_eq!(data["node"]["name"], "Export");
+    assert!(data["node"]["ref"].as_str().unwrap().starts_with("ui:"));
+    assert_eq!(data["semantic_coverage"], "exact_ref");
+    assert_eq!(f.desktop.invocations(), 0);
+}
+
+#[tokio::test]
 async fn observe_can_inspect_but_cannot_invoke() {
     let f = Fixture::new(Profile::Observe);
     let n = f.find("Export").await;

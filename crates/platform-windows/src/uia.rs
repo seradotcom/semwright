@@ -104,6 +104,7 @@ enum Call {
     Select(NativeTarget, usize, mpsc::Sender<Result<Value>>),
     Expand(NativeTarget, bool, mpsc::Sender<Result<Value>>),
     Snapshot(Option<NativeTarget>, mpsc::Sender<Result<Value>>),
+    Inspect(NativeTarget, mpsc::Sender<Result<Value>>),
     HitTest(i32, i32, mpsc::Sender<Result<Value>>),
     Validate(NativeTarget, mpsc::Sender<Result<Value>>),
     Focused(NativeTarget, mpsc::Sender<Result<Value>>),
@@ -566,15 +567,14 @@ impl State {
         )?;
         let rect = element.get_bounding_rectangle().ok();
         let mut children = Vec::new();
-        if depth < MAX_DEPTH
-            && *count < MAX_NODES
-            && Instant::now() < deadline
+        let mut direct_children = 0usize;
+        if Instant::now() < deadline
             && let Ok(mut child) = self.walker.get_first_child(&element)
         {
             for _ in 0..MAX_CHILDREN {
-                children.push(self.node(child.clone(), depth + 1, count, deadline)?);
-                if *count >= MAX_NODES || Instant::now() >= deadline {
-                    break;
+                direct_children += 1;
+                if depth < MAX_DEPTH && *count < MAX_NODES && Instant::now() < deadline {
+                    children.push(self.node(child.clone(), depth + 1, count, deadline)?);
                 }
                 match self.walker.get_next_sibling(&child) {
                     Ok(next) => child = next,
@@ -673,6 +673,7 @@ impl State {
                 "height":r.get_height(),
                 "coordinate_space":"windows_virtual_desktop"
             })),
+            "children_count": direct_children,
             "children": children,
         }))
     }
@@ -707,10 +708,16 @@ impl State {
             .remove("children")
             .and_then(|value| value.as_array().cloned())
             .unwrap_or_default();
+        let direct_children = object
+            .remove("children_count")
+            .and_then(|value| value.as_u64())
+            .and_then(|value| usize::try_from(value).ok())
+            .unwrap_or(children.len())
+            .min(2_000);
         let reference_marker = json!({"$ref": target.clone()});
         object.insert("ref".into(), reference_marker.clone());
         object.insert("parent_ref".into(), parent.unwrap_or(Value::Null));
-        object.insert("children_count".into(), json!(children.len()));
+        object.insert("children_count".into(), json!(direct_children));
         nodes.push(Value::Object(object));
         for child in children {
             Self::flatten_snapshot_node(child, Some(reference_marker.clone()), nodes, partial)?;
@@ -736,6 +743,30 @@ impl State {
             "nodes": nodes,
             "partial": partial,
             "revision": self.next_revision
+        }))
+    }
+
+    fn inspect(&mut self, target: NativeTarget) -> Result<Value> {
+        let element = self.resolve(&target)?;
+        let mut count = 0usize;
+        let tree = self.node(
+            element,
+            MAX_DEPTH,
+            &mut count,
+            Instant::now() + Duration::from_millis(250),
+        )?;
+        let mut nodes = Vec::with_capacity(1);
+        let mut partial = false;
+        Self::flatten_snapshot_node(tree, None, &mut nodes, &mut partial)?;
+        let node = nodes.into_iter().next().ok_or_else(|| {
+            Error::new(
+                ErrorCode::NotFound,
+                "UIA reference did not produce a semantic node",
+            )
+        })?;
+        Ok(json!({
+            "node": node,
+            "semantic_coverage": "exact_ref"
         }))
     }
 
@@ -1019,6 +1050,9 @@ impl UiaActor {
     pub fn snapshot(&self, t: Option<NativeTarget>) -> Result<Value> {
         self.request(|r| Call::Snapshot(t, r))
     }
+    pub fn inspect(&self, t: NativeTarget) -> Result<Value> {
+        self.request(|r| Call::Inspect(t, r))
+    }
     pub fn hit_test(&self, x: i32, y: i32) -> Result<Value> {
         self.request(|r| Call::HitTest(x, y, r))
     }
@@ -1063,6 +1097,9 @@ fn dispatch(state: &mut State, call: Call) {
         Call::Snapshot(t, r) => {
             let _ = r.send(state.snapshot(t));
         }
+        Call::Inspect(t, r) => {
+            let _ = r.send(state.inspect(t));
+        }
         Call::HitTest(x, y, r) => {
             let _ = r.send(state.hit_test(x, y));
         }
@@ -1102,6 +1139,7 @@ mod tests {
             "$ref": target("uia:root"),
             "role": "window",
             "name": "Root",
+            "children_count": 7,
             "children": [{
                 "$ref": target("uia:child"),
                 "role": "button",
@@ -1117,6 +1155,7 @@ mod tests {
         assert!(nodes[0].get("$ref").is_none());
         assert_eq!(nodes[0]["ref"]["$ref"]["identity"], "uia:root");
         assert_eq!(nodes[0]["parent_ref"], Value::Null);
+        assert_eq!(nodes[0]["children_count"], 7);
         assert_eq!(nodes[1]["parent_ref"]["$ref"]["identity"], "uia:root");
         assert_eq!(nodes[1]["ref"]["$ref"]["identity"], "uia:child");
     }

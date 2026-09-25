@@ -115,6 +115,7 @@ impl Backend for FakeDesktop {
                 | "app.close"
                 | "ui.snapshot"
                 | "ui.hit_test"
+                | "ui.inspect"
                 | "ui.invoke"
                 | "ui.set_text"
                 | "ui.read_text"
@@ -196,6 +197,63 @@ impl Backend for FakeDesktop {
                     "resync_required":since_revision.is_some()&&!delta,
                     "semantic_coverage":"fixture",
                     "budget":limit
+                }))
+            }
+            "ui.inspect" => {
+                let target = native_target(args)?;
+                if target.revision != s.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Fixture revision changed",
+                    ));
+                }
+                let n = s
+                    .nodes
+                    .iter()
+                    .find(|n| n.id == target.identity)
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Fixture target disappeared")
+                    })?;
+                Ok(json!({
+                    "node": {
+                        "node_id": format!("fixture:{}", n.id),
+                        "ref": target_marker(Self::target(
+                            "ui",
+                            &n.id,
+                            s.revision,
+                            &format!("{}:{}", n.role, n.name),
+                        )),
+                        "role": n.role,
+                        "name": n.name,
+                        "description": "Deterministic test fixture",
+                        "help": "",
+                        "accessibility_id": format!("fixture-{}", n.id),
+                        "framework": "fixture",
+                        "attributes": {},
+                        "relations": [],
+                        "facets": {},
+                        "states": ["enabled", "visible"],
+                        "actions": n.actions,
+                        "app": "org.semwright.Fixture",
+                        "parent_ref": n.parent.as_ref().map(|parent| target_marker(Self::target(
+                            "ui",
+                            parent,
+                            s.revision,
+                            "fixture-parent",
+                        ))),
+                        "bounds": {
+                            "x": 0,
+                            "y": 0,
+                            "width": 80,
+                            "height": 24,
+                            "coordinate_space": "fixture_logical"
+                        },
+                        "children_count": s.nodes
+                            .iter()
+                            .filter(|c| c.parent.as_deref() == Some(n.id.as_str()))
+                            .count()
+                    },
+                    "semantic_coverage": "exact_ref"
                 }))
             }
             "ui.hit_test" => {
