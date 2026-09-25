@@ -24,7 +24,7 @@ fn app_identity(value: &Value, needle: &str) -> Option<String> {
     })
 }
 
-async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
+async fn exercise_fixture(mut child: tokio::process::Child, needle: &str, expect_rich: bool) {
     let backend = Atspi::default();
     let ctx = context();
     let app = match tokio::time::timeout(Duration::from_secs(8), async {
@@ -138,6 +138,54 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str) {
     assert_eq!(slider["facets"]["value"]["minimum"].as_f64(), Some(0.0));
     assert_eq!(slider["facets"]["value"]["maximum"].as_f64(), Some(100.0));
     assert_eq!(slider["facets"]["value"]["current"].as_f64(), Some(25.0));
+
+    if expect_rich {
+        let relation_kinds = editable["relations"]
+            .as_array()
+            .expect("editable relations")
+            .iter()
+            .filter_map(|relation| relation["kind"].as_str())
+            .collect::<Vec<_>>();
+        assert!(
+            relation_kinds.contains(&"labelled_by"),
+            "Qt buddy relation should project labelled_by: {editable}"
+        );
+
+        let choices = nodes
+            .iter()
+            .find(|node| node["name"] == "Semwright choices")
+            .expect("Qt list should expose selection semantics");
+        assert!(
+            choices["facets"]["selection"]["selected_count"]
+                .as_u64()
+                .is_some_and(|count| count >= 1),
+            "Qt list should expose its selected item count: {choices}"
+        );
+
+        let table = nodes
+            .iter()
+            .find(|node| node["role"] == "table" && node["name"] == "Semwright data table")
+            .expect("Qt table should expose a Table facet");
+        assert_eq!(table["facets"]["table"]["rows"].as_u64(), Some(2));
+        assert_eq!(table["facets"]["table"]["columns"].as_u64(), Some(2));
+        assert!(
+            table["facets"]["selection"].is_object(),
+            "Qt table should expose Selection alongside Table: {table}"
+        );
+
+        let cell = nodes
+            .iter()
+            .find(|node| node["role"] == "table_cell" && node["facets"]["table"].is_object())
+            .expect("Qt table cells should expose TableCell coordinates");
+        assert!(
+            cell["facets"]["table"]["row"].as_u64().is_some(),
+            "Qt table cell should expose its row: {cell}"
+        );
+        assert!(
+            cell["facets"]["table"]["column"].as_u64().is_some(),
+            "Qt table cell should expose its column: {cell}"
+        );
+    }
 
     let export = nodes
         .iter()
@@ -270,7 +318,7 @@ async fn live_atspi_gtk_delta_resync_and_stale_refs() {
         .env_remove("NO_AT_BRIDGE")
         .spawn()
         .expect("native GTK fixture must start");
-    exercise_fixture(child, "semwright").await;
+    exercise_fixture(child, "semwright", false).await;
 }
 
 #[tokio::test]
@@ -296,5 +344,5 @@ async fn live_atspi_qt_delta_resync_and_stale_refs() {
         .env("QT_QPA_PLATFORM", platform)
         .spawn()
         .expect("native Qt fixture must start");
-    exercise_fixture(child, "semwright").await;
+    exercise_fixture(child, "semwright", true).await;
 }
