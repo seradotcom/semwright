@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 2,
+  "protocol": 3,
   "id": "godot",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -34,6 +34,7 @@
     "events": true,
     "progress": true,
     "artifacts": true,
-    "health": true
+    "health": true,
+    "native_refs": true
   }
 }

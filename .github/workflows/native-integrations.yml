@@ -540,6 +540,7 @@ jobs:
           SEMWRIGHT_TEST_MLT_VIDEO: 1
           SEMWRIGHT_TEST_MELT: /usr/bin/melt
           SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
+          SEMWRIGHT_TEST_FFMPEG: /usr/bin/ffmpeg
           SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
           SEMWRIGHT_TEST_KICAD: 1
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox

@@ -302,7 +302,7 @@ impl RefStore {
         }
         if !matches!(
             target.kind.as_str(),
-            "ui" | "win" | "app" | "screen" | "dom" | "tab" | "process"
+            "ui" | "win" | "app" | "screen" | "dom" | "tab" | "process" | "native"
         ) {
             return Err(Error::new(
                 ErrorCode::BackendFailed,

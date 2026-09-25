@@ -42,6 +42,8 @@ struct FixtureProvider {
     blocked: AtomicBool,
     cancelled: AtomicBool,
     malformed: AtomicBool,
+    native_refs: AtomicBool,
+    validated: AtomicUsize,
     entered: Notify,
     release: Notify,
 }
@@ -96,6 +98,7 @@ impl FixtureProvider {
             command(&identity, "count"),
             command(&identity, "offline"),
             command(&identity, "progress"),
+            command(&identity, "native"),
         ];
         Arc::new(Self {
             identity,
@@ -107,6 +110,8 @@ impl FixtureProvider {
             blocked: AtomicBool::new(false),
             cancelled: AtomicBool::new(false),
             malformed: AtomicBool::new(false),
+            native_refs: AtomicBool::new(false),
+            validated: AtomicUsize::new(0),
             entered: Notify::new(),
             release: Notify::new(),
         })
@@ -160,6 +165,7 @@ impl Provider for FixtureProvider {
             progress: true,
             artifacts: true,
             health: true,
+            native_refs: self.native_refs.load(Ordering::SeqCst),
         }
     }
     fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
@@ -219,9 +225,48 @@ impl Provider for FixtureProvider {
             });
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
+        if descriptor.name.ends_with("native") {
+            return Ok(json!({
+                "value": 1,
+                "data": {
+                    "ref": target_marker(NativeTarget {
+                        kind: "native".into(),
+                        identity: "fixture:item-1".into(),
+                        revision: 1,
+                        fingerprint: "f".repeat(64),
+                        app: "org.example.Fixture".into(),
+                    })
+                }
+            }));
+        }
+        if self.native_refs.load(Ordering::SeqCst) {
+            return Ok(json!({
+                "value": 1,
+                "data": {
+                    "ref": args.get("ref"),
+                    "target": args.get("_target")
+                }
+            }));
+        }
         Ok(
             json!({"value":1,"data":{"ref":args.get("ref"),"$ref":{"kind":"win","identity":"not-native","source":"semwright-core"}}}),
         )
+    }
+    async fn validate(&self, target: &NativeTarget) -> Result<()> {
+        self.validated.fetch_add(1, Ordering::SeqCst);
+        if target.kind == "native"
+            && target.identity == "fixture:item-1"
+            && target.revision == 1
+            && target.fingerprint == "f".repeat(64)
+            && target.app == "org.example.Fixture"
+        {
+            Ok(())
+        } else {
+            Err(Error::new(
+                ErrorCode::StaleReference,
+                "Fixture native reference is stale",
+            ))
+        }
     }
     async fn shutdown(&self) -> Result<()> {
         self.shutdowns.fetch_add(1, Ordering::SeqCst);
@@ -272,13 +317,24 @@ impl Fixture {
             .unwrap();
     }
     async fn call(&self, suffix: &str, args: Value) -> Envelope {
-        call(
-            self.broker.clone(),
-            format!("driver.fixture.{suffix}"),
-            args,
-            CancellationToken::new(),
-        )
-        .await
+        self.call_in_session(&unique_id(), suffix, args).await
+    }
+
+    async fn call_in_session(&self, session: &str, suffix: &str, args: Value) -> Envelope {
+        self.broker
+            .clone()
+            .execute(
+                session.to_owned(),
+                unique_id(),
+                ExecuteRequest {
+                    command: format!("driver.fixture.{suffix}"),
+                    args,
+                    dry_run: false,
+                    backend: None,
+                },
+                CancellationToken::new(),
+            )
+            .await
     }
 }
 async fn call(
@@ -350,6 +406,34 @@ async fn provider_executes_through_policy_with_explicit_audit_provenance_and_opa
     fixture.broker.shutdown().await;
 }
 #[tokio::test]
+async fn opted_in_dynamic_provider_uses_shared_ref_store_and_validates_before_reuse() {
+    let fixture = Fixture::new(true);
+    fixture.provider.native_refs.store(true, Ordering::SeqCst);
+    fixture.mount().await;
+
+    let session = unique_id();
+    let issued = fixture.call_in_session(&session, "native", json!({})).await;
+    assert!(issued.ok, "{issued:?}");
+    let reference = issued.data.as_ref().unwrap()["data"]["ref"]
+        .as_str()
+        .expect("broker must materialize dynamic provider native ref")
+        .to_owned();
+    assert!(reference.starts_with("native:"));
+
+    let reused = fixture
+        .call_in_session(&session, "count", json!({"ref": reference.clone()}))
+        .await;
+    assert!(reused.ok, "{reused:?}");
+    let data = &reused.data.as_ref().unwrap()["data"];
+    assert_eq!(data["ref"], reference);
+    assert_eq!(data["target"]["kind"], "native");
+    assert_eq!(data["target"]["identity"], "fixture:item-1");
+    assert_eq!(fixture.provider.validated.load(Ordering::SeqCst), 1);
+
+    fixture.broker.shutdown().await;
+}
+
+#[tokio::test]
 async fn imported_metadata_does_not_grant_permission_or_approve_confirmation() {
     let denied = Fixture::new(false);
     denied.provider.commands.lock().unwrap()[0].description =
@@ -397,7 +481,7 @@ async fn one_available_operation_does_not_enable_an_unavailable_operation() {
         })
         .await
         .unwrap();
-    assert_eq!(rows["total"], 2);
+    assert_eq!(rows["total"], 3);
     let available = rows["capabilities"]
         .as_array()
         .unwrap()
@@ -406,9 +490,13 @@ async fn one_available_operation_does_not_enable_an_unavailable_operation() {
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(
         available,
-        ["driver.fixture.count", "driver.fixture.progress"]
-            .into_iter()
-            .collect()
+        [
+            "driver.fixture.count",
+            "driver.fixture.native",
+            "driver.fixture.progress",
+        ]
+        .into_iter()
+        .collect()
     );
     fixture.broker.shutdown().await;
 }
