@@ -91,7 +91,6 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
             read_only: false,
         }],
         system_config: vec![
-        secrets: vec![],
             SystemConfigMount {
                 root: "libreoffice-config".into(),
                 destination: "/etc/libreoffice".into(),
@@ -101,6 +100,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 destination: "/etc/fonts".into(),
             },
         ],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {
