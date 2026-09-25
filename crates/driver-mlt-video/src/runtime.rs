@@ -14,7 +14,7 @@ use std::{
     io::{Read, Write},
     os::unix::{
         fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
-        process::CommandExt,
+        process::{CommandExt, ExitStatusExt},
     },
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -52,6 +52,7 @@ pub struct ProcessSpec {
 #[derive(Clone, Debug)]
 pub struct ProcessResult {
     pub exit_code: Option<i32>,
+    pub term_signal: Option<i32>,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub cancelled: bool,
@@ -76,8 +77,8 @@ impl ProcessResult {
             return Err(Error::new(
                 "BackendFailed",
                 format!(
-                    "Tool failed with exit code {:?}; raw logs are not exposed",
-                    self.exit_code
+                    "Tool failed with exit code {:?}, signal {:?}; raw logs are not exposed",
+                    self.exit_code, self.term_signal
                 ),
             ));
         }
@@ -255,6 +256,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .map_err(|_| Error::new("Internal", "stderr reader failed"))?;
     Ok(ProcessResult {
         exit_code: status.code(),
+        term_signal: status.signal(),
         stdout,
         stderr,
         cancelled,
@@ -716,11 +718,12 @@ impl Runtime {
             )
             .into(),
             format!("f={}", profile.container).into(),
-            // MLT documents negative real_time as offline/no-drop processing with
-            // abs(value) worker threads. Use the four vCPUs available on the
-            // certified CI runner instead of serial frame processing; let libx264
-            // select its encoder thread count automatically.
-            "real_time=-4".into(),
+            // Negative real_time keeps offline/no-drop rendering while abs(value)
+            // selects MLT processing workers. Two workers plus a small frame buffer
+            // stay inside the 1 GiB child address-space budget; libx264 selects its
+            // encoder thread count automatically.
+            "real_time=-2".into(),
+            "buffer=5".into(),
             "threads=0".into(),
         ];
         if let Some(codec) = profile.video_codec {
