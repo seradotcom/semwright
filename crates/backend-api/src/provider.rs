@@ -84,7 +84,7 @@ pub trait Provider: Send + Sync {
         args: &Value,
     ) -> Result<Value>;
     fn emits_native_refs(&self) -> bool {
-        false
+        self.interfaces().native_refs
     }
     async fn validate(&self, _target: &NativeTarget) -> Result<()> {
         Err(Error::new(
