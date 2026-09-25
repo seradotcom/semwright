@@ -103,7 +103,7 @@ pub struct SandboxSpec {
     pub args: Vec<String>,
     /// Host-controlled environment only. Manifests cannot populate this directly.
     pub environment: Vec<(String, String)>,
-    /// Host-created immutable executable files mounted at /plugin/tools/<name>.
+    /// Host-created immutable executable files mounted under `/plugin/tools/<name>`.
     pub sealed_tools: Vec<SealedToolMount>,
     pub network: bool,
     pub limits: Option<ResourceLimits>,

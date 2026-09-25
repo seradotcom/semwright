@@ -67,10 +67,10 @@ fn manifest(executable: PathBuf, network: bool, loopback_port: Option<u16>) -> M
         ],
         system_config: vec![],
         secrets: vec![DriverSecretMount {
-            tools: vec![],
             root: "godot-pairing".into(),
             name: "godot-pairing".into(),
         }],
+        tools: vec![],
         network,
         loopback_port,
         resources: DriverResources {
