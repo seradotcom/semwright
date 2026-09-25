@@ -70,6 +70,7 @@ describe("authenticated loopback bridge",()=>{
  it("does not require crypto.randomUUID in the Figma UI sandbox",()=>{expect(ui).toContain("function randomSessionId()");expect(ui).toContain("crypto.getRandomValues(bytes)");expect(ui).toContain("session=randomSessionId()");});
  it("surfaces a safe synchronous pairing failure reason",()=>{expect(ui).toContain('state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))');});
  it("waits for a server-generated challenge",()=>{expect(ui).toContain('type:"hello",protocol:2');expect(ui).toContain('m.type==="challenge"');});
+ it("accepts Figma WebSocket payloads delivered as string, Blob, or ArrayBuffer",()=>{expect(ui).toContain("async function websocketText(data)");expect(ui).toContain('data instanceof Blob');expect(ui).toContain("data instanceof ArrayBuffer");expect(ui).toContain("await websocketText(e.data)");});
  it("authenticates the server challenge with a separate HMAC proof",()=>{expect(ui).toContain('type:"authenticate"');expect(ui).toContain("proof:authProof");expect(ui).toContain("m.nonce");});
  it("only opens a loopback websocket",()=>{expect(ui).toContain('ws://localhost:');expect(ui).not.toContain('ws://127.0.0.1:');});
 });
