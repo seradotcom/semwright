@@ -113,6 +113,13 @@ def V2(x, y):
 def V3(x, y, z):
     return {"$type": "Vector3", "value": [x, y, z]}
 
+def Quaternion(x, y, z, w):
+    return {"$type": "Quaternion", "value": [x, y, z, w]}
+
+def Transform3D(values):
+    assert len(values) == 12
+    return {"$type": "Transform3D", "value": list(values)}
+
 def Color(r, g, b, a=1):
     return {"$type": "Color", "value": [r, g, b, a]}
 
@@ -132,6 +139,17 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
     (project / "assets" / "semantic_icon.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">'
         '<rect width="16" height="16" fill="#5b7cfa"/></svg>'
+    )
+    # A script-defined global class exercises ProjectSettings global class discovery
+    # and Script metadata without invoking any discovered method.
+    (project / "scripts" / "semantic_node.gd").write_text(
+        "class_name SemwrightSemanticNode\n"
+        "extends Node3D\n"
+        "signal semantic_changed(value: int)\n"
+        "@export var semantic_value: int = 7\n"
+        "const SEMANTIC_CONSTANT := 11\n"
+        "func semantic_method(delta: float = 1.0) -> float:\n"
+        "    return float(semantic_value) * delta\n"
     )
     output = td / "artifacts"
     output.mkdir()
@@ -178,7 +196,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert interfaces["interfaces"]["artifacts"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
-        assert len(caps) == 180, len(caps)
+        assert len(caps) == 184, len(caps)
 
         env = os.environ.copy()
         env.update({
@@ -238,6 +256,40 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             value = call(name, payload)
             st = stamp(value)
             return value
+
+        # Versioned introspection is descriptive only. It can search and describe
+        # metadata but cannot invoke discovered methods.
+        api_matches = call("driver.godot.api.search", {
+            "session": sid, "query": "Camera3D", "base": "Node", "limit": 32,
+        })
+        assert any(row["name"] == "Camera3D" for row in api_matches["data"]["classes"])
+        api_node3d = call("driver.godot.api.describe", {
+            "session": sid, "class": "Node3D", "include_inherited": True,
+            "properties": True, "methods": True, "signals": True, "enums": True,
+        })
+        assert api_node3d["data"]["engine_version"].startswith("4.7.2")
+        assert any(row["name"] == "transform" for row in api_node3d["data"]["properties"])
+        assert any(row["name"] == "translate" for row in api_node3d["data"]["methods"])
+
+        project_classes = None
+        for _ in range(100):
+            project_classes = call("driver.godot.project.class.list", {
+                "session": sid, "query": "SemwrightSemanticNode", "limit": 32,
+            })
+            if any(row["name"] == "SemwrightSemanticNode" for row in project_classes["data"]["classes"]):
+                break
+            time.sleep(0.05)
+        assert project_classes is not None
+        assert any(row["name"] == "SemwrightSemanticNode" for row in project_classes["data"]["classes"])
+        project_class = call("driver.godot.project.class.describe", {
+            "session": sid, "name": "SemwrightSemanticNode",
+        })
+        assert project_class["data"]["base"] == "Node3D"
+        assert project_class["data"]["metadata_available"] is True
+        assert project_class["data"]["tool"] is False
+        assert any(row["name"] == "semantic_value" for row in project_class["data"]["properties"])
+        assert any(row["name"] == "semantic_method" for row in project_class["data"]["methods"])
+        assert any(row["name"] == "semantic_changed" for row in project_class["data"]["signals"])
 
         resources = [
             ("res://assets/floor_mesh.tres", "BoxMesh", [("size", V3(12, 0.2, 12))]),
@@ -337,6 +389,30 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "minimum_size": V2(240, 40), "expect": st, "dry_run": False,
         })
         st = stamp(value)
+
+        # Generic semantic substrate: structured Variant values round-trip through
+        # type-aware property writes. Wrong Variant types fail without changing state.
+        transform_values = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 4]
+        mutate("driver.godot.node.patch", {
+            "target": "Player",
+            "properties": [{"name": "transform", "value": Transform3D(transform_values)}],
+        })
+        player_state = call("driver.godot.node.inspect", {"session": sid, "path": "Player"})
+        encoded_transform = player_state["data"]["properties"]["transform"]
+        assert encoded_transform["$type"] == "Transform3D"
+        assert len(encoded_transform["value"]) == 12
+
+        before_bad_write = st.copy()
+        bad_write, _ = execute_failure(driver, caps, "driver.godot.node.patch", {
+            "session": sid,
+            "target": "Player/Camera",
+            "properties": [{"name": "fov", "value": V3(1, 2, 3)}],
+            "expect": st,
+            "dry_run": False,
+        }, "typed-write-reject")
+        assert bad_write["code"] == "InvalidArgument", bad_write
+        after_bad_write = call("driver.godot.project.inspect", {"session": sid})
+        assert stamp(after_bad_write) == before_bad_write
 
         # Semantic-domain acceptance: the generic Node/Resource substrate is not enough.
         # Exercise typed domain operations through the production bridge before save/reload.

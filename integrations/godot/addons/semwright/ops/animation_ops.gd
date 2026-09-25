@@ -18,7 +18,7 @@ static func inspect(ctx, args: Dictionary) -> Dictionary:
                     keys.append({
                         "time": animation.track_get_key_time(i, k),
                         "transition": animation.track_get_key_transition(i, k),
-                        "value": value if ctx._json_safe(value) else str(value),
+                        "value": ctx._encode_value(value),
                     })
                 tracks.append({
                     "index":i,

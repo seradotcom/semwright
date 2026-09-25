@@ -2664,6 +2664,62 @@ fn specs() -> Vec<Spec> {
             mutation_out,
         ),
         spec(
+            "api.search",
+            "Search the versioned Godot ClassDB without invoking methods",
+            "api",
+            "godot_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            api_search_in,
+            semantic_read_out,
+        ),
+        spec(
+            "api.describe",
+            "Describe Godot ClassDB properties, methods, signals, and enums",
+            "api",
+            "godot_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            api_describe_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.class.list",
+            "List script-defined global project classes",
+            "api",
+            "project_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            project_class_list_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.class.describe",
+            "Describe metadata for a script-defined global project class",
+            "api",
+            "project_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            project_class_describe_in,
+            semantic_read_out,
+        ),
+        spec(
             "snapshot.diff",
             "Compute a bounded semantic JSON diff",
             "snapshot",
@@ -2889,71 +2945,156 @@ fn input_set_in() -> Value {
         &["session", "name", "deadzone", "events", "expect", "dry_run"],
     )
 }
-fn godot_value_schema() -> Value {
+fn tagged_value_schema(kind: &str, value_schema: Value) -> Value {
     json!({
-        "oneOf": [
-            {"type": "null"},
-            {"type": "boolean"},
-            {"type": "number"},
-            {"type": "string", "maxLength": 4096},
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Vector2"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 2,
-                        "maxItems": 2,
-                        "items": {"type": "number"}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Vector3"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 3,
-                        "maxItems": 3,
-                        "items": {"type": "number"}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Color"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 3,
-                        "maxItems": 4,
-                        "items": {"type": "number", "minimum": 0.0, "maximum": 1.0}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "path"],
-                "properties": {
-                    "$type": {"const": "Resource"},
-                    "path": {
-                        "type": "string",
-                        "minLength": 7,
-                        "maxLength": 240,
-                        "pattern": "^res://"
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["$type", "value"],
+        "properties": {
+            "$type": {"const": kind},
+            "value": value_schema
+        }
+    })
+}
+
+fn fixed_number_array(len: usize) -> Value {
+    json!({
+        "type": "array",
+        "minItems": len,
+        "maxItems": len,
+        "items": {"type": "number"}
+    })
+}
+
+fn fixed_integer_array(len: usize) -> Value {
+    json!({
+        "type": "array",
+        "minItems": len,
+        "maxItems": len,
+        "items": {"type": "integer"}
+    })
+}
+
+fn packed_vector_array(width: usize) -> Value {
+    json!({
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+            "type": "array",
+            "minItems": width,
+            "maxItems": width,
+            "items": {"type": "number"}
+        }
+    })
+}
+
+fn godot_value_schema() -> Value {
+    let variants = vec![
+        json!({"type": "null"}),
+        json!({"type": "boolean"}),
+        json!({"type": "number"}),
+        json!({"type": "string", "maxLength": 4096}),
+        tagged_value_schema("StringName", json!({"type":"string","maxLength":4096})),
+        tagged_value_schema("NodePath", json!({"type":"string","maxLength":4096})),
+        tagged_value_schema("Vector2", fixed_number_array(2)),
+        tagged_value_schema("Vector2i", fixed_integer_array(2)),
+        tagged_value_schema("Rect2", fixed_number_array(4)),
+        tagged_value_schema("Rect2i", fixed_integer_array(4)),
+        tagged_value_schema("Vector3", fixed_number_array(3)),
+        tagged_value_schema("Vector3i", fixed_integer_array(3)),
+        tagged_value_schema("Transform2D", fixed_number_array(6)),
+        tagged_value_schema("Vector4", fixed_number_array(4)),
+        tagged_value_schema("Vector4i", fixed_integer_array(4)),
+        tagged_value_schema("Plane", fixed_number_array(4)),
+        tagged_value_schema("Quaternion", fixed_number_array(4)),
+        tagged_value_schema("AABB", fixed_number_array(6)),
+        tagged_value_schema("Basis", fixed_number_array(9)),
+        tagged_value_schema("Transform3D", fixed_number_array(12)),
+        tagged_value_schema("Projection", fixed_number_array(16)),
+        tagged_value_schema(
+            "Color",
+            json!({"type":"array","minItems":3,"maxItems":4,"items":{"type":"number","minimum":0.0,"maximum":1.0}}),
+        ),
+        tagged_value_schema(
+            "PackedByteArray",
+            json!({"type":"string","maxLength":100000,"pattern":"^[A-Za-z0-9+/]*={0,2}$"}),
+        ),
+        tagged_value_schema(
+            "PackedInt32Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"integer","minimum":-2147483648i64,"maximum":2147483647i64}}),
+        ),
+        tagged_value_schema(
+            "PackedInt64Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"integer"}}),
+        ),
+        tagged_value_schema(
+            "PackedFloat32Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"number"}}),
+        ),
+        tagged_value_schema(
+            "PackedFloat64Array",
+            json!({"type":"array","maxItems":256,"items":{"type":"number"}}),
+        ),
+        tagged_value_schema(
+            "PackedStringArray",
+            json!({"type":"array","maxItems":256,"items":{"type":"string","maxLength":4096}}),
+        ),
+        tagged_value_schema("PackedVector2Array", packed_vector_array(2)),
+        tagged_value_schema("PackedVector3Array", packed_vector_array(3)),
+        tagged_value_schema("PackedVector4Array", packed_vector_array(4)),
+        tagged_value_schema(
+            "PackedColorArray",
+            json!({"type":"array","maxItems":256,"items":{"type":"array","minItems":4,"maxItems":4,"items":{"type":"number","minimum":0.0,"maximum":1.0}}}),
+        ),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "path"],
+            "properties": {
+                "$type": {"const":"Resource"},
+                "path": {"type":"string","minLength":7,"maxLength":240,"pattern":"^res://"},
+                "class": {"type":"string","maxLength":96}
+            }
+        }),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "path"],
+            "properties": {
+                "$type": {"const":"NodeRef"},
+                "path": {"type":"string","maxLength":240},
+                "class": {"type":"string","maxLength":96}
+            }
+        }),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "value"],
+            "properties": {
+                "$type": {"const":"Array"},
+                "value": {"type":"array","maxItems":256}
+            }
+        }),
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["$type", "entries"],
+            "properties": {
+                "$type": {"const":"Dictionary"},
+                "entries": {
+                    "type":"array",
+                    "maxItems":256,
+                    "items":{
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["key","value"],
+                        "properties":{"key":{},"value":{}}
                     }
                 }
             }
-        ]
-    })
+        }),
+    ];
+    json!({"oneOf": variants})
 }
 
 fn property_patch_schema() -> Value {
@@ -4868,6 +5009,57 @@ fn editor_run_start_in() -> Value {
             dry_prop(),
         ]),
         &["session", "mode", "expect", "dry_run"],
+    )
+}
+
+fn api_search_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("query".into(), json!({"type":"string","maxLength":96})),
+            ("base".into(), json!({"type":"string","maxLength":96})),
+            (
+                "limit".into(),
+                json!({"type":"integer","minimum":1,"maximum":256}),
+            ),
+        ]),
+        &["session"],
+    )
+}
+
+fn api_describe_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("class".into(), string(96)),
+            ("include_inherited".into(), boolean()),
+            ("properties".into(), boolean()),
+            ("methods".into(), boolean()),
+            ("signals".into(), boolean()),
+            ("enums".into(), boolean()),
+        ]),
+        &["session", "class"],
+    )
+}
+
+fn project_class_list_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("query".into(), json!({"type":"string","maxLength":96})),
+            (
+                "limit".into(),
+                json!({"type":"integer","minimum":1,"maximum":256}),
+            ),
+        ]),
+        &["session"],
+    )
+}
+
+fn project_class_describe_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("name".into(), string(96))]),
+        &["session", "name"],
     )
 }
 

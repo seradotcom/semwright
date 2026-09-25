@@ -1,6 +1,6 @@
 # Godot capability surface
 
-The Godot driver exposes **180 curated `driver.godot.*` capabilities**. Every advertised
+The Godot driver exposes **184 curated `driver.godot.*` capabilities**. Every advertised
 capability has an operation-specific input and output schema, descriptor digest, route and
 risk/idempotency classification. The catalog is checked against the production EditorPlugin
 dispatch and runner routes. The goal is semantic domain coverage, not a one-tool-per-method
@@ -216,6 +216,26 @@ network sockets or expose arbitrary RPC execution.
 Editor run-start is explicitly code-execution risk. Selection and state use EditorInterface and
 EditorSelection rather than coordinate automation.
 
+## API introspection and generic semantic substrate
+
+- `api.search`, `api.describe`
+- `project.class.list`, `project.class.describe`
+
+ClassDB introspection is version-bound to the connected Godot engine and exposes bounded class,
+property, method, signal, enum and default-value metadata. Script-defined `class_name` types
+are discovered separately through ProjectSettings and Script metadata. Discovered methods are
+**descriptive only**: the driver does not expose dynamic method invocation.
+
+Generic `node.patch` and `resource.patch` writes are checked against the runtime property
+metadata before mutation. Their Variant codec supports scalar values plus StringName, NodePath,
+vectors and integer vectors, Rect2/Rect2i, Transform2D/Transform3D, Quaternion, Plane, AABB,
+Basis, Projection, Color, bounded Array/Dictionary envelopes, packed arrays, project Resource
+references and current-scene NodeRef values. Unsupported or non-addressable objects are
+reported as opaque on reads rather than becoming executable handles.
+
+Bounded values round-trip directly. Truncated collection outputs carry explicit truncation
+metadata and are intentionally rejected by strict write schemas to prevent lossy mutation.
+
 ## Headless runner and artifacts
 
 - `project.validate`
@@ -232,9 +252,12 @@ process-group cleanup and Driver Protocol v2 cancellation/progress/artifact fram
 
 This surface intentionally does **not** mirror every ClassDB method. Arbitrary `Object.call`,
 OS execution and unrestricted GDScript evaluation remain unavailable. The curated domain layer
-now covers the major Godot authoring systems. Remaining completeness work belongs to the generic
-semantic substrate: broader Variant encoding, versioned API introspection/search, stronger
-provider-owned refs and cross-platform host polish.
+covers the major Godot authoring systems, while the generic substrate provides broad bounded
+Variant transport and version-bound API discovery without turning introspection into execution.
+
+Remaining completeness work is infrastructure-level: stronger provider-owned refs, companion
+plugin distribution, loopback-only network authority, managed secrets/secondary executables,
+per-operation persistent-driver budgets and cross-platform Driver Host certification.
 
 ## Acceptance evidence
 

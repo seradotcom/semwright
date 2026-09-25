@@ -11,8 +11,7 @@ static func inspect(ctx, args: Dictionary) -> Dictionary:
     for p in resource.get_property_list():
         if int(p.get("usage", 0)) & PROPERTY_USAGE_STORAGE == 0: continue
         var name = str(p.get("name", ""))
-        var value = resource.get(name)
-        if ctx._json_safe(value): properties[name] = value
+        properties[name] = ctx._encode_value(resource.get(name))
     return {"stamp":ctx._stamp(),"data":{"path":path,"class":resource.get_class(),"properties":properties}}
 
 static func create(ctx, args: Dictionary) -> Dictionary:
@@ -72,15 +71,11 @@ static func duplicate_resource(ctx, args: Dictionary) -> Dictionary:
 
 static func _apply_resource_property(ctx, resource: Resource, item: Dictionary) -> Dictionary:
     var name = str(item.get("name", ""))
-    var exists = false
-    for p in resource.get_property_list():
-        if str(p.get("name", "")) == name and int(p.get("usage", 0)) & PROPERTY_USAGE_READ_ONLY == 0:
-            exists = true
-            break
-    if not exists: return ctx._error("invalid_argument", "unknown or read-only resource property")
-    var encoded = item.get("value")
-    var value = ctx._decode_value(encoded)
-    if ctx._is_resource_ref(encoded) and value == null:
-        return ctx._error("not_found", "referenced resource does not exist")
-    resource.set(name, value)
+    var decoded := ctx._decode_for_property(resource, name, item.get("value"))
+    if not bool(decoded.get("ok", false)):
+        return ctx._error(
+            str(decoded.get("code", "invalid_argument")),
+            str(decoded.get("message", "invalid resource property value")),
+        )
+    resource.set(name, decoded.get("value"))
     return {}
