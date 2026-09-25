@@ -219,10 +219,26 @@ fn physics_schema_accepts_2d_velocity_and_angular_scalar() {
     area.validate_input(&json!({
         "session":"a".repeat(32),
         "target":"TwoD/Area",
+        "gravity_point":false,
         "gravity_direction":[0.0,1.0],
-        "gravity_point_center":[20.0,20.0],
         "expect":{"revision":1,"fingerprint":"a".repeat(64)},
         "dry_run":false
     }))
     .unwrap();
+}
+
+#[test]
+fn physics_area_schema_rejects_ambiguous_gravity_vector_modes() {
+    let catalog = Catalog::load().unwrap();
+    let area = catalog.get("driver.godot.physics.area.configure").unwrap();
+    let ambiguous = json!({
+        "session":"a".repeat(32),
+        "target":"TwoD/Area",
+        "gravity_point":false,
+        "gravity_direction":[0.0,1.0],
+        "gravity_point_center":[20.0,20.0],
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    assert!(area.validate_input(&ambiguous).is_err());
 }

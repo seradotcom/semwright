@@ -75,6 +75,9 @@ tolerances, avoidance and link endpoints without exposing arbitrary NavigationSe
 Body, Area, Joint and CollisionShape operations preserve 2D/3D semantics. RigidBody,
 CharacterBody and StaticBody variants use dimension-correct velocity/angular types, while
 Area gravity vectors and collision resources are validated against the target dimension.
+Directional gravity and point-gravity center are mutually exclusive because Godot stores them
+through the same underlying gravity vector; `gravity_point` selects which semantic
+interpretation is active.
 
 ## Audio
 

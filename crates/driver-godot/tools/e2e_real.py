@@ -431,7 +431,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         mutate("driver.godot.physics.area.configure", {
             "target": "TwoD/Area", "monitoring": True, "monitorable": True,
             "priority": 0.0, "gravity_point": False, "gravity": 980.0,
-            "gravity_direction": [0.0, 1.0], "gravity_point_center": [0.0, 0.0],
+            "gravity_direction": [0.0, 1.0],
             "gravity_point_unit_distance": 0.0, "gravity_space_override": 0,
             "linear_damp_space_override": 0, "linear_damp": 0.1,
             "angular_damp_space_override": 0, "angular_damp": 0.1,
@@ -442,7 +442,22 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "session": sid, "target": "TwoD/Area",
         })
         assert area2d["data"]["dimension"] == "2d"
-        assert area2d["data"]["gravity_direction"] == [0.0, 1.0]
+        assert area2d["data"]["gravity_direction"] == [0.0, 1.0], area2d["data"]
+
+        mutate("driver.godot.physics.area.configure", {
+            "target": "TwoD/Area", "gravity_point": True,
+            "gravity_point_center": [32.0, 48.0], "gravity_point_unit_distance": 64.0,
+        })
+        point_area2d = call("driver.godot.physics.area.inspect", {
+            "session": sid, "target": "TwoD/Area",
+        })
+        assert point_area2d["data"]["gravity_point"] is True
+        assert point_area2d["data"]["gravity_point_center"] == [32.0, 48.0]
+
+        mutate("driver.godot.physics.area.configure", {
+            "target": "TwoD/Area", "gravity_point": False,
+            "gravity_direction": [0.0, 1.0],
+        })
 
         mutate("driver.godot.collision.shape.configure", {
             "target": "TwoD/Player2D/Collision",

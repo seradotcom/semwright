@@ -62,6 +62,13 @@ static func area_configure(ctx, args: Dictionary) -> Dictionary:
     var area = ctx._resolve_node(str(args.get("target", "")))
     if not (area is Area2D) and not (area is Area3D):
         return ctx._error("not_found", "Area2D or Area3D not found")
+    if args.has("gravity_direction") and args.has("gravity_point_center"):
+        return ctx._error("invalid_argument", "gravity_direction and gravity_point_center share one Godot gravity vector; configure only the active mode")
+    var point_gravity := bool(args.get("gravity_point", area.gravity_point))
+    if args.has("gravity_direction") and point_gravity:
+        return ctx._error("invalid_argument", "gravity_direction requires gravity_point=false")
+    if args.has("gravity_point_center") and not point_gravity:
+        return ctx._error("invalid_argument", "gravity_point_center requires gravity_point=true")
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [str(args.get("target", ""))], "dry-run")
     for key in ["monitoring","monitorable","gravity_point","audio_bus_override"]:

@@ -393,7 +393,20 @@ func _fingerprint() -> String:
     for action in _project_input_actions():
         var events: Array = []
         for event in action["events"]:
-            events.append([event["type"], event["code"]])
+            var kind := str(event.get("type", ""))
+            if kind == "joy_axis":
+                events.append([
+                    kind,
+                    int(event.get("axis", 0)),
+                    float(event.get("value", 0.0)),
+                    int(event.get("device", -1)),
+                ])
+            else:
+                events.append([
+                    kind,
+                    int(event.get("code", 0)),
+                    int(event.get("device", -1)),
+                ])
         input_rows.append([action["name"], action["deadzone"], events])
     var state := {
         "scene": "" if root == null else str(root.scene_file_path),

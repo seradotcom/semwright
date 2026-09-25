@@ -3292,7 +3292,7 @@ fn physics_body_configure_in() -> Value {
     )
 }
 fn physics_area_configure_in() -> Value {
-    target_mutation_schema(
+    let mut schema = target_mutation_schema(
         Map::from_iter([
             ("monitoring".into(), boolean()),
             ("monitorable".into(), boolean()),
@@ -3316,7 +3316,9 @@ fn physics_area_configure_in() -> Value {
             ("collision_mask".into(), u32_schema()),
         ]),
         &[],
-    )
+    );
+    schema["not"] = json!({"required":["gravity_direction","gravity_point_center"]});
+    schema
 }
 fn physics_joint_configure_in() -> Value {
     target_mutation_schema(
