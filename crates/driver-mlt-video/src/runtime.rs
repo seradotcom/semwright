@@ -716,8 +716,12 @@ impl Runtime {
             )
             .into(),
             format!("f={}", profile.container).into(),
-            "real_time=-1".into(),
-            "threads=2".into(),
+            // MLT documents negative real_time as offline/no-drop processing with
+            // abs(value) worker threads. Use the four vCPUs available on the
+            // certified CI runner instead of serial frame processing; let libx264
+            // select its encoder thread count automatically.
+            "real_time=-4".into(),
+            "threads=0".into(),
         ];
         if let Some(codec) = profile.video_codec {
             args.push(format!("vcodec={codec}").into());
