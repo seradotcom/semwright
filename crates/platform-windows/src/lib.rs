@@ -365,7 +365,8 @@ impl Backend for Windows {
                 match scoped {
                     Some(reference) if reference.identity.starts_with("win:") => {
                         let hwnd = self.resolve_window(&reference)?;
-                        self.uia.snapshot_hwnd(hwnd.0 as isize, max_nodes, max_depth)
+                        self.uia
+                            .snapshot_hwnd(hwnd.0 as isize, max_nodes, max_depth)
                     }
                     other => self.uia.snapshot(other, max_nodes, max_depth),
                 }
