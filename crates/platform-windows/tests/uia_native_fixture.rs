@@ -169,7 +169,6 @@ fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
             )
             .expect("fixture topmost visibility");
             let _ = SetForegroundWindow(hwnd);
-            UpdateWindow(hwnd).expect("fixture update");
         }
 
         ready_tx
