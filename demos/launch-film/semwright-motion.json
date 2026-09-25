@@ -1500,6 +1500,156 @@
           }
         },
         {
+          "id": "d-l0",
+          "name": "D L0",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                -610,
+                -170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l1",
+          "name": "D L1",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                -610,
+                170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l2",
+          "name": "D L2",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                -210,
+                300
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l3",
+          "name": "D L3",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                210,
+                300
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l4",
+          "name": "D L4",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                610,
+                170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l5",
+          "name": "D L5",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                610,
+                -170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
           "id": "d-core",
           "name": "D Core",
           "kind": "rect",
@@ -1577,31 +1727,6 @@
           }
         },
         {
-          "id": "d-l0",
-          "name": "D L0",
-          "kind": "line",
-          "parent": null,
-          "properties": {
-            "points": [
-              [
-                0,
-                0
-              ],
-              [
-                -610,
-                -170
-              ]
-            ],
-            "stroke": "@line",
-            "stroke_width": 3,
-            "end_arrow": false,
-            "arrow_size": 14.0,
-            "start": 0.0,
-            "end": 0,
-            "opacity": 1.0
-          }
-        },
-        {
           "id": "d-p1",
           "name": "D P1",
           "kind": "rect",
@@ -1638,31 +1763,6 @@
             "text_align": "center",
             "wrap": true,
             "width": 250
-          }
-        },
-        {
-          "id": "d-l1",
-          "name": "D L1",
-          "kind": "line",
-          "parent": null,
-          "properties": {
-            "points": [
-              [
-                0,
-                0
-              ],
-              [
-                -610,
-                170
-              ]
-            ],
-            "stroke": "@line",
-            "stroke_width": 3,
-            "end_arrow": false,
-            "arrow_size": 14.0,
-            "start": 0.0,
-            "end": 0,
-            "opacity": 1.0
           }
         },
         {
@@ -1705,31 +1805,6 @@
           }
         },
         {
-          "id": "d-l2",
-          "name": "D L2",
-          "kind": "line",
-          "parent": null,
-          "properties": {
-            "points": [
-              [
-                0,
-                0
-              ],
-              [
-                -210,
-                300
-              ]
-            ],
-            "stroke": "@line",
-            "stroke_width": 3,
-            "end_arrow": false,
-            "arrow_size": 14.0,
-            "start": 0.0,
-            "end": 0,
-            "opacity": 1.0
-          }
-        },
-        {
           "id": "d-p3",
           "name": "D P3",
           "kind": "rect",
@@ -1766,31 +1841,6 @@
             "text_align": "center",
             "wrap": true,
             "width": 250
-          }
-        },
-        {
-          "id": "d-l3",
-          "name": "D L3",
-          "kind": "line",
-          "parent": null,
-          "properties": {
-            "points": [
-              [
-                0,
-                0
-              ],
-              [
-                210,
-                300
-              ]
-            ],
-            "stroke": "@line",
-            "stroke_width": 3,
-            "end_arrow": false,
-            "arrow_size": 14.0,
-            "start": 0.0,
-            "end": 0,
-            "opacity": 1.0
           }
         },
         {
@@ -1833,31 +1883,6 @@
           }
         },
         {
-          "id": "d-l4",
-          "name": "D L4",
-          "kind": "line",
-          "parent": null,
-          "properties": {
-            "points": [
-              [
-                0,
-                0
-              ],
-              [
-                610,
-                170
-              ]
-            ],
-            "stroke": "@line",
-            "stroke_width": 3,
-            "end_arrow": false,
-            "arrow_size": 14.0,
-            "start": 0.0,
-            "end": 0,
-            "opacity": 1.0
-          }
-        },
-        {
           "id": "d-p5",
           "name": "D P5",
           "kind": "rect",
@@ -1897,31 +1922,6 @@
           }
         },
         {
-          "id": "d-l5",
-          "name": "D L5",
-          "kind": "line",
-          "parent": null,
-          "properties": {
-            "points": [
-              [
-                0,
-                0
-              ],
-              [
-                610,
-                -170
-              ]
-            ],
-            "stroke": "@line",
-            "stroke_width": 3,
-            "end_arrow": false,
-            "arrow_size": 14.0,
-            "start": 0.0,
-            "end": 0,
-            "opacity": 1.0
-          }
-        },
-        {
           "id": "d-foot",
           "name": "D Foot",
           "kind": "text",
@@ -1935,7 +1935,7 @@
             "fill": "@muted",
             "font_size": 27,
             "font_weight": 450,
-            "text": "Native API \u2192 semantic OS \u2192 input fallback \u2192 vision last",
+            "text": "Native API → semantic OS → input fallback → vision last",
             "text_align": "center",
             "wrap": true,
             "width": 1500
@@ -2322,7 +2322,7 @@
           "parent": null,
           "properties": {
             "position": [
-              -300,
+              -50,
               -170
             ],
             "opacity": 0,
@@ -2382,7 +2382,7 @@
           "parent": null,
           "properties": {
             "position": [
-              -300,
+              -50,
               -25
             ],
             "opacity": 0,
@@ -2442,7 +2442,7 @@
           "parent": null,
           "properties": {
             "position": [
-              -300,
+              -50,
               120
             ],
             "opacity": 0,
@@ -2502,7 +2502,7 @@
           "parent": null,
           "properties": {
             "position": [
-              -300,
+              -50,
               265
             ],
             "opacity": 0,
@@ -3283,7 +3283,7 @@
             "fill": "@accent",
             "font_size": 24,
             "font_weight": 500,
-            "text": "semwright.com   \u2022   github.com/seradotcom/semwright",
+            "text": "semwright.com   •   github.com/seradotcom/semwright",
             "text_align": "center",
             "wrap": true,
             "width": 1500,
