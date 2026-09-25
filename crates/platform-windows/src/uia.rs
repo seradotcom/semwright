@@ -110,7 +110,7 @@ enum Call {
         usize,
         mpsc::Sender<Result<Value>>,
     ),
-    FindCandidates(Selector, usize, usize, mpsc::Sender<Result<Value>>),
+    FindCandidates(Box<Selector>, usize, usize, mpsc::Sender<Result<Value>>),
     Inspect(NativeTarget, mpsc::Sender<Result<Value>>),
     HitTest(i32, i32, mpsc::Sender<Result<Value>>),
     Validate(NativeTarget, mpsc::Sender<Result<Value>>),
@@ -226,11 +226,8 @@ fn possible_selector_match(element: &UIElement, selector: &Selector) -> bool {
                     return false;
                 }
             }
-            "password" => {
-                if password == Some(false) {
-                    return false;
-                }
-            }
+            "password" if password == Some(false) => return false,
+            "password" => {}
             _ => {}
         }
     }
@@ -902,12 +899,15 @@ impl State {
                     .get_parent(&element)
                     .ok()
                     .and_then(|parent| {
-                        let kind = parent
+                        let kind = if parent
                             .get_control_type()
                             .ok()
                             .is_some_and(|control| semantic_role(control) == "window")
-                            .then_some("win")
-                            .unwrap_or("ui");
+                        {
+                            "win"
+                        } else {
+                            "ui"
+                        };
                         self.remember(parent, kind).ok()
                     })
                     .map(|target| json!({"$ref": target}));
@@ -1316,7 +1316,7 @@ impl UiaActor {
         max_nodes: usize,
         max_depth: usize,
     ) -> Result<Value> {
-        self.request(|r| Call::FindCandidates(selector, max_nodes, max_depth, r))
+        self.request(|r| Call::FindCandidates(Box::new(selector), max_nodes, max_depth, r))
     }
     pub fn inspect(&self, t: NativeTarget) -> Result<Value> {
         self.request(|r| Call::Inspect(t, r))
@@ -1366,7 +1366,7 @@ fn dispatch(state: &mut State, call: Call) {
             let _ = r.send(state.snapshot(t, max_nodes, max_depth));
         }
         Call::FindCandidates(selector, max_nodes, max_depth, r) => {
-            let _ = r.send(state.find_candidates(&selector, max_nodes, max_depth));
+            let _ = r.send(state.find_candidates(selector.as_ref(), max_nodes, max_depth));
         }
         Call::Inspect(t, r) => {
             let _ = r.send(state.inspect(t));
