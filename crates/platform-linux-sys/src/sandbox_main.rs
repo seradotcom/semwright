@@ -129,6 +129,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         "/etc",
         "/plugin",
         "/workspace",
+        "/run/secrets",
         "/dev",
         "/proc",
     ] {

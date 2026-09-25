@@ -58,6 +58,7 @@ fn materialized_destination(mount: &Mount) -> Result<String> {
     let prefix = match mount.class {
         MountClass::Workspace => "/workspace/",
         MountClass::SystemConfig => "/etc/",
+        MountClass::Secret => "/run/secrets/",
     };
     Ok(format!("{prefix}{}", mount.logical_name))
 }
@@ -106,6 +107,10 @@ impl SandboxLauncher for LinuxSandbox {
             "/workspace",
             "--dir",
             "/plugin",
+            "--dir",
+            "/run",
+            "--dir",
+            "/run/secrets",
         ]);
         for r in ["/usr", "/lib", "/lib64"] {
             if Path::new(r).exists() {
@@ -125,6 +130,10 @@ impl SandboxLauncher for LinuxSandbox {
             .iter()
             .filter(|m| m.class == MountClass::SystemConfig)
         {
+            let destination = materialized_destination(m)?;
+            p.arg("--ro-bind").arg(&m.source).arg(destination);
+        }
+        for m in s.mounts.iter().filter(|m| m.class == MountClass::Secret) {
             let destination = materialized_destination(m)?;
             p.arg("--ro-bind").arg(&m.source).arg(destination);
         }

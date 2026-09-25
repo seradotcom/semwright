@@ -91,6 +91,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
             read_only: false,
         }],
         system_config: vec![
+        secrets: vec![],
             SystemConfigMount {
                 root: "libreoffice-config".into(),
                 destination: "/etc/libreoffice".into(),
