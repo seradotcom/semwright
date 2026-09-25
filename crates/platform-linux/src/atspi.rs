@@ -122,8 +122,16 @@ async fn bounded<T>(f: impl std::future::Future<Output = zbus::Result<T>>) -> Re
             )
         })
 }
-async fn snapshot_optional<T>(f: impl std::future::Future<Output = zbus::Result<T>>) -> Option<T> {
-    match tokio::time::timeout(SNAPSHOT_OPTIONAL_BUDGET, f).await {
+fn snapshot_optional_budget(deadline: tokio::time::Instant) -> Option<Duration> {
+    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+    (!remaining.is_zero()).then_some(remaining.min(SNAPSHOT_OPTIONAL_BUDGET))
+}
+async fn snapshot_optional_until<T>(
+    deadline: tokio::time::Instant,
+    f: impl std::future::Future<Output = zbus::Result<T>>,
+) -> Option<T> {
+    let budget = snapshot_optional_budget(deadline)?;
+    match tokio::time::timeout(budget, f).await {
         Ok(Ok(value)) => Some(value),
         _ => None,
     }
@@ -136,6 +144,14 @@ fn bounded_child_count(reported: Option<i32>, observed: usize) -> (usize, bool) 
         actual > MAX_CHILDREN_PER_NODE,
     )
 }
+fn normalize_protocol_role(role_id: u32, role_name: &str) -> String {
+    if role_id == ATSPI_ROLE_PASSWORD_TEXT {
+        "password-entry".to_owned()
+    } else {
+        normalize_role(role_name)
+    }
+}
+
 pub fn normalize_role(role: &str) -> String {
     match role {
         "application" => "application",
@@ -498,11 +514,7 @@ impl Atspi {
             bounded(p.call::<_, _, u32>("GetRole", &())),
             bounded(p.get_property::<String>("Name"))
         );
-        let role = if role_id? == ATSPI_ROLE_PASSWORD_TEXT {
-            "password-entry".to_owned()
-        } else {
-            normalize_role(&role_name?)
-        };
+        let role = normalize_protocol_role(role_id?, &role_name?);
         let name = name?;
         let fingerprint = format!("{role}:{name}");
         Ok((role, name, fingerprint))
@@ -876,6 +888,10 @@ impl Atspi {
         let budget = args["max_nodes"].as_u64().unwrap_or(200).min(2000) as usize;
         let max_depth = args["max_depth"].as_u64().unwrap_or(5).min(32) as usize;
         let actionable = args["actionable"].as_bool().unwrap_or(false);
+        // Rich metadata is opportunistic in a full-tree snapshot. One absolute deadline
+        // prevents per-node optional reads from multiplying into multi-second stalls.
+        // Exact ui.inspect keeps the deeper per-object path when a caller needs it.
+        let optional_deadline = tokio::time::Instant::now() + Duration::from_millis(750);
         let key = SnapshotKey {
             app: args["app"].as_str().map(str::to_owned),
             max_nodes: budget,
@@ -989,7 +1005,8 @@ impl Atspi {
             // Rich metadata reads are independent. Execute them concurrently so one slow
             // optional interface does not multiply snapshot latency across every node.
             let attributes_read = async {
-                snapshot_optional(
+                snapshot_optional_until(
+                    optional_deadline.clone(),
                     proxy.call::<_, _, std::collections::HashMap<String, String>>(
                         "GetAttributes",
                         &(),
@@ -1008,58 +1025,79 @@ impl Atspi {
                 .collect::<BTreeMap<String, String>>()
             };
             let help_read = async {
-                snapshot_optional(proxy.get_property::<String>("HelpText"))
-                    .await
-                    .unwrap_or_default()
-                    .chars()
-                    .take(1024)
-                    .collect::<String>()
+                snapshot_optional_until(
+                    optional_deadline.clone(),
+                    proxy.get_property::<String>("HelpText"),
+                )
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(1024)
+                .collect::<String>()
             };
             let accessibility_id_read = async {
-                snapshot_optional(proxy.get_property::<String>("AccessibleId"))
-                    .await
-                    .unwrap_or_default()
-                    .chars()
-                    .take(512)
-                    .collect::<String>()
+                snapshot_optional_until(
+                    optional_deadline.clone(),
+                    proxy.get_property::<String>("AccessibleId"),
+                )
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(512)
+                .collect::<String>()
             };
             let locale_read = async {
-                snapshot_optional(proxy.get_property::<String>("Locale"))
-                    .await
-                    .unwrap_or_default()
-                    .chars()
-                    .take(128)
-                    .collect::<String>()
+                snapshot_optional_until(
+                    optional_deadline.clone(),
+                    proxy.get_property::<String>("Locale"),
+                )
+                .await
+                .unwrap_or_default()
+                .chars()
+                .take(128)
+                .collect::<String>()
             };
-            let interfaces: Vec<String> =
-                snapshot_optional(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
-                    .await
-                    .unwrap_or_default()
-                    .into_iter()
-                    .take(64)
-                    .map(|value| value.chars().take(128).collect())
-                    .collect();
+            let interfaces: Vec<String> = snapshot_optional_until(
+                optional_deadline.clone(),
+                proxy.call::<_, _, Vec<String>>("GetInterfaces", &()),
+            )
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .take(64)
+            .map(|value| value.chars().take(128).collect())
+            .collect();
             let facets_read = async {
+                let Some(budget) = snapshot_optional_budget(optional_deadline.clone()) else {
+                    return UiFacets::default();
+                };
                 tokio::time::timeout(
-                    SNAPSHOT_OPTIONAL_BUDGET,
+                    budget,
                     self.facets(&c, &object, &interfaces, &states, &role, count),
                 )
                 .await
                 .unwrap_or_default()
             };
             let relations_read = async {
-                tokio::time::timeout(SNAPSHOT_OPTIONAL_BUDGET, self.relations(&c, &object, &app))
+                let Some(budget) = snapshot_optional_budget(optional_deadline.clone()) else {
+                    return Vec::new();
+                };
+                tokio::time::timeout(budget, self.relations(&c, &object, &app))
                     .await
                     .unwrap_or_default()
             };
             let description_read = async {
-                snapshot_optional(proxy.get_property::<String>("Description"))
-                    .await
-                    .unwrap_or_default()
+                snapshot_optional_until(
+                    optional_deadline.clone(),
+                    proxy.get_property::<String>("Description"),
+                )
+                .await
+                .unwrap_or_default()
             };
             let bounds_read = async {
                 match self.proxy(&c, &object, "org.a11y.atspi.Component").await {
-                    Ok(component) => snapshot_optional(
+                    Ok(component) => snapshot_optional_until(
+                        optional_deadline.clone(),
                         component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)),
                     )
                     .await
@@ -1096,6 +1134,16 @@ impl Atspi {
                 });
             }
             if role == "password-entry" {
+                // Protected text semantics are security-critical, not optional rich metadata.
+                // Preserve this facet even after the snapshot-wide metadata deadline expires.
+                if facets.text.is_none() {
+                    facets.text = Some(UiTextFacet {
+                        editable: states.contains(&"editable"),
+                        password: true,
+                        ..UiTextFacet::default()
+                    });
+                }
+                facets.value = None;
                 name.clear();
                 description.clear();
                 help.clear();
@@ -1730,6 +1778,11 @@ mod tests {
     #[test]
     fn password_role_is_distinct() {
         assert_eq!(normalize_role("password text"), "password-entry");
+        assert_eq!(
+            normalize_protocol_role(ATSPI_ROLE_PASSWORD_TEXT, "text"),
+            "password-entry"
+        );
+        assert_eq!(normalize_protocol_role(42, "text"), "text");
     }
     #[test]
     fn machine_button_role() {

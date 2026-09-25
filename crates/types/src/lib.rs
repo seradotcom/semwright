@@ -380,9 +380,9 @@ pub struct UiTextFacet {
     pub character_count: Option<usize>,
     pub caret_offset: Option<i64>,
     pub selection_count: Option<usize>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub selections: Vec<UiTextRange>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default)]
     pub caret_attributes: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caret_attribute_range: Option<UiTextRange>,

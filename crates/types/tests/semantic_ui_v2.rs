@@ -131,6 +131,17 @@ fn v1_compatibility_and_strict_facets_are_preserved() {
 }
 
 #[test]
+fn empty_text_collections_serialize_with_stable_container_shapes() {
+    let value = serde_json::to_value(UiTextFacet {
+        password: true,
+        ..UiTextFacet::default()
+    })
+    .unwrap();
+    assert_eq!(value["selections"], json!([]));
+    assert_eq!(value["caret_attributes"], json!({}));
+}
+
+#[test]
 fn rich_text_and_table_cell_facets_are_bounded_portable_data() {
     let text = parse(json!({
         "ref":"ui:text","role":"text","name":"Editor","description":"",

@@ -37,6 +37,7 @@ use uiautomation::{
     UIAutomation, UIElement, UITreeWalker,
     types::{Handle, Point, TreeScope, UIProperty, WindowVisualState},
 };
+use windows::Win32::System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize};
 
 const MAX_NODES: usize = 2_000;
 const MAX_DEPTH: usize = 32;
@@ -78,6 +79,27 @@ struct InstalledEvents {
     _focus_handler: UIFocusChangedEventHandler,
     _property_handler: UIPropertyChangedEventHandler,
     _structure_handler: UIStructureChangeEventHandler,
+}
+
+struct ComApartment;
+
+impl ComApartment {
+    fn mta() -> Result<Self> {
+        // SAFETY: this is called exactly once on the dedicated UIA actor thread before
+        // creating any COM objects, and the matching CoUninitialize is owned by Drop.
+        unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }
+            .ok()
+            .map_err(|_| Error::unavailable("Microsoft UI Automation COM initialization failed"))?;
+        Ok(Self)
+    }
+}
+
+impl Drop for ComApartment {
+    fn drop(&mut self) {
+        // SAFETY: the guard is dropped on the same dedicated actor thread that successfully
+        // initialized COM, after all UIA wrappers and event handlers have been destroyed.
+        unsafe { CoUninitialize() };
+    }
 }
 
 struct State {
@@ -1247,40 +1269,52 @@ impl UiaActor {
         thread::Builder::new()
             .name("semwright-uia".into())
             .spawn(move || {
-                let setup = UIAutomation::new().and_then(|automation| {
-                    automation
-                        .get_control_view_walker()
-                        .map(|walker| (automation, walker))
-                });
-                match setup {
-                    Ok((automation, walker)) => {
-                        let events =
-                            install_events(&automation, signals, actor_generation.clone()).ok();
-                        let events_active = events.is_some();
-                        let mut state = State {
-                            automation,
-                            walker,
-                            entries: BTreeMap::new(),
-                            next_revision: 0,
-                            event_generation: actor_generation,
-                            _events: events,
-                        };
-                        let _ = ready_tx.send(Ok(events_active));
-                        while let Ok(call) = rx.recv() {
-                            let stop = matches!(call, Call::Shutdown(_));
-                            dispatch(&mut state, call);
-                            if stop {
-                                break;
-                            }
-                        }
-                        let _ = state.automation.remove_all_event_handlers();
+                let apartment = match ComApartment::mta() {
+                    Ok(apartment) => apartment,
+                    Err(error) => {
+                        let _ = ready_tx.send(Err(error));
+                        return;
                     }
+                };
+                let automation = match UIAutomation::new_direct() {
+                    Ok(automation) => automation,
                     Err(_) => {
                         let _ = ready_tx.send(Err(Error::unavailable(
                             "Microsoft UI Automation initialization failed",
                         )));
+                        return;
+                    }
+                };
+                let walker = match automation.get_control_view_walker() {
+                    Ok(walker) => walker,
+                    Err(_) => {
+                        let _ = ready_tx.send(Err(Error::unavailable(
+                            "Microsoft UI Automation Control View is unavailable",
+                        )));
+                        return;
+                    }
+                };
+                let events = install_events(&automation, signals, actor_generation.clone()).ok();
+                let events_active = events.is_some();
+                let mut state = State {
+                    automation,
+                    walker,
+                    entries: BTreeMap::new(),
+                    next_revision: 0,
+                    event_generation: actor_generation,
+                    _events: events,
+                };
+                let _ = ready_tx.send(Ok(events_active));
+                while let Ok(call) = rx.recv() {
+                    let stop = matches!(call, Call::Shutdown(_));
+                    dispatch(&mut state, call);
+                    if stop {
+                        break;
                     }
                 }
+                let _ = state.automation.remove_all_event_handlers();
+                drop(state);
+                drop(apartment);
             })
             .map_err(|_| Error::unavailable("UIA actor thread could not start"))?;
         let events_active = ready_rx
