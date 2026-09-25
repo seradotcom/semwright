@@ -481,9 +481,14 @@ impl Atspi {
     }
     async fn identity(&self, c: &Connection, o: &Object) -> Result<(String, String, String)> {
         let p = self.proxy(c, o, ACCESSIBLE).await?;
-        let role: String = bounded(p.call("GetRoleName", &())).await?;
-        let name: String = bounded(p.get_property("Name")).await?;
-        let role = normalize_role(&role);
+        // These properties are independent D-Bus reads. Keeping them concurrent prevents
+        // rich semantic snapshots from multiplying per-node bus latency.
+        let (role, name) = tokio::join!(
+            bounded(p.call::<_, _, String>("GetRoleName", &())),
+            bounded(p.get_property::<String>("Name"))
+        );
+        let role = normalize_role(&role?);
+        let name = name?;
         let fingerprint = format!("{role}:{name}");
         Ok((role, name, fingerprint))
     }
@@ -591,17 +596,17 @@ impl Atspi {
             let (character_count, caret_offset, selection_count) = if password {
                 (None, None, None)
             } else {
+                let (character_count, caret_offset, selection_count) = tokio::join!(
+                    bounded(proxy.get_property::<i32>("CharacterCount")),
+                    bounded(proxy.get_property::<i32>("CaretOffset")),
+                    bounded(proxy.call::<_, _, i32>("GetNSelections", &()))
+                );
                 (
-                    bounded(proxy.get_property::<i32>("CharacterCount"))
-                        .await
+                    character_count
                         .ok()
                         .and_then(|value| usize::try_from(value.max(0)).ok()),
-                    bounded(proxy.get_property::<i32>("CaretOffset"))
-                        .await
-                        .ok()
-                        .map(i64::from),
-                    bounded(proxy.call::<_, _, i32>("GetNSelections", &()))
-                        .await
+                    caret_offset.ok().map(i64::from),
+                    selection_count
                         .ok()
                         .and_then(|value| usize::try_from(value.max(0)).ok()),
                 )
@@ -676,20 +681,18 @@ impl Atspi {
         if supports_interface(interfaces, "Value")
             && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Value").await
         {
-            let current = bounded(proxy.get_property::<f64>("CurrentValue"))
-                .await
-                .ok();
-            let minimum = bounded(proxy.get_property::<f64>("MinimumValue"))
-                .await
-                .ok();
-            let maximum = bounded(proxy.get_property::<f64>("MaximumValue"))
-                .await
-                .ok();
-            let increment = bounded(proxy.get_property::<f64>("MinimumIncrement"))
-                .await
-                .ok();
-            let text = bounded(proxy.get_property::<String>("Text"))
-                .await
+            let (current, minimum, maximum, increment, text) = tokio::join!(
+                bounded(proxy.get_property::<f64>("CurrentValue")),
+                bounded(proxy.get_property::<f64>("MinimumValue")),
+                bounded(proxy.get_property::<f64>("MaximumValue")),
+                bounded(proxy.get_property::<f64>("MinimumIncrement")),
+                bounded(proxy.get_property::<String>("Text"))
+            );
+            let current = current.ok();
+            let minimum = minimum.ok();
+            let maximum = maximum.ok();
+            let increment = increment.ok();
+            let text = text
                 .ok()
                 .filter(|value| !value.is_empty())
                 .map(|value| value.chars().take(1024).collect());
@@ -725,19 +728,21 @@ impl Atspi {
                     .ok()
                     .and_then(|value| usize::try_from(value.max(0)).ok())
             };
+            let (rows, columns, selected_rows, selected_columns) = tokio::join!(
+                bounded(proxy.get_property::<i32>("NRows")),
+                bounded(proxy.get_property::<i32>("NColumns")),
+                bounded(proxy.get_property::<i32>("NSelectedRows")),
+                bounded(proxy.get_property::<i32>("NSelectedColumns"))
+            );
             facets.table = Some(UiTableFacet {
-                rows: nonnegative(bounded(proxy.get_property::<i32>("NRows")).await),
-                columns: nonnegative(bounded(proxy.get_property::<i32>("NColumns")).await),
+                rows: nonnegative(rows),
+                columns: nonnegative(columns),
                 row: None,
                 column: None,
                 row_span: None,
                 column_span: None,
-                selected_rows: nonnegative(
-                    bounded(proxy.get_property::<i32>("NSelectedRows")).await,
-                ),
-                selected_columns: nonnegative(
-                    bounded(proxy.get_property::<i32>("NSelectedColumns")).await,
-                ),
+                selected_rows: nonnegative(selected_rows),
+                selected_columns: nonnegative(selected_columns),
                 row_headers: vec![],
                 column_headers: vec![],
             });
@@ -783,18 +788,14 @@ impl Atspi {
         if supports_interface(interfaces, "Document")
             && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Document").await
         {
-            let locale = bounded(proxy.call::<_, _, String>("GetLocale", &()))
-                .await
-                .ok()
-                .filter(|value| !value.is_empty());
-            let page_index = bounded(proxy.get_property::<i32>("CurrentPageNumber"))
-                .await
-                .ok()
-                .map(i64::from);
-            let page_count = bounded(proxy.get_property::<i32>("PageCount"))
-                .await
-                .ok()
-                .map(i64::from);
+            let (locale, page_index, page_count) = tokio::join!(
+                bounded(proxy.call::<_, _, String>("GetLocale", &())),
+                bounded(proxy.get_property::<i32>("CurrentPageNumber")),
+                bounded(proxy.get_property::<i32>("PageCount"))
+            );
+            let locale = locale.ok().filter(|value| !value.is_empty());
+            let page_index = page_index.ok().map(i64::from);
+            let page_count = page_count.ok().map(i64::from);
             facets.document = Some(UiDocumentFacet {
                 locale,
                 page_index,
@@ -816,13 +817,15 @@ impl Atspi {
         if supports_interface(interfaces, "Image")
             && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.Image").await
         {
-            let description = bounded(proxy.get_property::<String>("ImageDescription"))
-                .await
+            let (description, locale) = tokio::join!(
+                bounded(proxy.get_property::<String>("ImageDescription")),
+                bounded(proxy.get_property::<String>("ImageLocale"))
+            );
+            let description = description
                 .ok()
                 .filter(|value| !value.is_empty())
                 .map(|value| value.chars().take(1024).collect());
-            let locale = bounded(proxy.get_property::<String>("ImageLocale"))
-                .await
+            let locale = locale
                 .ok()
                 .filter(|value| !value.is_empty())
                 .map(|value| value.chars().take(128).collect());
@@ -905,15 +908,20 @@ impl Atspi {
                 }
             };
             let proxy = self.proxy(&c, &object, ACCESSIBLE).await?;
-            let state_bits: Vec<u32> = bounded(proxy.call("GetState", &()))
-                .await
-                .unwrap_or_default();
+            let (state_bits, actions, reported_child_count) = tokio::join!(
+                async {
+                    bounded(proxy.call::<_, _, Vec<u32>>("GetState", &()))
+                        .await
+                        .unwrap_or_default()
+                },
+                self.actions(&c, &object),
+                async { bounded(proxy.get_property::<i32>("ChildCount")).await.ok() }
+            );
             let states = decode_states(&state_bits);
             if states.contains(&"defunct") || states.contains(&"stale") {
                 partial = true;
                 continue;
             }
-            let actions = self.actions(&c, &object).await;
             let target = NativeTarget {
                 kind: "ui".into(),
                 identity: identity.clone(),
@@ -922,8 +930,6 @@ impl Atspi {
                 app: app.clone(),
             };
             known.insert(identity.clone(), target.clone());
-            let reported_child_count: Option<i32> =
-                bounded(proxy.get_property::<i32>("ChildCount")).await.ok();
             let mut children: Vec<Object> = if reported_child_count
                 .and_then(|count| usize::try_from(count).ok())
                 .is_some_and(|count| count > MAX_CHILDREN_PER_NODE)
@@ -948,57 +954,6 @@ impl Atspi {
             let (count, child_count_truncated) =
                 bounded_child_count(reported_child_count, children.len());
             partial |= child_count_truncated;
-            let mut attributes: BTreeMap<String, String> = bounded(
-                proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
-            )
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .take(128)
-            .map(|(key, value)| {
-                (
-                    key.chars().take(128).collect(),
-                    value.chars().take(1024).collect(),
-                )
-            })
-            .collect();
-            let mut help: String = bounded(proxy.get_property::<String>("HelpText"))
-                .await
-                .unwrap_or_default()
-                .chars()
-                .take(1024)
-                .collect();
-            let mut accessibility_id: String =
-                bounded(proxy.get_property::<String>("AccessibleId"))
-                    .await
-                    .unwrap_or_default()
-                    .chars()
-                    .take(512)
-                    .collect();
-            let locale: String = bounded(proxy.get_property::<String>("Locale"))
-                .await
-                .unwrap_or_default()
-                .chars()
-                .take(128)
-                .collect();
-            let interfaces: Vec<String> =
-                bounded(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
-                    .await
-                    .unwrap_or_default()
-                    .into_iter()
-                    .take(64)
-                    .map(|value| value.chars().take(128).collect())
-                    .collect();
-            let relations = self.relations(&c, &object, &app).await;
-            let mut facets = self
-                .facets(&c, &object, &interfaces, &states, &role, count)
-                .await;
-            if facets.document.is_none() && !locale.is_empty() {
-                facets.document = Some(UiDocumentFacet {
-                    locale: Some(locale.clone()),
-                    ..UiDocumentFacet::default()
-                });
-            }
             if depth < max_depth {
                 for child in children.into_iter() {
                     queue.push_back((
@@ -1015,9 +970,109 @@ impl Atspi {
             if actionable && actions.is_empty() && !states.contains(&"editable") {
                 continue;
             }
-            let mut description: String = bounded(proxy.get_property("Description"))
+
+            // Rich metadata reads are independent. Execute them concurrently so one slow
+            // optional interface does not multiply snapshot latency across every node.
+            let attributes_read = async {
+                bounded(
+                    proxy.call::<_, _, std::collections::HashMap<String, String>>(
+                        "GetAttributes",
+                        &(),
+                    ),
+                )
                 .await
-                .unwrap_or_default();
+                .unwrap_or_default()
+                .into_iter()
+                .take(128)
+                .map(|(key, value)| {
+                    (
+                        key.chars().take(128).collect(),
+                        value.chars().take(1024).collect(),
+                    )
+                })
+                .collect::<BTreeMap<String, String>>()
+            };
+            let help_read = async {
+                bounded(proxy.get_property::<String>("HelpText"))
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(1024)
+                    .collect::<String>()
+            };
+            let accessibility_id_read = async {
+                bounded(proxy.get_property::<String>("AccessibleId"))
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(512)
+                    .collect::<String>()
+            };
+            let locale_read = async {
+                bounded(proxy.get_property::<String>("Locale"))
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(128)
+                    .collect::<String>()
+            };
+            let interfaces_read = async {
+                bounded(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .take(64)
+                    .map(|value| value.chars().take(128).collect())
+                    .collect::<Vec<String>>()
+            };
+            let description_read = async {
+                bounded(proxy.get_property::<String>("Description"))
+                    .await
+                    .unwrap_or_default()
+            };
+            let bounds_read = async {
+                match self.proxy(&c, &object, "org.a11y.atspi.Component").await {
+                    Ok(component) => bounded(
+                        component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)),
+                    )
+                    .await
+                    .ok()
+                    .map(|(x, y, width, height)| {
+                        json!({"x":x,"y":y,"width":width,"height":height,
+                            "coordinate_space":"atspi_screen_reported"})
+                    }),
+                    Err(_) => None,
+                }
+            };
+            let (
+                mut attributes,
+                mut help,
+                mut accessibility_id,
+                locale,
+                interfaces,
+                relations,
+                mut description,
+                bounds,
+            ) = tokio::join!(
+                attributes_read,
+                help_read,
+                accessibility_id_read,
+                locale_read,
+                interfaces_read,
+                self.relations(&c, &object, &app),
+                description_read,
+                bounds_read
+            );
+
+            let mut facets = self
+                .facets(&c, &object, &interfaces, &states, &role, count)
+                .await;
+            if facets.document.is_none() && !locale.is_empty() {
+                facets.document = Some(UiDocumentFacet {
+                    locale: Some(locale.clone()),
+                    ..UiDocumentFacet::default()
+                });
+            }
             if role == "password-entry" {
                 name.clear();
                 description.clear();
@@ -1027,18 +1082,6 @@ impl Atspi {
             }
             name = name.chars().take(1024).collect();
             description = description.chars().take(1024).collect();
-            let bounds = match self.proxy(&c, &object, "org.a11y.atspi.Component").await {
-                Ok(component) => {
-                    bounded(component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)))
-                        .await
-                        .ok()
-                        .map(|(x, y, width, height)| {
-                            json!({"x":x,"y":y,"width":width,"height":height,
-                        "coordinate_space":"atspi_screen_reported"})
-                        })
-                }
-                Err(_) => None,
-            };
             let row = json!({
                 "node_id": stable_node_id(&identity),
                 "ref": target_marker(target),
