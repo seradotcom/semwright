@@ -232,14 +232,17 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         ],
         system_config: vec![],
         network: false,
+        // Match the launch-film production sandbox budget. These are ceilings,
+        // not reservations: H.264/MLT can require materially more virtual address
+        // space and worker headroom than the small lossless fixture.
         resources: DriverResources {
-            address_space_bytes: 2_147_483_648,
-            cpu_seconds: 120,
+            address_space_bytes: 4_294_967_296,
+            cpu_seconds: 300,
             file_size_bytes: 1_073_741_824,
-            processes: 64,
-            open_files: 256,
+            processes: 256,
+            open_files: 512,
         },
-        request_timeout_ms: 30_000,
+        request_timeout_ms: 300_000,
         interfaces: DriverInterfaces::default(),
     };
     let grants = vec![
