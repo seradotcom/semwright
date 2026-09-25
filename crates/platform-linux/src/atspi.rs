@@ -19,6 +19,9 @@ type Object = (String, OwnedObjectPath);
 const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
 const APPLICATION: &str = "org.a11y.atspi.Application";
 const ROOT: &str = "/org/a11y/atspi/accessible/root";
+// AtspiRole is a stable protocol enum; PASSWORD_TEXT has value 40.
+// Some toolkits (notably Qt) specialize GetRole without specializing GetRoleName.
+const ATSPI_ROLE_PASSWORD_TEXT: u32 = 40;
 const MAX_CHILDREN_PER_NODE: usize = 2_000;
 const SNAPSHOT_OPTIONAL_BUDGET: Duration = Duration::from_millis(250);
 #[derive(Default)]
@@ -490,11 +493,16 @@ impl Atspi {
         let p = self.proxy(c, o, ACCESSIBLE).await?;
         // These properties are independent D-Bus reads. Keeping them concurrent prevents
         // rich semantic snapshots from multiplying per-node bus latency.
-        let (role, name) = tokio::join!(
+        let (role_name, role_id, name) = tokio::join!(
             bounded(p.call::<_, _, String>("GetRoleName", &())),
+            bounded(p.call::<_, _, u32>("GetRole", &())),
             bounded(p.get_property::<String>("Name"))
         );
-        let role = normalize_role(&role?);
+        let role = if role_id? == ATSPI_ROLE_PASSWORD_TEXT {
+            "password-entry".to_owned()
+        } else {
+            normalize_role(&role_name?)
+        };
         let name = name?;
         let fingerprint = format!("{role}:{name}");
         Ok((role, name, fingerprint))
