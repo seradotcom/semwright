@@ -3,10 +3,7 @@
 Frozen implementation baseline: `a14abd8328e092a8227584750e47c38a77449ffa`.
 That baseline remains the historical snapshot recorded in `SEMWRIGHT_SNAPSHOT.md`; it is not rewritten after implementation.
 
-During final PR integration, the branch received merge commit `9ecde7c` with
-`origin/main` parent `3a048cdde7f531811b7ffb7e126ad24346d6cd3a`. This is a final integration
-merge, not a moving-baseline change. It brought newer shared Driver SDK/Host,
-video-domain and other already-integrated repository work into the PR.
+During PR integration the branch incorporated already-merged shared work without changing the frozen implementation baseline. The final reconciliation before closeout is merge commit `f25bd3db67c488cf76419927e2aa5977df1abaca` with `origin/main` parent `f2f3ec470f95c2010df89a61d4835afe5c4926a1`. The only merge conflict was additive in `fuzz/Cargo.toml`: the resolution retains all six Motion Canvas fuzz targets and also keeps main's `godot_substrate_schema` target. This is an integration merge, not a moving-baseline change.
 
 The integrated Driver SDK keeps manifest version 1 and accepts Driver Protocol
 versions 1 through 2. The Motion Canvas manifest deliberately requests protocol 1
@@ -29,4 +26,3 @@ ephemeral GitHub Actions runners.
 
 The integration is maintained in PR #49. This mission may push and iterate that
 branch but does not merge the PR.
-A second and final integration refresh was required before certification because `main` advanced to `73ad946379ee4679280d7b80ba0ef602f3f5c6f8` with Windows platformization, artifact handoff, Godot and other already-merged work. The conflict resolution uses current `main` as the base for shared SDK/Host/platform files and reapplies only Motion Canvas-proven generic deltas: explicit read-only executable mounts, Landlock rules for authorized bind-mounted roots and the Motion Canvas fuzz registrations. The historical `BASELINE_SHA` remains unchanged.
