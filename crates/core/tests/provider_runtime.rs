@@ -278,6 +278,7 @@ impl Fixture {
 
     async fn call_in_session(&self, session: &str, suffix: &str, args: Value) -> Envelope {
         self.broker
+            .clone()
             .execute(
                 unique_id(),
                 session.to_owned(),
