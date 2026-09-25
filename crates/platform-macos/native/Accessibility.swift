@@ -143,6 +143,101 @@ private let observe:AXObserverCallback={_,element,notification,_ in
         }
         return["windows":rows,"partial":partial]
     }
+    func inspect(_ r:SWRequest)throws->[String:Any]{
+        try requireAX()
+        let t=try resolve(r.args)
+        try require(t.stamp.kind=="ui" || t.stamp.kind=="win","StaleReference","Semantic UI ref required")
+        guard let e=t.value,let app=NSRunningApplication(processIdentifier:t.pid),app.launchDate != nil else{
+            throw SWFailure(code:"StaleReference",message:"Accessibility object disappeared")
+        }
+        let raw=try axString(e,kAXRoleAttribute,limit:80)
+        let secure=axSecure(e)
+        var actions:[String]=[]
+        if !secure {
+            var names:CFArray?
+            if AXUIElementCopyActionNames(e,&names) == .success,let values=names as? [String]{
+                if values.contains(kAXPressAction){actions.append("click")}
+                if values.contains(kAXIncrementAction){actions.append("increment")}
+                if values.contains(kAXDecrementAction){actions.append("decrement")}
+                if values.contains(kAXShowMenuAction){actions.append("show_menu")}
+            }
+        }
+        let name=secure ? "" : ((try? axString(e,kAXTitleAttribute,limit:1024)) ?? "")
+        let description=secure ? "" : ((try? axString(e,kAXDescriptionAttribute,limit:1024)) ?? "")
+        let help=secure ? "" : ((try? axString(e,kAXHelpAttribute,limit:1024)) ?? "")
+        let accessibilityID=secure ? "" : ((try? axString(e,kAXIdentifierAttribute,limit:512)) ?? "")
+        let subrole=(try? axString(e,kAXSubroleAttribute,limit:128)) ?? ""
+        var attributes:[String:String]=["ax_role":raw]
+        if !subrole.isEmpty{attributes["ax_subrole"]=subrole}
+        let childCount=axArrayCount(e,kAXChildrenAttribute) ?? 0
+        var facets:[String:Any]=[:]
+        if secure {
+            facets["text"]=[
+                "editable":axBool(e,kAXIsEditableAttribute),
+                "password":true,
+            ]
+        } else if let count=axOptionalNumber(e,kAXNumberOfCharactersAttribute){
+            facets["text"]=[
+                "character_count":max(0,Int(count)),
+                "selection_count":axArrayCount(e,kAXSelectedTextRangesAttribute) as Any,
+                "editable":axBool(e,kAXIsEditableAttribute),
+                "password":false,
+            ]
+        }
+        if !secure,let current=axOptionalNumber(e,kAXValueAttribute){
+            var value:[String:Any]=["current":current]
+            if let minimum=axOptionalNumber(e,kAXMinValueAttribute){value["minimum"]=minimum}
+            if let maximum=axOptionalNumber(e,kAXMaxValueAttribute){value["maximum"]=maximum}
+            if let increment=axOptionalNumber(e,kAXValueIncrementAttribute){value["increment"]=increment}
+            facets["value"]=value
+        }
+        let selectedChildren=axArrayCount(e,kAXSelectedChildrenAttribute)
+        if selectedChildren != nil || axBool(e,kAXSelectedAttribute){
+            var selection:[String:Any]=["selected":axBool(e,kAXSelectedAttribute),"child_count":min(childCount,2000)]
+            if let selectedChildren=selectedChildren{selection["selected_count"]=selectedChildren}
+            facets["selection"]=selection
+        }
+        if raw=="AXWindow"{
+            facets["window"]=[
+                "modal":axBool(e,kAXModalAttribute),
+                "minimized":axBool(e,kAXMinimizedAttribute),
+            ]
+            facets["transform"]=[
+                "can_move":axSettable(e,kAXPositionAttribute) as Any,
+                "can_resize":axSettable(e,kAXSizeAttribute) as Any,
+            ]
+        }
+        var relations:[[String:Any]]=[]
+        if let labelRaw=try? axRaw(e,kAXTitleUIElementAttribute),
+           let label=try? axElement(labelRaw),
+           let labelStamp=try? self.stamp("ui",app,label){
+            relations.append(["kind":"labelled_by","targets":[["$ref":labelStamp.json]]])
+        }
+        var node:[String:Any]=[
+            "ref":["$ref":t.stamp.json],
+            "role":Semantic.role(raw),
+            "name":name,
+            "description":description,
+            "help":help,
+            "accessibility_id":accessibilityID,
+            "framework":"appkit-ax",
+            "attributes":attributes,
+            "relations":relations,
+            "facets":facets,
+            "states":Semantic.states(enabled:axBool(e,kAXEnabledAttribute),focused:axBool(e,kAXFocusedAttribute),selected:axBool(e,kAXSelectedAttribute),expanded:axBool(e,kAXExpandedAttribute)),
+            "actions":actions,
+            "app":appID(app),
+            "parent_ref":NSNull(),
+            "bounds":NSNull(),
+            "children_count":min(childCount,2000),
+        ]
+        if let b=try? axBounds(e){node["bounds"]=b.json}
+        return[
+            "node":node,
+            "semantic_coverage":"exact_ref",
+        ]
+    }
+
     func hitTest(_ r:SWRequest)throws->[String:Any]{
         try requireAX()
         let x=try number(r.args["x"],default:0,range:-1_000_000...1_000_000)

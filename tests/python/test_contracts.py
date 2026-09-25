@@ -14,7 +14,7 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_command_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 119)
+        self.assertEqual(len(COMMANDS), 120)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):

@@ -5,13 +5,14 @@ use crate::{
 use semwright_backend_api::ProviderSignal;
 use semwright_platform_windows_sys::window::process_creation_time;
 use semwright_types::{
-    Error, ErrorCode, NativeTarget, Result, UiFacets, UiImageFacet, UiScrollFacet,
-    UiSelectionFacet, UiTableFacet, UiTextFacet, UiTransformFacet, UiValueFacet, UiWindowFacet,
+    Error, ErrorCode, NameOp, NativeTarget, Result, Selector, UiFacets, UiImageFacet,
+    UiScrollFacet, UiSelectionFacet, UiTableFacet, UiTextFacet, UiTransformFacet, UiValueFacet,
+    UiWindowFacet,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -103,7 +104,14 @@ enum Call {
     Toggle(NativeTarget, mpsc::Sender<Result<Value>>),
     Select(NativeTarget, usize, mpsc::Sender<Result<Value>>),
     Expand(NativeTarget, bool, mpsc::Sender<Result<Value>>),
-    Snapshot(Option<NativeTarget>, mpsc::Sender<Result<Value>>),
+    Snapshot(
+        Option<NativeTarget>,
+        usize,
+        usize,
+        mpsc::Sender<Result<Value>>,
+    ),
+    FindCandidates(Box<Selector>, usize, usize, mpsc::Sender<Result<Value>>),
+    Inspect(NativeTarget, mpsc::Sender<Result<Value>>),
     HitTest(i32, i32, mpsc::Sender<Result<Value>>),
     Validate(NativeTarget, mpsc::Sender<Result<Value>>),
     Focused(NativeTarget, mpsc::Sender<Result<Value>>),
@@ -116,6 +124,133 @@ fn bounded(s: String) -> String {
     } else {
         s.chars().take(MAX_TEXT).collect()
     }
+}
+
+pub fn selector_has_pushdown(selector: &Selector) -> bool {
+    selector
+        .app
+        .as_deref()
+        .and_then(|value| value.strip_prefix("pid:"))
+        .and_then(|value| value.parse::<u32>().ok())
+        .is_some()
+        || selector.role.is_some()
+        || selector
+            .name
+            .as_ref()
+            .is_some_and(|matcher| matches!(&matcher.op, NameOp::Exact))
+        || selector
+            .help
+            .as_ref()
+            .is_some_and(|matcher| matches!(&matcher.op, NameOp::Exact))
+        || selector.framework.is_some()
+        || selector
+            .states
+            .iter()
+            .any(|state| matches!(state.as_str(), "enabled" | "focused" | "password"))
+        || selector
+            .attributes
+            .keys()
+            .any(|key| matches!(key.as_str(), "class" | "item_status"))
+}
+
+fn possible_selector_match(element: &UIElement, selector: &Selector) -> bool {
+    if let Some(wanted_pid) = selector
+        .app
+        .as_deref()
+        .and_then(|value| value.strip_prefix("pid:"))
+        .and_then(|value| value.parse::<u32>().ok())
+        && let Ok(actual_pid) = element.get_process_id()
+        && actual_pid != wanted_pid
+    {
+        return false;
+    }
+
+    if let Some(wanted) = selector.role.as_deref()
+        && let Ok(control) = element.get_control_type()
+        && semantic_role(control) != wanted
+    {
+        return false;
+    }
+
+    let password = element.is_password().ok();
+    if let Some(matcher) = selector.name.as_ref()
+        && matches!(&matcher.op, NameOp::Exact)
+    {
+        match password {
+            Some(true) if !matcher.value.is_empty() => return false,
+            Some(true) => {}
+            Some(false) => {
+                if let Ok(actual) = element.get_name()
+                    && actual != matcher.value
+                {
+                    return false;
+                }
+            }
+            None => {}
+        }
+    }
+
+    if let Some(matcher) = selector.help.as_ref()
+        && matches!(&matcher.op, NameOp::Exact)
+    {
+        match password {
+            Some(true) if !matcher.value.is_empty() => return false,
+            Some(true) => {}
+            Some(false) => {
+                if let Ok(actual) = element.get_help_text()
+                    && actual != matcher.value
+                {
+                    return false;
+                }
+            }
+            None => {}
+        }
+    }
+
+    if let Some(wanted) = selector.framework.as_deref()
+        && let Ok(actual) = element.get_framework_id()
+        && actual != wanted
+    {
+        return false;
+    }
+
+    for state in &selector.states {
+        match state.as_str() {
+            "enabled" => {
+                if let Ok(false) = element.is_enabled() {
+                    return false;
+                }
+            }
+            "focused" => {
+                if let Ok(false) = element.has_keyboard_focus() {
+                    return false;
+                }
+            }
+            "password" if password == Some(false) => return false,
+            "password" => {}
+            _ => {}
+        }
+    }
+
+    if let Some(wanted) = selector.attributes.get("class")
+        && let Ok(actual) = element.get_classname()
+        && actual != *wanted
+    {
+        return false;
+    }
+
+    if let Some(wanted) = selector.attributes.get("item_status") {
+        if password == Some(true) {
+            return false;
+        }
+        if let Ok(actual) = element.get_item_status()
+            && actual != *wanted
+        {
+            return false;
+        }
+    }
+
+    true
 }
 
 fn digest_stamp(stamp: &Stamp) -> String {
@@ -547,8 +682,10 @@ impl State {
         depth: usize,
         count: &mut usize,
         deadline: Instant,
+        max_nodes: usize,
+        max_depth: usize,
     ) -> Result<Value> {
-        if depth > MAX_DEPTH || *count >= MAX_NODES || Instant::now() >= deadline {
+        if depth > max_depth || *count >= max_nodes || Instant::now() >= deadline {
             return Ok(json!({"truncated": true}));
         }
         *count += 1;
@@ -566,15 +703,21 @@ impl State {
         )?;
         let rect = element.get_bounding_rectangle().ok();
         let mut children = Vec::new();
-        if depth < MAX_DEPTH
-            && *count < MAX_NODES
-            && Instant::now() < deadline
+        let mut direct_children = 0usize;
+        if Instant::now() < deadline
             && let Ok(mut child) = self.walker.get_first_child(&element)
         {
             for _ in 0..MAX_CHILDREN {
-                children.push(self.node(child.clone(), depth + 1, count, deadline)?);
-                if *count >= MAX_NODES || Instant::now() >= deadline {
-                    break;
+                direct_children += 1;
+                if depth < max_depth && *count < max_nodes && Instant::now() < deadline {
+                    children.push(self.node(
+                        child.clone(),
+                        depth + 1,
+                        count,
+                        deadline,
+                        max_nodes,
+                        max_depth,
+                    )?);
                 }
                 match self.walker.get_next_sibling(&child) {
                     Ok(next) => child = next,
@@ -673,6 +816,7 @@ impl State {
                 "height":r.get_height(),
                 "coordinate_space":"windows_virtual_desktop"
             })),
+            "children_count": direct_children,
             "children": children,
         }))
     }
@@ -707,10 +851,16 @@ impl State {
             .remove("children")
             .and_then(|value| value.as_array().cloned())
             .unwrap_or_default();
+        let direct_children = object
+            .remove("children_count")
+            .and_then(|value| value.as_u64())
+            .and_then(|value| usize::try_from(value).ok())
+            .unwrap_or(children.len())
+            .min(2_000);
         let reference_marker = json!({"$ref": target.clone()});
         object.insert("ref".into(), reference_marker.clone());
         object.insert("parent_ref".into(), parent.unwrap_or(Value::Null));
-        object.insert("children_count".into(), json!(children.len()));
+        object.insert("children_count".into(), json!(direct_children));
         nodes.push(Value::Object(object));
         for child in children {
             Self::flatten_snapshot_node(child, Some(reference_marker.clone()), nodes, partial)?;
@@ -718,7 +868,113 @@ impl State {
         Ok(())
     }
 
-    fn snapshot(&mut self, target: Option<NativeTarget>) -> Result<Value> {
+    fn find_candidates(
+        &mut self,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Value> {
+        let max_nodes = max_nodes.clamp(1, MAX_NODES);
+        let max_depth = max_depth.min(MAX_DEPTH);
+        let deadline = Instant::now() + SNAPSHOT_BUDGET;
+        let root = self
+            .automation
+            .get_root_element()
+            .map_err(|e| uia_error(e, "UIA desktop root unavailable"))?;
+        let mut queue = VecDeque::from([(root, 0usize)]);
+        let mut nodes = Vec::new();
+        let mut visited = 0usize;
+        let mut partial = false;
+
+        while let Some((element, depth)) = queue.pop_front() {
+            if visited >= max_nodes || Instant::now() >= deadline {
+                partial = true;
+                break;
+            }
+            visited += 1;
+
+            if possible_selector_match(&element, selector) {
+                let parent = self
+                    .walker
+                    .get_parent(&element)
+                    .ok()
+                    .and_then(|parent| {
+                        let kind = if parent
+                            .get_control_type()
+                            .ok()
+                            .is_some_and(|control| semantic_role(control) == "window")
+                        {
+                            "win"
+                        } else {
+                            "ui"
+                        };
+                        self.remember(parent, kind).ok()
+                    })
+                    .map(|target| json!({"$ref": target}));
+                let mut projected_count = 0usize;
+                match self.node(element.clone(), 0, &mut projected_count, deadline, 1, 0) {
+                    Ok(node) => {
+                        let mut projection_partial = false;
+                        Self::flatten_snapshot_node(
+                            node,
+                            parent,
+                            &mut nodes,
+                            &mut projection_partial,
+                        )?;
+                        partial |= projection_partial;
+                    }
+                    Err(error)
+                        if matches!(
+                            error.code,
+                            ErrorCode::StaleReference
+                                | ErrorCode::BackendFailed
+                                | ErrorCode::Timeout
+                        ) =>
+                    {
+                        partial = true;
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+
+            if depth < max_depth {
+                if let Ok(mut child) = self.walker.get_first_child(&element) {
+                    for index in 0..MAX_CHILDREN {
+                        queue.push_back((child.clone(), depth + 1));
+                        match self.walker.get_next_sibling(&child) {
+                            Ok(next) if index + 1 == MAX_CHILDREN => {
+                                let _ = next;
+                                partial = true;
+                                break;
+                            }
+                            Ok(next) => child = next,
+                            Err(_) => break,
+                        }
+                    }
+                }
+            } else if self.walker.get_first_child(&element).is_ok() {
+                partial = true;
+            }
+        }
+        if !queue.is_empty() {
+            partial = true;
+        }
+
+        Ok(json!({
+            "nodes": nodes,
+            "partial": partial,
+            "revision": self.next_revision,
+            "semantic_coverage": "native_candidate_pushdown",
+            "visited": visited
+        }))
+    }
+
+    fn snapshot(
+        &mut self,
+        target: Option<NativeTarget>,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Value> {
         let root = match target {
             Some(t) => self.resolve(&t)?,
             None => self
@@ -726,16 +982,44 @@ impl State {
                 .get_root_element()
                 .map_err(|e| uia_error(e, "UIA desktop root unavailable"))?,
         };
+        let max_nodes = max_nodes.clamp(1, MAX_NODES);
+        let max_depth = max_depth.min(MAX_DEPTH);
         let mut count = 0usize;
         let deadline = Instant::now() + SNAPSHOT_BUDGET;
-        let tree = self.node(root, 0, &mut count, deadline)?;
-        let mut nodes = Vec::with_capacity(count.min(MAX_NODES));
-        let mut partial = count >= MAX_NODES || Instant::now() >= deadline;
+        let tree = self.node(root, 0, &mut count, deadline, max_nodes, max_depth)?;
+        let mut nodes = Vec::with_capacity(count.min(max_nodes));
+        let mut partial = count >= max_nodes || Instant::now() >= deadline;
         Self::flatten_snapshot_node(tree, None, &mut nodes, &mut partial)?;
         Ok(json!({
             "nodes": nodes,
             "partial": partial,
             "revision": self.next_revision
+        }))
+    }
+
+    fn inspect(&mut self, target: NativeTarget) -> Result<Value> {
+        let element = self.resolve(&target)?;
+        let mut count = 0usize;
+        let tree = self.node(
+            element,
+            0,
+            &mut count,
+            Instant::now() + Duration::from_millis(250),
+            1,
+            0,
+        )?;
+        let mut nodes = Vec::with_capacity(1);
+        let mut partial = false;
+        Self::flatten_snapshot_node(tree, None, &mut nodes, &mut partial)?;
+        let node = nodes.into_iter().next().ok_or_else(|| {
+            Error::new(
+                ErrorCode::NotFound,
+                "UIA reference did not produce a semantic node",
+            )
+        })?;
+        Ok(json!({
+            "node": node,
+            "semantic_coverage": "exact_ref"
         }))
     }
 
@@ -747,9 +1031,11 @@ impl State {
         let mut count = 0usize;
         let tree = self.node(
             element,
-            MAX_DEPTH,
+            0,
             &mut count,
             Instant::now() + Duration::from_millis(250),
+            1,
+            0,
         )?;
         let mut nodes = Vec::with_capacity(1);
         let mut partial = false;
@@ -1016,8 +1302,24 @@ impl UiaActor {
     pub fn expand(&self, t: NativeTarget, v: bool) -> Result<Value> {
         self.request(|r| Call::Expand(t, v, r))
     }
-    pub fn snapshot(&self, t: Option<NativeTarget>) -> Result<Value> {
-        self.request(|r| Call::Snapshot(t, r))
+    pub fn snapshot(
+        &self,
+        t: Option<NativeTarget>,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Value> {
+        self.request(|r| Call::Snapshot(t, max_nodes, max_depth, r))
+    }
+    pub fn find_candidates(
+        &self,
+        selector: Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Value> {
+        self.request(|r| Call::FindCandidates(Box::new(selector), max_nodes, max_depth, r))
+    }
+    pub fn inspect(&self, t: NativeTarget) -> Result<Value> {
+        self.request(|r| Call::Inspect(t, r))
     }
     pub fn hit_test(&self, x: i32, y: i32) -> Result<Value> {
         self.request(|r| Call::HitTest(x, y, r))
@@ -1060,8 +1362,14 @@ fn dispatch(state: &mut State, call: Call) {
         Call::Expand(t, v, r) => {
             let _ = r.send(state.expand(&t, v));
         }
-        Call::Snapshot(t, r) => {
-            let _ = r.send(state.snapshot(t));
+        Call::Snapshot(t, max_nodes, max_depth, r) => {
+            let _ = r.send(state.snapshot(t, max_nodes, max_depth));
+        }
+        Call::FindCandidates(selector, max_nodes, max_depth, r) => {
+            let _ = r.send(state.find_candidates(selector.as_ref(), max_nodes, max_depth));
+        }
+        Call::Inspect(t, r) => {
+            let _ = r.send(state.inspect(t));
         }
         Call::HitTest(x, y, r) => {
             let _ = r.send(state.hit_test(x, y));
@@ -1096,12 +1404,39 @@ mod tests {
         }
     }
 
+    fn selector(value: Value) -> Selector {
+        serde_json::from_value(value).expect("selector")
+    }
+
+    #[test]
+    fn candidate_pushdown_only_uses_exact_safe_predicates() {
+        assert!(!selector_has_pushdown(&selector(json!({
+            "name": {"op": "regex", "value": "Save.*"},
+            "query": "save button"
+        }))));
+        assert!(!selector_has_pushdown(&selector(json!({
+            "facet": "table",
+            "states": ["visible"]
+        }))));
+        assert!(selector_has_pushdown(&selector(json!({
+            "name": {"op": "exact", "value": "Save"}
+        }))));
+        assert!(selector_has_pushdown(&selector(json!({
+            "framework": "WinUI",
+            "states": ["enabled"]
+        }))));
+        assert!(selector_has_pushdown(&selector(json!({
+            "app": "pid:42"
+        }))));
+    }
+
     #[test]
     fn flatten_snapshot_uses_portable_ref_markers() {
         let tree = json!({
             "$ref": target("uia:root"),
             "role": "window",
             "name": "Root",
+            "children_count": 7,
             "children": [{
                 "$ref": target("uia:child"),
                 "role": "button",
@@ -1117,6 +1452,7 @@ mod tests {
         assert!(nodes[0].get("$ref").is_none());
         assert_eq!(nodes[0]["ref"]["$ref"]["identity"], "uia:root");
         assert_eq!(nodes[0]["parent_ref"], Value::Null);
+        assert_eq!(nodes[0]["children_count"], 7);
         assert_eq!(nodes[1]["parent_ref"]["$ref"]["identity"], "uia:root");
         assert_eq!(nodes[1]["ref"]["$ref"]["identity"], "uia:child");
     }

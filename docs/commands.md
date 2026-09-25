@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-119 built-in descriptors. A descriptor is not proof of live backend support.
+120 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -32,6 +32,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos, windows |
 | `ui.find` | `ui.observe` | read_only | 10000 ms | core |
 | `ui.hit_test` | `ui.observe` | read_only | 3000 ms | atspi, macos, windows |
+| `ui.inspect` | `ui.observe` | read_only | 5000 ms | atspi, macos, windows |
 | `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos, windows |
@@ -806,6 +807,29 @@ Idempotency: `read_only`. Dry run: `true`.
   "required": [
     "x",
     "y"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `ui.inspect`
+
+Inspect one exact live semantic UI reference without traversing descendants.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
   ],
   "additionalProperties": false
 }

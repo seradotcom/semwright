@@ -8,7 +8,9 @@ pub mod uia;
 use async_trait::async_trait;
 use semwright_backend_api::{Backend, Context, ProviderSignal, feature};
 use semwright_platform_windows_sys::{capture, clipboard, input, window};
-use semwright_types::{CapabilityStatus, Error, ErrorCode, Feature, NativeTarget, Result};
+use semwright_types::{
+    CapabilityStatus, Error, ErrorCode, Feature, NativeTarget, Result, Selector,
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -28,6 +30,7 @@ pub const COMMANDS: &[&str] = &[
     "window.close",
     "ui.snapshot",
     "ui.hit_test",
+    "ui.inspect",
     "ui.invoke",
     "ui.set_text",
     "ui.read_text",
@@ -278,6 +281,22 @@ impl Backend for Windows {
         }).collect()
     }
 
+    async fn find_ui_candidates(
+        &self,
+        ctx: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        ctx.check_cancelled()?;
+        if !uia::selector_has_pushdown(selector) {
+            return Ok(None);
+        }
+        self.uia
+            .find_candidates(selector.clone(), max_nodes, max_depth)
+            .map(Some)
+    }
+
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
         ctx.check_cancelled()?;
         if !self.supports(command) {
@@ -316,7 +335,16 @@ impl Backend for Windows {
             "ui.snapshot" => self.uia.snapshot(
                 args.get("_target")
                     .and_then(|v| serde_json::from_value(v.clone()).ok()),
+                args.get("max_nodes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(200)
+                    .min(2_000) as usize,
+                args.get("max_depth")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(5)
+                    .min(32) as usize,
             ),
+            "ui.inspect" => self.uia.inspect(target(args)?),
             "ui.hit_test" => {
                 let x = args
                     .get("x")
