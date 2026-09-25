@@ -1,0 +1,30 @@
+version: 1
+name: launch-film-source-check
+description: Validate and plan the managed Semwright launch-film source. Long-running render polling and cross-provider final assembly use the bounded demo orchestrator because recipe v1 has no loop/job-wait primitive.
+steps:
+  - id: inspect
+    command: driver.motion-canvas.project.inspect
+    timeout_ms: 10000
+  - id: validate
+    command: driver.motion-canvas.project.validate
+    timeout_ms: 10000
+  - id: render_plan
+    command: driver.motion-canvas.render.plan
+    args:
+      profile:
+        first_frame: 0
+        end_frame_exclusive: 1560
+        scale: full
+        transparent: false
+        timeout_ms: 300000
+    timeout_ms: 10000
+outputs:
+  project:
+    kind: object
+    value: {$var: /steps/inspect/project}
+  fingerprint:
+    kind: string
+    value: {$var: /steps/inspect/fingerprint}
+  plan:
+    kind: object
+    value: {$var: /steps/render_plan}

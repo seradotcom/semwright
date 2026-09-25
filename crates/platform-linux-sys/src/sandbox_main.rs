@@ -28,7 +28,8 @@ fn bounded_limit(
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
-    let mut writable = vec!["/tmp".to_owned()];
+    let mut writable = vec!["/tmp".to_owned(), "/dev/shm".to_owned()];
+    let mut readable: Vec<(String, bool)> = Vec::new();
     let mut seen = BTreeSet::new();
     let mut nofile = 128u64;
     let mut nproc = 32u64;
@@ -45,6 +46,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     return Err("invalid sandbox root".into());
                 }
                 writable.push(path);
+            }
+            "--read-root" => {
+                let path = args.next().ok_or("read root missing")?;
+                if !(path.starts_with("/workspace/") || path.starts_with("/etc/"))
+                    || path.contains("..")
+                    || path.contains('\0')
+                {
+                    return Err("invalid sandbox read root".into());
+                }
+                readable.push((path, false));
+            }
+            "--exec-root" => {
+                let path = args.next().ok_or("exec root missing")?;
+                if !path.starts_with("/workspace/") || path.contains("..") || path.contains('\0') {
+                    return Err("invalid sandbox exec root".into());
+                }
+                readable.push((path, true));
             }
             "--limit-nofile" => {
                 if !seen.insert(argument.clone()) {
@@ -117,35 +135,65 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let abi = ABI::V3;
     let all = AccessFs::from_all(abi);
-    let read = AccessFs::from_read(abi);
+    // AccessFs::from_read() includes Execute. Driver mount execution is an
+    // explicit capability, so generic data roots must use a no-exec read set.
+    let read_only = AccessFs::ReadFile | AccessFs::ReadDir;
+    let read_exec = read_only | AccessFs::Execute;
+    let read_write_noexec = read_only | AccessFs::from_write(abi);
     let mut ruleset = Ruleset::default()
         .set_compatibility(CompatLevel::HardRequirement)
         .handle_access(all)?
         .create()?;
-    for path in [
-        "/usr",
-        "/lib",
-        "/lib64",
-        "/etc",
-        "/plugin",
-        "/workspace",
-        "/run/secrets",
-        "/dev",
-        "/proc",
+
+    // System binaries and ELF interpreters remain executable. Other broad
+    // roots are readable only; /workspace permissions come solely from the
+    // explicit SandboxSpec mounts below.
+    for (path, access) in [
+        ("/usr", read_exec),
+        ("/lib", read_exec),
+        ("/lib64", read_exec),
+        ("/etc", read_only),
+        ("/plugin", read_only),
+        ("/run/secrets", read_only),
+        ("/dev", read_only),
+        ("/proc", read_only),
     ] {
         if Path::new(path).exists() {
-            ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, read))?;
+            ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, access))?;
         }
     }
-    // Child processes commonly redirect stdout/stderr through Stdio::null(), which opens
-    // /dev/null for writing. Grant that single device write access while keeping the rest
-    // of /dev under the read-only rule above.
+
+    // The staged, digest-verified driver is the only executable below /plugin.
+    ruleset = ruleset.add_rule(PathBeneath::new(
+        PathFd::new("/plugin/bin")?,
+        AccessFs::Execute | AccessFs::ReadFile,
+    ))?;
+
+    // Bind mounts are separate Landlock hierarchies. Read-only data mounts do
+    // not get Execute; only a manifest mount with execute=true receives it.
+    for (path, execute) in readable {
+        let is_dir = Path::new(&path).is_dir();
+        let access = match (is_dir, execute) {
+            (true, true) => read_exec,
+            (false, true) => AccessFs::Execute | AccessFs::ReadFile,
+            (true, false) => read_only,
+            (false, false) => AccessFs::ReadFile.into(),
+        };
+        ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(&path)?, access))?;
+    }
+
+    // Stdio::null() opens /dev/null for writing. Keep every other device node
+    // non-writable, apart from the private /dev/shm tmpfs admitted below.
     ruleset = ruleset.add_rule(PathBeneath::new(
         PathFd::new("/dev/null")?,
         AccessFs::ReadFile | AccessFs::WriteFile,
     ))?;
+
+    // Writable project/output/tmp roots are intentionally non-executable.
+    // Platform mount validation already forbids write+execute; Landlock mirrors
+    // that contract instead of accidentally granting Execute via from_all().
     for path in writable {
-        ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, all))?;
+        ruleset = ruleset.add_rule(PathBeneath::new(PathFd::new(path)?, read_write_noexec))?;
     }
     let status = ruleset.restrict_self()?;
     if status.ruleset != RulesetStatus::FullyEnforced {
@@ -165,5 +213,10 @@ mod tests {
         assert!(bounded_limit(Some("31".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("1025".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("not-a-number".into()), 32, 1024).is_err());
+        assert_eq!(
+            bounded_limit(Some("4294967296".into()), 134_217_728, 4_294_967_296).unwrap(),
+            4_294_967_296
+        );
+        assert!(bounded_limit(Some("4294967297".into()), 134_217_728, 4_294_967_296).is_err());
     }
 }

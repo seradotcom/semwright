@@ -1,0 +1,232 @@
+name: Motion Canvas launch film
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/motion-canvas-driver]
+    paths:
+      - '.github/workflows/motion-canvas-launch-film.yml'
+      - 'demos/launch-film/.ci-trigger'
+permissions:
+  contents: read
+concurrency:
+  group: motion-canvas-launch-film-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  PLAYWRIGHT_BROWSERS_PATH: '0'
+
+jobs:
+  launch-film:
+    runs-on: ubuntu-24.04
+    # Full 1080p MLT software encode uses CRF 18 / veryfast. H.264 runs the MLT
+    # consumer synchronously (real_time=0) with two bounded libx264 encoder threads.
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: motion-canvas-launch-film
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Install system render dependencies on ephemeral runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap melt ffmpeg
+      - name: Enable Bubblewrap user namespaces with scoped AppArmor profile
+        run: |
+          sudo apt-get install -y apparmor-profiles apparmor-utils
+          PROFILE=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+          test -f "$PROFILE"
+          cp "$PROFILE" "$RUNNER_TEMP/bwrap-userns-restrict"
+          # Ubuntu 24.04's extra profile predates the upstream mediate_deleted fix.
+          # Keep userns restriction enabled; update only the scoped bwrap profile.
+          python3 - "$RUNNER_TEMP/bwrap-userns-restrict" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text()
+          old = "flags=(attach_disconnected)"
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f"unexpected bwrap AppArmor profile shape: {count} flag matches")
+          text = text.replace(old, "flags=(attach_disconnected,mediate_deleted)")
+          # Specialize only this ephemeral CI profile for Semwright's exact
+          # Driver Host chain.  The first bwrap exec drops into the stacked
+          # unprivileged profile; all later tool execs inherit that confinement
+          # instead of attempting a second transition under no_new_privs.
+          parent = "allow px /** -> bwrap//&unpriv_bwrap,"
+          nested = "allow pix /** -> &unpriv_bwrap,"
+          parent_rules = "\n".join([
+              "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
+              "  allow ix /tmp/**,",
+          ])
+          child_rules = "\n".join([
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
+              "  allow ix /tmp/**,",
+          ])
+          if text.count(parent) != 1 or text.count(nested) != 1:
+              raise SystemExit("unexpected bwrap AppArmor exec-rule shape")
+          text = text.replace("  " + parent, parent_rules)
+          text = text.replace("  " + nested, child_rules)
+          path.write_text(text)
+          PY
+          sudo install -m 0644 "$RUNNER_TEMP/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
+          test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo 1)" != "0"
+          # The exact chained probe below replaces a generic bwrap→/usr/bin/true smoke:
+          # this profile intentionally permits only the Semwright Driver Host exec chain.
+          # Model the Driver Host exec depth before installing browsers: bwrap
+          # starts the staged sandbox helper, which execs the staged driver,
+          # which then execs a runtime tool under the same stacked profile.
+          rm -rf "$RUNNER_TEMP/aa-exec-probe"
+          mkdir -p "$RUNNER_TEMP/aa-exec-probe/runtime"
+          SETPRIV=$(command -v setpriv)
+          test -x "$SETPRIV"
+          cp "$SETPRIV" "$RUNNER_TEMP/aa-exec-probe/sandbox"
+          cp /bin/sh "$RUNNER_TEMP/aa-exec-probe/driver"
+          cp /usr/bin/true "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
+          chmod 0755 "$RUNNER_TEMP/aa-exec-probe/sandbox" "$RUNNER_TEMP/aa-exec-probe/driver" "$RUNNER_TEMP/aa-exec-probe/runtime/tool"
+          probe=(bwrap --unshare-all --clearenv --proc /proc --dev /dev --tmpfs /tmp \
+            --dir /home --dir /workspace --dir /plugin --dir /etc)
+          for root in /usr /lib /lib64; do
+            if test -e "$root"; then probe+=(--ro-bind "$root" "$root"); fi
+          done
+          if test -f /etc/ld.so.cache; then
+            probe+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          fi
+          probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/sandbox" /plugin/sandbox)
+          probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/driver" /plugin/bin)
+          probe+=(--ro-bind "$RUNNER_TEMP/aa-exec-probe/runtime" /workspace/runtime)
+          probe+=(--setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8)
+          "${probe[@]}" -- /plugin/sandbox --no-new-privs /plugin/bin -c '/workspace/runtime/tool && /usr/bin/true'
+      - name: Install exact Motion Canvas runtime without package scripts
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          npm ci --ignore-scripts
+          npx --no-install playwright install --with-deps firefox
+      - name: Pin Motion Canvas runtime tools by digest
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          mkdir -p .semwright-tools
+          cp "$(command -v node)" .semwright-tools/node
+          chmod 0755 .semwright-tools/node
+          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/firefox-*/firefox/firefox' -type f -perm -111 -print)
+          test "${#BROWSERS[@]}" -eq 1
+          BROWSER="${BROWSERS[0]}"
+          BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
+          NODE_SHA=$(sha256sum .semwright-tools/node | awk '{print $1}')
+          HELPER_SHA=$(sha256sum render.mjs | awk '{print $1}')
+          BROWSER_SHA=$(sha256sum "$BROWSER" | awk '{print $1}')
+          BROWSER_REL="$BROWSER_REL" NODE_SHA="$NODE_SHA" HELPER_SHA="$HELPER_SHA" BROWSER_SHA="$BROWSER_SHA" node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('runtime.json', JSON.stringify({node:{path:'.semwright-tools/node',sha256:process.env.NODE_SHA},helper:{path:'render.mjs',sha256:process.env.HELPER_SHA},browser:{path:process.env.BROWSER_REL,sha256:process.env.BROWSER_SHA}},null,2))"
+      - name: Pin MLT runtime tools by digest
+        run: |
+          mkdir -p "$RUNNER_TEMP/mlt-runtime"
+          MELT=$(realpath "$(command -v melt)")
+          FFPROBE=$(realpath "$(command -v ffprobe)")
+          BWRAP=$(realpath "$(command -v bwrap)")
+          MELT_SHA=$(sha256sum "$MELT" | awk '{print $1}')
+          FFPROBE_SHA=$(sha256sum "$FFPROBE" | awk '{print $1}')
+          BWRAP_SHA=$(sha256sum "$BWRAP" | awk '{print $1}')
+          MELT="$MELT" FFPROBE="$FFPROBE" BWRAP="$BWRAP" MELT_SHA="$MELT_SHA" FFPROBE_SHA="$FFPROBE_SHA" BWRAP_SHA="$BWRAP_SHA" python3 - <<'PY'
+          import json, os
+          path=os.path.join(os.environ['RUNNER_TEMP'],'mlt-runtime','runtime.json')
+          value={'schema':1,'melt':{'path':os.environ['MELT'],'sha256':os.environ['MELT_SHA']},'ffprobe':{'path':os.environ['FFPROBE'],'sha256':os.environ['FFPROBE_SHA']},'bubblewrap':{'path':os.environ['BWRAP'],'sha256':os.environ['BWRAP_SHA']},'timeout_seconds':3300}
+          open(path,'w').write(json.dumps(value,indent=2)+'\n')
+          PY
+      - name: Build Semwright providers and bounded orchestrator
+        run: |
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+          cargo build --locked -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver --example launch_film_orchestrator
+          cargo build --locked -p semwright-mlt-video-driver --bin semwright-mlt-video-driver
+      - name: Generate original deterministic sound bed
+        run: |
+          python3 scripts/demo/generate-launch-sound.py "$RUNNER_TEMP/launch-sound.wav"
+          sha256sum "$RUNNER_TEMP/launch-sound.wav" | tee "$RUNNER_TEMP/launch-sound.sha256"
+      - name: Render and assemble launch film through real Driver Host providers
+        run: |
+          rm -rf "$RUNNER_TEMP/launch-work" "$RUNNER_TEMP/launch-output"
+          target/debug/examples/launch_film_orchestrator \
+            target/debug/semwright-motion-canvas-driver \
+            target/debug/semwright-mlt-video-driver \
+            target/debug/semwright-sandbox \
+            integrations/motion-canvas/runtime \
+            "$RUNNER_TEMP/mlt-runtime" \
+            demos/launch-film/semwright-motion.json \
+            "$RUNNER_TEMP/launch-sound.wav" \
+            "$RUNNER_TEMP/launch-work" \
+            "$RUNNER_TEMP/launch-output" 2>&1 | tee "$RUNNER_TEMP/launch-build.log"
+      - name: Capture sandbox denial diagnostics
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/launch-output"
+          {
+            echo '=== aa-status ==='
+            sudo aa-status || true
+            echo '=== loaded bwrap profile ==='
+            sudo cat /etc/apparmor.d/bwrap-userns-restrict || true
+            echo '=== recent kernel AppArmor/audit ==='
+            sudo journalctl -k --no-pager --since '-20 min' 2>/dev/null | grep -Ei 'apparmor|audit|denied|bwrap|chrome' || true
+            echo '=== dmesg tail ==='
+            sudo dmesg 2>/dev/null | grep -Ei 'apparmor|audit|denied|bwrap|chrome' | tail -300 || true
+          } > "$RUNNER_TEMP/launch-output/sandbox-denials.log" 2>&1
+          cat "$RUNNER_TEMP/launch-output/sandbox-denials.log"
+      - name: Validate publishable artifacts
+        run: |
+          test -s "$RUNNER_TEMP/launch-output/launch-film-1080p.mp4"
+          test -s "$RUNNER_TEMP/launch-output/poster.png"
+          test -s "$RUNNER_TEMP/launch-output/DEMO_TRACE.json"
+          test "$(find "$RUNNER_TEMP/launch-output/review" -maxdepth 1 -name 'frame-*.png' -type f | wc -l)" -eq 7
+          ffprobe -v error -show_streams -show_format -of json "$RUNNER_TEMP/launch-output/launch-film-1080p.mp4" > "$RUNNER_TEMP/final-ffprobe.json"
+          python3 - <<'PY'
+          import json, os
+          data=json.load(open(os.path.join(os.environ['RUNNER_TEMP'],'final-ffprobe.json')))
+          streams=data['streams']
+          video=next(s for s in streams if s['codec_type']=='video')
+          audio=next(s for s in streams if s['codec_type']=='audio')
+          assert (int(video['width']),int(video['height']))==(1920,1080)
+          assert video.get('r_frame_rate')=='30/1'
+          assert audio['codec_type']=='audio'
+          duration=float(data['format']['duration'])
+          assert 51.8 <= duration <= 52.2, duration
+          PY
+          cp "$RUNNER_TEMP/final-ffprobe.json" "$RUNNER_TEMP/launch-output/final-ffprobe.json"
+          cp "$RUNNER_TEMP/launch-sound.sha256" "$RUNNER_TEMP/launch-output/launch-sound.sha256"
+          sha256sum "$RUNNER_TEMP/launch-output/launch-film-1080p.mp4" "$RUNNER_TEMP/launch-output/poster.png" | tee "$RUNNER_TEMP/launch-output/SHA256SUMS.txt"
+      - name: Upload lightweight visual review evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: semwright-launch-film-review-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/launch-output/poster.png
+            ${{ runner.temp }}/launch-output/review
+            ${{ runner.temp }}/launch-output/DEMO_TRACE.json
+            ${{ runner.temp }}/launch-output/final-ffprobe.json
+            ${{ runner.temp }}/launch-output/SHA256SUMS.txt
+            ${{ runner.temp }}/launch-build.log
+          retention-days: 30
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: semwright-launch-film-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/launch-output
+            ${{ runner.temp }}/launch-build.log
+          retention-days: 30

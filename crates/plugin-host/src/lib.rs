@@ -186,6 +186,7 @@ impl Host {
                         class: semwright_platform_api::launch::MountClass::Workspace,
                         logical_name: m.root.clone(),
                         read_only: m.read_only,
+                        execute: false,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;

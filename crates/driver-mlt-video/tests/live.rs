@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
+    process::Command,
     time::Duration,
 };
 use tokio_util::sync::CancellationToken;
@@ -114,6 +115,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     );
     let melt = configured_tool("SEMWRIGHT_TEST_MELT");
     let ffprobe = configured_tool("SEMWRIGHT_TEST_FFPROBE");
+    let ffmpeg = configured_tool("SEMWRIGHT_TEST_FFMPEG");
     let bwrap = configured_tool("SEMWRIGHT_TEST_BWRAP");
 
     let project = tempfile::tempdir().unwrap();
@@ -148,7 +150,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "path": bwrap.to_string_lossy(),
             "sha256": digest(&bwrap)
         },
-        "timeout_seconds": 30
+        "timeout_seconds": 120
     });
     let runtime_file = runtime.path().join("runtime.json");
     std::fs::write(
@@ -161,6 +163,36 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/media");
     std::fs::copy(fixtures.join("red.mkv"), media.path().join("red.mkv")).unwrap();
     std::fs::copy(fixtures.join("sine.wav"), media.path().join("sine.wav")).unwrap();
+    let h264_source = media.path().join("h264-source.mp4");
+    let status = Command::new(&ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=red:s=1920x1080:r=30:d=2",
+            "-frames:v",
+            "60",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "12",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+        ])
+        .arg(&h264_source)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "failed to create 1080p H.264 input fixture"
+    );
 
     let manifest = Manifest {
         manifest_version: 1,
@@ -180,18 +212,22 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             DriverMount {
                 root: "project".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "media".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "output".into(),
                 read_only: false,
+                execute: false,
             },
             DriverMount {
                 root: "runtime".into(),
                 read_only: true,
+                execute: false,
             },
         ],
         system_config: vec![],
@@ -199,14 +235,17 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         tools: vec![],
         network: false,
         loopback_port: None,
+        // Match the launch-film production sandbox budget. These are ceilings,
+        // not reservations: H.264/MLT can require materially more virtual address
+        // space and worker headroom than the small lossless fixture.
         resources: DriverResources {
-            address_space_bytes: 2_147_483_648,
-            cpu_seconds: 120,
+            address_space_bytes: 4_294_967_296,
+            cpu_seconds: 300,
             file_size_bytes: 1_073_741_824,
-            processes: 64,
-            open_files: 256,
+            processes: 256,
+            open_files: 512,
         },
-        request_timeout_ms: 30_000,
+        request_timeout_ms: 300_000,
         interfaces: DriverInterfaces::default(),
     };
     let grants = vec![
@@ -438,13 +477,16 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
-    assert!(
-        profiles["profiles"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|profile| { profile["id"] == "lossless" && profile["available"] == true })
-    );
+    for id in ["lossless", "h264-1080p"] {
+        assert!(
+            profiles["profiles"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|profile| { profile["id"] == id && profile["available"] == true }),
+            "missing live render profile {id}"
+        );
+    }
 
     let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
     let plan = call(
@@ -515,6 +557,205 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let artifact = output.path().join("real-runtime.mkv");
     assert!(artifact.is_file());
     assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
+
+    // Exercise the same curated H.264 consumer used by the launch film in a
+    // separate project born at 1920x1080/30. Reprofiling the earlier 160x90/25
+    // lossless fixture after clips already exist changes the timebase underneath
+    // those clips and does not represent the production launch-film route.
+    let h264_project = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.project.create",
+        json!({
+            "profile": {
+                "width":1920,
+                "height":1080,
+                "fps_num":30,
+                "fps_den":1,
+                "progressive":true,
+                "sample_aspect_num":1,
+                "sample_aspect_den":1,
+                "display_aspect_num":16,
+                "display_aspect_den":9,
+                "colorspace":709,
+                "audio_channels":2
+            }
+        }),
+    )
+    .await
+    .unwrap();
+    project_ref = h264_project["project"].as_str().unwrap().to_owned();
+    revision = h264_project["revision"].as_str().unwrap().to_owned();
+
+    let h264_sequence = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.sequence.create",
+        json!({"project":project_ref,"expected_revision":revision,"name":"H264 Main"}),
+    )
+    .await
+    .unwrap();
+    project_ref = h264_sequence["project"].as_str().unwrap().to_owned();
+    revision = h264_sequence["resulting_revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    for (name, path) in [
+        ("H264 Video", "h264-source.mp4"),
+        ("H264 Audio", "sine.wav"),
+    ] {
+        let value = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.asset.import",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "kind":"file",
+                "name":name,
+                "root":"media",
+                "path":path
+            }),
+        )
+        .await
+        .unwrap();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
+    }
+
+    for (name, kind) in [("H264 Video Track", "video"), ("H264 Audio Track", "audio")] {
+        let sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+        let value = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.track.create",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":sequence,
+                "name":name,
+                "kind":kind
+            }),
+        )
+        .await
+        .unwrap();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
+    }
+
+    for (track_name, asset_name, clip_name) in [
+        ("H264 Video Track", "H264 Video", "H264 Video Clip"),
+        ("H264 Audio Track", "H264 Audio", "H264 Audio Clip"),
+    ] {
+        let assets = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.asset.list",
+            json!({"project":project_ref,"limit":100}),
+        )
+        .await
+        .unwrap();
+        let asset = page_ref(&assets, asset_name);
+        let sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+        let tracks = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.track.list",
+            json!({"project":project_ref,"sequence":sequence,"limit":100}),
+        )
+        .await
+        .unwrap();
+        let track = page_ref(&tracks, track_name);
+        let value = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.clip.insert",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":sequence,
+                "track":track,
+                "asset":asset,
+                "start":0,
+                "source_in":0,
+                "source_out":5,
+                "name":clip_name
+            }),
+        )
+        .await
+        .unwrap();
+        project_ref = value["project"].as_str().unwrap().to_owned();
+        revision = value["resulting_revision"].as_str().unwrap().to_owned();
+    }
+
+    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+    let h264_plan = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.plan",
+        json!({
+            "project":project_ref,
+            "sequence":current_sequence,
+            "profile":"h264-1080p",
+            "output":"real-runtime-h264.mp4"
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(h264_plan["runnable"], true);
+    assert_eq!(h264_plan["frames"], 5);
+
+    let h264_started = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.start",
+        json!({
+            "project":project_ref,
+            "expected_revision":revision,
+            "sequence":current_sequence,
+            "profile":"h264-1080p",
+            "output":"real-runtime-h264.mp4"
+        }),
+    )
+    .await
+    .unwrap();
+    let h264_job = h264_started["job"].as_str().unwrap().to_owned();
+    let h264_terminal = loop {
+        let status = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.status",
+            json!({"job":h264_job}),
+        )
+        .await
+        .unwrap();
+        match status["state"].as_str().unwrap() {
+            "succeeded" | "failed" | "cancelled" | "unknown" => break status,
+            _ => tokio::time::sleep(Duration::from_millis(50)).await,
+        }
+    };
+    assert_eq!(
+        h264_terminal["state"], "succeeded",
+        "H.264 live render: {h264_terminal:#}"
+    );
+    let h264_result = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.result",
+        json!({"job":h264_job}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(h264_result["state"], "succeeded");
+    assert_eq!(h264_result["media"]["video"], true);
+    assert_eq!(h264_result["media"]["audio"], true);
+    assert_eq!(h264_result["media"]["width"], 1920);
+    assert_eq!(h264_result["media"]["height"], 1080);
+    assert_eq!(h264_result["media"]["frames"], 5);
+    let h264_artifact = output.path().join("real-runtime-h264.mp4");
+    assert!(h264_artifact.is_file());
+    assert!(std::fs::metadata(&h264_artifact).unwrap().len() > 100);
 
     Provider::shutdown(provider.as_ref()).await.unwrap();
 }
