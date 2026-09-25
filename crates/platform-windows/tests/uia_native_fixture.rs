@@ -220,8 +220,9 @@ async fn snapshot_with_owned_hit_point(
     hwnd: isize,
 ) -> (Value, i32, i32) {
     let fixture = HWND(hwnd as *mut core::ffi::c_void);
-    // SAFETY: read-only queries for the primary display dimensions.
+    // SAFETY: read-only query for the primary display width.
     let screen_width = unsafe { GetSystemMetrics(SM_CXSCREEN) }.max(640);
+    // SAFETY: read-only query for the primary display height.
     let screen_height = unsafe { GetSystemMetrics(SM_CYSCREEN) }.max(480);
     let max_left = (screen_width - 540).max(0);
     let max_top = (screen_height - 280).max(0);
