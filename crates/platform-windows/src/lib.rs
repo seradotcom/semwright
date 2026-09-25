@@ -28,6 +28,7 @@ pub const COMMANDS: &[&str] = &[
     "window.close",
     "ui.snapshot",
     "ui.hit_test",
+    "ui.inspect",
     "ui.invoke",
     "ui.set_text",
     "ui.read_text",
@@ -317,6 +318,7 @@ impl Backend for Windows {
                 args.get("_target")
                     .and_then(|v| serde_json::from_value(v.clone()).ok()),
             ),
+            "ui.inspect" => self.uia.inspect(target(args)?),
             "ui.hit_test" => {
                 let x = args
                     .get("x")

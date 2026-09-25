@@ -1126,6 +1126,136 @@ impl Atspi {
         }))
     }
 
+    async fn inspect_target(&self, c: &Connection, target: &NativeTarget) -> Result<Value> {
+        self.validate(target).await?;
+        let object = object_from_id(&target.identity)?;
+        let (role, mut name, _) = self.identity(c, &object).await?;
+        let proxy = self.proxy(c, &object, ACCESSIBLE).await?;
+        let state_bits: Vec<u32> = bounded(proxy.call("GetState", &()))
+            .await
+            .unwrap_or_default();
+        let states = decode_states(&state_bits);
+        if states.contains(&"defunct") || states.contains(&"stale") {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Accessible object became stale during inspection",
+            ));
+        }
+        let actions = self.actions(c, &object).await;
+        let child_count: i32 = bounded(proxy.get_property("ChildCount")).await.unwrap_or(0);
+        let (child_count, _) = bounded_child_count(Some(child_count), 0);
+        let mut attributes: BTreeMap<String, String> = bounded(
+            proxy.call::<_, _, std::collections::HashMap<String, String>>("GetAttributes", &()),
+        )
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .take(128)
+        .map(|(key, value)| {
+            (
+                key.chars().take(128).collect(),
+                value.chars().take(1024).collect(),
+            )
+        })
+        .collect();
+        let mut help: String = bounded(proxy.get_property::<String>("HelpText"))
+            .await
+            .unwrap_or_default()
+            .chars()
+            .take(1024)
+            .collect();
+        let mut accessibility_id: String = bounded(proxy.get_property::<String>("AccessibleId"))
+            .await
+            .unwrap_or_default()
+            .chars()
+            .take(512)
+            .collect();
+        let locale: String = bounded(proxy.get_property::<String>("Locale"))
+            .await
+            .unwrap_or_default()
+            .chars()
+            .take(128)
+            .collect();
+        let interfaces: Vec<String> =
+            bounded(proxy.call::<_, _, Vec<String>>("GetInterfaces", &()))
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .take(64)
+                .map(|value| value.chars().take(128).collect())
+                .collect();
+        let relations = self.relations(c, &object, &target.app).await;
+        let mut facets = self
+            .facets(c, &object, &interfaces, &states, &role, child_count)
+            .await;
+        if facets.document.is_none() && !locale.is_empty() {
+            facets.document = Some(UiDocumentFacet {
+                locale: Some(locale),
+                ..UiDocumentFacet::default()
+            });
+        }
+        let mut description: String = bounded(proxy.get_property("Description"))
+            .await
+            .unwrap_or_default();
+        if role == "password-entry" {
+            name.clear();
+            description.clear();
+            help.clear();
+            accessibility_id.clear();
+            attributes.clear();
+        }
+        let bounds = match self.proxy(c, &object, "org.a11y.atspi.Component").await {
+            Ok(component) => {
+                bounded(component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)))
+                    .await
+                    .ok()
+                    .map(|(x, y, width, height)| {
+                        json!({
+                            "x": x,
+                            "y": y,
+                            "width": width,
+                            "height": height,
+                            "coordinate_space": "atspi_screen_reported"
+                        })
+                    })
+            }
+            Err(_) => None,
+        };
+        let mut framework = String::new();
+        for app_object in self.apps(c).await.unwrap_or_default() {
+            if self
+                .app_name(c, &app_object)
+                .await
+                .is_ok_and(|name| name == target.app)
+            {
+                framework = self.app_framework(c, &app_object).await;
+                break;
+            }
+        }
+        Ok(json!({
+            "node": {
+                "node_id": stable_node_id(&target.identity),
+                "ref": target_marker(target.clone()),
+                "role": role,
+                "name": name.chars().take(1024).collect::<String>(),
+                "description": description.chars().take(1024).collect::<String>(),
+                "help": help,
+                "accessibility_id": accessibility_id,
+                "framework": framework,
+                "attributes": attributes,
+                "relations": relations,
+                "facets": facets,
+                "states": states,
+                "actions": actions,
+                "app": target.app,
+                "parent_ref": Value::Null,
+                "bounds": bounds,
+                "children_count": child_count
+            },
+            "semantic_coverage": "exact_ref"
+        }))
+    }
+
     async fn hit_test(&self, ctx: &Context, args: &Value) -> Result<Value> {
         let x = args["x"]
             .as_i64()
@@ -1299,6 +1429,7 @@ impl Backend for Atspi {
             "app.list"
                 | "ui.snapshot"
                 | "ui.hit_test"
+                | "ui.inspect"
                 | "ui.invoke"
                 | "ui.set_text"
                 | "ui.read_text"
@@ -1336,6 +1467,10 @@ impl Backend for Atspi {
             return self.hit_test(ctx, args).await;
         }
         let c = self.connect().await?;
+        if command == "ui.inspect" {
+            let target = native_target(args)?;
+            return self.inspect_target(&c, &target).await;
+        }
         if command == "app.list" {
             let mut apps = vec![];
             for o in self.apps(&c).await? {

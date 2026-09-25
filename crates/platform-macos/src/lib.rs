@@ -18,6 +18,7 @@ pub const COMMANDS: &[&str] = &[
     "window.close",
     "ui.snapshot",
     "ui.hit_test",
+    "ui.inspect",
     "ui.invoke",
     "ui.set_text",
     "ui.read_text",

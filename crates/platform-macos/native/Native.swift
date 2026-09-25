@@ -186,6 +186,7 @@ public func semwrightNativeCall(_ bytes:UnsafePointer<UInt8>?,_ length:Int,_ out
             return ["apps":rows,"partial":rows.count==256]
         case "window.list":return try windows(r)
         case "ui.snapshot":return try snapshot(r)
+        case "ui.inspect":return try inspect(r)
         case "ui.hit_test":return try hitTest(r)
         case "validate":_=try resolve(r.args);return["valid":true]
         case "focused":let t=try resolve(r.args,kind:"win");return["focused":try focused(t)]

@@ -13,8 +13,8 @@ COMMANDS = json.loads((ROOT / "schemas/commands.json").read_text())
 REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
-    def test_all_228_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 114)
+    def test_all_230_schemas_valid(self):
+        self.assertEqual(len(COMMANDS), 115)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
