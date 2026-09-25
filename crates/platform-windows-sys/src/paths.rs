@@ -1,7 +1,7 @@
 use semwright_platform_api::PlatformPaths;
 use semwright_types::{Error, ErrorCode, Result};
 use std::{
-    os::windows::ffi::OsStrExt,
+    os::windows::{ffi::OsStrExt, fs::MetadataExt},
     path::{Path, PathBuf},
 };
 use windows::{
@@ -13,6 +13,7 @@ use windows::{
             },
             DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
         },
+        Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT,
         UI::Shell::{
             FOLDERID_LocalAppData, FOLDERID_RoamingAppData, KF_FLAG_DEFAULT, SHGetKnownFolderPath,
         },
@@ -47,7 +48,10 @@ fn known_folder(id: &windows::core::GUID) -> Result<PathBuf> {
 pub fn ensure_private_directory(path: &Path) -> Result<()> {
     std::fs::create_dir_all(path)?;
     let meta = std::fs::symlink_metadata(path)?;
-    if !meta.is_dir() || meta.file_type().is_symlink() {
+    if !meta.is_dir()
+        || meta.file_type().is_symlink()
+        || meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+    {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Windows private path must be a non-reparse directory",
@@ -112,7 +116,10 @@ pub fn ensure_owner_only_directory(path: &Path) -> Result<()> {
         )
     })?;
     let meta = std::fs::symlink_metadata(path)?;
-    if !meta.is_dir() || meta.file_type().is_symlink() {
+    if !meta.is_dir()
+        || meta.file_type().is_symlink()
+        || meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+    {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Windows private directory changed during DACL hardening",
