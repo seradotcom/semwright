@@ -519,6 +519,28 @@ pub enum Workflow {
     Restore {
         suggestion_id: String,
     },
+    Proposals {
+        #[arg(long, default_value_t = 3)]
+        min_occurrences: usize,
+        #[arg(long)]
+        include_dismissed: bool,
+    },
+    Proposal {
+        proposal_id: String,
+    },
+    PlanProposal {
+        proposal_id: String,
+        #[command(flatten)]
+        inputs: JsonArgs,
+    },
+    AcceptProposal {
+        proposal_id: String,
+    },
+    DismissProposal {
+        proposal_id: String,
+        #[arg(long)]
+        permanent: bool,
+    },
     CompileSuggestion {
         suggestion_id: String,
         #[arg(long)]
@@ -1098,6 +1120,38 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             Workflow::Restore { suggestion_id } => (
                 "workflow.suggestion.restore".into(),
                 json!({"suggestion_id":suggestion_id}),
+            ),
+            Workflow::Proposals {
+                min_occurrences,
+                include_dismissed,
+            } => (
+                "workflow.proposals.list".into(),
+                json!({
+                    "min_occurrences":min_occurrences,
+                    "include_dismissed":include_dismissed
+                }),
+            ),
+            Workflow::Proposal { proposal_id } => (
+                "workflow.proposal.get".into(),
+                json!({"proposal_id":proposal_id}),
+            ),
+            Workflow::PlanProposal {
+                proposal_id,
+                inputs,
+            } => (
+                "workflow.proposal.plan".into(),
+                json!({"proposal_id":proposal_id,"inputs":inputs.value()?}),
+            ),
+            Workflow::AcceptProposal { proposal_id } => (
+                "workflow.proposal.accept".into(),
+                json!({"proposal_id":proposal_id}),
+            ),
+            Workflow::DismissProposal {
+                proposal_id,
+                permanent,
+            } => (
+                "workflow.proposal.dismiss".into(),
+                json!({"proposal_id":proposal_id,"permanent":permanent}),
             ),
             Workflow::CompileSuggestion {
                 suggestion_id,

@@ -1161,6 +1161,31 @@ impl Broker {
             "workflow.suggestion.restore" => {
                 self.workflow_suggestion_restore(arg_str(args, "suggestion_id")?)
             }
+            "workflow.proposals.list" => self.workflow_proposals(
+                session,
+                args["min_occurrences"].as_u64().unwrap_or(3) as usize,
+                args["include_dismissed"].as_bool().unwrap_or(false),
+            ),
+            "workflow.proposal.get" => {
+                self.workflow_proposal(session, arg_str(args, "proposal_id")?)
+            }
+            "workflow.proposal.plan" => {
+                self.workflow_proposal_plan(
+                    session,
+                    arg_str(args, "proposal_id")?,
+                    args.get("inputs").cloned().unwrap_or_else(|| json!({})),
+                    _cancellation.clone(),
+                )
+                .await
+            }
+            "workflow.proposal.accept" => {
+                self.workflow_proposal_accept(session, arg_str(args, "proposal_id")?)
+            }
+            "workflow.proposal.dismiss" => self.workflow_proposal_dismiss(
+                session,
+                arg_str(args, "proposal_id")?,
+                args["permanent"].as_bool().unwrap_or(false),
+            ),
             "workflow.suggestion.compile" => {
                 let hints: Vec<semwright_workflow::ParameterHint> = serde_json::from_value(
                     args.get("parameters").cloned().unwrap_or_else(|| json!([])),
