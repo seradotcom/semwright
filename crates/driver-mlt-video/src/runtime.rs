@@ -14,7 +14,7 @@ use std::{
     io::{Read, Write},
     os::unix::{
         fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
-        process::CommandExt,
+        process::{CommandExt, ExitStatusExt},
     },
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -52,6 +52,7 @@ pub struct ProcessSpec {
 #[derive(Clone, Debug)]
 pub struct ProcessResult {
     pub exit_code: Option<i32>,
+    pub termination_signal: Option<i32>,
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub cancelled: bool,
@@ -76,8 +77,8 @@ impl ProcessResult {
             return Err(Error::new(
                 "BackendFailed",
                 format!(
-                    "Tool failed with exit code {:?}; raw logs are not exposed",
-                    self.exit_code
+                    "Tool failed with exit code {:?}, signal {:?}; raw logs are not exposed",
+                    self.exit_code, self.termination_signal
                 ),
             ));
         }
@@ -255,6 +256,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .map_err(|_| Error::new("Internal", "stderr reader failed"))?;
     Ok(ProcessResult {
         exit_code: status.code(),
+        termination_signal: status.signal(),
         stdout,
         stderr,
         cancelled,
@@ -507,6 +509,7 @@ impl Runtime {
         work: &Path,
         timeout: Duration,
     ) -> Result<ProcessSpec> {
+        let cpu_seconds = timeout.as_secs().clamp(120, 300);
         if self.host_sandboxed {
             // Driver Host deliberately keeps writable scratch roots non-executable.
             // Execute the original owner-pinned tool from the host's read-only+exec
@@ -524,7 +527,7 @@ impl Runtime {
                 args,
                 cwd: work.into(),
                 timeout,
-                cpu_seconds: 120,
+                cpu_seconds,
                 environment: Self::environment(),
             });
         }
@@ -595,7 +598,7 @@ impl Runtime {
             args: argv,
             cwd: work.into(),
             timeout,
-            cpu_seconds: 120,
+            cpu_seconds,
             environment: BTreeMap::from([("LC_ALL".into(), "C".into())]),
         })
     }
@@ -720,8 +723,11 @@ impl Runtime {
             // abs(value) worker threads. Use the four vCPUs available on the
             // certified CI runner instead of serial frame processing; let libx264
             // select its encoder thread count automatically.
-            "real_time=-4".into(),
-            "threads=0".into(),
+            // Synchronous offline processing avoids both MLT's read-ahead path
+            // and its multi-frame worker queue. No frame dropping is used, and
+            // encoder parallelism stays explicit/bounded for sandbox accounting.
+            "real_time=0".into(),
+            "threads=4".into(),
         ];
         if let Some(codec) = profile.video_codec {
             args.push(format!("vcodec={codec}").into());
@@ -729,7 +735,7 @@ impl Runtime {
                 args.extend([
                     "pix_fmt=yuv420p".into(),
                     "crf=20".into(),
-                    "preset=medium".into(),
+                    "preset=veryfast".into(),
                 ]);
             }
         } else {
