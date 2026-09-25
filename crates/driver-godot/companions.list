@@ -1,0 +1,31 @@
+# Explicit Godot companion payloads for Driver Package v2.
+# Sources are resolved relative to this list file. Installation does not activate them.
+addons/semwright/ops/animation_graph_ops.gd=../../integrations/godot/addons/semwright/ops/animation_graph_ops.gd
+addons/semwright/ops/animation_ops.gd=../../integrations/godot/addons/semwright/ops/animation_ops.gd
+addons/semwright/ops/animation_tree_ops.gd=../../integrations/godot/addons/semwright/ops/animation_tree_ops.gd
+addons/semwright/ops/api_ops.gd=../../integrations/godot/addons/semwright/ops/api_ops.gd
+addons/semwright/ops/asset_ops.gd=../../integrations/godot/addons/semwright/ops/asset_ops.gd
+addons/semwright/ops/audio_ops.gd=../../integrations/godot/addons/semwright/ops/audio_ops.gd
+addons/semwright/ops/editor_ops.gd=../../integrations/godot/addons/semwright/ops/editor_ops.gd
+addons/semwright/ops/export_preset_ops.gd=../../integrations/godot/addons/semwright/ops/export_preset_ops.gd
+addons/semwright/ops/gridmap_ops.gd=../../integrations/godot/addons/semwright/ops/gridmap_ops.gd
+addons/semwright/ops/localization_ops.gd=../../integrations/godot/addons/semwright/ops/localization_ops.gd
+addons/semwright/ops/multiplayer_ops.gd=../../integrations/godot/addons/semwright/ops/multiplayer_ops.gd
+addons/semwright/ops/navigation_ops.gd=../../integrations/godot/addons/semwright/ops/navigation_ops.gd
+addons/semwright/ops/particles_ops.gd=../../integrations/godot/addons/semwright/ops/particles_ops.gd
+addons/semwright/ops/path_ops.gd=../../integrations/godot/addons/semwright/ops/path_ops.gd
+addons/semwright/ops/physics_ops.gd=../../integrations/godot/addons/semwright/ops/physics_ops.gd
+addons/semwright/ops/project_ops.gd=../../integrations/godot/addons/semwright/ops/project_ops.gd
+addons/semwright/ops/project_semantics_ops.gd=../../integrations/godot/addons/semwright/ops/project_semantics_ops.gd
+addons/semwright/ops/ref_ops.gd=../../integrations/godot/addons/semwright/ops/ref_ops.gd
+addons/semwright/ops/rendering_ops.gd=../../integrations/godot/addons/semwright/ops/rendering_ops.gd
+addons/semwright/ops/resource_ops.gd=../../integrations/godot/addons/semwright/ops/resource_ops.gd
+addons/semwright/ops/script_ops.gd=../../integrations/godot/addons/semwright/ops/script_ops.gd
+addons/semwright/ops/signal_ops.gd=../../integrations/godot/addons/semwright/ops/signal_ops.gd
+addons/semwright/ops/skeleton_ops.gd=../../integrations/godot/addons/semwright/ops/skeleton_ops.gd
+addons/semwright/ops/tilemap_ops.gd=../../integrations/godot/addons/semwright/ops/tilemap_ops.gd
+addons/semwright/ops/ui_theme_ops.gd=../../integrations/godot/addons/semwright/ops/ui_theme_ops.gd
+addons/semwright/ops/variant_codec.gd=../../integrations/godot/addons/semwright/ops/variant_codec.gd
+addons/semwright/ops/visual_ops.gd=../../integrations/godot/addons/semwright/ops/visual_ops.gd
+addons/semwright/plugin.cfg=../../integrations/godot/addons/semwright/plugin.cfg
+addons/semwright/plugin.gd=../../integrations/godot/addons/semwright/plugin.gd
