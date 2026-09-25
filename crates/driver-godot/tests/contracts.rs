@@ -125,6 +125,27 @@ fn translation_creation_requires_runtime_loadable_format() {
 }
 
 #[test]
+fn editor_mutations_enforce_optimistic_preconditions() {
+    let source = include_str!("../../../integrations/godot/addons/semwright/ops/editor_ops.gd");
+    for function in ["selection_set", "run_start", "run_stop"] {
+        let marker = format!("static func {function}(");
+        let start = source
+            .find(&marker)
+            .unwrap_or_else(|| panic!("missing editor handler {function}"));
+        let tail = &source[start..];
+        let end = tail[marker.len()..]
+            .find("\nstatic func ")
+            .map(|offset| marker.len() + offset)
+            .unwrap_or(tail.len());
+        let body = &tail[..end];
+        assert!(
+            body.contains("_check_expect(args)"),
+            "{function} must enforce expect revision/fingerprint before mutation"
+        );
+    }
+}
+
+#[test]
 fn catalog_plugin_routes_have_editor_handlers() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();

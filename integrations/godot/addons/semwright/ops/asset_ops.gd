@@ -115,8 +115,8 @@ static func import_configure(ctx, args: Dictionary) -> Dictionary:
         cfg.set_value("params", str(item["key"]), item["value"])
     if cfg.save(sidecar) != OK:
         return ctx._error("backend_failed", "failed to save import sidecar")
-    if fs.is_importing() or fs.is_scanning():
-        return ctx._error("unavailable", "resource filesystem became busy after sidecar update")
+    # Once the sidecar is persisted the mutation is committed. Queue the reimport
+    # unconditionally rather than returning a deterministic error after changing state.
     fs.reimport_files(PackedStringArray([path]))
     ctx._revision += 1
     return ctx._mutation_result(true, [path], "Configure and reimport asset")
