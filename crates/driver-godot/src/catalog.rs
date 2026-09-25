@@ -3626,7 +3626,7 @@ fn animation_out() -> Value {
 }
 
 fn scalar_schema() -> Value {
-    json!({"oneOf":[
+    json!({"anyOf":[
         {"type":"boolean"},
         {"type":"integer"},
         {"type":"number"},
