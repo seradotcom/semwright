@@ -4644,7 +4644,6 @@ fn blend_position_schema() -> Value {
 
 fn animation_graph_node_properties() -> Map<String, Value> {
     Map::from_iter([
-        ("position".into(), vec2_schema()),
         ("animation".into(), json!({"type":"string","maxLength":96})),
         ("sync".into(), boolean()),
         ("fadein_time".into(), bounded_number(0.0, 60.0)),
@@ -4691,20 +4690,24 @@ fn animation_graph_node_properties() -> Map<String, Value> {
 }
 
 fn animation_graph_node_configure_in() -> Value {
-    animation_graph_mutation_schema(animation_graph_node_properties(), &[])
+    let mut props = animation_graph_node_properties();
+    props.insert("graph_position".into(), vec2_schema());
+    animation_graph_mutation_schema(props, &[])
 }
 
 fn animation_blend_tree_node_add_in() -> Value {
     let mut props = animation_graph_node_properties();
     props.insert("name".into(), string(96));
     props.insert("kind".into(), animation_graph_node_kind_schema());
-    animation_graph_mutation_schema(props, &["name", "kind", "position"])
+    props.insert("graph_position".into(), vec2_schema());
+    animation_graph_mutation_schema(props, &["name", "kind", "graph_position"])
 }
 
 fn animation_blend_tree_node_configure_in() -> Value {
     let mut props = animation_graph_node_properties();
     props.insert("name".into(), string(96));
     props.insert("new_name".into(), json!({"type":"string","maxLength":96}));
+    props.insert("graph_position".into(), vec2_schema());
     animation_graph_mutation_schema(props, &["name"])
 }
 
@@ -4739,7 +4742,6 @@ fn animation_blend_space_point_add_in() -> Value {
 
 fn animation_blend_space_point_configure_in() -> Value {
     let mut props = animation_graph_node_properties();
-    props.remove("position");
     props.insert("index".into(), bounded_int(0, 255));
     props.insert("name".into(), json!({"type":"string","maxLength":96}));
     props.insert("position".into(), blend_position_schema());

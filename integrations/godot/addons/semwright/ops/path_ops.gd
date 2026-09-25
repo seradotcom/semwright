@@ -80,7 +80,7 @@ static func point_add(ctx, args: Dictionary) -> Dictionary:
     if pos == null or in_handle == null or out_handle == null:
         return ctx._error("invalid_argument", "path point vectors do not match path dimension")
     var index := int(args.get("index", -1))
-    var point_count := 0 if curve == null else curve.point_count
+    var point_count: int = 0 if curve == null else int(curve.point_count)
     if index < -1 or index > point_count:
         return ctx._error("invalid_argument", "path point insertion index is out of range")
     if dimension == 2 and args.has("tilt"):
@@ -91,7 +91,7 @@ static func point_add(ctx, args: Dictionary) -> Dictionary:
         curve = Curve2D.new() if path is Path2D else Curve3D.new()
         path.curve = curve
     curve.add_point(pos, in_handle, out_handle, index)
-    var actual := curve.point_count - 1 if index < 0 else index
+    var actual: int = int(curve.point_count - 1) if index < 0 else index
     if curve is Curve3D and args.has("tilt"): curve.set_point_tilt(actual, float(args["tilt"]))
     EditorInterface.mark_scene_as_unsaved()
     ctx._revision += 1

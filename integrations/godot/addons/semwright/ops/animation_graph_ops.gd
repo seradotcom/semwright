@@ -38,15 +38,17 @@ static func node_configure(ctx, args: Dictionary) -> Dictionary:
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty(): return conflict
     var node: AnimationNode = resolved["node"]
+    if args.has("graph_position") and _v2_or_null(args["graph_position"]) == null:
+        return ctx._error("invalid_argument", "graph_position must be a 2-number array")
     var error := _validate_node_config(node, args)
     if not error.is_empty(): return ctx._error("invalid_argument", error)
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [str(args.get("graph", ""))], "dry-run")
     _apply_node_config(node, args)
-    if args.has("position"):
+    if args.has("graph_position"):
         var parent = resolved.get("parent")
         var name := StringName(str(resolved.get("name", "")))
-        var pos := _v2(args["position"])
+        var pos := _v2(args["graph_position"])
         if parent is AnimationNodeStateMachine:
             parent.set_node_position(name, pos)
         elif parent is AnimationNodeBlendTree:
@@ -101,12 +103,14 @@ static func blend_tree_node_add(ctx, args: Dictionary) -> Dictionary:
         return ctx._error("conflict", "invalid or duplicate BlendTree node name")
     var node = _new_graph_node(str(args.get("kind", "")), args)
     if not (node is AnimationNode): return ctx._error("invalid_argument", "unsupported BlendTree node kind")
+    var graph_position = _v2_or_null(args.get("graph_position", [0.0, 0.0]))
+    if graph_position == null: return ctx._error("invalid_argument", "graph_position must be a 2-number array")
     var error := _validate_node_config(node, args)
     if not error.is_empty(): return ctx._error("invalid_argument", error)
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [_child_graph(str(args.get("graph", "")), name)], "dry-run")
     _apply_node_config(node, args)
-    blend.add_node(StringName(name), node, _v2(args.get("position", [0.0, 0.0])))
+    blend.add_node(StringName(name), node, graph_position)
     EditorInterface.mark_scene_as_unsaved()
     ctx._revision += 1
     return ctx._mutation_result(true, [_child_graph(str(args.get("graph", "")), name)], "Add BlendTree node")
@@ -122,6 +126,8 @@ static func blend_tree_node_configure(ctx, args: Dictionary) -> Dictionary:
     if name == "output" or not blend.has_node(StringName(name)):
         return ctx._error("not_found", "BlendTree node not found or immutable")
     var node: AnimationNode = blend.get_node(StringName(name))
+    if args.has("graph_position") and _v2_or_null(args["graph_position"]) == null:
+        return ctx._error("invalid_argument", "graph_position must be a 2-number array")
     var error := _validate_node_config(node, args)
     if not error.is_empty(): return ctx._error("invalid_argument", error)
     var new_name := str(args.get("new_name", ""))
@@ -130,7 +136,7 @@ static func blend_tree_node_configure(ctx, args: Dictionary) -> Dictionary:
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [_child_graph(str(args.get("graph", "")), name)], "dry-run")
     _apply_node_config(node, args)
-    if args.has("position"): blend.set_node_position(StringName(name), _v2(args["position"]))
+    if args.has("graph_position"): blend.set_node_position(StringName(name), _v2(args["graph_position"]))
     if not new_name.is_empty() and new_name != name: blend.rename_node(StringName(name), StringName(new_name))
     EditorInterface.mark_scene_as_unsaved()
     ctx._revision += 1
@@ -296,7 +302,7 @@ static func blend_space_point_configure(ctx, args: Dictionary) -> Dictionary:
         return ctx._error("not_found", "blend point not found")
     var name := str(args.get("name", ""))
     if not name.is_empty():
-        var existing := space.find_blend_point_by_name(StringName(name))
+        var existing: int = int(space.find_blend_point_by_name(StringName(name)))
         if not _safe_name(name) or (existing >= 0 and existing != index):
             return ctx._error("conflict", "invalid or duplicate blend-point name")
     var position = null
@@ -447,8 +453,6 @@ static func _node_data(node: AnimationNode, graph: String) -> Dictionary:
     return data
 
 static func _validate_node_config(node: AnimationNode, args: Dictionary) -> String:
-    if args.has("position") and _v2_or_null(args["position"]) == null:
-        return "position must be a 2-number array"
     if node is AnimationNodeOneShot:
         for key in ["fadein_time","fadeout_time","autorestart_delay","autorestart_random_delay"]:
             if args.has(key) and float(args[key]) < 0.0: return "%s must be non-negative" % key

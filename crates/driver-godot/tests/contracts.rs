@@ -203,6 +203,60 @@ fn gridmap_and_path_schemas_reject_out_of_domain_values() {
 }
 
 #[test]
+fn animation_graph_schemas_separate_layout_from_blend_positions() {
+    let catalog = Catalog::load().unwrap();
+    let stamp = json!({"revision":1,"fingerprint":"a".repeat(64)});
+
+    let add = catalog
+        .get("driver.godot.animation_tree.blend_tree.node.add")
+        .unwrap();
+    add.validate_input(&json!({
+        "session":"a".repeat(32),
+        "tree":"AnimationTree",
+        "graph":"BlendGraph",
+        "name":"SpeedSpace",
+        "kind":"blend_space_1d",
+        "graph_position":[460.0,0.0],
+        "min_space":-1.0,
+        "max_space":1.0,
+        "snap":0.1,
+        "expect":stamp,
+        "dry_run":false
+    }))
+    .unwrap();
+
+    let ambiguous = json!({
+        "session":"a".repeat(32),
+        "tree":"AnimationTree",
+        "graph":"BlendGraph",
+        "name":"SpeedSpace",
+        "kind":"blend_space_1d",
+        "position":[460.0,0.0],
+        "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+        "dry_run":false
+    });
+    assert!(add.validate_input(&ambiguous).is_err());
+
+    let point = catalog
+        .get("driver.godot.animation_tree.blend_space.point.add")
+        .unwrap();
+    point
+        .validate_input(&json!({
+            "session":"a".repeat(32),
+            "tree":"AnimationTree",
+            "graph":"BlendGraph/SpeedSpace",
+            "name":"Slow",
+            "kind":"animation",
+            "position":-1.0,
+            "animation":"door_open",
+            "index":-1,
+            "expect":{"revision":1,"fingerprint":"a".repeat(64)},
+            "dry_run":false
+        }))
+        .unwrap();
+}
+
+#[test]
 fn input_schema_accepts_gamepad_button_and_axis_bindings() {
     let catalog = Catalog::load().unwrap();
     let entry = catalog.get("driver.godot.input.set").unwrap();

@@ -162,6 +162,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
     godot = None
     godot_log = open(td / "godot-editor.log", "wb")
     trace = []
+    trace_target = os.environ.get("SEMWRIGHT_GODOT_TRACE")
     try:
         ready, _ = request(driver, {
             "type": "hello", "protocol": 2,
@@ -835,11 +836,11 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         for name, position in [("IdleClip", [0.0, 0.0]), ("RunClip", [0.0, 120.0])]:
             mutate("driver.godot.animation_tree.blend_tree.node.add", {
                 "tree": "AnimationTree", "graph": "BlendGraph", "name": name,
-                "kind": "animation", "position": position, "animation": "door_open",
+                "kind": "animation", "graph_position": position, "animation": "door_open",
             })
         mutate("driver.godot.animation_tree.blend_tree.node.add", {
             "tree": "AnimationTree", "graph": "BlendGraph", "name": "Blend",
-            "kind": "blend2", "position": [220.0, 60.0], "sync": True,
+            "kind": "blend2", "graph_position": [220.0, 60.0], "sync": True,
         })
         for input_node, input_index, output_node in [
             ("Blend", 0, "IdleClip"),
@@ -859,7 +860,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         )
         mutate("driver.godot.animation_tree.blend_tree.node.configure", {
             "tree": "AnimationTree", "graph": "BlendGraph", "name": "Blend",
-            "position": [240.0, 70.0], "sync": False,
+            "graph_position": [240.0, 70.0], "sync": False,
         })
         blend_node = call("driver.godot.animation_tree.node.inspect", {
             "session": sid, "tree": "AnimationTree", "graph": "BlendGraph/Blend",
@@ -869,7 +870,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
 
         mutate("driver.godot.animation_tree.blend_tree.node.add", {
             "tree": "AnimationTree", "graph": "BlendGraph", "name": "SpeedSpace",
-            "kind": "blend_space_1d", "position": [460.0, 0.0],
+            "kind": "blend_space_1d", "graph_position": [460.0, 0.0],
             "min_space": -1.0, "max_space": 1.0, "snap": 0.1,
         })
         mutate("driver.godot.animation_tree.blend_space.configure", {
@@ -902,7 +903,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
 
         mutate("driver.godot.animation_tree.blend_tree.node.add", {
             "tree": "AnimationTree", "graph": "BlendGraph", "name": "DirectionSpace",
-            "kind": "blend_space_2d", "position": [460.0, 220.0],
+            "kind": "blend_space_2d", "graph_position": [460.0, 220.0],
             "min_space": [-1.0, -1.0], "max_space": [1.0, 1.0],
             "snap": [0.1, 0.1], "auto_triangles": False,
         })
@@ -1234,7 +1235,6 @@ func _physics_process(_delta: float) -> void:
         assert CHILD_EVENTS, "real Godot produced no Driver Protocol child events"
         assert any(event.get("kind", "").startswith("godot.") for event in CHILD_EVENTS)
 
-        trace_target = os.environ.get("SEMWRIGHT_GODOT_TRACE")
         if trace_target:
             trace_path = pathlib.Path(trace_target)
             trace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1263,6 +1263,12 @@ func _physics_process(_delta: float) -> void:
                 godot.kill()
                 godot.wait()
         godot_log.close()
+        if trace_target:
+            trace_path = pathlib.Path(trace_target)
+            trace_path.parent.mkdir(parents=True, exist_ok=True)
+            source_log = td / "godot-editor.log"
+            if source_log.is_file():
+                shutil.copyfile(source_log, trace_path.parent / "godot-editor.log")
         if driver.poll() is None:
             driver.kill()
             driver.wait()
