@@ -812,19 +812,17 @@ fn h264_encoding_args() -> Vec<OsString> {
 }
 
 fn render_processing_args(profile: &RenderProfile) -> Vec<OsString> {
-    // MLT real_time=-1 still runs an asynchronous consumer thread (without frame
-    // dropping). The 1080p launch-film path repeatedly SIGSEGV'd immediately after
-    // consumer start on Ubuntu's MLT 7.22 even after removing parallel frame workers.
-    // For curated H.264 file renders use MLT's documented synchronous mode instead;
-    // libx264 keeps two bounded encoder threads, so this does not disable codec
-    // parallelism or change timeline semantics. Keep the already-certified async
-    // path for the other profiles until they demonstrate the same need.
-    let scheduling = if profile.video_codec == Some("libx264") {
-        "real_time=0"
+    // MLT real_time=-1 still runs asynchronous frame workers. That path repeatedly
+    // SIGSEGV'd for the 1080p H.264 launch-film graph on Ubuntu's MLT 7.22, so H.264
+    // stays synchronous at the MLT layer. The avformat `threads` property is separate:
+    // it maps to the video AVCodecContext thread count, and MLT's own x264 presets use
+    // zero to let libx264 choose an encoder thread count. This restores codec-level
+    // parallelism without re-enabling the unstable MLT frame-worker topology.
+    if profile.video_codec == Some("libx264") {
+        vec!["real_time=0".into(), "threads=0".into()]
     } else {
-        "real_time=-1"
-    };
-    vec![scheduling.into(), "threads=2".into()]
+        vec!["real_time=-1".into(), "threads=2".into()]
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1077,7 +1075,7 @@ mod tool_owner_tests {
         for id in ["h264-1080p", "h264-720p"] {
             let args = render_processing_args(&RenderProfile::get(id).unwrap());
             let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
-            assert_eq!(args, ["real_time=0", "threads=2"], "profile {id}");
+            assert_eq!(args, ["real_time=0", "threads=0"], "profile {id}");
         }
         for id in ["lossless", "audio-wav"] {
             let args = render_processing_args(&RenderProfile::get(id).unwrap());
