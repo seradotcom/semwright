@@ -273,13 +273,23 @@ impl Fixture {
             .unwrap();
     }
     async fn call(&self, suffix: &str, args: Value) -> Envelope {
-        call(
-            self.broker.clone(),
-            format!("driver.fixture.{suffix}"),
-            args,
-            CancellationToken::new(),
-        )
-        .await
+        self.call_in_session(&unique_id(), suffix, args).await
+    }
+
+    async fn call_in_session(&self, session: &str, suffix: &str, args: Value) -> Envelope {
+        self.broker
+            .execute(
+                unique_id(),
+                session.to_owned(),
+                ExecuteRequest {
+                    command: format!("driver.fixture.{suffix}"),
+                    args,
+                    dry_run: false,
+                    backend: None,
+                },
+                CancellationToken::new(),
+            )
+            .await
     }
 }
 async fn call(
@@ -356,7 +366,8 @@ async fn opted_in_dynamic_provider_uses_shared_ref_store_and_validates_before_re
     fixture.provider.native_refs.store(true, Ordering::SeqCst);
     fixture.mount().await;
 
-    let issued = fixture.call("native", json!({})).await;
+    let session = unique_id();
+    let issued = fixture.call_in_session(&session, "native", json!({})).await;
     assert!(issued.ok, "{issued:?}");
     let reference = issued.data.as_ref().unwrap()["data"]["ref"]
         .as_str()
@@ -365,7 +376,7 @@ async fn opted_in_dynamic_provider_uses_shared_ref_store_and_validates_before_re
     assert!(reference.starts_with("native:"));
 
     let reused = fixture
-        .call("count", json!({"ref": reference.clone()}))
+        .call_in_session(&session, "count", json!({"ref": reference.clone()}))
         .await;
     assert!(reused.ok, "{reused:?}");
     let data = &reused.data.as_ref().unwrap()["data"];
@@ -425,7 +436,7 @@ async fn one_available_operation_does_not_enable_an_unavailable_operation() {
         })
         .await
         .unwrap();
-    assert_eq!(rows["total"], 2);
+    assert_eq!(rows["total"], 3);
     let available = rows["capabilities"]
         .as_array()
         .unwrap()
@@ -434,9 +445,13 @@ async fn one_available_operation_does_not_enable_an_unavailable_operation() {
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(
         available,
-        ["driver.fixture.count", "driver.fixture.progress"]
-            .into_iter()
-            .collect()
+        [
+            "driver.fixture.count",
+            "driver.fixture.native",
+            "driver.fixture.progress",
+        ]
+        .into_iter()
+        .collect()
     );
     fixture.broker.shutdown().await;
 }
