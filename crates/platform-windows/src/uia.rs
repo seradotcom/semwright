@@ -35,7 +35,7 @@ use uiautomation::patterns::{
 };
 use uiautomation::{
     UIAutomation, UIElement, UITreeWalker,
-    types::{Point, TreeScope, UIProperty, WindowVisualState},
+    types::{Handle, Point, TreeScope, UIProperty, WindowVisualState},
 };
 
 const MAX_NODES: usize = 2_000;
@@ -110,6 +110,7 @@ enum Call {
         usize,
         mpsc::Sender<Result<Value>>,
     ),
+    SnapshotHwnd(isize, usize, usize, mpsc::Sender<Result<Value>>),
     FindCandidates(Box<Selector>, usize, usize, mpsc::Sender<Result<Value>>),
     Inspect(NativeTarget, mpsc::Sender<Result<Value>>),
     HitTest(i32, i32, mpsc::Sender<Result<Value>>),
@@ -969,19 +970,12 @@ impl State {
         }))
     }
 
-    fn snapshot(
+    fn snapshot_element(
         &mut self,
-        target: Option<NativeTarget>,
+        root: UIElement,
         max_nodes: usize,
         max_depth: usize,
     ) -> Result<Value> {
-        let root = match target {
-            Some(t) => self.resolve(&t)?,
-            None => self
-                .automation
-                .get_root_element()
-                .map_err(|e| uia_error(e, "UIA desktop root unavailable"))?,
-        };
         let max_nodes = max_nodes.clamp(1, MAX_NODES);
         let max_depth = max_depth.min(MAX_DEPTH);
         let mut count = 0usize;
@@ -995,6 +989,36 @@ impl State {
             "partial": partial,
             "revision": self.next_revision
         }))
+    }
+
+    fn snapshot(
+        &mut self,
+        target: Option<NativeTarget>,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Value> {
+        let root = match target {
+            Some(t) => self.resolve(&t)?,
+            None => self
+                .automation
+                .get_root_element()
+                .map_err(|e| uia_error(e, "UIA desktop root unavailable"))?,
+        };
+        self.snapshot_element(root, max_nodes, max_depth)
+    }
+
+    fn snapshot_hwnd(&mut self, hwnd: isize, max_nodes: usize, max_depth: usize) -> Result<Value> {
+        if hwnd == 0 {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Windows window reference no longer has a live HWND",
+            ));
+        }
+        let root = self
+            .automation
+            .element_from_handle(Handle::from(hwnd))
+            .map_err(|e| uia_error(e, "UIA could not resolve the revalidated HWND"))?;
+        self.snapshot_element(root, max_nodes, max_depth)
     }
 
     fn inspect(&mut self, target: NativeTarget) -> Result<Value> {
@@ -1310,6 +1334,9 @@ impl UiaActor {
     ) -> Result<Value> {
         self.request(|r| Call::Snapshot(t, max_nodes, max_depth, r))
     }
+    pub fn snapshot_hwnd(&self, hwnd: isize, max_nodes: usize, max_depth: usize) -> Result<Value> {
+        self.request(|r| Call::SnapshotHwnd(hwnd, max_nodes, max_depth, r))
+    }
     pub fn find_candidates(
         &self,
         selector: Selector,
@@ -1364,6 +1391,9 @@ fn dispatch(state: &mut State, call: Call) {
         }
         Call::Snapshot(t, max_nodes, max_depth, r) => {
             let _ = r.send(state.snapshot(t, max_nodes, max_depth));
+        }
+        Call::SnapshotHwnd(hwnd, max_nodes, max_depth, r) => {
+            let _ = r.send(state.snapshot_hwnd(hwnd, max_nodes, max_depth));
         }
         Call::FindCandidates(selector, max_nodes, max_depth, r) => {
             let _ = r.send(state.find_candidates(selector.as_ref(), max_nodes, max_depth));

@@ -348,18 +348,28 @@ impl Backend for Windows {
                 window::close(h)?;
                 Ok(json!({"requested":true,"delivery_verified":false}))
             }
-            "ui.snapshot" => self.uia.snapshot(
-                args.get("_target")
-                    .and_then(|v| serde_json::from_value(v.clone()).ok()),
-                args.get("max_nodes")
+            "ui.snapshot" => {
+                let max_nodes = args
+                    .get("max_nodes")
                     .and_then(Value::as_u64)
                     .unwrap_or(200)
-                    .min(2_000) as usize,
-                args.get("max_depth")
+                    .min(2_000) as usize;
+                let max_depth = args
+                    .get("max_depth")
                     .and_then(Value::as_u64)
                     .unwrap_or(5)
-                    .min(32) as usize,
-            ),
+                    .min(32) as usize;
+                let scoped = args
+                    .get("_target")
+                    .and_then(|v| serde_json::from_value::<NativeTarget>(v.clone()).ok());
+                match scoped {
+                    Some(reference) if reference.identity.starts_with("win:") => {
+                        let hwnd = self.resolve_window(&reference)?;
+                        self.uia.snapshot_hwnd(hwnd.0 as isize, max_nodes, max_depth)
+                    }
+                    other => self.uia.snapshot(other, max_nodes, max_depth),
+                }
+            }
             "ui.inspect" => self.uia.inspect(target(args)?),
             "ui.hit_test" => {
                 let x = args
