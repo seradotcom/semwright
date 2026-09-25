@@ -17,6 +17,13 @@ const $=id=>document.getElementById(id);
 let ws=null,session=null,generation=1,context=null;
 function state(s){$("state").textContent=s}
 function hex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
+function randomSessionId(){
+ if(typeof crypto.randomUUID==="function")return crypto.randomUUID();
+ const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);
+ bytes[6]=(bytes[6]&0x0f)|0x40;bytes[8]=(bytes[8]&0x3f)|0x80;
+ const h=hex(bytes);
+ return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
+}
 function unhex(s){
  if(!/^[0-9a-f]{64}$/i.test(s))throw new Error("pairing code must be 64 hex characters");
  const out=new Uint8Array(s.length/2);
@@ -51,7 +58,7 @@ $("connect").onclick=async()=>{
  try{
   const port=Number($("port").value),secret=$("secret").value.trim().toLowerCase();
   if(!Number.isInteger(port)||port<1024||port>65535||!/^[0-9a-f]{64}$/.test(secret)){state("Invalid pairing data");return}
-  session=crypto.randomUUID();generation++;
+  session=randomSessionId();generation++;
   ws=new WebSocket("ws://localhost:"+port);
   ws.onopen=()=>{
    ws.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.3.0",figma_api:"1.139.0",editor_type:context?.editorType??"unknown",session_id:session,document_id:context?.documentId??"unknown",generation,capabilities:["design","prototype","motion_beta","figjam","slides","buzz","teamlibrary","shaders","semantic_complete"]}));
@@ -73,7 +80,7 @@ $("connect").onclick=async()=>{
   };
   ws.onclose=()=>state("Disconnected");
   ws.onerror=()=>state("Connection failed");
- }catch(err){state("Pairing failed")}
+ }catch(err){state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))}
 };
 $("disconnect").onclick=()=>{ws?.close();ws=null;$("secret").value="";state("Disconnected")};
 </script>
