@@ -27,6 +27,8 @@ static func spawner_configure(ctx, args: Dictionary) -> Dictionary:
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
         return conflict
+    if args.has("spawn_path") and not _safe_relative_node_path(str(args["spawn_path"]), true):
+        return ctx._error("invalid_argument", "spawn_path must be a bounded relative NodePath")
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [str(args.get("target", ""))], "dry-run")
     if args.has("spawn_path"):
@@ -117,6 +119,8 @@ static func synchronizer_configure(ctx, args: Dictionary) -> Dictionary:
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
         return conflict
+    if args.has("root_path") and not _safe_relative_node_path(str(args["root_path"]), true):
+        return ctx._error("invalid_argument", "root_path must be a bounded relative NodePath")
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [str(args.get("target", ""))], "dry-run")
     if args.has("root_path"): node.root_path = NodePath(str(args["root_path"]))
@@ -136,9 +140,10 @@ static func replication_add(ctx, args: Dictionary) -> Dictionary:
     var conflict = ctx._check_expect(args)
     if not conflict.is_empty():
         return conflict
-    var path := NodePath(str(args.get("path", "")))
-    if path.is_empty():
-        return ctx._error("invalid_argument", "replication property path is required")
+    var raw_path := str(args.get("path", ""))
+    if not _safe_relative_node_path(raw_path, false):
+        return ctx._error("invalid_argument", "replication property path must be a bounded relative NodePath")
+    var path := NodePath(raw_path)
     var config: SceneReplicationConfig = node.replication_config
     if config != null and config.has_property(path):
         return ctx._error("conflict", "replication property already exists")
@@ -162,7 +167,10 @@ static func replication_configure(ctx, args: Dictionary) -> Dictionary:
     if not conflict.is_empty():
         return conflict
     var config: SceneReplicationConfig = resolved
-    var path := NodePath(str(args.get("path", "")))
+    var raw_path := str(args.get("path", ""))
+    if not _safe_relative_node_path(raw_path, false):
+        return ctx._error("invalid_argument", "replication property path must be a bounded relative NodePath")
+    var path := NodePath(raw_path)
     if not config.has_property(path):
         return ctx._error("not_found", "replication property not found")
     if bool(args.get("dry_run", false)):
@@ -180,7 +188,10 @@ static func replication_remove(ctx, args: Dictionary) -> Dictionary:
     if not conflict.is_empty():
         return conflict
     var config: SceneReplicationConfig = resolved
-    var path := NodePath(str(args.get("path", "")))
+    var raw_path := str(args.get("path", ""))
+    if not _safe_relative_node_path(raw_path, false):
+        return ctx._error("invalid_argument", "replication property path must be a bounded relative NodePath")
+    var path := NodePath(raw_path)
     if not config.has_property(path):
         return ctx._error("not_found", "replication property not found")
     if bool(args.get("dry_run", false)):
@@ -197,3 +208,15 @@ static func _replication(ctx, args: Dictionary):
     if node.replication_config == null:
         return ctx._error("not_found", "MultiplayerSynchronizer has no replication config")
     return node.replication_config
+
+static func _safe_relative_node_path(path: String, allow_empty: bool) -> bool:
+    if path.length() > 240:
+        return false
+    if path.is_empty():
+        return allow_empty
+    var parsed := NodePath(path)
+    if parsed.is_absolute():
+        return false
+    if path == ".." or path.begins_with("../") or path.ends_with("/..") or path.contains("/../"):
+        return false
+    return true

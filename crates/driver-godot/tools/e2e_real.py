@@ -627,6 +627,10 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "translation": "Hola", "context": "",
         })
         mutate("driver.godot.translation.message.set", {
+            "path": "res://assets/es_translation.translation", "source": "OPEN",
+            "translation": "Abrir", "context": "menu",
+        })
+        mutate("driver.godot.translation.message.set", {
             "path": "res://assets/es_translation.translation", "source": "TEMP",
             "translation": "Temporal", "context": "",
         })
@@ -637,6 +641,9 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "session": sid, "path": "res://assets/es_translation.translation",
         })
         assert any(row["source"] == "HELLO" and row["translation"] == "Hola"
+                   for row in translation["data"]["messages"])
+        assert any(row["source"] == "OPEN" and row["context"] == "menu"
+                   and row["translation"] == "Abrir"
                    for row in translation["data"]["messages"])
         mutate("driver.godot.localization.configure", {
             "fallback": "en", "test_locale": "",
@@ -682,6 +689,9 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         mutate("driver.godot.animation_tree.parameter.set", {
             "tree": "AnimationTree", "parameter": "conditions/go", "value": False,
         })
+        tree = call("driver.godot.animation_tree.inspect", {"session": sid, "tree": "AnimationTree"})
+        assert any(row["name"] == "conditions/go" and row["value"] is False
+                   for row in tree["data"]["parameters"])
         mutate("driver.godot.animation_tree.state.remove", {
             "tree": "AnimationTree", "name": "Temporary",
         })

@@ -65,7 +65,17 @@ static func translation_inspect(ctx, args: Dictionary) -> Dictionary:
             truncated = true
             break
         var key := str(message)
-        rows.append({"source": key, "translation": str(translation.get_message(message))})
+        var context := ""
+        var source := key
+        var separator := key.find("\u0004")
+        if separator >= 0:
+            context = key.substr(0, separator)
+            source = key.substr(separator + 1)
+        rows.append({
+            "source": source,
+            "context": context,
+            "translation": str(translation.get_message(StringName(source), StringName(context))),
+        })
     return {"stamp": ctx._stamp(), "data": {
         "path": translation.resource_path,
         "locale": translation.locale,

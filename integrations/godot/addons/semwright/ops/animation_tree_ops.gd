@@ -44,11 +44,20 @@ static func inspect(ctx, args: Dictionary) -> Dictionary:
             "switch_mode": transition.switch_mode,
             "xfade_time": transition.xfade_time,
         })
+    var parameters: Array = []
+    for meta in resolved["tree"].get_property_list():
+        var property := str(meta.get("name", ""))
+        if not property.begins_with("parameters/"):
+            continue
+        var encoded := _encode_parameter_value(resolved["tree"].get(property))
+        if bool(encoded.get("ok", false)):
+            parameters.append({"name": property.trim_prefix("parameters/"), "value": encoded["value"]})
     return {"stamp": ctx._stamp(), "data": {
         "tree": str(args.get("tree", "")),
         "active": resolved["tree"].active,
         "nodes": rows,
         "transitions": transitions,
+        "parameters": parameters,
     }}
 static func state_add(ctx, args: Dictionary) -> Dictionary:
     var resolved = _state_machine(ctx, args)
@@ -198,6 +207,21 @@ static func _configure_transition(transition: AnimationNodeStateMachineTransitio
     if args.has("reset"): transition.reset = bool(args["reset"])
     if args.has("switch_mode"): transition.switch_mode = int(args["switch_mode"])
     if args.has("xfade_time"): transition.xfade_time = float(args["xfade_time"])
+
+static func _encode_parameter_value(value) -> Dictionary:
+    match typeof(value):
+        TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING:
+            return {"ok": true, "value": value}
+        TYPE_STRING_NAME, TYPE_NODE_PATH:
+            return {"ok": true, "value": str(value)}
+        TYPE_VECTOR2:
+            return {"ok": true, "value": {"$type": "Vector2", "value": [value.x, value.y]}}
+        TYPE_VECTOR3:
+            return {"ok": true, "value": {"$type": "Vector3", "value": [value.x, value.y, value.z]}}
+        TYPE_COLOR:
+            return {"ok": true, "value": {"$type": "Color", "value": [value.r, value.g, value.b, value.a]}}
+        _:
+            return {"ok": false}
 
 static func _vec2(value: Vector2) -> Array:
     return [value.x, value.y]

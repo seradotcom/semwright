@@ -108,13 +108,15 @@ static func import_configure(ctx, args: Dictionary) -> Dictionary:
             return ctx._error("invalid_argument", "import parameter value must be scalar")
     if bool(args.get("dry_run", false)):
         return ctx._mutation_result(false, [path], "dry-run")
+    var fs := EditorInterface.get_resource_filesystem()
+    if fs.is_importing() or fs.is_scanning():
+        return ctx._error("unavailable", "resource filesystem is busy")
     for item in updates:
         cfg.set_value("params", str(item["key"]), item["value"])
     if cfg.save(sidecar) != OK:
         return ctx._error("backend_failed", "failed to save import sidecar")
-    var fs := EditorInterface.get_resource_filesystem()
     if fs.is_importing() or fs.is_scanning():
-        return ctx._error("unavailable", "resource filesystem became busy")
+        return ctx._error("unavailable", "resource filesystem became busy after sidecar update")
     fs.reimport_files(PackedStringArray([path]))
     ctx._revision += 1
     return ctx._mutation_result(true, [path], "Configure and reimport asset")
