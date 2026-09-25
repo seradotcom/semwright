@@ -213,3 +213,10 @@ path = "fuzz_targets/godot_catalog.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "godot_substrate_schema"
+path = "fuzz_targets/godot_substrate_schema.rs"
+test = false
+doc = false
+bench = false
