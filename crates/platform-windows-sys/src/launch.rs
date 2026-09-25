@@ -420,13 +420,37 @@ mod verifier_tests {
     use super::*;
 
     #[test]
-    fn current_test_executable_passes_acl_digest_and_pe_verification() {
-        let path = std::env::current_exe().expect("current test executable");
-        let bytes = std::fs::read(&path).expect("read current test executable");
+    fn hardened_staged_executable_passes_acl_digest_and_pe_verification() {
+        let source = std::env::current_exe().expect("current test executable");
+        let bytes = std::fs::read(&source).expect("read current test executable");
+        let dir = tempfile::tempdir().expect("temporary staging directory");
+        let path = dir.path().join("semwright-trust-fixture.exe");
+        std::fs::copy(&source, &path).expect("copy native PE fixture");
+
+        // GitHub-hosted build directories intentionally inherit broader ACLs than Semwright
+        // permits for staged executable bytes. Model the production staging boundary instead
+        // of weakening the verifier to accommodate the runner workspace.
+        let user = std::env::var("USERNAME").expect("Windows USERNAME");
+        let principal = match std::env::var("USERDOMAIN") {
+            Ok(domain) if !domain.is_empty() => format!(r"{domain}\{user}"),
+            _ => user,
+        };
+        let acl = std::process::Command::new("icacls")
+            .arg(&path)
+            .arg("/inheritance:r")
+            .arg("/grant:r")
+            .arg(format!("{principal}:(F)"))
+            .status()
+            .expect("run icacls for hardened fixture");
+        assert!(
+            acl.success(),
+            "icacls must establish the staged fixture DACL"
+        );
+
         let digest = format!("{:x}", Sha256::digest(&bytes));
         let verified = WindowsVerifier
             .verify(&path, &digest)
-            .expect("native Windows test executable should satisfy trust policy");
+            .expect("hardened staged Windows executable should satisfy trust policy");
         assert_eq!(verified, bytes);
     }
 
