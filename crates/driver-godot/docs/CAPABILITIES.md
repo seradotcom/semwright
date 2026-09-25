@@ -1,6 +1,6 @@
 # Godot capability surface
 
-The Godot driver exposes **103 curated `driver.godot.*` capabilities**. Every advertised
+The Godot driver exposes **149 curated `driver.godot.*` capabilities**. Every advertised
 capability has an operation-specific input and output schema, descriptor digest, route and
 risk/idempotency classification. The catalog is checked against the production EditorPlugin
 dispatch and runner routes. The goal is semantic domain coverage, not a one-tool-per-method
@@ -113,6 +113,68 @@ type variations.
 
 Bone inspection and mutation are bounded to 512 bones and expose hierarchy plus pose state.
 
+## Project settings and autoloads
+
+- `project.window.inspect`, `project.window.configure`
+- `project.rendering.inspect`, `project.rendering.configure`
+- `project.physics.inspect`, `project.physics.configure`
+- `project.layers.inspect`, `project.layers.set`
+- `autoload.list`, `autoload.add`, `autoload.remove`
+
+Only curated project settings are writable. Autoload creation is classified as code-execution
+risk because the registered script executes when the project is run.
+
+## Asset import and export configuration
+
+- `asset.inspect`, `asset.dependencies`, `asset.reimport`
+- `asset.import.inspect`, `asset.import.configure`
+- `export.preset.list`, `export.preset.inspect`, `export.preset.configure`
+
+Import configuration can only modify existing scalar keys in an existing `.import` sidecar
+and then reimports through EditorFileSystem. Export configuration is limited to
+`export_presets.cfg`; Semwright never reads or writes `.godot/export_credentials.cfg`.
+
+## Localization
+
+- `localization.inspect`, `localization.configure`
+- `translation.inspect`, `translation.create`
+- `translation.message.set`, `translation.message.remove`
+
+Translation resources are normal Godot resources and project registration is persisted through
+ProjectSettings.
+
+## Deep AnimationTree authoring
+
+- `animation_tree.inspect`
+- `animation_tree.state.add`, `animation_tree.state.remove`
+- `animation_tree.transition.add`, `animation_tree.transition.configure`,
+  `animation_tree.transition.remove`
+- `animation_tree.parameter.set`
+
+State creation is limited to an explicit set of AnimationNode classes. Transitions expose
+condition, advance mode, priority, reset, switch mode and cross-fade semantics without arbitrary
+method dispatch.
+
+## Multiplayer authoring
+
+- `multiplayer.spawner.inspect`, `multiplayer.spawner.configure`
+- `multiplayer.spawner.scene.add`, `multiplayer.spawner.scene.remove`
+- `multiplayer.synchronizer.inspect`, `multiplayer.synchronizer.configure`
+- `multiplayer.replication.property.add`, `multiplayer.replication.property.configure`,
+  `multiplayer.replication.property.remove`
+
+These capabilities author scene replication metadata only. They do not create peers, open
+network sockets or expose arbitrary RPC execution.
+
+## Editor state
+
+- `editor.state`
+- `editor.selection.get`, `editor.selection.set`
+- `editor.run.start`, `editor.run.stop`
+
+Editor run-start is explicitly code-execution risk. Selection and state use EditorInterface and
+EditorSelection rather than coordinate automation.
+
 ## Headless runner and artifacts
 
 - `project.validate`
@@ -128,9 +190,10 @@ process-group cleanup and Driver Protocol v2 cancellation/progress/artifact fram
 ## Semantic-completeness boundary
 
 This surface intentionally does **not** mirror every ClassDB method. Arbitrary `Object.call`,
-OS execution and unrestricted GDScript evaluation remain unavailable. The next completeness
-layers are API introspection, richer Variant encoding, project/import/export configuration,
-autoloads, deeper AnimationTree graphs and selected multiplayer/editor-state semantics.
+OS execution and unrestricted GDScript evaluation remain unavailable. The curated domain layer
+now covers the major Godot authoring systems. Remaining completeness work belongs to the generic
+semantic substrate: broader Variant encoding, versioned API introspection/search, stronger
+provider-owned refs and cross-platform host polish.
 
 ## Acceptance evidence
 

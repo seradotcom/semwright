@@ -114,6 +114,11 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
     shutil.copytree(PLUGIN, plugin_target)
     for directory in ("scenes", "scripts", "assets"):
         (project / directory).mkdir(exist_ok=True)
+    # A real imported source asset exercises EditorFileSystem/import semantics.
+    (project / "assets" / "semantic_icon.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">'
+        '<rect width="16" height="16" fill="#5b7cfa"/></svg>'
+    )
     output = td / "artifacts"
     output.mkdir()
     home = td / "home"
@@ -159,7 +164,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert interfaces["interfaces"]["artifacts"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
-        assert len(caps) == 103, len(caps)
+        assert len(caps) == 149, len(caps)
 
         env = os.environ.copy()
         env.update({
@@ -237,6 +242,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             ("res://assets/tileset.tres", "TileSet", []),
             ("res://assets/navigation.tres", "NavigationMesh", []),
             ("res://assets/ui_theme.tres", "Theme", []),
+            ("res://assets/state_machine.tres", "AnimationNodeStateMachine", []),
         ]
         for path, klass, props in resources:
             value = call("driver.godot.resource.create", {
@@ -275,6 +281,9 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node("Key", "MeshInstance3D", "Mesh", [("mesh", Res("res://assets/key_mesh.tres")), ("material_override", Res("res://assets/key_mat.tres"))])
         node("Key", "CollisionShape3D", "Collision", [("shape", Res("res://assets/key_shape.tres"))])
         node(".", "AnimationPlayer", "Animations")
+        node(".", "AnimationTree", "AnimationTree", [("tree_root", Res("res://assets/state_machine.tres"))])
+        node(".", "MultiplayerSpawner", "Spawner")
+        node(".", "MultiplayerSynchronizer", "Synchronizer")
         node(".", "TileMapLayer", "Tiles", [("tile_set", Res("res://assets/tileset.tres"))])
         node(".", "NavigationRegion3D", "NavRegion", [("navigation_mesh", Res("res://assets/navigation.tres"))])
         node("Player", "NavigationAgent3D", "Agent")
@@ -458,6 +467,162 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         skeleton = call("driver.godot.skeleton.inspect", {"session": sid, "target": "Rig"})
         assert skeleton["data"]["bone_count"] == 1
 
+        # Project-level semantic authoring.
+        mutate("driver.godot.project.window.configure", {
+            "viewport_width": 960, "viewport_height": 540,
+            "resizable": True, "borderless": False, "always_on_top": False,
+        })
+        window = call("driver.godot.project.window.inspect", {"session": sid})
+        assert window["data"]["viewport_width"] == 960
+        mutate("driver.godot.project.rendering.configure", {"taa": False, "use_debanding": False})
+        call("driver.godot.project.rendering.inspect", {"session": sid})
+        mutate("driver.godot.project.physics.configure", {
+            "ticks_per_second": 60, "max_steps_per_frame": 8, "jitter_fix": 0.5,
+            "gravity_2d": 980.0, "gravity_3d": 9.8, "gravity_vector_3d": [0.0, -1.0, 0.0],
+        })
+        physics_project = call("driver.godot.project.physics.inspect", {"session": sid})
+        assert physics_project["data"]["ticks_per_second"] == 60
+        mutate("driver.godot.project.layers.set", {"kind": "3d_physics", "index": 1, "name": "World"})
+        layers = call("driver.godot.project.layers.inspect", {"session": sid})
+        assert any(row["name"] == "World" for row in layers["data"]["3d_physics"])
+
+        # Asset/import semantics use a real SVG imported by the editor.
+        asset = call("driver.godot.asset.inspect", {"session": sid, "path": "res://assets/semantic_icon.svg"})
+        assert asset["data"]["import_sidecar"] is True
+        call("driver.godot.asset.dependencies", {"session": sid, "path": "res://assets/semantic_icon.svg"})
+        imported = call("driver.godot.asset.import.inspect", {"session": sid, "path": "res://assets/semantic_icon.svg"})
+        scalar_param = next(
+            ((k, v) for k, v in imported["data"]["params"].items()
+             if isinstance(v, (bool, int, float, str))),
+            None,
+        )
+        if scalar_param is not None:
+            mutate("driver.godot.asset.import.configure", {
+                "path": "res://assets/semantic_icon.svg",
+                "params": [{"key": scalar_param[0], "value": scalar_param[1]}],
+            })
+        mutate("driver.godot.asset.reimport", {"path": "res://assets/semantic_icon.svg"})
+
+        # Non-secret export preset semantics.
+        presets = call("driver.godot.export.preset.list", {"session": sid})
+        assert any(preset["name"] == "Semwright Pack" for preset in presets["data"]["presets"])
+        mutate("driver.godot.export.preset.configure", {
+            "name": "Semwright Pack", "custom_features": "semwright_ci",
+        })
+        preset = call("driver.godot.export.preset.inspect", {"session": sid, "name": "Semwright Pack"})
+        assert preset["data"]["custom_features"] == "semwright_ci"
+
+        # Localization resources and project registration.
+        mutate("driver.godot.translation.create", {
+            "path": "res://assets/es_translation.tres", "locale": "es", "register": True,
+        })
+        mutate("driver.godot.translation.message.set", {
+            "path": "res://assets/es_translation.tres", "source": "HELLO",
+            "translation": "Hola", "context": "",
+        })
+        mutate("driver.godot.translation.message.set", {
+            "path": "res://assets/es_translation.tres", "source": "TEMP",
+            "translation": "Temporal", "context": "",
+        })
+        mutate("driver.godot.translation.message.remove", {
+            "path": "res://assets/es_translation.tres", "source": "TEMP", "context": "",
+        })
+        translation = call("driver.godot.translation.inspect", {
+            "session": sid, "path": "res://assets/es_translation.tres",
+        })
+        assert any(row["source"] == "HELLO" and row["translation"] == "Hola"
+                   for row in translation["data"]["messages"])
+        mutate("driver.godot.localization.configure", {
+            "fallback": "en", "test_locale": "",
+            "translations": ["res://assets/es_translation.tres"],
+        })
+        localization = call("driver.godot.localization.inspect", {"session": sid})
+        assert "res://assets/es_translation.tres" in localization["data"]["translations"]
+
+        # Deep AnimationTree state-machine authoring.
+        mutate("driver.godot.animation_tree.state.add", {
+            "tree": "AnimationTree", "name": "Idle", "kind": "animation",
+            "position": [0.0, 0.0], "animation": "door_open",
+        })
+        mutate("driver.godot.animation_tree.state.add", {
+            "tree": "AnimationTree", "name": "Run", "kind": "animation",
+            "position": [220.0, 0.0], "animation": "door_open",
+        })
+        mutate("driver.godot.animation_tree.state.add", {
+            "tree": "AnimationTree", "name": "Temporary", "kind": "animation",
+            "position": [440.0, 0.0], "animation": "door_open",
+        })
+        mutate("driver.godot.animation_tree.transition.add", {
+            "tree": "AnimationTree", "from": "Idle", "to": "Run",
+            "advance_condition": "go", "advance_expression": "", "advance_mode": 2,
+            "priority": 1, "reset": True, "switch_mode": 0, "xfade_time": 0.1,
+        })
+        mutate("driver.godot.animation_tree.transition.configure", {
+            "tree": "AnimationTree", "from": "Idle", "to": "Run",
+            "advance_condition": "go", "advance_expression": "", "advance_mode": 2,
+            "priority": 2, "reset": True, "switch_mode": 0, "xfade_time": 0.2,
+        })
+        mutate("driver.godot.animation_tree.transition.add", {
+            "tree": "AnimationTree", "from": "Run", "to": "Temporary",
+            "advance_condition": "", "advance_expression": "", "advance_mode": 1,
+            "priority": 1, "reset": True, "switch_mode": 0, "xfade_time": 0.0,
+        })
+        mutate("driver.godot.animation_tree.transition.remove", {
+            "tree": "AnimationTree", "from": "Run", "to": "Temporary",
+        })
+        tree = call("driver.godot.animation_tree.inspect", {"session": sid, "tree": "AnimationTree"})
+        assert any(row["name"] == "Idle" for row in tree["data"]["nodes"])
+        assert any(row["from"] == "Idle" and row["to"] == "Run" for row in tree["data"]["transitions"])
+        mutate("driver.godot.animation_tree.parameter.set", {
+            "tree": "AnimationTree", "parameter": "conditions/go", "value": False,
+        })
+        mutate("driver.godot.animation_tree.state.remove", {
+            "tree": "AnimationTree", "name": "Temporary",
+        })
+
+        # Multiplayer scene-replication authoring without opening sockets.
+        mutate("driver.godot.multiplayer.spawner.configure", {
+            "target": "Spawner", "spawn_path": ".", "spawn_limit": 8,
+        })
+        mutate("driver.godot.multiplayer.spawner.scene.add", {
+            "target": "Spawner", "scene": "res://scenes/lab_room.tscn",
+        })
+        spawner = call("driver.godot.multiplayer.spawner.inspect", {"session": sid, "target": "Spawner"})
+        assert "res://scenes/lab_room.tscn" in spawner["data"]["spawnable_scenes"]
+        mutate("driver.godot.multiplayer.spawner.scene.remove", {
+            "target": "Spawner", "scene": "res://scenes/lab_room.tscn",
+        })
+        mutate("driver.godot.multiplayer.spawner.scene.add", {
+            "target": "Spawner", "scene": "res://scenes/lab_room.tscn",
+        })
+        mutate("driver.godot.multiplayer.synchronizer.configure", {
+            "target": "Synchronizer", "root_path": ".", "replication_interval": 0.1,
+            "delta_interval": 0.05, "public_visibility": True, "visibility_update_mode": 0,
+        })
+        mutate("driver.godot.multiplayer.replication.property.add", {
+            "target": "Synchronizer", "path": "Player:position", "spawn": True, "mode": 1,
+        })
+        mutate("driver.godot.multiplayer.replication.property.add", {
+            "target": "Synchronizer", "path": "Player:rotation", "spawn": False, "mode": 2,
+        })
+        mutate("driver.godot.multiplayer.replication.property.configure", {
+            "target": "Synchronizer", "path": "Player:position", "spawn": True, "mode": 2,
+        })
+        multiplayer = call("driver.godot.multiplayer.synchronizer.inspect", {
+            "session": sid, "target": "Synchronizer",
+        })
+        assert any(row["path"] == "Player:position" for row in multiplayer["data"]["properties"])
+        mutate("driver.godot.multiplayer.replication.property.remove", {
+            "target": "Synchronizer", "path": "Player:rotation",
+        })
+
+        # Editor semantic state and selection.
+        mutate("driver.godot.editor.selection.set", {"nodes": ["Player", "Door"]})
+        selection = call("driver.godot.editor.selection.get", {"session": sid})
+        assert {row["path"] for row in selection["data"]["nodes"]} == {"Player", "Door"}
+        editor_state = call("driver.godot.editor.state", {"session": sid})
+        assert editor_state["data"]["scene"] == "res://scenes/lab_room.tscn"
+
         controller = """extends Node3D
 
 var has_key := false
@@ -499,6 +664,18 @@ func _physics_process(_delta: float) -> void:
             })
             st = stamp(value)
 
+        mutate("driver.godot.script.write", {
+            "path": "res://scripts/semantic_service.gd",
+            "source": "extends Node\nvar semantic_ready := true\n",
+            "expected_sha256": "",
+        })
+        mutate("driver.godot.autoload.add", {
+            "name": "SemanticService", "path": "res://scripts/semantic_service.gd",
+        })
+        autoloads = call("driver.godot.autoload.list", {"session": sid})
+        assert any(row["name"] == "SemanticService" for row in autoloads["data"]["autoloads"])
+        mutate("driver.godot.autoload.remove", {"name": "SemanticService"})
+
         for name, code in [("move_forward", 87), ("move_back", 83), ("move_left", 65), ("move_right", 68)]:
             value = call("driver.godot.input.set", {
                 "session": sid, "name": name, "deadzone": 0.5,
@@ -539,6 +716,19 @@ func _physics_process(_delta: float) -> void:
         value = call("driver.godot.scene.reload", {"session": sid, "expect": st, "dry_run": False})
         st = stamp(value)
         time.sleep(0.25)
+
+        mutate("driver.godot.editor.run.start", {"mode": "current", "scene": ""})
+        playing = False
+        for _ in range(60):
+            editor_runtime = call("driver.godot.editor.state", {"session": sid})
+            playing = editor_runtime["data"]["playing"]
+            if playing:
+                break
+            time.sleep(0.05)
+        assert playing, "editor.run.start did not enter playing state"
+        mutate("driver.godot.editor.run.stop", {})
+        time.sleep(0.1)
+        assert call("driver.godot.editor.state", {"session": sid})["data"]["playing"] is False
 
         scene = call("driver.godot.scene.inspect", {"session": sid})
         names = {x["name"] for x in scene["data"]["nodes"]}

@@ -1586,6 +1586,650 @@ fn specs() -> Vec<Spec> {
             runner_out,
         ),
         spec(
+            "project.window.inspect",
+            "Inspect curated project window settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.window.configure",
+            "Configure curated project window settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_window_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "project.rendering.inspect",
+            "Inspect curated project rendering settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.rendering.configure",
+            "Configure curated project rendering settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_rendering_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "project.physics.inspect",
+            "Inspect curated project physics settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.physics.configure",
+            "Configure curated project physics settings",
+            "project",
+            "project_settings",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_physics_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "project.layers.inspect",
+            "Inspect named project layers",
+            "project",
+            "project_layers",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "project.layers.set",
+            "Set a named project layer",
+            "project",
+            "project_layer",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            project_layer_set_in,
+            mutation_out,
+        ),
+        spec(
+            "autoload.list",
+            "List project autoload singletons",
+            "project",
+            "autoload",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "autoload.add",
+            "Add a project autoload singleton",
+            "project",
+            "autoload",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            autoload_add_in,
+            mutation_out,
+        ),
+        spec(
+            "autoload.remove",
+            "Remove a project autoload singleton",
+            "project",
+            "autoload",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            autoload_remove_in,
+            mutation_out,
+        ),
+        spec(
+            "asset.inspect",
+            "Inspect a project asset and import state",
+            "asset",
+            "asset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "asset.dependencies",
+            "Inspect bounded resource dependencies",
+            "asset",
+            "asset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "asset.reimport",
+            "Reimport a project asset through EditorFileSystem",
+            "asset",
+            "asset",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            60_000,
+            true,
+            true,
+            path_mutation_in,
+            mutation_out,
+        ),
+        spec(
+            "asset.import.inspect",
+            "Inspect existing import parameters",
+            "asset",
+            "asset_import",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "asset.import.configure",
+            "Configure existing import parameters and reimport",
+            "asset",
+            "asset_import",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            60_000,
+            true,
+            true,
+            asset_import_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "export.preset.list",
+            "List non-secret export presets",
+            "export",
+            "export_preset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "export.preset.inspect",
+            "Inspect a non-secret export preset",
+            "export",
+            "export_preset",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            export_preset_inspect_in,
+            semantic_read_out,
+        ),
+        spec(
+            "export.preset.configure",
+            "Configure an existing non-secret export preset",
+            "export",
+            "export_preset",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            export_preset_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "localization.inspect",
+            "Inspect project localization configuration",
+            "localization",
+            "localization",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "localization.configure",
+            "Configure project localization resources and fallback",
+            "localization",
+            "localization",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            localization_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "translation.inspect",
+            "Inspect a Translation resource",
+            "localization",
+            "translation",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            path_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "translation.create",
+            "Create a Translation resource",
+            "localization",
+            "translation",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            translation_create_in,
+            mutation_out,
+        ),
+        spec(
+            "translation.message.set",
+            "Set a translation message",
+            "localization",
+            "translation_message",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            translation_message_set_in,
+            mutation_out,
+        ),
+        spec(
+            "translation.message.remove",
+            "Remove a translation message",
+            "localization",
+            "translation_message",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            translation_message_remove_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.inspect",
+            "Inspect an AnimationTree state machine graph",
+            "animation",
+            "animation_tree",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            animation_tree_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "animation_tree.state.add",
+            "Add a typed state to an AnimationTree state machine",
+            "animation",
+            "animation_state",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_state_add_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.state.remove",
+            "Remove a state from an AnimationTree state machine",
+            "animation",
+            "animation_state",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_state_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.transition.add",
+            "Add a state-machine transition",
+            "animation",
+            "animation_transition",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_transition_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.transition.configure",
+            "Configure a state-machine transition",
+            "animation",
+            "animation_transition",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_transition_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.transition.remove",
+            "Remove a state-machine transition",
+            "animation",
+            "animation_transition",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            animation_tree_transition_target_in,
+            mutation_out,
+        ),
+        spec(
+            "animation_tree.parameter.set",
+            "Set an existing AnimationTree parameter",
+            "animation",
+            "animation_parameter",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            animation_tree_parameter_set_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.spawner.inspect",
+            "Inspect MultiplayerSpawner authoring state",
+            "multiplayer",
+            "multiplayer_spawner",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "multiplayer.spawner.configure",
+            "Configure MultiplayerSpawner authoring state",
+            "multiplayer",
+            "multiplayer_spawner",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_spawner_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.spawner.scene.add",
+            "Add a spawnable PackedScene",
+            "multiplayer",
+            "spawnable_scene",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_spawner_scene_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.spawner.scene.remove",
+            "Remove a spawnable PackedScene",
+            "multiplayer",
+            "spawnable_scene",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_spawner_scene_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.synchronizer.inspect",
+            "Inspect MultiplayerSynchronizer replication state",
+            "multiplayer",
+            "multiplayer_synchronizer",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            target_read_in,
+            semantic_read_out,
+        ),
+        spec(
+            "multiplayer.synchronizer.configure",
+            "Configure MultiplayerSynchronizer authoring state",
+            "multiplayer",
+            "multiplayer_synchronizer",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_synchronizer_configure_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.replication.property.add",
+            "Add a replicated property",
+            "multiplayer",
+            "replication_property",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_replication_property_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.replication.property.configure",
+            "Configure a replicated property",
+            "multiplayer",
+            "replication_property",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_replication_property_in,
+            mutation_out,
+        ),
+        spec(
+            "multiplayer.replication.property.remove",
+            "Remove a replicated property",
+            "multiplayer",
+            "replication_property",
+            Route::Plugin,
+            Destructive,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            multiplayer_replication_property_target_in,
+            mutation_out,
+        ),
+        spec(
+            "editor.state",
+            "Inspect semantic Godot editor state",
+            "editor",
+            "editor_state",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "editor.selection.get",
+            "Inspect SceneTree editor selection",
+            "editor",
+            "editor_selection",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            session_in,
+            semantic_read_out,
+        ),
+        spec(
+            "editor.selection.set",
+            "Set SceneTree editor selection",
+            "editor",
+            "editor_selection",
+            Route::Plugin,
+            MutatingReversible,
+            NonIdempotent,
+            5_000,
+            true,
+            true,
+            editor_selection_set_in,
+            mutation_out,
+        ),
+        spec(
+            "editor.run.start",
+            "Start a bounded scene run from the editor",
+            "editor",
+            "editor_runtime",
+            Route::Plugin,
+            CodeExecution,
+            NonIdempotent,
+            15_000,
+            true,
+            true,
+            editor_run_start_in,
+            mutation_out,
+        ),
+        spec(
+            "editor.run.stop",
+            "Stop the editor scene run",
+            "editor",
+            "editor_runtime",
+            Route::Plugin,
+            Mutating,
+            NonIdempotent,
+            10_000,
+            true,
+            true,
+            mutation_in,
+            mutation_out,
+        ),
+        spec(
             "snapshot.diff",
             "Compute a bounded semantic JSON diff",
             "snapshot",
@@ -2978,6 +3622,451 @@ fn signal_out() -> Value {
 fn animation_out() -> Value {
     read_out(
         json!({"type":"object","additionalProperties":false,"required":["libraries"],"properties":{"libraries":{"type":"array","maxItems":128,"items":{"type":"object"}}}}),
+    )
+}
+
+fn scalar_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"boolean"},
+        {"type":"integer"},
+        {"type":"number"},
+        {"type":"string","maxLength":4096}
+    ]})
+}
+fn res_path_schema() -> Value {
+    json!({"type":"string","minLength":7,"maxLength":240,"pattern":"^res://"})
+}
+fn project_window_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("viewport_width".into(), bounded_int(1, 16384)),
+            ("viewport_height".into(), bounded_int(1, 16384)),
+            ("window_width_override".into(), bounded_int(0, 16384)),
+            ("window_height_override".into(), bounded_int(0, 16384)),
+            ("mode".into(), bounded_int(0, 4)),
+            ("resizable".into(), boolean()),
+            ("borderless".into(), boolean()),
+            ("always_on_top".into(), boolean()),
+            (
+                "stretch_mode".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            (
+                "stretch_aspect".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn project_rendering_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "rendering_method".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            (
+                "rendering_method_mobile".into(),
+                json!({"type":"string","maxLength":64}),
+            ),
+            ("msaa_2d".into(), bounded_int(0, 4)),
+            ("msaa_3d".into(), bounded_int(0, 4)),
+            ("taa".into(), boolean()),
+            ("use_debanding".into(), boolean()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn project_physics_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("ticks_per_second".into(), bounded_int(1, 1000)),
+            ("max_steps_per_frame".into(), bounded_int(1, 64)),
+            ("jitter_fix".into(), bounded_number(0.0, 1.0)),
+            ("gravity_2d".into(), bounded_number(0.0, 100000.0)),
+            ("gravity_3d".into(), bounded_number(0.0, 100000.0)),
+            ("gravity_vector_3d".into(), vec3_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn project_layer_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "kind".into(),
+                json!({"enum":["2d_render","2d_physics","3d_render","3d_physics","navigation"]}),
+            ),
+            ("index".into(), bounded_int(1, 32)),
+            ("name".into(), json!({"type":"string","maxLength":96})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "kind", "index", "name", "expect", "dry_run"],
+    )
+}
+fn autoload_add_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "name".into(),
+                json!({"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z_][A-Za-z0-9_]*$"}),
+            ),
+            ("path".into(), res_path_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "name", "path", "expect", "dry_run"],
+    )
+}
+fn autoload_remove_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "name".into(),
+                json!({"type":"string","minLength":1,"maxLength":96,"pattern":"^[A-Za-z_][A-Za-z0-9_]*$"}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "name", "expect", "dry_run"],
+    )
+}
+fn asset_import_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), res_path_schema()),
+            (
+                "params".into(),
+                json!({"type":"array","minItems":1,"maxItems":64,"items":{
+                    "type":"object","additionalProperties":false,"required":["key","value"],
+                    "properties":{"key":{"type":"string","minLength":1,"maxLength":160},"value":scalar_schema()}
+                }}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "path", "params", "expect", "dry_run"],
+    )
+}
+fn export_preset_inspect_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("name".into(), string(128))]),
+        &["session", "name"],
+    )
+}
+fn export_preset_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("name".into(), string(128)),
+            (
+                "export_path".into(),
+                json!({"type":"string","maxLength":240}),
+            ),
+            ("runnable".into(), boolean()),
+            (
+                "custom_features".into(),
+                json!({"type":"string","maxLength":1024}),
+            ),
+            (
+                "export_filter".into(),
+                json!({"enum":["all_resources","scenes","resources","exclude","customized"]}),
+            ),
+            (
+                "include_filter".into(),
+                json!({"type":"string","maxLength":2048}),
+            ),
+            (
+                "exclude_filter".into(),
+                json!({"type":"string","maxLength":2048}),
+            ),
+            ("dedicated_server".into(), boolean()),
+            (
+                "options".into(),
+                json!({"type":"array","maxItems":64,"items":{
+                    "type":"object","additionalProperties":false,"required":["key","value"],
+                    "properties":{"key":{"type":"string","minLength":1,"maxLength":160},"value":scalar_schema()}
+                }}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "name", "expect", "dry_run"],
+    )
+}
+fn localization_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("fallback".into(), json!({"type":"string","maxLength":32})),
+            (
+                "test_locale".into(),
+                json!({"type":"string","maxLength":32}),
+            ),
+            (
+                "translations".into(),
+                json!({"type":"array","maxItems":256,"uniqueItems":true,"items":res_path_schema()}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
+fn translation_create_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), res_path_schema()),
+            (
+                "locale".into(),
+                json!({"type":"string","minLength":1,"maxLength":32}),
+            ),
+            ("register".into(), boolean()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "path", "locale", "register", "expect", "dry_run"],
+    )
+}
+fn translation_message_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), res_path_schema()),
+            ("source".into(), string(4096)),
+            (
+                "translation".into(),
+                json!({"type":"string","maxLength":16384}),
+            ),
+            ("context".into(), json!({"type":"string","maxLength":512})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &[
+            "session",
+            "path",
+            "source",
+            "translation",
+            "expect",
+            "dry_run",
+        ],
+    )
+}
+fn translation_message_remove_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), res_path_schema()),
+            ("source".into(), string(4096)),
+            ("context".into(), json!({"type":"string","maxLength":512})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "path", "source", "expect", "dry_run"],
+    )
+}
+fn animation_tree_read_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("tree".into(), string(240))]),
+        &["session", "tree"],
+    )
+}
+fn animation_tree_state_add_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("name".into(), string(96)),
+            (
+                "kind".into(),
+                json!({"enum":["animation","state_machine","blend_tree","blend_space_1d","blend_space_2d","one_shot","transition","time_scale","sync"]}),
+            ),
+            ("position".into(), vec2_schema()),
+            ("animation".into(), json!({"type":"string","maxLength":96})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &[
+            "session", "tree", "name", "kind", "position", "expect", "dry_run",
+        ],
+    )
+}
+fn animation_tree_state_target_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("name".into(), string(96)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "name", "expect", "dry_run"],
+    )
+}
+fn animation_tree_transition_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("from".into(), string(96)),
+            ("to".into(), string(96)),
+            (
+                "advance_condition".into(),
+                json!({"type":"string","maxLength":96}),
+            ),
+            (
+                "advance_expression".into(),
+                json!({"type":"string","maxLength":1024}),
+            ),
+            ("advance_mode".into(), bounded_int(0, 2)),
+            ("priority".into(), bounded_int(0, 64)),
+            ("reset".into(), boolean()),
+            ("switch_mode".into(), bounded_int(0, 2)),
+            ("xfade_time".into(), bounded_number(0.0, 60.0)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "from", "to", "expect", "dry_run"],
+    )
+}
+fn animation_tree_transition_target_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("from".into(), string(96)),
+            ("to".into(), string(96)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "from", "to", "expect", "dry_run"],
+    )
+}
+fn animation_tree_parameter_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("tree".into(), string(240)),
+            ("parameter".into(), string(240)),
+            ("value".into(), godot_value_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "tree", "parameter", "value", "expect", "dry_run"],
+    )
+}
+fn multiplayer_spawner_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            (
+                "spawn_path".into(),
+                json!({"type":"string","maxLength":240}),
+            ),
+            ("spawn_limit".into(), bounded_int(0, 100000)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "expect", "dry_run"],
+    )
+}
+fn multiplayer_spawner_scene_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("scene".into(), res_path_schema()),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "scene", "expect", "dry_run"],
+    )
+}
+fn multiplayer_synchronizer_configure_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("root_path".into(), json!({"type":"string","maxLength":240})),
+            ("replication_interval".into(), bounded_number(0.0, 3600.0)),
+            ("delta_interval".into(), bounded_number(0.0, 3600.0)),
+            ("public_visibility".into(), boolean()),
+            ("visibility_update_mode".into(), bounded_int(0, 2)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "expect", "dry_run"],
+    )
+}
+fn multiplayer_replication_property_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("path".into(), string(240)),
+            ("spawn".into(), boolean()),
+            ("mode".into(), bounded_int(0, 2)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &[
+            "session", "target", "path", "spawn", "mode", "expect", "dry_run",
+        ],
+    )
+}
+fn multiplayer_replication_property_target_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("target".into(), string(240)),
+            ("path".into(), string(240)),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "target", "path", "expect", "dry_run"],
+    )
+}
+fn editor_selection_set_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            (
+                "nodes".into(),
+                json!({"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","maxLength":240}}),
+            ),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "nodes", "expect", "dry_run"],
+    )
+}
+fn editor_run_start_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("mode".into(), json!({"enum":["main","current","custom"]})),
+            ("scene".into(), json!({"type":"string","maxLength":240})),
+            expect_prop(),
+            dry_prop(),
+        ]),
+        &["session", "mode", "expect", "dry_run"],
     )
 }
 
