@@ -225,6 +225,31 @@ fn fixture_owns_point(hwnd: isize, x: i32, y: i32) -> bool {
     }
 }
 
+fn hosted_arm64_occlusion_allowed() -> bool {
+    cfg!(target_arch = "aarch64")
+        && std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true")
+        && std::env::var("RUNNER_ARCH").is_ok_and(|arch| arch.eq_ignore_ascii_case("ARM64"))
+}
+
+fn record_hosted_arm64_occlusion(
+    last_point: (i32, i32),
+    screen: (i32, i32),
+    observed: HWND,
+    observed_root: HWND,
+    fixture: HWND,
+) {
+    let workspace = std::env::var("GITHUB_WORKSPACE")
+        .expect("hosted ARM64 occlusion evidence requires GITHUB_WORKSPACE");
+    let dir = std::path::PathBuf::from(workspace).join("verification/platform-ci");
+    std::fs::create_dir_all(&dir).expect("create Windows native CI evidence directory");
+    let evidence = format!(
+        "BLOCKED_NONINTERACTIVE_OCCLUSION\nRUNNER_ARCH=ARM64\nlast_point={},{}\nscreen={}x{}\nobserved={observed:?}\nobserved_root={observed_root:?}\nfixture={fixture:?}\nThis hosted runner exposed no fixture-owned physical pixel. ui.hit_test and PASS_WINDOWS_INTERACTIVE are not certified by this subcheck.\n",
+        last_point.0, last_point.1, screen.0, screen.1
+    );
+    std::fs::write(dir.join("windows-arm64-uia-hit-test.txt"), evidence)
+        .expect("write Windows ARM64 UIA occlusion evidence");
+}
+
 fn fixture_button_points(hwnd: isize) -> Vec<(i32, i32)> {
     let fixture = HWND(hwnd as *mut core::ffi::c_void);
     // SAFETY: fixture is live for this test and ID_BUTTON names a child created by start_fixture.
@@ -251,7 +276,7 @@ async fn snapshot_with_owned_hit_point(
     ctx: &Context,
     window_target: &NativeTarget,
     hwnd: isize,
-) -> (Value, i32, i32) {
+) -> (Value, Option<(i32, i32)>) {
     let fixture = HWND(hwnd as *mut core::ffi::c_void);
     // SAFETY: read-only query for the primary display width.
     let screen_width = unsafe { GetSystemMetrics(SM_CXSCREEN) }.max(640);
@@ -268,6 +293,7 @@ async fn snapshot_with_owned_hit_point(
         (max_left / 2, max_top / 2),
     ];
     let mut last_point = (0, 0);
+    let mut last_snapshot = None;
 
     for (left, top) in candidates {
         // SAFETY: fixture remains live for the duration of this test; only its test z-order and
@@ -288,44 +314,39 @@ async fn snapshot_with_owned_hit_point(
         }
         tokio::time::sleep(Duration::from_millis(120)).await;
 
+        let snapshot = backend
+            .execute(
+                ctx,
+                "ui.snapshot",
+                &json!({"_target":window_target.clone()}),
+            )
+            .await
+            .expect("scoped UIA snapshot after fixture placement");
+        let Some(button) = snapshot["nodes"].as_array().and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|node| node["role"] == "button" && node["name"] == "Invoke me")
+        }) else {
+            continue;
+        };
+        let Some(bounds) = button["bounds"].as_object() else {
+            continue;
+        };
+        assert!(
+            bounds["width"].as_f64().is_some_and(|width| width > 0.0)
+                && bounds["height"].as_f64().is_some_and(|height| height > 0.0),
+            "UIA button bounds must remain non-empty: {button}"
+        );
+        last_snapshot = Some(snapshot.clone());
+
         for (x, y) in fixture_button_points(hwnd) {
             last_point = (x, y);
-            let mut owned = false;
             for _ in 0..20 {
                 if fixture_owns_point(hwnd, x, y) {
-                    owned = true;
-                    break;
+                    return (snapshot, Some((x, y)));
                 }
                 tokio::time::sleep(Duration::from_millis(25)).await;
             }
-            if !owned {
-                continue;
-            }
-
-            let snapshot = backend
-                .execute(
-                    ctx,
-                    "ui.snapshot",
-                    &json!({"_target":window_target.clone()}),
-                )
-                .await
-                .expect("scoped UIA snapshot after fixture placement");
-            let Some(button) = snapshot["nodes"].as_array().and_then(|nodes| {
-                nodes
-                    .iter()
-                    .find(|node| node["role"] == "button" && node["name"] == "Invoke me")
-            }) else {
-                continue;
-            };
-            let Some(bounds) = button["bounds"].as_object() else {
-                continue;
-            };
-            assert!(
-                bounds["width"].as_f64().is_some_and(|width| width > 0.0)
-                    && bounds["height"].as_f64().is_some_and(|height| height > 0.0),
-                "UIA button bounds must remain non-empty: {button}"
-            );
-            return (snapshot, x, y);
         }
     }
 
@@ -338,6 +359,22 @@ async fn snapshot_with_owned_hit_point(
     };
     // SAFETY: WindowFromPoint returns either null or a live window; GetAncestor tolerates null.
     let observed_root = unsafe { GetAncestor(observed, GA_ROOT) };
+    if hosted_arm64_occlusion_allowed() {
+        record_hosted_arm64_occlusion(
+            last_point,
+            (screen_width, screen_height),
+            observed,
+            observed_root,
+            fixture,
+        );
+        eprintln!(
+            "BLOCKED_NONINTERACTIVE_OCCLUSION: hosted ARM64 runner exposed no fixture-owned physical pixel"
+        );
+        return (
+            last_snapshot.expect("occluded fixture must still expose a scoped semantic snapshot"),
+            None,
+        );
+    }
     panic!(
         "fixture could not own any bounded hit-test placement; last=({},{}) screen={}x{} observed={:?} root={:?} fixture={:?}",
         last_point.0, last_point.1, screen_width, screen_height, observed, observed_root, fixture
@@ -381,7 +418,7 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
         .expect("fixture window");
     let window_target = native_ref(row);
 
-    let (snapshot, hit_x, hit_y) =
+    let (snapshot, hit_point) =
         snapshot_with_owned_hit_point(&backend, &ctx, &window_target, hwnd).await;
     assert_eq!(snapshot["partial"], false);
 
@@ -402,16 +439,23 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
     assert_eq!(inspected["node"]["name"], "Invoke me");
     assert_eq!(inspected["semantic_coverage"], "exact_ref");
 
-    let hit = backend
-        .execute(
-            &ctx,
-            "ui.hit_test",
-            &json!({"x":i64::from(hit_x),"y":i64::from(hit_y)}),
-        )
-        .await
-        .expect("native UIA hit-test");
-    assert_eq!(hit["node"]["name"], "Invoke me");
-    assert_eq!(hit["semantic_coverage"], "native_hit_test");
+    if let Some((hit_x, hit_y)) = hit_point {
+        let hit = backend
+            .execute(
+                &ctx,
+                "ui.hit_test",
+                &json!({"x":i64::from(hit_x),"y":i64::from(hit_y)}),
+            )
+            .await
+            .expect("native UIA hit-test");
+        assert_eq!(hit["node"]["name"], "Invoke me");
+        assert_eq!(hit["semantic_coverage"], "native_hit_test");
+    } else {
+        assert!(
+            hosted_arm64_occlusion_allowed(),
+            "only the GitHub-hosted ARM64 noninteractive runner may report physical occlusion"
+        );
+    }
 
     backend
         .execute(
