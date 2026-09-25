@@ -28,7 +28,7 @@ use std::{
     io::Write,
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
 };
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 use tokio::process::Command;
 use tokio::sync::{Mutex, broadcast, oneshot};
 use tokio_util::sync::CancellationToken;
@@ -358,7 +358,7 @@ fn sandbox_spec(
     })
 }
 
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 fn sandbox_command(
     manifest: &Manifest,
     staged: &Path,
