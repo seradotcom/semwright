@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "component_version": 1,
+  "id": "architecture-graph",
+  "generation": "6172636869746563747572652d677261",
+  "revision": 1,
+  "settings": {
+    "width": 640,
+    "height": 360,
+    "fps": 30,
+    "background": "#f7f5ee",
+    "color_space": "srgb"
+  },
+  "theme": {
+    "font_family": "Instrument Sans Variable",
+    "mono_family": "IBM Plex Mono",
+    "font_size": 36.0,
+    "font_weight": 500,
+    "spacing": 16.0,
+    "line_width": 2.0,
+    "radius": 16.0,
+    "colors": {
+      "paper": "#f7f5ee",
+      "surface": "#fdfcf8",
+      "ink": "#202d42",
+      "muted": "#5b6471",
+      "accent": "#234ea2",
+      "line": "#dadbd4",
+      "mint": "#dce9dc",
+      "peach": "#f2ddc8",
+      "lavender": "#e9e2f2",
+      "blue_soft": "#e4ebf8"
+    }
+  },
+  "scenes": [
+    {
+      "id": "graph",
+      "name": "Architecture graph",
+      "duration_ms": 1800,
+      "nodes": [
+        {
+          "id": "agent",
+          "name": "Agent",
+          "kind": "rect",
+          "properties": {
+            "position": [
+              -180,
+              0
+            ],
+            "width": 180,
+            "height": 90,
+            "fill": "@surface",
+            "stroke": "@line",
+            "stroke_width": 2,
+            "radius": 16
+          }
+        },
+        {
+          "id": "core",
+          "name": "Semwright",
+          "kind": "rect",
+          "properties": {
+            "position": [
+              180,
+              0
+            ],
+            "width": 220,
+            "height": 90,
+            "fill": "@blue_soft",
+            "stroke": "@accent",
+            "stroke_width": 2,
+            "radius": 16
+          }
+        },
+        {
+          "id": "edge",
+          "name": "Semantic edge",
+          "kind": "line",
+          "properties": {
+            "edge": {
+              "from": "agent",
+              "to": "core"
+            },
+            "stroke": "@accent",
+            "stroke_width": 3,
+            "start": 0,
+            "end": 0,
+            "end_arrow": true,
+            "arrow_size": 12
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "draw",
+          "target": "edge",
+          "property": "line_end",
+          "from": 0,
+          "to": 1,
+          "duration_ms": 700,
+          "easing": "ease_out_cubic"
+        }
+      ],
+      "cues": [],
+      "transition": null
+    }
+  ],
+  "assets": [],
+  "audio": []
+}
