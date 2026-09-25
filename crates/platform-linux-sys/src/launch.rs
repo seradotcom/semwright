@@ -150,20 +150,25 @@ impl SandboxLauncher for LinuxSandbox {
             "LANG",
             "C.UTF-8",
         ]);
-        let mount_table = encode_materialized_mounts(
-            &s.mounts
-                .iter()
-                .map(|mount| {
-                    Ok(MaterializedMount {
-                        class: mount.class,
-                        logical_name: mount.logical_name.clone(),
-                        path: materialized_destination(mount)?,
-                        read_only: mount.read_only,
+        // Only Semwright application drivers consume the logical mount table through
+        // driver-sdk helpers. Do not expose internal mount topology to plugins or
+        // external MCP children that do not need this authority-bearing metadata.
+        if s.kind == SandboxKind::Driver {
+            let mount_table = encode_materialized_mounts(
+                &s.mounts
+                    .iter()
+                    .map(|mount| {
+                        Ok(MaterializedMount {
+                            class: mount.class,
+                            logical_name: mount.logical_name.clone(),
+                            path: materialized_destination(mount)?,
+                            read_only: mount.read_only,
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>>>()?,
-        )?;
-        p.arg("--setenv").arg(SANDBOX_MOUNTS_ENV).arg(mount_table);
+                    .collect::<Result<Vec<_>>>()?,
+            )?;
+            p.arg("--setenv").arg(SANDBOX_MOUNTS_ENV).arg(mount_table);
+        }
         if matches!(s.kind, SandboxKind::Driver | SandboxKind::ExternalMcp) {
             p.args([
                 "--setenv",
