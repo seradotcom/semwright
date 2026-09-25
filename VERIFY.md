@@ -241,8 +241,12 @@ the fixture, forces structural resync and rejects the old ref as stale. Sanitize
 in `verification/live-gnome/gnome-wayland-atspi.json`. This certifies the GNOME semantic GTK route,
 not the optional GJS bridge or focused portal input dispatch. Separate real portal evidence below
 covers consent and `ConnectToEIS` negotiation, while hosted jobs certify Plasma/KWin Wayland, real
-headless Sway IPC and Openbox/EWMH X11; Hyprland and broader interactive/scaling coverage remain
-part of the live matrix.
+headless Sway IPC and Openbox/EWMH X11. A separate owner-hardware run certifies Hyprland 0.56.2
+nested on KWin 6.7.5 over a real AMD render node: the production native-socket backend lists,
+focuses, moves and resizes a native Wayland fixture, rejects its stale ref after exit, cleans it up,
+and verifies a synthetic second output at scale 1.25. Sanitized evidence is stored in
+`verification/live-hyprland-kwin/summary.json`. Physical Hyprland login/restart and broader physical
+mixed-scale coverage remain part of the live matrix.
 
 The RemoteDesktop EIS sender is implemented in the platformized Linux host and a real EIS protocol
 fixture negotiates a sender session and transmits keysym, UTF-8 text, relative pointer motion,
@@ -297,10 +301,11 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 ## Evidence boundaries
 
 This baseline now claims executed hosted evidence for Plasma/KWin Wayland, real headless Sway IPC
-and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route. It also records a
-real owner-approved GNOME RemoteDesktop/`ConnectToEIS` grant-and-stop lifecycle, but does **not**
-claim focused portal input dispatch, coordinate/scaling behavior, Hyprland live certification or a
-complete real-login/scaling/multi-monitor desktop matrix. It does not yet certify a sandbox for
+and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route, plus owner-hardware
+nested Hyprland native-IPC lifecycle/stale-ref evidence and a synthetic mixed-scale second output.
+It also records a real owner-approved GNOME RemoteDesktop/`ConnectToEIS` grant-and-stop lifecycle,
+but does **not** claim a physical Hyprland login, focused portal input dispatch, portal
+coordinate/scaling coverage or a complete real-login/physical mixed-scale desktop matrix. It does not yet certify a sandbox for
 same-UID MCP upstream executables, a remote signed driver marketplace or universal cryptographic
 publisher identity.
 Adversarial plugin/driver sandbox regressions are executed but do not constitute a formal security
