@@ -131,6 +131,7 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str, expect
     assert_eq!(password["facets"]["text"]["selections"], json!([]));
     assert_eq!(password["facets"]["text"]["caret_attributes"], json!({}));
     assert!(password["facets"]["value"].is_null());
+    assert_eq!(password["actions"], json!([]));
     let password_target: NativeTarget =
         serde_json::from_value(password["ref"]["$ref"].clone()).unwrap();
     let read_password = backend

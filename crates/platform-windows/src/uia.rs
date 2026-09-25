@@ -57,6 +57,25 @@ const OBSERVED_EVENTS: &[UIEventType] = &[
     UIEventType::Window_WindowClosed,
 ];
 
+// windows-rs 0.62.2 clears borrowed VARIANT values received by property-change
+// callbacks. Array-valued properties such as BoundingRectangle/RuntimeId can
+// therefore double-free UIA-owned memory (microsoft/windows-rs#3818). Keep the
+// subscription set scalar-only until the fixed windows-rs ABI is in this tree.
+// LayoutInvalidated plus a fresh bounded snapshot covers geometry invalidation.
+const OBSERVED_PROPERTIES: &[UIProperty] = &[
+    UIProperty::Name,
+    UIProperty::HasKeyboardFocus,
+    UIProperty::IsEnabled,
+    UIProperty::HelpText,
+    UIProperty::IsOffscreen,
+    UIProperty::ItemStatus,
+    UIProperty::ValueValue,
+    UIProperty::RangeValueValue,
+    UIProperty::ExpandCollapseExpandCollapseState,
+    UIProperty::SelectionItemIsSelected,
+    UIProperty::ToggleToggleState,
+];
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Stamp {
     pid: u32,
@@ -415,20 +434,7 @@ fn install_events(
             TreeScope::Subtree,
             None,
             &property_handler,
-            &[
-                UIProperty::Name,
-                UIProperty::BoundingRectangle,
-                UIProperty::HasKeyboardFocus,
-                UIProperty::IsEnabled,
-                UIProperty::HelpText,
-                UIProperty::IsOffscreen,
-                UIProperty::ItemStatus,
-                UIProperty::ValueValue,
-                UIProperty::RangeValueValue,
-                UIProperty::ExpandCollapseExpandCollapseState,
-                UIProperty::SelectionItemIsSelected,
-                UIProperty::ToggleToggleState,
-            ],
+            OBSERVED_PROPERTIES,
         )?;
         automation.add_focus_changed_event_handler(None, &focus_handler)?;
         Ok(())
@@ -1470,6 +1476,20 @@ mod tests {
 
     fn selector(value: Value) -> Selector {
         serde_json::from_value(value).expect("selector")
+    }
+
+    #[test]
+    fn property_event_subscriptions_exclude_array_valued_variants() {
+        assert!(
+            !OBSERVED_PROPERTIES
+                .iter()
+                .any(|property| matches!(property, UIProperty::BoundingRectangle))
+        );
+        assert!(
+            !OBSERVED_PROPERTIES
+                .iter()
+                .any(|property| matches!(property, UIProperty::RuntimeId))
+        );
     }
 
     #[test]

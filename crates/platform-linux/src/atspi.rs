@@ -939,7 +939,7 @@ impl Atspi {
                 }
             };
             let proxy = self.proxy(&c, &object, ACCESSIBLE).await?;
-            let (state_bits, actions, reported_child_count) = tokio::join!(
+            let (state_bits, mut actions, reported_child_count) = tokio::join!(
                 async {
                     bounded(proxy.call::<_, _, Vec<u32>>("GetState", &()))
                         .await
@@ -1006,7 +1006,7 @@ impl Atspi {
             // optional interface does not multiply snapshot latency across every node.
             let attributes_read = async {
                 snapshot_optional_until(
-                    optional_deadline.clone(),
+                    optional_deadline,
                     proxy.call::<_, _, std::collections::HashMap<String, String>>(
                         "GetAttributes",
                         &(),
@@ -1025,19 +1025,16 @@ impl Atspi {
                 .collect::<BTreeMap<String, String>>()
             };
             let help_read = async {
-                snapshot_optional_until(
-                    optional_deadline.clone(),
-                    proxy.get_property::<String>("HelpText"),
-                )
-                .await
-                .unwrap_or_default()
-                .chars()
-                .take(1024)
-                .collect::<String>()
+                snapshot_optional_until(optional_deadline, proxy.get_property::<String>("HelpText"))
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(1024)
+                    .collect::<String>()
             };
             let accessibility_id_read = async {
                 snapshot_optional_until(
-                    optional_deadline.clone(),
+                    optional_deadline,
                     proxy.get_property::<String>("AccessibleId"),
                 )
                 .await
@@ -1047,18 +1044,15 @@ impl Atspi {
                 .collect::<String>()
             };
             let locale_read = async {
-                snapshot_optional_until(
-                    optional_deadline.clone(),
-                    proxy.get_property::<String>("Locale"),
-                )
-                .await
-                .unwrap_or_default()
-                .chars()
-                .take(128)
-                .collect::<String>()
+                snapshot_optional_until(optional_deadline, proxy.get_property::<String>("Locale"))
+                    .await
+                    .unwrap_or_default()
+                    .chars()
+                    .take(128)
+                    .collect::<String>()
             };
             let interfaces: Vec<String> = snapshot_optional_until(
-                optional_deadline.clone(),
+                optional_deadline,
                 proxy.call::<_, _, Vec<String>>("GetInterfaces", &()),
             )
             .await
@@ -1068,7 +1062,7 @@ impl Atspi {
             .map(|value| value.chars().take(128).collect())
             .collect();
             let facets_read = async {
-                let Some(budget) = snapshot_optional_budget(optional_deadline.clone()) else {
+                let Some(budget) = snapshot_optional_budget(optional_deadline) else {
                     return UiFacets::default();
                 };
                 tokio::time::timeout(
@@ -1079,7 +1073,7 @@ impl Atspi {
                 .unwrap_or_default()
             };
             let relations_read = async {
-                let Some(budget) = snapshot_optional_budget(optional_deadline.clone()) else {
+                let Some(budget) = snapshot_optional_budget(optional_deadline) else {
                     return Vec::new();
                 };
                 tokio::time::timeout(budget, self.relations(&c, &object, &app))
@@ -1088,7 +1082,7 @@ impl Atspi {
             };
             let description_read = async {
                 snapshot_optional_until(
-                    optional_deadline.clone(),
+                    optional_deadline,
                     proxy.get_property::<String>("Description"),
                 )
                 .await
@@ -1097,7 +1091,7 @@ impl Atspi {
             let bounds_read = async {
                 match self.proxy(&c, &object, "org.a11y.atspi.Component").await {
                     Ok(component) => snapshot_optional_until(
-                        optional_deadline.clone(),
+                        optional_deadline,
                         component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)),
                     )
                     .await
@@ -1144,6 +1138,7 @@ impl Atspi {
                     });
                 }
                 facets.value = None;
+                actions.clear();
                 name.clear();
                 description.clear();
                 help.clear();
