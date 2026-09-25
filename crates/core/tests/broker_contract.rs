@@ -120,6 +120,35 @@ async fn duplicate_labels_remain_discovery_candidates() {
     assert_eq!(n["count"], 2);
     assert_eq!(f.desktop.invocations(), 0);
 }
+
+#[tokio::test]
+async fn ui_find_pushdown_is_optional_and_portably_refiltered() {
+    let f = Fixture::new(Profile::Observe);
+
+    let fallback = f.find("Export").await;
+    assert_eq!(fallback["count"], 1);
+    assert_eq!(f.desktop.candidate_queries(), 0);
+
+    let pushed = f
+        .call(
+            "ui.find",
+            json!({
+                "selector": {
+                    "framework": "fixture",
+                    "name": {"op": "exact", "value": "Export"}
+                }
+            }),
+        )
+        .await;
+    assert!(pushed.ok, "{pushed:?}");
+    let data = pushed.data.unwrap();
+    assert_eq!(data["count"], 1);
+    assert_eq!(data["nodes"][0]["name"], "Export");
+    assert_eq!(data["nodes"][0]["framework"], "fixture");
+    assert_eq!(f.desktop.candidate_queries(), 1);
+    assert_eq!(f.desktop.invocations(), 0);
+}
+
 #[tokio::test]
 async fn mutation_requires_reference_not_selector() {
     let f = Fixture::new(Profile::Desktop);
