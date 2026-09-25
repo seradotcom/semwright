@@ -23,7 +23,9 @@ env:
 jobs:
   launch-film:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # Full 1080p MLT software encode uses libx264 medium/2 threads on a shared runner.
+    # Keep a bounded job budget while allowing the measured encode to exceed 15 minutes.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
@@ -144,7 +146,7 @@ jobs:
           MELT="$MELT" FFPROBE="$FFPROBE" BWRAP="$BWRAP" MELT_SHA="$MELT_SHA" FFPROBE_SHA="$FFPROBE_SHA" BWRAP_SHA="$BWRAP_SHA" python3 - <<'PY'
           import json, os
           path=os.path.join(os.environ['RUNNER_TEMP'],'mlt-runtime','runtime.json')
-          value={'schema':1,'melt':{'path':os.environ['MELT'],'sha256':os.environ['MELT_SHA']},'ffprobe':{'path':os.environ['FFPROBE'],'sha256':os.environ['FFPROBE_SHA']},'bubblewrap':{'path':os.environ['BWRAP'],'sha256':os.environ['BWRAP_SHA']},'timeout_seconds':900}
+          value={'schema':1,'melt':{'path':os.environ['MELT'],'sha256':os.environ['MELT_SHA']},'ffprobe':{'path':os.environ['FFPROBE'],'sha256':os.environ['FFPROBE_SHA']},'bubblewrap':{'path':os.environ['BWRAP'],'sha256':os.environ['BWRAP_SHA']},'timeout_seconds':2400}
           open(path,'w').write(json.dumps(value,indent=2)+'\n')
           PY
       - name: Build Semwright providers and bounded orchestrator
