@@ -48,6 +48,8 @@ pub struct BrowserConfig {
     #[serde(default = "default_download_count")]
     pub max_downloads: u32,
 }
+const BROWSER_STARTUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 const fn default_download_bytes() -> u64 {
     32 * 1024 * 1024
 }
@@ -838,7 +840,7 @@ impl Chromium {
                     "Chromium exited before opening CDP; verify the browser sandbox manually",
                 ));
             }
-            if started.elapsed() > std::time::Duration::from_secs(12) {
+            if started.elapsed() > BROWSER_STARTUP_TIMEOUT {
                 let _ = child.kill().await;
                 let _ = child.wait().await;
                 let _ = std::fs::remove_dir_all(&profile);
@@ -1541,6 +1543,12 @@ impl Backend for Chromium {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn browser_startup_timeout_is_bounded_but_ci_tolerant() {
+        assert!(BROWSER_STARTUP_TIMEOUT >= std::time::Duration::from_secs(20));
+        assert!(BROWSER_STARTUP_TIMEOUT <= std::time::Duration::from_secs(60));
+    }
+
     #[test]
     fn default_denies_navigation() {
         let c = BrowserConfig::default();
