@@ -1,14 +1,18 @@
 use semwright_types::{Error, ErrorCode, Result};
 use std::{
+    fs::OpenOptions,
+    io::Write,
+    path::{Path, PathBuf},
     sync::mpsc::{self, SyncSender},
-    time::Duration,
+    thread,
+    time::{Duration, Instant},
 };
 use windows::{
     Foundation::TypedEventHandler,
     Graphics::{
         Capture::{
             Direct3D11CaptureFrame, Direct3D11CaptureFramePool, GraphicsCaptureItem,
-            GraphicsCaptureSession,
+            GraphicsCapturePicker, GraphicsCaptureSession,
         },
         DirectX::{Direct3D11::IDirect3DDevice, DirectXPixelFormat},
         SizeInt32,
@@ -33,14 +37,95 @@ use windows::{
         System::WinRT::{
             Direct3D11::{CreateDirect3D11DeviceFromDXGIDevice, IDirect3DDxgiInterfaceAccess},
             Graphics::Capture::IGraphicsCaptureItemInterop,
+            RO_INIT_SINGLETHREADED, RoInitialize, RoUninitialize,
+        },
+        UI::{
+            Shell::IInitializeWithWindow,
+            WindowsAndMessaging::{
+                CreateWindowExW, DestroyWindow, DispatchMessageW, MSG, PM_REMOVE, PeekMessageW,
+                TranslateMessage, WM_QUIT, WS_OVERLAPPED,
+            },
         },
     },
-    core::{IInspectable, Interface, factory},
+    core::{IInspectable, Interface, factory, w},
 };
 
 const MAX_DIMENSION: u32 = 4096;
 const MAX_PIXELS: u64 = 4_194_304;
 const MAX_ROW_PITCH: usize = MAX_DIMENSION as usize * 16;
+const MAX_PNG_BYTES: usize = 8 * 1024 * 1024;
+const PICKER_POLL: Duration = Duration::from_millis(15);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CaptureArtifact {
+    pub path: PathBuf,
+    pub bytes: usize,
+    pub width: u32,
+    pub height: u32,
+}
+
+struct RoApartment;
+
+impl RoApartment {
+    fn sta() -> Result<Self> {
+        // SAFETY: this dedicated picker thread owns a single WinRT STA until Drop.
+        unsafe { RoInitialize(RO_INIT_SINGLETHREADED) }.map_err(|_| {
+            Error::new(
+                ErrorCode::Unavailable,
+                "Windows capture picker STA initialization failed",
+            )
+        })?;
+        Ok(Self)
+    }
+}
+
+impl Drop for RoApartment {
+    fn drop(&mut self) {
+        // SAFETY: balances the successful RoInitialize on this same thread.
+        unsafe { RoUninitialize() };
+    }
+}
+
+struct PickerOwner(HWND);
+
+impl PickerOwner {
+    fn new() -> Result<Self> {
+        // A hidden top-level STATIC window gives the desktop picker a Semwright-owned HWND.
+        // It is never used to infer or steal authority from another foreground application.
+        let hwnd = unsafe {
+            CreateWindowExW(
+                Default::default(),
+                w!("STATIC"),
+                w!("Semwright Screen Capture"),
+                WS_OVERLAPPED,
+                -32_000,
+                -32_000,
+                1,
+                1,
+                None,
+                None,
+                None,
+                None,
+            )
+        }
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::Unavailable,
+                "Windows capture picker owner window could not be created",
+            )
+        })?;
+        Ok(Self(hwnd))
+    }
+}
+
+impl Drop for PickerOwner {
+    fn drop(&mut self) {
+        // SAFETY: the HWND was created by PickerOwner on this picker thread.
+        unsafe {
+            let _ = DestroyWindow(self.0);
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CapturedBgra {
@@ -95,6 +180,108 @@ pub fn item_for_window(hwnd: HWND) -> Result<GraphicsCaptureItem> {
 
 pub fn capture_supported() -> bool {
     windows::Graphics::Capture::GraphicsCaptureSession::IsSupported().unwrap_or(false)
+}
+
+fn pick_item<F>(timeout: Duration, cancelled: &F) -> Result<GraphicsCaptureItem>
+where
+    F: Fn() -> bool,
+{
+    if timeout.is_zero() {
+        return Err(Error::new(
+            ErrorCode::Timeout,
+            "Windows capture picker deadline already expired",
+        ));
+    }
+    let _apartment = RoApartment::sta()?;
+    let owner = PickerOwner::new()?;
+    let picker = GraphicsCapturePicker::new().map_err(|_| {
+        Error::new(
+            ErrorCode::Unavailable,
+            "Windows GraphicsCapturePicker is unavailable",
+        )
+    })?;
+    let initialize: IInitializeWithWindow = picker.cast().map_err(|_| {
+        Error::new(
+            ErrorCode::Unavailable,
+            "Windows capture picker cannot bind to a desktop owner window",
+        )
+    })?;
+    // SAFETY: owner is a live Semwright-owned top-level HWND on this STA thread.
+    unsafe { initialize.Initialize(owner.0) }.map_err(|_| {
+        Error::new(
+            ErrorCode::Unavailable,
+            "Windows capture picker owner initialization failed",
+        )
+    })?;
+    let operation = picker.PickSingleItemAsync().map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Windows capture picker could not start",
+        )
+    })?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        if cancelled() {
+            let _ = operation.Cancel();
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Windows capture picker cancelled",
+            ));
+        }
+        if Instant::now() >= deadline {
+            let _ = operation.Cancel();
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "Windows capture picker timed out",
+            ));
+        }
+        let status = operation.Status().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows capture picker status unavailable",
+            )
+        })?;
+        match status.0 {
+            0 => {}
+            1 => {
+                return operation.GetResults().map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Windows capture picker did not return a selected item",
+                    )
+                });
+            }
+            2 => {
+                return Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Windows capture picker was cancelled by the user",
+                ));
+            }
+            _ => {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Windows capture picker failed",
+                ));
+            }
+        }
+        let mut message = MSG::default();
+        // The WinRT picker is owned by this STA. Pump only this thread's messages while waiting.
+        while unsafe { PeekMessageW(&mut message, None, 0, 0, PM_REMOVE) }.as_bool() {
+            if message.message == WM_QUIT {
+                let _ = operation.Cancel();
+                return Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Windows capture picker owner thread exited",
+                ));
+            }
+            // SAFETY: message was initialized by PeekMessageW on this thread.
+            unsafe {
+                let _ = TranslateMessage(&message);
+                DispatchMessageW(&message);
+            }
+        }
+        thread::sleep(PICKER_POLL.min(deadline.saturating_duration_since(Instant::now())));
+    }
 }
 
 fn validate_size(width: i32, height: i32) -> Result<(u32, u32)> {
@@ -334,7 +521,14 @@ fn read_frame(
 ///
 /// The function owns the frame/session lifetimes, removes event handlers on every exit path and
 /// times out rather than blocking the broker indefinitely.
-pub fn capture_item_once(item: &GraphicsCaptureItem, timeout: Duration) -> Result<CapturedBgra> {
+fn capture_item_once_cancellable<F>(
+    item: &GraphicsCaptureItem,
+    timeout: Duration,
+    cancelled: &F,
+) -> Result<CapturedBgra>
+where
+    F: Fn() -> bool,
+{
     if !capture_supported() {
         return Err(Error::unavailable(
             "Windows.Graphics.Capture is not supported on this device",
@@ -405,21 +599,176 @@ pub fn capture_item_once(item: &GraphicsCaptureItem, timeout: Duration) -> Resul
         frame_token,
         closed_token,
     };
-    match rx.recv_timeout(timeout) {
-        Ok(FrameSignal::Frame(frame)) => read_frame(&device, &context, &frame),
-        Ok(FrameSignal::Closed) => Err(Error::new(
-            ErrorCode::Unavailable,
-            "Windows capture target closed before a frame arrived",
-        )),
-        Err(mpsc::RecvTimeoutError::Timeout) => Err(Error::new(
-            ErrorCode::Timeout,
-            "Windows capture timed out waiting for the first frame",
-        )),
-        Err(mpsc::RecvTimeoutError::Disconnected) => Err(Error::new(
-            ErrorCode::BackendFailed,
-            "Windows capture frame channel disconnected",
-        )),
+    let deadline = Instant::now() + timeout;
+    loop {
+        if cancelled() {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Windows capture cancelled while waiting for a frame",
+            ));
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "Windows capture timed out waiting for the first frame",
+            ));
+        }
+        match rx.recv_timeout(remaining.min(Duration::from_millis(50))) {
+            Ok(FrameSignal::Frame(frame)) => return read_frame(&device, &context, &frame),
+            Ok(FrameSignal::Closed) => {
+                return Err(Error::new(
+                    ErrorCode::Unavailable,
+                    "Windows capture target closed before a frame arrived",
+                ));
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Windows capture frame channel disconnected",
+                ));
+            }
+        }
     }
+}
+
+pub fn capture_item_once(item: &GraphicsCaptureItem, timeout: Duration) -> Result<CapturedBgra> {
+    capture_item_once_cancellable(item, timeout, &|| false)
+}
+
+fn bgra_to_rgba(frame: &CapturedBgra) -> Result<Vec<u8>> {
+    let expected = usize::try_from(frame.width)
+        .ok()
+        .and_then(|width| width.checked_mul(frame.height as usize))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Capture pixel buffer overflow",
+            )
+        })?;
+    if frame.bytes.len() != expected {
+        return Err(Error::new(
+            ErrorCode::BackendFailed,
+            "Windows capture BGRA buffer length does not match dimensions",
+        ));
+    }
+    let mut rgba = frame.bytes.clone();
+    for pixel in rgba.chunks_exact_mut(4) {
+        pixel.swap(0, 2);
+    }
+    Ok(rgba)
+}
+
+fn encode_png(frame: &CapturedBgra) -> Result<Vec<u8>> {
+    let rgba = bgra_to_rgba(frame)?;
+    let mut encoded = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut encoded, frame.width, frame.height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows capture PNG header failed",
+            )
+        })?;
+        writer.write_image_data(&rgba).map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows capture PNG encoding failed",
+            )
+        })?;
+    }
+    if encoded.is_empty() || encoded.len() > MAX_PNG_BYTES {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows capture PNG exceeds the bounded artifact budget",
+        ));
+    }
+    Ok(encoded)
+}
+
+fn write_artifact(root: &Path, frame: &CapturedBgra, encoded: &[u8]) -> Result<CaptureArtifact> {
+    crate::paths::ensure_owner_only_directory(root)?;
+    let path = root.join(format!("capture-{}.png", uuid::Uuid::new_v4().simple()));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows capture artifact could not be created",
+            )
+        })?;
+    let write_result = (|| -> std::io::Result<()> {
+        file.write_all(encoded)?;
+        file.sync_all()
+    })();
+    if write_result.is_err() {
+        drop(file);
+        let _ = std::fs::remove_file(&path);
+        return Err(Error::new(
+            ErrorCode::BackendFailed,
+            "Windows capture artifact write failed",
+        ));
+    }
+    Ok(CaptureArtifact {
+        path,
+        bytes: encoded.len(),
+        width: frame.width,
+        height: frame.height,
+    })
+}
+
+/// Request explicit end-user selection through the system WGC picker, capture one bounded frame,
+/// and persist it as a private PNG artifact. Selection and first-frame acquisition share one
+/// deadline; cancellation never falls back to a non-consensual HWND capture path.
+pub fn pick_and_capture_artifact<F>(
+    root: &Path,
+    timeout: Duration,
+    cancelled: F,
+) -> Result<CaptureArtifact>
+where
+    F: Fn() -> bool,
+{
+    if !capture_supported() {
+        return Err(Error::unavailable(
+            "Windows.Graphics.Capture is not supported on this device",
+        ));
+    }
+    let started = Instant::now();
+    let item = pick_item(timeout, &cancelled)?;
+    if cancelled() {
+        return Err(Error::new(
+            ErrorCode::Cancelled,
+            "Windows capture cancelled after item selection",
+        ));
+    }
+    let remaining = timeout.saturating_sub(started.elapsed());
+    if remaining.is_zero() {
+        return Err(Error::new(
+            ErrorCode::Timeout,
+            "Windows capture deadline expired after item selection",
+        ));
+    }
+    let frame = capture_item_once_cancellable(&item, remaining, &cancelled)?;
+    if cancelled() {
+        return Err(Error::new(
+            ErrorCode::Cancelled,
+            "Windows capture cancelled before artifact creation",
+        ));
+    }
+    let encoded = encode_png(&frame)?;
+    if cancelled() {
+        return Err(Error::new(
+            ErrorCode::Cancelled,
+            "Windows capture cancelled before artifact write",
+        ));
+    }
+    write_artifact(root, &frame, &encoded)
 }
 
 #[cfg(test)]
@@ -451,5 +800,40 @@ mod tests {
     fn malformed_row_pitch_fails_closed() {
         assert!(compact_bgra_rows(&[0; 8], 3, 2, 1).is_err());
         assert!(compact_bgra_rows(&[0; 8], 8, 2, 2).is_err());
+    }
+
+    #[test]
+    fn bgra_is_normalized_to_rgba_before_png_encoding() {
+        let frame = CapturedBgra {
+            width: 2,
+            height: 1,
+            bytes: vec![1, 2, 3, 4, 10, 20, 30, 40],
+        };
+        assert_eq!(
+            bgra_to_rgba(&frame).unwrap(),
+            vec![3, 2, 1, 4, 30, 20, 10, 40]
+        );
+        let png = encode_png(&frame).unwrap();
+        assert!(png.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]));
+        assert!(png.len() <= MAX_PNG_BYTES);
+    }
+
+    #[test]
+    fn private_artifact_is_created_with_bounded_metadata() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("artifacts");
+        let frame = CapturedBgra {
+            width: 1,
+            height: 1,
+            bytes: vec![7, 8, 9, 255],
+        };
+        let encoded = encode_png(&frame).unwrap();
+        let artifact = write_artifact(&root, &frame, &encoded).unwrap();
+        assert_eq!(artifact.width, 1);
+        assert_eq!(artifact.height, 1);
+        assert_eq!(artifact.bytes, encoded.len());
+        assert!(artifact.path.starts_with(&root));
+        assert!(artifact.path.is_file());
+        assert_eq!(std::fs::read(&artifact.path).unwrap(), encoded);
     }
 }
