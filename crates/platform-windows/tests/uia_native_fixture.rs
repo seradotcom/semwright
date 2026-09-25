@@ -202,41 +202,102 @@ fn context() -> Context {
     }
 }
 
-async fn ensure_fixture_owns_point(hwnd: isize, x: i32, y: i32) {
+fn fixture_owns_point(hwnd: isize, x: i32, y: i32) -> bool {
     let fixture = HWND(hwnd as *mut core::ffi::c_void);
-    for _ in 0..40 {
-        // Reassert the fixture immediately before ElementFromPoint. GitHub-hosted Windows images
-        // may show runner/bootstrap windows after the fixture was first presented; this keeps the
-        // test about native hit-testing rather than the runner's incidental z-order.
-        // SAFETY: fixture is a live top-level HWND created by start_fixture; POINT is screen-space.
+    // SAFETY: POINT is a bounded screen-space coordinate and fixture is a live top-level HWND.
+    unsafe {
+        let hit = WindowFromPoint(POINT { x, y });
+        !hit.is_invalid() && GetAncestor(hit, GA_ROOT) == fixture
+    }
+}
+
+async fn snapshot_with_owned_hit_point(
+    backend: &Windows,
+    ctx: &Context,
+    window_target: &NativeTarget,
+    hwnd: isize,
+) -> (Value, i32, i32) {
+    let fixture = HWND(hwnd as *mut core::ffi::c_void);
+    // SAFETY: read-only queries for the primary display dimensions.
+    let screen_width = unsafe { GetSystemMetrics(SM_CXSCREEN) }.max(640);
+    let screen_height = unsafe { GetSystemMetrics(SM_CYSCREEN) }.max(480);
+    let max_left = (screen_width - 540).max(0);
+    let max_top = (screen_height - 280).max(0);
+    let candidates = [
+        (120.min(max_left), 120.min(max_top)),
+        (8.min(max_left), 8.min(max_top)),
+        (max_left, 8.min(max_top)),
+        (8.min(max_left), max_top),
+        (max_left, max_top),
+        (max_left / 2, max_top / 2),
+    ];
+    let mut last_point = (0, 0);
+
+    for (left, top) in candidates {
+        // SAFETY: fixture remains live for the duration of this test; only its test z-order and
+        // position change. Production UIA targeting is not affected.
         unsafe {
             SetWindowPos(
                 fixture,
                 Some(HWND_TOPMOST),
+                left,
+                top,
                 0,
                 0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+                SWP_NOSIZE | SWP_SHOWWINDOW,
             )
-            .expect("reassert fixture topmost");
+            .expect("position fixture for native hit-test");
             let _ = BringWindowToTop(fixture);
             let _ = SetForegroundWindow(fixture);
-            let hit = WindowFromPoint(POINT { x, y });
-            if !hit.is_invalid() && GetAncestor(hit, GA_ROOT) == fixture {
-                return;
-            }
         }
-        tokio::time::sleep(Duration::from_millis(25)).await;
+        tokio::time::sleep(Duration::from_millis(120)).await;
+
+        let snapshot = backend
+            .execute(
+                ctx,
+                "ui.snapshot",
+                &json!({"_target":window_target.clone()}),
+            )
+            .await
+            .expect("scoped UIA snapshot after fixture placement");
+        let Some(button) = snapshot["nodes"].as_array().and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|node| node["role"] == "button" && node["name"] == "Invoke me")
+        }) else {
+            continue;
+        };
+        let Some(bounds) = button["bounds"].as_object() else {
+            continue;
+        };
+        let x = (bounds["x"].as_f64().unwrap_or_default()
+            + bounds["width"].as_f64().unwrap_or_default() / 2.0)
+            .round() as i32;
+        let y = (bounds["y"].as_f64().unwrap_or_default()
+            + bounds["height"].as_f64().unwrap_or_default() / 2.0)
+            .round() as i32;
+        last_point = (x, y);
+
+        for _ in 0..20 {
+            if fixture_owns_point(hwnd, x, y) {
+                return (snapshot, x, y);
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
     }
 
-    // SAFETY: diagnostic-only lookup using the same bounded screen point.
-    let observed = unsafe { WindowFromPoint(POINT { x, y }) };
+    // SAFETY: diagnostic-only lookup using the final bounded screen point.
+    let observed = unsafe {
+        WindowFromPoint(POINT {
+            x: last_point.0,
+            y: last_point.1,
+        })
+    };
     // SAFETY: WindowFromPoint returns either null or a live window; GetAncestor tolerates null.
     let observed_root = unsafe { GetAncestor(observed, GA_ROOT) };
     panic!(
-        "fixture could not own hit-test point ({x},{y}); observed={:?} root={:?} fixture={:?}",
-        observed, observed_root, fixture
+        "fixture could not own any bounded hit-test placement; last=({},{}) screen={}x{} observed={:?} root={:?} fixture={:?}",
+        last_point.0, last_point.1, screen_width, screen_height, observed, observed_root, fixture
     );
 }
 
@@ -276,10 +337,8 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
         .expect("fixture window");
     let window_target = native_ref(row);
 
-    let snapshot = backend
-        .execute(&ctx, "ui.snapshot", &json!({"_target":window_target}))
-        .await
-        .expect("scoped UIA snapshot");
+    let (snapshot, hit_x, hit_y) =
+        snapshot_with_owned_hit_point(&backend, &ctx, &window_target, hwnd).await;
     assert_eq!(snapshot["partial"], false);
 
     let button = find_node(&snapshot, |node| {
@@ -299,14 +358,6 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
     assert_eq!(inspected["node"]["name"], "Invoke me");
     assert_eq!(inspected["semantic_coverage"], "exact_ref");
 
-    let bounds = &button["bounds"];
-    let x = bounds["x"].as_f64().expect("button x")
-        + bounds["width"].as_f64().expect("button width") / 2.0;
-    let y = bounds["y"].as_f64().expect("button y")
-        + bounds["height"].as_f64().expect("button height") / 2.0;
-    let hit_x = x.round() as i32;
-    let hit_y = y.round() as i32;
-    ensure_fixture_owns_point(hwnd, hit_x, hit_y).await;
     let hit = backend
         .execute(
             &ctx,
