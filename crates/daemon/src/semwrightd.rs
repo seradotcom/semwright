@@ -236,7 +236,13 @@ async fn run(args: Args) -> Result<()> {
         ));
     }
     for upstream in upstreams {
-        let provider = ExternalMcpProvider::connect_trusted_stdio(upstream).await?;
+        let provider = ExternalMcpProvider::connect_sandboxed_stdio(
+            upstream,
+            &state.join("mcp-upstreams"),
+            &sandbox_helper,
+            config.mcp_network,
+        )
+        .await?;
         broker.mount_provider(provider).await?;
     }
     // Learned workflows may depend on configured plugins, drivers, or federated MCPs.

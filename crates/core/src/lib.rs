@@ -1145,6 +1145,33 @@ impl Broker {
             "workflow.traces.list" => self.workflow_traces(),
             "workflow.trace.get" => self.workflow_trace(arg_str(args, "trace_id")?),
             "workflow.trace.delete" => self.workflow_trace_delete(arg_str(args, "trace_id")?),
+            "workflow.patterns.list" => {
+                self.workflow_patterns(args["min_occurrences"].as_u64().unwrap_or(3) as usize)
+            }
+            "workflow.pattern.get" => self.workflow_pattern(arg_str(args, "pattern_id")?),
+            "workflow.suggestions.list" => self.workflow_suggestions(
+                args["min_occurrences"].as_u64().unwrap_or(3) as usize,
+                args["include_dismissed"].as_bool().unwrap_or(false),
+            ),
+            "workflow.suggestion.get" => self.workflow_suggestion(arg_str(args, "suggestion_id")?),
+            "workflow.suggestion.dismiss" => self.workflow_suggestion_dismiss(
+                arg_str(args, "suggestion_id")?,
+                args["permanent"].as_bool().unwrap_or(false),
+            ),
+            "workflow.suggestion.restore" => {
+                self.workflow_suggestion_restore(arg_str(args, "suggestion_id")?)
+            }
+            "workflow.suggestion.compile" => {
+                let hints: Vec<semwright_workflow::ParameterHint> = serde_json::from_value(
+                    args.get("parameters").cloned().unwrap_or_else(|| json!([])),
+                )?;
+                self.workflow_suggestion_compile(
+                    arg_str(args, "suggestion_id")?,
+                    args["name"].as_str(),
+                    args["description"].as_str().unwrap_or(""),
+                    hints,
+                )
+            }
             "workflow.compile" => {
                 let trace_ids: Vec<String> = serde_json::from_value(args["trace_ids"].clone())?;
                 let hints: Vec<semwright_workflow::ParameterHint> = serde_json::from_value(

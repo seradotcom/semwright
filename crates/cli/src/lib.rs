@@ -495,6 +495,40 @@ pub enum Workflow {
     DeleteTrace {
         trace_id: String,
     },
+    Patterns {
+        #[arg(long, default_value_t = 3)]
+        min_occurrences: usize,
+    },
+    Pattern {
+        pattern_id: String,
+    },
+    Suggestions {
+        #[arg(long, default_value_t = 3)]
+        min_occurrences: usize,
+        #[arg(long)]
+        include_dismissed: bool,
+    },
+    Suggestion {
+        suggestion_id: String,
+    },
+    Dismiss {
+        suggestion_id: String,
+        #[arg(long)]
+        permanent: bool,
+    },
+    Restore {
+        suggestion_id: String,
+    },
+    CompileSuggestion {
+        suggestion_id: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long, default_value = "")]
+        description: String,
+        /// Parameter hint NAME=STEP:/json/pointer. Repeat as needed.
+        #[arg(long = "parameter")]
+        parameters: Vec<String>,
+    },
     Compile {
         name: String,
         #[arg(long = "trace", required = true)]
@@ -1032,6 +1066,55 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             Workflow::DeleteTrace { trace_id } => {
                 ("workflow.trace.delete".into(), json!({"trace_id":trace_id}))
             }
+            Workflow::Patterns { min_occurrences } => (
+                "workflow.patterns.list".into(),
+                json!({"min_occurrences":min_occurrences}),
+            ),
+            Workflow::Pattern { pattern_id } => (
+                "workflow.pattern.get".into(),
+                json!({"pattern_id":pattern_id}),
+            ),
+            Workflow::Suggestions {
+                min_occurrences,
+                include_dismissed,
+            } => (
+                "workflow.suggestions.list".into(),
+                json!({
+                    "min_occurrences":min_occurrences,
+                    "include_dismissed":include_dismissed
+                }),
+            ),
+            Workflow::Suggestion { suggestion_id } => (
+                "workflow.suggestion.get".into(),
+                json!({"suggestion_id":suggestion_id}),
+            ),
+            Workflow::Dismiss {
+                suggestion_id,
+                permanent,
+            } => (
+                "workflow.suggestion.dismiss".into(),
+                json!({"suggestion_id":suggestion_id,"permanent":permanent}),
+            ),
+            Workflow::Restore { suggestion_id } => (
+                "workflow.suggestion.restore".into(),
+                json!({"suggestion_id":suggestion_id}),
+            ),
+            Workflow::CompileSuggestion {
+                suggestion_id,
+                name,
+                description,
+                parameters,
+            } => (
+                "workflow.suggestion.compile".into(),
+                json!({
+                    "suggestion_id":suggestion_id,
+                    "name":name,
+                    "description":description,
+                    "parameters":parameters.iter()
+                        .map(|value| workflow_parameter(value))
+                        .collect::<Result<Vec<_>>>()?
+                }),
+            ),
             Workflow::Compile {
                 name,
                 trace_ids,

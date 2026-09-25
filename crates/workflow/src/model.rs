@@ -9,6 +9,11 @@ pub const CANDIDATE_VERSION: u32 = 1;
 pub const MAX_TRACE_STEPS: usize = 64;
 pub const MAX_TRACES: usize = 256;
 pub const MAX_PROMOTIONS: usize = 256;
+pub const PATTERN_VERSION: u32 = 1;
+pub const DISMISSAL_VERSION: u32 = 1;
+pub const DEFAULT_MIN_OCCURRENCES: usize = 3;
+pub const MAX_MIN_OCCURRENCES: usize = 32;
+pub const MAX_DISMISSALS: usize = 256;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -94,4 +99,45 @@ pub struct Promotion {
     pub capability: String,
     pub candidate: Candidate,
     pub promoted_unix_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PatternVariation {
+    pub step: usize,
+    pub location_digest: String,
+    pub kind: String,
+    pub observations: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowPattern {
+    pub version: u32,
+    pub id: String,
+    pub suggestion_id: String,
+    pub fingerprint: String,
+    pub commands: Vec<String>,
+    pub occurrences: usize,
+    pub compile_ready_count: usize,
+    pub trace_ids: Vec<String>,
+    pub compile_trace_ids: Vec<String>,
+    pub first_seen_unix_ms: u64,
+    pub last_seen_unix_ms: u64,
+    pub suggested_name: String,
+    pub varying_arguments: Vec<PatternVariation>,
+    pub dismissed: bool,
+    pub resurfaced: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PatternDismissal {
+    pub version: u32,
+    pub pattern_id: String,
+    pub fingerprint: String,
+    pub dismissed_unix_ms: u64,
+    pub dismissed_through_occurrences: usize,
+    #[serde(default)]
+    pub permanent: bool,
 }
