@@ -1596,5 +1596,55 @@
       "suggestion",
       "compile"
     ]
+  },
+  "workflow.proposals.list": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": ["workflow"],
+    "untrusted_metadata": false,
+    "tags": ["workflow", "proposal", "list"]
+  },
+  "workflow.proposal.get": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": ["workflow"],
+    "untrusted_metadata": false,
+    "tags": ["workflow", "proposal", "get"]
+  },
+  "workflow.proposal.plan": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": ["workflow"],
+    "untrusted_metadata": false,
+    "tags": ["workflow", "proposal", "plan"]
+  },
+  "workflow.proposal.accept": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": ["workflow"],
+    "untrusted_metadata": false,
+    "tags": ["workflow", "proposal", "accept"]
+  },
+  "workflow.proposal.dismiss": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": ["workflow"],
+    "untrusted_metadata": false,
+    "tags": ["workflow", "proposal", "dismiss"]
   }
 }
