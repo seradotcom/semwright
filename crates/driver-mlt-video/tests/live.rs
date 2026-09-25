@@ -175,10 +175,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "-i",
             "color=c=red:s=1920x1080:r=30:d=2",
             "-frames:v",
-            // Match the 50-frame semantic clip exactly. This mirrors the launch
-            // mezzanine's full-file consumption and avoids making partial-GOP
-            // trimming part of the H.264 render conformance contract.
-            "50",
+            "60",
             "-c:v",
             "libx264",
             "-preset",
