@@ -159,7 +159,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert interfaces["interfaces"]["artifacts"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
-        assert len(caps) == 53, len(caps)
+        assert len(caps) == 103, len(caps)
 
         env = os.environ.copy()
         env.update({
@@ -212,6 +212,14 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         status = call("driver.godot.project.inspect", {"session": sid})
         st = stamp(status)
 
+        def mutate(name, args):
+            global st
+            payload = dict(args)
+            payload.update({"session": sid, "expect": st, "dry_run": False})
+            value = call(name, payload)
+            st = stamp(value)
+            return value
+
         resources = [
             ("res://assets/floor_mesh.tres", "BoxMesh", [("size", V3(12, 0.2, 12))]),
             ("res://assets/floor_shape.tres", "BoxShape3D", [("size", V3(12, 0.2, 12))]),
@@ -223,6 +231,12 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             ("res://assets/floor_mat.tres", "StandardMaterial3D", [("albedo_color", Color(0.18, 0.22, 0.28))]),
             ("res://assets/door_mat.tres", "StandardMaterial3D", [("albedo_color", Color(0.55, 0.24, 0.08))]),
             ("res://assets/key_mat.tres", "StandardMaterial3D", [("albedo_color", Color(0.95, 0.72, 0.12))]),
+            ("res://assets/semantic_mat.tres", "StandardMaterial3D", []),
+            ("res://assets/environment.tres", "Environment", []),
+            ("res://assets/particles.tres", "ParticleProcessMaterial", []),
+            ("res://assets/tileset.tres", "TileSet", []),
+            ("res://assets/navigation.tres", "NavigationMesh", []),
+            ("res://assets/ui_theme.tres", "Theme", []),
         ]
         for path, klass, props in resources:
             value = call("driver.godot.resource.create", {
@@ -261,6 +275,14 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node("Key", "MeshInstance3D", "Mesh", [("mesh", Res("res://assets/key_mesh.tres")), ("material_override", Res("res://assets/key_mat.tres"))])
         node("Key", "CollisionShape3D", "Collision", [("shape", Res("res://assets/key_shape.tres"))])
         node(".", "AnimationPlayer", "Animations")
+        node(".", "TileMapLayer", "Tiles", [("tile_set", Res("res://assets/tileset.tres"))])
+        node(".", "NavigationRegion3D", "NavRegion", [("navigation_mesh", Res("res://assets/navigation.tres"))])
+        node("Player", "NavigationAgent3D", "Agent")
+        node(".", "NavigationLink3D", "NavLink")
+        node(".", "AudioStreamPlayer", "Music")
+        node(".", "GPUParticles3D", "Particles", [("process_material", Res("res://assets/particles.tres"))])
+        node(".", "Skeleton3D", "Rig")
+        node("Rig", "BoneAttachment3D", "Attachment")
         node(".", "CanvasLayer", "HUD")
         node("HUD", "Label", "Status", [("text", "Find the key")])
         value = call("driver.godot.ui.layout", {
@@ -271,6 +293,170 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "minimum_size": V2(240, 40), "expect": st, "dry_run": False,
         })
         st = stamp(value)
+
+        # Semantic-domain acceptance: the generic Node/Resource substrate is not enough.
+        # Exercise typed domain operations through the production bridge before save/reload.
+
+        mutate("driver.godot.tileset.configure", {
+            "path": "res://assets/tileset.tres", "tile_size": [32, 32],
+            "tile_shape": 0, "tile_layout": 0, "tile_offset_axis": 0, "uv_clipping": False,
+        })
+        tileset = call("driver.godot.tileset.inspect", {"session": sid, "path": "res://assets/tileset.tres"})
+        assert tileset["data"]["tile_size"] == [32, 32]
+        mutate("driver.godot.tilemap.clear", {"target": "Tiles"})
+        tilemap = call("driver.godot.tilemap.inspect", {"session": sid, "target": "Tiles"})
+        assert tilemap["data"]["tile_set"] == "res://assets/tileset.tres"
+
+        mutate("driver.godot.navigation.region.configure", {
+            "target": "NavRegion", "enabled": True, "navigation_layers": 1,
+            "enter_cost": 0.0, "travel_cost": 1.0, "use_edge_connections": True,
+            "navigation_mesh": "res://assets/navigation.tres",
+        })
+        region = call("driver.godot.navigation.region.inspect", {"session": sid, "target": "NavRegion"})
+        assert region["data"]["navigation_mesh"] == "res://assets/navigation.tres"
+        mutate("driver.godot.navigation.agent.configure", {
+            "target": "Player/Agent", "navigation_layers": 1, "target_position": [0.0, 1.0, -4.0],
+            "path_desired_distance": 0.5, "target_desired_distance": 0.5,
+            "path_max_distance": 5.0, "radius": 0.5, "height": 1.8, "max_speed": 4.0,
+            "avoidance_enabled": True, "avoidance_layers": 1, "avoidance_mask": 1,
+            "avoidance_priority": 0.5, "neighbor_distance": 10.0, "max_neighbors": 8,
+            "use_3d_avoidance": True,
+        })
+        agent = call("driver.godot.navigation.agent.inspect", {"session": sid, "target": "Player/Agent"})
+        assert agent["data"]["avoidance_enabled"] is True
+        mutate("driver.godot.navigation.link.configure", {
+            "target": "NavLink", "enabled": True, "bidirectional": True, "navigation_layers": 1,
+            "enter_cost": 0.0, "travel_cost": 1.0,
+            "start_position": [-1.0, 0.0, 0.0], "end_position": [1.0, 0.0, 0.0],
+        })
+
+        mutate("driver.godot.physics.body.configure", {
+            "target": "Player", "collision_layer": 1, "collision_mask": 1,
+            "motion_mode": 0, "max_slides": 4, "floor_stop_on_slope": True,
+            "floor_max_angle": 0.785398, "floor_snap_length": 0.1,
+            "wall_min_slide_angle": 0.261799, "up_direction": [0.0, 1.0, 0.0],
+            "velocity": [0.0, 0.0, 0.0],
+        })
+        body = call("driver.godot.physics.body.inspect", {"session": sid, "target": "Player"})
+        assert body["data"]["class"] == "CharacterBody3D"
+        mutate("driver.godot.physics.area.configure", {
+            "target": "Key", "monitoring": True, "monitorable": True, "priority": 0.0,
+            "gravity_point": False, "gravity": 9.8, "gravity_space_override": 0,
+            "linear_damp_space_override": 0, "linear_damp": 0.1,
+            "angular_damp_space_override": 0, "angular_damp": 0.1,
+            "audio_bus_override": False, "audio_bus_name": "Master",
+            "collision_layer": 1, "collision_mask": 1,
+        })
+        area = call("driver.godot.physics.area.inspect", {"session": sid, "target": "Key"})
+        assert area["data"]["monitoring"] is True
+        mutate("driver.godot.collision.shape.configure", {
+            "target": "Player/Collision", "shape": "res://assets/player_shape.tres", "disabled": False,
+        })
+
+        mutate("driver.godot.audio.bus.create", {
+            "name": "SemwrightSFX", "position": -1, "volume_db": -3.0, "send": "Master",
+        })
+        mutate("driver.godot.audio.bus.configure", {
+            "name": "SemwrightSFX", "volume_db": -2.0, "mute": False, "solo": False, "send": "Master",
+        })
+        buses = call("driver.godot.audio.bus.inspect", {"session": sid})
+        assert any(bus["name"] == "SemwrightSFX" for bus in buses["data"]["buses"])
+        mutate("driver.godot.audio.player.configure", {
+            "target": "Music", "bus": "SemwrightSFX", "volume_db": -6.0,
+            "pitch_scale": 1.0, "autoplay": False, "max_polyphony": 2,
+        })
+        player_audio = call("driver.godot.audio.player.inspect", {"session": sid, "target": "Music"})
+        assert player_audio["data"]["bus"] == "SemwrightSFX"
+
+        mutate("driver.godot.particles.material.configure", {
+            "path": "res://assets/particles.tres", "direction": [0.0, 1.0, 0.0],
+            "gravity": [0.0, -1.0, 0.0], "color": [0.9, 0.7, 0.2, 1.0],
+            "emission_box_extents": [0.25, 0.25, 0.25], "emission_shape": 3,
+            "spread": 30.0, "initial_velocity_min": 1.0, "initial_velocity_max": 2.0,
+            "scale_min": 0.5, "scale_max": 1.0, "lifetime_randomness": 0.1,
+        })
+        mutate("driver.godot.particles.configure", {
+            "target": "Particles", "amount": 16, "lifetime": 1.5, "emitting": False,
+            "one_shot": False, "preprocess": 0.0, "randomness": 0.1, "speed_scale": 1.0,
+            "amount_ratio": 1.0, "explosiveness": 0.0, "local_coords": False,
+            "fixed_fps": 30, "use_fixed_seed": True, "seed": 42,
+            "process_material": "res://assets/particles.tres",
+        })
+        particles = call("driver.godot.particles.inspect", {"session": sid, "target": "Particles"})
+        assert particles["data"]["amount"] == 16
+        mutate("driver.godot.particles.restart", {"target": "Particles"})
+
+        mutate("driver.godot.environment.configure", {
+            "path": "res://assets/environment.tres", "background_mode": 1,
+            "background_color": [0.03, 0.04, 0.06, 1.0], "background_energy_multiplier": 1.0,
+            "ambient_light_source": 3, "ambient_light_color": [0.4, 0.45, 0.5, 1.0],
+            "ambient_light_energy": 0.8, "fog_enabled": False, "fog_density": 0.01,
+            "fog_light_color": [0.5, 0.55, 0.6, 1.0], "fog_light_energy": 1.0,
+            "glow_enabled": False, "glow_intensity": 0.8, "tonemap_mode": 2,
+        })
+        environment = call("driver.godot.environment.inspect", {"session": sid, "path": "res://assets/environment.tres"})
+        assert environment["data"]["tonemap_mode"] == 2
+        mutate("driver.godot.material.standard.configure", {
+            "path": "res://assets/semantic_mat.tres", "albedo_color": [0.15, 0.55, 0.8, 1.0],
+            "metallic": 0.2, "roughness": 0.45, "emission_enabled": False,
+            "emission": [0.0, 0.0, 0.0, 1.0], "transparency": 0, "shading_mode": 1,
+        })
+        material = call("driver.godot.material.standard.inspect", {"session": sid, "path": "res://assets/semantic_mat.tres"})
+        assert abs(material["data"]["roughness"] - 0.45) < 0.001
+        mutate("driver.godot.camera.configure", {
+            "target": "Player/Camera", "projection": 0, "fov": 70.0,
+            "near": 0.1, "far": 200.0, "keep_aspect": 1, "current": True,
+            "cull_mask": 0xFFFFF, "environment": "res://assets/environment.tres",
+        })
+        camera = call("driver.godot.camera.inspect", {"session": sid, "target": "Player/Camera"})
+        assert abs(camera["data"]["fov"] - 70.0) < 0.001
+        mutate("driver.godot.light.configure", {
+            "target": "Sun", "color": [1.0, 0.95, 0.85, 1.0], "energy": 1.2,
+            "indirect_energy": 1.0, "specular": 0.5, "volumetric_fog_energy": 1.0,
+            "shadow_enabled": True, "cull_mask": 0xFFFFF,
+        })
+        light = call("driver.godot.light.inspect", {"session": sid, "target": "Sun"})
+        assert light["data"]["shadow_enabled"] is True
+
+        mutate("driver.godot.ui.control.configure", {
+            "target": "HUD/Status", "visible": True, "focus_mode": 0, "mouse_filter": 2,
+            "layout_direction": 0, "size_flags_horizontal": 1, "size_flags_vertical": 1,
+            "size_flags_stretch_ratio": 1.0, "tooltip_text": "Semwright semantic UI",
+            "theme_type_variation": "", "minimum_size": [240.0, 40.0],
+        })
+        control = call("driver.godot.ui.control.inspect", {"session": sid, "target": "HUD/Status"})
+        assert control["data"]["visible"] is True
+        mutate("driver.godot.ui.text.configure", {
+            "target": "HUD/Status", "text": "Find the semantic key",
+            "horizontal_alignment": 0, "vertical_alignment": 1,
+            "autowrap_mode": 0, "text_overrun_behavior": 0, "uppercase": False,
+        })
+        mutate("driver.godot.theme.configure", {
+            "path": "res://assets/ui_theme.tres", "kind": "color",
+            "theme_type": "Label", "name": "font_color", "color": [0.9, 0.95, 1.0, 1.0],
+        })
+        mutate("driver.godot.theme.apply", {
+            "target": "HUD/Status", "theme": "res://assets/ui_theme.tres", "type_variation": "",
+        })
+        theme = call("driver.godot.theme.inspect", {"session": sid, "path": "res://assets/ui_theme.tres"})
+        assert "Label" in theme["data"]["types"]
+
+        mutate("driver.godot.skeleton.bone.add", {
+            "target": "Rig", "name": "root", "parent": -1,
+            "position": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0],
+            "scale": [1.0, 1.0, 1.0],
+        })
+        mutate("driver.godot.skeleton.bone.configure", {
+            "target": "Rig", "index": 0, "name": "root", "parent": -1, "enabled": True,
+            "position": [0.0, 0.1, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0],
+            "scale": [1.0, 1.0, 1.0], "reset_pose": False,
+        })
+        mutate("driver.godot.skeleton.attachment.configure", {
+            "target": "Rig/Attachment", "bone_name": "root", "bone_idx": 0,
+            "override_pose": False, "use_external_skeleton": False, "external_skeleton": "",
+        })
+        skeleton = call("driver.godot.skeleton.inspect", {"session": sid, "target": "Rig"})
+        assert skeleton["data"]["bone_count"] == 1
 
         controller = """extends Node3D
 

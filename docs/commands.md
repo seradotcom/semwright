@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-106 built-in descriptors. A descriptor is not proof of live backend support.
+113 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -117,6 +117,13 @@ for many backends in this development handoff; strengthening them is a release g
 | `workflow.trace.get` | `workflow.record` | read_only | 10000 ms | core |
 | `workflow.traces.list` | `workflow.record` | read_only | 10000 ms | core |
 | `workflow.verify` | `workflow.record` | mutating_reversible | 30000 ms | core |
+| `workflow.patterns.list` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.pattern.get` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.suggestions.list` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.suggestion.get` | `workflow.record` | read_only | 10000 ms | core |
+| `workflow.suggestion.dismiss` | `workflow.manage` | mutating_reversible | 10000 ms | core |
+| `workflow.suggestion.restore` | `workflow.manage` | mutating_reversible | 10000 ms | core |
+| `workflow.suggestion.compile` | `workflow.record` | mutating_reversible | 30000 ms | core |
 
 ## `doctor`
 
@@ -2854,6 +2861,213 @@ Idempotency: `non_idempotent`. Dry run: `false`.
   },
   "required": [
     "candidate_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.patterns.list`
+
+List repeated workflow patterns derived deterministically from explicit recorded traces.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "min_occurrences": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 32
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `workflow.pattern.get`
+
+Inspect one repeated workflow pattern without exposing recorded values.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "pattern_id": {
+      "type": "string",
+      "pattern": "^pattern-[0-9a-f]{24}$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "pattern_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.suggestions.list`
+
+List repeated workflow suggestions; dismissed suggestions stay hidden unless requested.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "min_occurrences": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 32
+    },
+    "include_dismissed": {
+      "type": "boolean"
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}
+```
+
+## `workflow.suggestion.get`
+
+Inspect one workflow suggestion and its bounded structural evidence.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "suggestion_id": {
+      "type": "string",
+      "pattern": "^suggestion-[0-9a-f]{24}$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "suggestion_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.suggestion.dismiss`
+
+Dismiss a workflow suggestion; temporary dismissals resurface after new matching evidence.
+
+Idempotency: `idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "suggestion_id": {
+      "type": "string",
+      "pattern": "^suggestion-[0-9a-f]{24}$",
+      "maxLength": 40
+    },
+    "permanent": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "suggestion_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.suggestion.restore`
+
+Restore a previously dismissed workflow suggestion.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "suggestion_id": {
+      "type": "string",
+      "pattern": "^suggestion-[0-9a-f]{24}$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "suggestion_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.suggestion.compile`
+
+Compile a repeated workflow suggestion using the existing Recipe v1 compiler.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "parameters": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 63
+          },
+          "pointer": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "secret": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "step",
+          "pointer"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "suggestion_id": {
+      "type": "string",
+      "pattern": "^suggestion-[0-9a-f]{24}$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "suggestion_id"
   ],
   "additionalProperties": false
 }

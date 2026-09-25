@@ -153,7 +153,7 @@ impl SandboxLauncher for LinuxSandbox {
             "LANG",
             "C.UTF-8",
         ]);
-        if s.kind == SandboxKind::Driver {
+        if matches!(s.kind, SandboxKind::Driver | SandboxKind::ExternalMcp) {
             p.args([
                 "--setenv",
                 "XDG_CACHE_HOME",
@@ -164,10 +164,16 @@ impl SandboxLauncher for LinuxSandbox {
                 "--setenv",
                 "XDG_DATA_HOME",
                 "/tmp/data",
-                "--setenv",
-                "SEMWRIGHT_DRIVER_SANDBOX",
-                "landlock-bwrap-v1",
             ]);
+            match s.kind {
+                SandboxKind::Driver => {
+                    p.args(["--setenv", "SEMWRIGHT_DRIVER_SANDBOX", "landlock-bwrap-v1"]);
+                }
+                SandboxKind::ExternalMcp => {
+                    p.args(["--setenv", "SEMWRIGHT_MCP_SANDBOX", "landlock-bwrap-v1"]);
+                }
+                SandboxKind::Plugin => {}
+            }
         }
         p.args(["--chdir", "/tmp", "--", "/plugin/sandbox"]);
         if let Some(l) = &s.limits {
@@ -192,6 +198,7 @@ impl SandboxLauncher for LinuxSandbox {
             }
         }
         p.args(["--", "/plugin/bin"])
+            .args(&s.args)
             .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

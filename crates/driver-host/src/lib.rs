@@ -350,6 +350,7 @@ fn sandbox_command(
         staged_executable: staged.into(),
         helper: helper.into(),
         mounts,
+        args: vec![],
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,

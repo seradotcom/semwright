@@ -1,13 +1,20 @@
 use async_trait::async_trait;
 use semwright_backend_api::Provider;
 use semwright_core::{Approval, Approver, Broker, NoApprover, audit::Audit};
-use semwright_federation::{ExternalMcpProvider, StdioUpstreamConfig};
+use semwright_federation::{ExternalMcpProvider, StdioUpstreamConfig, StdioUpstreamMount};
 use semwright_policy::{Policy, PolicyConfig};
 use semwright_registry::CatalogQuery;
 use semwright_types::{Envelope, ErrorCode, ExecuteRequest, Result, Risk, SourceKind, unique_id};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::{os::unix::fs::PermissionsExt, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    net::TcpListener,
+    os::unix::fs::{DirBuilderExt, PermissionsExt},
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 use tokio_util::sync::CancellationToken;
 
 struct Approve;
@@ -18,6 +25,62 @@ impl Approver for Approve {
         assert!(approval.backend.starts_with("external-mcp:"));
         Ok(true)
     }
+}
+
+fn sandbox_helper() -> &'static Path {
+    Path::new(env!("CARGO_BIN_EXE_semwright-mcp-sandbox-fixture"))
+}
+
+fn sandbox_runtime_available() -> bool {
+    let mut command = Command::new("/usr/bin/bwrap");
+    command.args([
+        "--die-with-parent",
+        "--unshare-all",
+        "--clearenv",
+        "--ro-bind",
+        "/usr",
+        "/usr",
+    ]);
+    if Path::new("/lib").exists() {
+        command.args(["--ro-bind", "/lib", "/lib"]);
+    }
+    if Path::new("/lib64").exists() {
+        command.args(["--ro-bind", "/lib64", "/lib64"]);
+    }
+    let ok = command
+        .args(["--", "/usr/bin/true"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if !ok && std::env::var_os("SEMWRIGHT_REQUIRE_MCP_SANDBOX").is_some() {
+        panic!("required MCP Bubblewrap namespace sandbox is unavailable");
+    }
+    ok
+}
+
+fn sandbox_state() -> &'static Path {
+    static STATE: OnceLock<PathBuf> = OnceLock::new();
+    STATE
+        .get_or_init(|| {
+            let path = std::env::temp_dir().join(format!(
+                "semwright-federation-sandbox-test-{}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&path);
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&path)
+                .unwrap();
+            path
+        })
+        .as_path()
+}
+
+async fn connect_result(config: StdioUpstreamConfig) -> Result<Arc<ExternalMcpProvider>> {
+    ExternalMcpProvider::connect_sandboxed_stdio(config, sandbox_state(), sandbox_helper(), false)
+        .await
 }
 
 fn fixture_config(slug: &str) -> StdioUpstreamConfig {
@@ -31,6 +94,9 @@ fn fixture_config(slug: &str) -> StdioUpstreamConfig {
         program,
         sha256,
         args: vec![],
+        mounts: vec![],
+        network: false,
+        resources: semwright_federation::StdioUpstreamResources::default(),
         expected_name: Some("semwright-fixture-upstream".into()),
         expected_version: Some("1.0.0".into()),
         request_timeout_ms: 5_000,
@@ -112,9 +178,10 @@ async fn capability_name_for_provider(broker: &Broker, provider: &str) -> String
 
 #[tokio::test]
 async fn external_mcp_is_namespaced_untrusted_and_policy_mediated() {
-    let denied_provider = ExternalMcpProvider::connect_trusted_stdio(fixture_config("denied"))
-        .await
-        .unwrap();
+    if !sandbox_runtime_available() {
+        return;
+    }
+    let denied_provider = connect_result(fixture_config("denied")).await.unwrap();
     let denied_command = capability(&denied_provider, "echo").await;
     let denied_dir = tempfile::tempdir().unwrap();
     let (denied_broker, _) = broker(&denied_dir, None, Arc::new(NoApprover));
@@ -131,9 +198,7 @@ async fn external_mcp_is_namespaced_untrusted_and_policy_mediated() {
     assert_eq!(denied.error.unwrap().code, ErrorCode::PolicyDenied);
     denied_broker.shutdown().await;
 
-    let provider = ExternalMcpProvider::connect_trusted_stdio(fixture_config("fixture"))
-        .await
-        .unwrap();
+    let provider = connect_result(fixture_config("fixture")).await.unwrap();
     assert_eq!(provider.identity().kind, SourceKind::ExternalMcp);
     assert_eq!(provider.identity().id, "external-mcp:fixture");
     assert_eq!(provider.identity().namespace, "external.fixture.");
@@ -189,9 +254,10 @@ async fn external_mcp_is_namespaced_untrusted_and_policy_mediated() {
 
 #[tokio::test]
 async fn list_changed_refreshes_catalog_without_granting_new_authority() {
-    let provider = ExternalMcpProvider::connect_trusted_stdio(fixture_config("dynamic"))
-        .await
-        .unwrap();
+    if !sandbox_runtime_available() {
+        return;
+    }
+    let provider = connect_result(fixture_config("dynamic")).await.unwrap();
     let enable = capability(&provider, "enable_extra").await;
     let dir = tempfile::tempdir().unwrap();
     let (broker, _) = broker(&dir, Some("external-mcp:dynamic"), Arc::new(Approve));
@@ -246,9 +312,10 @@ async fn list_changed_refreshes_catalog_without_granting_new_authority() {
 
 #[tokio::test]
 async fn cancellation_and_upstream_errors_remain_bounded_and_generic() {
-    let provider = ExternalMcpProvider::connect_trusted_stdio(fixture_config("control"))
-        .await
-        .unwrap();
+    if !sandbox_runtime_available() {
+        return;
+    }
+    let provider = connect_result(fixture_config("control")).await.unwrap();
     let slow = capability(&provider, "slow").await;
     let fail = capability(&provider, "fail").await;
     let dir = tempfile::tempdir().unwrap();
@@ -280,6 +347,60 @@ async fn cancellation_and_upstream_errors_remain_bounded_and_generic() {
     broker.shutdown().await;
 }
 
+#[tokio::test]
+async fn upstream_sandbox_denies_host_network_and_preserves_explicit_mounts() {
+    if !sandbox_runtime_available() {
+        return;
+    }
+
+    let allowed = tempfile::tempdir().unwrap();
+    std::fs::write(allowed.path().join("seed.txt"), b"allowed-seed\n").unwrap();
+    let secret_dir = tempfile::tempdir().unwrap();
+    let secret_path = secret_dir.path().join("host-secret.txt");
+    std::fs::write(&secret_path, b"must-not-be-visible\n").unwrap();
+
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let mut config = fixture_config("sandbox");
+    config.mounts = vec![StdioUpstreamMount {
+        source: std::fs::canonicalize(allowed.path()).unwrap(),
+        name: "allowed".into(),
+        read_only: false,
+    }];
+    config.resources.open_files = 64;
+
+    let provider = connect_result(config).await.unwrap();
+    let probe = capability(&provider, "sandbox_probe").await;
+    let dir = tempfile::tempdir().unwrap();
+    let (broker, _) = broker(&dir, Some("external-mcp:sandbox"), Arc::new(Approve));
+    broker.mount_provider(provider).await.unwrap();
+
+    let result = execute(
+        broker.clone(),
+        probe,
+        json!({"host_path":secret_path,"port":port}),
+        CancellationToken::new(),
+    )
+    .await;
+    assert!(result.ok, "{result:?}");
+    let data = result.data.unwrap();
+    assert_eq!(data["seed"], "allowed-seed");
+    assert_eq!(data["write_ok"], true);
+    assert_eq!(data["host_visible"], false);
+    assert_eq!(data["network_reachable"], false);
+    assert_eq!(data["env_clean"], true);
+    assert_eq!(data["sandbox_marker"], true);
+    assert_eq!(data["nofile_soft"], 64);
+    assert_eq!(
+        std::fs::read_to_string(allowed.path().join("written.txt")).unwrap(),
+        "sandbox-write\n"
+    );
+
+    drop(listener);
+    broker.shutdown().await;
+}
+
 #[test]
 fn stdio_config_rejects_symlink_and_untrusted_identity() {
     let mut config = fixture_config("fixture");
@@ -298,6 +419,9 @@ fn stdio_config_rejects_symlink_and_untrusted_identity() {
         program: link,
         sha256: "0".repeat(64),
         args: vec![],
+        mounts: vec![],
+        network: false,
+        resources: semwright_federation::StdioUpstreamResources::default(),
         expected_name: None,
         expected_version: None,
         request_timeout_ms: 1000,
@@ -308,19 +432,16 @@ fn stdio_config_rejects_symlink_and_untrusted_identity() {
 
 #[tokio::test]
 async fn invalid_descriptors_duplicate_names_and_bad_results_fail_closed() {
+    if !sandbox_runtime_available() {
+        return;
+    }
     let mut duplicate = fixture_config("duplicate");
     duplicate.args = vec!["--duplicate-tools".into()];
-    assert!(
-        ExternalMcpProvider::connect_trusted_stdio(duplicate)
-            .await
-            .is_err()
-    );
+    assert!(connect_result(duplicate).await.is_err());
 
     let mut malformed = fixture_config("malformed");
     malformed.args = vec!["--malformed-schema".into()];
-    let malformed_provider = ExternalMcpProvider::connect_trusted_stdio(malformed)
-        .await
-        .unwrap();
+    let malformed_provider = connect_result(malformed).await.unwrap();
     let malformed_dir = tempfile::tempdir().unwrap();
     let (malformed_broker, _) = broker(
         &malformed_dir,
@@ -335,9 +456,7 @@ async fn invalid_descriptors_duplicate_names_and_bad_results_fail_closed() {
     );
     malformed_provider.shutdown().await.unwrap();
 
-    let provider = ExternalMcpProvider::connect_trusted_stdio(fixture_config("outputs"))
-        .await
-        .unwrap();
+    let provider = connect_result(fixture_config("outputs")).await.unwrap();
     let bad = capability(&provider, "bad_output").await;
     let huge = capability(&provider, "huge_output").await;
     let dir = tempfile::tempdir().unwrap();
@@ -366,9 +485,10 @@ async fn invalid_descriptors_duplicate_names_and_bad_results_fail_closed() {
 
 #[tokio::test]
 async fn upstream_crash_invalidates_the_provider_generation() {
-    let provider = ExternalMcpProvider::connect_trusted_stdio(fixture_config("crash"))
-        .await
-        .unwrap();
+    if !sandbox_runtime_available() {
+        return;
+    }
+    let provider = connect_result(fixture_config("crash")).await.unwrap();
     let crash = capability(&provider, "crash").await;
     let dir = tempfile::tempdir().unwrap();
     let (broker, _) = broker(&dir, Some("external-mcp:crash"), Arc::new(Approve));

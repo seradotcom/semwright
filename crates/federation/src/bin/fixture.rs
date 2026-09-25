@@ -138,6 +138,33 @@ impl ServerHandler for Fixture {
                 json!({"type":"object","additionalProperties":false}),
                 json!({"type":"object"}),
             ),
+            tool(
+                "sandbox_probe",
+                "Probe only the explicitly granted sandbox boundaries",
+                json!({
+                    "type":"object",
+                    "required":["host_path","port"],
+                    "properties":{
+                        "host_path":{"type":"string","maxLength":4096},
+                        "port":{"type":"integer","minimum":1,"maximum":65535}
+                    },
+                    "additionalProperties":false
+                }),
+                json!({
+                    "type":"object",
+                    "required":["seed","write_ok","host_visible","network_reachable","env_clean","sandbox_marker","nofile_soft"],
+                    "properties":{
+                        "seed":{"type":"string"},
+                        "write_ok":{"type":"boolean"},
+                        "host_visible":{"type":"boolean"},
+                        "network_reachable":{"type":"boolean"},
+                        "env_clean":{"type":"boolean"},
+                        "sandbox_marker":{"type":"boolean"},
+                        "nofile_soft":{"type":"integer","minimum":0}
+                    },
+                    "additionalProperties":false
+                }),
+            ),
         ];
         if self.mode == FixtureMode::DuplicateTools {
             tools.push(tool(
@@ -220,6 +247,60 @@ impl ServerHandler for Fixture {
             }))
             .into()),
             "crash" => std::process::exit(42),
+            "sandbox_probe" => {
+                let host_path = args
+                    .get("host_path")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| ErrorData::invalid_params("host_path is required", None))?;
+                let port = args
+                    .get("port")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u16::try_from(value).ok())
+                    .ok_or_else(|| ErrorData::invalid_params("port is required", None))?;
+                let seed = std::fs::read_to_string("/workspace/allowed/seed.txt")
+                    .unwrap_or_else(|_| "<unreadable>".into());
+                let write_ok =
+                    std::fs::write("/workspace/allowed/written.txt", b"sandbox-write\n").is_ok();
+                let host_visible = std::fs::read_to_string(host_path).is_ok();
+                let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+                let network_reachable = std::net::TcpStream::connect_timeout(
+                    &address,
+                    std::time::Duration::from_millis(200),
+                )
+                .is_ok();
+                let env_clean = [
+                    "DBUS_SESSION_BUS_ADDRESS",
+                    "DISPLAY",
+                    "WAYLAND_DISPLAY",
+                    "XAUTHORITY",
+                    "SSH_AUTH_SOCK",
+                ]
+                .iter()
+                .all(|name| std::env::var_os(name).is_none());
+                let sandbox_marker =
+                    std::env::var("SEMWRIGHT_MCP_SANDBOX").as_deref() == Ok("landlock-bwrap-v1");
+                let mut limit = libc::rlimit {
+                    rlim_cur: 0,
+                    rlim_max: 0,
+                };
+                // SAFETY: getrlimit synchronously writes to a live repr(C) rlimit pointer.
+                let nofile_soft =
+                    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) } == 0 {
+                        limit.rlim_cur
+                    } else {
+                        0
+                    };
+                Ok(CallToolResult::structured(json!({
+                    "seed":seed.trim_end(),
+                    "write_ok":write_ok,
+                    "host_visible":host_visible,
+                    "network_reachable":network_reachable,
+                    "env_clean":env_clean,
+                    "sandbox_marker":sandbox_marker,
+                    "nofile_soft":nofile_soft
+                }))
+                .into())
+            }
             _ => Err(ErrorData::invalid_params("unknown fixture tool", None)),
         }
     }

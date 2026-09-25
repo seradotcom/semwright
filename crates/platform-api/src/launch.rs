@@ -63,6 +63,7 @@ pub struct ResourceLimits {
 pub enum SandboxKind {
     Driver,
     Plugin,
+    ExternalMcp,
 }
 #[derive(Clone, Debug)]
 pub struct SandboxSpec {
@@ -70,6 +71,8 @@ pub struct SandboxSpec {
     pub staged_executable: PathBuf,
     pub helper: PathBuf,
     pub mounts: Vec<Mount>,
+    /// Arguments are passed directly to the staged executable; no shell is involved.
+    pub args: Vec<String>,
     pub network: bool,
     pub limits: Option<ResourceLimits>,
 }
@@ -87,8 +90,20 @@ impl SandboxSpec {
                 return Err(Error::invalid("Duplicate logical sandbox mount"));
             }
         }
-        if self.kind == SandboxKind::Driver && self.limits.is_none() {
-            return Err(Error::invalid("Driver resource limits required"));
+        if self.args.len() > 64
+            || self
+                .args
+                .iter()
+                .any(|arg| arg.len() > 4096 || arg.contains('\0'))
+        {
+            return Err(Error::invalid("Sandbox executable arguments exceed bounds"));
+        }
+        if matches!(self.kind, SandboxKind::Driver | SandboxKind::ExternalMcp)
+            && self.limits.is_none()
+        {
+            return Err(Error::invalid(
+                "Driver and external MCP resource limits are required",
+            ));
         }
         Ok(())
     }

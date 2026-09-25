@@ -239,14 +239,18 @@ production AT-SPI path against Zenity 4.0.1 in the active `wayland-0` login sess
 editable text through AT-SPI (without global keyboard/pointer injection), observes a delta, closes
 the fixture, forces structural resync and rejects the old ref as stale. Sanitized evidence is stored
 in `verification/live-gnome/gnome-wayland-atspi.json`. This certifies the GNOME semantic GTK route,
-not the optional GJS bridge or portal input consent. Separate hosted jobs now certify Plasma/KWin
-Wayland, real headless Sway IPC and Openbox/EWMH X11; Hyprland and broader interactive/scaling
-coverage remain part of the live matrix.
+not the optional GJS bridge or focused portal input dispatch. Separate real portal evidence below
+covers consent and `ConnectToEIS` negotiation, while hosted jobs certify Plasma/KWin Wayland, real
+headless Sway IPC and Openbox/EWMH X11; Hyprland and broader interactive/scaling coverage remain
+part of the live matrix.
 
 The RemoteDesktop EIS sender is implemented in the platformized Linux host and a real EIS protocol
 fixture negotiates a sender session and transmits keysym, UTF-8 text, relative pointer motion,
-buttons and scrolling. A real user-approved desktop-portal ConnectToEIS session is still pending
-and remains a release blocker.
+buttons and scrolling. Separate real GNOME Shell 46.0 Wayland evidence now records an owner-approved
+RemoteDesktop request for keyboard+pointer, successful `ConnectToEIS` negotiation with three EIS
+devices, `input_route=eis`, explicit `portal.stop` and an inactive post-stop status. The sanitized
+evidence is stored in `verification/live-portal-eis/gnome-connect-to-eis.json`. Focused input
+dispatch, coordinate behavior and cancellation of an in-flight input operation remain release work.
 
 ## PipeWire ScreenCast closure included in this development line
 
@@ -293,10 +297,12 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 ## Evidence boundaries
 
 This baseline now claims executed hosted evidence for Plasma/KWin Wayland, real headless Sway IPC
-and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route. It does **not** claim
-Hyprland live certification, a complete real-login/scaling/multi-monitor desktop matrix or a real
-user-approved portal ConnectToEIS lifecycle. It does not certify a sandbox for same-UID MCP upstream
-executables, a remote signed driver marketplace or universal cryptographic publisher identity.
+and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route. It also records a
+real owner-approved GNOME RemoteDesktop/`ConnectToEIS` grant-and-stop lifecycle, but does **not**
+claim focused portal input dispatch, coordinate/scaling behavior, Hyprland live certification or a
+complete real-login/scaling/multi-monitor desktop matrix. It does not yet certify a sandbox for
+same-UID MCP upstream executables, a remote signed driver marketplace or universal cryptographic
+publisher identity.
 Adversarial plugin/driver sandbox regressions are executed but do not constitute a formal security
 proof. Rust 1.88 is the executed MSRV; Chromium hardening, MCP Tasks mapping, Provider Runtime
 progress/artifacts, Driver Protocol v2 child events/cancellation, reproducible native tar/deb

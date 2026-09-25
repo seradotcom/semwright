@@ -1,9 +1,9 @@
-# Workflow distillation v1
+# Workflow distillation v1 + v2
 
-Workflow distillation turns one or more explicit, successful Semwright executions into a
-versioned Recipe v1 candidate and, after verification and a successful replay, into a
-normal searchable capability. V1 is deliberately user-directed: it records only between
-explicit start/stop commands and never mines background activity.
+Workflow distillation turns explicit, successful Semwright executions into versioned
+Recipe v1 candidates and, after verification and successful replay, into normal searchable
+capabilities. V1 is deliberately user-directed. V2 adds deterministic repeated-pattern
+mining over those same explicitly recorded traces; it never records background activity.
 
 The lifecycle is:
 
@@ -12,8 +12,9 @@ record → compile → verify → replay → promote
                                   ↘ demote
 ```
 
-V2 pattern mining and V3 automatic candidate generation are intentionally out of scope
-until this path is verified.
+V1 remains the trust boundary for compilation, replay and promotion. V2 only proposes
+repeated structures and feeds approved suggestions back into that existing compiler. V3
+automatic candidate generation remains a separately verified future step.
 
 ## Authorization
 
@@ -150,16 +151,58 @@ descriptors no longer match are reported as stale and are not registered.
 This prevents a learned workflow from silently surviving an incompatible capability
 change.
 
-## V1 non-goals
+## V2 repeated-pattern mining
 
-V1 does not:
+V2 derives patterns only from traces already captured through the explicit V1 recorder.
+It does not enable passive observation. Pattern identity is a SHA-256 over command order,
+descriptor/version/risk metadata and bounded argument/result **shape**. Scalar values are
+never embedded in the fingerprint or suggestion payload.
 
-- watch unrecorded user activity;
-- automatically segment tasks;
-- search for repeated workflow patterns;
-- use an LLM to generalize traces;
-- auto-promote learned capabilities;
+The default suggestion threshold is three successful structurally compatible traces:
+
+```sh
+semwright workflow patterns
+semwright workflow suggestions
+semwright workflow suggestion SUGGESTION_ID
+```
+
+A pattern reports command sequence, occurrence counts, compile-ready evidence and opaque
+location digests for arguments that varied across value-capturing observations. It never
+reports the observed values or raw JSON pointers/object keys. Metadata-only traces can
+contribute repetition evidence but cannot be used to compile a candidate.
+
+Suggestions are advisory. A suggestion needs at least two compatible, successful,
+unredacted value-capturing traces before:
+
+```sh
+semwright workflow compile-suggestion SUGGESTION_ID
+```
+
+That command reuses the V1 compiler; it does not create a second compilation or authority
+path. The resulting candidate still requires `workflow.verify`, a successful live replay
+and explicit `workflow.promote` before it appears as a normal capability.
+
+Suggestions may be dismissed. A temporary dismissal resurfaces only after new matching
+evidence arrives; a permanent dismissal stays hidden until explicitly restored. Only
+dismissal state is persisted. Patterns and suggestions are recomputed from canonical
+traces so they cannot drift into a second source of truth.
+
+When a pattern reaches the default threshold for the first time, Semwright emits a bounded,
+session-scoped `workflow.pattern.detected` event containing only IDs, occurrence count and
+compile-readiness metadata; unrelated sessions cannot observe that learning notification.
+
+## V2 non-goals
+
+V2 still does not:
+
+- watch unrecorded user or application activity;
+- infer task boundaries from ambient sessions;
+- use an LLM to guess workflow intent, parameters or postconditions;
+- auto-compile a suggestion merely because it repeated;
+- auto-verify, auto-replay or auto-promote a learned capability;
+- expose raw observed values through pattern/suggestion metadata;
 - claim ACID transactions or rollback;
 - store passwords/secret-access results for learning.
 
-Those belong to later, separately verified versions.
+Automatic candidate proposal is reserved for V3 and must preserve the same broker,
+policy, replay and promotion gates.
