@@ -98,6 +98,10 @@ impl SandboxLauncher for LinuxSandbox {
             "/proc",
             "--dev",
             "/dev",
+            "--perms",
+            "1777",
+            "--tmpfs",
+            "/dev/shm",
             "--tmpfs",
             "/tmp",
             "--dir",
@@ -186,12 +190,15 @@ impl SandboxLauncher for LinuxSandbox {
                 p.arg(flag).arg(n.to_string());
             }
         }
-        for m in s
-            .mounts
-            .iter()
-            .filter(|m| m.class == MountClass::Workspace && !m.read_only)
-        {
-            p.arg("--write-root").arg(materialized_destination(m)?);
+        for m in &s.mounts {
+            let destination = materialized_destination(m)?;
+            if !m.read_only {
+                p.arg("--write-root").arg(destination);
+            } else if m.execute {
+                p.arg("--exec-root").arg(destination);
+            } else {
+                p.arg("--read-root").arg(destination);
+            }
         }
         p.args(["--", "/plugin/bin"])
             .args(&s.args)

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "component_version": 1,
+  "id": "audio-cues",
+  "generation": "617564696f2d63756573000000000000",
+  "revision": 1,
+  "settings": {
+    "width": 640,
+    "height": 360,
+    "fps": 30,
+    "background": "#f7f5ee",
+    "color_space": "srgb"
+  },
+  "theme": {
+    "font_family": "Instrument Sans Variable",
+    "mono_family": "IBM Plex Mono",
+    "font_size": 36.0,
+    "font_weight": 500,
+    "spacing": 16.0,
+    "line_width": 2.0,
+    "radius": 16.0,
+    "colors": {
+      "paper": "#f7f5ee",
+      "surface": "#fdfcf8",
+      "ink": "#202d42",
+      "muted": "#5b6471",
+      "accent": "#234ea2",
+      "line": "#dadbd4",
+      "mint": "#dce9dc",
+      "peach": "#f2ddc8",
+      "lavender": "#e9e2f2",
+      "blue_soft": "#e4ebf8"
+    }
+  },
+  "scenes": [
+    {
+      "id": "cue-scene",
+      "name": "Cue timing",
+      "duration_ms": 2200,
+      "nodes": [
+        {
+          "id": "title",
+          "name": "Cue title",
+          "kind": "text",
+          "properties": {
+            "text": "Named cues drive timing.",
+            "font_size": 34,
+            "fill": "@ink",
+            "opacity": 0
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "cue-fade",
+          "target": "title",
+          "property": "opacity",
+          "from": 0,
+          "to": 1,
+          "at": {
+            "cue": "voice-in",
+            "offset_ms": 0
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic"
+        }
+      ],
+      "cues": [
+        {
+          "id": "voice-in",
+          "name": "voice-in",
+          "time_ms": 600,
+          "duration_ms": 900
+        }
+      ],
+      "transition": null
+    }
+  ],
+  "assets": [],
+  "audio": []
+}

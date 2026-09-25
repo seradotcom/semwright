@@ -321,6 +321,7 @@ fn sandbox_command(
                 class: MountClass::Workspace,
                 logical_name: m.root.clone(),
                 read_only: m.read_only,
+                execute: m.execute,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -347,6 +348,7 @@ fn sandbox_command(
                     class: MountClass::SystemConfig,
                     logical_name,
                     read_only: true,
+                    execute: false,
                 })
             })
             .collect::<Result<Vec<_>>>()?,
