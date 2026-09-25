@@ -775,18 +775,57 @@ impl Atspi {
             });
         }
 
-        if supports_interface(interfaces, "TableCell")
+        if (supports_interface(interfaces, "TableCell") || role == "table_cell")
             && let Ok(proxy) = self.proxy(c, object, "org.a11y.atspi.TableCell").await
         {
             let mut table = facets.table.take().unwrap_or_default();
-            if let Ok((row, column, row_span, column_span)) =
-                bounded(proxy.call::<_, _, (i32, i32, i32, i32)>("GetRowColumnSpan", &())).await
-            {
-                table.row = usize::try_from(row.max(0)).ok();
-                table.column = usize::try_from(column.max(0)).ok();
-                table.row_span = usize::try_from(row_span.max(0)).ok();
-                table.column_span = usize::try_from(column_span.max(0)).ok();
+            let nonnegative = |value: i32| usize::try_from(value.max(0)).ok();
+
+            // TableCell properties are part of the stable AT-SPI contract and avoid
+            // depending on toolkit-specific GetRowColumnSpan reply quirks.
+            let (position, row_span, column_span) = tokio::join!(
+                bounded(proxy.get_property::<(i32, i32)>("Position")),
+                bounded(proxy.get_property::<i32>("RowSpan")),
+                bounded(proxy.get_property::<i32>("ColumnSpan"))
+            );
+            if let Ok((row, column)) = position {
+                table.row = nonnegative(row);
+                table.column = nonnegative(column);
             }
+            if let Ok(value) = row_span {
+                table.row_span = nonnegative(value);
+            }
+            if let Ok(value) = column_span {
+                table.column_span = nonnegative(value);
+            }
+
+            if table.row.is_none()
+                || table.column.is_none()
+                || table.row_span.is_none()
+                || table.column_span.is_none()
+            {
+                // The standard D-Bus method returns a success boolean plus four
+                // coordinates/extents. Qt 6.11 declares that signature but currently
+                // emits only the four integer values, so accept both representations.
+                if let Ok((success, row, column, row_span, column_span)) =
+                    bounded(proxy.call::<_, _, (bool, i32, i32, i32, i32)>("GetRowColumnSpan", &()))
+                        .await
+                    && success
+                {
+                    table.row = nonnegative(row);
+                    table.column = nonnegative(column);
+                    table.row_span = nonnegative(row_span);
+                    table.column_span = nonnegative(column_span);
+                } else if let Ok((row, column, row_span, column_span)) =
+                    bounded(proxy.call::<_, _, (i32, i32, i32, i32)>("GetRowColumnSpan", &())).await
+                {
+                    table.row = nonnegative(row);
+                    table.column = nonnegative(column);
+                    table.row_span = nonnegative(row_span);
+                    table.column_span = nonnegative(column_span);
+                }
+            }
+
             if let Ok(headers) =
                 bounded(proxy.call::<_, _, Vec<Object>>("GetRowHeaderCells", &())).await
             {
