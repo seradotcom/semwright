@@ -206,8 +206,20 @@ fn context() -> Context {
 
 fn fixture_owns_point(hwnd: isize, x: i32, y: i32) -> bool {
     let fixture = HWND(hwnd as *mut core::ffi::c_void);
-    // SAFETY: POINT is a bounded screen-space coordinate and fixture is a live top-level HWND.
+    // SAFETY: fixture is a live test-owned top-level HWND. Reasserting topmost immediately
+    // before WindowFromPoint closes the race with hosted-runner bootstrap windows that may
+    // independently adjust z-order between fixture placement and the ownership check.
     unsafe {
+        let _ = SetWindowPos(
+            fixture,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+        );
+        let _ = BringWindowToTop(fixture);
         let hit = WindowFromPoint(POINT { x, y });
         !hit.is_invalid() && GetAncestor(hit, GA_ROOT) == fixture
     }
