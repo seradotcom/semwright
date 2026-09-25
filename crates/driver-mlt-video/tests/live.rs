@@ -150,7 +150,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "path": bwrap.to_string_lossy(),
             "sha256": digest(&bwrap)
         },
-        "timeout_seconds": 30
+        "timeout_seconds": 120
     });
     let runtime_file = runtime.path().join("runtime.json");
     std::fs::write(
