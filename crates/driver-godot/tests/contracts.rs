@@ -161,6 +161,22 @@ fn api_introspection_contracts_are_read_only_and_bounded() {
         );
         assert!(!entry.capability.descriptor.dry_run);
         assert!(!entry.mutation);
+        let output = &entry.capability.descriptor.output_schema;
+        assert_eq!(output["additionalProperties"], false);
+        let data = &output["properties"]["data"];
+        if let Some(branches) = data.get("oneOf").and_then(|value| value.as_array()) {
+            assert!(
+                branches
+                    .iter()
+                    .all(|branch| branch["additionalProperties"] == false),
+                "{name} output variants must remain structurally closed"
+            );
+        } else {
+            assert_eq!(
+                data["additionalProperties"], false,
+                "{name} data output must remain structurally closed"
+            );
+        }
     }
 
     let search = catalog.get("driver.godot.api.search").unwrap();

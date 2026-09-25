@@ -2675,7 +2675,7 @@ fn specs() -> Vec<Spec> {
             false,
             false,
             api_search_in,
-            semantic_read_out,
+            api_search_out,
         ),
         spec(
             "api.describe",
@@ -2689,7 +2689,7 @@ fn specs() -> Vec<Spec> {
             false,
             false,
             api_describe_in,
-            semantic_read_out,
+            api_describe_out,
         ),
         spec(
             "project.class.list",
@@ -2703,7 +2703,7 @@ fn specs() -> Vec<Spec> {
             false,
             false,
             project_class_list_in,
-            semantic_read_out,
+            project_class_list_out,
         ),
         spec(
             "project.class.describe",
@@ -2717,7 +2717,7 @@ fn specs() -> Vec<Spec> {
             false,
             false,
             project_class_describe_in,
-            semantic_read_out,
+            project_class_describe_out,
         ),
         spec(
             "snapshot.diff",
@@ -5061,6 +5061,283 @@ fn project_class_describe_in() -> Value {
         Map::from_iter([session_prop(), ("name".into(), string(96))]),
         &["session", "name"],
     )
+}
+
+fn api_type_schema() -> Value {
+    json!({"enum":["core","editor","extension","editor_extension","unknown"]})
+}
+
+fn optional_string(max: u64) -> Value {
+    json!({"type":"string","maxLength":max})
+}
+
+fn introspection_property_schema(with_class_defaults: bool) -> Value {
+    let mut props = Map::from_iter([
+        ("name".into(), optional_string(128)),
+        (
+            "type".into(),
+            json!({"type":"integer","minimum":0,"maximum":39}),
+        ),
+        ("type_name".into(), optional_string(64)),
+        ("class_name".into(), optional_string(128)),
+        ("hint".into(), json!({"type":"integer","minimum":0})),
+        ("hint_string".into(), optional_string(1024)),
+        ("usage".into(), json!({"type":"integer","minimum":0})),
+        ("read_only".into(), boolean()),
+    ]);
+    let mut required = vec![
+        "name",
+        "type",
+        "type_name",
+        "class_name",
+        "hint",
+        "hint_string",
+        "usage",
+        "read_only",
+    ];
+    if with_class_defaults {
+        props.insert("default".into(), json!({}));
+        props.insert("getter".into(), optional_string(128));
+        props.insert("setter".into(), optional_string(128));
+        required.extend_from_slice(&["default", "getter", "setter"]);
+    }
+    object(props, &required)
+}
+
+fn introspection_method_schema() -> Value {
+    object(
+        Map::from_iter([
+            ("name".into(), optional_string(128)),
+            ("flags".into(), json!({"type":"integer","minimum":0})),
+            ("id".into(), json!({"type":"integer","minimum":0})),
+            (
+                "args".into(),
+                json!({"type":"array","maxItems":64,"items":introspection_property_schema(false)}),
+            ),
+            (
+                "default_args".into(),
+                json!({"type":"array","maxItems":64,"items":{}}),
+            ),
+            (
+                "return".into(),
+                json!({
+                    "oneOf":[
+                        introspection_property_schema(false),
+                        {"type":"object","additionalProperties":false,"maxProperties":0}
+                    ]
+                }),
+            ),
+        ]),
+        &["name", "flags", "id", "args", "default_args", "return"],
+    )
+}
+
+fn introspection_enum_schema() -> Value {
+    object(
+        Map::from_iter([
+            ("name".into(), optional_string(128)),
+            ("bitfield".into(), boolean()),
+            (
+                "constants".into(),
+                json!({
+                    "type":"array",
+                    "maxItems":512,
+                    "items":{
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["name","value"],
+                        "properties":{
+                            "name":{"type":"string","maxLength":128},
+                            "value":{"type":"integer"}
+                        }
+                    }
+                }),
+            ),
+        ]),
+        &["name", "bitfield", "constants"],
+    )
+}
+
+fn api_search_out() -> Value {
+    let row = object(
+        Map::from_iter([
+            ("name".into(), string(128)),
+            ("parent".into(), optional_string(128)),
+            ("api_type".into(), api_type_schema()),
+            ("can_instantiate".into(), boolean()),
+            ("enabled".into(), boolean()),
+        ]),
+        &["name", "parent", "api_type", "can_instantiate", "enabled"],
+    );
+    read_out(object(
+        Map::from_iter([
+            ("engine_version".into(), string(128)),
+            ("query".into(), optional_string(96)),
+            ("base".into(), optional_string(96)),
+            (
+                "classes".into(),
+                json!({"type":"array","maxItems":256,"items":row}),
+            ),
+            (
+                "total_matches".into(),
+                json!({"type":"integer","minimum":0}),
+            ),
+            ("truncated".into(), boolean()),
+        ]),
+        &[
+            "engine_version",
+            "query",
+            "base",
+            "classes",
+            "total_matches",
+            "truncated",
+        ],
+    ))
+}
+
+fn api_describe_out() -> Value {
+    read_out(object(
+        Map::from_iter([
+            ("engine_version".into(), string(128)),
+            ("class".into(), string(128)),
+            ("parent".into(), optional_string(128)),
+            ("api_type".into(), api_type_schema()),
+            ("can_instantiate".into(), boolean()),
+            ("enabled".into(), boolean()),
+            (
+                "properties".into(),
+                json!({"type":"array","maxItems":512,"items":introspection_property_schema(true)}),
+            ),
+            (
+                "methods".into(),
+                json!({"type":"array","maxItems":512,"items":introspection_method_schema()}),
+            ),
+            (
+                "signals".into(),
+                json!({"type":"array","maxItems":256,"items":introspection_method_schema()}),
+            ),
+            (
+                "enums".into(),
+                json!({"type":"array","maxItems":128,"items":introspection_enum_schema()}),
+            ),
+        ]),
+        &[
+            "engine_version",
+            "class",
+            "parent",
+            "api_type",
+            "can_instantiate",
+            "enabled",
+            "properties",
+            "methods",
+            "signals",
+            "enums",
+        ],
+    ))
+}
+
+fn project_class_row_schema() -> Value {
+    object(
+        Map::from_iter([
+            ("name".into(), string(128)),
+            ("base".into(), optional_string(128)),
+            ("language".into(), optional_string(64)),
+            ("path".into(), optional_string(240)),
+            ("icon".into(), optional_string(240)),
+        ]),
+        &["name", "base", "language", "path", "icon"],
+    )
+}
+
+fn project_class_list_out() -> Value {
+    read_out(object(
+        Map::from_iter([
+            (
+                "classes".into(),
+                json!({"type":"array","maxItems":256,"items":project_class_row_schema()}),
+            ),
+            (
+                "total_matches".into(),
+                json!({"type":"integer","minimum":0}),
+            ),
+            ("truncated".into(), boolean()),
+        ]),
+        &["classes", "total_matches", "truncated"],
+    ))
+}
+
+fn project_class_describe_out() -> Value {
+    let base_props = Map::from_iter([
+        ("name".into(), string(128)),
+        ("base".into(), optional_string(128)),
+        ("language".into(), optional_string(64)),
+        ("path".into(), optional_string(240)),
+        ("icon".into(), optional_string(240)),
+        ("metadata_available".into(), boolean()),
+    ]);
+    let base_required = [
+        "name",
+        "base",
+        "language",
+        "path",
+        "icon",
+        "metadata_available",
+    ];
+
+    let unavailable = object(base_props.clone(), &base_required);
+
+    let mut available_props = base_props;
+    available_props.insert("global_name".into(), optional_string(128));
+    available_props.insert("instance_base_type".into(), optional_string(128));
+    available_props.insert("can_instantiate".into(), boolean());
+    available_props.insert("tool".into(), boolean());
+    available_props.insert("abstract".into(), boolean());
+    available_props.insert("has_source_code".into(), boolean());
+    available_props.insert(
+        "properties".into(),
+        json!({"type":"array","maxItems":512,"items":introspection_property_schema(false)}),
+    );
+    available_props.insert(
+        "methods".into(),
+        json!({"type":"array","maxItems":512,"items":introspection_method_schema()}),
+    );
+    available_props.insert(
+        "signals".into(),
+        json!({"type":"array","maxItems":256,"items":introspection_method_schema()}),
+    );
+    available_props.insert(
+        "constants".into(),
+        json!({
+            "type":"array",
+            "maxItems":512,
+            "items":{
+                "type":"object",
+                "additionalProperties":false,
+                "required":["name","value"],
+                "properties":{"name":{"type":"string","maxLength":128},"value":{}}
+            }
+        }),
+    );
+    available_props.insert("constants_truncated".into(), boolean());
+    available_props.insert("rpc_config".into(), json!({}));
+    let mut available_required = base_required.to_vec();
+    available_required.extend_from_slice(&[
+        "global_name",
+        "instance_base_type",
+        "can_instantiate",
+        "tool",
+        "abstract",
+        "has_source_code",
+        "properties",
+        "methods",
+        "signals",
+        "constants",
+        "constants_truncated",
+        "rpc_config",
+    ]);
+    let available = object(available_props, &available_required);
+
+    read_out(json!({"oneOf":[unavailable,available]}))
 }
 
 fn runner_project_in() -> Value {
