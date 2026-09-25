@@ -233,12 +233,46 @@ pub fn validate_latex(value: &str) -> Result<()> {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub struct PngHeaderEvidence {
+    pub width: u32,
+    pub height: u32,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct PngEvidence {
     pub width: u32,
     pub height: u32,
     pub min_alpha: u8,
     pub max_alpha: u8,
     pub pixel_sha256: String,
+}
+fn validate_png_bounds(width: u32, height: u32, animated: bool) -> Result<()> {
+    if width == 0
+        || height == 0
+        || width > 4096
+        || height > 4096
+        || u64::from(width) * u64::from(height) > 8_847_360
+        || animated
+    {
+        return Err(Error::invalid("PNG dimensions or animation exceed limits"));
+    }
+    Ok(())
+}
+pub fn inspect_png_header(bytes: &[u8]) -> Result<PngHeaderEvidence> {
+    if bytes.len() > MAX_ASSET_BYTES {
+        return Err(Error::invalid("PNG exceeds byte limit"));
+    }
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    decoder.set_limits(png::Limits { bytes: 67_108_864 });
+    let reader = decoder
+        .read_info()
+        .map_err(|_| Error::invalid("Invalid PNG header"))?;
+    let info = reader.info();
+    validate_png_bounds(info.width, info.height, info.animation_control.is_some())?;
+    Ok(PngHeaderEvidence {
+        width: info.width,
+        height: info.height,
+    })
 }
 pub fn inspect_png(bytes: &[u8]) -> Result<PngEvidence> {
     if bytes.len() > MAX_ASSET_BYTES {
@@ -251,15 +285,7 @@ pub fn inspect_png(bytes: &[u8]) -> Result<PngEvidence> {
         .read_info()
         .map_err(|_| Error::invalid("Invalid PNG header"))?;
     let info = reader.info();
-    if info.width == 0
-        || info.height == 0
-        || info.width > 4096
-        || info.height > 4096
-        || u64::from(info.width) * u64::from(info.height) > 8_847_360
-        || info.animation_control.is_some()
-    {
-        return Err(Error::invalid("PNG dimensions or animation exceed limits"));
-    }
+    validate_png_bounds(info.width, info.height, info.animation_control.is_some())?;
     let size = reader
         .output_buffer_size()
         .ok_or_else(|| Error::invalid("PNG buffer overflow"))?;

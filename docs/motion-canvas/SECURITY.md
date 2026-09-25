@@ -32,7 +32,7 @@ Chrome-for-Testing/Chromium experiments are not a fallback path. Multiple pinned
 
 Render jobs allow at most two active jobs and a bounded retained registry. Timeout/cancel terminates the process group and removes partial output. Child stdout/stderr are bounded.
 
-PNG artifacts must have exact expected sequential names/count, bounded decode size and planned dimensions. Transparent renders must prove at least one non-opaque pixel. Artifacts are represented by paths/hashes and are never embedded in protocol JSON.
+PNG artifacts must have exact expected sequential names/count, bounded byte size and planned dimensions. Every frame receives compressed-byte SHA-256 plus bounded PNG header validation; short renders are pixel-decoded exhaustively and long renders use deterministic deep pixel samples. Transparent renders must prove at least one non-opaque pixel in the deep evidence set. Artifacts are represented by paths/hashes and are never embedded in protocol JSON.
 
 ## Known boundaries
 

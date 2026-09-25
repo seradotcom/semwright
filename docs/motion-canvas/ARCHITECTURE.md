@@ -33,6 +33,6 @@ Dry-run stops before any write and returns the same prospective semantic diff/ge
 
 ## Jobs and artifacts
 
-This driver intentionally negotiates protocol v1 and therefore does not use the newer protocol-v2 child progress/events/cancellation interfaces. Rendering remains a driver-local job surface: `render.start/status/cancel/result`. Cancellation terminates the owned process group and removes partial output. Successful jobs validate exact frame names/count, PNG dimensions, decoded pixels, hashes and alpha evidence before returning path metadata.
+This driver intentionally negotiates protocol v1 and therefore does not use the newer protocol-v2 child progress/events/cancellation interfaces. Rendering remains a driver-local job surface: `render.start/status/cancel/result`. Cancellation terminates the owned process group and removes partial output. Successful jobs validate exact frame names/count, every frame's bounded PNG header/dimensions and compressed-byte hash, plus exhaustive pixel evidence for short renders or deterministic deep pixel samples for long sequences before returning path metadata.
 
 The driver requests named `project`, `media`, `output` and `runtime` grants plus an explicit read-only `fontconfig` system-config grant mapped only to `/etc/fonts`. The runtime mount is owner-provided, read-only and executable only by explicit Driver manifest opt-in; Node, helper and Firefox are SHA-256 pinned. Final binary media is never returned inside protocol JSON.

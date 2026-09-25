@@ -592,6 +592,25 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
             ),
         ));
     }
+    // Small renders are exhaustively decoded for pixel evidence. Long sequences keep
+    // full filename/symlink/byte-hash/IHDR validation for every frame and deep-decode
+    // five deterministic samples. This avoids spending the driver's entire CPU budget
+    // re-decoding thousands of PNGs that came from the already-bounded exporter.
+    const FULL_PIXEL_VALIDATION_LIMIT: usize = 60;
+    let pixel_samples = if entries.len() <= FULL_PIXEL_VALIDATION_LIMIT {
+        (0..entries.len()).collect::<Vec<_>>()
+    } else {
+        let mut samples = vec![
+            0,
+            entries.len() / 4,
+            entries.len() / 2,
+            entries.len() * 3 / 4,
+            entries.len() - 1,
+        ];
+        samples.sort_unstable();
+        samples.dedup();
+        samples
+    };
     let mut manifest = Vec::with_capacity(entries.len());
     let mut saw_transparency = false;
     for (index, entry) in entries.iter().enumerate() {
@@ -604,22 +623,35 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
             ));
         }
         let bytes = fs::read(entry.path())?;
-        let png = security::inspect_png(&bytes)?;
-        if png.width != plan.width || png.height != plan.height {
+        let deep = pixel_samples.contains(&index);
+        let pixels = if deep {
+            Some(security::inspect_png(&bytes)?)
+        } else {
+            None
+        };
+        let (width, height) = if let Some(png) = &pixels {
+            (png.width, png.height)
+        } else {
+            let header = security::inspect_png_header(&bytes)?;
+            (header.width, header.height)
+        };
+        if width != plan.width || height != plan.height {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
                 "Rendered PNG dimensions do not match plan",
             ));
         }
-        saw_transparency |= png.min_alpha < 255;
+        if let Some(png) = &pixels {
+            saw_transparency |= png.min_alpha < 255;
+        }
         manifest.push(json!({
             "index": index,
             "file": format!("frames/{name}"),
             "bytes": bytes.len(),
             "sha256": security::sha256(&bytes),
-            "pixel_sha256": png.pixel_sha256,
-            "min_alpha": png.min_alpha,
-            "max_alpha": png.max_alpha,
+            "pixel_sha256": pixels.as_ref().map(|png| png.pixel_sha256.as_str()),
+            "min_alpha": pixels.as_ref().map(|png| png.min_alpha),
+            "max_alpha": pixels.as_ref().map(|png| png.max_alpha),
         }));
     }
     if plan.alpha && !saw_transparency {
@@ -631,6 +663,10 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
     let manifest_bytes = serde_json::to_vec_pretty(&json!({
         "renderer": "motion-canvas-core-renderer-v3.17.2",
         "plan": plan,
+        "pixel_validation": {
+            "mode": if entries.len() <= FULL_PIXEL_VALIDATION_LIMIT { "all" } else { "sampled" },
+            "sample_indices": pixel_samples,
+        },
         "frames": manifest,
     }))?;
     let manifest_path = output.join("artifact-manifest.json");
