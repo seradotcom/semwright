@@ -518,6 +518,29 @@ impl WorkflowManager {
         Ok(dismissal)
     }
 
+    pub fn proposal_sources(
+        &self,
+        min_occurrences: usize,
+        include_dismissed: bool,
+    ) -> Result<Vec<(WorkflowPattern, Vec<WorkflowTrace>)>> {
+        let patterns = self.suggestions(min_occurrences, include_dismissed)?;
+        patterns
+            .into_iter()
+            .filter(|pattern| {
+                pattern.compile_ready_count >= crate::DEFAULT_MIN_PROPOSAL_TRACES
+                    && pattern.compile_trace_ids.len() >= crate::DEFAULT_MIN_PROPOSAL_TRACES
+            })
+            .map(|pattern| {
+                let traces = pattern
+                    .compile_trace_ids
+                    .iter()
+                    .map(|trace_id| self.trace(trace_id))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok((pattern, traces))
+            })
+            .collect()
+    }
+
     pub fn compile_traces_for_suggestion(
         &self,
         id: &str,
