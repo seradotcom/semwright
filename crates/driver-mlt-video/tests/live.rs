@@ -163,7 +163,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/media");
     std::fs::copy(fixtures.join("red.mkv"), media.path().join("red.mkv")).unwrap();
     std::fs::copy(fixtures.join("sine.wav"), media.path().join("sine.wav")).unwrap();
-    let h264_source = media.path().join("h264-source.mkv");
+    let h264_source = media.path().join("h264-source.mp4");
     let status = Command::new(&ffmpeg)
         .args([
             "-hide_banner",
@@ -177,7 +177,11 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "-frames:v",
             "60",
             "-c:v",
-            "ffv1",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "12",
             "-pix_fmt",
             "yuv420p",
             "-an",
@@ -578,7 +582,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "asset":video_ref,
             "expected_resource":video_resource,
             "root":"media",
-            "path":"h264-source.mkv"
+            "path":"h264-source.mp4"
         }),
     )
     .await
