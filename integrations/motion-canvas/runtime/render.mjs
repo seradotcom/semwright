@@ -8,6 +8,13 @@ import motionCanvasModule from '@motion-canvas/vite-plugin';
 import {firefox} from 'playwright';
 
 const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
+const PLUGIN_OPTIONS = Symbol.for('@motion-canvas/vite-plugin/PLUGIN_OPTIONS');
+function semwrightExporterRegistration() {
+  return {
+    name:'semwright:runtime-exporter-registration',
+    [PLUGIN_OPTIONS]:{entryPoint:'./semwright-exporter.ts'},
+  };
+}
 function fail(message) { throw new Error(message); }
 function args() {
   const out = {};
@@ -33,7 +40,17 @@ import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
-const state={done:false,result:null,frame:config.firstFrame,error:null,phase:'created'};
+const logs=[];
+const state={done:false,result:null,frame:config.firstFrame,error:null,phase:'created',logs};
+project.logger.onLogged.subscribe(payload=>{
+  if(logs.length>=32 || !['error','warn'].includes(payload?.level)) return;
+  logs.push({
+    level:payload.level,
+    message:String(payload.message ?? '').slice(0,512),
+    remarks:payload.remarks == null ? null : String(payload.remarks).slice(0,512),
+    stack:payload.stack == null ? null : String(payload.stack).slice(0,1024),
+  });
+});
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
 renderer.onFinished.subscribe(result=>{state.result=result;});
@@ -84,7 +101,7 @@ async function main() {
     await fs.writeFile(path.join(work, 'semwright-entry.js'), "import 'virtual:semwright-render';\n");
     const projectEntry=path.join(work,'src/project.ts');
     const renderEntry=path.join(work,'semwright-render.html');
-    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js'),buildForEditor:false}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
+    await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js'),buildForEditor:false}),semwrightExporterRegistration(),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
     const profile = path.join(work, '.semwright-firefox-profile');

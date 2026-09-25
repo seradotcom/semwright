@@ -19,6 +19,8 @@ test('render harness is bound to Driver Host, pinned Firefox, and local origin',
   assert.ok(render.includes('landlock-bwrap-v1'));
   assert.ok(render.includes('buildForEditor:false'));
   assert.ok(!render.includes('buildForEditor:true'));
+  assert.ok(render.includes("entryPoint:'./semwright-exporter.ts'"));
+  assert.ok(render.includes("Symbol.for('@motion-canvas/vite-plugin/PLUGIN_OPTIONS')"));
   assert.ok(render.includes('firefox.launchPersistentContext'));
   assert.ok(render.includes('context.pages()[0]'));
   assert.ok(!render.includes('context.newPage()'));
@@ -37,4 +39,6 @@ test('render harness reports bounded state when browser rendering stalls', () =>
   assert.ok(render.includes("phase:'created'"));
   assert.ok(render.includes('render wait failed:'));
   assert.ok(render.includes('diagnostics.length < 32'));
+  assert.ok(render.includes('project.logger.onLogged.subscribe'));
+  assert.ok(render.includes('logs.length>=32'));
 });

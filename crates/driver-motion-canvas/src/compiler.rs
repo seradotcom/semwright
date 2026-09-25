@@ -445,7 +445,7 @@ pub fn compile(project: &Project) -> Result<Generated> {
     files.insert(
         "src/semwright-exporter.ts".into(),
         br#"// Fixed Semwright exporter. Frame bytes leave the browser only through an owner-controlled Playwright binding.
-import {ObjectMetaField} from '@motion-canvas/core';
+import {makePlugin,ObjectMetaField} from '@motion-canvas/core';
 import type {Exporter, Plugin, Project, RendererSettings} from '@motion-canvas/core';
 declare global { var __SEMWRIGHT_EXPORT_FRAME__: undefined | ((frame: {frame:number; data:string}) => Promise<void>); }
 class SemwrightImageExporter implements Exporter {
@@ -461,6 +461,7 @@ class SemwrightImageExporter implements Exporter {
   }
 }
 export const semwrightExporterPlugin: Plugin={name:'semwright-driver-exporter-v1',exporters:()=>[SemwrightImageExporter]};
+export default makePlugin(semwrightExporterPlugin);
 "#.to_vec(),
     );
     files.insert("src/project.ts".into(), source.into_bytes());
