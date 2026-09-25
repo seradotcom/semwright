@@ -600,37 +600,44 @@ impl State {
             states.push("password");
         }
         let mut actions = Vec::new();
-        if element.get_pattern::<UIInvokePattern>().is_ok() {
-            actions.push("click");
-        }
-        if element.get_pattern::<UIValuePattern>().is_ok() {
-            actions.push("set_text");
-        }
-        if element.get_pattern::<UIRangeValuePattern>().is_ok() {
-            actions.push("set_value");
-        }
-        if element.get_pattern::<UITogglePattern>().is_ok() {
-            actions.push("toggle");
-        }
-        if element.get_pattern::<UISelectionItemPattern>().is_ok() {
-            actions.push("select");
-        }
-        if element.get_pattern::<UIExpandCollapsePattern>().is_ok() {
-            actions.push("expand");
+        if !password {
+            if element.get_pattern::<UIInvokePattern>().is_ok() {
+                actions.push("click");
+            }
+            if element.get_pattern::<UIValuePattern>().is_ok() {
+                actions.push("set_text");
+            }
+            if element.get_pattern::<UIRangeValuePattern>().is_ok() {
+                actions.push("set_value");
+            }
+            if element.get_pattern::<UITogglePattern>().is_ok() {
+                actions.push("toggle");
+            }
+            if element.get_pattern::<UISelectionItemPattern>().is_ok() {
+                actions.push("select");
+            }
+            if element.get_pattern::<UIExpandCollapsePattern>().is_ok() {
+                actions.push("expand");
+            }
         }
         let help = if password {
             String::new()
         } else {
             bounded(element.get_help_text().unwrap_or_default())
         };
-        let automation_id = bounded(element.get_automation_id().unwrap_or_default());
+        let automation_id = if password {
+            String::new()
+        } else {
+            bounded(element.get_automation_id().unwrap_or_default())
+        };
         let framework = bounded(element.get_framework_id().unwrap_or_default());
         let class_name = bounded(element.get_classname().unwrap_or_default());
         let mut attributes = BTreeMap::new();
         if !class_name.is_empty() {
             attributes.insert("class".to_owned(), class_name.clone());
         }
-        if let Ok(item_status) = element.get_item_status()
+        if !password
+            && let Ok(item_status) = element.get_item_status()
             && !item_status.is_empty()
         {
             attributes.insert("item_status".to_owned(), bounded(item_status));

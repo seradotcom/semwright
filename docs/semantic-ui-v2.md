@@ -17,7 +17,10 @@ Missing facets mean “not observed/supported”, not false. Platform-native han
 
 1. Rich observation never grants additional authority.
 2. Application text, names, help, attributes and relations are untrusted data.
-3. Password/protected controls remain redacted.
+3. Password/protected controls remain redacted. Portable snapshots retain only structural
+   semantics needed to identify a protected control; secret length, caret/selection metrics,
+   values, free-form app attributes/identifiers and mutating action advertisements are omitted.
+   Generic text read/write operations fail closed on protected controls.
 4. Refs are revalidated before side effects.
 5. Event loss invalidates cached identity and semantic assumptions.
 6. Visual grounding may suggest a point, but native hit-testing should recover a semantic ref before mutation whenever possible.

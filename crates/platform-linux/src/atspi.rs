@@ -998,6 +998,7 @@ impl Atspi {
                 description.clear();
                 help.clear();
                 accessibility_id.clear();
+                attributes.clear();
             }
             name = name.chars().take(1024).collect();
             description = description.chars().take(1024).collect();
@@ -1206,6 +1207,7 @@ impl Atspi {
                 description.clear();
                 help.clear();
                 accessibility_id.clear();
+                attributes.clear();
             }
             let bounds = match self.proxy(&c, &hit, "org.a11y.atspi.Component").await {
                 Ok(component) => {
