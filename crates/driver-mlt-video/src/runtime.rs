@@ -47,6 +47,7 @@ pub struct ProcessSpec {
     pub cwd: PathBuf,
     pub timeout: Duration,
     pub cpu_seconds: u64,
+    pub address_space_bytes: u64,
     pub environment: BTreeMap<String, String>,
 }
 #[derive(Clone, Debug)]
@@ -144,6 +145,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         || !spec.cwd.is_absolute()
         || spec.timeout.is_zero()
         || spec.timeout > Duration::from_secs(3600)
+        || !(134_217_728..=4_294_967_296).contains(&spec.address_space_bytes)
     {
         return Err(Error::invalid("Invalid process specification"));
     }
@@ -162,6 +164,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .process_group(0);
     let parent = std::process::id() as i32;
     let cpu = spec.cpu_seconds.clamp(1, 300);
+    let address_space = spec.address_space_bytes;
     // SAFETY: the closure only uses async-signal-safe Linux syscalls and stack values after fork.
     unsafe {
         command.pre_exec(move || {
@@ -174,7 +177,7 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
                 (0, cpu),
                 (1, 1073741824),
                 (7, 128),
-                (9, 1073741824),
+                (9, address_space),
                 // RLIMIT_NPROC is intentionally owned by the outer DriverProvider sandbox.
                 // Linux accounts it against the real UID, so imposing a second fixed limit here
                 // can reject legitimate child workers when the host UID already has many tasks.
@@ -521,12 +524,21 @@ impl Runtime {
                 _ => return Err(Error::invalid("Unknown pinned runtime tool")),
             };
             pinned.verify()?;
+            let (cpu_seconds, address_space_bytes) = match tool {
+                // Curated 1080p H.264 renders are bounded by the outer Driver Host
+                // at the same 4 GiB / 300 CPU-second ceilings. These are limits,
+                // not reservations; ffprobe keeps the smaller probe budget.
+                "melt" => (300, 4_294_967_296),
+                "ffprobe" => (30, 1_073_741_824),
+                _ => return Err(Error::invalid("Unknown pinned runtime tool")),
+            };
             return Ok(ProcessSpec {
                 executable: pinned.path.clone(),
                 args,
                 cwd: work.into(),
                 timeout,
-                cpu_seconds: 120,
+                cpu_seconds,
+                address_space_bytes,
                 environment: Self::environment(),
             });
         }
@@ -592,12 +604,18 @@ impl Runtime {
             format!("/tools/{tool}").into(),
         ]);
         argv.extend(args);
+        let (cpu_seconds, address_space_bytes) = match tool {
+            "melt" => (300, 4_294_967_296),
+            "ffprobe" => (30, 1_073_741_824),
+            _ => return Err(Error::invalid("Unknown pinned runtime tool")),
+        };
         Ok(ProcessSpec {
             executable: self.bubblewrap.path.clone(),
             args: argv,
             cwd: work.into(),
             timeout,
-            cpu_seconds: 120,
+            cpu_seconds,
+            address_space_bytes,
             environment: BTreeMap::from([("LC_ALL".into(), "C".into())]),
         })
     }
