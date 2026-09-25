@@ -35,6 +35,7 @@ fn interfaces() -> DriverInterfaces {
         progress: true,
         artifacts: true,
         health: true,
+        native_refs: true,
         ..DriverInterfaces::default()
     }
 }
@@ -58,10 +59,12 @@ fn manifest(executable: PathBuf) -> Manifest {
             DriverMount {
                 root: "godot-config".into(),
                 read_only: true,
+                execute: false,
             },
             DriverMount {
                 root: "godot-project".into(),
                 read_only: false,
+                execute: false,
             },
         ],
         system_config: vec![],

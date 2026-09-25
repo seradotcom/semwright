@@ -1,0 +1,3415 @@
+{
+  "schema_version": 1,
+  "component_version": 1,
+  "id": "semwright-launch-film",
+  "generation": "53454d5752494748544c41554e434846",
+  "revision": 1,
+  "settings": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "background": "#f7f5ee",
+    "color_space": "srgb"
+  },
+  "theme": {
+    "font_family": "Instrument Sans Variable",
+    "mono_family": "IBM Plex Mono",
+    "font_size": 36.0,
+    "font_weight": 500,
+    "spacing": 16.0,
+    "line_width": 2.0,
+    "radius": 20.0,
+    "colors": {
+      "paper": "#f7f5ee",
+      "surface": "#fdfcf8",
+      "ink": "#202d42",
+      "muted": "#5b6471",
+      "accent": "#234ea2",
+      "line": "#dadbd4",
+      "blue_soft": "#e4ebf8",
+      "peach": "#f2ddc8",
+      "mint": "#dce9dc",
+      "lavender": "#e9e2f2",
+      "navy": "#152b54",
+      "white": "#ffffff"
+    }
+  },
+  "scenes": [
+    {
+      "id": "problem",
+      "name": "Pixels are a fallback",
+      "duration_ms": 6000,
+      "nodes": [
+        {
+          "id": "a-kicker",
+          "name": "A Kicker",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -330
+            ],
+            "opacity": 0,
+            "fill": "@accent",
+            "font_size": 24,
+            "font_weight": 600,
+            "text": "PIXELS ARE A FALLBACK",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1100
+          }
+        },
+        {
+          "id": "a-title",
+          "name": "A Title",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -145
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 86,
+            "font_weight": 500,
+            "text": "Screenshot. Guess. Click. Hope.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1500
+          }
+        },
+        {
+          "id": "a-cross-h",
+          "name": "A Cross H",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                -620,
+                120
+              ],
+              [
+                620,
+                120
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 2,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "a-cross-v",
+          "name": "A Cross V",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                -15
+              ],
+              [
+                0,
+                335
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 2,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "a-coord",
+          "name": "A Coord",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              390,
+              170
+            ],
+            "opacity": 0,
+            "fill": "@muted",
+            "font_size": 24,
+            "font_weight": 400,
+            "text": "x: 1437   y: 612",
+            "text_align": "center",
+            "wrap": true,
+            "width": 500,
+            "font_family": "IBM Plex Mono"
+          }
+        },
+        {
+          "id": "a-note",
+          "name": "A Note",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              330
+            ],
+            "opacity": 0,
+            "fill": "@muted",
+            "font_size": 34,
+            "font_weight": 450,
+            "text": "Coordinates know where. They do not know what.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1400
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "a1",
+          "target": "a-kicker",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 250
+          },
+          "duration_ms": 450,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "a2",
+          "target": "a-title",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 650
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "a3",
+          "target": "a-title",
+          "property": "position",
+          "to": [
+            0,
+            -165
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 650
+          },
+          "duration_ms": 700,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": [
+            0,
+            -120
+          ]
+        },
+        {
+          "id": "a4",
+          "target": "a-cross-h",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1650
+          },
+          "duration_ms": 850,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "a5",
+          "target": "a-cross-v",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1850
+          },
+          "duration_ms": 850,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "a6",
+          "target": "a-coord",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2400
+          },
+          "duration_ms": 400,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "a7",
+          "target": "a-note",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 3150
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        }
+      ],
+      "cues": [],
+      "transition": {
+        "kind": "fade",
+        "duration_ms": 350
+      }
+    },
+    {
+      "id": "meaning",
+      "name": "Meaning instead of coordinates",
+      "duration_ms": 7000,
+      "nodes": [
+        {
+          "id": "b-title",
+          "name": "B Title",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -330
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 66,
+            "font_weight": 500,
+            "text": "What if software exposed meaning instead?",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1600
+          }
+        },
+        {
+          "id": "b-window-box",
+          "name": "B Window Box",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -560,
+              -100
+            ],
+            "width": 260,
+            "height": 106,
+            "fill": "@blue_soft",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 24,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "b-window-text",
+          "name": "B Window Text",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -560,
+              -100
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "window",
+            "text_align": "center",
+            "wrap": true,
+            "width": 230
+          }
+        },
+        {
+          "id": "b-button-box",
+          "name": "B Button Box",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -190,
+              -100
+            ],
+            "width": 260,
+            "height": 106,
+            "fill": "@mint",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 24,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "b-button-text",
+          "name": "B Button Text",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -190,
+              -100
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "button",
+            "text_align": "center",
+            "wrap": true,
+            "width": 230
+          }
+        },
+        {
+          "id": "b-object-box",
+          "name": "B Object Box",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              190,
+              -100
+            ],
+            "width": 260,
+            "height": 106,
+            "fill": "@peach",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 24,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "b-object-text",
+          "name": "B Object Text",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              190,
+              -100
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "object",
+            "text_align": "center",
+            "wrap": true,
+            "width": 230
+          }
+        },
+        {
+          "id": "b-scene-box",
+          "name": "B Scene Box",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              560,
+              -100
+            ],
+            "width": 260,
+            "height": 106,
+            "fill": "@lavender",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 24,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "b-scene-text",
+          "name": "B Scene Text",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              560,
+              -100
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "scene",
+            "text_align": "center",
+            "wrap": true,
+            "width": 230
+          }
+        },
+        {
+          "id": "b-clip-box",
+          "name": "B Clip Box",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -380,
+              150
+            ],
+            "width": 260,
+            "height": 106,
+            "fill": "@mint",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 24,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "b-clip-text",
+          "name": "B Clip Text",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -380,
+              150
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "clip",
+            "text_align": "center",
+            "wrap": true,
+            "width": 230
+          }
+        },
+        {
+          "id": "b-cell-box",
+          "name": "B Cell Box",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              150
+            ],
+            "width": 260,
+            "height": 106,
+            "fill": "@blue_soft",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 24,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "b-cell-text",
+          "name": "B Cell Text",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              150
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "cell",
+            "text_align": "center",
+            "wrap": true,
+            "width": 230
+          }
+        },
+        {
+          "id": "b-timeline-box",
+          "name": "B Timeline Box",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              380,
+              150
+            ],
+            "width": 260,
+            "height": 106,
+            "fill": "@peach",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 24,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "b-timeline-text",
+          "name": "B Timeline Text",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              380,
+              150
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "timeline",
+            "text_align": "center",
+            "wrap": true,
+            "width": 230
+          }
+        },
+        {
+          "id": "b-foot",
+          "name": "B Foot",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              365
+            ],
+            "opacity": 0,
+            "fill": "@muted",
+            "font_size": 30,
+            "font_weight": 450,
+            "text": "Stable refs. Typed operations. Explicit policy.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1300
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "b0",
+          "target": "b-title",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 250
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b1r",
+          "target": "b-window-box",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1100
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b1t",
+          "target": "b-window-text",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1180
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b1s",
+          "target": "b-window-box",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 1100
+          },
+          "duration_ms": 480,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "id": "b2r",
+          "target": "b-button-box",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1360
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b2t",
+          "target": "b-button-text",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1440
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b2s",
+          "target": "b-button-box",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 1360
+          },
+          "duration_ms": 480,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "id": "b3r",
+          "target": "b-object-box",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1620
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b3t",
+          "target": "b-object-text",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1700
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b3s",
+          "target": "b-object-box",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 1620
+          },
+          "duration_ms": 480,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "id": "b4r",
+          "target": "b-scene-box",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1880
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b4t",
+          "target": "b-scene-text",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1960
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b4s",
+          "target": "b-scene-box",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 1880
+          },
+          "duration_ms": 480,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "id": "b5r",
+          "target": "b-clip-box",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2140
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b5t",
+          "target": "b-clip-text",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2220
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b5s",
+          "target": "b-clip-box",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 2140
+          },
+          "duration_ms": 480,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "id": "b6r",
+          "target": "b-cell-box",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2400
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b6t",
+          "target": "b-cell-text",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2480
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b6s",
+          "target": "b-cell-box",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 2400
+          },
+          "duration_ms": 480,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "id": "b7r",
+          "target": "b-timeline-box",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2660
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b7t",
+          "target": "b-timeline-text",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2740
+          },
+          "duration_ms": 360,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "b7s",
+          "target": "b-timeline-box",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 2660
+          },
+          "duration_ms": 480,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "id": "b-foot-in",
+          "target": "b-foot",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 3800
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        }
+      ],
+      "cues": [],
+      "transition": {
+        "kind": "slide_left",
+        "duration_ms": 350
+      }
+    },
+    {
+      "id": "architecture",
+      "name": "Semantic architecture",
+      "duration_ms": 9000,
+      "nodes": [
+        {
+          "id": "c-title",
+          "name": "C Title",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -405
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 58,
+            "font_weight": 520,
+            "text": "One semantic boundary",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1400
+          }
+        },
+        {
+          "id": "c-agent",
+          "name": "C Agent",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -620,
+              -80
+            ],
+            "width": 300,
+            "height": 130,
+            "fill": "@surface",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "c-agent-t",
+          "name": "C Agent T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -620,
+              -80
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 36,
+            "font_weight": 500,
+            "text": "Agent",
+            "text_align": "center",
+            "wrap": true
+          }
+        },
+        {
+          "id": "c-core",
+          "name": "C Core",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -180,
+              -80
+            ],
+            "width": 340,
+            "height": 150,
+            "fill": "@accent",
+            "stroke": "@accent",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "c-core-t",
+          "name": "C Core T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -180,
+              -80
+            ],
+            "opacity": 1.0,
+            "fill": "@white",
+            "font_size": 38,
+            "font_weight": 600,
+            "text": "Semwright",
+            "text_align": "center",
+            "wrap": true
+          }
+        },
+        {
+          "id": "c-reg",
+          "name": "C Reg",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              300,
+              -80
+            ],
+            "width": 360,
+            "height": 150,
+            "fill": "@surface",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "c-reg-t",
+          "name": "C Reg T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              300,
+              -80
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 32,
+            "font_weight": 550,
+            "text": "Capability\nRegistry",
+            "text_align": "center",
+            "wrap": true,
+            "width": 310
+          }
+        },
+        {
+          "id": "c-prov",
+          "name": "C Prov",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              700,
+              -80
+            ],
+            "width": 300,
+            "height": 150,
+            "fill": "@navy",
+            "stroke": "@navy",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "c-prov-t",
+          "name": "C Prov T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              700,
+              -80
+            ],
+            "opacity": 1.0,
+            "fill": "@white",
+            "font_size": 34,
+            "font_weight": 550,
+            "text": "Providers",
+            "text_align": "center",
+            "wrap": true
+          }
+        },
+        {
+          "id": "c-l1",
+          "name": "C L1",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                -465,
+                -80
+              ],
+              [
+                -355,
+                -80
+              ]
+            ],
+            "stroke": "@accent",
+            "stroke_width": 4,
+            "end_arrow": true,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "c-l2",
+          "name": "C L2",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                -10,
+                -80
+              ],
+              [
+                120,
+                -80
+              ]
+            ],
+            "stroke": "@accent",
+            "stroke_width": 4,
+            "end_arrow": true,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "c-l3",
+          "name": "C L3",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                480,
+                -80
+              ],
+              [
+                550,
+                -80
+              ]
+            ],
+            "stroke": "@accent",
+            "stroke_width": 4,
+            "end_arrow": true,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "c-policy",
+          "name": "C Policy",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              245
+            ],
+            "opacity": 0,
+            "fill": "@muted",
+            "font_size": 30,
+            "font_weight": 450,
+            "text": "policy  •  audit  •  refs  •  jobs",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1200,
+            "font_family": "IBM Plex Mono"
+          }
+        },
+        {
+          "id": "c-sub",
+          "name": "C Sub",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              345
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 30,
+            "font_weight": 450,
+            "text": "Drivers, OS semantics, MCP federation and recipes share one authority.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1500
+          }
+        },
+        {
+          "id": "c-platform",
+          "name": "Platform hosts",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              420
+            ],
+            "width": 1500.0,
+            "font_size": 25.0,
+            "font_weight": 500,
+            "text": "Platform hosts: Linux • macOS • Windows",
+            "text_align": "center",
+            "wrap": true,
+            "fill": "@muted",
+            "opacity": 1.0
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "c1",
+          "target": "c-title",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 200
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox0",
+          "target": "c-agent",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 700
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox1",
+          "target": "c-agent-t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 790
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox2",
+          "target": "c-core",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 880
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox3",
+          "target": "c-core-t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 970
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox4",
+          "target": "c-reg",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1060
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox5",
+          "target": "c-reg-t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1150
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox6",
+          "target": "c-prov",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1240
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cbox7",
+          "target": "c-prov-t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1330
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cline0",
+          "target": "c-l1",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1800
+          },
+          "duration_ms": 550,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cline1",
+          "target": "c-l2",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2250
+          },
+          "duration_ms": 550,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cline2",
+          "target": "c-l3",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2700
+          },
+          "duration_ms": 550,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cp",
+          "target": "c-policy",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 3500
+          },
+          "duration_ms": 450,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "cs",
+          "target": "c-sub",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 4300
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "c-platform-in",
+          "target": "c-platform",
+          "property": "opacity",
+          "from": 0.0,
+          "to": 1.0,
+          "at": {
+            "cue": null,
+            "offset_ms": 5000
+          },
+          "duration_ms": 450,
+          "duration_cue": null,
+          "easing": "ease_out_cubic"
+        }
+      ],
+      "cues": [],
+      "transition": {
+        "kind": "fade",
+        "duration_ms": 350
+      }
+    },
+    {
+      "id": "providers",
+      "name": "Real first-party providers",
+      "duration_ms": 9000,
+      "nodes": [
+        {
+          "id": "d-title",
+          "name": "D Title",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -405
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 54,
+            "font_weight": 520,
+            "text": "Use the strongest semantic surface available.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1550
+          }
+        },
+        {
+          "id": "d-l0",
+          "name": "D L0",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                -610,
+                -170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l1",
+          "name": "D L1",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                -610,
+                170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l2",
+          "name": "D L2",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                -210,
+                300
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l3",
+          "name": "D L3",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                210,
+                300
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l4",
+          "name": "D L4",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                610,
+                170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-l5",
+          "name": "D L5",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                0,
+                0
+              ],
+              [
+                610,
+                -170
+              ]
+            ],
+            "stroke": "@line",
+            "stroke_width": 3,
+            "end_arrow": false,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-core",
+          "name": "D Core",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              0
+            ],
+            "width": 300,
+            "height": 130,
+            "fill": "@accent",
+            "stroke": "@accent",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-core-t",
+          "name": "D Core T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              0
+            ],
+            "opacity": 1.0,
+            "fill": "@white",
+            "font_size": 34,
+            "font_weight": 600,
+            "text": "Semwright",
+            "text_align": "center",
+            "wrap": true
+          }
+        },
+        {
+          "id": "d-p0",
+          "name": "D P0",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -610,
+              -170
+            ],
+            "width": 290,
+            "height": 110,
+            "fill": "@blue_soft",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-p0t",
+          "name": "D P0T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -610,
+              -170
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 30,
+            "font_weight": 540,
+            "text": "Browser",
+            "text_align": "center",
+            "wrap": true,
+            "width": 250
+          }
+        },
+        {
+          "id": "d-p1",
+          "name": "D P1",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -610,
+              170
+            ],
+            "width": 290,
+            "height": 110,
+            "fill": "@peach",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-p1t",
+          "name": "D P1T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -610,
+              170
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 30,
+            "font_weight": 540,
+            "text": "Blender",
+            "text_align": "center",
+            "wrap": true,
+            "width": 250
+          }
+        },
+        {
+          "id": "d-p2",
+          "name": "D P2",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -210,
+              300
+            ],
+            "width": 290,
+            "height": 110,
+            "fill": "@mint",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-p2t",
+          "name": "D P2T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -210,
+              300
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 30,
+            "font_weight": 540,
+            "text": "OBS",
+            "text_align": "center",
+            "wrap": true,
+            "width": 250
+          }
+        },
+        {
+          "id": "d-p3",
+          "name": "D P3",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              210,
+              300
+            ],
+            "width": 290,
+            "height": 110,
+            "fill": "@lavender",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-p3t",
+          "name": "D P3T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              210,
+              300
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 30,
+            "font_weight": 540,
+            "text": "MLT",
+            "text_align": "center",
+            "wrap": true,
+            "width": 250
+          }
+        },
+        {
+          "id": "d-p4",
+          "name": "D P4",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              610,
+              170
+            ],
+            "width": 290,
+            "height": 110,
+            "fill": "@blue_soft",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-p4t",
+          "name": "D P4T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              610,
+              170
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 30,
+            "font_weight": 540,
+            "text": "LibreOffice",
+            "text_align": "center",
+            "wrap": true,
+            "width": 250
+          }
+        },
+        {
+          "id": "d-p5",
+          "name": "D P5",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              610,
+              -170
+            ],
+            "width": 290,
+            "height": 110,
+            "fill": "@mint",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "d-p5t",
+          "name": "D P5T",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              610,
+              -170
+            ],
+            "opacity": 1.0,
+            "fill": "@ink",
+            "font_size": 30,
+            "font_weight": 540,
+            "text": "Motion Canvas",
+            "text_align": "center",
+            "wrap": true,
+            "width": 250
+          }
+        },
+        {
+          "id": "d-foot",
+          "name": "D Foot",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              440
+            ],
+            "opacity": 0,
+            "fill": "@muted",
+            "font_size": 27,
+            "font_weight": 450,
+            "text": "Native API → semantic OS → input fallback → vision last",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1500
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "d0",
+          "target": "d-title",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 200
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dc",
+          "target": "d-core",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 650
+          },
+          "duration_ms": 550,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.82,
+            0.82
+          ]
+        },
+        {
+          "id": "dl0",
+          "target": "d-l0",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1200
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dr0",
+          "target": "d-p0",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1440
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dt0",
+          "target": "d-p0t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1500
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dl1",
+          "target": "d-l1",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1550
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dr1",
+          "target": "d-p1",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1790
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dt1",
+          "target": "d-p1t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1850
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dl2",
+          "target": "d-l2",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1900
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dr2",
+          "target": "d-p2",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2140
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dt2",
+          "target": "d-p2t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2200
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dl3",
+          "target": "d-l3",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2250
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dr3",
+          "target": "d-p3",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2490
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dt3",
+          "target": "d-p3t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2550
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dl4",
+          "target": "d-l4",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2600
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dr4",
+          "target": "d-p4",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2840
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dt4",
+          "target": "d-p4t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2900
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dl5",
+          "target": "d-l5",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2950
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dr5",
+          "target": "d-p5",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 3190
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "dt5",
+          "target": "d-p5t",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 3250
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "df",
+          "target": "d-foot",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 3900
+          },
+          "duration_ms": 600,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        }
+      ],
+      "cues": [],
+      "transition": {
+        "kind": "slide_left",
+        "duration_ms": 350
+      }
+    },
+    {
+      "id": "hierarchy",
+      "name": "Semantic hierarchy",
+      "duration_ms": 7000,
+      "nodes": [
+        {
+          "id": "e-title",
+          "name": "E Title",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -390
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 68,
+            "font_weight": 520,
+            "text": "Meaning first.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1300
+          }
+        },
+        {
+          "id": "e-r0",
+          "name": "E R0",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -170
+            ],
+            "width": 1180,
+            "height": 105,
+            "fill": "@mint",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 18,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "e-n0",
+          "name": "E N0",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -500,
+              -170
+            ],
+            "opacity": 0,
+            "fill": "@accent",
+            "font_size": 24,
+            "font_weight": 600,
+            "text": "01",
+            "text_align": "left",
+            "wrap": true,
+            "width": 80,
+            "font_family": "IBM Plex Mono"
+          }
+        },
+        {
+          "id": "e-t0",
+          "name": "E T0",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -50,
+              -170
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "Native application API",
+            "text_align": "left",
+            "wrap": true,
+            "width": 700
+          }
+        },
+        {
+          "id": "e-r1",
+          "name": "E R1",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -25
+            ],
+            "width": 1180,
+            "height": 105,
+            "fill": "@blue_soft",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 18,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "e-n1",
+          "name": "E N1",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -500,
+              -25
+            ],
+            "opacity": 0,
+            "fill": "@accent",
+            "font_size": 24,
+            "font_weight": 600,
+            "text": "02",
+            "text_align": "left",
+            "wrap": true,
+            "width": 80,
+            "font_family": "IBM Plex Mono"
+          }
+        },
+        {
+          "id": "e-t1",
+          "name": "E T1",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -50,
+              -25
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "Semantic OS accessibility",
+            "text_align": "left",
+            "wrap": true,
+            "width": 700
+          }
+        },
+        {
+          "id": "e-r2",
+          "name": "E R2",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              120
+            ],
+            "width": 1180,
+            "height": 105,
+            "fill": "@peach",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 18,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "e-n2",
+          "name": "E N2",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -500,
+              120
+            ],
+            "opacity": 0,
+            "fill": "@accent",
+            "font_size": 24,
+            "font_weight": 600,
+            "text": "03",
+            "text_align": "left",
+            "wrap": true,
+            "width": 80,
+            "font_family": "IBM Plex Mono"
+          }
+        },
+        {
+          "id": "e-t2",
+          "name": "E T2",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -50,
+              120
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "Input fallback",
+            "text_align": "left",
+            "wrap": true,
+            "width": 700
+          }
+        },
+        {
+          "id": "e-r3",
+          "name": "E R3",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              265
+            ],
+            "width": 1180,
+            "height": 105,
+            "fill": "@lavender",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 18,
+            "opacity": 0
+          }
+        },
+        {
+          "id": "e-n3",
+          "name": "E N3",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -500,
+              265
+            ],
+            "opacity": 0,
+            "fill": "@accent",
+            "font_size": 24,
+            "font_weight": 600,
+            "text": "04",
+            "text_align": "left",
+            "wrap": true,
+            "width": 80,
+            "font_family": "IBM Plex Mono"
+          }
+        },
+        {
+          "id": "e-t3",
+          "name": "E T3",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -50,
+              265
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 34,
+            "font_weight": 520,
+            "text": "Vision last",
+            "text_align": "left",
+            "wrap": true,
+            "width": 700
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "e0",
+          "target": "e-title",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 250
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "er0",
+          "target": "e-r0",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 900
+          },
+          "duration_ms": 400,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "en0",
+          "target": "e-n0",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 980
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "et0",
+          "target": "e-t0",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1030
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "er1",
+          "target": "e-r1",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1550
+          },
+          "duration_ms": 400,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "en1",
+          "target": "e-n1",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1630
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "et1",
+          "target": "e-t1",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1680
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "er2",
+          "target": "e-r2",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2200
+          },
+          "duration_ms": 400,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "en2",
+          "target": "e-n2",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2280
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "et2",
+          "target": "e-t2",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2330
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "er3",
+          "target": "e-r3",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2850
+          },
+          "duration_ms": 400,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "en3",
+          "target": "e-n3",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2930
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "et3",
+          "target": "e-t3",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2980
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        }
+      ],
+      "cues": [],
+      "transition": {
+        "kind": "fade",
+        "duration_ms": 350
+      }
+    },
+    {
+      "id": "proof",
+      "name": "Self-hosted proof",
+      "duration_ms": 8000,
+      "nodes": [
+        {
+          "id": "f-title",
+          "name": "F Title",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -410
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 56,
+            "font_weight": 520,
+            "text": "This film uses the same machinery.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1500
+          }
+        },
+        {
+          "id": "f-s0",
+          "name": "F S0",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -650,
+              -60
+            ],
+            "width": 330,
+            "height": 150,
+            "fill": "@surface",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "f-t0",
+          "name": "F T0",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -650,
+              -60
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 29,
+            "font_weight": 550,
+            "text": "Semantic model",
+            "text_align": "center",
+            "wrap": true,
+            "width": 280
+          }
+        },
+        {
+          "id": "f-l0",
+          "name": "F L0",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                -480,
+                -60
+              ],
+              [
+                -390,
+                -60
+              ]
+            ],
+            "stroke": "@accent",
+            "stroke_width": 3,
+            "end_arrow": true,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "f-s1",
+          "name": "F S1",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              -220,
+              -60
+            ],
+            "width": 330,
+            "height": 150,
+            "fill": "@mint",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "f-t1",
+          "name": "F T1",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              -220,
+              -60
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 29,
+            "font_weight": 550,
+            "text": "Motion Canvas",
+            "text_align": "center",
+            "wrap": true,
+            "width": 280
+          }
+        },
+        {
+          "id": "f-l1",
+          "name": "F L1",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                -50,
+                -60
+              ],
+              [
+                50,
+                -60
+              ]
+            ],
+            "stroke": "@accent",
+            "stroke_width": 3,
+            "end_arrow": true,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "f-s2",
+          "name": "F S2",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              220,
+              -60
+            ],
+            "width": 330,
+            "height": 150,
+            "fill": "@blue_soft",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "f-t2",
+          "name": "F T2",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              220,
+              -60
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 29,
+            "font_weight": 550,
+            "text": "Validated frames",
+            "text_align": "center",
+            "wrap": true,
+            "width": 280
+          }
+        },
+        {
+          "id": "f-l2",
+          "name": "F L2",
+          "kind": "line",
+          "parent": null,
+          "properties": {
+            "points": [
+              [
+                390,
+                -60
+              ],
+              [
+                480,
+                -60
+              ]
+            ],
+            "stroke": "@accent",
+            "stroke_width": 3,
+            "end_arrow": true,
+            "arrow_size": 14.0,
+            "start": 0.0,
+            "end": 0,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "f-s3",
+          "name": "F S3",
+          "kind": "rect",
+          "parent": null,
+          "properties": {
+            "position": [
+              650,
+              -60
+            ],
+            "width": 330,
+            "height": 150,
+            "fill": "@peach",
+            "stroke": "@line",
+            "stroke_width": 2.0,
+            "radius": 20,
+            "opacity": 1.0
+          }
+        },
+        {
+          "id": "f-t3",
+          "name": "F T3",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              650,
+              -60
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 29,
+            "font_weight": 550,
+            "text": "MLT final encode",
+            "text_align": "center",
+            "wrap": true,
+            "width": 280
+          }
+        },
+        {
+          "id": "f-metric",
+          "name": "F Metric",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              245
+            ],
+            "opacity": 0,
+            "fill": "@accent",
+            "font_size": 30,
+            "font_weight": 600,
+            "text": "18 curated Motion Canvas capabilities",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1000
+          }
+        },
+        {
+          "id": "f-note",
+          "name": "F Note",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              345
+            ],
+            "opacity": 0,
+            "fill": "@muted",
+            "font_size": 28,
+            "font_weight": 450,
+            "text": "No eval. No arbitrary npm. No blind pixel clicks.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1200,
+            "font_family": "IBM Plex Mono"
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "f0",
+          "target": "f-title",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 250
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fr0",
+          "target": "f-s0",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 900
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "ft0",
+          "target": "f-t0",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 980
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fl0",
+          "target": "f-l0",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1250
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fr1",
+          "target": "f-s1",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1550
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "ft1",
+          "target": "f-t1",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1630
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fl1",
+          "target": "f-l1",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1900
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fr2",
+          "target": "f-s2",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2200
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "ft2",
+          "target": "f-t2",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2280
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fl2",
+          "target": "f-l2",
+          "property": "line_end",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2550
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fr3",
+          "target": "f-s3",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2850
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "ft3",
+          "target": "f-t3",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2930
+          },
+          "duration_ms": 350,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fm",
+          "target": "f-metric",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 4050
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "fn",
+          "target": "f-note",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 4700
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        }
+      ],
+      "cues": [],
+      "transition": {
+        "kind": "fade",
+        "duration_ms": 350
+      }
+    },
+    {
+      "id": "close",
+      "name": "Closing",
+      "duration_ms": 6000,
+      "nodes": [
+        {
+          "id": "g-mark",
+          "name": "g-mark",
+          "kind": "svg",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -210
+            ],
+            "width": 150,
+            "height": 150,
+            "svg": "<svg viewBox=\"0 0 40 40\"><rect width=\"40\" height=\"40\" rx=\"11\" fill=\"#234ea2\"/><path d=\"M28 11H14a5 5 0 0 0 0 10h12a4 4 0 0 1 0 8H11M28 7v8M11 25v8\" fill=\"none\" stroke=\"#faf7ef\" stroke-width=\"3\" stroke-linecap=\"square\"/></svg>",
+            "opacity": 0
+          }
+        },
+        {
+          "id": "g-name",
+          "name": "G Name",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              -30
+            ],
+            "opacity": 0,
+            "fill": "@ink",
+            "font_size": 90,
+            "font_weight": 560,
+            "text": "Semwright",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1200
+          }
+        },
+        {
+          "id": "g-tag",
+          "name": "G Tag",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              105
+            ],
+            "opacity": 0,
+            "fill": "@muted",
+            "font_size": 40,
+            "font_weight": 450,
+            "text": "Semantic computer I/O for agents.",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1300
+          }
+        },
+        {
+          "id": "g-url",
+          "name": "G Url",
+          "kind": "text",
+          "parent": null,
+          "properties": {
+            "position": [
+              0,
+              300
+            ],
+            "opacity": 0,
+            "fill": "@accent",
+            "font_size": 24,
+            "font_weight": 500,
+            "text": "semwright.com   •   github.com/seradotcom/semwright",
+            "text_align": "center",
+            "wrap": true,
+            "width": 1500,
+            "font_family": "IBM Plex Mono"
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "g1",
+          "target": "g-mark",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 300
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "g2",
+          "target": "g-mark",
+          "property": "scale",
+          "to": [
+            1,
+            1
+          ],
+          "at": {
+            "cue": null,
+            "offset_ms": 300
+          },
+          "duration_ms": 650,
+          "duration_cue": null,
+          "easing": "ease_out_back",
+          "from": [
+            0.8,
+            0.8
+          ]
+        },
+        {
+          "id": "g3",
+          "target": "g-name",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 900
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "g4",
+          "target": "g-tag",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 1450
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        },
+        {
+          "id": "g5",
+          "target": "g-url",
+          "property": "opacity",
+          "to": 1,
+          "at": {
+            "cue": null,
+            "offset_ms": 2200
+          },
+          "duration_ms": 500,
+          "duration_cue": null,
+          "easing": "ease_out_cubic",
+          "from": 0
+        }
+      ],
+      "cues": [],
+      "transition": {
+        "kind": "fade",
+        "duration_ms": 350
+      }
+    }
+  ],
+  "assets": [],
+  "audio": []
+}

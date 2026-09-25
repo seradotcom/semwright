@@ -115,6 +115,7 @@ impl Driver for Adversarial {
                 let allowed_write = std::fs::write("/workspace/rw/allowed.txt", b"allowed").is_ok();
                 let readonly_write =
                     std::fs::write("/workspace/ro/blocked.txt", b"blocked").is_ok();
+                let readonly_execute = Command::new("/workspace/ro/tool").status().is_ok();
                 let outside_home_write = std::fs::write("/home/breakout", b"blocked").is_ok();
                 let outside_etc_write = std::fs::write("/etc/breakout", b"blocked").is_ok();
                 let host_secret_visible = std::fs::read(host_secret).is_ok();
@@ -122,6 +123,9 @@ impl Driver for Adversarial {
                 let address = SocketAddr::from(([127, 0, 0, 1], port));
                 let host_loopback_connected =
                     TcpStream::connect_timeout(&address, Duration::from_millis(150)).is_ok();
+                let shm_probe = format!("/dev/shm/semwright-probe-{}", std::process::id());
+                let private_shm_write = std::fs::write(&shm_probe, b"private").is_ok();
+                let _ = std::fs::remove_file(&shm_probe);
 
                 let mut environment = std::env::vars().map(|(key, _)| key).collect::<Vec<_>>();
                 environment.sort();
@@ -137,11 +141,13 @@ impl Driver for Adversarial {
                     "allowed_read":allowed_read,
                     "allowed_write":allowed_write,
                     "readonly_write":readonly_write,
+                    "readonly_execute":readonly_execute,
                     "outside_home_write":outside_home_write,
                     "outside_etc_write":outside_etc_write,
                     "host_secret_visible":host_secret_visible,
                     "host_pid_visible":host_pid_visible,
                     "host_loopback_connected":host_loopback_connected,
+                    "private_shm_write":private_shm_write,
                     "environment":environment,
                     "nofile": if nofile_ok { Some(nofile.rlim_cur) } else { None },
                 }))

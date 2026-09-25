@@ -27,6 +27,7 @@ pub struct Mount {
     pub class: MountClass,
     pub logical_name: String,
     pub read_only: bool,
+    pub execute: bool,
 }
 impl Mount {
     pub fn validate(&self) -> Result<()> {
@@ -38,10 +39,12 @@ impl Mount {
         if self.logical_name.len() > 255 {
             return Err(Error::invalid("Logical mount name exceeds budget"));
         }
-        if self.class == MountClass::SystemConfig && !self.read_only {
+        if (self.class == MountClass::SystemConfig && (!self.read_only || self.execute))
+            || (self.execute && !self.read_only)
+        {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
-                "System-config mounts must be read-only",
+                "Executable mounts must be read-only workspace mounts",
             ));
         }
         Ok(())
