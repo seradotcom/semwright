@@ -24,7 +24,8 @@ use std::io::Read;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
+    io::Write,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{Arc, Mutex},
     time::Duration,
@@ -45,11 +46,118 @@ fn default_timeout() -> u64 {
 fn default_enabled() -> bool {
     true
 }
+fn default_read_only() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StdioUpstreamMount {
+    pub source: PathBuf,
+    pub name: String,
+    #[serde(default = "default_read_only")]
+    pub read_only: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StdioUpstreamResources {
+    #[serde(default = "default_open_files")]
+    pub open_files: u64,
+    #[serde(default = "default_processes")]
+    pub processes: u64,
+    #[serde(default = "default_cpu_seconds")]
+    pub cpu_seconds: u64,
+    #[serde(default = "default_address_space")]
+    pub address_space_bytes: u64,
+    #[serde(default = "default_file_size")]
+    pub file_size_bytes: u64,
+}
+fn default_open_files() -> u64 {
+    128
+}
+fn default_processes() -> u64 {
+    64
+}
+fn default_cpu_seconds() -> u64 {
+    300
+}
+fn default_address_space() -> u64 {
+    2_147_483_648
+}
+fn default_file_size() -> u64 {
+    67_108_864
+}
+impl Default for StdioUpstreamResources {
+    fn default() -> Self {
+        Self {
+            open_files: default_open_files(),
+            processes: default_processes(),
+            cpu_seconds: default_cpu_seconds(),
+            address_space_bytes: default_address_space(),
+            file_size_bytes: default_file_size(),
+        }
+    }
+}
+impl StdioUpstreamResources {
+    fn validate(&self) -> Result<()> {
+        if !(32..=1024).contains(&self.open_files)
+            || !(8..=256).contains(&self.processes)
+            || !(5..=300).contains(&self.cpu_seconds)
+            || !(134_217_728..=4_294_967_296).contains(&self.address_space_bytes)
+            || !(1_048_576..=1_073_741_824).contains(&self.file_size_bytes)
+        {
+            return Err(Error::invalid(
+                "Federated MCP resource limit outside sandbox bounds",
+            ));
+        }
+        Ok(())
+    }
+}
+impl StdioUpstreamMount {
+    fn validate_definition(&self) -> Result<()> {
+        if !self.source.is_absolute()
+            || self.name.is_empty()
+            || self.name.len() > 64
+            || matches!(self.name.as_str(), "." | "..")
+            || !self
+                .name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+        {
+            return Err(Error::invalid("Federated MCP mount definition is invalid"));
+        }
+        Ok(())
+    }
+    fn validate_source(&self) -> Result<()> {
+        self.validate_definition()?;
+        let canonical = std::fs::canonicalize(&self.source)?;
+        if canonical != self.source
+            || self.source == Path::new("/")
+            || ["/proc", "/sys", "/dev", "/run"]
+                .iter()
+                .any(|root| self.source.starts_with(root))
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Federated MCP mount must be canonical and outside runtime/device trees",
+            ));
+        }
+        let metadata = std::fs::metadata(&self.source)?;
+        if !(metadata.is_dir() || (self.read_only && metadata.is_file())) {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Writable MCP mounts must be directories; read-only mounts may be files",
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// Owner-controlled configuration for a trusted local stdio MCP executable.
 ///
-/// This type deliberately does not inherit the daemon environment. Wiring arbitrary user-space
-/// executables into the long-lived daemon is a separate sandboxing decision.
+/// The executable never inherits the daemon environment. A valid definition is still staged and
+/// launched through the platform sandbox; digest pinning alone is not treated as confinement.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StdioUpstreamConfig {
@@ -59,6 +167,14 @@ pub struct StdioUpstreamConfig {
     pub sha256: String,
     #[serde(default)]
     pub args: Vec<String>,
+    /// Explicit filesystem views for this upstream. They materialize as `/workspace/<name>`.
+    #[serde(default)]
+    pub mounts: Vec<StdioUpstreamMount>,
+    /// Network remains isolated unless both this flag and the daemon-wide gate are enabled.
+    #[serde(default)]
+    pub network: bool,
+    #[serde(default)]
+    pub resources: StdioUpstreamResources,
     pub expected_name: Option<String>,
     pub expected_version: Option<String>,
     #[serde(default = "default_timeout")]
@@ -71,6 +187,17 @@ pub struct StdioUpstreamConfig {
 impl StdioUpstreamConfig {
     pub fn validate_definition(&self) -> Result<()> {
         ProviderIdentity::external(SourceKind::ExternalMcp, &self.slug, "validation")?;
+        self.resources.validate()?;
+        if self.mounts.len() > 16 {
+            return Err(Error::invalid("Federated MCP mount count exceeds budget"));
+        }
+        let mut mount_names = BTreeSet::new();
+        for mount in &self.mounts {
+            mount.validate_definition()?;
+            if !mount_names.insert(mount.name.clone()) {
+                return Err(Error::invalid("Federated MCP mount name is duplicated"));
+            }
+        }
         if !self.program.is_absolute()
             || self.sha256.len() != 64
             || !self
@@ -104,6 +231,9 @@ impl StdioUpstreamConfig {
             return Err(Error::invalid(
                 "Federated stdio executable must be an absolute canonical path",
             ));
+        }
+        for mount in &self.mounts {
+            mount.validate_source()?;
         }
         let digest = executable_sha256(&self.program)?;
         if digest != self.sha256 {
@@ -179,6 +309,114 @@ struct ImportedTool {
     structured_output: bool,
 }
 
+struct StagedFile(PathBuf);
+impl Drop for StagedFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+fn sandbox_helper_path() -> Result<PathBuf> {
+    Ok(std::env::current_exe()?
+        .parent()
+        .ok_or_else(|| Error::unavailable("Cannot locate sandbox helper directory"))?
+        .join("semwright-sandbox"))
+}
+
+fn default_upstream_state() -> Result<PathBuf> {
+    Ok(semwright_platform_services::paths()?
+        .state
+        .join("mcp-upstreams"))
+}
+
+fn sandbox_command(
+    config: &StdioUpstreamConfig,
+    staged: &Path,
+    helper: &Path,
+    allow_network: bool,
+) -> Result<Command> {
+    use semwright_platform_api::launch::{
+        Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
+    };
+    if config.network && !allow_network {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "MCP upstream requests network but the daemon-wide MCP network gate is disabled",
+        ));
+    }
+    let mounts = config
+        .mounts
+        .iter()
+        .map(|mount| Mount {
+            source: mount.source.clone(),
+            class: MountClass::Workspace,
+            logical_name: mount.name.clone(),
+            read_only: mount.read_only,
+        })
+        .collect();
+    semwright_platform_services::sandbox_command(&SandboxSpec {
+        kind: SandboxKind::ExternalMcp,
+        staged_executable: staged.to_path_buf(),
+        helper: helper.to_path_buf(),
+        mounts,
+        args: config.args.clone(),
+        network: config.network,
+        limits: Some(ResourceLimits {
+            open_files: config.resources.open_files,
+            processes: config.resources.processes,
+            cpu_seconds: config.resources.cpu_seconds,
+            address_space_bytes: config.resources.address_space_bytes,
+            file_size_bytes: config.resources.file_size_bytes,
+        }),
+    })
+}
+
+fn prepare_upstream_state(state: &Path) -> Result<()> {
+    if !state.exists()
+        && let Some(parent) = state.parent()
+        && !parent.exists()
+    {
+        std::fs::create_dir_all(parent)?;
+        #[cfg(unix)]
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
+    }
+    semwright_platform_services::private_directory(state)
+}
+
+fn stage_upstream(
+    config: &StdioUpstreamConfig,
+    state: &Path,
+    helper: &Path,
+) -> Result<Arc<StagedFile>> {
+    config.validate_definition()?;
+    if !semwright_platform_services::sandbox_available(helper) {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "External MCP execution requires the platform sandbox; no unsandboxed fallback",
+        ));
+    }
+    config.validate()?;
+    prepare_upstream_state(state)?;
+    let bytes = semwright_platform_services::verify_executable(&config.program, &config.sha256)?;
+    let staged_path = state.join(format!(
+        "mcp-{}-{}",
+        config.slug,
+        semwright_types::unique_id()
+    ));
+    let staged = Arc::new(StagedFile(staged_path.clone()));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(&staged_path)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    #[cfg(unix)]
+    file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
+    drop(file);
+    Ok(staged)
+}
+
 pub struct ExternalMcpProvider {
     identity: ProviderIdentity,
     peer: Peer<RoleClient>,
@@ -187,27 +425,37 @@ pub struct ExternalMcpProvider {
     closed: CancellationToken,
     service_cancel: Mutex<Option<RunningServiceCancellationToken>>,
     request_timeout: Duration,
+    _staged: Arc<StagedFile>,
 }
 
 impl ExternalMcpProvider {
-    /// Connect a trusted, owner-selected executable.
+    /// Connect an owner-selected executable using the platform sandbox with network denied.
     pub async fn connect_trusted_stdio(config: StdioUpstreamConfig) -> Result<Arc<Self>> {
-        config.validate()?;
+        let state = default_upstream_state()?;
+        let helper = sandbox_helper_path()?;
+        Self::connect_sandboxed_stdio(config, &state, &helper, false).await
+    }
+
+    /// Connect an owner-selected executable only after verified staging and sandbox setup.
+    pub async fn connect_sandboxed_stdio(
+        config: StdioUpstreamConfig,
+        state: &Path,
+        helper: &Path,
+        allow_network: bool,
+    ) -> Result<Arc<Self>> {
+        let staged = stage_upstream(&config, state, helper)?;
         let (signals, _) = broadcast::channel(32);
         let handler = UpstreamClient {
             signals: signals.clone(),
         };
-        let mut command = Command::new(&config.program);
-        command.args(&config.args);
-        command.env_clear();
-        command.current_dir("/");
+        let command = sandbox_command(&config, &staged.0, helper, allow_network)?;
         let (transport, _) = TokioChildProcess::builder(command)
             .stderr(Stdio::null())
             .spawn()
             .map_err(|_| {
                 Error::new(
-                    ErrorCode::BackendFailed,
-                    "Failed to launch owner-configured MCP executable",
+                    ErrorCode::SandboxDenied,
+                    "Failed to launch owner-configured MCP executable in the required sandbox",
                 )
             })?;
         let service = tokio::time::timeout(Duration::from_secs(10), handler.serve(transport))
@@ -248,7 +496,7 @@ impl ExternalMcpProvider {
             &config.slug,
             &server_info.version,
         )?;
-        identity.origin = format!("trusted-stdio-sha256:{}", config.sha256);
+        identity.origin = format!("sandboxed-stdio-sha256:{}", config.sha256);
         identity.validate_external()?;
         let closed = CancellationToken::new();
         let cancel = service.cancellation_token();
@@ -260,6 +508,7 @@ impl ExternalMcpProvider {
             closed: closed.clone(),
             service_cancel: Mutex::new(Some(cancel)),
             request_timeout: Duration::from_millis(config.request_timeout_ms),
+            _staged: staged,
         });
         tokio::spawn(async move {
             let _ = service.waiting().await;
@@ -398,7 +647,19 @@ pub struct UpstreamDoctor {
 }
 
 pub async fn doctor_stdio(config: StdioUpstreamConfig) -> Result<UpstreamDoctor> {
-    let provider = ExternalMcpProvider::connect_trusted_stdio(config).await?;
+    let state = default_upstream_state()?;
+    let helper = sandbox_helper_path()?;
+    doctor_stdio_with_sandbox(config, &state, &helper, false).await
+}
+
+pub async fn doctor_stdio_with_sandbox(
+    config: StdioUpstreamConfig,
+    state: &Path,
+    helper: &Path,
+    allow_network: bool,
+) -> Result<UpstreamDoctor> {
+    let provider =
+        ExternalMcpProvider::connect_sandboxed_stdio(config, state, helper, allow_network).await?;
     let result = async {
         let capabilities = Provider::capabilities(provider.as_ref()).await?;
         Ok(UpstreamDoctor {
@@ -587,5 +848,34 @@ impl Provider for ExternalMcpProvider {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod staging_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn upstream_state_creates_private_missing_parent() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root
+            .path()
+            .join("fresh-xdg-state")
+            .join("semwright")
+            .join("mcp-upstreams");
+        prepare_upstream_state(&state).unwrap();
+        assert_eq!(
+            std::fs::metadata(&state).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(state.parent().unwrap())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
     }
 }
