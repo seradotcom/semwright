@@ -38,7 +38,7 @@
   ],
   "semantic_source": {
     "file": "semwright-motion.json",
-    "sha256": "f9b63518af4daccf052c2919f887dc7baa3fa2f627fc214ee3a8a99800e30159"
+    "sha256": "f81c07757c7b3ce98baddd880a867444274af47f7111039b9320d9513c8ec4b8"
   },
   "runtime_lock": {
     "file": "../../integrations/motion-canvas/runtime/package-lock.json",
