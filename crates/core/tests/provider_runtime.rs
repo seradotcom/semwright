@@ -280,8 +280,8 @@ impl Fixture {
         self.broker
             .clone()
             .execute(
-                unique_id(),
                 session.to_owned(),
+                unique_id(),
                 ExecuteRequest {
                     command: format!("driver.fixture.{suffix}"),
                     args,
