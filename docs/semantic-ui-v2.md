@@ -65,14 +65,14 @@ Event loss is never treated as a complete history: caches/refs must be invalidat
 
 Platform implementations are tested against shared semantic expectations rather than forced into identical feature sets. A backend may expose a richer optional facet without requiring other operating systems to fabricate it.
 
-Implemented rich semantics include AT-SPI Table/TableCell coordinates/spans/headers, bounded caret/selections/text-attribute runs, UIA Text/Grid/Table/Scroll/Window/Transform patterns, AX/UIA/AT-SPI native hit-testing and cross-platform selector conformance.
+Implemented rich semantics include AT-SPI Table/TableCell coordinates/spans/headers, bounded caret/selections/text-attribute runs, UIA Text/Grid/Table/Scroll/Window/Transform patterns, AX/UIA/AT-SPI native hit-testing, exact-ref inspection, cross-platform selector conformance and bounded Windows UIA candidate pushdown. The Windows hosted-native fixture exercises a real Win32 window through scoped snapshot, inspect, ElementFromPoint, Invoke/Value observation, protected-control handling and stale-ref destruction.
 
 Remaining hardening focuses on:
 
 - native Windows UIA event loss/flood fidelity and interactive verification;
 - native macOS AX event fidelity/loss behavior on an Accessibility-authorized interactive Mac;
-- native query pushdown where it preserves portable selector semantics;
-- live GTK/Qt/UIA/AX fixture coverage for rich facets and hit-testing;
-- explicit native event-loss, stale-ref, ambiguity and protected-control tests.
+- broader AT-SPI/AX native query pushdown where it preserves portable selector semantics;
+- live GTK/Qt/AX fixture coverage for rich facets and hit-testing;
+- explicit native event-loss, stale-ref, ambiguity and protected-control tests across interactive sessions.
 
 No v2 field is an authorization signal. Policy, consent, app scope and pre-mutation validation remain authoritative.
