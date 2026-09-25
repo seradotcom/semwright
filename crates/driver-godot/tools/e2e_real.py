@@ -147,6 +147,11 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         "extends Node3D\n"
         "signal semantic_changed(value: int)\n"
         "@export var semantic_value: int = 7\n"
+        "@export var semantic_transform: Transform3D = Transform3D.IDENTITY\n"
+        "@export var semantic_vectors: PackedVector3Array = PackedVector3Array()\n"
+        "@export var semantic_array: Array = []\n"
+        "@export var semantic_dictionary: Dictionary = {}\n"
+        "@export var semantic_node: Node\n"
         "const SEMANTIC_CONSTANT := 11\n"
         "func semantic_method(delta: float = 1.0) -> float:\n"
         "    return float(semantic_value) * delta\n"
@@ -381,6 +386,10 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node("Rig", "BoneAttachment3D", "Attachment")
         node(".", "CanvasLayer", "HUD")
         node("HUD", "Label", "Status", [("text", "Find the key")])
+        node(".", "Node3D", "SemanticNode")
+        mutate("driver.godot.script.attach", {
+            "target": "SemanticNode", "path": "res://scripts/semantic_node.gd",
+        })
         value = call("driver.godot.ui.layout", {
             "session": sid, "target": "HUD/Status",
             "anchor_left": 0.0, "anchor_top": 0.0, "anchor_right": 0.0, "anchor_bottom": 0.0,
@@ -401,6 +410,80 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         encoded_transform = player_state["data"]["properties"]["transform"]
         assert encoded_transform["$type"] == "Transform3D"
         assert len(encoded_transform["value"]) == 12
+
+        semantic_transform = [1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 3, 4]
+        semantic_array = {
+            "$type": "Array",
+            "value": [
+                1,
+                {"$type": "Vector3", "value": [7.0, 8.0, 9.0]},
+                {"$type": "StringName", "value": "semantic"},
+            ],
+        }
+        semantic_dictionary = {
+            "$type": "Dictionary",
+            "entries": [
+                {"key": "mode", "value": 2},
+                {
+                    "key": {"$type": "StringName", "value": "target"},
+                    "value": {"$type": "Vector2", "value": [2.5, 4.5]},
+                },
+            ],
+        }
+        mutate("driver.godot.node.patch", {
+            "target": "SemanticNode",
+            "properties": [
+                {"name": "semantic_value", "value": 23},
+                {"name": "semantic_transform", "value": Transform3D(semantic_transform)},
+                {
+                    "name": "semantic_vectors",
+                    "value": {
+                        "$type": "PackedVector3Array",
+                        "value": [[1.0, 2.0, 3.0], [-4.0, 5.0, 6.0]],
+                    },
+                },
+                {"name": "semantic_array", "value": semantic_array},
+                {"name": "semantic_dictionary", "value": semantic_dictionary},
+                {"name": "semantic_node", "value": {"$type": "NodeRef", "path": "Player/Camera"}},
+            ],
+        })
+        semantic_state = call("driver.godot.node.inspect", {
+            "session": sid, "path": "SemanticNode",
+        })
+        semantic_props = semantic_state["data"]["properties"]
+        assert semantic_props["semantic_value"] == 23
+        assert semantic_props["semantic_transform"] == {
+            "$type": "Transform3D", "value": semantic_transform,
+        }
+        assert semantic_props["semantic_vectors"] == {
+            "$type": "PackedVector3Array",
+            "value": [[1.0, 2.0, 3.0], [-4.0, 5.0, 6.0]],
+        }
+        assert semantic_props["semantic_array"] == semantic_array
+        assert semantic_props["semantic_dictionary"] == semantic_dictionary
+        assert semantic_props["semantic_node"]["$type"] == "NodeRef"
+        assert semantic_props["semantic_node"]["path"] == "Player/Camera"
+        assert semantic_props["semantic_node"]["class"] == "Camera3D"
+
+        # Recursive decoding is authoritative even where JSON Schema intentionally
+        # stays bounded rather than recursively self-referential.
+        before_nested_bad_write = st.copy()
+        nested_bad, _ = execute_failure(driver, caps, "driver.godot.node.patch", {
+            "session": sid,
+            "target": "SemanticNode",
+            "properties": [{
+                "name": "semantic_array",
+                "value": {
+                    "$type": "Array",
+                    "value": [{"$type": "ArbitraryObject", "value": []}],
+                },
+            }],
+            "expect": st,
+            "dry_run": False,
+        }, "nested-variant-reject")
+        assert nested_bad["code"] == "InvalidArgument", nested_bad
+        after_nested_bad_write = call("driver.godot.project.inspect", {"session": sid})
+        assert stamp(after_nested_bad_write) == before_nested_bad_write
 
         before_bad_write = st.copy()
         bad_write, _ = execute_failure(driver, caps, "driver.godot.node.patch", {
