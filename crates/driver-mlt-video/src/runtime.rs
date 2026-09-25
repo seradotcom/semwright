@@ -508,8 +508,19 @@ impl Runtime {
         timeout: Duration,
     ) -> Result<ProcessSpec> {
         if self.host_sandboxed {
+            // Driver Host already provides the outer Bubblewrap + Landlock boundary.
+            // Writable roots (including /tmp) are deliberately no-exec there, so do
+            // not execute the standalone staged copies from PrivateDir. Re-verify the
+            // canonical owner-pinned system tool immediately before spawning it from
+            // the read+execute system mount instead.
+            let pinned = match tool {
+                "melt" => &self.melt,
+                "ffprobe" => &self.ffprobe,
+                _ => return Err(Error::invalid("Unknown hosted runtime tool")),
+            };
+            let _verified = pinned.verify()?;
             return Ok(ProcessSpec {
-                executable: self.tools.path().join(tool),
+                executable: pinned.path.clone(),
                 args,
                 cwd: work.into(),
                 timeout,
