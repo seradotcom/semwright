@@ -719,11 +719,12 @@ impl Runtime {
             )
             .into(),
             format!("f={}", profile.container).into(),
-            // Ubuntu 24.04 ships MLT 7.22 here. Its avformat consumer's stable
-            // offline/no-drop mode is real_time=-1; real_time=0 and multi-worker
-            // modes have both crashed in hosted CI for this composition. Keep MLT
-            // on its single offline processing path and bound only encoder threads.
-            "real_time=-1".into(),
+            // Negative real_time preserves offline/no-drop rendering while abs(value)
+            // selects MLT processing workers. Keep two workers and a five-frame
+            // read-ahead buffer inside the 1 GiB address-space limit; separately
+            // bound libx264 to four encoder threads for predictable CI resource use.
+            "real_time=-2".into(),
+            "buffer=5".into(),
             "threads=4".into(),
         ];
         if let Some(codec) = profile.video_codec {
