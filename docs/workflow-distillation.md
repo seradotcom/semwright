@@ -1,4 +1,4 @@
-# Workflow distillation v1 + v2
+# Workflow distillation v1 + v2 + v3
 
 Workflow distillation turns explicit, successful Semwright executions into versioned
 Recipe v1 candidates and, after verification and successful replay, into normal searchable
@@ -206,8 +206,9 @@ V2 still does not:
 - claim ACID transactions or rollback;
 - store passwords/secret-access results for learning.
 
-Automatic candidate proposal is reserved for V3 and must preserve the same broker,
-policy, replay and promotion gates.
+V3 below adds automatic candidate proposals while preserving the same broker, policy,
+replay and promotion gates.
+
 ## V3 automatic proposals
 
 V3 is deliberately **automatic about analysis, not authority**. A proposal is eligible only
