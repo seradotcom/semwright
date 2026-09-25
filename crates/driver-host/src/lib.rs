@@ -360,6 +360,7 @@ fn sandbox_command(
             class: MountClass::Workspace,
             logical_name: loopback::MOUNT_NAME.into(),
             read_only: false,
+            execute: false,
         });
         environment.push((
             "SEMWRIGHT_DRIVER_LOOPBACK_SOCKET".into(),
