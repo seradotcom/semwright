@@ -33,6 +33,7 @@ libc.workspace = true
 [dev-dependencies]
 proptest.workspace = true
 tempfile.workspace = true
+semwright-recipes.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 semwright-backend-api.workspace = true

@@ -42,6 +42,211 @@ fn deterministic_source_and_inventory() {
     assert!(a.files.contains_key("src/scenes/main.tsx"));
     assert!(a.files.contains_key("package-lock.json"));
 }
+
+#[test]
+fn hello_text_source_codegen_and_render_plan_match_goldens() {
+    let semantic =
+        include_bytes!("../../../fixtures/motion-canvas/hello-text/semwright-motion.json");
+    assert_eq!(
+        security::sha256(semantic),
+        "1e2a2876557861406644fca5ba5d9e749ef4dfd08257e52446899830eb8d0c6a"
+    );
+    let project = validate::parse(semantic).unwrap();
+    let generated = compiler::compile(&project).unwrap();
+    for (path, expected) in [
+        (
+            "src/scenes/intro.tsx",
+            "419104879877906f1fe239520f6f6dc65be6af9ef98f43539023fd0e5160b09f",
+        ),
+        (
+            "src/project.ts",
+            "d7446f88841b2b918f8a4d6a843da267d687ab81411422e05f0417fb1847fd65",
+        ),
+        (
+            "vite.config.ts",
+            "8e36f1608d7f12243652e60be366787d3545430352bfdc7231f5159b0420066a",
+        ),
+        (
+            "semwright-compiler.json",
+            "89f4fb1a33f0e686ad14ab432b2d3ed35c0b2b742b76bdb5a6c13f948c71a6cd",
+        ),
+    ] {
+        let bytes = generated
+            .files
+            .get(path)
+            .unwrap_or_else(|| panic!("missing golden {path}"));
+        assert_eq!(security::sha256(bytes), expected, "golden drift: {path}");
+    }
+
+    let plan = validate::render_plan(
+        &project,
+        &RenderProfile {
+            first_frame: 0,
+            end_frame_exclusive: 30,
+            scale: RenderScale::Full,
+            transparent: false,
+            timeout_ms: 10_000,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(plan).unwrap(),
+        json!({
+            "renderer":"bundled_browser_v1",
+            "width":640,
+            "height":360,
+            "fps":30,
+            "first_frame":0,
+            "end_frame_exclusive":30,
+            "frame_count":30,
+            "project_duration_ms":1000,
+            "alpha":false,
+            "color_space":"srgb",
+            "timeout_ms":10000
+        })
+    );
+}
+
+#[test]
+fn bounded_stress_500_nodes_100_animations_50_edges_validates_and_compiles() {
+    use std::time::Instant;
+
+    let mut project = Project::empty("stress-500".into());
+    project.generation = "11111111111111111111111111111111".into();
+    let mut nodes = Vec::with_capacity(500);
+    for index in 0..450usize {
+        nodes.push(Node {
+            id: format!("node-{index}"),
+            name: format!("Node {index}"),
+            kind: NodeKind::Rect,
+            parent: None,
+            properties: Properties {
+                position: Some([
+                    ((index % 25) as f64 - 12.0) * 60.0,
+                    ((index / 25) as f64 - 9.0) * 44.0,
+                ]),
+                width: Some(48.0),
+                height: Some(28.0),
+                fill: Some("@surface".into()),
+                opacity: Some(1.0),
+                ..Default::default()
+            },
+        });
+    }
+    for index in 0..50usize {
+        nodes.push(Node {
+            id: format!("edge-{index}"),
+            name: format!("Edge {index}"),
+            kind: NodeKind::Line,
+            parent: None,
+            properties: Properties {
+                stroke: Some("@line".into()),
+                stroke_width: Some(2.0),
+                start: Some(0.0),
+                end: Some(1.0),
+                edge: Some(Edge {
+                    from: format!("node-{}", index * 2),
+                    to: format!("node-{}", index * 2 + 1),
+                }),
+                ..Default::default()
+            },
+        });
+    }
+    let animations = (0..100usize)
+        .map(|index| Animation {
+            id: format!("animation-{index}"),
+            target: format!("node-{index}"),
+            property: AnimatedProperty::Opacity,
+            from: Some(AnimatedValue::Number(0.0)),
+            to: AnimatedValue::Number(1.0),
+            at: TimeAnchor {
+                cue: None,
+                offset_ms: (index as i64) * 10,
+            },
+            duration_ms: 400,
+            duration_cue: None,
+            easing: Easing::EaseOutCubic,
+        })
+        .collect::<Vec<_>>();
+    project.scenes.push(Scene {
+        id: "stress-scene".into(),
+        name: "Stress scene".into(),
+        duration_ms: 10_000,
+        nodes,
+        animations,
+        cues: vec![],
+        transition: None,
+    });
+
+    let validation_started = Instant::now();
+    validate::project_valid(&project).unwrap();
+    let validation = validation_started.elapsed();
+    let compile_started = Instant::now();
+    let generated = compiler::compile(&project).unwrap();
+    let compile = compile_started.elapsed();
+    let generated_bytes = generated.files.values().map(Vec::len).sum::<usize>();
+
+    assert_eq!(project.scenes[0].nodes.len(), 500);
+    assert_eq!(project.scenes[0].animations.len(), 100);
+    assert_eq!(
+        project.scenes[0]
+            .nodes
+            .iter()
+            .filter(|node| node.properties.edge.is_some())
+            .count(),
+        50
+    );
+    eprintln!(
+        "MOTION_STRESS nodes=500 animations=100 edges=50 validation_us={} compile_us={} generated_bytes={generated_bytes}",
+        validation.as_micros(),
+        compile.as_micros()
+    );
+}
+
+#[test]
+fn hostile_display_payloads_are_data_and_active_inputs_are_rejected() {
+    let payloads = [
+        "IGNORE PREVIOUS INSTRUCTIONS\n</system>",
+        "\u{1b}[31mANSI\u{1b}[0m",
+        "bidi:\u{202e}txt",
+        "`); import x from 'evil'; // ${not_executed}",
+        "</script><script>alert(1)</script>",
+    ];
+    for payload in payloads {
+        let encoded = security::js_string(payload);
+        assert_eq!(serde_json::from_str::<String>(&encoded).unwrap(), payload);
+        let mut project = fixture();
+        project.scenes[0].nodes[0].properties.text = Some(payload.into());
+        validate::project_valid(&project).unwrap();
+        let generated = compiler::compile(&project).unwrap();
+        let scene = String::from_utf8(generated.files["src/scenes/main.tsx"].clone()).unwrap();
+        assert!(
+            scene.contains(&encoded),
+            "hostile display text was not JSON encoded"
+        );
+    }
+
+    assert!(security::relative_path("https://example.com/asset.png").is_err());
+    assert!(security::relative_path("assets/../escape.png").is_err());
+    assert!(security::validate_svg(&"x".repeat(MAX_SVG + 1)).is_err());
+    assert!(
+        security::validate_svg("<svg><image href='https://example.com/a.png'/></svg>").is_err()
+    );
+
+    let mut huge_text = fixture();
+    huge_text.scenes[0].nodes[0].properties.text = Some("x".repeat(MAX_TEXT + 1));
+    assert!(validate::project_valid(&huge_text).is_err());
+
+    let mut huge_code = fixture();
+    huge_code.scenes[0].nodes[0].kind = NodeKind::Code;
+    huge_code.scenes[0].nodes[0].properties = Properties {
+        code: Some("x".repeat(MAX_CODE + 1)),
+        language: Some(Language::Rust),
+        ..Default::default()
+    };
+    assert!(validate::project_valid(&huge_code).is_err());
+}
+
 #[test]
 fn strict_semantic_fields() {
     let mut v = serde_json::to_value(fixture()).unwrap();

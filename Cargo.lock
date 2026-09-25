@@ -3081,6 +3081,7 @@ dependencies = [
  "semwright-driver-host",
  "semwright-driver-sdk",
  "semwright-policy",
+ "semwright-recipes",
  "semwright-types",
  "serde",
  "serde_json",

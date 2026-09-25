@@ -1043,6 +1043,7 @@ impl Driver for MotionDriver {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use semwright_recipes::Executor;
 
     #[test]
     fn catalog_response_fits_driver_protocol_frame_budget() {
@@ -1060,6 +1061,80 @@ mod tests {
             bytes.len(),
             semwright_types::MAX_FRAME
         );
+    }
+
+    #[test]
+    fn capability_catalog_and_manifest_are_stable_goldens() {
+        let catalog = MotionDriver::catalog().unwrap();
+        let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
+        assert_eq!(
+            digest,
+            "292abde1177b030eb8d374413cc482309ad910b627e2f42a6769698e9d8e2aa3"
+        );
+
+        let manifest_bytes = include_bytes!("../driver.manifest.example.json");
+        assert_eq!(
+            crate::security::sha256(manifest_bytes),
+            "a9c3945c7809e3cb8ee591bdf4d7fbce11cfc0c73ea89e95ce5474a5ab858c05"
+        );
+        let manifest: semwright_driver_sdk::Manifest =
+            serde_json::from_slice(manifest_bytes).unwrap();
+        manifest.validate().unwrap();
+    }
+
+    struct RecipeCatalog {
+        descriptors: BTreeMap<String, CommandDescriptor>,
+    }
+
+    #[async_trait::async_trait]
+    impl semwright_recipes::Executor for RecipeCatalog {
+        fn describe(&self, command: &str) -> semwright_types::Result<CommandDescriptor> {
+            self.descriptors.get(command).cloned().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::NotFound,
+                    "Recipe references an unknown Motion Canvas capability",
+                )
+            })
+        }
+
+        async fn execute(
+            &self,
+            _request: semwright_types::ExecuteRequest,
+            _cancellation: tokio_util::sync::CancellationToken,
+        ) -> semwright_types::Result<Value> {
+            Err(Error::new(
+                ErrorCode::Unsupported,
+                "Recipe golden executor validates only; it never executes",
+            ))
+        }
+    }
+
+    #[test]
+    fn launch_film_recipe_validates_against_real_driver_catalog() {
+        let recipe =
+            semwright_recipes::parse(include_str!("../../../recipes/demo/launch-film.yaml"))
+                .unwrap();
+        let descriptors = MotionDriver::catalog()
+            .unwrap()
+            .into_iter()
+            .map(|capability| (capability.descriptor.name.clone(), capability.descriptor))
+            .collect::<BTreeMap<_, _>>();
+        let executor = RecipeCatalog { descriptors };
+
+        for step in &recipe.steps {
+            let descriptor = executor.describe(&step.command).unwrap();
+            let validator = jsonschema::validator_for(&descriptor.input_schema).unwrap();
+            assert!(
+                validator.is_valid(&step.args),
+                "recipe step {} arguments do not match {}",
+                step.id,
+                step.command
+            );
+        }
+        let plan = recipe.validate(&executor).unwrap();
+        assert_eq!(plan["valid"], true);
+        assert_eq!(plan["name"], "launch-film-source-check");
+        assert_eq!(recipe.steps.len(), 3);
     }
 
     #[test]
