@@ -1058,15 +1058,32 @@ impl Broker {
         args: &Value,
     ) -> Result<Value> {
         let mut selector: Selector = serde_json::from_value(args["selector"].clone())?;
-        let mut snapshot_args = json!({"max_nodes":args["max_nodes"].as_u64().unwrap_or(500),"max_depth":args["max_depth"].as_u64().unwrap_or(8)});
+        let max_nodes = args["max_nodes"].as_u64().unwrap_or(500).min(2_000) as usize;
+        let max_depth = args["max_depth"].as_u64().unwrap_or(8).min(32) as usize;
+        let mut snapshot_args = json!({"max_nodes":max_nodes,"max_depth":max_depth});
         if let Some(app) = &selector.app {
             snapshot_args["app"] = json!(app);
         }
-        let mut output = self
+        let provider = self
             .provider(backend)
-            .ok_or_else(|| Error::unavailable("UI backend missing"))?
-            .execute(context, &self.describe("ui.snapshot")?, &snapshot_args)
-            .await?;
+            .ok_or_else(|| Error::unavailable("UI backend missing"))?;
+        // Ancestor refs are broker-owned handles. Until a backend can prove an equivalent
+        // native ancestry scope, preserve the existing bounded snapshot semantics.
+        let pushed = if selector.ancestor.is_none() {
+            provider
+                .find_ui_candidates(context, &selector, max_nodes, max_depth)
+                .await?
+        } else {
+            None
+        };
+        let mut output = match pushed {
+            Some(output) => output,
+            None => {
+                provider
+                    .execute(context, &self.describe("ui.snapshot")?, &snapshot_args)
+                    .await?
+            }
+        };
         self.filter_apps(&mut output)?;
         self.materialize(session, backend, &mut output)?;
         let nodes: Vec<UiNode> = serde_json::from_value(output["nodes"].clone())?;
@@ -1161,6 +1178,31 @@ impl Broker {
             "workflow.suggestion.restore" => {
                 self.workflow_suggestion_restore(arg_str(args, "suggestion_id")?)
             }
+            "workflow.proposals.list" => self.workflow_proposals(
+                session,
+                args["min_occurrences"].as_u64().unwrap_or(3) as usize,
+                args["include_dismissed"].as_bool().unwrap_or(false),
+            ),
+            "workflow.proposal.get" => {
+                self.workflow_proposal(session, arg_str(args, "proposal_id")?)
+            }
+            "workflow.proposal.plan" => {
+                self.workflow_proposal_plan(
+                    session,
+                    arg_str(args, "proposal_id")?,
+                    args.get("inputs").cloned().unwrap_or_else(|| json!({})),
+                    _cancellation.clone(),
+                )
+                .await
+            }
+            "workflow.proposal.accept" => {
+                self.workflow_proposal_accept(session, arg_str(args, "proposal_id")?)
+            }
+            "workflow.proposal.dismiss" => self.workflow_proposal_dismiss(
+                session,
+                arg_str(args, "proposal_id")?,
+                args["permanent"].as_bool().unwrap_or(false),
+            ),
             "workflow.suggestion.compile" => {
                 let hints: Vec<semwright_workflow::ParameterHint> = serde_json::from_value(
                     args.get("parameters").cloned().unwrap_or_else(|| json!([])),

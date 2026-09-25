@@ -120,6 +120,35 @@ async fn duplicate_labels_remain_discovery_candidates() {
     assert_eq!(n["count"], 2);
     assert_eq!(f.desktop.invocations(), 0);
 }
+
+#[tokio::test]
+async fn ui_find_pushdown_is_optional_and_portably_refiltered() {
+    let f = Fixture::new(Profile::Observe);
+
+    let fallback = f.find("Export").await;
+    assert_eq!(fallback["count"], 1);
+    assert_eq!(f.desktop.candidate_queries(), 0);
+
+    let pushed = f
+        .call(
+            "ui.find",
+            json!({
+                "selector": {
+                    "framework": "fixture",
+                    "name": {"op": "exact", "value": "Export"}
+                }
+            }),
+        )
+        .await;
+    assert!(pushed.ok, "{pushed:?}");
+    let data = pushed.data.unwrap();
+    assert_eq!(data["count"], 1);
+    assert_eq!(data["nodes"][0]["name"], "Export");
+    assert_eq!(data["nodes"][0]["framework"], "fixture");
+    assert_eq!(f.desktop.candidate_queries(), 1);
+    assert_eq!(f.desktop.invocations(), 0);
+}
+
 #[tokio::test]
 async fn mutation_requires_reference_not_selector() {
     let f = Fixture::new(Profile::Desktop);
@@ -1004,6 +1033,135 @@ async fn repeated_workflows_surface_suggestions_compile_and_resurface_after_new_
     let visible = fixture.call("workflow.suggestions.list", json!({})).await;
     assert!(visible.ok, "{visible:?}");
     assert_eq!(visible.data.unwrap()["suggestions"][0]["occurrences"], 5);
+}
+
+#[tokio::test]
+async fn v3_proposal_is_sanitized_plannable_and_requires_acceptance_before_persistence() {
+    let fixture = workflow_fixture();
+    record_clipboard_trace(&fixture, "alpha").await;
+    record_clipboard_trace(&fixture, "beta").await;
+    record_clipboard_trace(&fixture, "gamma").await;
+
+    let events = fixture.broker.replay_for(&fixture.session, 0).unwrap();
+    assert!(
+        events
+            .iter()
+            .any(|event| event.event.kind == "workflow.proposal.ready")
+    );
+    assert!(
+        !fixture
+            .broker
+            .replay_for(&unique_id(), 0)
+            .unwrap()
+            .iter()
+            .any(|event| event.event.kind == "workflow.proposal.ready")
+    );
+
+    let listed = fixture.call("workflow.proposals.list", json!({})).await;
+    assert!(listed.ok, "{listed:?}");
+    let proposal = listed.data.unwrap()["proposals"][0].clone();
+    assert_eq!(proposal["static_verified"], true);
+    assert_eq!(proposal["evidence"]["source_trace_count"], 3);
+    assert_eq!(proposal["evidence"]["tier"], "standard");
+    assert_eq!(proposal["inputs"][0]["kind"], "string");
+    let encoded = serde_json::to_string(&proposal).unwrap();
+    assert!(!encoded.contains("alpha"));
+    assert!(!encoded.contains("beta"));
+    assert!(!encoded.contains("gamma"));
+    assert!(!encoded.contains("trace-"));
+    assert!(proposal.get("fingerprint").is_none());
+    assert!(proposal.get("candidate_id").is_none());
+    assert!(proposal.get("candidate_fingerprint").is_none());
+
+    let before = fixture.call("workflow.candidates.list", json!({})).await;
+    assert!(before.ok, "{before:?}");
+    assert!(
+        before.data.unwrap()["candidates"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    let proposal_id = proposal["id"].as_str().unwrap().to_owned();
+    let plan = fixture
+        .call(
+            "workflow.proposal.plan",
+            json!({"proposal_id":proposal_id,"inputs":{"step1_text":"delta"}}),
+        )
+        .await;
+    assert!(plan.ok, "{plan:?}");
+    assert_eq!(plan.data.as_ref().unwrap()["plan"]["dry_run"], true);
+    assert!(plan.data.as_ref().unwrap().get("candidate_id").is_none());
+
+    let still_empty = fixture.call("workflow.candidates.list", json!({})).await;
+    assert!(still_empty.ok, "{still_empty:?}");
+    assert!(
+        still_empty.data.unwrap()["candidates"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    let accepted = fixture
+        .call(
+            "workflow.proposal.accept",
+            json!({"proposal_id":proposal_id}),
+        )
+        .await;
+    assert!(accepted.ok, "{accepted:?}");
+    let candidate = accepted.data.unwrap()["candidate"].clone();
+    assert_eq!(candidate["static_verified"], true);
+    assert_eq!(candidate["successful_replays"], 0);
+
+    let premature = fixture
+        .call(
+            "workflow.promote",
+            json!({"candidate_id":candidate["id"],"slug":"v3-premature"}),
+        )
+        .await;
+    assert_eq!(premature.error.unwrap().code, ErrorCode::Conflict);
+
+    let replayed = fixture
+        .call(
+            "workflow.replay",
+            json!({"candidate_id":candidate["id"],"inputs":{"step1_text":"delta"}}),
+        )
+        .await;
+    assert!(replayed.ok, "{replayed:?}");
+    let promoted = fixture
+        .call(
+            "workflow.promote",
+            json!({"candidate_id":candidate["id"],"slug":"v3-clipboard"}),
+        )
+        .await;
+    assert!(promoted.ok, "{promoted:?}");
+}
+
+#[tokio::test]
+async fn v3_proposal_identity_changes_with_new_evidence_and_stale_accept_fails() {
+    let fixture = workflow_fixture();
+    record_clipboard_trace(&fixture, "alpha").await;
+    record_clipboard_trace(&fixture, "beta").await;
+    record_clipboard_trace(&fixture, "gamma").await;
+
+    let first = fixture.call("workflow.proposals.list", json!({})).await;
+    let old_id = first.data.unwrap()["proposals"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    record_clipboard_trace(&fixture, "delta").await;
+    let second = fixture.call("workflow.proposals.list", json!({})).await;
+    let new_id = second.data.unwrap()["proposals"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert_ne!(old_id, new_id);
+
+    let stale = fixture
+        .call("workflow.proposal.accept", json!({"proposal_id":old_id}))
+        .await;
+    assert_eq!(stale.error.unwrap().code, ErrorCode::NotFound);
 }
 
 #[tokio::test]

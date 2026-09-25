@@ -157,6 +157,8 @@ fn start_fixture() -> (thread::JoinHandle<()>, isize, String) {
         // hit-test assertion is only meaningful if this fixture actually owns the pixels
         // described by its UIA bounds. This changes test z-order only; production targeting
         // semantics are unchanged.
+        // SAFETY: hwnd was created by this fixture thread above and remains owned/live until
+        // this thread destroys it; these calls only change this test window's z-order/focus.
         unsafe {
             SetWindowPos(
                 hwnd,

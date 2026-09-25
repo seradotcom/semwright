@@ -8,7 +8,9 @@ pub mod uia;
 use async_trait::async_trait;
 use semwright_backend_api::{Backend, Context, ProviderSignal, feature};
 use semwright_platform_windows_sys::{capture, clipboard, input, window};
-use semwright_types::{CapabilityStatus, Error, ErrorCode, Feature, NativeTarget, Result};
+use semwright_types::{
+    CapabilityStatus, Error, ErrorCode, Feature, NativeTarget, Result, Selector,
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -279,6 +281,22 @@ impl Backend for Windows {
         }).collect()
     }
 
+    async fn find_ui_candidates(
+        &self,
+        ctx: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        ctx.check_cancelled()?;
+        if !uia::selector_has_pushdown(selector) {
+            return Ok(None);
+        }
+        self.uia
+            .find_candidates(selector.clone(), max_nodes, max_depth)
+            .map(Some)
+    }
+
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
         ctx.check_cancelled()?;
         if !self.supports(command) {
@@ -317,13 +335,24 @@ impl Backend for Windows {
             "ui.snapshot" => {
                 let scoped = args
                     .get("_target")
-                    .and_then(|v| serde_json::from_value::<NativeTarget>(v.clone()).ok());
+                    .and_then(|value| serde_json::from_value::<NativeTarget>(value.clone()).ok());
+                let max_nodes = args
+                    .get("max_nodes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(200)
+                    .min(2_000) as usize;
+                let max_depth = args
+                    .get("max_depth")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(5)
+                    .min(32) as usize;
                 match scoped {
                     Some(reference) if reference.identity.starts_with("win:") => {
                         let hwnd = self.resolve_window(&reference)?;
-                        self.uia.snapshot_hwnd(hwnd.0 as isize)
+                        self.uia
+                            .snapshot_hwnd(hwnd.0 as isize, max_nodes, max_depth)
                     }
-                    other => self.uia.snapshot(other),
+                    other => self.uia.snapshot(other, max_nodes, max_depth),
                 }
             }
             "ui.inspect" => self.uia.inspect(target(args)?),

@@ -15362,5 +15362,1256 @@
     "backends": [
       "core"
     ]
+  },
+  {
+    "name": "workflow.proposal.accept",
+    "version": "1.0",
+    "description": "Explicitly accept the exact current proposal and persist its already statically verified Recipe v1 candidate; live replay is still required before promotion.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^proposal-[0-9a-f]{24}$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "proposal_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^proposal-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "pattern_id": {
+              "type": "string",
+              "pattern": "^pattern-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "suggestion_id": {
+              "type": "string",
+              "pattern": "^suggestion-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "commands": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            },
+            "inputs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "string",
+                      "number",
+                      "integer",
+                      "boolean",
+                      "object",
+                      "array"
+                    ]
+                  },
+                  "secret": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "kind",
+                  "secret"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "max_risk": {
+              "type": "string",
+              "enum": [
+                "read_only",
+                "mutating_reversible",
+                "mutating",
+                "destructive",
+                "secret_access",
+                "code_execution",
+                "privilege_sensitive"
+              ]
+            },
+            "requires": {
+              "type": "array",
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 128
+              }
+            },
+            "static_verified": {
+              "type": "boolean",
+              "const": true
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "occurrences": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 256
+                },
+                "compile_ready_count": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 256
+                },
+                "source_trace_count": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 8
+                },
+                "parameter_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "bound_value_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4096
+                },
+                "assertion_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 256
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "standard",
+                    "strong",
+                    "very_strong"
+                  ]
+                }
+              },
+              "required": [
+                "occurrences",
+                "compile_ready_count",
+                "source_trace_count",
+                "parameter_count",
+                "bound_value_count",
+                "assertion_count",
+                "tier"
+              ],
+              "additionalProperties": false
+            },
+            "dismissed": {
+              "type": "boolean"
+            },
+            "resurfaced": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "id",
+            "pattern_id",
+            "suggestion_id",
+            "name",
+            "commands",
+            "inputs",
+            "max_risk",
+            "requires",
+            "static_verified",
+            "evidence",
+            "dismissed",
+            "resurfaced"
+          ],
+          "additionalProperties": false
+        },
+        "candidate": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 7,
+              "maxLength": 96
+            },
+            "recipe": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "inputs": {
+                  "type": "object",
+                  "maxProperties": 64,
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "integer",
+                          "boolean",
+                          "object",
+                          "array"
+                        ]
+                      },
+                      "secret": {
+                        "type": "boolean"
+                      },
+                      "default": {
+                        "anyOf": [
+                          {
+                            "type": [
+                              "object",
+                              "array",
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "secret",
+                      "default"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "steps": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "command": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "args": {
+                        "type": [
+                          "object",
+                          "array",
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "timeout_ms": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300000
+                      },
+                      "retry": {
+                        "type": "object",
+                        "properties": {
+                          "attempts": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "backoff_ms": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 5000
+                          }
+                        },
+                        "required": [
+                          "attempts",
+                          "backoff_ms"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "when": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "left": {
+                                "type": [
+                                  "object",
+                                  "array",
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "op": {
+                                "type": "string",
+                                "enum": [
+                                  "equals",
+                                  "not_equals",
+                                  "truthy",
+                                  "exists",
+                                  "count_equals"
+                                ]
+                              },
+                              "right": {
+                                "type": [
+                                  "object",
+                                  "array",
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "left",
+                              "op",
+                              "right"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "assertions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "left": {
+                              "type": [
+                                "object",
+                                "array",
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "equals",
+                                "not_equals",
+                                "truthy",
+                                "exists",
+                                "count_equals"
+                              ]
+                            },
+                            "right": {
+                              "type": [
+                                "object",
+                                "array",
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "left",
+                            "op",
+                            "right"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "command",
+                      "args",
+                      "timeout_ms",
+                      "retry",
+                      "when",
+                      "assertions"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "outputs": {
+                  "type": "object",
+                  "maxProperties": 64,
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "string",
+                          "number",
+                          "integer",
+                          "boolean",
+                          "object",
+                          "array"
+                        ]
+                      },
+                      "value": {
+                        "type": [
+                          "object",
+                          "array",
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "secret": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value",
+                      "secret"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "version",
+                "name",
+                "description",
+                "inputs",
+                "steps",
+                "outputs"
+              ],
+              "additionalProperties": false
+            },
+            "source_trace_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 7,
+                "maxLength": 96
+              }
+            },
+            "source_descriptor_sha256": {
+              "type": "object",
+              "maxProperties": 64,
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "compiled_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "static_verified": {
+              "type": "boolean"
+            },
+            "successful_replays": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "version",
+            "id",
+            "recipe",
+            "source_trace_ids",
+            "source_descriptor_sha256",
+            "compiled_unix_ms",
+            "fingerprint",
+            "static_verified",
+            "successful_replays"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "accepted",
+        "proposal",
+        "candidate"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.proposal.dismiss",
+    "version": "1.0",
+    "description": "Dismiss an automatically compiled proposal by reusing the underlying suggestion dismissal lifecycle.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^proposal-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "permanent": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "proposal_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "dismissed": {
+          "type": "boolean",
+          "const": true
+        },
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^proposal-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "suggestion_id": {
+          "type": "string",
+          "pattern": "^suggestion-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "dismissal": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "pattern_id": {
+              "type": "string",
+              "pattern": "^pattern-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "dismissed_unix_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "dismissed_through_occurrences": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 256
+            },
+            "permanent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "pattern_id",
+            "fingerprint",
+            "dismissed_unix_ms",
+            "dismissed_through_occurrences",
+            "permanent"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "dismissed",
+        "proposal_id",
+        "suggestion_id",
+        "dismissal"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.manage"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.proposal.get",
+    "version": "1.0",
+    "description": "Inspect one current automatically compiled workflow proposal; raw captured values and recipe constants are not exposed.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^proposal-[0-9a-f]{24}$",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "proposal_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "proposal": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^proposal-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "pattern_id": {
+              "type": "string",
+              "pattern": "^pattern-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "suggestion_id": {
+              "type": "string",
+              "pattern": "^suggestion-[0-9a-f]{24}$",
+              "maxLength": 40
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "commands": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              }
+            },
+            "inputs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "string",
+                      "number",
+                      "integer",
+                      "boolean",
+                      "object",
+                      "array"
+                    ]
+                  },
+                  "secret": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "kind",
+                  "secret"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "max_risk": {
+              "type": "string",
+              "enum": [
+                "read_only",
+                "mutating_reversible",
+                "mutating",
+                "destructive",
+                "secret_access",
+                "code_execution",
+                "privilege_sensitive"
+              ]
+            },
+            "requires": {
+              "type": "array",
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 128
+              }
+            },
+            "static_verified": {
+              "type": "boolean",
+              "const": true
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "occurrences": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 256
+                },
+                "compile_ready_count": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 256
+                },
+                "source_trace_count": {
+                  "type": "integer",
+                  "minimum": 3,
+                  "maximum": 8
+                },
+                "parameter_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64
+                },
+                "bound_value_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4096
+                },
+                "assertion_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 256
+                },
+                "tier": {
+                  "type": "string",
+                  "enum": [
+                    "standard",
+                    "strong",
+                    "very_strong"
+                  ]
+                }
+              },
+              "required": [
+                "occurrences",
+                "compile_ready_count",
+                "source_trace_count",
+                "parameter_count",
+                "bound_value_count",
+                "assertion_count",
+                "tier"
+              ],
+              "additionalProperties": false
+            },
+            "dismissed": {
+              "type": "boolean"
+            },
+            "resurfaced": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "version",
+            "id",
+            "pattern_id",
+            "suggestion_id",
+            "name",
+            "commands",
+            "inputs",
+            "max_risk",
+            "requires",
+            "static_verified",
+            "evidence",
+            "dismissed",
+            "resurfaced"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.proposal.plan",
+    "version": "1.0",
+    "description": "Run a proposal through Recipe v1 dry-run planning without persisting or executing the candidate.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^proposal-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "inputs": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "proposal_id"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "pattern": "^proposal-[0-9a-f]{24}$",
+          "maxLength": 40
+        },
+        "plan": {
+          "type": "object",
+          "properties": {
+            "dry_run": {
+              "type": "boolean",
+              "const": true
+            },
+            "plan": {
+              "type": "object",
+              "properties": {
+                "valid": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "version": {
+                  "type": "integer",
+                  "const": 1
+                },
+                "steps": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "step": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "command": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "risk": {
+                        "type": "string",
+                        "enum": [
+                          "read_only",
+                          "mutating_reversible",
+                          "mutating",
+                          "destructive",
+                          "secret_access",
+                          "code_execution",
+                          "privilege_sensitive"
+                        ]
+                      },
+                      "requires": {
+                        "type": "array",
+                        "maxItems": 128,
+                        "items": {
+                          "type": "string",
+                          "maxLength": 128
+                        }
+                      },
+                      "timeout_ms": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300000
+                      },
+                      "attempts": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                      },
+                      "condition": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "step",
+                      "command",
+                      "risk",
+                      "requires",
+                      "timeout_ms",
+                      "attempts",
+                      "condition"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 512
+                }
+              },
+              "required": [
+                "valid",
+                "name",
+                "version",
+                "steps",
+                "note"
+              ],
+              "additionalProperties": false
+            },
+            "side_effects": {
+              "type": "boolean",
+              "const": false
+            },
+            "bindings": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "dry_run",
+            "plan",
+            "side_effects",
+            "bindings"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "proposal_id",
+        "plan"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 300000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "workflow.proposals.list",
+    "version": "1.0",
+    "description": "Derive sanitized, automatically compiled workflow proposals from strong repeated evidence without persisting candidate recipes.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "min_occurrences": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 32
+        },
+        "include_dismissed": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "proposals": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "const": 1
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^proposal-[0-9a-f]{24}$",
+                "maxLength": 40
+              },
+              "pattern_id": {
+                "type": "string",
+                "pattern": "^pattern-[0-9a-f]{24}$",
+                "maxLength": 40
+              },
+              "suggestion_id": {
+                "type": "string",
+                "pattern": "^suggestion-[0-9a-f]{24}$",
+                "maxLength": 40
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "commands": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "inputs": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "string",
+                        "number",
+                        "integer",
+                        "boolean",
+                        "object",
+                        "array"
+                      ]
+                    },
+                    "secret": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "kind",
+                    "secret"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "max_risk": {
+                "type": "string",
+                "enum": [
+                  "read_only",
+                  "mutating_reversible",
+                  "mutating",
+                  "destructive",
+                  "secret_access",
+                  "code_execution",
+                  "privilege_sensitive"
+                ]
+              },
+              "requires": {
+                "type": "array",
+                "maxItems": 128,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              },
+              "static_verified": {
+                "type": "boolean",
+                "const": true
+              },
+              "evidence": {
+                "type": "object",
+                "properties": {
+                  "occurrences": {
+                    "type": "integer",
+                    "minimum": 3,
+                    "maximum": 256
+                  },
+                  "compile_ready_count": {
+                    "type": "integer",
+                    "minimum": 3,
+                    "maximum": 256
+                  },
+                  "source_trace_count": {
+                    "type": "integer",
+                    "minimum": 3,
+                    "maximum": 8
+                  },
+                  "parameter_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 64
+                  },
+                  "bound_value_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4096
+                  },
+                  "assertion_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 256
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "standard",
+                      "strong",
+                      "very_strong"
+                    ]
+                  }
+                },
+                "required": [
+                  "occurrences",
+                  "compile_ready_count",
+                  "source_trace_count",
+                  "parameter_count",
+                  "bound_value_count",
+                  "assertion_count",
+                  "tier"
+                ],
+                "additionalProperties": false
+              },
+              "dismissed": {
+                "type": "boolean"
+              },
+              "resurfaced": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "version",
+              "id",
+              "pattern_id",
+              "suggestion_id",
+              "name",
+              "commands",
+              "inputs",
+              "max_risk",
+              "requires",
+              "static_verified",
+              "evidence",
+              "dismissed",
+              "resurfaced"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "min_occurrences": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 32
+        },
+        "include_dismissed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "proposals",
+        "min_occurrences",
+        "include_dismissed"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "workflow.record"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 30000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
   }
 ]

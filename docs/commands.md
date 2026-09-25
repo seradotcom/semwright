@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-115 built-in descriptors. A descriptor is not proof of live backend support.
+120 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -126,6 +126,11 @@ for many backends in this development handoff; strengthening them is a release g
 | `workflow.suggestion.dismiss` | `workflow.manage` | mutating_reversible | 10000 ms | core |
 | `workflow.suggestion.restore` | `workflow.manage` | mutating_reversible | 10000 ms | core |
 | `workflow.suggestion.compile` | `workflow.record` | mutating_reversible | 30000 ms | core |
+| `workflow.proposal.accept` | `workflow.record` | mutating_reversible | 30000 ms | core |
+| `workflow.proposal.dismiss` | `workflow.manage` | mutating_reversible | 30000 ms | core |
+| `workflow.proposal.get` | `workflow.record` | read_only | 30000 ms | core |
+| `workflow.proposal.plan` | `workflow.record` | read_only | 300000 ms | core |
+| `workflow.proposals.list` | `workflow.record` | read_only | 30000 ms | core |
 
 ## `doctor`
 
@@ -3258,6 +3263,129 @@ Idempotency: `non_idempotent`. Dry run: `false`.
   "required": [
     "suggestion_id"
   ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.proposal.accept`
+
+Explicitly accept the exact current proposal and persist its already statically verified Recipe v1 candidate; live replay is still required before promotion.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "pattern": "^proposal-[0-9a-f]{24}$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "proposal_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.proposal.dismiss`
+
+Dismiss an automatically compiled proposal by reusing the underlying suggestion dismissal lifecycle.
+
+Idempotency: `idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "pattern": "^proposal-[0-9a-f]{24}$",
+      "maxLength": 40
+    },
+    "permanent": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "proposal_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.proposal.get`
+
+Inspect one current automatically compiled workflow proposal; raw captured values and recipe constants are not exposed.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "pattern": "^proposal-[0-9a-f]{24}$",
+      "maxLength": 40
+    }
+  },
+  "required": [
+    "proposal_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.proposal.plan`
+
+Run a proposal through Recipe v1 dry-run planning without persisting or executing the candidate.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "proposal_id": {
+      "type": "string",
+      "pattern": "^proposal-[0-9a-f]{24}$",
+      "maxLength": 40
+    },
+    "inputs": {
+      "type": "object",
+      "maxProperties": 64,
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "proposal_id"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `workflow.proposals.list`
+
+Derive sanitized, automatically compiled workflow proposals from strong repeated evidence without persisting candidate recipes.
+
+Idempotency: `read_only`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "min_occurrences": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 32
+    },
+    "include_dismissed": {
+      "type": "boolean"
+    }
+  },
   "additionalProperties": false
 }
 ```
