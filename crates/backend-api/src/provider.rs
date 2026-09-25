@@ -3,7 +3,7 @@ use crate::{Backend, Context};
 use async_trait::async_trait;
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Feature, JobArtifact, JobProgress, NativeTarget,
-    ProviderIdentity, Result,
+    ProviderIdentity, Result, Selector,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -73,6 +73,17 @@ pub trait Provider: Send + Sync {
     /// Cancelled when the underlying transport is irrecoverably closed. No polling is required.
     fn closed(&self) -> Option<CancellationToken> {
         None
+    }
+    /// Optional backend-owned reduction for `ui.find`. The broker remains authoritative:
+    /// it materializes references and reapplies the portable selector to every candidate.
+    async fn find_ui_candidates(
+        &self,
+        _context: &Context,
+        _selector: &Selector,
+        _max_nodes: usize,
+        _max_depth: usize,
+    ) -> Result<Option<Value>> {
+        Ok(None)
     }
     /// Implementations must execute this pinned descriptor or reject it as stale, never reinterpret it.
     async fn execute(
@@ -146,6 +157,17 @@ impl Provider for NativeProvider {
     }
     fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
         self.backend.events()
+    }
+    async fn find_ui_candidates(
+        &self,
+        context: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        self.backend
+            .find_ui_candidates(context, selector, max_nodes, max_depth)
+            .await
     }
     async fn execute(
         &self,

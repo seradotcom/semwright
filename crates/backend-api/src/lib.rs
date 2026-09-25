@@ -4,7 +4,7 @@ use async_trait::async_trait;
 pub use provider::{
     NativeProvider, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
-use semwright_types::{Error, ErrorCode, Feature, NativeTarget, Result};
+use semwright_types::{Error, ErrorCode, Feature, NativeTarget, Result, Selector};
 use serde_json::Value;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
@@ -41,6 +41,23 @@ pub trait Backend: Send + Sync {
     /// Backends remain unable to assign provider authority; the runtime binds provenance.
     fn events(&self) -> Option<broadcast::Receiver<provider::ProviderSignal>> {
         None
+    }
+
+    /// Optional backend-side candidate reduction for `ui.find`.
+    ///
+    /// The returned payload must use the same bounded snapshot envelope as `ui.snapshot`.
+    /// It is only an optimization: the broker always reapplies the portable Selector before
+    /// returning results. Implementations must return a superset of all portable matches for
+    /// the selector predicates they choose to push down; return `None` when that cannot be
+    /// proven without changing semantics.
+    async fn find_ui_candidates(
+        &self,
+        _ctx: &Context,
+        _selector: &Selector,
+        _max_nodes: usize,
+        _max_depth: usize,
+    ) -> Result<Option<Value>> {
+        Ok(None)
     }
 
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value>;
