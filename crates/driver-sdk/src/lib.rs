@@ -1,5 +1,6 @@
 //! Versioned application-driver contract. Drivers are providers; this crate has no broker or MCP authority.
 use async_trait::async_trait;
+use semwright_platform_api::launch::{MountClass, SANDBOX_MOUNTS_ENV, decode_materialized_mounts};
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::provider::canonical_slug;
 use semwright_types::{
@@ -20,6 +21,56 @@ use tokio_util::sync::CancellationToken;
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_VERSION: u32 = 2;
+
+fn runtime_mount(class: MountClass, logical_name: &str) -> Result<PathBuf> {
+    if logical_name.is_empty()
+        || logical_name.len() > 255
+        || logical_name.chars().any(char::is_control)
+    {
+        return Err(Error::invalid("Invalid sandbox mount name"));
+    }
+
+    match std::env::var(SANDBOX_MOUNTS_ENV) {
+        Ok(encoded) => {
+            let mounts = decode_materialized_mounts(&encoded)?;
+            mounts
+                .into_iter()
+                .find(|mount| mount.class == class && mount.logical_name == logical_name)
+                .map(|mount| PathBuf::from(mount.path))
+                .ok_or_else(|| Error::unavailable("Requested sandbox mount was not materialized"))
+        }
+        Err(std::env::VarError::NotPresent) => {
+            #[cfg(unix)]
+            {
+                let prefix = match class {
+                    MountClass::Workspace => "/workspace",
+                    MountClass::SystemConfig => "/etc",
+                };
+                Ok(Path::new(prefix).join(logical_name))
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = class;
+                Err(Error::unavailable(
+                    "Sandbox mount table is required on this platform",
+                ))
+            }
+        }
+        Err(std::env::VarError::NotUnicode(_)) => Err(Error::invalid(
+            "Sandbox mount table must be valid UTF-8 JSON",
+        )),
+    }
+}
+
+/// Resolve an owner-granted workspace root as materialized by the current platform sandbox.
+pub fn workspace_mount(logical_name: &str) -> Result<PathBuf> {
+    runtime_mount(MountClass::Workspace, logical_name)
+}
+
+/// Resolve a read-only system-configuration root as materialized by the current platform sandbox.
+pub fn system_config_mount(logical_name: &str) -> Result<PathBuf> {
+    runtime_mount(MountClass::SystemConfig, logical_name)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

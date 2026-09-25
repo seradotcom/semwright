@@ -1,6 +1,7 @@
 //! Ownership, digest, format and isolation are separate checks. No signature grants a sandbox.
 use async_trait::async_trait;
 use semwright_types::{Error, ErrorCode, Result};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -19,7 +20,8 @@ pub trait ExecutableVerifier: Send + Sync {
 }
 
 /// Logical mount identity. The platform host materializes its own filesystem namespace.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MountClass {
     Workspace,
     SystemConfig,
@@ -50,6 +52,76 @@ impl Mount {
         }
         Ok(())
     }
+}
+
+pub const SANDBOX_MOUNTS_ENV: &str = "SEMWRIGHT_SANDBOX_MOUNTS_V1";
+const MAX_MATERIALIZED_MOUNTS: usize = 32;
+const MAX_MOUNT_ENV_BYTES: usize = 16 * 1024;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MaterializedMount {
+    pub class: MountClass,
+    pub logical_name: String,
+    /// Absolute path as seen by the sandboxed child, not the host-side grant source.
+    pub path: String,
+    pub read_only: bool,
+}
+
+impl MaterializedMount {
+    pub fn validate(&self) -> Result<()> {
+        super::filesystem::validate_relative_path(Path::new(&self.logical_name))?;
+        if self.logical_name.len() > 255
+            || self.path.len() > 4096
+            || self.path.contains('\0')
+            || !Path::new(&self.path).is_absolute()
+        {
+            return Err(Error::invalid("Invalid materialized sandbox mount"));
+        }
+        if self.class == MountClass::SystemConfig && !self.read_only {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Materialized system-config mounts must be read-only",
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub fn encode_materialized_mounts(mounts: &[MaterializedMount]) -> Result<String> {
+    if mounts.len() > MAX_MATERIALIZED_MOUNTS {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized sandbox mount count exceeds budget",
+        ));
+    }
+    let mut unique = std::collections::BTreeSet::new();
+    for mount in mounts {
+        mount.validate()?;
+        if !unique.insert((mount.class as u8, mount.logical_name.clone())) {
+            return Err(Error::invalid("Duplicate materialized sandbox mount"));
+        }
+    }
+    let encoded = serde_json::to_string(mounts)?;
+    if encoded.len() > MAX_MOUNT_ENV_BYTES {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized sandbox mount table exceeds environment budget",
+        ));
+    }
+    Ok(encoded)
+}
+
+pub fn decode_materialized_mounts(encoded: &str) -> Result<Vec<MaterializedMount>> {
+    if encoded.len() > MAX_MOUNT_ENV_BYTES {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized sandbox mount table exceeds environment budget",
+        ));
+    }
+    let mounts: Vec<MaterializedMount> = serde_json::from_str(encoded)?;
+    encode_materialized_mounts(&mounts)?;
+    Ok(mounts)
 }
 
 #[derive(Clone, Debug)]
@@ -227,5 +299,53 @@ pub trait SandboxLauncher: Send + Sync {
     fn mechanism(&self) -> &'static str;
     fn diagnostics(&self, helper: &Path) -> serde_json::Value {
         serde_json::json!({"available":self.available(helper),"helper_present":helper.is_file(),"mechanism":self.mechanism()})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn materialized(name: &str, path: &str) -> MaterializedMount {
+        MaterializedMount {
+            class: MountClass::Workspace,
+            logical_name: name.into(),
+            path: path.into(),
+            read_only: true,
+        }
+    }
+
+    #[test]
+    fn materialized_mount_table_roundtrips() {
+        #[cfg(unix)]
+        let path = "/workspace/media";
+        #[cfg(windows)]
+        let path = r"C:\Users\owner\media";
+        let mounts = vec![materialized("media", path)];
+        let encoded = encode_materialized_mounts(&mounts).unwrap();
+        assert_eq!(decode_materialized_mounts(&encoded).unwrap(), mounts);
+    }
+
+    #[test]
+    fn materialized_mount_table_rejects_duplicates_and_relative_paths() {
+        #[cfg(unix)]
+        let absolute = "/workspace/media";
+        #[cfg(windows)]
+        let absolute = r"C:\Users\owner\media";
+        let one = materialized("media", absolute);
+        assert!(encode_materialized_mounts(&[one.clone(), one]).is_err());
+        assert!(encode_materialized_mounts(&[materialized("media", "relative/path")]).is_err());
+    }
+
+    #[test]
+    fn materialized_mount_table_is_bounded() {
+        #[cfg(unix)]
+        let path = "/workspace/media";
+        #[cfg(windows)]
+        let path = r"C:\Users\owner\media";
+        let mounts = (0..=MAX_MATERIALIZED_MOUNTS)
+            .map(|index| materialized(&format!("mount-{index}"), path))
+            .collect::<Vec<_>>();
+        assert!(encode_materialized_mounts(&mounts).is_err());
     }
 }

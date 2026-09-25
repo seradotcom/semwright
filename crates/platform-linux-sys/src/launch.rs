@@ -1,5 +1,6 @@
 use semwright_platform_api::launch::{
-    ExecutableVerifier, Mount, MountClass, SandboxKind, SandboxLauncher, SandboxSpec,
+    ExecutableVerifier, MaterializedMount, Mount, MountClass, SANDBOX_MOUNTS_ENV, SandboxKind,
+    SandboxLauncher, SandboxSpec, encode_materialized_mounts,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
@@ -149,6 +150,20 @@ impl SandboxLauncher for LinuxSandbox {
             "LANG",
             "C.UTF-8",
         ]);
+        let mount_table = encode_materialized_mounts(
+            &s.mounts
+                .iter()
+                .map(|mount| {
+                    Ok(MaterializedMount {
+                        class: mount.class,
+                        logical_name: mount.logical_name.clone(),
+                        path: materialized_destination(mount)?,
+                        read_only: mount.read_only,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        )?;
+        p.arg("--setenv").arg(SANDBOX_MOUNTS_ENV).arg(mount_table);
         if matches!(s.kind, SandboxKind::Driver | SandboxKind::ExternalMcp) {
             p.args([
                 "--setenv",

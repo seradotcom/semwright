@@ -23,7 +23,7 @@ use tokio::{
 
 const DRIVER_ID: &str = "blender";
 const DRIVER_SCOPE: &str = "driver:blender";
-const WORKSPACE: &str = "/workspace/workspace";
+const WORKSPACE_MOUNT: &str = "workspace";
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 const COMMANDS_PY: &str = include_str!("../../../adapters/blender/semwright_blender/commands.py");
 const COMMANDS_JSON: &str =
@@ -336,7 +336,8 @@ struct BlenderDriver {
 impl BlenderDriver {
     async fn start() -> Result<Self> {
         let blender = blender_binary()?;
-        let workspace = fs::metadata(WORKSPACE)
+        let workspace_root = semwright_driver_sdk::workspace_mount(WORKSPACE_MOUNT)?;
+        let workspace = fs::metadata(&workspace_root)
             .map_err(|_| Error::unavailable("Blender driver requires the workspace mount"))?;
         if !workspace.is_dir() {
             return Err(Error::unavailable(
@@ -377,7 +378,7 @@ impl BlenderDriver {
             .arg(&bridge)
             .arg("--")
             .arg(&socket)
-            .arg(WORKSPACE)
+            .arg(&workspace_root)
             .arg(&runtime)
             .env("PYTHONNOUSERSITE", "1")
             .stdin(Stdio::null())
