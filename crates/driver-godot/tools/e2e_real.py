@@ -164,7 +164,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert interfaces["interfaces"]["artifacts"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
-        assert len(caps) == 149, len(caps)
+        assert len(caps) == 155, len(caps)
 
         env = os.environ.copy()
         env.update({
@@ -467,6 +467,69 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         skeleton = call("driver.godot.skeleton.inspect", {"session": sid, "target": "Rig"})
         assert skeleton["data"]["bone_count"] == 1
 
+        # Generic semantic substrate: versioned ClassDB introspection, provider-owned refs,
+        # and a real Transform3D round-trip through node.patch/node.inspect.
+        api_search = call("driver.godot.api.search", {
+            "session": sid, "query": "Camera3D", "source": "engine", "base": "Node", "limit": 32,
+        })
+        assert any(row["class"] == "Camera3D" for row in api_search["data"]["classes"])
+        camera_api = call("driver.godot.api.describe", {"session": sid, "class": "Camera3D"})
+        assert camera_api["data"]["source"] == "engine"
+        assert camera_api["data"]["engine"].startswith("4.7.2")
+        assert "Camera3D" in camera_api["data"]["inheritance"]
+        assert any(row.get("name") == "fov" for row in camera_api["data"]["properties"])
+
+        camera_ref = call("driver.godot.ref.node", {
+            "session": sid, "path": "Player/Camera",
+        })["data"]["ref"]
+        resource_ref = call("driver.godot.ref.resource", {
+            "session": sid, "path": "res://assets/semantic_mat.tres",
+        })["data"]["ref"]
+        scene_ref = call("driver.godot.ref.scene", {"session": sid})["data"]["ref"]
+        assert camera_ref["kind"] == "node" and resource_ref["kind"] == "resource"
+        assert scene_ref["kind"] == "scene"
+
+        mutate("driver.godot.node.patch", {
+            "target": "Player",
+            "properties": [{"name": "transform", "value": {
+                "$type": "Transform3D",
+                "value": [1.0,0.0,0.0, 0.0,1.0,0.0, 0.0,0.0,1.0, 0.0,1.0,4.0],
+            }}],
+        })
+        player_after = call("driver.godot.node.inspect", {"session": sid, "path": "Player"})
+        assert player_after["data"]["properties"]["transform"]["$type"] == "Transform3D"
+        assert player_after["data"]["ref"]["kind"] == "node"
+
+        # Nested containers are permitted, but executable/opaque Variant tags are not.
+        bad_cap = caps["driver.godot.node.patch"]
+        bad, _ = request(driver, {
+            "type": "execute",
+            "id": "reject-opaque-variant",
+            "command": "driver.godot.node.patch",
+            "descriptor_sha256": digest(bad_cap["descriptor"]),
+            "args": {
+                "session": sid, "target": "Player",
+                "properties": [{"name": "visible", "value": [
+                    {"$type": "Callable", "value": "forbidden"}
+                ]}],
+                "expect": st, "dry_run": False,
+            },
+        })
+        assert bad["type"] == "failure", bad
+        assert bad["error"]["code"] == "InvalidArgument", bad
+
+        resolved_stale = call("driver.godot.ref.resolve", {
+            "session": sid, "ref": camera_ref, "require_current": False,
+        })
+        assert resolved_stale["data"]["stale"] is True
+        fresh_camera_ref = call("driver.godot.ref.node", {
+            "session": sid, "path": "Player/Camera",
+        })["data"]["ref"]
+        resolved_fresh = call("driver.godot.ref.resolve", {
+            "session": sid, "ref": fresh_camera_ref, "require_current": True,
+        })
+        assert resolved_fresh["data"]["stale"] is False
+
         # Project-level semantic authoring.
         mutate("driver.godot.project.window.configure", {
             "viewport_width": 960, "viewport_height": 540,
@@ -624,6 +687,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert editor_state["data"]["scene"] == "res://scenes/lab_room.tscn"
 
         controller = """extends Node3D
+class_name SemwrightLabController
 
 var has_key := false
 
@@ -663,6 +727,25 @@ func _physics_process(_delta: float) -> void:
                 "session": sid, "target": target, "path": path, "expect": st, "dry_run": False,
             })
             st = stamp(value)
+
+        mutate("driver.godot.assets.rescan", {})
+        for _ in range(80):
+            asset_status = call("driver.godot.assets.status", {"session": sid})
+            if not asset_status["data"]["scanning"] and not asset_status["data"]["importing"]:
+                break
+            time.sleep(0.05)
+        script_search = call("driver.godot.api.search", {
+            "session": sid, "query": "SemwrightLabController",
+            "source": "script", "base": "", "limit": 16,
+        })
+        assert any(row["class"] == "SemwrightLabController" for row in script_search["data"]["classes"])
+        script_api = call("driver.godot.api.describe", {
+            "session": sid, "class": "SemwrightLabController",
+        })
+        assert script_api["data"]["source"] == "script"
+        assert script_api["data"]["path"] == "res://scripts/lab.gd"
+        assert script_api["data"]["parent"] == "Node3D"
+        assert any(row.get("name") == "_on_key_body_entered" for row in script_api["data"]["methods"])
 
         mutate("driver.godot.script.write", {
             "path": "res://scripts/semantic_service.gd",

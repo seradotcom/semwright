@@ -1,6 +1,6 @@
 # Godot capability surface
 
-The Godot driver exposes **149 curated `driver.godot.*` capabilities**. Every advertised
+The Godot driver exposes **155 curated `driver.godot.*` capabilities**. Every advertised
 capability has an operation-specific input and output schema, descriptor digest, route and
 risk/idempotency classification. The catalog is checked against the production EditorPlugin
 dispatch and runner routes. The goal is semantic domain coverage, not a one-tool-per-method
@@ -175,6 +175,24 @@ network sockets or expose arbitrary RPC execution.
 Editor run-start is explicitly code-execution risk. Selection and state use EditorInterface and
 EditorSelection rather than coordinate automation.
 
+## Generic semantic substrate
+
+- `api.search`, `api.describe`
+- `ref.node`, `ref.resource`, `ref.scene`, `ref.resolve`
+
+ClassDB and registered script classes can be searched and described as versioned metadata:
+inheritance, typed properties, methods, signals, enums and constants. Introspection is read-only
+and never exposes arbitrary method invocation.
+
+Provider-owned Godot references bind project, authenticated editor session, generation,
+revision and semantic fingerprint to a node, resource or scene identity. `ref.resolve` can
+refresh a still-valid target or fail closed when a generation/class/target has gone stale.
+
+Generic node/resource mutation uses a bounded bidirectional Variant codec for scalar values,
+vectors, integer vectors, quaternions, rectangles, planes, AABB, basis/transforms, NodePath,
+StringName, selected Packed* arrays and safe `res://` Resource references. Callable, Signal,
+RID and arbitrary Object handles are not serializable through this surface.
+
 ## Headless runner and artifacts
 
 - `project.validate`
@@ -191,9 +209,10 @@ process-group cleanup and Driver Protocol v2 cancellation/progress/artifact fram
 
 This surface intentionally does **not** mirror every ClassDB method. Arbitrary `Object.call`,
 OS execution and unrestricted GDScript evaluation remain unavailable. The curated domain layer
-now covers the major Godot authoring systems. Remaining completeness work belongs to the generic
-semantic substrate: broader Variant encoding, versioned API introspection/search, stronger
-provider-owned refs and cross-platform host polish.
+covers the major Godot authoring systems, while the generic substrate provides bounded Variant
+round-tripping, API discovery and provider-owned identities for the long tail of engine/project
+types. Remaining work is host/runtime hardening and cross-platform certification rather than
+adding an unrestricted raw Godot execution surface.
 
 ## Acceptance evidence
 

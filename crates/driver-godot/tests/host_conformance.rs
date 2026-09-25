@@ -331,7 +331,7 @@ async fn godot_driver_runs_through_real_driver_host() {
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
     // This host fixture deliberately omits runner configuration, so the six
     // digest-pinned headless/runtime capabilities must not be advertised.
-    assert_eq!(capabilities.len(), 143);
+    assert_eq!(capabilities.len(), 149);
     assert!(
         capabilities
             .iter()

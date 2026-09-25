@@ -2230,6 +2230,90 @@ fn specs() -> Vec<Spec> {
             mutation_out,
         ),
         spec(
+            "api.search",
+            "Search versioned Godot engine and global script classes",
+            "introspection",
+            "api_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            api_search_in,
+            api_search_out,
+        ),
+        spec(
+            "api.describe",
+            "Describe Godot class properties, methods, signals, enums and inheritance",
+            "introspection",
+            "api_class",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            15_000,
+            false,
+            false,
+            api_describe_in,
+            api_describe_out,
+        ),
+        spec(
+            "ref.node",
+            "Issue a provider-owned reference for a scene node",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            ref_node_in,
+            ref_out,
+        ),
+        spec(
+            "ref.resource",
+            "Issue a provider-owned reference for a saved resource",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            ref_resource_in,
+            ref_out,
+        ),
+        spec(
+            "ref.scene",
+            "Issue a provider-owned reference for the edited scene",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            session_in,
+            ref_out,
+        ),
+        spec(
+            "ref.resolve",
+            "Resolve and refresh a provider-owned Godot reference",
+            "reference",
+            "godot_ref",
+            Route::Plugin,
+            R,
+            ReadOnly,
+            5_000,
+            false,
+            false,
+            ref_resolve_in,
+            ref_resolve_out,
+        ),
+        spec(
             "snapshot.diff",
             "Compute a bounded semantic JSON diff",
             "snapshot",
@@ -2423,68 +2507,54 @@ fn input_set_in() -> Value {
     )
 }
 fn godot_value_schema() -> Value {
-    json!({
-        "oneOf": [
-            {"type": "null"},
-            {"type": "boolean"},
-            {"type": "number"},
-            {"type": "string", "maxLength": 4096},
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Vector2"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 2,
-                        "maxItems": 2,
-                        "items": {"type": "number"}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Vector3"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 3,
-                        "maxItems": 3,
-                        "items": {"type": "number"}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "value"],
-                "properties": {
-                    "$type": {"const": "Color"},
-                    "value": {
-                        "type": "array",
-                        "minItems": 3,
-                        "maxItems": 4,
-                        "items": {"type": "number", "minimum": 0.0, "maximum": 1.0}
-                    }
-                }
-            },
-            {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["$type", "path"],
-                "properties": {
-                    "$type": {"const": "Resource"},
-                    "path": {
-                        "type": "string",
-                        "minLength": 7,
-                        "maxLength": 240,
-                        "pattern": "^res://"
-                    }
-                }
+    let tagged = |kind: &str, len: usize, integer_items: bool| {
+        let items = if integer_items {
+            json!({"type":"integer"})
+        } else {
+            json!({"type":"number"})
+        };
+        json!({
+            "type":"object","additionalProperties":false,
+            "required":["$type","value"],
+            "properties":{
+                "$type":{"const":kind},
+                "value":{"type":"array","minItems":len,"maxItems":len,"items":items}
             }
+        })
+    };
+    json!({
+        "anyOf": [
+            {"type":"null"},
+            {"type":"boolean"},
+            {"type":"number"},
+            {"type":"string","maxLength":4096},
+            tagged("Vector2",2,false),
+            tagged("Vector2i",2,true),
+            tagged("Vector3",3,false),
+            tagged("Vector3i",3,true),
+            tagged("Vector4",4,false),
+            tagged("Vector4i",4,true),
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"const":"Color"},"value":{"type":"array","minItems":3,"maxItems":4,"items":{"type":"number","minimum":0.0,"maximum":1.0}}}},
+            tagged("Quaternion",4,false),
+            tagged("Rect2",4,false),
+            tagged("Rect2i",4,true),
+            tagged("Plane",4,false),
+            tagged("AABB",6,false),
+            tagged("Basis",9,false),
+            tagged("Transform2D",6,false),
+            tagged("Transform3D",12,false),
+            tagged("Projection",16,false),
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"enum":["NodePath","StringName"]},"value":{"type":"string","maxLength":4096}}},
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"enum":["PackedByteArray","PackedInt32Array","PackedInt64Array"]},"value":{"type":"array","maxItems":65536,"items":{"type":"integer"}}}},
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"enum":["PackedFloat32Array","PackedFloat64Array"]},"value":{"type":"array","maxItems":65536,"items":{"type":"number"}}}},
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"const":"PackedStringArray"},"value":{"type":"array","maxItems":4096,"items":{"type":"string","maxLength":4096}}}},
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"const":"PackedVector2Array"},"value":{"type":"array","maxItems":4096,"items":{"type":"array","minItems":2,"maxItems":2,"items":{"type":"number"}}}}},
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"const":"PackedVector3Array"},"value":{"type":"array","maxItems":4096,"items":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"number"}}}}},
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"const":"PackedVector4Array"},"value":{"type":"array","maxItems":4096,"items":{"type":"array","minItems":4,"maxItems":4,"items":{"type":"number"}}}}},
+            {"type":"object","additionalProperties":false,"required":["$type","value"],"properties":{"$type":{"const":"PackedColorArray"},"value":{"type":"array","maxItems":4096,"items":{"type":"array","minItems":3,"maxItems":4,"items":{"type":"number","minimum":0.0,"maximum":1.0}}}}},
+            {"type":"object","additionalProperties":false,"required":["$type","path"],"properties":{"$type":{"const":"Resource"},"path":{"type":"string","minLength":7,"maxLength":240,"pattern":"^res://"}}},
+            {"type":"array","maxItems":256},
+            {"type":"object","maxProperties":128,"not":{"required":["$type"]}}
         ]
     })
 }
@@ -2541,12 +2611,22 @@ fn files_out() -> Value {
 }
 fn scene_out() -> Value {
     read_out(
-        json!({"type":"object","additionalProperties":false,"required":["scene","nodes"],"properties":{"scene":{"type":"string"},"nodes":{"type":"array","maxItems":4000,"items":{"type":"object"}}}}),
+        json!({"type":"object","additionalProperties":false,"required":["scene","scene_ref","nodes"],"properties":{
+            "scene":{"type":"string"},
+            "scene_ref":{"anyOf":[{"type":"null"},godot_ref_schema()]},
+            "nodes":{"type":"array","maxItems":4000,"items":{"type":"object"}}
+        }}),
     )
 }
 fn node_out() -> Value {
     read_out(
-        json!({"type":"object","additionalProperties":false,"required":["path","name","class","properties"],"properties":{"path":{"type":"string"},"name":{"type":"string"},"class":{"type":"string"},"properties":{"type":"object"}}}),
+        json!({"type":"object","additionalProperties":false,"required":["path","name","class","ref","properties"],"properties":{
+            "path":{"type":"string"},
+            "name":{"type":"string"},
+            "class":{"type":"string"},
+            "ref":godot_ref_schema(),
+            "properties":{"type":"object"}
+        }}),
     )
 }
 fn input_out() -> Value {
@@ -3604,9 +3684,128 @@ fn assets_status_out() -> Value {
         json!({"type":"object","additionalProperties":false,"required":["scanning","importing","progress"],"properties":{"scanning":{"type":"boolean"},"importing":{"type":"boolean"},"progress":{"type":"number","minimum":0.0,"maximum":1.0}}}),
     )
 }
+
+fn api_search_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("query".into(), json!({"type":"string","maxLength":128})),
+            ("source".into(), json!({"enum":["all","engine","script"]})),
+            ("base".into(), json!({"type":"string","maxLength":96})),
+            ("limit".into(), bounded_int(1, 256)),
+        ]),
+        &["session", "query", "source", "base", "limit"],
+    )
+}
+fn api_describe_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("class".into(), string(96))]),
+        &["session", "class"],
+    )
+}
+fn api_class_summary_schema() -> Value {
+    json!({"type":"object","additionalProperties":false,"required":["class","parent","source","instantiable"],"properties":{
+        "class":{"type":"string","maxLength":96},
+        "parent":{"type":"string","maxLength":96},
+        "source":{"enum":["engine","script"]},
+        "instantiable":{"type":"boolean"},
+        "path":{"type":"string","maxLength":240},
+        "language":{"type":"string","maxLength":64},
+        "api_type":{"type":"integer","minimum":0,"maximum":4},
+        "kind":{"enum":["object","node","resource"]}
+    }})
+}
+fn api_search_out() -> Value {
+    read_out(
+        json!({"type":"object","additionalProperties":false,"required":["engine","query","source","base","classes","truncated"],"properties":{
+            "engine":{"type":"string","maxLength":128},
+            "query":{"type":"string","maxLength":128},
+            "source":{"enum":["all","engine","script"]},
+            "base":{"type":"string","maxLength":96},
+            "classes":{"type":"array","maxItems":256,"items":api_class_summary_schema()},
+            "truncated":{"type":"boolean"}
+        }}),
+    )
+}
+fn api_describe_out() -> Value {
+    read_out(
+        json!({"type":"object","additionalProperties":false,"maxProperties":16,"required":["engine","class","parent","source","instantiable","inheritance","properties","methods","signals","enums","constants"],"properties":{
+            "engine":{"type":"string","maxLength":128},
+            "class":{"type":"string","maxLength":96},
+            "parent":{"type":"string","maxLength":96},
+            "source":{"enum":["engine","script"]},
+            "instantiable":{"type":"boolean"},
+            "inheritance":{"type":"array","maxItems":32,"items":{"type":"string","maxLength":96}},
+            "properties":{"type":"array","maxItems":256,"items":{"type":"object","maxProperties":8}},
+            "methods":{"type":"array","maxItems":256,"items":{"type":"object","maxProperties":8}},
+            "signals":{"type":"array","maxItems":256,"items":{"type":"object","maxProperties":8}},
+            "enums":{"type":"array","maxItems":256,"items":{"type":"object","maxProperties":4}},
+            "constants":{"type":"array","maxItems":256,"items":{"type":"object","maxProperties":2}},
+            "path":{"type":"string","maxLength":240},
+            "language":{"type":"string","maxLength":64},
+            "api_type":{"type":"integer","minimum":0,"maximum":4},
+            "kind":{"enum":["object","node","resource"]}
+        }}),
+    )
+}
+fn godot_ref_schema() -> Value {
+    json!({"type":"object","additionalProperties":false,"required":["provider","project","session","generation","revision","fingerprint","kind","path","class","scene"],"properties":{
+        "provider":{"const":"godot"},
+        "project":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+        "session":{"type":"string","pattern":"^[0-9a-f]{32}$"},
+        "generation":{"type":"string","pattern":"^[0-9a-f]{32}$"},
+        "revision":{"type":"integer","minimum":0},
+        "fingerprint":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+        "kind":{"enum":["node","resource","scene"]},
+        "path":{"type":"string","maxLength":240},
+        "class":{"type":"string","maxLength":96},
+        "scene":{"type":"string","maxLength":240}
+    }})
+}
+fn ref_node_in() -> Value {
+    object(
+        Map::from_iter([session_prop(), ("path".into(), string(240))]),
+        &["session", "path"],
+    )
+}
+fn ref_resource_in() -> Value {
+    path_read_in()
+}
+fn ref_resolve_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            ("ref".into(), godot_ref_schema()),
+            ("require_current".into(), boolean()),
+        ]),
+        &["session", "ref", "require_current"],
+    )
+}
+fn ref_out() -> Value {
+    read_out(object(
+        Map::from_iter([("ref".into(), godot_ref_schema())]),
+        &["ref"],
+    ))
+}
+fn ref_resolve_out() -> Value {
+    read_out(object(
+        Map::from_iter([
+            ("ref".into(), godot_ref_schema()),
+            ("stale".into(), boolean()),
+            ("previous_revision".into(), bounded_int(-1, i64::MAX)),
+        ]),
+        &["ref", "stale", "previous_revision"],
+    ))
+}
+
 fn resource_out() -> Value {
     read_out(
-        json!({"type":"object","additionalProperties":false,"required":["path","class","properties"],"properties":{"path":{"type":"string"},"class":{"type":"string"},"properties":{"type":"object"}}}),
+        json!({"type":"object","additionalProperties":false,"required":["path","class","ref","properties"],"properties":{
+            "path":{"type":"string"},
+            "class":{"type":"string"},
+            "ref":godot_ref_schema(),
+            "properties":{"type":"object"}
+        }}),
     )
 }
 fn script_out() -> Value {

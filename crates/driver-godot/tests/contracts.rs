@@ -125,12 +125,53 @@ fn translation_creation_requires_runtime_loadable_format() {
 }
 
 #[test]
+fn extended_variant_schema_accepts_semantic_value_types() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog.get("driver.godot.node.patch").unwrap();
+    let base = json!({
+        "session": "a".repeat(32),
+        "target": "Player",
+        "properties": [
+            {"name":"transform","value":{"$type":"Transform3D","value":[
+                1.0,0.0,0.0, 0.0,1.0,0.0, 0.0,0.0,1.0, 2.0,3.0,4.0
+            ]}},
+            {"name":"path","value":{"$type":"NodePath","value":"Camera"}},
+            {"name":"points","value":{"$type":"PackedVector3Array","value":[
+                [0.0,0.0,0.0],[1.0,2.0,3.0]
+            ]}}
+        ],
+        "expect": {"revision":1,"fingerprint":"b".repeat(64)},
+        "dry_run": false
+    });
+    entry.validate_input(&base).unwrap();
+
+    let mut invalid = base;
+    invalid["properties"][0]["value"] = json!({"$type":"Callable","value":"forbidden"});
+    assert!(entry.validate_input(&invalid).is_err());
+}
+
+#[test]
+fn api_and_ref_contracts_are_strict() {
+    let catalog = Catalog::load().unwrap();
+    let search = catalog.get("driver.godot.api.search").unwrap();
+    search
+        .validate_input(&json!({
+            "session":"a".repeat(32),"query":"Camera","source":"engine","base":"Node","limit":32
+        }))
+        .unwrap();
+    let issue = catalog.get("driver.godot.ref.node").unwrap();
+    issue
+        .validate_input(&json!({"session":"a".repeat(32),"path":"Player/Camera"}))
+        .unwrap();
+}
+
+#[test]
 fn catalog_plugin_routes_have_editor_handlers() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     let plugin = include_str!("../../../integrations/godot/addons/semwright/plugin.gd");
     let names = catalog.names_for(Route::Plugin);
-    assert_eq!(names.len(), 140);
+    assert_eq!(names.len(), 146);
     for name in names {
         let op = name.strip_prefix("driver.godot.").unwrap();
         let marker = format!("\"{op}\": return ");
@@ -146,7 +187,7 @@ fn catalog_routes_partition_the_full_surface() {
     use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     assert_eq!(catalog.names_for(Route::Local).len(), 3);
-    assert_eq!(catalog.names_for(Route::Plugin).len(), 140);
+    assert_eq!(catalog.names_for(Route::Plugin).len(), 146);
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
-    assert_eq!(catalog.capabilities().len(), 149);
+    assert_eq!(catalog.capabilities().len(), 155);
 }

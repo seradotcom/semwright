@@ -12,8 +12,16 @@ static func inspect(ctx, args: Dictionary) -> Dictionary:
         if int(p.get("usage", 0)) & PROPERTY_USAGE_STORAGE == 0: continue
         var name = str(p.get("name", ""))
         var value = resource.get(name)
-        if ctx._json_safe(value): properties[name] = value
-    return {"stamp":ctx._stamp(),"data":{"path":path,"class":resource.get_class(),"properties":properties}}
+        var encoded = ctx._encode_value(value)
+        if encoded != null or value == null:
+            properties[name] = encoded
+    var current_stamp = ctx._stamp()
+    return {"stamp":current_stamp,"data":{
+        "path":path,
+        "class":resource.get_class(),
+        "ref":ctx._make_ref("resource", path, resource.get_class(), current_stamp),
+        "properties":properties
+    }}
 
 static func create(ctx, args: Dictionary) -> Dictionary:
     var conflict = ctx._check_expect(args)
@@ -72,15 +80,21 @@ static func duplicate_resource(ctx, args: Dictionary) -> Dictionary:
 
 static func _apply_resource_property(ctx, resource: Resource, item: Dictionary) -> Dictionary:
     var name = str(item.get("name", ""))
-    var exists = false
+    var property_info: Dictionary = {}
     for p in resource.get_property_list():
         if str(p.get("name", "")) == name and int(p.get("usage", 0)) & PROPERTY_USAGE_READ_ONLY == 0:
-            exists = true
+            property_info = p
             break
-    if not exists: return ctx._error("invalid_argument", "unknown or read-only resource property")
+    if property_info.is_empty(): return ctx._error("invalid_argument", "unknown or read-only resource property")
     var encoded = item.get("value")
+    if not ctx._valid_encoded_value(encoded):
+        return ctx._error("invalid_argument", "resource value contains an unsupported Godot Variant")
     var value = ctx._decode_value(encoded)
-    if ctx._is_resource_ref(encoded) and value == null:
-        return ctx._error("not_found", "referenced resource does not exist")
+    if encoded != null and value == null:
+        if ctx._is_resource_ref(encoded):
+            return ctx._error("not_found", "referenced resource does not exist")
+        return ctx._error("invalid_argument", "resource value could not be decoded")
+    if not ctx._property_value_compatible(property_info, value):
+        return ctx._error("invalid_argument", "resource value does not match Godot property type")
     resource.set(name, value)
     return {}

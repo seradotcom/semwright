@@ -27,11 +27,15 @@ channels, not the broker caller/session authorization identity. Explicit Godot p
 refs prevent accidental retargeting but do not create per-agent project grants inside one
 driver instance.
 
-## P1 — provider-owned opaque app refs
+## P1 — broker-native provider-owned app refs
 
-Godot refs are driver-local structured values with project/session/generation/revision/
-fingerprint data. The broker does not yet materialize arbitrary provider-owned opaque native
-references with generic stale-generation validation.
+The Godot driver now issues and resolves bounded node/resource/scene refs carrying
+project/session/generation/revision/fingerprint identity and fails closed on stale generation,
+missing targets or class changes. This closes the application-side identity gap for Godot.
+
+The remaining gap is generic broker support: Semwright does not yet materialize arbitrary
+provider-owned native refs into the shared ref store or enforce their stale-generation semantics
+uniformly across every driver. Godot therefore validates these identities inside the provider.
 
 ## P1 — persistent driver resource budgets
 

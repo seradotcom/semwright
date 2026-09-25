@@ -26,6 +26,8 @@ const LocalizationOps = preload("res://addons/semwright/ops/localization_ops.gd"
 const AnimationTreeOps = preload("res://addons/semwright/ops/animation_tree_ops.gd")
 const MultiplayerOps = preload("res://addons/semwright/ops/multiplayer_ops.gd")
 const EditorOps = preload("res://addons/semwright/ops/editor_ops.gd")
+const ApiOps = preload("res://addons/semwright/ops/api_ops.gd")
+const RefOps = preload("res://addons/semwright/ops/ref_ops.gd")
 
 var _ws: WebSocketPeer
 var _phase := "disconnected"
@@ -379,6 +381,12 @@ func _dispatch(op: String, args: Dictionary) -> Dictionary:
         "editor.selection.set": return EditorOps.selection_set(self, args)
         "editor.run.start": return EditorOps.run_start(self, args)
         "editor.run.stop": return EditorOps.run_stop(self, args)
+        "api.search": return ApiOps.search(self, args)
+        "api.describe": return ApiOps.describe(self, args)
+        "ref.node": return RefOps.issue_node(self, args)
+        "ref.resource": return RefOps.issue_resource(self, args)
+        "ref.scene": return RefOps.issue_scene(self, args)
+        "ref.resolve": return RefOps.resolve(self, args)
         _: return _error("unsupported", "unsupported Godot operation")
 
 func _stamp() -> Dictionary:
@@ -489,7 +497,15 @@ func _scene_inspect() -> Dictionary:
     var nodes: Array = []
     if root != null:
         _collect_nodes(root, root, nodes)
-    return {"stamp":_stamp(),"data":{"scene":"" if root == null else str(root.scene_file_path),"nodes":nodes}}
+    var current_stamp := _stamp()
+    var scene_ref = null
+    if root != null:
+        scene_ref = _make_ref("scene", str(root.scene_file_path), root.get_class(), current_stamp)
+    return {"stamp":current_stamp,"data":{
+        "scene":"" if root == null else str(root.scene_file_path),
+        "scene_ref":scene_ref,
+        "nodes":nodes
+    }}
 
 func _scene_create(args: Dictionary) -> Dictionary:
     var conflict := _check_expect(args)
@@ -558,10 +574,19 @@ func _node_inspect(args: Dictionary) -> Dictionary:
             if name in ["script", "owner"]:
                 continue
             var value = node.get(name)
-            if _json_safe(value):
-                props[name] = value
+            var encoded = _encode_value(value)
+            if encoded != null or value == null:
+                props[name] = encoded
     var root := EditorInterface.get_edited_scene_root()
-    return {"stamp":_stamp(),"data":{"path":str(root.get_path_to(node)),"name":str(node.name),"class":node.get_class(),"properties":props}}
+    var path := str(root.get_path_to(node))
+    var current_stamp := _stamp()
+    return {"stamp":current_stamp,"data":{
+        "path":path,
+        "name":str(node.name),
+        "class":node.get_class(),
+        "ref":_make_ref("node", path, node.get_class(), current_stamp),
+        "properties":props
+    }}
 
 func _node_create(args: Dictionary) -> Dictionary:
     var conflict := _check_expect(args)
@@ -629,36 +654,358 @@ func _apply_property(node: Node, patch: Dictionary) -> Dictionary:
     var name := str(patch.get("name", ""))
     if name in ["script", "owner", "scene_file_path"] or name.is_empty():
         return _error("permission_denied", "property is not writable through node.patch")
-    var exists := false
+    var property_info: Dictionary = {}
     for p in node.get_property_list():
         if str(p.get("name", "")) == name and int(p.get("usage", 0)) & PROPERTY_USAGE_READ_ONLY == 0:
-            exists = true
+            property_info = p
             break
-    if not exists:
+    if property_info.is_empty():
         return _error("invalid_argument", "unknown or read-only property")
     var encoded = patch.get("value")
+    if not _valid_encoded_value(encoded):
+        return _error("invalid_argument", "property value contains an unsupported Godot Variant")
     var value = _decode_value(encoded)
-    if _is_resource_ref(encoded) and value == null:
-        return _error("not_found", "referenced resource does not exist")
+    if encoded != null and value == null:
+        if _is_resource_ref(encoded):
+            return _error("not_found", "referenced resource does not exist")
+        return _error("invalid_argument", "property value could not be decoded")
+    if not _property_value_compatible(property_info, value):
+        return _error("invalid_argument", "property value does not match Godot property type")
     node.set(name, value)
     return {}
 
-func _decode_value(value):
-    if typeof(value) == TYPE_DICTIONARY and value.has("$type"):
-        var kind := str(value["$type"])
-        var data = value.get("value", [])
-        if kind == "Vector2" and data is Array and data.size() == 2:
-            return Vector2(float(data[0]), float(data[1]))
-        if kind == "Vector3" and data is Array and data.size() == 3:
-            return Vector3(float(data[0]), float(data[1]), float(data[2]))
-        if kind == "Color" and data is Array and data.size() in [3,4]:
-            return Color(float(data[0]),float(data[1]),float(data[2]),1.0 if data.size()==3 else float(data[3]))
-        if kind == "Resource":
+func _property_value_compatible(property_info: Dictionary, value) -> bool:
+    var expected := int(property_info.get("type", TYPE_NIL))
+    if expected == TYPE_NIL:
+        return true
+    if value == null:
+        return expected == TYPE_OBJECT
+    var actual := typeof(value)
+    if expected == TYPE_FLOAT and actual == TYPE_INT:
+        return true
+    if expected != actual:
+        return false
+    if expected == TYPE_OBJECT:
+        var class_name := str(property_info.get("class_name", ""))
+        return class_name.is_empty() or (value is Object and value.is_class(class_name))
+    return true
+
+func _valid_encoded_value(value, depth: int = 0) -> bool:
+    if depth > 4:
+        return false
+    if value is Array:
+        if value.size() > 256:
+            return false
+        for item in value:
+            if not _valid_encoded_value(item, depth + 1):
+                return false
+        return true
+    if value is Dictionary:
+        if value.size() > 128:
+            return false
+        if value.has("$type"):
+            return _tagged_value_valid(value)
+        for key in value:
+            if typeof(key) not in [TYPE_STRING, TYPE_STRING_NAME]:
+                return false
+            if not _valid_encoded_value(value[key], depth + 1):
+                return false
+        return true
+    return typeof(value) in [TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING]
+
+func _tagged_value_valid(value: Dictionary) -> bool:
+    var kind := str(value.get("$type", ""))
+    if kind == "Resource":
+        var path := value.get("path")
+        return path is String and _safe_res(path)
+    var data = value.get("value")
+    match kind:
+        "NodePath", "StringName":
+            return data is String
+        "Vector2":
+            return _numeric_array(data, 2)
+        "Vector2i":
+            return _integer_array(data, 2)
+        "Vector3":
+            return _numeric_array(data, 3)
+        "Vector3i":
+            return _integer_array(data, 3)
+        "Vector4":
+            return _numeric_array(data, 4)
+        "Vector4i":
+            return _integer_array(data, 4)
+        "Color":
+            return data is Array and data.size() in [3, 4] and _numeric_items(data)
+        "Quaternion", "Rect2", "Plane":
+            return _numeric_array(data, 4)
+        "Rect2i":
+            return _integer_array(data, 4)
+        "AABB", "Transform2D":
+            return _numeric_array(data, 6)
+        "Basis":
+            return _numeric_array(data, 9)
+        "Transform3D":
+            return _numeric_array(data, 12)
+        "Projection":
+            return _numeric_array(data, 16)
+        "PackedByteArray":
+            if not (data is Array) or data.size() > 65536:
+                return false
+            for item in data:
+                if typeof(item) != TYPE_INT or int(item) < 0 or int(item) > 255:
+                    return false
+            return true
+        "PackedInt32Array", "PackedInt64Array":
+            return data is Array and data.size() <= 65536 and _integer_items(data)
+        "PackedFloat32Array", "PackedFloat64Array":
+            return data is Array and data.size() <= 65536 and _numeric_items(data)
+        "PackedStringArray":
+            if not (data is Array) or data.size() > 4096:
+                return false
+            for item in data:
+                if not (item is String) or item.length() > 4096:
+                    return false
+            return true
+        "PackedVector2Array":
+            return _vector_rows(data, 2)
+        "PackedVector3Array":
+            return _vector_rows(data, 3)
+        "PackedVector4Array":
+            return _vector_rows(data, 4)
+        "PackedColorArray":
+            if not (data is Array) or data.size() > 4096:
+                return false
+            for row in data:
+                if not (row is Array) or row.size() not in [3, 4] or not _numeric_items(row):
+                    return false
+            return true
+        _:
+            return false
+
+func _numeric_items(data: Array) -> bool:
+    for item in data:
+        if typeof(item) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(item)):
+            return false
+    return true
+
+func _integer_items(data: Array) -> bool:
+    for item in data:
+        if typeof(item) != TYPE_INT:
+            return false
+    return true
+
+func _numeric_array(data, size: int) -> bool:
+    return data is Array and data.size() == size and _numeric_items(data)
+
+func _integer_array(data, size: int) -> bool:
+    return data is Array and data.size() == size and _integer_items(data)
+
+func _vector_rows(data, width: int) -> bool:
+    if not (data is Array) or data.size() > 4096:
+        return false
+    for row in data:
+        if not (row is Array) or row.size() != width or not _numeric_items(row):
+            return false
+    return true
+
+func _decode_value(value, depth: int = 0):
+    if depth > 4:
+        return null
+    if value is Array:
+        if value.size() > 256:
+            return null
+        var decoded_array: Array = []
+        for item in value:
+            var decoded_item = _decode_value(item, depth + 1)
+            if decoded_item == null and item != null:
+                return null
+            decoded_array.append(decoded_item)
+        return decoded_array
+    if value is Dictionary and not value.has("$type"):
+        if value.size() > 128:
+            return null
+        var decoded_dict := {}
+        for key in value:
+            if typeof(key) not in [TYPE_STRING, TYPE_STRING_NAME]:
+                return null
+            var decoded_item = _decode_value(value[key], depth + 1)
+            if decoded_item == null and value[key] != null:
+                return null
+            decoded_dict[str(key)] = decoded_item
+        return decoded_dict
+    if typeof(value) != TYPE_DICTIONARY:
+        return value
+    var kind := str(value["$type"])
+    var data = value.get("value", [])
+    match kind:
+        "Vector2":
+            if data is Array and data.size() == 2: return Vector2(float(data[0]), float(data[1]))
+        "Vector2i":
+            if data is Array and data.size() == 2: return Vector2i(int(data[0]), int(data[1]))
+        "Vector3":
+            if data is Array and data.size() == 3: return Vector3(float(data[0]), float(data[1]), float(data[2]))
+        "Vector3i":
+            if data is Array and data.size() == 3: return Vector3i(int(data[0]), int(data[1]), int(data[2]))
+        "Vector4":
+            if data is Array and data.size() == 4: return Vector4(float(data[0]), float(data[1]), float(data[2]), float(data[3]))
+        "Vector4i":
+            if data is Array and data.size() == 4: return Vector4i(int(data[0]), int(data[1]), int(data[2]), int(data[3]))
+        "Color":
+            if data is Array and data.size() in [3, 4]: return Color(float(data[0]), float(data[1]), float(data[2]), 1.0 if data.size() == 3 else float(data[3]))
+        "Quaternion":
+            if data is Array and data.size() == 4: return Quaternion(float(data[0]), float(data[1]), float(data[2]), float(data[3]))
+        "Rect2":
+            if data is Array and data.size() == 4: return Rect2(float(data[0]), float(data[1]), float(data[2]), float(data[3]))
+        "Rect2i":
+            if data is Array and data.size() == 4: return Rect2i(int(data[0]), int(data[1]), int(data[2]), int(data[3]))
+        "Plane":
+            if data is Array and data.size() == 4: return Plane(float(data[0]), float(data[1]), float(data[2]), float(data[3]))
+        "AABB":
+            if data is Array and data.size() == 6: return AABB(Vector3(float(data[0]), float(data[1]), float(data[2])), Vector3(float(data[3]), float(data[4]), float(data[5])))
+        "Basis":
+            if data is Array and data.size() == 9: return Basis(Vector3(float(data[0]), float(data[1]), float(data[2])), Vector3(float(data[3]), float(data[4]), float(data[5])), Vector3(float(data[6]), float(data[7]), float(data[8])))
+        "Transform2D":
+            if data is Array and data.size() == 6: return Transform2D(Vector2(float(data[0]), float(data[1])), Vector2(float(data[2]), float(data[3])), Vector2(float(data[4]), float(data[5])))
+        "Transform3D":
+            if data is Array and data.size() == 12:
+                var basis := Basis(Vector3(float(data[0]), float(data[1]), float(data[2])), Vector3(float(data[3]), float(data[4]), float(data[5])), Vector3(float(data[6]), float(data[7]), float(data[8])))
+                return Transform3D(basis, Vector3(float(data[9]), float(data[10]), float(data[11])))
+        "Projection":
+            if data is Array and data.size() == 16:
+                return Projection(
+                    Vector4(float(data[0]), float(data[1]), float(data[2]), float(data[3])),
+                    Vector4(float(data[4]), float(data[5]), float(data[6]), float(data[7])),
+                    Vector4(float(data[8]), float(data[9]), float(data[10]), float(data[11])),
+                    Vector4(float(data[12]), float(data[13]), float(data[14]), float(data[15]))
+                )
+        "NodePath":
+            return NodePath(str(data))
+        "StringName":
+            return StringName(str(data))
+        "PackedByteArray":
+            if data is Array: return PackedByteArray(data)
+        "PackedInt32Array":
+            if data is Array: return PackedInt32Array(data)
+        "PackedInt64Array":
+            if data is Array: return PackedInt64Array(data)
+        "PackedFloat32Array":
+            if data is Array: return PackedFloat32Array(data)
+        "PackedFloat64Array":
+            if data is Array: return PackedFloat64Array(data)
+        "PackedStringArray":
+            if data is Array: return PackedStringArray(data)
+        "PackedVector2Array":
+            if data is Array:
+                var out2 := PackedVector2Array()
+                for item in data:
+                    if item is Array and item.size() == 2: out2.append(Vector2(float(item[0]), float(item[1])))
+                return out2
+        "PackedVector3Array":
+            if data is Array:
+                var out3 := PackedVector3Array()
+                for item in data:
+                    if item is Array and item.size() == 3: out3.append(Vector3(float(item[0]), float(item[1]), float(item[2])))
+                return out3
+        "PackedVector4Array":
+            if data is Array:
+                var out4 := PackedVector4Array()
+                for item in data:
+                    if item is Array and item.size() == 4: out4.append(Vector4(float(item[0]), float(item[1]), float(item[2]), float(item[3])))
+                return out4
+        "PackedColorArray":
+            if data is Array:
+                var colors := PackedColorArray()
+                for item in data:
+                    if item is Array and item.size() in [3, 4]: colors.append(Color(float(item[0]), float(item[1]), float(item[2]), 1.0 if item.size() == 3 else float(item[3])))
+                return colors
+        "Resource":
             var path := str(value.get("path", ""))
             if _safe_res(path) and ResourceLoader.exists(path):
                 return ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_REUSE)
             return null
-    return value
+    return null
+
+func _encode_value(value, depth: int = 0):
+    if depth > 4:
+        return null
+    match typeof(value):
+        TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING:
+            return value
+        TYPE_STRING_NAME:
+            return {"$type":"StringName","value":str(value)}
+        TYPE_NODE_PATH:
+            return {"$type":"NodePath","value":str(value)}
+        TYPE_VECTOR2:
+            return {"$type":"Vector2","value":[value.x,value.y]}
+        TYPE_VECTOR2I:
+            return {"$type":"Vector2i","value":[value.x,value.y]}
+        TYPE_VECTOR3:
+            return {"$type":"Vector3","value":[value.x,value.y,value.z]}
+        TYPE_VECTOR3I:
+            return {"$type":"Vector3i","value":[value.x,value.y,value.z]}
+        TYPE_VECTOR4:
+            return {"$type":"Vector4","value":[value.x,value.y,value.z,value.w]}
+        TYPE_VECTOR4I:
+            return {"$type":"Vector4i","value":[value.x,value.y,value.z,value.w]}
+        TYPE_COLOR:
+            return {"$type":"Color","value":[value.r,value.g,value.b,value.a]}
+        TYPE_QUATERNION:
+            return {"$type":"Quaternion","value":[value.x,value.y,value.z,value.w]}
+        TYPE_RECT2:
+            return {"$type":"Rect2","value":[value.position.x,value.position.y,value.size.x,value.size.y]}
+        TYPE_RECT2I:
+            return {"$type":"Rect2i","value":[value.position.x,value.position.y,value.size.x,value.size.y]}
+        TYPE_PLANE:
+            return {"$type":"Plane","value":[value.normal.x,value.normal.y,value.normal.z,value.d]}
+        TYPE_AABB:
+            return {"$type":"AABB","value":[value.position.x,value.position.y,value.position.z,value.size.x,value.size.y,value.size.z]}
+        TYPE_BASIS:
+            return {"$type":"Basis","value":[value.x.x,value.x.y,value.x.z,value.y.x,value.y.y,value.y.z,value.z.x,value.z.y,value.z.z]}
+        TYPE_TRANSFORM2D:
+            return {"$type":"Transform2D","value":[value.x.x,value.x.y,value.y.x,value.y.y,value.origin.x,value.origin.y]}
+        TYPE_TRANSFORM3D:
+            return {"$type":"Transform3D","value":[value.basis.x.x,value.basis.x.y,value.basis.x.z,value.basis.y.x,value.basis.y.y,value.basis.y.z,value.basis.z.x,value.basis.z.y,value.basis.z.z,value.origin.x,value.origin.y,value.origin.z]}
+        TYPE_PROJECTION:
+            return {"$type":"Projection","value":[value.x.x,value.x.y,value.x.z,value.x.w,value.y.x,value.y.y,value.y.z,value.y.w,value.z.x,value.z.y,value.z.z,value.z.w,value.w.x,value.w.y,value.w.z,value.w.w]}
+        TYPE_PACKED_BYTE_ARRAY, TYPE_PACKED_INT32_ARRAY, TYPE_PACKED_INT64_ARRAY, TYPE_PACKED_FLOAT32_ARRAY, TYPE_PACKED_FLOAT64_ARRAY, TYPE_PACKED_STRING_ARRAY:
+            return {"$type":type_string(typeof(value)),"value":Array(value)}
+        TYPE_PACKED_VECTOR2_ARRAY:
+            var rows2: Array = []
+            for item in value: rows2.append([item.x,item.y])
+            return {"$type":"PackedVector2Array","value":rows2}
+        TYPE_PACKED_VECTOR3_ARRAY:
+            var rows3: Array = []
+            for item in value: rows3.append([item.x,item.y,item.z])
+            return {"$type":"PackedVector3Array","value":rows3}
+        TYPE_PACKED_VECTOR4_ARRAY:
+            var rows4: Array = []
+            for item in value: rows4.append([item.x,item.y,item.z,item.w])
+            return {"$type":"PackedVector4Array","value":rows4}
+        TYPE_PACKED_COLOR_ARRAY:
+            var rowsc: Array = []
+            for item in value: rowsc.append([item.r,item.g,item.b,item.a])
+            return {"$type":"PackedColorArray","value":rowsc}
+        TYPE_ARRAY:
+            if value.size() > 256: return null
+            var out: Array = []
+            for item in value:
+                var encoded = _encode_value(item, depth + 1)
+                if encoded == null and item != null: return null
+                out.append(encoded)
+            return out
+        TYPE_DICTIONARY:
+            if value.size() > 128: return null
+            var out := {}
+            for key in value:
+                if typeof(key) not in [TYPE_STRING, TYPE_STRING_NAME]: return null
+                var encoded = _encode_value(value[key], depth + 1)
+                if encoded == null and value[key] != null: return null
+                out[str(key)] = encoded
+            return out
+        TYPE_OBJECT:
+            if value is Resource and not value.resource_path.is_empty():
+                return {"$type":"Resource","path":value.resource_path}
+    return null
 
 func _is_resource_ref(value) -> bool:
     return typeof(value) == TYPE_DICTIONARY and str(value.get("$type", "")) == "Resource"
@@ -740,6 +1087,24 @@ func _safe_res(path: String) -> bool:
     if not path.begins_with("res://") or path.contains("..") or path.contains("\\"):
         return false
     return path.length() <= 240
+
+func _make_ref(kind: String, path: String, klass: String, current_stamp: Dictionary = {}) -> Dictionary:
+    var root := EditorInterface.get_edited_scene_root()
+    var stamp := current_stamp
+    if stamp.is_empty():
+        stamp = _stamp()
+    return {
+        "provider": "godot",
+        "project": _project,
+        "session": _session,
+        "generation": _generation,
+        "revision": int(stamp["revision"]),
+        "fingerprint": str(stamp["fingerprint"]),
+        "kind": kind,
+        "path": path,
+        "class": klass,
+        "scene": "" if root == null else str(root.scene_file_path),
+    }
 
 func _json_safe(value) -> bool:
     return typeof(value) in [TYPE_NIL,TYPE_BOOL,TYPE_INT,TYPE_FLOAT,TYPE_STRING,TYPE_ARRAY,TYPE_DICTIONARY]
