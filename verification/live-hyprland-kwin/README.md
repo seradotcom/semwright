@@ -47,6 +47,26 @@ docker run --rm \
 
 Group ID `110` was the host render group for the executed machine; reproductions must use the group that owns their selected render node rather than assuming that numeric ID.
 
+## Physical-login preflight for the remaining R06 work
+
+Before attempting the still-open physical Hyprland slice, run
+`scripts/dev/hyprland-physical-preflight.sh` from the login that would produce the evidence. The
+script is deliberately non-mutating: it checks the active logind session, Wayland/Hyprland identity,
+the Hyprland compositor environment and monitor topology, then exits before any Semwright window or
+input action.
+
+It requires the explicit acknowledgment
+`SEMWRIGHT_HYPR_PHYSICAL_ACK=I_AM_ON_A_DISPOSABLE_PHYSICAL_HYPRLAND_LOGIN`. It fails closed if the
+compositor process inherited `WAYLAND_DISPLAY` (a nested-compositor signal), if the desktop/session
+is not an active local Wayland Hyprland login, or if no physical connector-like output is visible.
+Set `SEMWRIGHT_HYPR_REQUIRE_MIXED_SCALE=1` when the run is specifically intended to produce physical
+mixed-scale evidence; that mode also requires at least two physical outputs with distinct scales.
+
+A successful result is `PASS_PREFLIGHT_ONLY` with `certification_complete=false`. It is permission to
+start the disposable physical-login procedure, **not** R06 closure evidence. The subsequent run must
+still record the exact baseline/binary hashes and execute the remaining restart/reconnect,
+focus-drift/cancellation, physical display and cleanup assertions called out in `RELEASE_BLOCKERS.md`.
+
 ## Evidence boundary
 
 This certifies hardware-backed nested Hyprland native IPC, lifecycle/stale-ref handling, cleanup and a synthetic mixed-scale multi-output configuration. It does **not** certify a physical TTY/login Hyprland session, physical mixed-DPI monitors, compositor restart recovery, Hyprland portal/EIS consent, focus-drift negative cases, or in-flight cancellation.
