@@ -5,6 +5,7 @@ mod bootstrap;
 pub mod bridge;
 pub mod clipboard;
 pub mod eis;
+mod eis_xkb;
 pub mod hyprland;
 pub mod pipewire_capture;
 pub mod portal;

@@ -34,6 +34,8 @@ toml = "1.1"
 zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
 futures-util = { version = "0.3", features = ["sink"] }
 reis = { version = "=0.7.1", features = ["tokio", "calloop"] }
+xkbcommon-dl = "=0.4.2"
+xkeysym = "=0.2.1"
 pipewire = { version = "=0.10.1", features = ["v0_3_65"] }
 png = "0.18"
 calloop = "0.14"
