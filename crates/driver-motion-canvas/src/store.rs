@@ -147,6 +147,26 @@ impl ProjectStore {
         self.commit_inner(Some(expected_source_sha256), project)
     }
 
+    fn validate_island_bridge_target(&self) -> Result<()> {
+        if !self.publish_island_bridge {
+            return Ok(());
+        }
+        let final_path = self.root.join(ISLAND_BRIDGE);
+        match fs::symlink_metadata(&final_path) {
+            Ok(metadata) => {
+                if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
+                    return Err(Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Managed island bridge path is not a regular owned file",
+                    ));
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        Ok(())
+    }
+
     fn commit_inner(&self, expected: Option<&str>, project: &Project) -> Result<Snapshot> {
         validate::project_valid(project)?;
         let bytes = serde_json::to_vec_pretty(project)?;
@@ -166,6 +186,9 @@ impl ProjectStore {
                 ));
             }
         }
+        // A managed-island bridge is a derived integration surface, but a hostile
+        // path must be detected before the authoritative semantic file changes.
+        self.validate_island_bridge_target()?;
         let generated_dir = self.materialize_generated(project, &generated)?;
         let token = uuid::Uuid::new_v4().simple().to_string();
         let tmp = self.root.join(format!(".semwright-motion-{token}.tmp"));
@@ -258,15 +281,7 @@ impl ProjectStore {
         let tmp_name = format!(".managed-scenes-{token}.tmp");
         let tmp = self.root.join(&tmp_name);
         let final_path = self.root.join(ISLAND_BRIDGE);
-        if final_path.try_exists()? {
-            let metadata = fs::symlink_metadata(&final_path)?;
-            if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
-                return Err(Error::new(
-                    ErrorCode::PermissionDenied,
-                    "Managed island bridge path is not a regular owned file",
-                ));
-            }
-        }
+        self.validate_island_bridge_target()?;
         let mut options = OpenOptions::new();
         options.write(true).create_new(true);
         #[cfg(unix)]
@@ -710,6 +725,37 @@ mod store_tests {
         symlink(outside.path(), temp.path().join(SEMANTIC_FILE)).unwrap();
         let error = store(&temp).load().unwrap_err();
         assert_eq!(error.code, ErrorCode::PermissionDenied);
+    }
+
+    #[test]
+    fn island_bridge_points_to_materialized_scene_and_hostile_path_preserves_source() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        let store = ProjectStore::open_island(root.clone()).unwrap();
+        let project = fixture();
+        let saved = store.create(&project).unwrap();
+        let bridge = store.island_bridge().unwrap().unwrap();
+        let specifier = bridge
+            .lines()
+            .find_map(|line| line.split(" from ").nth(1))
+            .and_then(|quoted| serde_json::from_str::<String>(quoted.trim_end_matches(';')).ok())
+            .unwrap();
+        let target = specifier
+            .trim_start_matches("./")
+            .split('?')
+            .next()
+            .unwrap();
+        assert!(root.join(format!("{target}.tsx")).is_file());
+
+        let before = std::fs::read(store.semantic_path()).unwrap();
+        std::fs::remove_file(root.join(ISLAND_BRIDGE)).unwrap();
+        std::fs::create_dir(root.join(ISLAND_BRIDGE)).unwrap();
+        let mut changed = project.clone();
+        changed.revision = 2;
+        changed.scenes[0].name = "Changed".into();
+        let error = store.commit(&saved.source_sha256, &changed).unwrap_err();
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+        assert_eq!(std::fs::read(store.semantic_path()).unwrap(), before);
     }
 
     #[test]
