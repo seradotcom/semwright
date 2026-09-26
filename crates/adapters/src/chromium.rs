@@ -33,7 +33,7 @@ use tokio_util::sync::CancellationToken;
 use url::Url;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
-type Pending = Arc<StdMutex<BTreeMap<u64, oneshot::Sender<Result<Value>>>>>;
+type Pending = Arc<StdMutex<BTreeMap<u64, (String, oneshot::Sender<Result<Value>>)>>>;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrowserConfig {
@@ -374,12 +374,12 @@ impl Cdp {
                     break;
                 };
                 if let Some(id) = value.get("id").and_then(Value::as_u64) {
-                    let sender = pending.lock().ok().and_then(|mut map| map.remove(&id));
-                    if let Some(sender) = sender {
+                    let request = pending.lock().ok().and_then(|mut map| map.remove(&id));
+                    if let Some((method, sender)) = request {
                         let result = if value.get("error").is_some() {
                             Err(Error::new(
                                 ErrorCode::BackendFailed,
-                                "CDP method rejected; browser details redacted",
+                                format!("CDP method {method} rejected; browser details redacted"),
                             )
                             .uncertain())
                         } else {
@@ -555,7 +555,7 @@ impl Cdp {
             }
             alive.store(false, Ordering::SeqCst);
             if let Ok(mut map) = pending.lock() {
-                for (_, sender) in std::mem::take(&mut *map) {
+                for (_, (_, sender)) in std::mem::take(&mut *map) {
                     let _ = sender.send(Err(
                         Error::unavailable("Browser CDP disconnected").uncertain()
                     ));
@@ -581,7 +581,7 @@ impl Cdp {
                     "Too many CDP requests",
                 ));
             }
-            pending.insert(id, sender);
+            pending.insert(id, (method.to_owned(), sender));
         }
         let _guard = PendingGuard {
             pending: self.pending.clone(),
@@ -619,6 +619,24 @@ impl Cdp {
             .map_err(|_| Error::new(ErrorCode::Internal, "CDP attached-session lock poisoned"))?
             .get(target)
             .cloned())
+    }
+    fn attached_session_candidates(&self) -> Result<Vec<String>> {
+        let sessions = self
+            .attached_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP attached-session lock poisoned"))?;
+        let mut rows: Vec<String> = sessions.values().cloned().collect();
+        rows.sort();
+        rows.dedup();
+        rows.truncate(256);
+        Ok(rows)
+    }
+    fn remember_frame_session(&self, frame_id: &str, session: &str) -> Result<()> {
+        self.attached_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP attached-session lock poisoned"))?
+            .insert(frame_id.to_owned(), session.to_owned());
+        Ok(())
     }
     async fn ensure_session_domains(&self, session: &str) -> Result<()> {
         if self
@@ -834,6 +852,35 @@ impl Instance {
         self.sessions.insert(target.into(), session.clone());
         Ok(session)
     }
+    async fn frame_session(&self, frame_id: &str) -> Result<Option<String>> {
+        if let Some(session) = self.cdp.attached_session(frame_id)?
+            && self.cdp.ensure_session_domains(&session).await.is_ok()
+            && let Ok(tree) = self
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&session))
+                .await
+            && tree["frameTree"]["frame"]["id"].as_str() == Some(frame_id)
+        {
+            return Ok(Some(session));
+        }
+        for candidate in self.cdp.attached_session_candidates()? {
+            if self.cdp.ensure_session_domains(&candidate).await.is_err() {
+                continue;
+            }
+            let Ok(tree) = self
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&candidate))
+                .await
+            else {
+                continue;
+            };
+            if tree["frameTree"]["frame"]["id"].as_str() == Some(frame_id) {
+                self.cdp.remember_frame_session(frame_id, &candidate)?;
+                return Ok(Some(candidate));
+            }
+        }
+        Ok(None)
+    }
     fn tab_ref(&self, target: &str) -> Value {
         target_marker(NativeTarget {
             kind: "tab".into(),
@@ -967,6 +1014,14 @@ impl Chromium {
                 ErrorCode::ResourceExhausted,
                 "Browser upload staging file budget exceeded",
             ));
+        }
+        // Reject malformed/traversal paths before consulting policy. Policy errors describe
+        // authorization, never basic input syntax, and must not mask an invalid relative path.
+        for value in paths {
+            let text = value
+                .as_str()
+                .ok_or_else(|| Error::invalid("Upload paths must be strings"))?;
+            validate_relative_path(Path::new(text))?;
         }
         let grant = self
             .filesystem_grants
@@ -1280,7 +1335,7 @@ impl Chromium {
         let mut session = parent_session.clone();
 
         if let Some(frame_id) = frame.as_deref() {
-            if let Some(child_session) = instance.cdp.attached_session(frame_id)? {
+            if let Some(child_session) = instance.frame_session(frame_id).await? {
                 session = child_session;
                 instance.cdp.ensure_session_domains(&session).await?;
                 let tree = instance

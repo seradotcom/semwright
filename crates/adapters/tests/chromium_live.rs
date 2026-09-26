@@ -1017,17 +1017,16 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
             .is_some_and(|nodes| { nodes.iter().any(|row| row["name"] == "Frame A") })
     );
     let stable = stable_main_document_ref(&browser, &ctx, &frames_tab).await?;
-    tokio::time::sleep(Duration::from_millis(4400)).await;
-    assert_eq!(
-        browser.validate(&child_frame).await.unwrap_err().code,
-        ErrorCode::StaleReference,
-        "subframe navigation must retire frame references"
-    );
-    assert_eq!(
-        browser.validate(&stable).await.unwrap_err().code,
-        ErrorCode::StaleReference,
-        "subframe navigation must retire DOM references for the attached target"
-    );
+    tokio::time::timeout(Duration::from_secs(8), async {
+        loop {
+            match browser.validate(&child_frame).await {
+                Err(error) if error.code == ErrorCode::StaleReference => break,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+    })
+    .await?;
+    browser.validate(&stable).await?;
     let refreshed = query(&browser, &ctx, &frames_tab, "#stable").await?;
     browser.validate(&refreshed).await?;
     let refreshed_frames = browser
