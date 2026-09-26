@@ -102,6 +102,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
             },
         ],
         secrets: vec![],
+        tools: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {

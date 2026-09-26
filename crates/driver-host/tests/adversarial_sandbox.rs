@@ -3,7 +3,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
+    Transport,
 };
 use semwright_policy::FilesystemGrant;
 use serde_json::{Value, json};
@@ -65,12 +66,14 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     let rw = tempfile::tempdir().unwrap();
     let secret = tempfile::tempdir().unwrap();
     let binary = tempfile::tempdir().unwrap();
+    let tool = tempfile::tempdir().unwrap();
     for directory in [
         state.path(),
         ro.path(),
         rw.path(),
         secret.path(),
         binary.path(),
+        tool.path(),
     ] {
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
@@ -86,6 +89,12 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     let executable = binary.path().join("driver");
     std::fs::copy(fixture_binary(), &executable).unwrap();
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500)).unwrap();
+
+    let tool_source = tool.path().join("probe");
+    std::fs::copy("/usr/bin/true", &tool_source).unwrap();
+    std::fs::set_permissions(&tool_source, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let tool_source = tool_source.canonicalize().unwrap();
+    let tool_digest = digest(&tool_source);
 
     let resources = DriverResources {
         open_files: 64,
@@ -122,6 +131,11 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
         ],
         system_config: vec![],
         secrets: vec![],
+        tools: vec![DriverToolMount {
+            root: "probe-tool".into(),
+            name: "probe".into(),
+            sha256: tool_digest,
+        }],
         network: false,
         loopback_port: None,
         resources,
@@ -144,6 +158,12 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             read: true,
             write: true,
         },
+        FilesystemGrant {
+            name: "probe-tool".into(),
+            path: tool_source.clone(),
+            read: true,
+            write: false,
+        },
     ];
 
     let provider =
@@ -151,6 +171,19 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             .await
             .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
+
+    // The source disappears after the Host has verified/sealed it. The driver must
+    // execute only the immutable /plugin/tools/probe mount retained by the provider.
+    std::fs::remove_file(&tool_source).unwrap();
+    let tool_result = execute(
+        provider.as_ref(),
+        &capabilities,
+        "driver.adversarial.tool_probe",
+        json!({}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(tool_result["tool_executed"], true);
 
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let port = listener.local_addr().unwrap().port();

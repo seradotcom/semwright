@@ -112,6 +112,8 @@ impl SandboxLauncher for LinuxSandbox {
             "--dir",
             "/plugin",
             "--dir",
+            "/plugin/tools",
+            "--dir",
             "/run",
             "--dir",
             "/run/secrets",
@@ -140,6 +142,11 @@ impl SandboxLauncher for LinuxSandbox {
         for m in s.mounts.iter().filter(|m| m.class == MountClass::Secret) {
             let destination = materialized_destination(m)?;
             p.arg("--ro-bind").arg(&m.source).arg(destination);
+        }
+        for tool in &s.sealed_tools {
+            p.args(["--perms", "0500", "--ro-bind-data"])
+                .arg(tool.fd.to_string())
+                .arg(format!("/plugin/tools/{}", tool.name));
         }
         p.arg("--ro-bind")
             .arg(&s.staged_executable)
@@ -208,6 +215,10 @@ impl SandboxLauncher for LinuxSandbox {
             } else {
                 p.arg("--read-root").arg(destination);
             }
+        }
+        for tool in &s.sealed_tools {
+            p.arg("--exec-root")
+                .arg(format!("/plugin/tools/{}", tool.name));
         }
         p.args(["--", "/plugin/bin"])
             .args(&s.args)
