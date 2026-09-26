@@ -111,6 +111,7 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
             execute: false,
         }],
         system_config: vec![],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {
@@ -203,6 +204,7 @@ async fn manifest_requesting_network_is_denied_without_owner_opt_in() {
         transport: Transport::StdioV1,
         mounts: vec![],
         system_config: vec![],
+        secrets: vec![],
         network: true,
         loopback_port: None,
         resources: DriverResources::default(),
