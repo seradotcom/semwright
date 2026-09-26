@@ -612,6 +612,12 @@ fn inspect_package_full(path: &Path) -> Result<InspectedPackage> {
 
 pub fn inspect_package(path: &Path) -> Result<(PackageMetadata, Vec<u8>, String)> {
     let inspected = inspect_package_full(path)?;
+    if inspected.companions.len() != inspected.metadata.companions.len() {
+        return Err(Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Decoded companion payload count does not match package metadata",
+        ));
+    }
     Ok((inspected.metadata, inspected.executable, inspected.digest))
 }
 
