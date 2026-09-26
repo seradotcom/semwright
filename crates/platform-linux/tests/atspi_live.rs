@@ -251,7 +251,7 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str, expect
                     &json!({
                         "app":app,
                         "max_nodes":512,
-                        "max_depth":8,
+                        "max_depth":32,
                         "since_revision":revision
                     }),
                 )
@@ -303,7 +303,7 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str, expect
                     &json!({
                         "app":app,
                         "max_nodes":512,
-                        "max_depth":8,
+                        "max_depth":32,
                         "since_revision":delta_revision
                     }),
                 )
