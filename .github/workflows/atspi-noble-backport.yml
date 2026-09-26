@@ -1,0 +1,109 @@
+name: Ubuntu Noble AT-SPI backport
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tooling/compat/ubuntu-noble-atspi/**'
+      - 'crates/platform-linux/src/atspi.rs'
+      - 'scripts/dev/atspi-pressure-ci.sh'
+      - '.github/workflows/atspi-noble-backport.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atspi-noble-backport-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-backport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install Debian package tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends devscripts equivs dpkg-dev
+      - name: Prepare exact Ubuntu Noble source
+        run: |
+          tooling/compat/ubuntu-noble-atspi/prepare-source.sh "$RUNNER_TEMP/at-spi2-core-noble"
+      - name: Install source build dependencies
+        working-directory: ${{ runner.temp }}/at-spi2-core-noble
+        run: |
+          sudo mk-build-deps --install --remove             --tool 'apt-get -y --no-install-recommends' debian/control
+      - name: Build binary packages with upstream lifetime fix
+        working-directory: ${{ runner.temp }}/at-spi2-core-noble
+        run: |
+          dpkg-buildpackage -b -us -uc
+          mkdir -p "$GITHUB_WORKSPACE/verification/atspi-noble-backport"
+          cp "$RUNNER_TEMP"/*.deb "$GITHUB_WORKSPACE/verification/atspi-noble-backport/"
+      - name: Verify package identity and provenance
+        run: |
+          tooling/compat/ubuntu-noble-atspi/verify-debs.sh             verification/atspi-noble-backport
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ubuntu-noble-atspi-backport-${{ github.sha }}
+          path: verification/atspi-noble-backport
+          retention-days: 30
+
+  guarded-backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: atspi-noble-guard
+      - name: Install native build dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+      - name: Guard detection unit tests
+        run: |
+          cargo test --locked -p semwright-platform-linux             noble_guard --lib -- --nocapture
+          cargo test --locked -p semwright-platform-linux             parse_noble --lib -- --nocapture
+      - name: Platform Linux compile gate
+        run: cargo check --locked -p semwright-platform-linux --all-targets
+
+  patched-pressure-smoke:
+    needs: build-backport
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          name: ubuntu-noble-atspi-backport-${{ github.sha }}
+          path: verification/atspi-noble-backport
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: atspi-noble-pressure
+      - name: Install patched bridge and disposable UI dependencies
+        run: |
+          bridge=$(find verification/atspi-noble-backport -name 'libatk-bridge2.0-0t64_*_amd64.deb' | head -1)
+          sudo dpkg -i "$bridge"
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev xvfb zenity
+          dpkg-query -W -f='${Package} ${Version}\n' libatk-bridge2.0-0t64
+      - name: Repeated AT-SPI lifecycle pressure smoke
+        env:
+          SEMWRIGHT_ATSPI_PRESSURE_ITERATIONS: 12
+        run: scripts/dev/atspi-pressure-ci.sh
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: ubuntu-noble-atspi-pressure-${{ github.sha }}
+          path: verification/native-ci/atspi-pressure
+          retention-days: 30

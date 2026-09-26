@@ -7,6 +7,7 @@ use semwright_types::*;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fs;
 use std::sync::{
     Arc, Mutex as StdMutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -18,6 +19,74 @@ use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 type Object = (String, OwnedObjectPath);
 const ACCESSIBLE: &str = "org.a11y.atspi.Accessible";
 const ROOT: &str = "/org/a11y/atspi/accessible/root";
+const NOBLE_LEGACY_MAX_NODES: usize = 256;
+const NOBLE_LEGACY_MAX_DEPTH: usize = 8;
+const NOBLE_LEGACY_CHILDREN_PER_NODE: usize = 128;
+
+fn os_release_value(input: &str, key: &str) -> Option<String> {
+    input.lines().find_map(|line| {
+        let (name, value) = line.split_once('=')?;
+        (name == key).then(|| value.trim_matches('"').to_owned())
+    })
+}
+
+fn dpkg_package_version(input: &str, wanted: &str) -> Option<String> {
+    input
+        .split(
+            "
+
+",
+        )
+        .find_map(|paragraph| {
+            let mut package = None;
+            let mut version = None;
+            for line in paragraph.lines() {
+                if let Some(value) = line.strip_prefix("Package: ") {
+                    package = Some(value.trim());
+                } else if let Some(value) = line.strip_prefix("Version: ") {
+                    version = Some(value.trim());
+                }
+            }
+            (package == Some(wanted))
+                .then(|| version.map(str::to_owned))
+                .flatten()
+        })
+}
+
+fn parse_upstream_version(version: &str) -> Option<(u64, u64, u64)> {
+    let raw = version.split('-').next()?.split(':').next_back()?;
+    let mut parts = raw.split('.');
+    Some((
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+    ))
+}
+
+fn noble_atspi_version_is_fixed(version: &str) -> bool {
+    version.contains("+semwright")
+        || parse_upstream_version(version).is_some_and(|value| value >= (2, 55, 2))
+}
+
+fn detect_noble_legacy_atspi() -> bool {
+    match std::env::var("SEMWRIGHT_ATSPI_NOBLE_GUARD").as_deref() {
+        Ok("on" | "1" | "true") => return true,
+        Ok("off" | "0" | "false") => return false,
+        _ => {}
+    }
+    let os = fs::read_to_string("/etc/os-release").unwrap_or_default();
+    if os_release_value(&os, "ID").as_deref() != Some("ubuntu")
+        || os_release_value(&os, "VERSION_ID").as_deref() != Some("24.04")
+    {
+        return false;
+    }
+    let status = fs::read_to_string("/var/lib/dpkg/status").unwrap_or_default();
+    let Some(version) = dpkg_package_version(&status, "libatk-bridge2.0-0t64") else {
+        return false;
+    };
+    !noble_atspi_version_is_fixed(&version)
+}
+
 #[derive(Default)]
 struct ObjectGenerations {
     next: AtomicU64,
@@ -79,6 +148,7 @@ pub struct Atspi {
     events_live: Arc<AtomicBool>,
     object_generations: Arc<ObjectGenerations>,
     snapshots: StdMutex<BTreeMap<SnapshotKey, CachedSnapshot>>,
+    noble_legacy_guard: bool,
 }
 impl Default for Atspi {
     fn default() -> Self {
@@ -91,6 +161,7 @@ impl Default for Atspi {
             events_live: Arc::new(AtomicBool::new(false)),
             object_generations: Arc::new(ObjectGenerations::default()),
             snapshots: StdMutex::new(BTreeMap::new()),
+            noble_legacy_guard: detect_noble_legacy_atspi(),
         }
     }
 }
@@ -257,11 +328,16 @@ impl Atspi {
             .await,
         )?;
         let mut streams = vec![];
-        for interface in [
-            "org.a11y.atspi.Event.Object",
-            "org.a11y.atspi.Event.Window",
-            "org.freedesktop.DBus",
-        ] {
+        let interfaces: &[&str] = if self.noble_legacy_guard {
+            &["org.a11y.atspi.Event.Window", "org.freedesktop.DBus"]
+        } else {
+            &[
+                "org.a11y.atspi.Event.Object",
+                "org.a11y.atspi.Event.Window",
+                "org.freedesktop.DBus",
+            ]
+        };
+        for &interface in interfaces {
             let rule = dbus(
                 zbus::MatchRule::builder()
                     .msg_type(zbus::message::Type::Signal)
@@ -272,7 +348,12 @@ impl Atspi {
                 zbus::MessageStream::for_match_rule(rule, connection, Some(1024)).await,
             )?);
         }
-        for category in ["object:", "window:"] {
+        let categories: &[&str] = if self.noble_legacy_guard {
+            &["window:"]
+        } else {
+            &["object:", "window:"]
+        };
+        for &category in categories {
             let _: () =
                 bounded(registry.call("RegisterEvent", &(category, Vec::<String>::new(), "")))
                     .await?;
@@ -398,8 +479,23 @@ impl Atspi {
                 "Snapshot base revision is newer than the accessibility state",
             ));
         }
-        let budget = args["max_nodes"].as_u64().unwrap_or(200).min(2000) as usize;
-        let max_depth = args["max_depth"].as_u64().unwrap_or(5).min(32) as usize;
+        let requested_budget = args["max_nodes"].as_u64().unwrap_or(200).min(2000) as usize;
+        let requested_depth = args["max_depth"].as_u64().unwrap_or(5).min(32) as usize;
+        let budget = if self.noble_legacy_guard {
+            requested_budget.min(NOBLE_LEGACY_MAX_NODES)
+        } else {
+            requested_budget
+        };
+        let max_depth = if self.noble_legacy_guard {
+            requested_depth.min(NOBLE_LEGACY_MAX_DEPTH)
+        } else {
+            requested_depth
+        };
+        let child_limit = if self.noble_legacy_guard {
+            NOBLE_LEGACY_CHILDREN_PER_NODE
+        } else {
+            2000
+        };
         let actionable = args["actionable"].as_bool().unwrap_or(false);
         let key = SnapshotKey {
             app: args["app"].as_str().map(str::to_owned),
@@ -429,7 +525,8 @@ impl Atspi {
         let mut visited = 0;
         while let Some((object, depth, app, parent)) = queue.pop_front() {
             ctx.check_cancelled()?;
-            if nodes.len() >= budget || visited >= budget.saturating_mul(4) {
+            let visit_multiplier = if self.noble_legacy_guard { 2 } else { 4 };
+            if nodes.len() >= budget || visited >= budget.saturating_mul(visit_multiplier) {
                 partial = true;
                 break;
             }
@@ -471,11 +568,11 @@ impl Atspi {
                     vec![]
                 });
             let count = children.len();
-            if count > 2000 {
+            if count > child_limit {
                 partial = true;
             }
             if depth < max_depth {
-                for child in children.into_iter().take(2000) {
+                for child in children.into_iter().take(child_limit) {
                     queue.push_back((child, depth + 1, app.clone(), Some(identity.clone())));
                 }
             } else if count > 0 {
@@ -582,7 +679,13 @@ impl Atspi {
             "changed_during_snapshot": ending != revision,
             "semantic_coverage": if partial {"partial"} else {"reported_tree"},
             "event_invalidation": events_live,
-            "visited": visited
+            "visited": visited,
+            "compatibility_guard": self.noble_legacy_guard.then_some("ubuntu-noble-atspi-legacy"),
+            "effective_limits": {
+                "max_nodes": budget,
+                "max_depth": max_depth,
+                "children_per_node": child_limit
+            }
         }))
     }
 }
@@ -617,7 +720,11 @@ impl Backend for Atspi {
             self.name(),
             "ui.observe",
             ready,
-            "AT-SPI bus, registry and object-event subscription",
+            if self.noble_legacy_guard {
+                "AT-SPI bus with Ubuntu Noble legacy compatibility guard"
+            } else {
+                "AT-SPI bus, registry and object-event subscription"
+            },
             "Enable accessibility and run within the application user's D-Bus session",
         )]
     }
@@ -820,6 +927,38 @@ mod tests {
     fn machine_button_role() {
         assert_eq!(normalize_role("push button"), "button");
     }
+    #[test]
+    fn noble_guard_version_detection() {
+        assert!(!noble_atspi_version_is_fixed("2.52.0-1build1"));
+        assert!(noble_atspi_version_is_fixed("2.52.0-1build1+semwright1"));
+        assert!(noble_atspi_version_is_fixed("2.55.2-1"));
+    }
+
+    #[test]
+    fn parse_noble_package_status() {
+        let status = "Package: other
+Version: 1
+
+Package: libatk-bridge2.0-0t64
+Version: 2.52.0-1build1
+
+";
+        assert_eq!(
+            dpkg_package_version(status, "libatk-bridge2.0-0t64").as_deref(),
+            Some("2.52.0-1build1")
+        );
+    }
+
+    #[test]
+    fn parse_os_release_quotes() {
+        let release = "ID=ubuntu\nVERSION_ID=\"24.04\"\n";
+        assert_eq!(os_release_value(release, "ID").as_deref(), Some("ubuntu"));
+        assert_eq!(
+            os_release_value(release, "VERSION_ID").as_deref(),
+            Some("24.04")
+        );
+    }
+
     #[test]
     fn unique_owner_required() {
         assert!(object_from_id("org.app|/object").is_err());
