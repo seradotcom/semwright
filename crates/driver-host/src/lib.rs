@@ -2023,8 +2023,8 @@ mod tests {
         let body = b"ELFfixture";
         std::fs::write(&path, body).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
-        assert!(verify_owned_elf(&path, &format!("{:x}", Sha256::digest(body))).is_err());
+        assert!(verify_owned_executable(&path, &format!("{:x}", Sha256::digest(body))).is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(verify_owned_elf(&path, &"0".repeat(64)).is_err());
+        assert!(verify_owned_executable(&path, &"0".repeat(64)).is_err());
     }
 }
