@@ -122,6 +122,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
         ],
         system_config: vec![],
         network: false,
+        loopback_port: None,
         resources,
         request_timeout_ms: 5_000,
         interfaces: DriverInterfaces::default(),

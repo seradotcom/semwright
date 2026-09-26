@@ -146,6 +146,7 @@ async fn obs_driver_runs_through_real_driver_host() {
             destination: "/etc/semwright-obs".into(),
         }],
         network: true,
+        loopback_port: None,
         resources: DriverResources {
             cpu_seconds: 60,
             address_space_bytes: 1_073_741_824,
@@ -240,6 +241,7 @@ async fn obs_driver_network_requires_owner_opt_in() {
         mounts: vec![],
         system_config: vec![],
         network: true,
+        loopback_port: None,
         resources: DriverResources::default(),
         request_timeout_ms: 2000,
         interfaces: DriverInterfaces::default(),

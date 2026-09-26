@@ -5,9 +5,14 @@ use semwright_driver_sdk::DriverChildEvent;
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::{Value, json};
 use sha2::Sha256;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::{collections::HashMap, sync::Arc, time::Duration};
+#[cfg(unix)]
+use tokio::net::UnixListener;
 use tokio::{
-    net::{TcpListener, TcpStream},
+    io::{AsyncRead, AsyncWrite},
+    net::TcpListener,
     sync::{RwLock, mpsc, oneshot},
 };
 use tokio_tungstenite::{accept_async, tungstenite::Message};
@@ -50,7 +55,6 @@ impl Bridge {
         projects: Vec<ProjectConfig>,
         events: mpsc::UnboundedSender<DriverChildEvent>,
     ) -> Result<Self> {
-        let listener = TcpListener::bind(("127.0.0.1", port)).await?;
         let sessions = Arc::new(RwLock::new(HashMap::new()));
         let stop = CancellationToken::new();
         let bridge = Self {
@@ -63,6 +67,38 @@ impl Bridge {
                 .map(|p| (p.project.clone(), p))
                 .collect::<HashMap<_, _>>(),
         );
+
+        #[cfg(unix)]
+        if let Ok(socket) = std::env::var("SEMWRIGHT_DRIVER_LOOPBACK_SOCKET") {
+            const EXPECTED: &str = "/workspace/semwright-internal-loopback/bridge.sock";
+            if socket != EXPECTED {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Godot loopback socket path is not Host-controlled",
+                ));
+            }
+            let listener = UnixListener::bind(&socket)?;
+            std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        _ = stop.cancelled() => break,
+                        accepted = listener.accept() => {
+                            let Ok((stream, _)) = accepted else { continue };
+                            let sessions = sessions.clone();
+                            let projects = projects.clone();
+                            let events = events.clone();
+                            tokio::spawn(async move {
+                                let _ = serve_connection(stream, sessions, projects, events).await;
+                            });
+                        }
+                    }
+                }
+            });
+            return Ok(bridge);
+        }
+
+        let listener = TcpListener::bind(("127.0.0.1", port)).await?;
         tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -135,12 +171,15 @@ impl Bridge {
     }
 }
 
-async fn serve_connection(
-    stream: TcpStream,
+async fn serve_connection<S>(
+    stream: S,
     sessions: Arc<RwLock<HashMap<String, Arc<Session>>>>,
     projects: Arc<HashMap<String, ProjectConfig>>,
     events: mpsc::UnboundedSender<DriverChildEvent>,
-) -> Result<()> {
+) -> Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let mut ws = accept_async(stream).await.map_err(protocol)?;
     let hello = recv_json(&mut ws).await?;
     require_type(&hello, "hello")?;
@@ -359,7 +398,10 @@ fn bounded_message(message: &str) -> String {
     message.chars().take(512).collect()
 }
 
-async fn recv_json(ws: &mut tokio_tungstenite::WebSocketStream<TcpStream>) -> Result<Value> {
+async fn recv_json<S>(ws: &mut tokio_tungstenite::WebSocketStream<S>) -> Result<Value>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let message = ws
         .next()
         .await
@@ -386,10 +428,10 @@ async fn recv_json(ws: &mut tokio_tungstenite::WebSocketStream<TcpStream>) -> Re
     Ok(value)
 }
 
-async fn send_json(
-    ws: &mut tokio_tungstenite::WebSocketStream<TcpStream>,
-    value: &Value,
-) -> Result<()> {
+async fn send_json<S>(ws: &mut tokio_tungstenite::WebSocketStream<S>, value: &Value) -> Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let bytes = serde_json::to_vec(value)?;
     if bytes.len() > MAX_WIRE_BYTES {
         return Err(Error::new(
