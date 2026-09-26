@@ -662,6 +662,30 @@ def dispatch(command, args):
         if set(args) != {"ref"}:
             raise CommandError("InvalidArgument", "Sequence modifier remove requires ref")
         return semantic.sequence_modifier_remove(args["ref"])
+    if command == "driver.blender.mask.layer.add":
+        if set(args) != {"mask_ref", "name"}:
+            raise CommandError("InvalidArgument", "Mask layer add requires mask_ref and name")
+        return semantic.mask_layer_add(args["mask_ref"], args["name"])
+    if command == "driver.blender.mask.layer.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Mask layer remove requires ref")
+        return semantic.mask_layer_remove(args["ref"])
+    if command == "driver.blender.mask.spline.add":
+        if not set(args).issubset({"layer_ref", "points"}) or "layer_ref" not in args:
+            raise CommandError("InvalidArgument", "Mask spline add requires layer_ref")
+        return semantic.mask_spline_add(args["layer_ref"], args.get("points", 1))
+    if command == "driver.blender.mask.spline.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Mask spline remove requires ref")
+        return semantic.mask_spline_remove(args["ref"])
+    if command == "driver.blender.mask.points.add":
+        if set(args) != {"spline_ref", "count"}:
+            raise CommandError("InvalidArgument", "Mask points add requires spline_ref and count")
+        return semantic.mask_points_add(args["spline_ref"], args["count"])
+    if command == "driver.blender.mask.point.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Mask point remove requires ref")
+        return semantic.mask_point_remove(args["ref"])
     if command == "driver.blender.modifier.add":
         if set(args) != {"object_ref", "name", "type"}:
             raise CommandError("InvalidArgument", "Modifier add requires object_ref, name and type")

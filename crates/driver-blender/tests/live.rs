@@ -803,6 +803,149 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
 
+    let mask = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.create",
+        json!({"root":"masks","name":"SemwrightMask"}),
+    )
+    .await
+    .unwrap();
+    let mask_ref = mask["ref"].as_str().unwrap().to_owned();
+    let mask_layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mask.layer.add",
+        json!({"mask_ref":mask_ref,"name":"SemwrightMaskLayer"}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = mask_layer["ref"].as_str().unwrap().to_owned();
+    let mask_spline = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mask.spline.add",
+        json!({"layer_ref":layer_ref,"points":2}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(mask_spline["points"], 2);
+    let spline_ref = mask_spline["ref"].as_str().unwrap().to_owned();
+    let mask_points = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":spline_ref,"property":"points","limit":8}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(mask_points["items"].as_array().unwrap().len(), 2);
+    let point_ref = mask_points["items"][0]["ref"].as_str().unwrap().to_owned();
+    let moved_mask_point = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.set",
+        json!({"ref":point_ref,"property":"co","value":[0.25,0.5]}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(moved_mask_point["value"], json!([0.25, 0.5]));
+
+    let masks = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"masks","query":"SemwrightMask","limit":8}),
+    )
+    .await
+    .unwrap();
+    let mask_ref = masks["items"][0]["ref"].as_str().unwrap().to_owned();
+    let layers = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":mask_ref,"property":"layers","limit":8}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = layers["items"][0]["ref"].as_str().unwrap().to_owned();
+    let splines = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":layer_ref,"property":"splines","limit":8}),
+    )
+    .await
+    .unwrap();
+    let spline_ref = splines["items"][0]["ref"].as_str().unwrap().to_owned();
+    let grown_mask = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mask.points.add",
+        json!({"spline_ref":spline_ref,"count":1}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(grown_mask["point_count"], 3);
+    let spline_ref = grown_mask["ref"].as_str().unwrap().to_owned();
+    let points = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":spline_ref,"property":"points","limit":8}),
+    )
+    .await
+    .unwrap();
+    let point_ref = points["items"][2]["ref"].as_str().unwrap().to_owned();
+    let removed_point = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mask.point.remove",
+        json!({"ref":point_ref}),
+    )
+    .await
+    .unwrap();
+    let spline_ref = removed_point["spline_ref"].as_str().unwrap().to_owned();
+    let removed_spline = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mask.spline.remove",
+        json!({"ref":spline_ref}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = removed_spline["layer_ref"].as_str().unwrap().to_owned();
+    let removed_layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mask.layer.remove",
+        json!({"ref":layer_ref}),
+    )
+    .await
+    .unwrap();
+    let mask_ref = removed_layer["mask_ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":mask_ref}),
+    )
+    .await
+    .unwrap();
+
+    let refreshed_objects = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"objects","query":"SemwrightCube","limit":8}),
+    )
+    .await
+    .unwrap();
+    authored_object_ref = refreshed_objects["items"][0]["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
     let basis = call(
         provider.as_ref(),
         &capabilities,

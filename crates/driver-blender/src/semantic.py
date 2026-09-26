@@ -856,7 +856,7 @@ class SemanticStore:
         if collection.get(name) is not None:
             raise SemanticError("Conflict", "Datablock name already exists; implicit suffixing is forbidden")
         simple = {
-            "actions", "armatures", "cameras", "collections", "lattices", "materials",
+            "actions", "armatures", "cameras", "collections", "lattices", "masks", "materials",
             "meshes", "metaballs", "palettes", "pointclouds", "scenes", "speakers",
             "volumes", "worlds",
         }
@@ -1505,10 +1505,17 @@ class SemanticStore:
             raise SemanticError("InvalidArgument", "F-Curve group name is invalid")
         try:
             existing = channelbag.fcurves.find(data_path, index=index)
-            curve = channelbag.fcurves.ensure(data_path, index=index, group_name=group_name)
+            curve = existing
+            if curve is None:
+                curve = channelbag.fcurves.new(data_path, index=index)
+                if group_name:
+                    group = channelbag.groups.get(group_name)
+                    if group is None:
+                        group = channelbag.groups.new(group_name)
+                    curve.group = group
             position = list(channelbag.fcurves).index(curve)
         except Exception as error:
-            raise SemanticError("InvalidArgument", "Blender rejected Action F-Curve ensure") from error
+            raise SemanticError("InvalidArgument", "Blender 4.5 rejected Action F-Curve ensure") from error
         changed = existing is None
         if changed:
             self.changed()
@@ -2059,6 +2066,125 @@ class SemanticStore:
         self.changed()
         return {
             "strip_ref": self._ref(root, scene_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def _require_mask(self, reference):
+        root, name, path, mask = self._resolve(reference)
+        if root != "masks" or path or _text(getattr(getattr(mask, "bl_rna", None), "identifier", ""), 256) != "Mask":
+            raise SemanticError("InvalidArgument", "Operation requires a root Mask datablock ref")
+        return root, name, path, mask
+
+    def mask_layer_add(self, mask_ref, name):
+        root, mask_name, path, mask = self._require_mask(mask_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Mask layer name is invalid")
+        if any(layer.name == name for layer in mask.layers):
+            raise SemanticError("Conflict", "Mask layer name already exists")
+        try:
+            layer = mask.layers.new(name=name)
+            if layer.name != name:
+                mask.layers.remove(layer)
+                raise SemanticError("Conflict", "Blender rewrote the requested Mask layer name")
+            index = list(mask.layers).index(layer)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Mask layer creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, mask_name, path + [["c", "layers", index]]),
+            "name": layer.name,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def mask_layer_remove(self, layer_ref):
+        root, mask_name, parent_path, mask, layer = self._collection_parent(layer_ref, "layers")
+        if _text(getattr(getattr(mask, "bl_rna", None), "identifier", ""), 256) != "Mask":
+            raise SemanticError("InvalidArgument", "Mask layer parent is not a Mask")
+        try:
+            mask.layers.remove(layer)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Mask layer removal") from error
+        self.changed()
+        return {
+            "mask_ref": self._ref(root, mask_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def mask_spline_add(self, layer_ref, points=1):
+        root, mask_name, path, layer = self._resolve(layer_ref)
+        if _text(getattr(getattr(layer, "bl_rna", None), "identifier", ""), 256) != "MaskLayer":
+            raise SemanticError("InvalidArgument", "Operation requires a MaskLayer ref")
+        if isinstance(points, bool) or not isinstance(points, int) or not 1 <= points <= 10000:
+            raise SemanticError("InvalidArgument", "Mask spline point count is outside bounded limits")
+        try:
+            spline = layer.splines.new()
+            spline.points.add(points)
+            index = list(layer.splines).index(spline)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Mask spline creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, mask_name, path + [["c", "splines", index]]),
+            "points": len(spline.points),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def mask_spline_remove(self, spline_ref):
+        root, mask_name, parent_path, layer, spline = self._collection_parent(spline_ref, "splines")
+        if _text(getattr(getattr(layer, "bl_rna", None), "identifier", ""), 256) != "MaskLayer":
+            raise SemanticError("InvalidArgument", "Mask spline parent is not a MaskLayer")
+        try:
+            layer.splines.remove(spline)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Mask spline removal") from error
+        self.changed()
+        return {
+            "layer_ref": self._ref(root, mask_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def mask_points_add(self, spline_ref, count):
+        root, mask_name, path, spline = self._resolve(spline_ref)
+        if _text(getattr(getattr(spline, "bl_rna", None), "identifier", ""), 256) != "MaskSpline":
+            raise SemanticError("InvalidArgument", "Operation requires a MaskSpline ref")
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 10000:
+            raise SemanticError("InvalidArgument", "Mask point count is outside bounded limits")
+        before = len(spline.points)
+        if before + count > 10000:
+            raise SemanticError("InvalidArgument", "Mask spline would exceed the bounded point ceiling")
+        try:
+            spline.points.add(count)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Mask point creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, mask_name, path),
+            "points_added": count,
+            "point_count": len(spline.points),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def mask_point_remove(self, point_ref):
+        root, mask_name, parent_path, spline, point = self._collection_parent(point_ref, "points")
+        if _text(getattr(getattr(spline, "bl_rna", None), "identifier", ""), 256) != "MaskSpline":
+            raise SemanticError("InvalidArgument", "Mask point parent is not a MaskSpline")
+        if len(spline.points) <= 1:
+            raise SemanticError("Conflict", "Mask spline must retain at least one point")
+        try:
+            spline.points.remove(point)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Mask point removal") from error
+        self.changed()
+        return {
+            "spline_ref": self._ref(root, mask_name, parent_path),
             "changed": True,
             "generation": self.generation,
         }
