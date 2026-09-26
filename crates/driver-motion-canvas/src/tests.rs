@@ -56,11 +56,11 @@ fn hello_text_source_codegen_and_render_plan_match_goldens() {
     for (path, expected) in [
         (
             "src/scenes/intro.tsx",
-            "419104879877906f1fe239520f6f6dc65be6af9ef98f43539023fd0e5160b09f",
+            "7927ee2abf2138e6a7b068b8e3200547833defdcd1fd2ac2982afa675543f014",
         ),
         (
             "src/project.ts",
-            "d7446f88841b2b918f8a4d6a843da267d687ab81411422e05f0417fb1847fd65",
+            "17ad831fc1be72351a7069dc118a699c6c163cacc144ed766827b903c1a7cea0",
         ),
         (
             "vite.config.ts",
@@ -68,7 +68,7 @@ fn hello_text_source_codegen_and_render_plan_match_goldens() {
         ),
         (
             "semwright-compiler.json",
-            "89f4fb1a33f0e686ad14ab432b2d3ed35c0b2b742b76bdb5a6c13f948c71a6cd",
+            "4b24a774d5e3b27e389cb88a6fe6b4cf2506d872c1e8bd82342f360a7389da2e",
         ),
     ] {
         let bytes = generated
@@ -448,6 +448,8 @@ fn required_managed_fixtures_validate_and_compile() {
         include_bytes!("../../../fixtures/motion-canvas/transparent-overlay/semwright-motion.json")
             .as_slice(),
         include_bytes!("../../../fixtures/motion-canvas/media-embed/semwright-motion.json")
+            .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/semantic-complete/semwright-motion.json")
             .as_slice(),
     ] {
         let project = validate::parse(bytes).unwrap();

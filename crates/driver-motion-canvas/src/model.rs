@@ -32,6 +32,8 @@ pub struct Project {
     pub settings: Settings,
     pub theme: Theme,
     #[serde(default)]
+    pub variables: BTreeMap<String, SemanticValue>,
+    #[serde(default)]
     pub scenes: Vec<Scene>,
     #[serde(default)]
     pub assets: Vec<Asset>,
@@ -48,6 +50,7 @@ impl Project {
             revision: 1,
             settings: Settings::default(),
             theme: Theme::default(),
+            variables: BTreeMap::new(),
             scenes: Vec::new(),
             assets: Vec::new(),
             audio: Vec::new(),
@@ -169,6 +172,45 @@ pub enum NodeKind {
     Video,
     Latex,
     Camera,
+    Grid,
+    Polygon,
+    Path,
+    CubicBezier,
+    QuadBezier,
+    Spline,
+    Knot,
+    Ray,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FilterKind {
+    Invert,
+    Sepia,
+    Grayscale,
+    Brightness,
+    Contrast,
+    Saturate,
+    Hue,
+    Blur,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct FilterSpec {
+    pub kind: FilterKind,
+    pub value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
+pub enum SemanticValue {
+    Bool(bool),
+    Number(f64),
+    Text(String),
+    Vec2([f64; 2]),
+    Spacing([f64; 4]),
+    NumberList(Vec<f64>),
 }
 
 /// Only these properties can appear in generated source. A node-kind validator
@@ -252,6 +294,10 @@ pub struct Properties {
     pub edge: Option<Edge>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub zoom: Option<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<FilterSpec>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub semantic: BTreeMap<String, SemanticValue>,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -356,9 +402,7 @@ pub enum AnimatedValue {
     Vector([f64; 2]),
     Text(String),
 }
-#[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimatedProperty {
     Position,
@@ -381,17 +425,82 @@ pub enum AnimatedProperty {
     CameraZoom,
     CameraFocus,
     Counter,
+    Semantic(String),
 }
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Easing {
     Linear,
+    Sin,
+    Cos,
+    EaseInSine,
+    EaseOutSine,
+    EaseInOutSine,
+    EaseInQuad,
+    EaseOutQuad,
+    EaseInOutQuad,
+    EaseInCubic,
+    EaseOutCubic,
     #[default]
     EaseInOutCubic,
-    EaseOutCubic,
+    EaseInQuart,
+    EaseOutQuart,
+    EaseInOutQuart,
+    EaseInQuint,
     EaseOutQuint,
-    EaseInOutSine,
+    EaseInOutQuint,
+    EaseInExpo,
+    EaseOutExpo,
+    EaseInOutExpo,
+    EaseInCirc,
+    EaseOutCirc,
+    EaseInOutCirc,
+    EaseInBack,
     EaseOutBack,
+    EaseInOutBack,
+    EaseInBounce,
+    EaseOutBounce,
+    EaseInOutBounce,
+    EaseInElastic,
+    EaseOutElastic,
+    EaseInOutElastic,
+}
+impl Easing {
+    pub const ALL: [Self; 33] = [
+        Self::Linear,
+        Self::Sin,
+        Self::Cos,
+        Self::EaseInSine,
+        Self::EaseOutSine,
+        Self::EaseInOutSine,
+        Self::EaseInQuad,
+        Self::EaseOutQuad,
+        Self::EaseInOutQuad,
+        Self::EaseInCubic,
+        Self::EaseOutCubic,
+        Self::EaseInOutCubic,
+        Self::EaseInQuart,
+        Self::EaseOutQuart,
+        Self::EaseInOutQuart,
+        Self::EaseInQuint,
+        Self::EaseOutQuint,
+        Self::EaseInOutQuint,
+        Self::EaseInExpo,
+        Self::EaseOutExpo,
+        Self::EaseInOutExpo,
+        Self::EaseInCirc,
+        Self::EaseOutCirc,
+        Self::EaseInOutCirc,
+        Self::EaseInBack,
+        Self::EaseOutBack,
+        Self::EaseInOutBack,
+        Self::EaseInBounce,
+        Self::EaseOutBounce,
+        Self::EaseInOutBounce,
+        Self::EaseInElastic,
+        Self::EaseOutElastic,
+        Self::EaseInOutElastic,
+    ];
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -415,6 +524,19 @@ pub enum TransitionKind {
     SlideRight,
     SlideUp,
     SlideDown,
+    ZoomIn,
+    ZoomOut,
+}
+impl TransitionKind {
+    pub const ALL: [Self; 7] = [
+        Self::Fade,
+        Self::SlideLeft,
+        Self::SlideRight,
+        Self::SlideUp,
+        Self::SlideDown,
+        Self::ZoomIn,
+        Self::ZoomOut,
+    ];
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

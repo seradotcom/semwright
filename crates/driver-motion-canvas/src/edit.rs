@@ -21,6 +21,13 @@ pub enum Operation {
         #[schemars(with = "ThemePatchSchema")]
         patch: Value,
     },
+    VariableSet {
+        name: String,
+        value: SemanticValue,
+    },
+    VariableRemove {
+        name: String,
+    },
     SceneCreate {
         scene: Scene,
     },
@@ -148,6 +155,8 @@ impl Operation {
         match self {
             Self::SettingsPatch { .. } => "settings_patch",
             Self::ThemePatch { .. } => "theme_patch",
+            Self::VariableSet { .. } => "variable_set",
+            Self::VariableRemove { .. } => "variable_remove",
             Self::SceneCreate { .. } => "scene_create",
             Self::ScenePatch { .. } => "scene_patch",
             Self::SceneDuplicate { .. } => "scene_duplicate",
@@ -571,6 +580,17 @@ fn apply_one(
     match operation {
         Operation::SettingsPatch { patch } => project.settings = patched(&project.settings, patch)?,
         Operation::ThemePatch { patch } => project.theme = patched(&project.theme, patch)?,
+        Operation::VariableSet { name, value } => {
+            if !security::identifier(name) {
+                return Err(invalid("Project variable name is not canonical"));
+            }
+            project.variables.insert(name.clone(), value.clone());
+        }
+        Operation::VariableRemove { name } => {
+            if project.variables.remove(name).is_none() {
+                return Err(invalid("Project variable does not exist"));
+            }
+        }
         Operation::SceneCreate { scene } => {
             identities.scene(scene)?;
             project.scenes.push(scene.clone());

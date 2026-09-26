@@ -9,7 +9,8 @@
   "scripts": {
     "probe": "node probe.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs && node tools/semantic-coverage.mjs",
+    "semantic:coverage": "node tools/semantic-coverage.mjs"
   },
   "dependencies": {
     "@fontsource-variable/instrument-sans": "5.3.0",

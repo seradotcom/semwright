@@ -1,5 +1,5 @@
 //! Whole-project validation precedes every write and render.
-use crate::{Error, Result, model::*, security};
+use crate::{Error, Result, model::*, security, semantic};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -96,32 +96,9 @@ pub fn theme(theme: &Theme) -> Result<()> {
     Ok(())
 }
 fn allows(kind: NodeKind, key: &str) -> bool {
-    use NodeKind::*;
-    match key {
-        "position" | "scale" | "rotation" | "opacity" => true,
-        "width" | "height" => !matches!(kind, Group | Camera),
-        "fill" | "stroke" | "stroke_width" => {
-            matches!(kind, Rect | Circle | Line | Text | Code | Svg | Latex)
-        }
-        "radius" => kind == Rect,
-        "font_family" | "font_size" | "font_weight" | "line_height" | "letter_spacing" => {
-            matches!(kind, Text | Code)
-        }
-        "text_align" | "wrap" | "text" => kind == Text,
-        "code" | "language" | "selection" => kind == Code,
-        "points" | "start" | "end" | "start_arrow" | "end_arrow" | "arrow_size" | "edge" => {
-            kind == Line
-        }
-        "dash" => matches!(kind, Rect | Circle | Line),
-        "svg" => kind == Svg,
-        "latex" => kind == Latex,
-        "asset" => matches!(kind, Image | Video | Svg),
-        "media_offset_ms" | "playback_rate" | "loop_media" => kind == Video,
-        "layout" | "clip" => matches!(kind, Layout | Rect),
-        "zoom" => kind == Camera,
-        _ => false,
-    }
+    semantic::property(kind, key).is_some()
 }
+
 pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
     let p = &node.properties;
     let object = serde_json::to_value(p)?;
@@ -129,11 +106,15 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
         .as_object()
         .expect("properties serialize as object")
         .keys()
+        .filter(|key| key.as_str() != "semantic")
     {
         ensure(
             allows(node.kind, key),
             "Property is not supported for this node kind",
         )?;
+    }
+    for (key, value) in &p.semantic {
+        semantic::validate_value(node.kind, key, value, theme)?;
     }
     for v in p.position.iter().flatten() {
         ensure(number(*v, -32768.0, 32768.0), "Position exceeds bounds")?;
@@ -200,6 +181,20 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
             dash.len() <= 16 && dash.iter().all(|v| number(*v, 0.0, 1024.0)),
             "Invalid line dash",
         )?;
+    }
+    ensure(p.filters.len() <= 16, "Too many node filters")?;
+    for filter in &p.filters {
+        let valid = match filter.kind {
+            FilterKind::Invert | FilterKind::Sepia | FilterKind::Grayscale => {
+                number(filter.value, 0.0, 1.0)
+            }
+            FilterKind::Brightness | FilterKind::Contrast | FilterKind::Saturate => {
+                number(filter.value, 0.0, 10.0)
+            }
+            FilterKind::Hue => number(filter.value, -3600.0, 3600.0),
+            FilterKind::Blur => number(filter.value, 0.0, 512.0),
+        };
+        ensure(valid, "Node filter exceeds bounds")?;
     }
     if let Some(l) = &p.layout {
         ensure(
@@ -273,8 +268,27 @@ pub fn animation_times(scene: &Scene, animation: &Animation) -> Result<(u64, u64
     ensure(end <= scene.duration_ms, "Animation ends after the scene")?;
     Ok((start as u64, end))
 }
-fn animated_value(property: AnimatedProperty, value: &AnimatedValue, theme: &Theme) -> Result<()> {
+fn animated_value(
+    kind: NodeKind,
+    property: &AnimatedProperty,
+    value: &AnimatedValue,
+    theme: &Theme,
+) -> Result<()> {
     use AnimatedProperty::*;
+    if let Semantic(name) = property {
+        let descriptor = semantic::property(kind, name)
+            .ok_or_else(|| Error::invalid("Unknown semantic animation property"))?;
+        ensure(
+            descriptor.storage == semantic::PropertyStorage::Semantic && descriptor.animatable,
+            "Semantic property is not safely animatable",
+        )?;
+        let value = match value {
+            AnimatedValue::Number(value) => SemanticValue::Number(*value),
+            AnimatedValue::Vector(value) => SemanticValue::Vec2(*value),
+            AnimatedValue::Text(value) => SemanticValue::Text(value.clone()),
+        };
+        return semantic::validate_value(kind, name, &value, theme);
+    }
     match (property, value) {
         (Position, AnimatedValue::Vector(v)) => ensure(
             v.iter().all(|v| number(*v, -32768.0, 32768.0)),
@@ -321,10 +335,11 @@ fn animated_value(property: AnimatedProperty, value: &AnimatedValue, theme: &The
         (Counter, AnimatedValue::Number(v)) => {
             ensure(number(*v, -1e9, 1e9), "Counter exceeds bounds")
         }
+        (Semantic(_), _) => unreachable!("handled above"),
         _ => Err(Error::invalid("Animation value has the wrong type")),
     }
 }
-fn property_key(property: AnimatedProperty) -> &'static str {
+fn property_key(property: &AnimatedProperty) -> &str {
     use AnimatedProperty::*;
     match property {
         Position | X | Y | CameraFocus => "position",
@@ -343,9 +358,10 @@ fn property_key(property: AnimatedProperty) -> &'static str {
         FontSize => "font_size",
         LetterSpacing => "letter_spacing",
         CameraZoom => "zoom",
+        Semantic(name) => name,
     }
 }
-fn conflicting(a: AnimatedProperty, b: AnimatedProperty) -> bool {
+fn conflicting(a: &AnimatedProperty, b: &AnimatedProperty) -> bool {
     use AnimatedProperty::*;
     property_key(a) == property_key(b) && !matches!((a, b), (X, Y) | (Y, X))
 }
@@ -358,7 +374,7 @@ pub fn animations(scene: &Scene, theme: &Theme) -> Result<()> {
             .find(|n| n.id == animation.target)
             .ok_or_else(|| Error::invalid("Unknown animation target"))?;
         ensure(
-            allows(node.kind, property_key(animation.property)),
+            allows(node.kind, property_key(&animation.property)),
             "Animation property unsupported by target",
         )?;
         if animation.property == AnimatedProperty::CameraFocus {
@@ -373,15 +389,15 @@ pub fn animations(scene: &Scene, theme: &Theme) -> Result<()> {
                 )?;
             }
         }
-        animated_value(animation.property, &animation.to, theme)?;
+        animated_value(node.kind, &animation.property, &animation.to, theme)?;
         if let Some(v) = &animation.from {
-            animated_value(animation.property, v, theme)?;
+            animated_value(node.kind, &animation.property, v, theme)?;
         }
         let (start, end) = animation_times(scene, animation)?;
         for (other, os, oe) in &intervals {
             ensure(
                 !(other.target == animation.target
-                    && conflicting(other.property, animation.property)
+                    && conflicting(&other.property, &animation.property)
                     && ((start < *oe && *os < end)
                         || (start == end && start == *os && *os == *oe))),
                 "Overlapping animations drive the same property",
@@ -410,6 +426,21 @@ pub fn project_valid(project: &Project) -> Result<()> {
     )?;
     settings(&project.settings)?;
     theme(&project.theme)?;
+    ensure(project.variables.len() <= 128, "Too many project variables")?;
+    for (name, value) in &project.variables {
+        ensure(security::identifier(name), "Invalid project variable name")?;
+        let valid = match value {
+            SemanticValue::Bool(_) => true,
+            SemanticValue::Number(v) => number(*v, -1.0e12, 1.0e12),
+            SemanticValue::Text(v) => v.len() <= MAX_TEXT && !v.chars().any(char::is_control),
+            SemanticValue::Vec2(v) => v.iter().all(|x| number(*x, -32768.0, 32768.0)),
+            SemanticValue::Spacing(v) => v.iter().all(|x| number(*x, -8192.0, 8192.0)),
+            SemanticValue::NumberList(v) => {
+                v.len() <= 512 && v.iter().all(|x| number(*x, -32768.0, 32768.0))
+            }
+        };
+        ensure(valid, "Invalid project variable value")?;
+    }
     unique(project.scenes.iter().map(|s| s.id.as_str()), MAX_SCENES)?;
     unique(
         project
@@ -508,15 +539,24 @@ pub fn project_valid(project: &Project) -> Result<()> {
                     .get(parent.as_str())
                     .ok_or_else(|| Error::invalid("Unknown node parent"))?;
                 ensure(
-                    matches!(
-                        current.kind,
-                        NodeKind::Group
-                            | NodeKind::Layout
-                            | NodeKind::Rect
-                            | NodeKind::Circle
-                            | NodeKind::Camera
-                    ),
+                    semantic::can_have_children(current.kind),
                     "Node kind cannot contain children",
+                )?;
+            }
+            if node.kind == NodeKind::Knot {
+                let parent = node.parent.as_deref().and_then(|id| map.get(id).copied());
+                ensure(
+                    parent.is_some_and(|p| p.kind == NodeKind::Spline),
+                    "Knot must be a direct child of a Spline",
+                )?;
+            }
+            if node.kind == NodeKind::Spline && node.properties.points.is_some() {
+                ensure(
+                    !scene.nodes.iter().any(|child| {
+                        child.parent.as_deref() == Some(node.id.as_str())
+                            && child.kind == NodeKind::Knot
+                    }),
+                    "Spline cannot mix fixed points with Knot children",
                 )?;
             }
             if let Some(edge) = &node.properties.edge {

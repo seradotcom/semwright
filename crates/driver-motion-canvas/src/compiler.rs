@@ -1,11 +1,11 @@
 //! Deterministic TSX generation from validated semantic data.
-use crate::{Error, Result, model::*, security, validate};
+use crate::{Error, Result, model::*, security, semantic, validate};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
-pub const COMPILER_VERSION: u32 = 1;
+pub const COMPILER_VERSION: u32 = 2;
 #[derive(Debug, Clone)]
 pub struct Generated {
     pub files: BTreeMap<String, Vec<u8>>,
@@ -33,21 +33,9 @@ impl Generated {
     }
 }
 fn class(kind: NodeKind) -> &'static str {
-    match kind {
-        NodeKind::Group => "Node",
-        NodeKind::Layout => "Layout",
-        NodeKind::Rect => "Rect",
-        NodeKind::Circle => "Circle",
-        NodeKind::Line => "Line",
-        NodeKind::Text => "Txt",
-        NodeKind::Code => "Code",
-        NodeKind::Svg => "SVG",
-        NodeKind::Image => "Img",
-        NodeKind::Video => "Video",
-        NodeKind::Latex => "Latex",
-        NodeKind::Camera => "Camera",
-    }
+    semantic::node_class(kind)
 }
+
 fn expression(value: &Value) -> Result<String> {
     if let Value::String(s) = value {
         Ok(security::js_string(s))
@@ -59,19 +47,69 @@ fn attr(out: &mut String, name: &str, value: Value) -> Result<()> {
     out.push_str(&format!(" {name}={{{}}}", expression(&value)?));
     Ok(())
 }
-fn easing(value: Easing) -> &'static str {
+pub(crate) fn easing(value: Easing) -> &'static str {
     match value {
         Easing::Linear => "linear",
-        Easing::EaseInOutCubic => "easeInOutCubic",
-        Easing::EaseOutCubic => "easeOutCubic",
-        Easing::EaseOutQuint => "easeOutQuint",
+        Easing::Sin => "sin",
+        Easing::Cos => "cos",
+        Easing::EaseInSine => "easeInSine",
+        Easing::EaseOutSine => "easeOutSine",
         Easing::EaseInOutSine => "easeInOutSine",
+        Easing::EaseInQuad => "easeInQuad",
+        Easing::EaseOutQuad => "easeOutQuad",
+        Easing::EaseInOutQuad => "easeInOutQuad",
+        Easing::EaseInCubic => "easeInCubic",
+        Easing::EaseOutCubic => "easeOutCubic",
+        Easing::EaseInOutCubic => "easeInOutCubic",
+        Easing::EaseInQuart => "easeInQuart",
+        Easing::EaseOutQuart => "easeOutQuart",
+        Easing::EaseInOutQuart => "easeInOutQuart",
+        Easing::EaseInQuint => "easeInQuint",
+        Easing::EaseOutQuint => "easeOutQuint",
+        Easing::EaseInOutQuint => "easeInOutQuint",
+        Easing::EaseInExpo => "easeInExpo",
+        Easing::EaseOutExpo => "easeOutExpo",
+        Easing::EaseInOutExpo => "easeInOutExpo",
+        Easing::EaseInCirc => "easeInCirc",
+        Easing::EaseOutCirc => "easeOutCirc",
+        Easing::EaseInOutCirc => "easeInOutCirc",
+        Easing::EaseInBack => "easeInBack",
         Easing::EaseOutBack => "easeOutBack",
+        Easing::EaseInOutBack => "easeInOutBack",
+        Easing::EaseInBounce => "easeInBounce",
+        Easing::EaseOutBounce => "easeOutBounce",
+        Easing::EaseInOutBounce => "easeInOutBounce",
+        Easing::EaseInElastic => "easeInElastic",
+        Easing::EaseOutElastic => "easeOutElastic",
+        Easing::EaseInOutElastic => "easeInOutElastic",
     }
 }
-fn signal(property: AnimatedProperty) -> &'static str {
+
+pub(crate) fn transition_function(value: TransitionKind) -> &'static str {
+    match value {
+        TransitionKind::Fade => "fadeTransition",
+        TransitionKind::SlideLeft
+        | TransitionKind::SlideRight
+        | TransitionKind::SlideUp
+        | TransitionKind::SlideDown => "slideTransition",
+        TransitionKind::ZoomIn => "zoomInTransition",
+        TransitionKind::ZoomOut => "zoomOutTransition",
+    }
+}
+fn transition_expression(value: TransitionKind, duration: &str) -> String {
+    let function = transition_function(value);
+    match value {
+        TransitionKind::SlideLeft => format!("{function}(Direction.Left,{duration})"),
+        TransitionKind::SlideRight => format!("{function}(Direction.Right,{duration})"),
+        TransitionKind::SlideUp => format!("{function}(Direction.Top,{duration})"),
+        TransitionKind::SlideDown => format!("{function}(Direction.Bottom,{duration})"),
+        _ => format!("{function}({duration})"),
+    }
+}
+
+fn signal(kind: NodeKind, property: &AnimatedProperty) -> Result<String> {
     use AnimatedProperty::*;
-    match property {
+    let value = match property {
         Position => "position",
         X => "x",
         Y => "y",
@@ -91,8 +129,31 @@ fn signal(property: AnimatedProperty) -> &'static str {
         LetterSpacing => "letterSpacing",
         CameraZoom => "zoom",
         CameraFocus => "centerOn",
+        Semantic(name) => {
+            let descriptor = semantic::property(kind, name)
+                .ok_or_else(|| Error::invalid("Unknown semantic animation property"))?;
+            if !descriptor.animatable {
+                return Err(Error::invalid("Semantic property is not safely animatable"));
+            }
+            return Ok(descriptor.upstream_name);
+        }
+    };
+    Ok(value.into())
+}
+
+fn filter_name(value: FilterKind) -> &'static str {
+    match value {
+        FilterKind::Invert => "invert",
+        FilterKind::Sepia => "sepia",
+        FilterKind::Grayscale => "grayscale",
+        FilterKind::Brightness => "brightness",
+        FilterKind::Contrast => "contrast",
+        FilterKind::Saturate => "saturate",
+        FilterKind::Hue => "hue",
+        FilterKind::Blur => "blur",
     }
 }
+
 fn language(value: Language) -> &'static str {
     match value {
         Language::Javascript | Language::Typescript => "jsParser",
@@ -101,15 +162,34 @@ fn language(value: Language) -> &'static str {
         Language::Plain => "",
     }
 }
-fn animated(value: &AnimatedValue, property: AnimatedProperty, theme: &Theme) -> Result<String> {
+fn animated(
+    kind: NodeKind,
+    value: &AnimatedValue,
+    property: &AnimatedProperty,
+    theme: &Theme,
+) -> Result<String> {
     if matches!(property, AnimatedProperty::Fill | AnimatedProperty::Stroke) {
         let AnimatedValue::Text(s) = value else {
             return Err(Error::invalid("Expected animated color"));
         };
         return Ok(security::js_string(&validate::color(s, theme)?));
     }
+    if let AnimatedProperty::Semantic(name) = property {
+        let semantic_value = match value {
+            AnimatedValue::Number(v) => SemanticValue::Number(*v),
+            AnimatedValue::Vector(v) => SemanticValue::Vec2(*v),
+            AnimatedValue::Text(v) => SemanticValue::Text(v.clone()),
+        };
+        return expression(&semantic::emitted_value(
+            kind,
+            name,
+            &semantic_value,
+            theme,
+        )?);
+    }
     expression(&serde_json::to_value(value)?)
 }
+
 fn node_source(
     scene: &Scene,
     node: &Node,
@@ -160,6 +240,21 @@ fn node_source(
             _ => continue,
         };
         attr(&mut out, mapped, value.clone())?;
+    }
+    for (key, value) in &p.semantic {
+        let descriptor = semantic::property(node.kind, key)
+            .ok_or_else(|| Error::invalid("Unknown semantic property"))?;
+        let value = semantic::emitted_value(node.kind, key, value, &project.theme)?;
+        attr(&mut out, &descriptor.upstream_name, value)?;
+    }
+    if !p.filters.is_empty() {
+        let rendered = p
+            .filters
+            .iter()
+            .map(|filter| format!("{}({})", filter_name(filter.kind), filter.value))
+            .collect::<Vec<_>>()
+            .join(",");
+        out.push_str(&format!(" filters={{[{}]}}", rendered));
     }
     for (key, value) in [("fill", &p.fill), ("stroke", &p.stroke)] {
         if let Some(value) = value {
@@ -315,9 +410,9 @@ fn scene_source(scene: &Scene, project: &Project) -> Result<String> {
         .map(|(i, a)| (a.id.as_str(), i))
         .collect::<BTreeMap<_, _>>();
     let mut out =
-        String::from("// Generated by Semwright motion compiler v1. Edit semwright-motion.json.\n");
-    out.push_str("import {makeScene2D,Node,Layout,Rect,Circle,Line,Txt,Code,SVG,Img,Video,Latex,Camera,LezerHighlighter,lines,word} from '@motion-canvas/2d';\n");
-    out.push_str("import {all,delay,waitFor,createRef,linear,easeInOutCubic,easeOutCubic,easeOutQuint,easeInOutSine,easeOutBack,tween,fadeTransition,slideTransition,Direction} from '@motion-canvas/core';\n");
+        String::from("// Generated by Semwright motion compiler v2. Edit semwright-motion.json.\n");
+    out.push_str("import {makeScene2D,Node,Layout,Rect,Circle,Line,Txt,Code,SVG,Img,Video,Latex,Camera,Grid,Polygon,Path,CubicBezier,QuadBezier,Spline,Knot,Ray,invert,sepia,grayscale,brightness,contrast,saturate,hue,blur,LezerHighlighter,lines,word} from '@motion-canvas/2d';\n");
+    out.push_str("import {all,delay,waitFor,createRef,linear,sin,cos,easeInSine,easeOutSine,easeInOutSine,easeInQuad,easeOutQuad,easeInOutQuad,easeInCubic,easeOutCubic,easeInOutCubic,easeInQuart,easeOutQuart,easeInOutQuart,easeInQuint,easeOutQuint,easeInOutQuint,easeInExpo,easeOutExpo,easeInOutExpo,easeInCirc,easeOutCirc,easeInOutCirc,easeInBack,easeOutBack,easeInOutBack,easeInBounce,easeOutBounce,easeInOutBounce,easeInElastic,easeOutElastic,easeInOutElastic,tween,fadeTransition,slideTransition,zoomInTransition,zoomOutTransition,Direction} from '@motion-canvas/core';\n");
     out.push_str("import {parser as jsParser} from '@lezer/javascript';\nimport {parser as pythonParser} from '@lezer/python';\nimport {parser as rustParser} from '@lezer/rust';\n");
     for (index, asset) in project.assets.iter().enumerate() {
         let query = if asset.kind == AssetKind::Svg {
@@ -348,26 +443,26 @@ fn scene_source(scene: &Scene, project: &Project) -> Result<String> {
     ));
     if let Some(t) = &scene.transition {
         let duration = validate::seconds(t.duration_ms);
-        let expr = match t.kind {
-            TransitionKind::Fade => format!("fadeTransition({duration})"),
-            TransitionKind::SlideLeft => format!("slideTransition(Direction.Left,{duration})"),
-            TransitionKind::SlideRight => format!("slideTransition(Direction.Right,{duration})"),
-            TransitionKind::SlideUp => format!("slideTransition(Direction.Top,{duration})"),
-            TransitionKind::SlideDown => format!("slideTransition(Direction.Bottom,{duration})"),
-        };
+        let expr = transition_expression(t.kind, &duration);
         out.push_str(&format!("    {expr},\n"));
     }
     for animation in &scene.animations {
         let (start, end) = validate::animation_times(scene, animation)?;
         let target = indices[animation.target.as_str()];
-        let property = signal(animation.property);
+        let target_kind = scene
+            .nodes
+            .iter()
+            .find(|node| node.id == animation.target)
+            .expect("validated target")
+            .kind;
+        let property = signal(target_kind, &animation.property)?;
         let duration = validate::seconds(end - start);
         let timing = easing(animation.easing);
         out.push_str(&format!(
             "    delay({}, (function* () {{\n",
             validate::seconds(start)
         ));
-        match animation.property {
+        match &animation.property {
             AnimatedProperty::CameraFocus => {
                 let AnimatedValue::Text(id) = &animation.to else {
                     return Err(Error::invalid("Camera focus target must be a node id"));
@@ -380,18 +475,23 @@ fn scene_source(scene: &Scene, project: &Project) -> Result<String> {
             AnimatedProperty::Counter => {
                 let default_from = AnimatedValue::Number(0.0);
                 let from = animation.from.as_ref().unwrap_or(&default_from);
-                out.push_str(&format!("      yield* tween({duration}, v => n{target}().text(Math.round(({}) + (({}) - ({})) * {timing}(v)).toString()));\n", animated(from, animation.property, &project.theme)?, animated(&animation.to, animation.property, &project.theme)?, animated(from, animation.property, &project.theme)?));
+                out.push_str(&format!("      yield* tween({duration}, v => n{target}().text(Math.round(({}) + (({}) - ({})) * {timing}(v)).toString()));\n", animated(target_kind, from, &animation.property, &project.theme)?, animated(target_kind, &animation.to, &animation.property, &project.theme)?, animated(target_kind, from, &animation.property, &project.theme)?));
             }
             _ => {
                 if let Some(from) = &animation.from {
                     out.push_str(&format!(
                         "      n{target}().{property}({});\n",
-                        animated(from, animation.property, &project.theme)?
+                        animated(target_kind, from, &animation.property, &project.theme)?
                     ));
                 }
                 out.push_str(&format!(
                     "      yield* n{target}().{property}({},{duration},{timing});\n",
-                    animated(&animation.to, animation.property, &project.theme)?
+                    animated(
+                        target_kind,
+                        &animation.to,
+                        &animation.property,
+                        &project.theme
+                    )?
                 ));
             }
         }
@@ -405,7 +505,7 @@ pub fn compile(project: &Project) -> Result<Generated> {
     crate::audio_codegen::validate(project)?;
     let mut files = BTreeMap::new();
     let mut source = String::from(
-        "// Generated by Semwright motion compiler v1.\nimport {makeProject} from '@motion-canvas/core';\nimport {semwrightExporterPlugin} from './semwright-exporter';\nimport '@fontsource-variable/instrument-sans';\nimport '@fontsource/ibm-plex-mono/400.css';\n",
+        "// Generated by Semwright motion compiler v2.\nimport {makeProject} from '@motion-canvas/core';\nimport {semwrightExporterPlugin} from './semwright-exporter';\nimport '@fontsource-variable/instrument-sans';\nimport '@fontsource/ibm-plex-mono/400.css';\n",
     );
     for (i, scene) in project.scenes.iter().enumerate() {
         source.push_str(&format!(
@@ -429,8 +529,13 @@ pub fn compile(project: &Project) -> Result<Generated> {
             security::js_string(&format!("../{}?url", asset.path))
         ));
     }
+    let variables = if project.variables.is_empty() {
+        String::new()
+    } else {
+        format!(",variables:{}", serde_json::to_string(&project.variables)?)
+    };
     source.push_str(&format!(
-        "export default makeProject({{name:{},scenes:[{}],plugins:[semwrightExporterPlugin]{} }});\n",
+        "export default makeProject({{name:{},scenes:[{}],plugins:[semwrightExporterPlugin]{}{} }});\n",
         security::js_string(&project.id),
         (0..project.scenes.len())
             .map(|i| format!("s{i}"))
@@ -440,8 +545,10 @@ pub fn compile(project: &Project) -> Result<Generated> {
             ""
         } else {
             ",audio"
-        }
+        },
+        variables,
     ));
+
     files.insert(
         "src/semwright-exporter.ts".into(),
         br#"// Fixed Semwright exporter. Frame bytes leave the browser only through an owner-controlled Playwright binding.

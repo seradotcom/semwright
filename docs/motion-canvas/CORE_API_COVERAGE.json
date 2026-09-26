@@ -1,0 +1,426 @@
+{
+  "authoring_exports": {
+    "flow": {
+      "all": {
+        "semantic": "parallel animation groups / scene root flow",
+        "status": "compiler_managed"
+      },
+      "any": {
+        "reason": "race-to-completion generator semantics are not declarative managed state",
+        "status": "unsupported_by_design"
+      },
+      "chain": {
+        "semantic": "animation_group sequence",
+        "status": "represented_by"
+      },
+      "delay": {
+        "semantic": "TimeAnchor/cue offsets",
+        "status": "compiler_managed"
+      },
+      "every": {
+        "reason": "callback-driven repeated generator execution",
+        "status": "unsupported_by_design"
+      },
+      "loop": {
+        "reason": "callback-driven unbounded/repeated generator execution",
+        "status": "unsupported_by_design"
+      },
+      "loopFor": {
+        "reason": "callback-driven repeated generator execution",
+        "status": "unsupported_by_design"
+      },
+      "loopUntil": {
+        "reason": "callback-driven repeated generator execution",
+        "status": "unsupported_by_design"
+      },
+      "noop": {
+        "semantic": "semantic no-ops are omitted",
+        "status": "compiler_managed"
+      },
+      "run": {
+        "reason": "executes an arbitrary callback inside the animation thread",
+        "status": "unsupported_by_design"
+      },
+      "sequence": {
+        "semantic": "animation_group sequence plus bounded stagger_ms",
+        "status": "represented_by"
+      },
+      "waitFor": {
+        "semantic": "scene duration and bounded delays",
+        "status": "compiler_managed"
+      },
+      "waitUntil": {
+        "semantic": "named cues and TimeAnchor cue references",
+        "status": "represented_by"
+      }
+    },
+    "transitions": {
+      "fadeTransition": {
+        "semantic": "transition.fade",
+        "status": "managed"
+      },
+      "slideTransition": {
+        "semantic": "transition.slide_{left,right,up,down}",
+        "status": "managed"
+      },
+      "useTransition": {
+        "semantic": "scene transition lifecycle",
+        "status": "compiler_managed"
+      },
+      "waitTransition": {
+        "semantic": "scene transition lifecycle",
+        "status": "compiler_managed"
+      },
+      "zoomInTransition": {
+        "semantic": "transition.zoom_in",
+        "status": "managed"
+      },
+      "zoomOutTransition": {
+        "semantic": "transition.zoom_out",
+        "status": "managed"
+      }
+    },
+    "tweening": {
+      "BeatSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "BounceSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "JumpSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "PlopSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "SmoothSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "StrikeSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "SwingSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "arcLerp": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "boolLerp": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "clamp": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "clampRemap": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "cos": {
+        "semantic": "easing.cos",
+        "status": "managed"
+      },
+      "createEaseInBack": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseInBounce": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseInElastic": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseInOutBack": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseInOutBounce": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseInOutElastic": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseOutBack": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseOutBounce": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "createEaseOutElastic": {
+        "reason": "parameterized timing-function factory; managed Easing intentionally uses a finite versioned set",
+        "status": "unsupported_by_design"
+      },
+      "deepLerp": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "easeInBack": {
+        "semantic": "easing.easeInBack",
+        "status": "managed"
+      },
+      "easeInBounce": {
+        "semantic": "easing.easeInBounce",
+        "status": "managed"
+      },
+      "easeInCirc": {
+        "semantic": "easing.easeInCirc",
+        "status": "managed"
+      },
+      "easeInCubic": {
+        "semantic": "easing.easeInCubic",
+        "status": "managed"
+      },
+      "easeInElastic": {
+        "semantic": "easing.easeInElastic",
+        "status": "managed"
+      },
+      "easeInExpo": {
+        "semantic": "easing.easeInExpo",
+        "status": "managed"
+      },
+      "easeInOutBack": {
+        "semantic": "easing.easeInOutBack",
+        "status": "managed"
+      },
+      "easeInOutBounce": {
+        "semantic": "easing.easeInOutBounce",
+        "status": "managed"
+      },
+      "easeInOutCirc": {
+        "semantic": "easing.easeInOutCirc",
+        "status": "managed"
+      },
+      "easeInOutCubic": {
+        "semantic": "easing.easeInOutCubic",
+        "status": "managed"
+      },
+      "easeInOutElastic": {
+        "semantic": "easing.easeInOutElastic",
+        "status": "managed"
+      },
+      "easeInOutExpo": {
+        "semantic": "easing.easeInOutExpo",
+        "status": "managed"
+      },
+      "easeInOutQuad": {
+        "semantic": "easing.easeInOutQuad",
+        "status": "managed"
+      },
+      "easeInOutQuart": {
+        "semantic": "easing.easeInOutQuart",
+        "status": "managed"
+      },
+      "easeInOutQuint": {
+        "semantic": "easing.easeInOutQuint",
+        "status": "managed"
+      },
+      "easeInOutSine": {
+        "semantic": "easing.easeInOutSine",
+        "status": "managed"
+      },
+      "easeInQuad": {
+        "semantic": "easing.easeInQuad",
+        "status": "managed"
+      },
+      "easeInQuart": {
+        "semantic": "easing.easeInQuart",
+        "status": "managed"
+      },
+      "easeInQuint": {
+        "semantic": "easing.easeInQuint",
+        "status": "managed"
+      },
+      "easeInSine": {
+        "semantic": "easing.easeInSine",
+        "status": "managed"
+      },
+      "easeOutBack": {
+        "semantic": "easing.easeOutBack",
+        "status": "managed"
+      },
+      "easeOutBounce": {
+        "semantic": "easing.easeOutBounce",
+        "status": "managed"
+      },
+      "easeOutCirc": {
+        "semantic": "easing.easeOutCirc",
+        "status": "managed"
+      },
+      "easeOutCubic": {
+        "semantic": "easing.easeOutCubic",
+        "status": "managed"
+      },
+      "easeOutElastic": {
+        "semantic": "easing.easeOutElastic",
+        "status": "managed"
+      },
+      "easeOutExpo": {
+        "semantic": "easing.easeOutExpo",
+        "status": "managed"
+      },
+      "easeOutQuad": {
+        "semantic": "easing.easeOutQuad",
+        "status": "managed"
+      },
+      "easeOutQuart": {
+        "semantic": "easing.easeOutQuart",
+        "status": "managed"
+      },
+      "easeOutQuint": {
+        "semantic": "easing.easeOutQuint",
+        "status": "managed"
+      },
+      "easeOutSine": {
+        "semantic": "easing.easeOutSine",
+        "status": "managed"
+      },
+      "linear": {
+        "semantic": "easing.linear",
+        "status": "managed"
+      },
+      "makeSpring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "map": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "remap": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "sin": {
+        "semantic": "easing.sin",
+        "status": "managed"
+      },
+      "spring": {
+        "reason": "physical spring generator/preset is not yet a persistent managed animation primitive",
+        "status": "unsupported_by_design"
+      },
+      "textLerp": {
+        "reason": "low-level interpolation/math utility; semantic properties use typed signal interpolation",
+        "status": "runtime_utility"
+      },
+      "tween": {
+        "semantic": "typed Animation compiles through tween/native signal interpolation",
+        "status": "compiler_managed"
+      }
+    }
+  },
+  "motion_canvas_version": "3.17.2",
+  "package": "@motion-canvas/core",
+  "project_settings": {
+    "audio": {
+      "semantic": "audio[0].asset with a single-track bounded compiler contract",
+      "status": "represented_by"
+    },
+    "audioOffset": {
+      "semantic": "audio[0].offset_ms emitted through project metadata",
+      "status": "represented_by"
+    },
+    "experimentalFeatures": {
+      "reason": "experimental runtime feature switches are not a stable semantic contract",
+      "status": "unsupported_by_design"
+    },
+    "logger": {
+      "reason": "custom Logger is an ambient runtime object",
+      "status": "unsupported_by_design"
+    },
+    "name": {
+      "semantic": "project.id",
+      "status": "managed"
+    },
+    "plugins": {
+      "semantic": "fixed semwrightExporterPlugin only",
+      "status": "compiler_managed"
+    },
+    "scenes": {
+      "semantic": "project.scenes",
+      "status": "compiler_managed"
+    },
+    "variables": {
+      "semantic": "project.variables bounded semantic values",
+      "status": "managed"
+    }
+  },
+  "root_exports": {
+    "DefaultPlugin": {
+      "reason": "editor default plugin lifecycle is not managed project semantics",
+      "status": "runtime_internal"
+    },
+    "app": {
+      "reason": "project settings are classified below; renderer/exporter lifecycle is compiler-owned",
+      "status": "mixed"
+    },
+    "decorators": {
+      "reason": "TypeScript decorators modify executable application classes",
+      "status": "unsupported_by_design"
+    },
+    "events": {
+      "reason": "runtime event dispatch is not persistent authoring state",
+      "status": "runtime_internal"
+    },
+    "flow": {
+      "reason": "declarative timing primitives are classified below",
+      "status": "mixed"
+    },
+    "media": {
+      "semantic": "local media is modeled as bounded assets/audio tracks; arbitrary loaders are not exposed",
+      "status": "represented_by"
+    },
+    "meta": {
+      "reason": "editor metadata framework is not managed authoring state",
+      "status": "runtime_internal"
+    },
+    "plugin": {
+      "semantic": "the generated project uses only the fixed Semwright exporter plugin",
+      "status": "compiler_managed"
+    },
+    "scenes": {
+      "semantic": "managed Scene data is compiled to makeScene2D descriptions and metadata",
+      "status": "compiler_managed"
+    },
+    "signals": {
+      "semantic": "signals are generated from typed properties and animations; callback signals are not agent input",
+      "status": "compiler_managed"
+    },
+    "threading": {
+      "reason": "generator/thread control would expose imperative execution rather than declarative motion semantics",
+      "status": "unsupported_by_design"
+    },
+    "transitions": {
+      "reason": "scene transitions are classified below",
+      "status": "mixed"
+    },
+    "tweening": {
+      "reason": "timing functions and tween semantics are classified below",
+      "status": "mixed"
+    },
+    "types": {
+      "semantic": "bounded semantic values represent vectors, colors, spacing and numeric/text values",
+      "status": "represented_by"
+    },
+    "utils": {
+      "reason": "refs/time context are compiler-owned; general runtime utilities are not authoring state",
+      "status": "mixed"
+    }
+  },
+  "schema": 1,
+  "scope": "root public barrels plus ProjectSettings and authoring-relevant flow/transitions/tweening exports"
+}

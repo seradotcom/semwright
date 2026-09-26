@@ -8,6 +8,7 @@ pub mod model;
 pub mod refs;
 pub mod renderer;
 pub mod security;
+pub mod semantic;
 pub mod store;
 pub mod validate;
 pub use semwright_types::{Error, ErrorCode, Result};

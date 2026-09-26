@@ -1,4 +1,4 @@
-//! Prevent semantic audio data from being silently omitted by compiler v1.
+//! Prevent semantic audio data from being silently omitted by compiler v2.
 //!
 //! The managed model can describe a mix for later assembly, but the observed
 //! Motion Canvas compiler emits only `audio.first()` and no volume control.
@@ -10,7 +10,7 @@ pub fn validate(project: &Project) -> Result<()> {
     if project.audio.len() > 1 {
         return Err(Error::new(
             ErrorCode::Unsupported,
-            "MOTION_CANVAS_AUDIO_MIX_UNSUPPORTED: compiler v1 can represent only one project audio track; assemble multiple tracks through a verified audio/video provider",
+            "MOTION_CANVAS_AUDIO_MIX_UNSUPPORTED: compiler v2 can represent only one project audio track; assemble multiple tracks through a verified audio/video provider",
         ));
     }
     if project
@@ -20,7 +20,7 @@ pub fn validate(project: &Project) -> Result<()> {
     {
         return Err(Error::new(
             ErrorCode::Unsupported,
-            "MOTION_CANVAS_AUDIO_GAIN_UNSUPPORTED: compiler v1 does not emit volume; only unity gain is representable",
+            "MOTION_CANVAS_AUDIO_GAIN_UNSUPPORTED: compiler v2 does not emit volume; only unity gain is representable",
         ));
     }
     Ok(())

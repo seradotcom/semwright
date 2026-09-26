@@ -7,6 +7,7 @@ use crate::{
     refs::{self, Kind, ObjectRef, Reference},
     renderer::{JobView, RenderManager, RendererRuntime},
     security,
+    semantic::{self, NodeTypeDescriptor},
     store::{ProjectStore, Snapshot},
     validate::{self, RenderPlan},
 };
@@ -61,6 +62,38 @@ struct AssetImportArgs {
 struct SceneScopeArgs {
     #[serde(default)]
     scene_ref: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct SemanticDescribeArgs {
+    kind: NodeKind,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct NodeInspectArgs {
+    node_ref: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct NodePropertyGetArgs {
+    node_ref: String,
+    property: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+enum NodePropertyEdit {
+    Set { value: Value },
+    Reset,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct NodePropertySetArgs {
+    expected_fingerprint: String,
+    node_ref: String,
+    property: String,
+    edit: NodePropertyEdit,
+    #[serde(default)]
+    dry_run: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -157,6 +190,32 @@ struct NodeItem {
     kind: NodeKind,
     parent: Option<String>,
     reference: String,
+}
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct SemanticTypesOutput {
+    motion_canvas_version: String,
+    managed_type_count: usize,
+    items: Vec<NodeTypeDescriptor>,
+}
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct NodeInspectOutput {
+    fingerprint: String,
+    revision: u64,
+    reference: String,
+    node: Node,
+    semantic_type: NodeTypeDescriptor,
+}
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct NodePropertyOutput {
+    fingerprint: String,
+    revision: u64,
+    node_ref: String,
+    descriptor: crate::semantic::PropertyDescriptor,
+    is_set: bool,
+    value: Value,
 }
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -468,6 +527,20 @@ impl MotionDriver {
                 Idempotency::ReadOnly,
                 true,
             )?,
+            Self::cap::<EmptyArgs, SemanticTypesOutput>(
+                "driver.motion-canvas.semantic.types",
+                "List the version-pinned managed Motion Canvas node types and typed property surface",
+                Risk::ReadOnly,
+                Idempotency::ReadOnly,
+                true,
+            )?,
+            Self::cap::<SemanticDescribeArgs, NodeTypeDescriptor>(
+                "driver.motion-canvas.semantic.describe",
+                "Describe one managed node type and its safe upstream property mapping",
+                Risk::ReadOnly,
+                Idempotency::ReadOnly,
+                true,
+            )?,
             Self::cap::<EmptyArgs, ProjectDetectOutput>(
                 "driver.motion-canvas.project.detect",
                 "Detect managed or external Motion Canvas project metadata without executing project code",
@@ -522,6 +595,27 @@ impl MotionDriver {
                 "List managed nodes, optionally scoped to a scene ref",
                 Risk::ReadOnly,
                 Idempotency::ReadOnly,
+                true,
+            )?,
+            Self::cap::<NodeInspectArgs, NodeInspectOutput>(
+                "driver.motion-canvas.node.inspect",
+                "Inspect one revision-bound managed node together with its semantic type descriptor",
+                Risk::ReadOnly,
+                Idempotency::ReadOnly,
+                true,
+            )?,
+            Self::cap::<NodePropertyGetArgs, NodePropertyOutput>(
+                "driver.motion-canvas.node.property.get",
+                "Read one canonical typed property from a revision-bound managed node",
+                Risk::ReadOnly,
+                Idempotency::ReadOnly,
+                true,
+            )?,
+            Self::cap::<NodePropertySetArgs, MutationOutput>(
+                "driver.motion-canvas.node.property.set",
+                "Set or reset one registry-approved managed node property atomically",
+                Risk::MutatingReversible,
+                Idempotency::NonIdempotent,
                 true,
             )?,
             Self::cap::<AssetImportArgs, MutationOutput>(
@@ -647,6 +741,23 @@ impl MotionDriver {
                     capability_count: Self::catalog()?.len(),
                 })?)
             }
+            "driver.motion-canvas.semantic.types" => {
+                let _: EmptyArgs = Self::parse(args)?;
+                let items = semantic::node_types();
+                Ok(serde_json::to_value(SemanticTypesOutput {
+                    motion_canvas_version: MOTION_CANVAS_VERSION.into(),
+                    managed_type_count: items.len(),
+                    items,
+                })?)
+            }
+            "driver.motion-canvas.semantic.describe" => {
+                let input: SemanticDescribeArgs = Self::parse(args)?;
+                let item = semantic::node_types()
+                    .into_iter()
+                    .find(|item| item.kind == input.kind)
+                    .ok_or_else(|| Error::invalid("Unknown managed Motion Canvas node type"))?;
+                Ok(serde_json::to_value(item)?)
+            }
             "driver.motion-canvas.project.detect" => {
                 let _: EmptyArgs = Self::parse(args)?;
                 Ok(serde_json::to_value(self.detect_project()?)?)
@@ -764,6 +875,132 @@ impl MotionDriver {
                     revision: s.project.revision,
                     items,
                 })?)
+            }
+            "driver.motion-canvas.node.inspect" => {
+                let input: NodeInspectArgs = Self::parse(args)?;
+                let snapshot = self.load()?;
+                let reference = Reference::decode(&input.node_ref)?;
+                reference.check(&snapshot.project, &snapshot.source_sha256, Kind::Node)?;
+                let node = snapshot
+                    .project
+                    .scenes
+                    .iter()
+                    .flat_map(|scene| scene.nodes.iter())
+                    .find(|node| node.id == reference.id)
+                    .cloned()
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Managed node no longer exists")
+                    })?;
+                let semantic_type = semantic::node_types()
+                    .into_iter()
+                    .find(|item| item.kind == node.kind)
+                    .expect("all managed node kinds are registered");
+                Ok(serde_json::to_value(NodeInspectOutput {
+                    fingerprint: snapshot.source_sha256.clone(),
+                    revision: snapshot.project.revision,
+                    reference: Self::ref_for(&snapshot, Kind::Node, &node.id),
+                    node,
+                    semantic_type,
+                })?)
+            }
+            "driver.motion-canvas.node.property.get" => {
+                let input: NodePropertyGetArgs = Self::parse(args)?;
+                let snapshot = self.load()?;
+                let reference = Reference::decode(&input.node_ref)?;
+                reference.check(&snapshot.project, &snapshot.source_sha256, Kind::Node)?;
+                let node = snapshot
+                    .project
+                    .scenes
+                    .iter()
+                    .flat_map(|scene| scene.nodes.iter())
+                    .find(|node| node.id == reference.id)
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Managed node no longer exists")
+                    })?;
+                let descriptor = semantic::property(node.kind, &input.property)
+                    .ok_or_else(|| Error::invalid("Unknown canonical property for node type"))?;
+                let value = if descriptor.storage == crate::semantic::PropertyStorage::Semantic {
+                    node.properties
+                        .semantic
+                        .get(&input.property)
+                        .map(serde_json::to_value)
+                        .transpose()?
+                        .unwrap_or(Value::Null)
+                } else {
+                    serde_json::to_value(&node.properties)?
+                        .as_object()
+                        .and_then(|object| object.get(&input.property))
+                        .cloned()
+                        .unwrap_or(Value::Null)
+                };
+                Ok(serde_json::to_value(NodePropertyOutput {
+                    fingerprint: snapshot.source_sha256.clone(),
+                    revision: snapshot.project.revision,
+                    node_ref: Self::ref_for(&snapshot, Kind::Node, &node.id),
+                    descriptor,
+                    is_set: !value.is_null(),
+                    value,
+                })?)
+            }
+            "driver.motion-canvas.node.property.set" => {
+                let input: NodePropertySetArgs = Self::parse(args)?;
+                let current = self.load()?;
+                if input.expected_fingerprint != current.source_sha256 {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Managed project fingerprint changed; inspect again",
+                    ));
+                }
+                let reference = Reference::decode(&input.node_ref)?;
+                reference.check(&current.project, &current.source_sha256, Kind::Node)?;
+                let node = current
+                    .project
+                    .scenes
+                    .iter()
+                    .flat_map(|scene| scene.nodes.iter())
+                    .find(|node| node.id == reference.id)
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Managed node no longer exists")
+                    })?;
+                let descriptor = semantic::property(node.kind, &input.property)
+                    .ok_or_else(|| Error::invalid("Unknown canonical property for node type"))?;
+                let mut patch = serde_json::Map::new();
+                if descriptor.storage == crate::semantic::PropertyStorage::Semantic {
+                    let mut values = node.properties.semantic.clone();
+                    match input.edit {
+                        NodePropertyEdit::Set { value } => {
+                            let value: SemanticValue = serde_json::from_value(value)?;
+                            values.insert(input.property.clone(), value);
+                        }
+                        NodePropertyEdit::Reset => {
+                            values.remove(&input.property);
+                        }
+                    }
+                    patch.insert("semantic".into(), serde_json::to_value(values)?);
+                } else {
+                    let value = match input.edit {
+                        NodePropertyEdit::Set { value } => value,
+                        NodePropertyEdit::Reset if input.property == "filters" => json!([]),
+                        NodePropertyEdit::Reset => Value::Null,
+                    };
+                    patch.insert(input.property.clone(), value);
+                }
+                let prepared = edit::prepare(
+                    &current.project,
+                    &current.source_sha256,
+                    &[Operation::NodePatch {
+                        node_ref: input.node_ref,
+                        patch: Value::Object(patch),
+                        name: None,
+                    }],
+                )?;
+                if input.dry_run {
+                    return Self::prospective_output(Some(current.source_sha256), prepared);
+                }
+                let source = current.source_sha256;
+                let diff = prepared.diff.clone();
+                let saved = self.store()?.commit(&source, &prepared.project)?;
+                Self::mutation_output(Some(source), &saved, diff, true)
             }
             "driver.motion-canvas.asset.import" => {
                 let input: AssetImportArgs = Self::parse(args)?;
@@ -932,7 +1169,7 @@ impl MotionDriver {
                     .map(|a| AnimationItem {
                         id: a.id.clone(),
                         target: a.target.clone(),
-                        property: a.property,
+                        property: a.property.clone(),
                         reference: Self::ref_for(&s, Kind::Animation, &a.id),
                     })
                     .collect();
@@ -1069,7 +1306,7 @@ mod tests {
         let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             digest,
-            "292abde1177b030eb8d374413cc482309ad910b627e2f42a6769698e9d8e2aa3"
+            "415a04cd1b667c37b251eaac11eeb3ec10bcef521910529b9b3a29d5dc4a8fb2"
         );
 
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");
@@ -1140,7 +1377,7 @@ mod tests {
     #[test]
     fn catalog_is_curated_and_descriptor_names_are_owned() {
         let catalog = MotionDriver::catalog().unwrap();
-        assert_eq!(catalog.len(), 18);
+        assert_eq!(catalog.len(), 23);
         assert!(
             catalog
                 .iter()
@@ -1241,7 +1478,7 @@ mod driver_tests {
         let mut driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
         let caps = driver.capabilities().await.unwrap();
-        assert_eq!(caps.len(), 18);
+        assert_eq!(caps.len(), 23);
         let mut names = std::collections::BTreeSet::new();
         for cap in caps {
             assert!(cap.descriptor.name.starts_with("driver.motion-canvas."));
@@ -1262,7 +1499,7 @@ mod driver_tests {
         assert_eq!(out["node_version"], NODE_VERSION);
         assert_eq!(out["network"], false);
         assert_eq!(out["render_available"], false);
-        assert_eq!(out["capability_count"], 18);
+        assert_eq!(out["capability_count"], 23);
     }
 
     #[tokio::test]
@@ -1476,6 +1713,161 @@ mod driver_tests {
             "expected_fingerprint":inspected["fingerprint"],"id":"outside","kind":"image","source":"outside.png","dry_run":true
         })).await.unwrap_err();
         assert_eq!(error.code, ErrorCode::PermissionDenied);
+    }
+
+    #[tokio::test]
+    async fn semantic_introspection_and_property_mutation_are_revision_bound() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        std::fs::write(
+            root.join(crate::store::SEMANTIC_FILE),
+            include_bytes!(
+                "../../../fixtures/motion-canvas/semantic-complete/semwright-motion.json"
+            ),
+        )
+        .unwrap();
+        let mut driver = MotionDriver::for_project_root(&root).unwrap();
+
+        let types = call(
+            &mut driver,
+            "driver.motion-canvas.semantic.types",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(types["motion_canvas_version"], MOTION_CANVAS_VERSION);
+        assert_eq!(types["managed_type_count"], 20);
+        assert!(
+            types["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["kind"] == "polygon" && item["upstream_class"] == "Polygon")
+        );
+
+        let described = call(
+            &mut driver,
+            "driver.motion-canvas.semantic.describe",
+            json!({"kind":"polygon"}),
+        )
+        .await
+        .unwrap();
+        assert!(
+            described["properties"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|property| property["semantic_name"] == "sides"
+                    && property["upstream_name"] == "sides")
+        );
+
+        let listed = call(&mut driver, "driver.motion-canvas.node.list", json!({}))
+            .await
+            .unwrap();
+        let polygon = listed["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["id"] == "polygon")
+            .unwrap();
+        let old_ref = polygon["reference"].as_str().unwrap().to_owned();
+        let fingerprint = listed["fingerprint"].as_str().unwrap().to_owned();
+
+        let inspected = call(
+            &mut driver,
+            "driver.motion-canvas.node.inspect",
+            json!({"node_ref":old_ref}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(inspected["node"]["kind"], "polygon");
+        assert_eq!(inspected["semantic_type"]["upstream_class"], "Polygon");
+
+        let before = call(
+            &mut driver,
+            "driver.motion-canvas.node.property.get",
+            json!({"node_ref":old_ref,"property":"sides"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(before["value"], 6.0);
+        assert_eq!(before["descriptor"]["storage"], "semantic");
+
+        let dry = call(
+            &mut driver,
+            "driver.motion-canvas.node.property.set",
+            json!({
+                "expected_fingerprint":fingerprint,
+                "node_ref":old_ref,
+                "property":"sides",
+                "edit":{"mode":"set","value":8.0},
+                "dry_run":true
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(dry["applied"], false);
+
+        let applied = call(
+            &mut driver,
+            "driver.motion-canvas.node.property.set",
+            json!({
+                "expected_fingerprint":fingerprint,
+                "node_ref":old_ref,
+                "property":"sides",
+                "edit":{"mode":"set","value":8.0},
+                "dry_run":false
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(applied["applied"], true);
+        assert_eq!(applied["revision"], 2);
+
+        let stale = call(
+            &mut driver,
+            "driver.motion-canvas.node.property.get",
+            json!({"node_ref":old_ref,"property":"sides"}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(stale.code, ErrorCode::StaleReference);
+
+        let refreshed = call(&mut driver, "driver.motion-canvas.node.list", json!({}))
+            .await
+            .unwrap();
+        let new_ref = refreshed["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["id"] == "polygon")
+            .unwrap()["reference"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let after = call(
+            &mut driver,
+            "driver.motion-canvas.node.property.get",
+            json!({"node_ref":new_ref,"property":"sides"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(after["value"], 8.0);
+
+        let invalid = call(
+            &mut driver,
+            "driver.motion-canvas.node.property.set",
+            json!({
+                "expected_fingerprint":refreshed["fingerprint"],
+                "node_ref":new_ref,
+                "property":"smooth_corners",
+                "edit":{"mode":"set","value":true},
+                "dry_run":true
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(invalid.code, ErrorCode::InvalidArgument);
     }
 
     #[tokio::test]
