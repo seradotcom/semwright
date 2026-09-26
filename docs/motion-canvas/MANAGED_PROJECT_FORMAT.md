@@ -2,7 +2,7 @@
 
 Format version: **1**. Component library version: **1**. Authoritative filename: `semwright-motion.json`.
 
-A managed project contains a project identity/generation/revision, render settings, theme, ordered scenes, local assets and audio tracks. Scenes contain a hierarchical node tree plus declarative animations, cues and an optional transition.
+A managed project contains a project identity/generation/revision, render settings, theme, bounded project variables, ordered scenes, local assets and audio tracks. Scenes contain a hierarchical node tree plus declarative animations, cues and an optional transition.
 
 ## Identity and time
 
@@ -12,15 +12,21 @@ Time is stored as integer milliseconds. Frame conversion uses integer arithmetic
 
 ## Nodes and properties
 
-Version 1 node kinds are: group, layout, rect, circle, line, text, code, svg, image, video, latex and camera. Properties are an allowlisted typed structure. Validation further restricts each property by node kind, numeric bounds, text/code size, path rules and asset type.
+Version 1 node kinds are: group, layout, rect, circle, line, text, code, svg, image, video, latex, camera, grid, polygon, path, cubic_bezier, quad_bezier, spline, knot and ray. Properties have two bounded representations: strongly typed first-class fields for the original managed contract and a version-pinned `semantic` map for additional upstream 3.17.2 properties. Both routes resolve through the same registry; unknown properties remain invalid. The registry reports exact upstream property name, value kind, storage mode, animatability, enum values and source Props interface.
+
+Node filters are a bounded list of invert/sepia/grayscale/brightness/contrast/saturate/hue/blur values and compile through the official Motion Canvas helpers. Spline can use fixed points or managed Knot children. Path data stays a bounded string value; no callback/spawner/shader source can enter the semantic property map.
 
 Layout is structured row/column layout with gap, four-sided padding, alignment, justification, grow and optional basis. Diagram edges reference endpoint node IDs in the same parent coordinate space. Code contents are display data only and use a bounded language enum.
 
 SVG is either an inline sanitized subset or a managed local asset. Remote URLs are not an asset source. LaTeX uses a bounded vocabulary; the driver never shells out to TeX.
 
+## Project variables
+
+`variables` is a bounded map of canonical identifiers to primitive semantic values (boolean, finite number, bounded text, vec2, spacing or bounded number list). Variable set/remove is transactional, appears in semantic diff and compiles to `makeProject({variables: ...})`. Arbitrary objects/functions are deliberately not accepted.
+
 ## Animations, cues and components
 
-Animations name a target, allowlisted property, typed from/to values, integer timing anchor/duration and curated easing. Overlapping writes to the same effective property are rejected unless represented through supported grouping semantics.
+Animations name a target, allowlisted property, typed from/to values, integer timing anchor/duration and curated easing. In addition to the original named animation properties, `semantic(name)` can animate only registry properties whose bounded value type has a safe Motion Canvas signal interpolation. The fixed easing enum covers the standard non-parameterized Motion Canvas timing functions; scene transitions include fade, four slide directions, zoom-in and zoom-out. Overlapping writes to the same effective property are rejected unless represented through supported grouping semantics.
 
 Cues have stable IDs, unique names per scene, integer start and duration. Animations may anchor to cues or use cue duration.
 
@@ -36,7 +42,7 @@ Display names never establish identity. Recreating an object with the same displ
 
 The semantic file is persisted with temp-file, validation, fsync, source recheck, atomic rename and directory fsync. The source is preserved on failure.
 
-Generated source is stored in a content-addressed `.semwright-generated-<sha256>` tree under the granted project root. It includes scene TSX, project metadata, fixed exporter integration, TypeScript/Vite config and exact package lock. Same model + compiler/runtime version produces the same generated file inventory.
+Generated source is stored in a content-addressed `.semwright-generated-<sha256>` tree under the granted project root. It includes scene TSX, project metadata, fixed exporter integration, TypeScript/Vite config and exact package lock. Same model + compiler/runtime version produces the same generated file inventory. Semantic-completeness code generation is compiler version 2 while the persisted managed-format schema remains version 1 and backward compatible through defaulted fields.
 
 Assets are copied only from validated project-relative paths, bounded in size and checked against the semantic SHA-256/byte length. The generated tree is verified before reuse.
 
