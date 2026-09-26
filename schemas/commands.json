@@ -16911,6 +16911,9 @@
                   "null"
                 ],
                 "maxLength": 128
+              },
+              "allowed_origin": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -16919,7 +16922,8 @@
               "url_origin",
               "parent_frame_id",
               "secure_context_type",
-              "mime_type"
+              "mime_type",
+              "allowed_origin"
             ],
             "additionalProperties": false
           }
@@ -18531,6 +18535,68 @@
       "required": [
         "accepted",
         "handled"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.drag_to",
+    "version": "1.0",
+    "description": "Drag from one exact DOM-backed semantic ref to another in the same tab/frame after validating both refs and hit points.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "target_ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref",
+        "target_ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "method": {
+          "const": "two semantic DOM refs + CDP Input drag"
+        },
+        "same_frame": {
+          "type": "boolean",
+          "const": true
+        },
+        "coordinate_space": {
+          "const": "viewport_css_pixels"
+        }
+      },
+      "required": [
+        "accepted",
+        "method",
+        "same_frame",
+        "coordinate_space"
       ],
       "additionalProperties": false
     },

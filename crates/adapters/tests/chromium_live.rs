@@ -60,7 +60,7 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                 }
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
                 _ => {
-                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
+                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
                 }
             };
             let response = format!(
@@ -73,6 +73,78 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
     });
     Ok(origin)
 }
+
+async fn cross_origin_frame_fixture(stop: CancellationToken) -> TestResult<(String, String)> {
+    let child_listener = TcpListener::bind("127.0.0.2:0").await?;
+    let child_origin = format!("http://{}", child_listener.local_addr()?);
+    let child_stop = stop.clone();
+    tokio::spawn(async move {
+        loop {
+            let accepted = tokio::select! {
+                _=child_stop.cancelled()=>break,
+                result=child_listener.accept()=>result
+            };
+            let Ok((mut stream, _)) = accepted else { break };
+            let mut bytes = [0u8; 4096];
+            let size =
+                match tokio::time::timeout(Duration::from_secs(2), stream.read(&mut bytes)).await {
+                    Ok(Ok(size)) => size,
+                    _ => continue,
+                };
+            let request = String::from_utf8_lossy(&bytes[..size]);
+            let path = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .unwrap_or("/");
+            let body = if path == "/oopif-b" {
+                "<!doctype html><title>OOPIF B</title><p>Cross Frame B</p><input aria-label='Cross Name B'>"
+            } else {
+                "<!doctype html><title>OOPIF A</title><meta http-equiv='refresh' content='5;url=/oopif-b'><p>Cross Frame A</p><input aria-label='Cross Name A'>"
+            };
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes()).await;
+        }
+    });
+
+    let parent_listener = TcpListener::bind("127.0.0.1:0").await?;
+    let parent_origin = format!("http://{}", parent_listener.local_addr()?);
+    let child_url = format!("{child_origin}/oopif-a");
+    let parent_stop = stop.clone();
+    tokio::spawn(async move {
+        loop {
+            let accepted = tokio::select! {
+                _=parent_stop.cancelled()=>break,
+                result=parent_listener.accept()=>result
+            };
+            let Ok((mut stream, _)) = accepted else { break };
+            let mut bytes = [0u8; 4096];
+            let size =
+                match tokio::time::timeout(Duration::from_secs(2), stream.read(&mut bytes)).await {
+                    Ok(Ok(size)) => size,
+                    _ => continue,
+                };
+            if size == 0 {
+                continue;
+            }
+            let body = format!(
+                "<!doctype html><title>OOPIF Parent</title><div id='stable-parent'>Parent stable</div><iframe src='{child_url}'></iframe>"
+            );
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes()).await;
+        }
+    });
+    Ok((parent_origin, child_origin))
+}
+
 fn target(value: &Value) -> TestResult<NativeTarget> {
     Ok(serde_json::from_value(value["$ref"].clone())?)
 }
@@ -132,6 +204,31 @@ async fn semantic_query(
                 return target(&value["matches"][0]["ref"]);
             }
             tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await?
+}
+
+async fn frame_by_origin(
+    browser: &Chromium,
+    ctx: &Context,
+    tab: &NativeTarget,
+    origin: &str,
+) -> TestResult<NativeTarget> {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if let Ok(value) = browser
+                .execute(ctx, "browser.frame.list", &json!({"_target":tab}))
+                .await
+                && let Some(row) = value["frames"].as_array().and_then(|rows| {
+                    rows.iter()
+                        .find(|row| row["url_origin"].as_str() == Some(origin))
+                })
+                && row["allowed_origin"] == true
+            {
+                return target(&row["ref"]);
+            }
+            tokio::time::sleep(Duration::from_millis(40)).await;
         }
     })
     .await?
@@ -286,6 +383,26 @@ async fn exercise(
     assert_eq!(pressed["key"], "Tab");
     assert_eq!(
         browser.validate(&press_target).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let drag_source = query(browser, ctx, &tab, "#drag-source").await?;
+    let drag_target = query(browser, ctx, &tab, "#drag-target").await?;
+    let dragged = browser
+        .execute(
+            ctx,
+            "browser.element.drag_to",
+            &json!({"_target":drag_source.clone(),"_target2":drag_target.clone()}),
+        )
+        .await?;
+    assert_eq!(dragged["accepted"], true);
+    assert_eq!(dragged["same_frame"], true);
+    assert_eq!(
+        browser.validate(&drag_source).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+    assert_eq!(
+        browser.validate(&drag_target).await.unwrap_err().code,
         ErrorCode::StaleReference
     );
 
@@ -486,6 +603,114 @@ async fn real_chromium_native_input_navigation_download_denial_and_cleanup() -> 
     assert!(
         !screenshot_path.exists(),
         "browser-instance screenshot artifact must be removed on shutdown"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
+async fn real_chromium_cross_origin_oopif_semantics_are_scoped() -> TestResult {
+    let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let directory = tempfile::tempdir()?;
+    let storage = directory.path().join("browser");
+    let stop = CancellationToken::new();
+    let (parent_origin, child_origin) = cross_origin_frame_fixture(stop.clone()).await?;
+    let browser = Chromium::new(
+        BrowserConfig {
+            executable,
+            allowed_origins: vec![parent_origin.clone(), child_origin.clone()],
+            allow_downloads: false,
+            ..Default::default()
+        },
+        storage.clone(),
+    )?;
+    let ctx = Context {
+        session: "oopif-browser-test".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: CancellationToken::new(),
+    };
+    browser
+        .execute(&ctx, "browser.launch", &json!({"headless":true}))
+        .await?;
+    let opened = browser
+        .execute(
+            &ctx,
+            "browser.tab.open",
+            &json!({"url":format!("{parent_origin}/")}),
+        )
+        .await?;
+    let tab = target(&opened["ref"])?;
+    let parent_stable = query(&browser, &ctx, &tab, "#stable-parent").await?;
+    let child_frame = frame_by_origin(&browser, &ctx, &tab, &child_origin).await?;
+    let child_input =
+        semantic_query(&browser, &ctx, &child_frame, "textbox", "Cross Name A").await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.fill",
+            &json!({"_target":child_input,"text":"OOPIF semantic input"}),
+        )
+        .await?;
+    assert_eq!(
+        browser.validate(&child_input).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+    browser.validate(&parent_stable).await?;
+
+    let post_fill_frame = frame_by_origin(&browser, &ctx, &tab, &child_origin).await?;
+    let before_refresh = browser
+        .execute(
+            &ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":post_fill_frame,"depth":8,"max_nodes":64}),
+        )
+        .await?;
+    assert!(
+        before_refresh["nodes"]
+            .as_array()
+            .is_some_and(|nodes| nodes.iter().any(|row| row["name"] == "Cross Frame A"))
+    );
+
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match browser.validate(&post_fill_frame).await {
+                Err(error) if error.code == ErrorCode::StaleReference => break,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+    })
+    .await?;
+    browser.validate(&parent_stable).await?;
+
+    let refreshed_frame = frame_by_origin(&browser, &ctx, &tab, &child_origin).await?;
+    let refreshed = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if let Ok(value) = browser
+                .execute(
+                    &ctx,
+                    "browser.semantic.snapshot",
+                    &json!({"_target":refreshed_frame,"depth":8,"max_nodes":64}),
+                )
+                .await
+                && value["nodes"]
+                    .as_array()
+                    .is_some_and(|nodes| nodes.iter().any(|row| row["name"] == "Cross Frame B"))
+            {
+                break Ok::<Value, semwright_types::Error>(value);
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await??;
+    assert_eq!(refreshed["source"], "cdp_accessibility_tree");
+    browser.validate(&parent_stable).await?;
+
+    browser.shutdown().await?;
+    stop.cancel();
+    assert!(
+        !std::fs::read_dir(&storage)?
+            .any(|entry| entry
+                .is_ok_and(|e| e.file_name().to_string_lossy().starts_with("profile-")))
     );
     Ok(())
 }

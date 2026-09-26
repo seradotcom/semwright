@@ -1158,6 +1158,7 @@ impl Chromium {
         )
     }
 }
+#[cfg(test)]
 fn frame_tree_contains(tree: &Value, frame_id: &str) -> bool {
     frame_tree_find(tree, frame_id).is_some()
 }
@@ -2257,6 +2258,81 @@ impl Backend for Chromium {
                 .await?;
                 self.validate_in(instance, &target).await?;
                 Ok(json!({"accepted":true,"method":"DOM.scrollIntoViewIfNeeded"}))
+            }
+            "browser.element.drag_to" => {
+                let source = node.ok_or_else(|| Error::invalid("Source DOM reference required"))?;
+                let destination_target: NativeTarget = serde_json::from_value(
+                    args.get("_target2")
+                        .cloned()
+                        .ok_or_else(|| Error::invalid("Broker-resolved target_ref required"))?,
+                )?;
+                let (destination_tab, destination_node, destination_frame, destination_session) =
+                    self.validate_in(instance, &destination_target).await?;
+                let destination = destination_node
+                    .ok_or_else(|| Error::invalid("Destination DOM reference required"))?;
+                if destination_tab != tab
+                    || destination_frame != frame
+                    || destination_session != session
+                {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Drag source and destination must be in the same tab and frame context",
+                    ));
+                }
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":source}),
+                    Some(&session),
+                )
+                .await?;
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":destination}),
+                    Some(&session),
+                )
+                .await?;
+                self.validate_in(instance, &target).await?;
+                self.validate_in(instance, &destination_target).await?;
+                let (source_x, source_y) = actionable_point(&cdp, &session, source).await?;
+                let (destination_x, destination_y) =
+                    actionable_point(&cdp, &session, destination).await?;
+                ctx.check_cancelled()?;
+                cdp.invalidate_session(&session)?;
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseMoved","x":source_x,"y":source_y,"button":"none","buttons":0}),
+                    Some(&session),
+                )
+                .await?;
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mousePressed","x":source_x,"y":source_y,"button":"left","buttons":1,"clickCount":1}),
+                    Some(&session),
+                )
+                .await?;
+                for step in 1..=8 {
+                    let ratio = f64::from(step) / 8.0;
+                    let x = source_x + (destination_x - source_x) * ratio;
+                    let y = source_y + (destination_y - source_y) * ratio;
+                    cdp.call(
+                        "Input.dispatchMouseEvent",
+                        json!({"type":"mouseMoved","x":x,"y":y,"button":"left","buttons":1}),
+                        Some(&session),
+                    )
+                    .await?;
+                }
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseReleased","x":destination_x,"y":destination_y,"button":"left","buttons":0,"clickCount":1}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({
+                    "accepted":true,
+                    "method":"two semantic DOM refs + CDP Input drag",
+                    "same_frame":true,
+                    "coordinate_space":"viewport_css_pixels"
+                }))
             }
             "browser.element.hover" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;

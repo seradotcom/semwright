@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-139 built-in descriptors. A descriptor is not proof of live backend support.
+140 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -150,6 +150,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `browser.semantic.wait` | `browser.observe` | read_only | 60000 ms | chromium |
 | `browser.dialog.status` | `browser.observe` | read_only | 60000 ms | chromium |
 | `browser.dialog.respond` | `browser.modify` | mutating | 60000 ms | chromium |
+| `browser.element.drag_to` | `browser.modify` | mutating | 60000 ms | chromium |
 
 ## `doctor`
 
@@ -4001,6 +4002,35 @@ Idempotency: `non_idempotent`. Dry run: `true`.
   "required": [
     "ref",
     "accept"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.element.drag_to`
+
+Drag from one exact DOM-backed semantic ref to another in the same tab/frame after validating both refs and hit points.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    },
+    "target_ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref",
+    "target_ref"
   ],
   "additionalProperties": false
 }
