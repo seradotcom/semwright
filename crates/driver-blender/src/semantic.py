@@ -856,15 +856,16 @@ class SemanticStore:
         if collection.get(name) is not None:
             raise SemanticError("Conflict", "Datablock name already exists; implicit suffixing is forbidden")
         simple = {
-            "actions", "armatures", "cameras", "collections", "lattices", "masks", "materials",
-            "meshes", "metaballs", "palettes", "pointclouds", "scenes", "speakers",
-            "volumes", "worlds",
+            "actions", "armatures", "brushes", "cameras", "collections", "lattices", "linestyles",
+            "masks", "materials", "meshes", "metaballs", "palettes", "particles", "pointclouds",
+            "scenes", "speakers", "volumes", "worlds",
         }
         typed = {
             "curves": {"CURVE", "SURFACE", "FONT"},
             "lights": {"POINT", "SUN", "SPOT", "AREA"},
             "lightprobes": {"SPHERE", "PLANE", "VOLUME"},
             "node_groups": {"ShaderNodeTree", "GeometryNodeTree", "CompositorNodeTree", "TextureNodeTree"},
+            "textures": {"NONE", "BLEND", "CLOUDS", "DISTORTED_NOISE", "IMAGE", "MAGIC", "MARBLE", "MUSGRAVE", "NOISE", "STUCCI", "VORONOI", "WOOD"},
         }
         try:
             if root in simple:
@@ -889,7 +890,10 @@ class SemanticStore:
         if path:
             raise SemanticError("InvalidArgument", "Datablock removal requires a root datablock ref")
         if root == "scenes":
-            raise SemanticError("Unsupported", "Scene deletion requires dedicated active-scene semantics")
+            if len(self.bpy.data.scenes) <= 1:
+                raise SemanticError("Conflict", "Blender must retain at least one Scene")
+            if item is self.bpy.context.scene:
+                raise SemanticError("Conflict", "Active Scene cannot be removed through generic datablock semantics")
         collection = self._root(root)
         remover = getattr(collection, "remove", None)
         if not callable(remover):

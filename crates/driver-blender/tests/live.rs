@@ -174,6 +174,38 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     assert_eq!(semantic_summary["blender_version"][1], 5);
     assert_eq!(semantic_summary["arbitrary_python"], false);
 
+    for (root, name, kind) in [
+        ("brushes", "SemwrightBrush", None),
+        ("linestyles", "SemwrightLineStyle", None),
+        ("particles", "SemwrightParticles", None),
+        ("textures", "SemwrightTexture", Some("CLOUDS")),
+        ("scenes", "SemwrightSecondaryScene", None),
+    ] {
+        let args = match kind {
+            Some(kind) => json!({"root":root,"name":name,"kind":kind}),
+            None => json!({"root":root,"name":name}),
+        };
+        let created = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.blender.semantic.datablock.create",
+            args,
+        )
+        .await
+        .unwrap();
+        assert_eq!(created["root"], root);
+        let reference = created["ref"].as_str().unwrap().to_owned();
+        let removed = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.blender.semantic.datablock.remove",
+            json!({"ref":reference}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(removed["changed"], true);
+    }
+
     let object_type = call(
         provider.as_ref(),
         &capabilities,
