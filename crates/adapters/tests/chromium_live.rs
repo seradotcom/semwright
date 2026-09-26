@@ -2,6 +2,7 @@
 use futures_util::FutureExt;
 use semwright_adapters::chromium::{BrowserConfig, Chromium};
 use semwright_backend_api::{Backend, Context};
+use semwright_policy::FilesystemGrant;
 use semwright_types::{ErrorCode, NativeTarget};
 use serde_json::{Value, json};
 use std::{
@@ -61,7 +62,7 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
                 "/popup" => "<!doctype html><title>Semwright Popup</title><p>Popup ready</p>",
                 _ => {
-                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><a id='popup' target='_blank' href='/popup'>Open popup</a><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
+                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><label>Upload<input id='upload' type='file' aria-label='Upload'></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><a id='popup' target='_blank' href='/popup'>Open popup</a><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
                 }
             };
             let response = format!(
@@ -737,6 +738,122 @@ async fn real_chromium_cross_origin_oopif_semantics_are_scoped() -> TestResult {
     .await??;
     assert_eq!(refreshed["source"], "cdp_accessibility_tree");
     browser.validate(&parent_stable).await?;
+
+    browser.shutdown().await?;
+    stop.cancel();
+    assert!(
+        !std::fs::read_dir(&storage)?
+            .any(|entry| entry
+                .is_ok_and(|e| e.file_name().to_string_lossy().starts_with("profile-")))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
+async fn real_chromium_upload_is_grant_scoped_and_privately_staged() -> TestResult {
+    let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let directory = tempfile::tempdir()?;
+    let storage = directory.path().join("browser");
+    let upload_root = tempfile::tempdir()?;
+    let source = upload_root.path().join("payload.txt");
+    let payload = b"Semwright bounded upload fixture";
+    std::fs::write(&source, payload)?;
+    let grant = FilesystemGrant {
+        name: "uploads".into(),
+        path: std::fs::canonicalize(upload_root.path())?,
+        read: true,
+        write: false,
+    };
+    let stop = CancellationToken::new();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let origin = fixture(stop.clone(), requests).await?;
+    let browser = Chromium::new_with_grants(
+        BrowserConfig {
+            executable,
+            allowed_origins: vec![origin.clone()],
+            allow_downloads: false,
+            ..Default::default()
+        },
+        storage.clone(),
+        &[grant],
+    )?;
+    let ctx = Context {
+        session: "upload-browser-test".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: CancellationToken::new(),
+    };
+    browser
+        .execute(&ctx, "browser.launch", &json!({"headless":true}))
+        .await?;
+    let opened = browser
+        .execute(
+            &ctx,
+            "browser.tab.open",
+            &json!({"url":format!("{origin}/")}),
+        )
+        .await?;
+    let tab = target(&opened["ref"])?;
+    let upload = query(&browser, &ctx, &tab, "#upload").await?;
+
+    let denied = browser
+        .execute(
+            &ctx,
+            "browser.element.upload",
+            &json!({"_target":upload.clone(),"root":"missing","paths":["payload.txt"]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied.code, ErrorCode::PolicyDenied);
+    browser.validate(&upload).await?;
+
+    let traversal = browser
+        .execute(
+            &ctx,
+            "browser.element.upload",
+            &json!({"_target":upload.clone(),"root":"uploads","paths":["../payload.txt"]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(traversal.code, ErrorCode::InvalidArgument);
+    browser.validate(&upload).await?;
+
+    let uploaded = browser
+        .execute(
+            &ctx,
+            "browser.element.upload",
+            &json!({"_target":upload.clone(),"root":"uploads","paths":["payload.txt"]}),
+        )
+        .await?;
+    assert_eq!(uploaded["accepted"], true);
+    assert_eq!(uploaded["files"], 1);
+    assert_eq!(uploaded["bytes"], payload.len());
+    assert_eq!(uploaded["source_root"], "uploads");
+    assert_eq!(uploaded["host_source_paths_exposed_to_browser"], false);
+    assert_eq!(uploaded["staging_lifetime"], "browser_instance");
+    assert!(
+        !serde_json::to_string(&uploaded)?.contains(upload_root.path().to_string_lossy().as_ref())
+    );
+    assert_eq!(std::fs::read(&source)?, payload);
+    assert_eq!(
+        browser.validate(&upload).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let profile = std::fs::read_dir(&storage)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name.to_string_lossy().starts_with("profile-"))
+        })
+        .ok_or("browser profile missing")?;
+    let staged = std::fs::read_dir(profile.join("uploads"))?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path().join("payload.txt"))
+        .find(|path| path.is_file())
+        .ok_or("staged upload missing")?;
+    assert_eq!(std::fs::read(staged)?, payload);
 
     browser.shutdown().await?;
     stop.cancel();

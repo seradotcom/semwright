@@ -158,6 +158,7 @@ async fn run(args: Args) -> Result<()> {
         &state,
         config.applications.clone(),
         config.browser.clone(),
+        config.policy.filesystem.clone(),
         config.blender_socket.clone(),
     )
     .await?;

@@ -18614,5 +18614,92 @@
     "backends": [
       "chromium"
     ]
+  },
+  {
+    "name": "browser.element.upload",
+    "version": "1.0",
+    "description": "Select owner-granted local files in one exact INPUT type=file without exposing original host paths to Chromium.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "required": [
+        "ref",
+        "root",
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "source_root": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "host_source_paths_exposed_to_browser": {
+          "type": "boolean",
+          "const": false
+        },
+        "staging_lifetime": {
+          "const": "browser_instance"
+        }
+      },
+      "required": [
+        "accepted",
+        "files",
+        "bytes",
+        "source_root",
+        "host_source_paths_exposed_to_browser",
+        "staging_lifetime"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify",
+      "filesystem.read:root"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "chromium"
+    ]
   }
 ]

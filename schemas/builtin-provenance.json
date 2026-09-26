@@ -1846,5 +1846,15 @@
     "object_types": [],
     "untrusted_metadata": false,
     "tags": ["browser", "element", "semantic", "drag"]
+  },
+  "browser.element.upload": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic", "upload", "filesystem-grant"]
   }
 }

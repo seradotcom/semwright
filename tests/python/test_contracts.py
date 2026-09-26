@@ -14,7 +14,7 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_command_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 140)
+        self.assertEqual(len(COMMANDS), 141)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
@@ -33,6 +33,22 @@ class ContractTests(unittest.TestCase):
                 REGISTRY[command]["input_schema"]["properties"]["action"]["enum"]
             )
             self.assertEqual(advertised, node_actions, command)
+
+    def test_browser_upload_is_grant_scoped_sensitive_and_bounded(self):
+        upload = REGISTRY["browser.element.upload"]
+        self.assertEqual(upload["risk"], "secret_access")
+        self.assertTrue(upload["interactive_consent"])
+        self.assertEqual(
+            set(upload["requires"]),
+            {"browser.modify", "filesystem.read:root"},
+        )
+        paths = upload["input_schema"]["properties"]["paths"]
+        self.assertEqual(paths["minItems"], 1)
+        self.assertEqual(paths["maxItems"], 8)
+        self.assertEqual(
+            upload["output_schema"]["properties"]["host_source_paths_exposed_to_browser"]["const"],
+            False,
+        )
 
     def test_schema_unions_have_unique_branches(self):
         def walk(value, path):

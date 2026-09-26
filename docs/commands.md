@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-140 built-in descriptors. A descriptor is not proof of live backend support.
+141 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -151,6 +151,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `browser.dialog.status` | `browser.observe` | read_only | 60000 ms | chromium |
 | `browser.dialog.respond` | `browser.modify` | mutating | 60000 ms | chromium |
 | `browser.element.drag_to` | `browser.modify` | mutating | 60000 ms | chromium |
+| `browser.element.upload` | `browser.modify`, `filesystem.read:root` | secret_access | 60000 ms | chromium |
 
 ## `doctor`
 
@@ -4034,6 +4035,46 @@ Idempotency: `non_idempotent`. Dry run: `true`.
   "required": [
     "ref",
     "target_ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.element.upload`
+
+Select owner-granted local files in one exact INPUT type=file without exposing original host paths to Chromium.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    },
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "required": [
+    "ref",
+    "root",
+    "paths"
   ],
   "additionalProperties": false
 }

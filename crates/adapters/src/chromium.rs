@@ -50,6 +50,10 @@ pub struct BrowserConfig {
     pub max_downloads: u32,
 }
 const BROWSER_STARTUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+const BROWSER_UPLOAD_MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
+const BROWSER_UPLOAD_MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
+const BROWSER_UPLOAD_MAX_FILES_PER_ACTION: usize = 8;
+const BROWSER_UPLOAD_MAX_STAGED_FILES: u32 = 32;
 
 const fn default_download_bytes() -> u64 {
     32 * 1024 * 1024
@@ -622,6 +626,8 @@ struct Instance {
     epoch: String,
     cdp: Arc<Cdp>,
     sessions: BTreeMap<String, String>,
+    staged_upload_bytes: u64,
+    staged_upload_files: u32,
     // A successful close invalidates refs immediately, before asynchronous CDP target events.
     closed_tabs: VecDeque<String>,
 }
@@ -793,19 +799,119 @@ impl Drop for Instance {
 pub struct Chromium {
     config: BrowserConfig,
     directory: PathBuf,
+    filesystem_grants: Vec<FilesystemGrant>,
     instance: Mutex<Option<Instance>>,
     artifacts: Arc<StdMutex<BTreeMap<PathBuf, u64>>>,
 }
 impl Chromium {
     pub fn new(config: BrowserConfig, directory: PathBuf) -> Result<Self> {
+        Self::new_with_grants(config, directory, &[])
+    }
+    pub fn new_with_grants(
+        config: BrowserConfig,
+        directory: PathBuf,
+        filesystem_grants: &[FilesystemGrant],
+    ) -> Result<Self> {
         config.validate()?;
         private_directory(&directory)?;
+        let mut names = std::collections::BTreeSet::new();
+        for grant in filesystem_grants {
+            if !names.insert(grant.name.clone()) {
+                return Err(Error::invalid("Duplicate browser filesystem grant name"));
+            }
+        }
         Ok(Self {
             config,
             directory,
+            filesystem_grants: filesystem_grants.to_vec(),
             instance: Mutex::new(None),
             artifacts: Arc::new(StdMutex::new(BTreeMap::new())),
         })
+    }
+    fn stage_uploads(
+        &self,
+        instance: &Instance,
+        root_name: &str,
+        paths: &[Value],
+    ) -> Result<(PathBuf, Vec<PathBuf>, u64)> {
+        if paths.is_empty() || paths.len() > BROWSER_UPLOAD_MAX_FILES_PER_ACTION {
+            return Err(Error::invalid("Upload requires between 1 and 8 files"));
+        }
+        if instance
+            .staged_upload_files
+            .saturating_add(paths.len() as u32)
+            > BROWSER_UPLOAD_MAX_STAGED_FILES
+        {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Browser upload staging file budget exceeded",
+            ));
+        }
+        let grant = self
+            .filesystem_grants
+            .iter()
+            .find(|grant| grant.name == root_name && grant.read)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "No readable owner filesystem grant is available for this upload root",
+                )
+            })?;
+        let root = Root::open(&grant.path, true, false)?;
+        let staging = instance
+            .profile
+            .join("uploads")
+            .join(format!("upload-{}", unique_id()));
+        private_directory(&instance.profile.join("uploads"))?;
+        private_directory(&staging)?;
+        let mut output = Vec::new();
+        let mut total = 0u64;
+        let mut names = std::collections::BTreeSet::new();
+        let result = (|| -> Result<()> {
+            for value in paths {
+                let text = value
+                    .as_str()
+                    .ok_or_else(|| Error::invalid("Upload paths must be strings"))?;
+                let relative = Path::new(text);
+                validate_relative_path(relative)?;
+                let name = relative
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| Error::invalid("Upload path has no UTF-8 filename"))?;
+                if !names.insert(name.to_owned()) {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Upload paths must have unique filenames",
+                    ));
+                }
+                let bytes = root.read(relative, BROWSER_UPLOAD_MAX_FILE_BYTES)?;
+                total = total.saturating_add(bytes.len() as u64);
+                if instance.staged_upload_bytes.saturating_add(total)
+                    > BROWSER_UPLOAD_MAX_TOTAL_BYTES
+                {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Browser upload staging byte budget exceeded",
+                    ));
+                }
+                let destination = staging.join(name);
+                let mut file = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .open(&destination)?;
+                file.write_all(&bytes)?;
+                file.sync_all()?;
+                output.push(destination);
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            let _ = std::fs::remove_dir_all(&staging);
+            return Err(error);
+        }
+        Ok((staging, output, total))
     }
     fn cleanup_artifacts(&self) {
         let paths = self
@@ -973,6 +1079,8 @@ impl Chromium {
             epoch: unique_id(),
             cdp,
             sessions: BTreeMap::new(),
+            staged_upload_bytes: 0,
+            staged_upload_files: 0,
             closed_tabs: VecDeque::new(),
         });
         Ok(
@@ -2259,6 +2367,82 @@ impl Backend for Chromium {
                 .await?;
                 self.validate_in(instance, &target).await?;
                 Ok(json!({"accepted":true,"method":"DOM.scrollIntoViewIfNeeded"}))
+            }
+            "browser.element.upload" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                let description = cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":0}),
+                        Some(&session),
+                    )
+                    .await?;
+                let info = &description["node"];
+                if info["nodeName"].as_str() != Some("INPUT")
+                    || attribute(info, "type")
+                        .is_none_or(|value| !value.eq_ignore_ascii_case("file"))
+                {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Upload requires an exact INPUT type=file semantic target",
+                    ));
+                }
+                let paths = args["paths"]
+                    .as_array()
+                    .ok_or_else(|| Error::invalid("Upload paths array is required"))?;
+                if paths.len() > 1 && attribute(info, "multiple").is_none() {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Multiple files require an INPUT with the multiple attribute",
+                    ));
+                }
+                let root_name = arg_str(args, "root")?;
+                let (staging, staged, total_bytes) =
+                    self.stage_uploads(instance, root_name, paths)?;
+                let files: Result<Vec<String>> = staged
+                    .iter()
+                    .map(|path| {
+                        path.to_str()
+                            .map(str::to_owned)
+                            .ok_or_else(|| Error::invalid("Staged upload path is not UTF-8"))
+                    })
+                    .collect();
+                let files = match files {
+                    Ok(files) => files,
+                    Err(error) => {
+                        let _ = std::fs::remove_dir_all(&staging);
+                        return Err(error);
+                    }
+                };
+                let result = async {
+                    ctx.check_cancelled()?;
+                    cdp.invalidate_session(&session)?;
+                    cdp.call(
+                        "DOM.setFileInputFiles",
+                        json!({"files":files,"backendNodeId":node}),
+                        Some(&session),
+                    )
+                    .await?;
+                    Ok::<(), Error>(())
+                }
+                .await;
+                if let Err(error) = result {
+                    let _ = std::fs::remove_dir_all(&staging);
+                    return Err(error);
+                }
+                instance.staged_upload_bytes =
+                    instance.staged_upload_bytes.saturating_add(total_bytes);
+                instance.staged_upload_files = instance
+                    .staged_upload_files
+                    .saturating_add(staged.len() as u32);
+                Ok(json!({
+                    "accepted":true,
+                    "files":staged.len(),
+                    "bytes":total_bytes,
+                    "source_root":root_name,
+                    "host_source_paths_exposed_to_browser":false,
+                    "staging_lifetime":"browser_instance"
+                }))
             }
             "browser.element.drag_to" => {
                 let source = node.ok_or_else(|| Error::invalid("Source DOM reference required"))?;
