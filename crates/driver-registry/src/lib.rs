@@ -639,6 +639,39 @@ fn ensure_private(path: &Path) -> Result<()> {
 }
 
 #[cfg(unix)]
+struct InstallTransaction {
+    path: PathBuf,
+    committed: bool,
+}
+
+#[cfg(unix)]
+impl InstallTransaction {
+    fn new(path: PathBuf) -> Self {
+        Self {
+            path,
+            committed: false,
+        }
+    }
+
+    fn move_to(&mut self, path: PathBuf) {
+        self.path = path;
+    }
+
+    fn commit(mut self) {
+        self.committed = true;
+    }
+}
+
+#[cfg(unix)]
+impl Drop for InstallTransaction {
+    fn drop(&mut self) {
+        if !self.committed {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+}
+
+#[cfg(unix)]
 fn write_new(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
     let mut file = OpenOptions::new()
         .write(true)
@@ -657,8 +690,14 @@ fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<()> {
         .ok_or_else(|| Error::invalid("Installed manifest has no parent directory"))?;
     ensure_private(parent)?;
     let temp = parent.join(format!(".manifest-{}.tmp", unique_id()));
-    write_new(&temp, bytes, 0o600)?;
-    std::fs::rename(&temp, path)?;
+    if let Err(error) = write_new(&temp, bytes, 0o600) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(error);
+    }
+    if let Err(error) = std::fs::rename(&temp, path) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(error.into());
+    }
     Ok(())
 }
 
@@ -725,6 +764,7 @@ pub fn install_from_index(
     }
     let staging = id_dir.join(format!(".install-{}", unique_id()));
     ensure_private(&staging)?;
+    let mut transaction = InstallTransaction::new(staging.clone());
     let executable_path = staging.join("driver");
     write_new(&executable_path, &executable, 0o700)?;
     if !companions.is_empty() {
@@ -766,7 +806,9 @@ pub fn install_from_index(
         0o600,
     )?;
     std::fs::rename(&staging, &target)?;
+    transaction.move_to(target.clone());
     atomic_replace(&receipt.manifest_path, &manifest_bytes)?;
+    transaction.commit();
     let _ = receipt_path;
     Ok(receipt)
 }
