@@ -31,7 +31,7 @@ use std::{
 use std::{ffi::CString, os::fd::FromRawFd};
 #[cfg(unix)]
 use std::{
-    io::Write,
+    io::{Seek, SeekFrom, Write},
     os::{
         fd::AsRawFd,
         unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
@@ -98,6 +98,7 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
             "Driver tool memfd could not be sealed",
         ));
     }
+    file.seek(SeekFrom::Start(0))?;
     Ok(SealedTool {
         name: name.to_owned(),
         file,
@@ -1417,7 +1418,7 @@ mod tests {
             read: true,
             write: false,
         };
-        validate_owner_permissions(&candidate, &[readable.clone()], false).unwrap();
+        validate_owner_permissions(&candidate, std::slice::from_ref(&readable), false).unwrap();
 
         std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o644)).unwrap();
         assert!(matches!(

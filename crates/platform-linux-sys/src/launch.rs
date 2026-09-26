@@ -144,7 +144,7 @@ impl SandboxLauncher for LinuxSandbox {
             p.arg("--ro-bind").arg(&m.source).arg(destination);
         }
         for tool in &s.sealed_tools {
-            p.arg("--ro-bind-fd")
+            p.args(["--perms", "0500", "--ro-bind-data"])
                 .arg(tool.fd.to_string())
                 .arg(format!("/plugin/tools/{}", tool.name));
         }
@@ -215,6 +215,10 @@ impl SandboxLauncher for LinuxSandbox {
             } else {
                 p.arg("--read-root").arg(destination);
             }
+        }
+        for tool in &s.sealed_tools {
+            p.arg("--exec-root")
+                .arg(format!("/plugin/tools/{}", tool.name));
         }
         p.args(["--", "/plugin/bin"])
             .args(&s.args)

@@ -150,7 +150,7 @@ impl DriverToolMount {
     }
 }
 
-/// Owner-granted secret file exposed read-only under /run/secrets/<name>.
+/// Owner-granted secret file exposed read-only under `/run/secrets/<name>`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DriverSecretMount {
