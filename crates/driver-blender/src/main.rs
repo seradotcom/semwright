@@ -463,6 +463,25 @@ fn semantic_capabilities() -> Vec<Capability> {
             Idempotency::NonIdempotent,
         ),
         semantic_descriptor(
+            "driver.blender.semantic.object.create",
+            "Create one Blender Object with optional typed data and Collection refs at construction time",
+            json!({"type":"object","properties":{
+                "name":{"type":"string","minLength":1,"maxLength":128},
+                "data_ref":{"oneOf":[semantic_ref_schema(),{"type":"null"}]},
+                "collection_ref":{"oneOf":[semantic_ref_schema(),{"type":"null"}]}
+            },"required":["name"],"additionalProperties":false}),
+            json!({"type":"object","properties":{
+                "ref":semantic_ref_schema(),
+                "name":{"type":"string","maxLength":128},
+                "object_type":{"type":"string","maxLength":64},
+                "data_ref":{"oneOf":[semantic_ref_schema(),{"type":"null"}]},
+                "changed":{"const":true},
+                "generation":{"type":"integer","minimum":1}
+            },"required":["ref","name","object_type","data_ref","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
             "driver.blender.semantic.datablock.create",
             "Create one bounded persistent Blender datablock in a supported semantic root",
             json!({"type":"object","properties":{"root":semantic_root_schema(),"name":{"type":"string","minLength":1,"maxLength":128},"kind":{"type":"string","minLength":1,"maxLength":128}},"required":["root","name"],"additionalProperties":false}),
@@ -996,7 +1015,11 @@ impl Driver for BlenderDriver {
                     "Invalid embedded Blender output schema",
                 )
             })?;
-        if !output.is_valid(&value) {
+        if let Some(error) = output.iter_errors(&value).next() {
+            eprintln!(
+                "Blender output schema rejected command={} at {}: {:?}",
+                command, error.instance_path, error.kind
+            );
             return Err(Error::new(
                 ErrorCode::PluginProtocolError,
                 "Blender driver produced output outside its descriptor schema",

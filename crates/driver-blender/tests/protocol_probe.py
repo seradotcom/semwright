@@ -137,6 +137,15 @@ def main():
                 "probe-objects",
             )
             reference=objects["items"][0]["ref"]
+            location=execute(
+                proc,
+                catalog_by_name,
+                "driver.blender.semantic.property.get",
+                {"ref":reference,"property":"location"},
+                "probe-location",
+            )
+            if location["value"] != [1.0,2.0,3.0]:
+                raise RuntimeError(f"unexpected Object.location: {location}")
             relation=execute(
                 proc,
                 catalog_by_name,

@@ -61,8 +61,8 @@ def all_types():
     return candidates
 
 
-def descriptor(prop):
-    value = semantic._property_descriptor(prop)
+def descriptor(prop, owner_identifier=None):
+    value = semantic._property_descriptor(prop, owner_identifier)
     # Reasons are already bounded deterministic strings; omit human labels to reduce churn.
     return value
 
@@ -82,7 +82,7 @@ for root, identifier in sorted(semantic.ROOTS.items()):
     root_classes[root] = candidate
     props = {}
     for prop in list(rna.properties):
-        info = descriptor(prop)
+        info = descriptor(prop, actual_identifier)
         props[info["id"]] = info
     roots[root] = {"rna_type": actual_identifier, "declared_type": identifier, "status": "managed_root", "properties": props}
 
@@ -139,7 +139,7 @@ while pending:
     props = {}
     relation_targets = {}
     for prop in list(rna.properties):
-        info = descriptor(prop)
+        info = descriptor(prop, identifier)
         props[info["id"]] = info
         property_status[info["status"]] = property_status.get(info["status"], 0) + 1
         if info["status"] != "relation":

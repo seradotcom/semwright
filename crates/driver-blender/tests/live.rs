@@ -128,7 +128,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         .await
         .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert!(capabilities.len() >= 64);
+    assert!(capabilities.len() >= 65);
     assert!(
         capabilities
             .iter()
@@ -797,41 +797,16 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     )
     .await
     .unwrap();
-    call(
+    let rig_created = call(
         provider.as_ref(),
         &capabilities,
-        "driver.blender.object.create",
-        json!({"name":"SemwrightRig","primitive":"empty"}),
+        "driver.blender.semantic.object.create",
+        json!({"name":"SemwrightRig","data_ref":armature["ref"]}),
     )
     .await
     .unwrap();
-    let rig_objects = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.blender.semantic.objects",
-        json!({"root":"objects","query":"SemwrightRig","limit":8}),
-    )
-    .await
-    .unwrap();
-    let armatures = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.blender.semantic.objects",
-        json!({"root":"armatures","query":"SemwrightRigData","limit":8}),
-    )
-    .await
-    .unwrap();
-    let rig_ref = rig_objects["items"][0]["ref"].as_str().unwrap().to_owned();
-    let armature_ref = armatures["items"][0]["ref"].as_str().unwrap().to_owned();
-    let rig_attached = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.blender.semantic.relation.set",
-        json!({"ref":rig_ref,"property":"data","target_ref":armature_ref}),
-    )
-    .await
-    .unwrap();
-    let mut rig_ref = rig_attached["ref"].as_str().unwrap().to_owned();
+    assert_eq!(rig_created["object_type"], "ARMATURE");
+    let mut rig_ref = rig_created["ref"].as_str().unwrap().to_owned();
     let root_bone = call(
         provider.as_ref(),
         &capabilities,
@@ -1045,14 +1020,15 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     rig_ref = removed_root["object_ref"].as_str().unwrap().to_owned();
-    call(
+    let removed_rig = call(
         provider.as_ref(),
         &capabilities,
-        "driver.blender.semantic.relation.set",
-        json!({"ref":rig_ref,"property":"data","target_ref":null}),
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":rig_ref}),
     )
     .await
     .unwrap();
+    assert_eq!(removed_rig["root"], "objects");
     let armatures = call(
         provider.as_ref(),
         &capabilities,
@@ -1070,15 +1046,6 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     )
     .await
     .unwrap();
-    call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.blender.object.delete",
-        json!({"name":"SemwrightRig"}),
-    )
-    .await
-    .unwrap();
-    let _ = armature;
 
     let camera = call(
         provider.as_ref(),
@@ -1089,45 +1056,16 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     assert_eq!(camera["rna_type"], "Camera");
-    call(
+    let camera_created = call(
         provider.as_ref(),
         &capabilities,
-        "driver.blender.object.create",
-        json!({"name":"SemwrightCameraObject","primitive":"empty"}),
+        "driver.blender.semantic.object.create",
+        json!({"name":"SemwrightCameraObject","data_ref":camera["ref"]}),
     )
     .await
     .unwrap();
-    let camera_objects = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.blender.semantic.objects",
-        json!({"root":"objects","query":"SemwrightCameraObject","limit":8}),
-    )
-    .await
-    .unwrap();
-    let camera_data = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.blender.semantic.objects",
-        json!({"root":"cameras","query":"SemwrightCameraData","limit":8}),
-    )
-    .await
-    .unwrap();
-    let camera_object_ref = camera_objects["items"][0]["ref"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let camera_data_ref = camera_data["items"][0]["ref"].as_str().unwrap().to_owned();
-    let attached = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.blender.semantic.relation.set",
-        json!({"ref":camera_object_ref,"property":"data","target_ref":camera_data_ref}),
-    )
-    .await
-    .unwrap();
-    let camera_object_ref = attached["ref"].as_str().unwrap().to_owned();
-    assert!(attached["target_ref"].as_str().is_some());
+    assert_eq!(camera_created["object_type"], "CAMERA");
+    let camera_object_ref = camera_created["ref"].as_str().unwrap().to_owned();
     let camera_object = call(
         provider.as_ref(),
         &capabilities,
@@ -1137,15 +1075,56 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     assert_eq!(camera_object["object"]["type"], "CAMERA");
-    let detached = call(
+
+    let scenes = call(
         provider.as_ref(),
         &capabilities,
-        "driver.blender.semantic.relation.set",
-        json!({"ref":camera_object_ref,"property":"data","target_ref":null}),
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","limit":8}),
     )
     .await
     .unwrap();
-    assert_eq!(detached["target_ref"], Value::Null);
+    let scene_ref = scenes["items"][0]["ref"].as_str().unwrap().to_owned();
+    let selected_camera = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relation.set",
+        json!({"ref":scene_ref,"property":"camera","target_ref":camera_object_ref}),
+    )
+    .await
+    .unwrap();
+    assert!(selected_camera["target_ref"].as_str().is_some());
+    let scene_ref = selected_camera["ref"].as_str().unwrap().to_owned();
+    let cleared_camera = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relation.set",
+        json!({"ref":scene_ref,"property":"camera","target_ref":null}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(cleared_camera["target_ref"], Value::Null);
+
+    let camera_objects = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"objects","query":"SemwrightCameraObject","limit":8}),
+    )
+    .await
+    .unwrap();
+    let camera_object_ref = camera_objects["items"][0]["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":camera_object_ref}),
+    )
+    .await
+    .unwrap();
     let cameras = call(
         provider.as_ref(),
         &capabilities,

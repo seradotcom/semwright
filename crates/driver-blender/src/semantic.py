@@ -69,6 +69,7 @@ EXECUTABLE_IDENTIFIERS = {
 }
 SENSITIVE_RELATIONS = {"driver", "drivers", "library", "script", "text"}
 RUNTIME_RELATIONS = {"id_data", "original", "override_library", "library_weak_reference", "user"}
+DOMAIN_SPECIFIC_POINTERS = {("Object", "data")}
 SENSITIVE_STRING_FRAGMENTS = {"filepath", "directory", "filename", "url", "uri", "command", "module", "script", "expression"}
 
 
@@ -169,12 +170,14 @@ def _finite(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(float(value))
 
 
-def _property_descriptor(prop):
+def _property_descriptor(prop, owner_identifier=None):
     status, reason = _property_status(prop)
     ptype = _text(getattr(prop, "type", ""), 64)
+    identifier = _text(getattr(prop, "identifier", ""), 256)
     readonly = bool(getattr(prop, "is_readonly", False))
+    domain_specific_pointer = (str(owner_identifier or ""), identifier) in DOMAIN_SPECIFIC_POINTERS
     out = {
-        "id": _text(getattr(prop, "identifier", ""), 256),
+        "id": identifier,
         "name": _text(getattr(prop, "name", ""), 512),
         "description": _text(getattr(prop, "description", "")),
         "type": ptype,
@@ -182,11 +185,11 @@ def _property_descriptor(prop):
         "array_length": min(int(getattr(prop, "array_length", 0) or 0), 4096),
         "animatable": bool(getattr(prop, "is_animatable", False)),
         "status": status,
-        "writable": status == "managed" or (status == "relation" and ptype == "POINTER" and not readonly),
+        "writable": status == "managed" or (status == "relation" and ptype == "POINTER" and not readonly and not domain_specific_pointer),
     }
     if status == "relation":
         out["relation_kind"] = ptype.casefold()
-        out["relation_mutation"] = "pointer_set" if ptype == "POINTER" and not readonly else "domain_specific"
+        out["relation_mutation"] = "pointer_set" if ptype == "POINTER" and not readonly and not domain_specific_pointer else "domain_specific"
     if reason:
         out["reason"] = reason
     for source, target in (("hard_min", "minimum"), ("hard_max", "maximum")):
@@ -403,8 +406,9 @@ class SemanticStore:
         if rna is None:
             raise SemanticError("Unavailable", "RNA type is unavailable")
         properties = []
+        owner_identifier = _text(getattr(rna, "identifier", expected), 256)
         for prop in list(rna.properties)[:1024]:
-            properties.append(_property_descriptor(prop))
+            properties.append(_property_descriptor(prop, owner_identifier))
         return {
             "root": root,
             "identifier": expected,
@@ -435,8 +439,9 @@ class SemanticStore:
         rna = getattr(item, "bl_rna", None)
         properties = []
         if rna is not None:
+            owner_identifier = _text(getattr(rna, "identifier", ""), 256)
             for prop in list(rna.properties)[:1024]:
-                properties.append(_property_descriptor(prop))
+                properties.append(_property_descriptor(prop, owner_identifier))
         return {
             "ref": self._ref(root, name, path),
             "root": root,
@@ -495,9 +500,11 @@ class SemanticStore:
                 })
         linker = getattr(relation, "link", None) if ptype == "COLLECTION" else None
         unlinker = getattr(relation, "unlink", None) if ptype == "COLLECTION" else None
+        owner_identifier = _text(getattr(rna, "identifier", ""), 256) if rna is not None else ""
+        domain_specific_pointer = (owner_identifier, property_id) in DOMAIN_SPECIFIC_POINTERS
         mutation = (
             "pointer_set"
-            if ptype == "POINTER" and not bool(getattr(prop, "is_readonly", False))
+            if ptype == "POINTER" and not bool(getattr(prop, "is_readonly", False)) and not domain_specific_pointer
             else "link_unlink"
             if ptype == "COLLECTION" and callable(linker) and callable(unlinker)
             else "domain_specific"
@@ -574,7 +581,8 @@ class SemanticStore:
         if rna is None:
             raise SemanticError("NotFound", "Blender RNA type does not exist")
         base = getattr(rna, "base", None)
-        properties = [_property_descriptor(prop) for prop in list(rna.properties)[:1024]]
+        owner_identifier = _text(getattr(rna, "identifier", identifier), 256)
+        properties = [_property_descriptor(prop, owner_identifier) for prop in list(rna.properties)[:1024]]
         return {
             "identifier": _text(getattr(rna, "identifier", identifier), 256),
             "name": _text(getattr(rna, "name", identifier), 512),
@@ -777,6 +785,70 @@ class SemanticStore:
             "generation": self.generation,
         }
 
+    def object_create(self, name, data_reference=None, collection_reference=None):
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Object name is invalid")
+        if self.bpy.data.objects.get(name) is not None:
+            raise SemanticError("Conflict", "Object name already exists; implicit suffixing is forbidden")
+
+        object_data_roots = {
+            "armatures",
+            "cameras",
+            "curves",
+            "grease_pencils",
+            "hair_curves",
+            "lattices",
+            "lights",
+            "lightprobes",
+            "meshes",
+            "metaballs",
+            "pointclouds",
+            "speakers",
+            "volumes",
+        }
+        data = None
+        if data_reference is not None:
+            data_parts = self._resolve(data_reference)
+            if data_parts[2] or data_parts[0] not in object_data_roots:
+                raise SemanticError("InvalidArgument", "Object data_ref must reference a root-level compatible geometry/data datablock")
+            data = data_parts[3]
+
+        if collection_reference is None:
+            collection = self.bpy.context.scene.collection
+        else:
+            collection_parts = self._resolve(collection_reference)
+            if collection_parts[2] or collection_parts[0] != "collections":
+                raise SemanticError("InvalidArgument", "collection_ref must reference a root Collection")
+            collection = collection_parts[3]
+
+        try:
+            obj = self.bpy.data.objects.new(name, data)
+            collection.objects.link(obj)
+        except Exception as error:
+            existing = self.bpy.data.objects.get(name)
+            if existing is not None:
+                try:
+                    self.bpy.data.objects.remove(existing, do_unlink=True)
+                except Exception:
+                    pass
+            raise SemanticError("InvalidArgument", "Blender rejected typed Object creation") from error
+
+        self.changed()
+        return {
+            "ref": self._ref("objects", obj.name),
+            "name": obj.name,
+            "object_type": _text(getattr(obj, "type", ""), 64),
+            "data_ref": None
+            if data is None
+            else self._ref(
+                data_parts[0],
+                data_parts[1],
+                data_parts[2],
+            ),
+            "changed": True,
+            "generation": self.generation,
+        }
+
     def datablock_create(self, root, name, kind=None):
         if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
             raise SemanticError("InvalidArgument", "Datablock name is invalid")
@@ -880,6 +952,9 @@ class SemanticStore:
         if prop is None:
             raise SemanticError("NotFound", "RNA pointer property does not exist")
         status, reason = _property_status(prop)
+        owner_identifier = _text(getattr(rna, "identifier", ""), 256) if rna is not None else ""
+        if (owner_identifier, property_id) in DOMAIN_SPECIFIC_POINTERS:
+            raise SemanticError("Unsupported", "RNA pointer requires dedicated lifecycle semantics")
         if status != "relation" or str(getattr(prop, "type", "")) != "POINTER" or bool(getattr(prop, "is_readonly", False)):
             raise SemanticError("Unsupported", reason or "RNA pointer is not generically mutable")
         target = None
@@ -1518,7 +1593,8 @@ class SemanticStore:
             value = _serialize(getattr(item, property_id), prop)
         except Exception as error:
             raise SemanticError("Unsupported", "RNA value cannot be represented safely") from error
-        return {"ref": self._ref(root, name, path), "property": property_id, "value": value, "descriptor": _property_descriptor(prop)}
+        owner_identifier = _text(getattr(rna, "identifier", ""), 256) if rna is not None else ""
+        return {"ref": self._ref(root, name, path), "property": property_id, "value": value, "descriptor": _property_descriptor(prop, owner_identifier)}
 
     def property_set(self, reference, property_id, value):
         root, name, path, item = self._resolve(reference)

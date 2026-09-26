@@ -426,6 +426,10 @@ def dispatch(command, args):
         if set(args) != {"root", "path", "name"}:
             raise CommandError("InvalidArgument", "Asset load requires root, path and name")
         return semantic.asset_load(args["root"], args["path"], args["name"])
+    if command == "driver.blender.semantic.object.create":
+        if not set(args).issubset({"name", "data_ref", "collection_ref"}) or "name" not in args:
+            raise CommandError("InvalidArgument", "Semantic Object create requires name")
+        return semantic.object_create(args["name"], args.get("data_ref"), args.get("collection_ref"))
     if command == "driver.blender.semantic.datablock.create":
         if not set(args).issubset({"root", "name", "kind"}) or not {"root", "name"}.issubset(args):
             raise CommandError("InvalidArgument", "Datablock create requires root and name")
