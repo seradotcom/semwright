@@ -69,11 +69,15 @@ DAEMON=""
 cleanup() {
   local status=$?
   for pid in "$DAEMON" "$FOOT" "$HYPR" "$KWIN"; do
-    [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+    if [[ -n "$pid" ]]; then
+      kill -TERM "$pid" 2>/dev/null || true
+    fi
   done
   sleep 0.2
   for pid in "$DAEMON" "$FOOT" "$HYPR" "$KWIN"; do
-    [[ -n "$pid" ]] && kill -KILL "$pid" 2>/dev/null || true
+    if [[ -n "$pid" ]]; then
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
   done
   exit "$status"
 }
@@ -125,7 +129,8 @@ for _ in $(seq 1 100); do
   sleep 0.05
 done
 test -n "$CHILD"
-export WAYLAND_DISPLAY=$(basename "$CHILD")
+WAYLAND_DISPLAY=$(basename "$CHILD")
+export WAYLAND_DISPLAY
 
 hyprctl version >"$EVIDENCE_DIR/hyprland-version-live.log"
 hyprctl monitors -j >"$EVIDENCE_DIR/hyprland-monitors-before.json"
