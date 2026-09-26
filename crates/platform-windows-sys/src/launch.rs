@@ -63,7 +63,7 @@ use windows::Win32::{
         },
     },
 };
-use windows::core::{PCWSTR, PWSTR};
+use windows::core::{BOOL, PCWSTR, PWSTR};
 
 const MAX_EXECUTABLE: u64 = 64 * 1024 * 1024;
 
