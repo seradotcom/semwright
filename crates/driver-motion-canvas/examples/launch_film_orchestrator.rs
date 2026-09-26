@@ -188,6 +188,8 @@ mod linux {
             transport: Transport::StdioV1,
             mounts,
             system_config: vec![],
+            secrets: vec![],
+            tools: vec![],
             network: false,
             loopback_port: None,
             resources: DriverResources {
