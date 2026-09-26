@@ -17,7 +17,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
     sync::{Mutex, RwLock, mpsc, oneshot},
     task::JoinHandle,
-    time::timeout,
+    time::{Instant, MissedTickBehavior, interval, timeout},
 };
 use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
 use uuid::Uuid;
@@ -25,7 +25,15 @@ use uuid::Uuid;
 type HmacSha256 = Hmac<Sha256>;
 const DEFAULT_PORT: u16 = 38_471;
 const MAX_PENDING: usize = 128;
+const MAX_EXPIRED_REQUESTS: usize = 256;
+#[cfg(not(test))]
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(25);
+#[cfg(test)]
+const REQUEST_TIMEOUT: Duration = Duration::from_millis(150);
+const RECONNECT_GRACE: Duration = Duration::from_secs(2);
+const RECONNECT_POLL: Duration = Duration::from_millis(25);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
+const HEARTBEAT_DEADLINE: Duration = Duration::from_secs(35);
 
 #[derive(Debug, Error)]
 pub enum BridgeError {
@@ -170,11 +178,49 @@ struct SessionHandle {
     info: SessionInfo,
     outbound: mpsc::Sender<Message>,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Message>>>>,
+    expired: Arc<Mutex<BTreeSet<String>>>,
 }
 
 #[derive(Default)]
 struct HubState {
     sessions: BTreeMap<String, SessionHandle>,
+}
+
+async fn take_session_generation(
+    state: &Arc<RwLock<HubState>>,
+    session_id: &str,
+    generation: u64,
+) -> Option<SessionHandle> {
+    let mut guard = state.write().await;
+    if guard
+        .sessions
+        .get(session_id)
+        .is_some_and(|active| active.info.generation == generation)
+    {
+        guard.sessions.remove(session_id)
+    } else {
+        None
+    }
+}
+
+async fn retire_session(handle: SessionHandle, reason: Option<&str>) {
+    if let Some(reason) = reason {
+        let _ = handle.outbound.try_send(Message::Close {
+            reason: reason.to_owned(),
+        });
+    }
+    handle.pending.lock().await.clear();
+    handle.expired.lock().await.clear();
+}
+
+async fn remember_expired(expired: &Arc<Mutex<BTreeSet<String>>>, id: String) {
+    let mut expired = expired.lock().await;
+    if expired.len() >= MAX_EXPIRED_REQUESTS
+        && let Some(oldest) = expired.iter().next().cloned()
+    {
+        expired.remove(&oldest);
+    }
+    expired.insert(id);
 }
 
 pub struct BridgeHub {
@@ -248,6 +294,12 @@ impl BridgeHub {
             .collect()
     }
 
+    async fn invalidate_generation(&self, session_id: &str, generation: u64, reason: &str) {
+        if let Some(handle) = take_session_generation(&self.state, session_id, generation).await {
+            retire_session(handle, Some(reason)).await;
+        }
+    }
+
     pub async fn execute(
         &self,
         session_id: Option<&str>,
@@ -258,26 +310,38 @@ impl BridgeHub {
         if operation.len() > 128 || !args.is_object() {
             return Err(BridgeError::Protocol);
         }
-        let (chosen_id, generation, revision, tx, pending) = {
-            let state = self.state.read().await;
-            let session = match session_id {
-                Some(id) => state.sessions.get(id).ok_or(BridgeError::Unavailable)?,
-                None if state.sessions.len() == 1 => {
-                    state.sessions.values().next().expect("len checked")
-                }
-                None => return Err(BridgeError::Unavailable),
+        let reconnect_deadline = Instant::now() + RECONNECT_GRACE;
+        let (chosen_id, generation, revision, tx, pending, expired) = loop {
+            let selected = {
+                let state = self.state.read().await;
+                let session = match session_id {
+                    Some(id) => state.sessions.get(id),
+                    None if state.sessions.len() == 1 => state.sessions.values().next(),
+                    None if state.sessions.len() > 1 => return Err(BridgeError::Unavailable),
+                    None => None,
+                };
+                session.map(|session| {
+                    (
+                        session.info.session_id.clone(),
+                        session.info.generation,
+                        session.info.revision,
+                        session.outbound.clone(),
+                        Arc::clone(&session.pending),
+                        Arc::clone(&session.expired),
+                    )
+                })
             };
-            if expected_revision.is_some_and(|rev| rev != session.info.revision) {
-                return Err(BridgeError::Stale);
+            if let Some(selected) = selected {
+                break selected;
             }
-            (
-                session.info.session_id.clone(),
-                session.info.generation,
-                session.info.revision,
-                session.outbound.clone(),
-                Arc::clone(&session.pending),
-            )
+            if Instant::now() >= reconnect_deadline {
+                return Err(BridgeError::Unavailable);
+            }
+            tokio::time::sleep(RECONNECT_POLL).await;
         };
+        if expected_revision.is_some_and(|rev| rev != revision) {
+            return Err(BridgeError::Stale);
+        }
 
         let id = request_id();
         let (reply_tx, reply_rx) = oneshot::channel();
@@ -299,14 +363,29 @@ impl BridgeHub {
         };
         if tx.send(request).await.is_err() {
             pending.lock().await.remove(&id);
+            self.invalidate_generation(
+                &chosen_id,
+                generation,
+                "Figma plugin session writer closed",
+            )
+            .await;
             return Err(BridgeError::Unavailable);
         }
 
         let response = match timeout(REQUEST_TIMEOUT, reply_rx).await {
             Ok(Ok(message)) => message,
-            Ok(Err(_)) => return Err(BridgeError::Unavailable),
+            Ok(Err(_)) => {
+                self.invalidate_generation(
+                    &chosen_id,
+                    generation,
+                    "Figma plugin session disconnected",
+                )
+                .await;
+                return Err(BridgeError::Unavailable);
+            }
             Err(_) => {
                 pending.lock().await.remove(&id);
+                remember_expired(&expired, id).await;
                 return Err(BridgeError::Timeout);
             }
         };
@@ -428,7 +507,8 @@ async fn serve_connection(
 
     let (outbound_tx, mut outbound_rx) = mpsc::channel::<Message>(MAX_PENDING);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
-    {
+    let expired = Arc::new(Mutex::new(BTreeSet::new()));
+    let superseded = {
         let mut guard = state.write().await;
         if guard
             .sessions
@@ -454,119 +534,151 @@ async fn serve_connection(
                 },
                 outbound: outbound_tx,
                 pending: Arc::clone(&pending),
+                expired: Arc::clone(&expired),
             },
-        );
+        )
+    };
+    if let Some(old) = superseded {
+        retire_session(old, Some("Superseded by a newer Figma plugin generation")).await;
     }
 
-    send_ws(
-        &mut sink,
-        &Message::Ready {
-            session_id: session_id.clone(),
-            generation,
-            revision: 0,
-        },
-    )
-    .await?;
+    let connection_result = async {
+        send_ws(
+            &mut sink,
+            &Message::Ready {
+                session_id: session_id.clone(),
+                generation,
+                revision: 0,
+            },
+        )
+        .await?;
 
-    loop {
-        tokio::select! {
-            outbound = outbound_rx.recv() => {
-                let Some(message) = outbound else { break; };
-                send_ws(&mut sink, &message).await?;
-            }
-            inbound = source.next() => {
-                let Some(frame) = inbound else { break; };
-                let frame = frame.map_err(|_| BridgeError::Io)?;
-                if frame.is_close() {
-                    break;
+        let mut heartbeat = interval(HEARTBEAT_INTERVAL);
+        heartbeat.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        heartbeat.tick().await;
+        let mut last_seen = Instant::now();
+        let mut heartbeat_seq = 0u64;
+
+        loop {
+            tokio::select! {
+                outbound = outbound_rx.recv() => {
+                    let Some(message) = outbound else { break; };
+                    send_ws(&mut sink, &message).await?;
                 }
-                if !frame.is_text() {
-                    continue;
+                _ = heartbeat.tick() => {
+                    if last_seen.elapsed() >= HEARTBEAT_DEADLINE {
+                        return Err(BridgeError::Unavailable);
+                    }
+                    heartbeat_seq = heartbeat_seq.wrapping_add(1);
+                    send_ws(
+                        &mut sink,
+                        &Message::Ping {
+                            nonce: format!("{generation:x}-{heartbeat_seq:x}"),
+                        },
+                    )
+                    .await?;
                 }
-                let message = parse_message(frame.into_data().as_ref())?;
-                match &message {
-                    Message::Response {
-                        id,
-                        session_id: response_session,
-                        generation: response_generation,
-                        revision,
-                        ..
-                    } => {
-                        if response_session != &session_id || *response_generation != generation {
-                            return Err(BridgeError::Stale);
-                        }
-                        let sender = pending
-                            .lock()
-                            .await
-                            .remove(id)
-                            .ok_or(BridgeError::Duplicate)?;
-                        {
-                            let mut guard = state.write().await;
-                            if let Some(active) = guard.sessions.get_mut(&session_id)
-                                && active.info.generation == generation
+                inbound = source.next() => {
+                    let Some(frame) = inbound else { break; };
+                    let frame = frame.map_err(|_| BridgeError::Io)?;
+                    if frame.is_close() {
+                        break;
+                    }
+                    if !frame.is_text() {
+                        continue;
+                    }
+                    let message = parse_message(frame.into_data().as_ref())?;
+                    last_seen = Instant::now();
+                    match &message {
+                        Message::Response {
+                            id,
+                            session_id: response_session,
+                            generation: response_generation,
+                            revision,
+                            ..
+                        } => {
+                            if response_session != &session_id || *response_generation != generation {
+                                return Err(BridgeError::Stale);
+                            }
+                            let sender = pending.lock().await.remove(id);
+                            let was_expired = if sender.is_none() {
+                                expired.lock().await.remove(id)
+                            } else {
+                                false
+                            };
+                            if sender.is_none() && !was_expired {
+                                return Err(BridgeError::Duplicate);
+                            }
                             {
-                                active.info.revision = *revision;
+                                let mut guard = state.write().await;
+                                if let Some(active) = guard.sessions.get_mut(&session_id)
+                                    && active.info.generation == generation
+                                {
+                                    active.info.revision = *revision;
+                                }
+                            }
+                            if let Some(sender) = sender {
+                                let _ = sender.send(message);
                             }
                         }
-                        let _ = sender.send(message);
-                    }
-                    Message::Event {
-                        session_id: event_session,
-                        generation: event_generation,
-                        revision,
-                        kind,
-                        payload,
-                    } => {
-                        if event_session != &session_id || *event_generation != generation {
-                            return Err(BridgeError::Stale);
-                        }
-                        if !matches!(
-                            kind.as_str(),
-                            "selectionchange"
-                                | "currentpagechange"
-                                | "documentchange"
-                                | "documentchange_unavailable"
-                        ) {
-                            return Err(BridgeError::Protocol);
-                        }
-                        {
-                            let mut guard = state.write().await;
-                            if let Some(active) = guard.sessions.get_mut(&session_id) {
-                                active.info.revision = (*revision).max(active.info.revision);
+                        Message::Event {
+                            session_id: event_session,
+                            generation: event_generation,
+                            revision,
+                            kind,
+                            payload,
+                        } => {
+                            if event_session != &session_id || *event_generation != generation {
+                                return Err(BridgeError::Stale);
+                            }
+                            if !matches!(
+                                kind.as_str(),
+                                "selectionchange"
+                                    | "currentpagechange"
+                                    | "documentchange"
+                                    | "documentchange_unavailable"
+                            ) {
+                                return Err(BridgeError::Protocol);
+                            }
+                            {
+                                let mut guard = state.write().await;
+                                if let Some(active) = guard.sessions.get_mut(&session_id)
+                                    && active.info.generation == generation
+                                {
+                                    active.info.revision = (*revision).max(active.info.revision);
+                                }
+                            }
+                            if let Some(events) = &events {
+                                let _ = events.send(DriverChildEvent::Event {
+                                    kind: format!("figma.{kind}"),
+                                    payload: json!({
+                                        "session_id": session_id,
+                                        "generation": generation,
+                                        "revision": revision,
+                                        "data": payload,
+                                    }),
+                                });
                             }
                         }
-                        if let Some(events) = &events {
-                            let _ = events.send(DriverChildEvent::Event {
-                                kind: format!("figma.{kind}"),
-                                payload: json!({
-                                    "session_id": session_id,
-                                    "generation": generation,
-                                    "revision": revision,
-                                    "data": payload,
-                                }),
-                            });
-                        }
+                        Message::Pong { .. } => {}
+                        Message::Close { .. } => break,
+                        _ => return Err(BridgeError::Protocol),
                     }
-                    Message::Pong { .. } => {}
-                    Message::Close { .. } => break,
-                    _ => return Err(BridgeError::Protocol),
                 }
             }
         }
+        Ok(())
     }
+    .await;
 
-    {
-        let mut guard = state.write().await;
-        if guard
-            .sessions
-            .get(&session_id)
-            .is_some_and(|active| active.info.generation == generation)
-        {
-            guard.sessions.remove(&session_id);
-        }
+    if let Some(active) = take_session_generation(&state, &session_id, generation).await {
+        retire_session(active, None).await;
     }
+    // The connection owns this pending map even if a newer generation replaced it.
+    // Clearing it guarantees every waiter wakes immediately on all exit paths.
     pending.lock().await.clear();
-    Ok(())
+    expired.lock().await.clear();
+    connection_result
 }
 
 async fn read_message<S>(source: &mut S) -> Result<Message, BridgeError>
@@ -676,6 +788,46 @@ mod tests {
         };
         assert_eq!(nonce.len(), 32);
         (ws, nonce)
+    }
+
+    async fn authenticate(hub: &BridgeHub, session: &str, generation: u64) -> Client {
+        let (mut ws, nonce) = hello(hub, session, generation).await;
+        let proof = hub.secret.proof(&nonce, session, generation);
+        send_client(
+            &mut ws,
+            &Message::Authenticate {
+                session_id: session.into(),
+                generation,
+                proof,
+            },
+        )
+        .await;
+        match recv_client(&mut ws).await {
+            Message::Ready {
+                session_id,
+                generation: ready_generation,
+                revision,
+            } => {
+                assert_eq!(session_id, session);
+                assert_eq!(ready_generation, generation);
+                assert_eq!(revision, 0);
+            }
+            other => panic!("expected Ready, got {other:?}"),
+        }
+        ws
+    }
+
+    async fn wait_for_no_sessions(hub: &BridgeHub) {
+        timeout(Duration::from_secs(2), async {
+            loop {
+                if hub.sessions().await.is_empty() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("session cleanup timed out");
     }
 
     #[tokio::test]
@@ -817,5 +969,279 @@ mod tests {
             _ => {}
         }
         assert!(hub.sessions().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn request_waits_through_short_reconnect_gap() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+
+        let (result, mut ws) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(3),
+                    hub.execute(
+                        Some("late"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"after-gap"}),
+                    ),
+                )
+                .await
+                .expect("request exceeded reconnect grace")
+            },
+            async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let mut ws = authenticate(&hub, "late", 1).await;
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 1,
+                        ok: true,
+                        value: Some(serde_json::json!({"gap_hidden":true})),
+                        error: None,
+                    },
+                )
+                .await;
+                ws
+            }
+        );
+
+        assert_eq!(
+            result.expect("execute through reconnect gap"),
+            serde_json::json!({"gap_hidden":true})
+        );
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn late_response_after_timeout_keeps_session_usable() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "slow", 1).await;
+
+        let (first_result, ()) = tokio::join!(
+            async {
+                hub.execute(
+                    Some("slow"),
+                    "node.query",
+                    None,
+                    serde_json::json!({"nameEquals":"slow"}),
+                )
+                .await
+            },
+            async {
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                tokio::time::sleep(Duration::from_millis(250)).await;
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 5,
+                        ok: true,
+                        value: Some(serde_json::json!({"late":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert!(matches!(first_result, Err(BridgeError::Timeout)));
+
+        timeout(Duration::from_secs(1), async {
+            loop {
+                let sessions = hub.sessions().await;
+                if sessions.len() == 1 && sessions[0].revision == 5 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("late response did not settle without disconnecting");
+
+        let (second_result, ()) = tokio::join!(
+            async {
+                hub.execute(
+                    Some("slow"),
+                    "node.query",
+                    None,
+                    serde_json::json!({"nameEquals":"after-timeout"}),
+                )
+                .await
+            },
+            async {
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 6,
+                        ok: true,
+                        value: Some(serde_json::json!({"still_connected":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert_eq!(
+            second_result.expect("session should remain usable after late response"),
+            serde_json::json!({"still_connected":true})
+        );
+
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn protocol_failure_retires_session_and_wakes_pending_request() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "broken", 1).await;
+        assert_eq!(hub.sessions().await.len(), 1);
+
+        let (result, ()) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(2),
+                    hub.execute(
+                        Some("broken"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"x"}),
+                    ),
+                )
+                .await
+                .expect("pending request did not wake after protocol failure")
+            },
+            async {
+                assert!(matches!(
+                    recv_client(&mut ws).await,
+                    Message::Request { .. }
+                ));
+                ws.send(WsMessage::Text("{not-json".into()))
+                    .await
+                    .expect("send malformed frame");
+            }
+        );
+
+        assert!(matches!(result, Err(BridgeError::Unavailable)));
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn newer_generation_supersedes_pending_request_and_recovers() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws1 = authenticate(&hub, "reconnect", 1).await;
+
+        let (old_result, mut ws2) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(2),
+                    hub.execute(
+                        Some("reconnect"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"before"}),
+                    ),
+                )
+                .await
+                .expect("superseded request did not wake")
+            },
+            async {
+                assert!(matches!(
+                    recv_client(&mut ws1).await,
+                    Message::Request { .. }
+                ));
+                authenticate(&hub, "reconnect", 2).await
+            }
+        );
+        assert!(matches!(old_result, Err(BridgeError::Unavailable)));
+
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].session_id, "reconnect");
+        assert_eq!(sessions[0].generation, 2);
+
+        let (new_result, ()) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(2),
+                    hub.execute(
+                        Some("reconnect"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"after"}),
+                    ),
+                )
+                .await
+                .expect("reconnected request timed out")
+            },
+            async {
+                let request = recv_client(&mut ws2).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws2,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 1,
+                        ok: true,
+                        value: Some(serde_json::json!({"recovered":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert_eq!(
+            new_result.expect("reconnected execute"),
+            serde_json::json!({"recovered":true})
+        );
+        ws2.close(None).await.expect("close reconnected websocket");
+        wait_for_no_sessions(&hub).await;
     }
 }
