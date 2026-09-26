@@ -3,7 +3,7 @@ use crate::{Backend, Context};
 use async_trait::async_trait;
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Feature, JobArtifact, JobProgress, NativeTarget,
-    ProviderIdentity, Result,
+    ProviderIdentity, Result, Selector,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -50,6 +50,8 @@ pub struct ProviderInterfaces {
     pub progress: bool,
     pub artifacts: bool,
     pub health: bool,
+    /// Provider can emit broker-internal NativeTarget markers and validate them before reuse.
+    pub native_refs: bool,
 }
 #[async_trait]
 pub trait Provider: Send + Sync {
@@ -74,6 +76,17 @@ pub trait Provider: Send + Sync {
     fn closed(&self) -> Option<CancellationToken> {
         None
     }
+    /// Optional backend-owned reduction for `ui.find`. The broker remains authoritative:
+    /// it materializes references and reapplies the portable selector to every candidate.
+    async fn find_ui_candidates(
+        &self,
+        _context: &Context,
+        _selector: &Selector,
+        _max_nodes: usize,
+        _max_depth: usize,
+    ) -> Result<Option<Value>> {
+        Ok(None)
+    }
     /// Implementations must execute this pinned descriptor or reject it as stale, never reinterpret it.
     async fn execute(
         &self,
@@ -82,7 +95,7 @@ pub trait Provider: Send + Sync {
         args: &Value,
     ) -> Result<Value>;
     fn emits_native_refs(&self) -> bool {
-        false
+        self.interfaces().native_refs
     }
     async fn validate(&self, _target: &NativeTarget) -> Result<()> {
         Err(Error::new(
@@ -140,8 +153,24 @@ impl Provider for NativeProvider {
         ProviderInterfaces {
             health: true,
             cooperative_cancellation: true,
+            events: self.backend.events().is_some(),
+            native_refs: self.backend.emits_native_refs(),
             ..Default::default()
         }
+    }
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.backend.events()
+    }
+    async fn find_ui_candidates(
+        &self,
+        context: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        self.backend
+            .find_ui_candidates(context, selector, max_nodes, max_depth)
+            .await
     }
     async fn execute(
         &self,
@@ -162,5 +191,58 @@ impl Provider for NativeProvider {
     }
     async fn shutdown(&self) -> Result<()> {
         self.backend.shutdown().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use semwright_types::{ProviderIdentity, SourceKind};
+    use serde_json::json;
+
+    struct EventBackend {
+        tx: broadcast::Sender<ProviderSignal>,
+    }
+
+    #[async_trait]
+    impl Backend for EventBackend {
+        fn name(&self) -> &'static str {
+            "event-fixture"
+        }
+        fn supports(&self, _: &str) -> bool {
+            false
+        }
+        async fn probe(&self) -> Vec<Feature> {
+            vec![]
+        }
+        fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+            Some(self.tx.subscribe())
+        }
+        async fn execute(&self, _: &Context, _: &str, _: &Value) -> Result<Value> {
+            Err(Error::new(ErrorCode::Unsupported, "fixture"))
+        }
+    }
+
+    #[tokio::test]
+    async fn native_provider_forwards_backend_events() {
+        let (tx, _) = broadcast::channel(8);
+        let backend = Arc::new(EventBackend { tx: tx.clone() });
+        let identity =
+            ProviderIdentity::external(SourceKind::Driver, "event-fixture", "1").unwrap();
+        let provider = NativeProvider::new(backend, identity, vec![]);
+        assert!(provider.interfaces().events);
+        let mut rx = provider.events().expect("event receiver");
+        tx.send(ProviderSignal::Event {
+            kind: "semantic.text.changed".into(),
+            payload: json!({"node_id":"ui-node:test"}),
+        })
+        .unwrap();
+        match rx.recv().await.unwrap() {
+            ProviderSignal::Event { kind, payload } => {
+                assert_eq!(kind, "semantic.text.changed");
+                assert_eq!(payload["node_id"], "ui-node:test");
+            }
+            other => panic!("unexpected signal: {other:?}"),
+        }
     }
 }

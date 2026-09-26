@@ -1,4 +1,5 @@
 //! Internal EI/libei sender transport for an already-granted RemoteDesktop fd.
+use crate::eis_xkb::{KeyboardMap, ModifierState, Stroke};
 use futures_util::StreamExt;
 use reis::{
     ei,
@@ -207,6 +208,7 @@ fn monotonic_micros() -> u64 {
 struct LiveDevice {
     device: Device,
     resumed: bool,
+    modifiers: ModifierState,
 }
 
 fn current_capabilities(devices: &[LiveDevice]) -> Capabilities {
@@ -229,27 +231,23 @@ fn find_device(devices: &[LiveDevice], capability: DeviceCapability) -> Result<&
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS capability is not available"))
 }
 
-fn find_text_device(devices: &[LiveDevice]) -> Result<&Device> {
-    if let Some(device) = devices
+fn find_native_text_device(devices: &[LiveDevice]) -> Option<&Device> {
+    devices
         .iter()
         .find(|d| d.resumed && d.device.has_capability(DeviceCapability::Text))
         .map(|d| &d.device)
-    {
-        return Ok(device);
-    }
-    if devices
+}
+
+fn find_keyboard_device(devices: &[LiveDevice]) -> Result<&LiveDevice> {
+    devices
         .iter()
-        .any(|d| d.resumed && d.device.has_capability(DeviceCapability::Keyboard))
-    {
-        return Err(Error::new(
-            ErrorCode::Unsupported,
-            "EIS server exposes ei_keyboard keycodes but not ei_text; keysym/text translation is unavailable",
-        ));
-    }
-    Err(Error::new(
-        ErrorCode::Unsupported,
-        "EIS text capability is not available",
-    ))
+        .find(|d| d.resumed && d.device.has_capability(DeviceCapability::Keyboard))
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::Unsupported,
+                "EIS keyboard capability is not available",
+            )
+        })
 }
 
 fn frame(connection: &reis::event::Connection, device: &Device) -> Result<()> {
@@ -264,6 +262,20 @@ fn frame(connection: &reis::event::Connection, device: &Device) -> Result<()> {
 fn set_resumed(devices: &mut [LiveDevice], device: &Device, resumed: bool) {
     if let Some(live) = devices.iter_mut().find(|d| d.device == *device) {
         live.resumed = resumed;
+        if !resumed {
+            live.modifiers = ModifierState::default();
+        }
+    }
+}
+
+fn set_modifiers(devices: &mut [LiveDevice], event: &reis::event::KeyboardModifiers) {
+    if let Some(live) = devices.iter_mut().find(|d| d.device == event.device) {
+        live.modifiers = ModifierState {
+            depressed: event.depressed,
+            latched: event.latched,
+            locked: event.locked,
+            group: event.group,
+        };
     }
 }
 
@@ -309,7 +321,11 @@ async fn run(
                             event.device.device().ready();
                             let _ = connection.flush();
                         }
-                        devices.push(LiveDevice { device: event.device, resumed: false });
+                        devices.push(LiveDevice {
+                            device: event.device,
+                            resumed: false,
+                            modifiers: ModifierState::default(),
+                        });
                     }
                     EiEvent::DeviceResumed(event) => {
                         event.device.device().start_emulating(connection.serial(), sequence);
@@ -322,6 +338,9 @@ async fn run(
                     }
                     EiEvent::DeviceRemoved(event) => {
                         devices.retain(|d| d.device != event.device);
+                    }
+                    EiEvent::KeyboardModifiers(event) => {
+                        set_modifiers(&mut devices, &event);
                     }
                     _ => {}
                 }
@@ -374,14 +393,24 @@ fn send_keysym(
     devices: &[LiveDevice],
     keysym: u32,
 ) -> Result<()> {
-    let device = find_text_device(devices)?;
-    let text = device
-        .interface::<ei::Text>()
-        .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
-    text.keysym(keysym, ei::keyboard::KeyState::Press);
-    frame(connection, device)?;
-    text.keysym(keysym, ei::keyboard::KeyState::Released);
-    frame(connection, device)
+    if let Some(device) = find_native_text_device(devices) {
+        let text = device
+            .interface::<ei::Text>()
+            .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
+        text.keysym(keysym, ei::keyboard::KeyState::Press);
+        frame(connection, device)?;
+        text.keysym(keysym, ei::keyboard::KeyState::Released);
+        return frame(connection, device);
+    }
+    let live = find_keyboard_device(devices)?;
+    let keymap = KeyboardMap::from_device(&live.device)?.ok_or_else(|| {
+        Error::new(
+            ErrorCode::Unsupported,
+            "EIS keyboard has no XKB keymap for keysym translation",
+        )
+    })?;
+    let stroke = keymap.stroke_for_keysym(keysym, live.modifiers)?;
+    send_keyboard_stroke(connection, &live.device, &stroke)
 }
 
 fn send_text(
@@ -389,12 +418,48 @@ fn send_text(
     devices: &[LiveDevice],
     text_value: &str,
 ) -> Result<()> {
-    let device = find_text_device(devices)?;
-    let text = device
-        .interface::<ei::Text>()
-        .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
-    for chunk in utf8_chunks(text_value, 254)? {
-        text.utf8(chunk);
+    if let Some(device) = find_native_text_device(devices) {
+        let text = device
+            .interface::<ei::Text>()
+            .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
+        for chunk in utf8_chunks(text_value, 254)? {
+            text.utf8(chunk);
+            frame(connection, device)?;
+        }
+        return Ok(());
+    }
+    let live = find_keyboard_device(devices)?;
+    let keymap = KeyboardMap::from_device(&live.device)?.ok_or_else(|| {
+        Error::new(
+            ErrorCode::Unsupported,
+            "EIS keyboard has no XKB keymap for text translation",
+        )
+    })?;
+    for character in text_value.chars() {
+        let stroke = keymap.stroke_for_char(character, live.modifiers)?;
+        send_keyboard_stroke(connection, &live.device, &stroke)?;
+    }
+    Ok(())
+}
+
+fn send_keyboard_stroke(
+    connection: &reis::event::Connection,
+    device: &Device,
+    stroke: &Stroke,
+) -> Result<()> {
+    let keyboard = device
+        .interface::<ei::Keyboard>()
+        .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS keyboard interface disappeared"))?;
+    for modifier in &stroke.modifiers {
+        keyboard.key(*modifier, ei::keyboard::KeyState::Press);
+        frame(connection, device)?;
+    }
+    keyboard.key(stroke.keycode, ei::keyboard::KeyState::Press);
+    frame(connection, device)?;
+    keyboard.key(stroke.keycode, ei::keyboard::KeyState::Released);
+    frame(connection, device)?;
+    for modifier in stroke.modifiers.iter().rev() {
+        keyboard.key(*modifier, ei::keyboard::KeyState::Released);
         frame(connection, device)?;
     }
     Ok(())

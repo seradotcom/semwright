@@ -630,16 +630,28 @@ jobs:
       - name: Install isolated GTK accessibility fixture
         run: |
           sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils zenity libpipewire-0.3-dev
+          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils \
+            python3-gi gir1.2-gtk-4.0 libpipewire-0.3-dev
           mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-gtk"
           chmod 700 "$RUNNER_TEMP/atspi-gtk"
-          zenity --version | tee verification/native-ci/zenity-version.log
+          python3 - <<'PYGTK' | tee verification/native-ci/gtk-version.log
+          import gi
+          gi.require_version("Gtk", "4.0")
+          from gi.repository import Gtk
+          print(f"Gtk={Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
+          PYGTK
+          cat > "$RUNNER_TEMP/atspi-gtk-fixture" <<EOF
+          #!/usr/bin/env bash
+          exec /usr/bin/python3 "$GITHUB_WORKSPACE/fixtures/gtk/fixture.py" "\$@"
+          EOF
+          chmod 755 "$RUNNER_TEMP/atspi-gtk-fixture"
           dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
       - name: Real GTK AT-SPI delta, structural resync and stale-reference lifecycle
         env:
           XDG_RUNTIME_DIR: ${{ runner.temp }}/atspi-gtk
           XDG_SESSION_TYPE: x11
           SEMWRIGHT_TEST_ATSPI: "1"
+          SEMWRIGHT_TEST_GTK_FIXTURE: ${{ runner.temp }}/atspi-gtk-fixture
         run: scripts/dev/atspi-live-ci.sh gtk
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

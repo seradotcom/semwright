@@ -61,14 +61,18 @@ def request(proc, value, terminal_type=None):
 def digest(desc):
     return hashlib.sha256(json.dumps(desc, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
-def execute(proc, caps, name, args, rid):
+def execute(proc, caps, name, args, rid, native_target=None):
     cap = caps[name]
+    context = {"session": "godot-real-e2e"}
+    if native_target is not None:
+        context["native_target"] = native_target
     out, progress = request(proc, {
         "type": "execute",
         "id": rid,
         "command": name,
         "descriptor_sha256": digest(cap["descriptor"]),
         "args": args,
+        "context": context,
     })
     if out.get("type") == "failure":
         raise AssertionError(f"{name} failed: {out}")
@@ -77,14 +81,18 @@ def execute(proc, caps, name, args, rid):
     return out["value"], progress
 
 
-def execute_failure(proc, caps, name, args, rid):
+def execute_failure(proc, caps, name, args, rid, native_target=None):
     cap = caps[name]
+    context = {"session": "godot-real-e2e"}
+    if native_target is not None:
+        context["native_target"] = native_target
     out, progress = request(proc, {
         "type": "execute",
         "id": rid,
         "command": name,
         "descriptor_sha256": digest(cap["descriptor"]),
         "args": args,
+        "context": context,
     })
     if out.get("type") != "failure":
         raise AssertionError(f"{name} unexpectedly succeeded: {out}")
@@ -188,18 +196,19 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
     trace_target = os.environ.get("SEMWRIGHT_GODOT_TRACE")
     try:
         ready, _ = request(driver, {
-            "type": "hello", "protocol": 2,
+            "type": "hello", "protocol": 3,
             "provider": {
                 "id": "driver:godot", "kind": "driver", "version": VERSION,
                 "namespace": "driver.godot.", "application": None, "origin": "godot-real-acceptance",
             },
             "executable_sha256": "0" * 64,
         }, "ready")
-        assert ready["protocol"] == 2
+        assert ready["protocol"] == 3
         interfaces, _ = request(driver, {"type": "interfaces", "id": "interfaces"}, "interfaces")
         assert interfaces["interfaces"]["cooperative_cancellation"] is True
         assert interfaces["interfaces"]["progress"] is True
         assert interfaces["interfaces"]["artifacts"] is True
+        assert interfaces["interfaces"]["native_refs"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
         assert len(caps) == 188, len(caps)
@@ -246,9 +255,9 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             )
         sid = matching[0]["session"]
 
-        def call(name, args):
+        def call(name, args, native_target=None):
             rid = f"op-{len(trace):03d}"
-            value, progress = execute(driver, caps, name, args, rid)
+            value, progress = execute(driver, caps, name, args, rid, native_target=native_target)
             trace.append({"id": rid, "command": name, "args": args, "result": value, "progress": progress})
             return value
 
@@ -466,16 +475,23 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         assert semantic_props["semantic_node"]["path"] == "Player/Camera"
         assert semantic_props["semantic_node"]["class"] == "Camera3D"
 
-        # Provider-owned application refs bind identity to this Godot project/session/generation
-        # and carry revision/fingerprint freshness without becoming executable handles.
+        # Provider-owned refs are promoted by the Rust driver into internal NativeTarget
+        # markers. A Broker materializes those markers into opaque native:<uuid> IDs.
+        def native_target_of(value):
+            assert isinstance(value, dict) and set(value) == {"$ref"}, value
+            return value["$ref"]
+
+        def raw_godot_ref(value):
+            return json.loads(native_target_of(value)["identity"])
+
         scene_state = call("driver.godot.scene.inspect", {"session": sid})
-        assert scene_state["data"]["scene_ref"]["kind"] == "scene"
+        assert raw_godot_ref(scene_state["data"]["scene_ref"])["kind"] == "scene"
         camera_state = call("driver.godot.node.inspect", {"session": sid, "path": "Player/Camera"})
-        assert camera_state["data"]["ref"]["kind"] == "node"
+        assert raw_godot_ref(camera_state["data"]["ref"])["kind"] == "node"
         material_state = call("driver.godot.resource.inspect", {
             "session": sid, "path": "res://assets/semantic_mat.tres",
         })
-        assert material_state["data"]["ref"]["kind"] == "resource"
+        assert raw_godot_ref(material_state["data"]["ref"])["kind"] == "resource"
 
         camera_ref = call("driver.godot.ref.node", {
             "session": sid, "path": "Player/Camera",
@@ -484,24 +500,24 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "session": sid, "path": "res://assets/semantic_mat.tres",
         })["data"]["ref"]
         scene_ref = call("driver.godot.ref.scene", {"session": sid})["data"]["ref"]
-        assert camera_ref["provider"] == "godot"
-        assert resource_ref["kind"] == "resource"
-        assert scene_ref["kind"] == "scene"
+        assert raw_godot_ref(camera_ref)["provider"] == "godot"
+        assert raw_godot_ref(resource_ref)["kind"] == "resource"
+        assert raw_godot_ref(scene_ref)["kind"] == "scene"
 
         mutate("driver.godot.node.patch", {
             "target": "Player/Camera",
             "properties": [{"name": "fov", "value": 68.0}],
         })
         stale_ref = call("driver.godot.ref.resolve", {
-            "session": sid, "ref": camera_ref, "require_current": False,
-        })
+            "session": sid, "ref": "native:" + "1" * 32, "require_current": False,
+        }, native_target=native_target_of(camera_ref))
         assert stale_ref["data"]["stale"] is True
         fresh_ref = call("driver.godot.ref.node", {
             "session": sid, "path": "Player/Camera",
         })["data"]["ref"]
         resolved_fresh = call("driver.godot.ref.resolve", {
-            "session": sid, "ref": fresh_ref, "require_current": True,
-        })
+            "session": sid, "ref": "native:" + "2" * 32, "require_current": True,
+        }, native_target=native_target_of(fresh_ref))
         assert resolved_fresh["data"]["stale"] is False
 
         # Recursive decoding is authoritative even where JSON Schema intentionally
@@ -1414,6 +1430,7 @@ func _physics_process(_delta: float) -> void:
             "command": "driver.godot.project.run_test",
             "descriptor_sha256": digest(cap["descriptor"]),
             "args": {"project": project_id, "scene": "res://scenes/lab_room.tscn", "frames": 3600},
+            "context": {"session": "godot-real-e2e"},
         })
         first_progress = recv(driver)
         assert first_progress["type"] == "progress" and first_progress["id"] == cancel_id

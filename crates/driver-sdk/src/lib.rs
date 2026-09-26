@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::provider::canonical_slug;
 use semwright_types::{
-    CommandDescriptor, Error, ErrorCode, JobArtifact, JobProgress, ProviderIdentity, Result,
-    SourceKind,
+    CommandDescriptor, Error, ErrorCode, JobArtifact, JobProgress, NativeTarget, ProviderIdentity,
+    Result, SourceKind,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -19,7 +19,7 @@ use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 2;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -42,6 +42,9 @@ pub struct DriverInterfaces {
     pub artifacts: bool,
     #[serde(default = "default_health")]
     pub health: bool,
+    /// Protocol v3: driver can emit and validate provider-owned native references.
+    #[serde(default)]
+    pub native_refs: bool,
 }
 fn default_health() -> bool {
     true
@@ -195,6 +198,10 @@ pub struct Manifest {
     pub system_config: Vec<SystemConfigMount>,
     #[serde(default)]
     pub network: bool,
+    /// Optional owner-selected TCP port exposed through a Host-managed loopback proxy.
+    /// This does not grant the driver a network namespace.
+    #[serde(default)]
+    pub loopback_port: Option<u16>,
     #[serde(default)]
     pub resources: DriverResources,
     #[serde(default = "default_timeout")]
@@ -225,6 +232,20 @@ impl Manifest {
         self.identity()?;
         self.application.validate()?;
         self.resources.validate()?;
+        if self.network && self.loopback_port.is_some() {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver cannot request ambient network and loopback-only authority together",
+            ));
+        }
+        if self
+            .loopback_port
+            .is_some_and(|port| !(1024..=u16::MAX).contains(&port))
+        {
+            return Err(Error::invalid(
+                "Driver loopback port must be an unprivileged TCP port",
+            ));
+        }
         if self.protocol == 1
             && (self.interfaces.dynamic_capabilities
                 || self.interfaces.cooperative_cancellation
@@ -235,6 +256,12 @@ impl Manifest {
             return Err(Error::new(
                 ErrorCode::Unsupported,
                 "Driver protocol v1 cannot negotiate dynamic/events/progress/artifacts/cancellation",
+            ));
+        }
+        if self.protocol < 3 && self.interfaces.native_refs {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver native-reference validation requires protocol v3",
             ));
         }
         if self.publisher.is_empty()
@@ -252,7 +279,10 @@ impl Manifest {
         }
         let mut roots = BTreeSet::new();
         for mount in &self.mounts {
-            if !canonical_slug(&mount.root) || !roots.insert(&mount.root) {
+            if mount.root.starts_with("semwright-internal-")
+                || !canonical_slug(&mount.root)
+                || !roots.insert(&mount.root)
+            {
                 return Err(Error::invalid(
                     "Driver mount roots must be unique canonical policy-grant names",
                 ));
@@ -264,7 +294,10 @@ impl Manifest {
         let mut destinations = BTreeSet::new();
         for mount in &self.system_config {
             mount.validate()?;
-            if !roots.insert(&mount.root) || !destinations.insert(&mount.destination) {
+            if mount.root.starts_with("semwright-internal-")
+                || !roots.insert(&mount.root)
+                || !destinations.insert(&mount.destination)
+            {
                 return Err(Error::invalid(
                     "Driver system config roots and destinations must be unique",
                 ));
@@ -383,6 +416,45 @@ pub fn capabilities_digest(capabilities: &[Capability]) -> Result<String> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DriverRequestContext {
+    pub session: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_target: Option<NativeTarget>,
+}
+impl DriverRequestContext {
+    fn validate(&self) -> Result<()> {
+        if self.session.is_empty()
+            || self.session.len() > 256
+            || self.session.chars().any(char::is_control)
+        {
+            return Err(Error::invalid("Driver request session exceeds bounds"));
+        }
+        if let Some(target) = &self.native_target {
+            validate_native_target(target)?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_native_target(target: &NativeTarget) -> Result<()> {
+    if target.kind != "native"
+        || target.identity.is_empty()
+        || target.identity.len() > 8192
+        || target.fingerprint.len() > 256
+        || target.app.len() > 256
+        || target.identity.chars().any(char::is_control)
+        || target.fingerprint.chars().any(char::is_control)
+        || target.app.chars().any(char::is_control)
+    {
+        return Err(Error::invalid(
+            "Driver native target exceeds bounded contract",
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
     Hello {
@@ -401,6 +473,12 @@ pub enum Request {
         command: String,
         descriptor_sha256: String,
         args: Value,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context: Option<DriverRequestContext>,
+    },
+    Validate {
+        id: String,
+        target: NativeTarget,
     },
     Cancel {
         id: String,
@@ -444,6 +522,9 @@ pub enum Response {
         target: String,
         accepted: bool,
     },
+    Validated {
+        id: String,
+    },
     Healthy {
         id: String,
         details: Value,
@@ -473,6 +554,8 @@ pub enum DriverChildEvent {
 #[derive(Clone)]
 pub struct DriverExecutionContext {
     request_id: String,
+    session: String,
+    native_target: Option<NativeTarget>,
     cancellation: CancellationToken,
     output: mpsc::UnboundedSender<Response>,
     interfaces: DriverInterfaces,
@@ -480,6 +563,12 @@ pub struct DriverExecutionContext {
 impl DriverExecutionContext {
     pub fn request_id(&self) -> &str {
         &self.request_id
+    }
+    pub fn session(&self) -> &str {
+        &self.session
+    }
+    pub fn native_target(&self) -> Option<&NativeTarget> {
+        self.native_target.as_ref()
     }
     pub fn cancellation(&self) -> CancellationToken {
         self.cancellation.clone()
@@ -595,6 +684,12 @@ pub trait Driver: Send + 'static {
         context.check_cancelled()?;
         self.execute(command, descriptor_sha256, args).await
     }
+    async fn validate_native_ref(&mut self, _target: &NativeTarget) -> Result<()> {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Driver does not validate native references",
+        ))
+    }
     async fn health(&mut self) -> Result<Value> {
         Ok(serde_json::json!({"healthy":true}))
     }
@@ -639,6 +734,7 @@ async fn serve_v1<D: Driver>(
                 command,
                 descriptor_sha256,
                 args,
+                context: _,
             } => {
                 let response = match driver.execute(&command, &descriptor_sha256, args).await {
                     Ok(value) => Response::Result { id, value },
@@ -657,7 +753,10 @@ async fn serve_v1<D: Driver>(
                 write_frame(&mut output, &Response::Shutdown { id }).await?;
                 return Ok(());
             }
-            Request::Hello { .. } | Request::Interfaces { .. } | Request::Cancel { .. } => {
+            Request::Hello { .. }
+            | Request::Interfaces { .. }
+            | Request::Cancel { .. }
+            | Request::Validate { .. } => {
                 return Err(Error::new(
                     ErrorCode::ProtocolMismatch,
                     "Driver protocol v1 received a v2-only or duplicate request",
@@ -670,6 +769,7 @@ async fn serve_v1<D: Driver>(
 async fn serve_v2<D: Driver>(
     mut driver: D,
     owner_identity: ProviderIdentity,
+    protocol: u32,
     mut input: tokio::io::Stdin,
     mut output: tokio::io::Stdout,
 ) -> Result<()> {
@@ -778,7 +878,29 @@ async fn serve_v2<D: Driver>(
                 command,
                 descriptor_sha256,
                 args,
+                context,
             } => {
+                let request_context = if protocol >= 3 {
+                    let context = context.ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            "Driver protocol v3 execution requires request context",
+                        )
+                    })?;
+                    context.validate()?;
+                    context
+                } else {
+                    if context.is_some() {
+                        return Err(Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            "Driver protocol v2 cannot receive v3 request context",
+                        ));
+                    }
+                    DriverRequestContext {
+                        session: "driver-v2".into(),
+                        native_target: None,
+                    }
+                };
                 let token = CancellationToken::new();
                 {
                     let mut active = active.lock().await;
@@ -814,6 +936,8 @@ async fn serve_v2<D: Driver>(
                 tasks.spawn(async move {
                     let context = DriverExecutionContext {
                         request_id: id.clone(),
+                        session: request_context.session,
+                        native_target: request_context.native_target,
                         cancellation: token,
                         output: responses.clone(),
                         interfaces,
@@ -827,6 +951,33 @@ async fn serve_v2<D: Driver>(
                     active.lock().await.remove(&id);
                     let response = match result {
                         Ok(value) => Response::Result { id, value },
+                        Err(error) => Response::Failure { id, error },
+                    };
+                    let _ = responses.send(response);
+                });
+            }
+            Request::Validate { id, target } => {
+                if protocol < 3 || !interfaces.native_refs {
+                    responses
+                        .send(Response::Failure {
+                            id,
+                            error: Error::new(
+                                ErrorCode::Unsupported,
+                                "Driver did not negotiate native-reference validation",
+                            ),
+                        })
+                        .map_err(|_| Error::unavailable("Driver protocol writer is closed"))?;
+                    continue;
+                }
+                let target_validation = validate_native_target(&target);
+                let driver = driver.clone();
+                let responses = responses.clone();
+                tasks.spawn(async move {
+                    let response = match target_validation {
+                        Ok(()) => match driver.lock().await.validate_native_ref(&target).await {
+                            Ok(()) => Response::Validated { id },
+                            Err(error) => Response::Failure { id, error },
+                        },
                         Err(error) => Response::Failure { id, error },
                     };
                     let _ = responses.send(response);
@@ -922,7 +1073,7 @@ pub async fn serve<D: Driver>(driver: D) -> Result<()> {
     if protocol == 1 {
         serve_v1(driver, owner_identity, input, output).await
     } else {
-        serve_v2(driver, owner_identity, input, output).await
+        serve_v2(driver, owner_identity, protocol, input, output).await
     }
 }
 
@@ -948,6 +1099,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             network: false,
+            loopback_port: None,
             resources: DriverResources::default(),
             request_timeout_ms: 1000,
             interfaces: DriverInterfaces::default(),

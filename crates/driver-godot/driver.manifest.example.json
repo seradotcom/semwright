@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 2,
+  "protocol": 3,
   "id": "godot",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -19,7 +19,8 @@
     {"root": "godot-runtime", "read_only": true}
   ],
   "system_config": [],
-  "network": true,
+  "network": false,
+  "loopback_port": 9877,
   "resources": {
     "open_files": 256,
     "processes": 64,
@@ -34,6 +35,7 @@
     "events": true,
     "progress": true,
     "artifacts": true,
-    "health": true
+    "health": true,
+    "native_refs": true
   }
 }

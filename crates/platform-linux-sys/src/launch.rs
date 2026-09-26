@@ -153,6 +153,9 @@ impl SandboxLauncher for LinuxSandbox {
             "LANG",
             "C.UTF-8",
         ]);
+        for (name, value) in &s.environment {
+            p.arg("--setenv").arg(name).arg(value);
+        }
         if matches!(s.kind, SandboxKind::Driver | SandboxKind::ExternalMcp) {
             p.args([
                 "--setenv",
