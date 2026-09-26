@@ -570,3 +570,62 @@ async fn keycode_text_waits_for_writable_socket_under_backpressure() {
         .expect("EIS client should observe transport shutdown");
     thread.join().unwrap();
 }
+
+#[tokio::test]
+async fn keycode_text_paces_large_bursts() {
+    let (server_stream, client_stream) = UnixStream::pair().unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let server_seen = seen.clone();
+    let thread = std::thread::spawn(move || {
+        server(
+            server_stream,
+            server_seen,
+            KeyboardMode::KeycodeWithKeymap,
+            None,
+        )
+    });
+
+    let client = EisClient::connect(
+        client_stream,
+        Requested {
+            keyboard: true,
+            pointer: false,
+        },
+    )
+    .await
+    .unwrap();
+
+    let text = "A".repeat(64);
+    let started = Instant::now();
+    client.type_text(&text).await.unwrap();
+    assert!(
+        started.elapsed() >= Duration::from_millis(40),
+        "large keycode bursts must be paced to protect the compositor and target"
+    );
+
+    let expected = text.len() * 4;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        let count = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|row| row.starts_with("key:"))
+            .count();
+        if count >= expected {
+            assert_eq!(count, expected);
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "paced EIS key events stalled at {count}/{expected}"
+        );
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+
+    client.stop().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), client.wait_closed())
+        .await
+        .expect("EIS client should observe transport shutdown");
+    thread.join().unwrap();
+}

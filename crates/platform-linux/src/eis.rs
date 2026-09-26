@@ -276,6 +276,8 @@ fn find_keyboard_device(devices: &[LiveDevice]) -> Result<&LiveDevice> {
 
 const EIS_FLUSH_BACKPRESSURE_TIMEOUT: Duration = Duration::from_millis(500);
 const EIS_FLUSH_POLL_SLICE: Duration = Duration::from_millis(10);
+const EIS_KEYCODE_TEXT_BATCH_SIZE: usize = 8;
+const EIS_KEYCODE_TEXT_BATCH_INTERVAL: Duration = Duration::from_millis(8);
 
 fn frame(
     context: &ei::Context,
@@ -529,10 +531,20 @@ fn send_text(
             "EIS keyboard has no XKB keymap for text translation",
         )
     })?;
-    for character in text_value.chars() {
+    let mut batch_started = Instant::now();
+    for (index, character) in text_value.chars().enumerate() {
         check_input_cancelled(cancellation)?;
         let stroke = keymap.stroke_for_char(character, live.modifiers)?;
         send_keyboard_stroke(context, connection, &live.device, &stroke)?;
+        if (index + 1) % EIS_KEYCODE_TEXT_BATCH_SIZE == 0 {
+            check_input_cancelled(cancellation)?;
+            let elapsed = batch_started.elapsed();
+            if elapsed < EIS_KEYCODE_TEXT_BATCH_INTERVAL {
+                std::thread::sleep(EIS_KEYCODE_TEXT_BATCH_INTERVAL - elapsed);
+            }
+            check_input_cancelled(cancellation)?;
+            batch_started = Instant::now();
+        }
     }
     Ok(())
 }
