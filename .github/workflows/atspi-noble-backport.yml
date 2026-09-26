@@ -99,7 +99,7 @@ jobs:
           bridge=$(find "$dir" -name 'libatk-bridge2.0-0t64_*_amd64.deb' | head -1)
           core=$(find "$dir" -name 'at-spi2-core_*_amd64.deb' | head -1)
           sudo apt-get update
-          sudo apt-get install -y             "$common" "$atspi" "$atk" "$bridge" "$core"             libpipewire-0.3-dev xvfb zenity
+          sudo apt-get install -y             "./$common" "./$atspi" "./$atk" "./$bridge" "./$core"             libpipewire-0.3-dev xvfb zenity
           dpkg-query -W -f='${Package} ${Version}\n'             at-spi2-common at-spi2-core libatspi2.0-0t64             libatk1.0-0t64 libatk-bridge2.0-0t64
       - name: Repeated AT-SPI lifecycle pressure smoke
         env:
