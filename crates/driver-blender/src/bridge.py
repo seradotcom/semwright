@@ -29,7 +29,7 @@ from semwright_blender_runtime.validation import CommandError  # noqa: E402
 from semwright_blender_runtime.semantic import SemanticError, SemanticStore  # noqa: E402
 
 commands = Commands(bpy, workspace)
-semantic = SemanticStore(bpy, workspace)
+semantic = SemanticStore(bpy, commands.workspace.root)
 
 
 def exact(stream, size):
