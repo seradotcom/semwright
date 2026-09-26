@@ -19,7 +19,8 @@
     {"root": "godot-runtime", "read_only": true}
   ],
   "system_config": [],
-  "network": true,
+  "network": false,
+  "loopback_port": 9877,
   "resources": {
     "open_files": 256,
     "processes": 64,
