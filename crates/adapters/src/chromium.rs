@@ -149,6 +149,7 @@ struct Cdp {
     pending: Pending,
     sequence: Arc<AtomicU64>,
     generations: Arc<StdMutex<BTreeMap<String, u64>>>,
+    attached_sessions: Arc<StdMutex<BTreeMap<String, String>>>,
     events: Arc<StdMutex<VecDeque<Value>>>,
     downloads: Arc<StdMutex<DownloadState>>,
     alive: Arc<AtomicBool>,
@@ -321,6 +322,7 @@ impl Cdp {
             pending: Arc::new(StdMutex::new(BTreeMap::new())),
             sequence: Arc::new(AtomicU64::new(1)),
             generations: Arc::new(StdMutex::new(BTreeMap::new())),
+            attached_sessions: Arc::new(StdMutex::new(BTreeMap::new())),
             events: Arc::new(StdMutex::new(VecDeque::new())),
             downloads: Arc::new(StdMutex::new(DownloadState::default())),
             alive: Arc::new(AtomicBool::new(true)),
@@ -330,6 +332,7 @@ impl Cdp {
         let writer = this.writer.clone();
         let sequence = this.sequence.clone();
         let generations = this.generations.clone();
+        let attached_sessions = this.attached_sessions.clone();
         let events = this.events.clone();
         let downloads = this.downloads.clone();
         let alive = this.alive.clone();
@@ -360,6 +363,31 @@ impl Cdp {
                         let _ = sender.send(result);
                     }
                 } else if let Some(method) = value.get("method").and_then(Value::as_str) {
+                    if method == "Target.attachedToTarget"
+                        && let Some(target) = value
+                            .pointer("/params/targetInfo/targetId")
+                            .and_then(Value::as_str)
+                        && let Some(child_session) =
+                            value.pointer("/params/sessionId").and_then(Value::as_str)
+                    {
+                        if let Ok(mut map) = attached_sessions.lock() {
+                            map.insert(target.to_owned(), child_session.to_owned());
+                        }
+                        if let Ok(mut map) = generations.lock() {
+                            map.entry(child_session.to_owned()).or_insert(0);
+                        }
+                    } else if method == "Target.detachedFromTarget" {
+                        let target = value.pointer("/params/targetId").and_then(Value::as_str);
+                        let child_session =
+                            value.pointer("/params/sessionId").and_then(Value::as_str);
+                        if let Ok(mut map) = attached_sessions.lock() {
+                            if let Some(target) = target {
+                                map.remove(target);
+                            } else if let Some(child_session) = child_session {
+                                map.retain(|_, session| session != child_session);
+                            }
+                        }
+                    }
                     if matches!(
                         method,
                         "DOM.documentUpdated"
@@ -544,6 +572,14 @@ impl Cdp {
             .get(session)
             .unwrap_or(&0))
     }
+    fn attached_session(&self, target: &str) -> Result<Option<String>> {
+        Ok(self
+            .attached_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP attached-session lock poisoned"))?
+            .get(target)
+            .cloned())
+    }
     /// Invalidate semantic DOM references synchronously before a Semwright-initiated
     /// mutation. CDP events may advance the generation again; generation equality, not
     /// adjacency, is the contract.
@@ -655,6 +691,13 @@ impl Instance {
         ] {
             self.cdp.call(domain, json!({}), Some(&session)).await?;
         }
+        self.cdp
+            .call(
+                "Target.setAutoAttach",
+                json!({"autoAttach":true,"waitForDebuggerOnStart":false,"flatten":true}),
+                Some(&session),
+            )
+            .await?;
         self.sessions.insert(target.into(), session.clone());
         Ok(session)
     }
@@ -668,25 +711,42 @@ impl Instance {
         })
     }
     fn dom_ref(&self, target: &str, node: &Value, session: &str) -> Result<Value> {
+        self.dom_ref_in_frame(target, node, session, None)
+    }
+    fn dom_ref_in_frame(
+        &self,
+        target: &str,
+        node: &Value,
+        session: &str,
+        frame: Option<&str>,
+    ) -> Result<Value> {
         let id = node["backendNodeId"].as_u64().ok_or_else(|| {
             Error::new(
                 ErrorCode::BackendFailed,
                 "DOM node has no stable backend identity",
             )
         })?;
+        let identity = match frame {
+            Some(frame) => format!("{target}#frame:{frame}#node:{id}"),
+            None => format!("{target}#{id}"),
+        };
         Ok(target_marker(NativeTarget {
             kind: "dom".into(),
-            identity: format!("{target}#{id}"),
+            identity,
             revision: self.cdp.generation(session)?,
             fingerprint: self.epoch.clone(),
             app: "org.semwright.Chromium".into(),
         }))
     }
     fn frame_ref(&self, target: &str, frame: &str, session: &str) -> Result<Value> {
+        let semantic_session = self
+            .cdp
+            .attached_session(frame)?
+            .unwrap_or_else(|| session.to_owned());
         Ok(target_marker(NativeTarget {
             kind: "frame".into(),
             identity: format!("{target}#frame:{frame}"),
-            revision: self.cdp.generation(session)?,
+            revision: self.cdp.generation(&semantic_session)?,
             fingerprint: self.epoch.clone(),
             app: "org.semwright.Chromium".into(),
         }))
@@ -922,12 +982,33 @@ impl Chromium {
         match target.kind.as_str() {
             "tab" => Ok((target.identity.clone(), None, None)),
             "dom" => {
-                let (tab, id) = target.identity.split_once('#').ok_or_else(|| {
+                let (tab, identity) = target.identity.split_once('#').ok_or_else(|| {
                     Error::new(ErrorCode::StaleReference, "Invalid DOM reference")
                 })?;
+                if let Some(context) = identity.strip_prefix("frame:") {
+                    let (frame, id) = context.split_once("#node:").ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::StaleReference,
+                            "Invalid frame-scoped DOM reference",
+                        )
+                    })?;
+                    if frame.is_empty() || frame.len() > 256 {
+                        return Err(Error::new(
+                            ErrorCode::StaleReference,
+                            "Invalid DOM frame identity",
+                        ));
+                    }
+                    return Ok((
+                        tab.into(),
+                        Some(id.parse().map_err(|_| {
+                            Error::new(ErrorCode::StaleReference, "Invalid DOM identity")
+                        })?),
+                        Some(frame.into()),
+                    ));
+                }
                 Ok((
                     tab.into(),
-                    Some(id.parse().map_err(|_| {
+                    Some(identity.parse().map_err(|_| {
                         Error::new(ErrorCode::StaleReference, "Invalid DOM identity")
                     })?),
                     None,
@@ -963,26 +1044,38 @@ impl Chromium {
             ));
         }
         let (tab, node, frame) = Self::target_parts(target)?;
-        // Navigation invalidates semantic refs before target metadata necessarily settles.
-        // Prefer a generation mismatch over a transient URL/configuration error.
+        instance.check_tab(&tab, &self.config).await?;
+        let parent_session = instance.session(&tab).await?;
+        let session = if let Some(frame_id) = frame.as_deref() {
+            instance
+                .cdp
+                .attached_session(frame_id)?
+                .unwrap_or_else(|| parent_session.clone())
+        } else {
+            parent_session.clone()
+        };
+        // A frame-scoped DOM ref belongs to the frame's own CDP session when site isolation
+        // promotes that frame to an OOPIF target. Generation checks always use that context.
         if (node.is_some() || frame.is_some())
-            && let Some(session) = instance.sessions.get(&tab)
-            && instance.cdp.generation(session)? != target.revision
+            && instance.cdp.generation(&session)? != target.revision
         {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Browser document context changed; obtain a fresh semantic reference",
             ));
         }
-        instance.check_tab(&tab, &self.config).await?;
-        let session = instance.session(&tab).await?;
+        if let Some(frame_id) = frame.as_deref() {
+            let tree = instance
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&parent_session))
+                .await?;
+            let frame_tree = frame_tree_find(&tree["frameTree"], frame_id).ok_or_else(|| {
+                Error::new(ErrorCode::StaleReference, "Browser frame no longer exists")
+            })?;
+            let frame_url = frame_tree["frame"]["url"].as_str().unwrap_or("");
+            self.config.check_url(frame_url)?;
+        }
         if let Some(node) = node {
-            if instance.cdp.generation(&session)? != target.revision {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "DOM changed; obtain a fresh semantic reference",
-                ));
-            }
             instance
                 .cdp
                 .call(
@@ -994,31 +1087,13 @@ impl Chromium {
                 .map_err(|_| {
                     Error::new(
                         ErrorCode::StaleReference,
-                        "DOM node is no longer addressable",
+                        "DOM node is no longer addressable in its frame context",
                     )
                 })?;
             if instance.cdp.generation(&session)? != target.revision {
                 return Err(Error::new(
                     ErrorCode::StaleReference,
                     "DOM changed during validation",
-                ));
-            }
-        }
-        if let Some(frame_id) = frame.as_deref() {
-            if instance.cdp.generation(&session)? != target.revision {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "Frame context changed; obtain a fresh semantic reference",
-                ));
-            }
-            let tree = instance
-                .cdp
-                .call("Page.getFrameTree", json!({}), Some(&session))
-                .await?;
-            if !frame_tree_contains(&tree["frameTree"], frame_id) {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "Browser frame no longer exists",
                 ));
             }
         }
@@ -1099,6 +1174,7 @@ fn frame_tree_find<'a>(tree: &'a Value, frame_id: &str) -> Option<&'a Value> {
 
 fn collect_frame_rows(
     instance: &Instance,
+    config: &BrowserConfig,
     target: &str,
     session: &str,
     tree: &Value,
@@ -1115,13 +1191,14 @@ fn collect_frame_rows(
         "ref": instance.frame_ref(target, id, session)?,
         "name": frame["name"].as_str().unwrap_or("").chars().take(256).collect::<String>(),
         "url_origin": Url::parse(url).ok().map(|value| value.origin().ascii_serialization()),
+        "allowed_origin": config.check_url(url).is_ok(),
         "parent_frame_id": parent,
         "secure_context_type": frame["secureContextType"].as_str(),
         "mime_type": frame["mimeType"].as_str()
     }));
     if let Some(children) = tree["childFrames"].as_array() {
         for child in children {
-            collect_frame_rows(instance, target, session, child, Some(id), rows)?;
+            collect_frame_rows(instance, config, target, session, child, Some(id), rows)?;
             if rows.len() >= 256 {
                 break;
             }
@@ -1159,11 +1236,17 @@ fn ax_property(node: &Value, name: &str) -> Option<Value> {
     }
 }
 
-fn compact_ax(instance: &Instance, target: &str, session: &str, node: &Value) -> Result<Value> {
+fn compact_ax(
+    instance: &Instance,
+    target: &str,
+    session: &str,
+    frame: Option<&str>,
+    node: &Value,
+) -> Result<Value> {
     let role = ax_text(node, "role").unwrap_or_default();
     let backend = node["backendDOMNodeId"].as_u64();
     let reference = backend
-        .map(|id| instance.dom_ref(target, &json!({"backendNodeId":id}), session))
+        .map(|id| instance.dom_ref_in_frame(target, &json!({"backendNodeId":id}), session, frame))
         .transpose()?;
     let mut states = serde_json::Map::new();
     for key in [
@@ -1870,7 +1953,15 @@ impl Backend for Chromium {
                     &tree["frameTree"]
                 };
                 let mut rows = Vec::new();
-                collect_frame_rows(instance, &tab, &session, root, None, &mut rows)?;
+                collect_frame_rows(
+                    instance,
+                    &self.config,
+                    &tab,
+                    &session,
+                    root,
+                    None,
+                    &mut rows,
+                )?;
                 if cdp.generation(&session)? != generation {
                     return Err(Error::new(
                         ErrorCode::StaleReference,
@@ -1880,81 +1971,6 @@ impl Backend for Chromium {
                 let count = rows.len();
                 Ok(json!({"frames":rows,"count":count,"truncated":count==256}))
             }
-            "browser.semantic.wait" => {
-                if node.is_some() || frame.is_some() {
-                    return Err(Error::invalid("Tab reference required for semantic wait"));
-                }
-                let timeout_ms = args["timeout_ms"]
-                    .as_u64()
-                    .unwrap_or(5_000)
-                    .clamp(1, 10_000);
-                let min_count = args["min_count"].as_u64().unwrap_or(1).clamp(1, 200) as usize;
-                let max_results = args["max_results"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
-                let deadline =
-                    std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
-                loop {
-                    ctx.check_cancelled()?;
-                    let generation = cdp.generation(&session)?;
-                    let result = cdp
-                        .call(
-                            "Accessibility.getFullAXTree",
-                            json!({"depth":args["depth"].as_u64().unwrap_or(16).min(32)}),
-                            Some(&session),
-                        )
-                        .await?;
-                    if cdp.generation(&session)? != generation {
-                        if std::time::Instant::now() >= deadline {
-                            return Err(Error::new(
-                                ErrorCode::Timeout,
-                                "Semantic wait timed out while the document kept changing",
-                            ));
-                        }
-                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                        continue;
-                    }
-                    let nodes = result["nodes"].as_array().ok_or_else(|| {
-                        Error::new(ErrorCode::BackendFailed, "Accessibility tree is malformed")
-                    })?;
-                    let include_ignored = args["include_ignored"].as_bool().unwrap_or(false);
-                    let mut rows = Vec::new();
-                    let mut count = 0usize;
-                    for ax in nodes {
-                        if !include_ignored && ax["ignored"].as_bool().unwrap_or(false) {
-                            continue;
-                        }
-                        let row = compact_ax(instance, &tab, &session, ax)?;
-                        if !semantic_query_matches(&row, args) {
-                            continue;
-                        }
-                        count = count.saturating_add(1);
-                        if rows.len() < max_results {
-                            rows.push(row);
-                        }
-                    }
-                    if count >= min_count {
-                        let single = if count == 1 {
-                            rows.first().cloned()
-                        } else {
-                            None
-                        };
-                        return Ok(json!({
-                            "matches":rows,
-                            "single":single,
-                            "count":count,
-                            "truncated":count > max_results,
-                            "source":"cdp_accessibility_tree",
-                            "generation":generation
-                        }));
-                    }
-                    if std::time::Instant::now() >= deadline {
-                        return Err(Error::new(
-                            ErrorCode::Timeout,
-                            "Semantic wait timed out before enough matching elements appeared",
-                        ));
-                    }
-                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-                }
-            }
             "browser.semantic.snapshot" | "browser.semantic.query" => {
                 if node.is_some() {
                     return Err(Error::invalid("Tab or frame reference required"));
@@ -1963,7 +1979,9 @@ impl Backend for Chromium {
                 let mut params = json!({
                     "depth": args["depth"].as_u64().unwrap_or(8).min(32)
                 });
-                if let Some(frame_id) = frame.as_deref() {
+                if let Some(frame_id) = frame.as_deref()
+                    && cdp.attached_session(frame_id)?.is_none()
+                {
                     params["frameId"] = json!(frame_id);
                 }
                 let result = cdp
@@ -1984,7 +2002,7 @@ impl Backend for Chromium {
                     if !include_ignored && ax["ignored"].as_bool().unwrap_or(false) {
                         continue;
                     }
-                    let row = compact_ax(instance, &tab, &session, ax)?;
+                    let row = compact_ax(instance, &tab, &session, frame.as_deref(), ax)?;
                     if command == "browser.semantic.query" && !semantic_query_matches(&row, args) {
                         continue;
                     }
@@ -2052,7 +2070,7 @@ impl Backend for Chromium {
                         if ax["ignored"].as_bool().unwrap_or(false) {
                             continue;
                         }
-                        let row = compact_ax(instance, &tab, &session, ax)?;
+                        let row = compact_ax(instance, &tab, &session, frame.as_deref(), ax)?;
                         if semantic_query_matches(&row, args) {
                             rows.push(row);
                             if rows.len() == 20 {
@@ -2086,9 +2104,6 @@ impl Backend for Chromium {
             }
             "browser.semantic.inspect" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                if frame.is_some() {
-                    return Err(Error::invalid("DOM reference required"));
-                }
                 let generation = cdp.generation(&session)?;
                 let result = cdp
                     .call(
@@ -2107,7 +2122,7 @@ impl Backend for Chromium {
                     .ok_or_else(|| {
                         Error::new(ErrorCode::NotFound, "No accessibility node found")
                     })?;
-                let semantic = compact_ax(instance, &tab, &session, ax)?;
+                let semantic = compact_ax(instance, &tab, &session, frame.as_deref(), ax)?;
                 let dom = cdp
                     .call(
                         "DOM.describeNode",
@@ -2208,9 +2223,6 @@ impl Backend for Chromium {
             }
             "browser.element.focus" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                if frame.is_some() {
-                    return Err(Error::invalid("DOM reference required"));
-                }
                 cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(&session))
                     .await?;
                 let doc = cdp
@@ -2237,9 +2249,6 @@ impl Backend for Chromium {
             }
             "browser.element.scroll" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                if frame.is_some() {
-                    return Err(Error::invalid("DOM reference required"));
-                }
                 cdp.call(
                     "DOM.scrollIntoViewIfNeeded",
                     json!({"backendNodeId":node}),
@@ -2251,9 +2260,6 @@ impl Backend for Chromium {
             }
             "browser.element.hover" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                if frame.is_some() {
-                    return Err(Error::invalid("DOM reference required"));
-                }
                 cdp.call(
                     "DOM.scrollIntoViewIfNeeded",
                     json!({"backendNodeId":node}),
@@ -2278,9 +2284,6 @@ impl Backend for Chromium {
             }
             "browser.element.press" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                if frame.is_some() {
-                    return Err(Error::invalid("DOM reference required"));
-                }
                 let key = arg_str(args, "key")?;
                 let modifiers = modifier_mask(args)?;
                 let reported_modifiers = args["modifiers"].as_array().cloned().unwrap_or_default();
@@ -2292,9 +2295,6 @@ impl Backend for Chromium {
             }
             "browser.element.check" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                if frame.is_some() {
-                    return Err(Error::invalid("DOM reference required"));
-                }
                 let desired = args["checked"].as_bool().unwrap_or(true);
                 let before = ax_node_for_backend(&cdp, &session, node).await?;
                 let role = ax_text(&before, "role").unwrap_or_default();
@@ -2354,9 +2354,6 @@ impl Backend for Chromium {
             }
             "browser.element.select" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                if frame.is_some() {
-                    return Err(Error::invalid("DOM reference required"));
-                }
                 let label = arg_str(args, "label")?;
                 let description = cdp
                     .call(
