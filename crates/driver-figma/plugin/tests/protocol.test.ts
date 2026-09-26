@@ -73,4 +73,9 @@ describe("authenticated loopback bridge",()=>{
  it("accepts Figma WebSocket payloads delivered as string, Blob, or ArrayBuffer",()=>{expect(ui).toContain("async function websocketText(data)");expect(ui).toContain('data instanceof Blob');expect(ui).toContain("data instanceof ArrayBuffer");expect(ui).toContain("await websocketText(e.data)");});
  it("authenticates the server challenge with a separate HMAC proof",()=>{expect(ui).toContain('type:"authenticate"');expect(ui).toContain("proof:authProof");expect(ui).toContain("m.nonce");});
  it("only opens a loopback websocket",()=>{expect(ui).toContain('ws://localhost:');expect(ui).not.toContain('ws://127.0.0.1:');});
+ it("keeps the pairing secret in memory only",()=>{expect(ui).toContain("let pairingSecret=null");expect(ui).not.toContain("localStorage");expect(ui).not.toContain("sessionStorage");});
+ it("automatically reconnects with bounded exponential backoff",()=>{expect(ui).toContain("function scheduleReconnect(reason)");expect(ui).toContain("Math.min(4000,250*(2**Math.min(reconnectAttempt,4)))");expect(ui).toContain("setTimeout(()=>{reconnectTimer=null;openSocket()},delay)");});
+ it("reuses the session identity and advances generation on reconnect",()=>{expect(ui).toContain("const sid=session,gen=++generation,secret=pairingSecret");expect(ui).toContain("generation:gen");});
+ it("manual disconnect cancels reconnect state",()=>{expect(ui).toContain("manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;clearReconnect()");});
+ it("answers server heartbeats",()=>expect(ui).toContain('m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}))'));
 });
