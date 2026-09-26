@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-09-26",
+  "status": "PASS_PARTIAL_R06",
+  "scope": "Full KWin Wayland compositor restart and automatic Semwright bridge reconnect in isolated real-login VM",
+  "environment": {
+    "isolation_mode": "vm",
+    "virtualization": "kvm",
+    "os": "Ubuntu 24.04.5 LTS",
+    "session_type": "wayland",
+    "desktop": "KDE Plasma",
+    "kwin_version": "5.27.11",
+    "service": "plasma-kwin_wayland.service",
+    "seat": "seat0",
+    "remote": false
+  },
+  "semwright": {
+    "tested_binary_commit": "6e9fb1b158d7d59be391f6d5f931c9d761862e6b",
+    "daemon_sha256": "b54e5ab8c5d9f71a35c38c77c32db49a3fb3e3f68422d351eb6cb0485b99ec1a",
+    "kwin_bridge_blob": "2bd5aa2d1db6847337d22c2bccc1d6c2eb8b2f46"
+  },
+  "before": {
+    "kwin_pid": 1772,
+    "window_list_backend": "kwin",
+    "observed_windows": 8
+  },
+  "restart": {
+    "operation": "systemctl --user restart plasma-kwin_wayland.service",
+    "manual_bridge_reload_after_restart": false,
+    "kwin_pid_after": 13143,
+    "service_state_after": "active",
+    "auto_recovered": true,
+    "recovery_ms": 246,
+    "recovered_window_list_backend": "kwin",
+    "recovered_windows": 4,
+    "status": "PASS"
+  },
+  "safety": {
+    "portal_started": false,
+    "keyboard_input_sent": false,
+    "pointer_input_sent": false,
+    "host_compositor_restarted": false,
+    "restart_confined_to_kvm_guest": true,
+    "temporary_broker_stopped": true
+  },
+  "limitations": [
+    "This is a full compositor restart on an isolated Plasma real-login VM, not a physical Plasma or Hyprland login.",
+    "GNOME owner-active compositor restart was deliberately not attempted because it would disrupt the user's real desktop session.",
+    "Physical mixed-scale/multi-monitor remains unavailable while only the laptop eDP panel is connected.",
+    "R06 remains open for the remaining physical/real-login cases."
+  ]
+}
