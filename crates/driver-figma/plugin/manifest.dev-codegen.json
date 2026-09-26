@@ -9,5 +9,5 @@
   "codegenLanguages": [{"label":"Semwright JSON","value":"semwright-json"}],
   "documentAccess": "dynamic-page",
   "permissions": ["currentuser", "teamlibrary"],
-  "networkAccess": {"allowedDomains":["none"],"devAllowedDomains":["ws://127.0.0.1:38471"]}
+  "networkAccess": {"allowedDomains":["none"],"devAllowedDomains":["ws://localhost:38471"]}
 }
