@@ -5,7 +5,7 @@ use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DRIVER_MANIFEST_VERSION, DRIVER_PROTOCOL_VERSION, DriverInterfaces,
-    DriverMount, DriverResources, DriverSecretMount, Manifest, Transport,
+    DriverMount, DriverResources, DriverSecretMount, DriverToolMount, Manifest, Transport,
 };
 use semwright_godot_driver::bridge::{proof, transcript};
 use semwright_policy::FilesystemGrant;
@@ -40,7 +40,12 @@ fn interfaces() -> DriverInterfaces {
     }
 }
 
-fn manifest(executable: PathBuf, network: bool, loopback_port: Option<u16>) -> Manifest {
+fn manifest(
+    executable: PathBuf,
+    network: bool,
+    loopback_port: Option<u16>,
+    tool_sha256: Option<String>,
+) -> Manifest {
     Manifest {
         manifest_version: DRIVER_MANIFEST_VERSION,
         protocol: DRIVER_PROTOCOL_VERSION,
@@ -72,7 +77,14 @@ fn manifest(executable: PathBuf, network: bool, loopback_port: Option<u16>) -> M
             root: "godot-pairing".into(),
             name: "godot-pairing".into(),
         }],
-        tools: vec![],
+        tools: tool_sha256
+            .map(|sha256| DriverToolMount {
+                root: "godot-runtime".into(),
+                name: "godot".into(),
+                sha256,
+            })
+            .into_iter()
+            .collect(),
         network,
         loopback_port,
         resources: DriverResources {
@@ -101,19 +113,24 @@ struct Fixture {
     _config: tempfile::TempDir,
     _project: tempfile::TempDir,
     _secret: tempfile::TempDir,
+    _tool: tempfile::TempDir,
     roots: Vec<FilesystemGrant>,
     port: u16,
     project_id: String,
     secret: String,
+    tool_path: PathBuf,
+    tool_sha256: String,
 }
 
 fn fixture() -> Fixture {
     let config = tempfile::tempdir().unwrap();
     let project = tempfile::tempdir().unwrap();
     let secret_dir = tempfile::tempdir().unwrap();
+    let tool_dir = tempfile::tempdir().unwrap();
     std::fs::set_permissions(config.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     std::fs::set_permissions(project.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     std::fs::set_permissions(secret_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::set_permissions(tool_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     std::fs::write(project.path().join("project.godot"), "config_version=5\n").unwrap();
 
     let port = free_port();
@@ -123,6 +140,13 @@ fn fixture() -> Fixture {
     std::fs::write(&secret_path, format!("{secret}\n")).unwrap();
     std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o600)).unwrap();
     let secret_path = secret_path.canonicalize().unwrap();
+
+    let tool_path = tool_dir.path().join("godot");
+    std::fs::copy("/usr/bin/true", &tool_path).unwrap();
+    std::fs::set_permissions(&tool_path, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let tool_path = tool_path.canonicalize().unwrap();
+    let tool_sha256 = digest(&tool_path);
+
     let config_path = config.path().join("config.json");
     std::fs::write(
         &config_path,
@@ -134,7 +158,12 @@ fn fixture() -> Fixture {
                 "root": "/workspace/godot-project",
                 "secret_file": "/run/secrets/godot-pairing"
             }],
-            "runner": null
+            "runner": {
+                "executable": "/plugin/tools/godot",
+                "sha256": tool_sha256.clone(),
+                "output_root": "/workspace/godot-project",
+                "display": null
+            }
         }))
         .unwrap(),
     )
@@ -160,15 +189,24 @@ fn fixture() -> Fixture {
             read: true,
             write: false,
         },
+        FilesystemGrant {
+            name: "godot-runtime".into(),
+            path: tool_path.clone(),
+            read: true,
+            write: false,
+        },
     ];
     Fixture {
         _config: config,
         _project: project,
         _secret: secret_dir,
+        _tool: tool_dir,
         roots,
         port,
         project_id,
         secret,
+        tool_path,
+        tool_sha256,
     }
 }
 
@@ -335,7 +373,12 @@ async fn godot_driver_runs_through_real_driver_host() {
     let fixture = fixture();
 
     let provider = DriverProvider::connect(
-        manifest(executable, false, Some(fixture.port)),
+        manifest(
+            executable,
+            false,
+            Some(fixture.port),
+            Some(fixture.tool_sha256.clone()),
+        ),
         state.path(),
         &helper,
         &fixture.roots,
@@ -352,23 +395,39 @@ async fn godot_driver_runs_through_real_driver_host() {
     assert!(provider_interfaces.health);
 
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    // This host fixture deliberately omits runner configuration, so the six
-    // digest-pinned headless/runtime capabilities must not be advertised.
-    assert_eq!(capabilities.len(), 182);
+    assert_eq!(capabilities.len(), 188);
     assert!(
         capabilities
             .iter()
             .all(|capability| capability.descriptor.name.starts_with("driver.godot."))
     );
-    assert!(capabilities.iter().all(|capability| !matches!(
-        capability.descriptor.name.as_str(),
-        "driver.godot.project.validate"
-            | "driver.godot.script.validate"
-            | "driver.godot.project.run_test"
-            | "driver.godot.export.pack"
-            | "driver.godot.export.build"
-            | "driver.godot.movie.capture"
-    )));
+    for name in [
+        "driver.godot.project.validate",
+        "driver.godot.script.validate",
+        "driver.godot.project.run_test",
+        "driver.godot.export.pack",
+        "driver.godot.export.build",
+        "driver.godot.movie.capture",
+    ] {
+        assert!(
+            capabilities
+                .iter()
+                .any(|capability| capability.descriptor.name == name),
+            "runner-gated capability missing: {name}"
+        );
+    }
+
+    std::fs::remove_file(&fixture.tool_path).unwrap();
+    let runtime = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.godot.project.validate",
+        json!({"project":fixture.project_id.clone()}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(runtime["success"], true);
+    assert_eq!(runtime["exit_code"], 0);
 
     let fake = tokio::spawn(fake_editor(
         fixture.port,
@@ -407,7 +466,7 @@ async fn godot_driver_network_requires_owner_opt_in() {
     let fixture = fixture();
 
     let error = match DriverProvider::connect(
-        manifest(executable, true, None),
+        manifest(executable, true, None, None),
         state.path(),
         &helper,
         &fixture.roots,
