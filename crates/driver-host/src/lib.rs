@@ -78,7 +78,8 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
     let label = CString::new(format!("semwright-tool-{name}"))
         .map_err(|_| Error::invalid("Invalid tool name"))?;
     // SAFETY: label is a live NUL-terminated CString and flags contain no pointers.
-    let fd = unsafe { libc::memfd_create(label.as_ptr(), libc::MFD_ALLOW_SEALING) };
+    let fd =
+        unsafe { libc::memfd_create(label.as_ptr(), libc::MFD_ALLOW_SEALING | libc::MFD_CLOEXEC) };
     if fd < 0 {
         return Err(std::io::Error::last_os_error().into());
     }
@@ -1357,6 +1358,10 @@ mod tests {
         let tool = seal_verified_tool(source, &digest, "probe").unwrap();
         let fd = tool._file.as_raw_fd();
         let path_fd = tool.path_file.as_raw_fd();
+        // SAFETY: F_GETFD reads scalar flags from the live memfd descriptor.
+        let data_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(data_flags >= 0);
+        assert_ne!(data_flags & libc::FD_CLOEXEC, 0);
         let data_metadata = tool._file.metadata().unwrap();
         let path_metadata = tool.path_file.metadata().unwrap();
         assert_eq!(data_metadata.dev(), path_metadata.dev());
