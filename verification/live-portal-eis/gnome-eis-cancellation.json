@@ -1,0 +1,70 @@
+{
+  "artifacts": {
+    "raw_local_summary_sha256": "c50cde2f9ef1b274ddb0c3ebcea8eef346f25befaf9892c96d3b5dbb246bb88a",
+    "raw_private_evidence_committed": false,
+    "semwright_sha256": "8c5da0d9e927240b61e4f93a0d02c6e007c92e07e43552a1beb2975620683683",
+    "semwrightd_sha256": "7ee7544526e78dc7dbf10651921d20cc16ed8c4b574e4fb30a3a73e88ac30dd8"
+  },
+  "baseline_main_sha": "b9dcf1bb64db4e2626aca3c2f22d8b08cd373c95",
+  "branch_head_sha": "d6e9ce6c1cd5fe9f7f65903d6bf9674ad75fc8de",
+  "checks": {
+    "cancelled_result": true,
+    "eis_inactive_after_stop": true,
+    "explicit_portal_stop": true,
+    "followup_succeeded": true,
+    "no_stuck_shift": true,
+    "partial_effect_observed": true,
+    "plateau_before_observation_end": true,
+    "portal_backend_selected": true,
+    "post_cancel_plateau_observed": true,
+    "session_inactive_after_stop": true,
+    "target_exclusivity_certified": false
+  },
+  "cleanup": {
+    "consent_after_stop": "expired",
+    "eis_after_stop": "inactive",
+    "gnome_bridge_restored_disabled": true,
+    "input_route_after_stop": "none",
+    "session_active_after_stop": false
+  },
+  "environment": {
+    "clipboard": false,
+    "desktop": "GNOME Shell 46",
+    "ephemeral": true,
+    "persist_mode": 0,
+    "portal_remote_desktop_version": 2,
+    "session": "Wayland"
+  },
+  "input": {
+    "backend": "portal",
+    "cancel_delay_ms": 20.165,
+    "character": "A",
+    "command": "input.type",
+    "outcome_known": false,
+    "requested_characters": 4096,
+    "result_after_ms": 23.456,
+    "result_code": "Cancelled"
+  },
+  "invalidation_reason": "Subsequent owner-observed GNOME Wayland stress testing demonstrated that EIS keyboard injection could escape the intended disposable fixture and land in the user-active ChatGPT text box despite prior window focus checks. Therefore the real-desktop keyboard methodology does not prove target exclusivity and this run must not be counted as end-to-end certification.",
+  "limitations": [
+    "INVALIDATED FOR CERTIFICATION: real-desktop focus checks were insufficient to guarantee that all EIS keyboard events remained inside the disposable fixture.",
+    "The broker correctly reports outcome_known=false for cancelled mutating input; target state must be inspected before retrying.",
+    "The 4096-character uncancelled stress attempt encountered EIS socket backpressure after a partial effect; that diagnostic is not counted as passing cancellation evidence.",
+    "This run certifies GNOME Wayland only and does not substitute for portal-granted live runs on every supported Wayland desktop."
+  ],
+  "methodology_valid": false,
+  "observed_target": {
+    "final_length": 42,
+    "final_tail_suffix": "z",
+    "first_observed_partial_ms_after_result": 50.258,
+    "followup_character": "z",
+    "initial_length": 0,
+    "partial_length": 41,
+    "plateau_length": 41,
+    "plateau_observed_through_ms_after_result": 1457.395,
+    "requested_length": 4096
+  },
+  "schema_version": 1,
+  "scope": "owner-approved GNOME Wayland EIS in-flight keyboard cancellation",
+  "status": "INVALIDATED"
+}
