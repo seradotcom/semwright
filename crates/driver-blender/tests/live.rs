@@ -96,6 +96,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
             root: "font-config".into(),
             destination: "/etc/fonts".into(),
         }],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {

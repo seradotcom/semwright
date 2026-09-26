@@ -136,6 +136,7 @@ async fn fake_kicad_ipc_runs_through_real_sandboxed_driver_host() {
             },
         ],
         system_config: vec![],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {

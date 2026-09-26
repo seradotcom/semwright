@@ -98,6 +98,7 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
         } else {
             vec![]
         },
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {
