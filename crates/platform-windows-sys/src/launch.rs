@@ -453,7 +453,8 @@ struct ProcAttributes {
 impl ProcAttributes {
     fn new(count: u32) -> Result<Self> {
         let mut bytes = 0usize;
-        // The first call intentionally discovers the required allocation size.
+        // SAFETY: a null attribute-list pointer is the documented sizing probe; bytes is a
+        // valid writable SIZE_T out-parameter and no attribute storage is dereferenced.
         let _ = unsafe { InitializeProcThreadAttributeList(None, count, None, &mut bytes) };
         if bytes == 0 {
             return Err(Error::new(
@@ -462,7 +463,7 @@ impl ProcAttributes {
             ));
         }
         let word = std::mem::size_of::<usize>();
-        let mut storage = vec![0usize; (bytes + word - 1) / word];
+        let mut storage = vec![0usize; bytes.div_ceil(word)];
         let list = LPPROC_THREAD_ATTRIBUTE_LIST(storage.as_mut_ptr().cast());
         // SAFETY: storage is aligned, writable, and lives for the attribute-list lifetime.
         unsafe { InitializeProcThreadAttributeList(Some(list), count, None, &mut bytes) }.map_err(
@@ -721,6 +722,7 @@ fn clear_inheritance(handle: HANDLE) -> Result<()> {
 }
 
 fn duplicate_owned_handle(handle: HANDLE) -> Result<NativeHandle> {
+    // SAFETY: GetCurrentProcess returns a pseudo-handle for this process and needs no cleanup.
     let current = unsafe { GetCurrentProcess() };
     let mut duplicate = HANDLE::default();
     // SAFETY: source/target are the current process and duplicate receives a separately owned
