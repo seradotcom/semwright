@@ -253,7 +253,8 @@ not executable handles.
 
 Runner operations execute only the owner-configured digest-pinned Godot binary through
 allowlisted argument plans, a scrubbed environment, private HOME, bounded output, timeouts,
-process-group cleanup and Driver Protocol v2 cancellation/progress/artifact frames.
+process-group cleanup and Driver Protocol v3 cancellation/progress/artifact frames. On the
+certified Linux Host, the Godot runner is staged as a sealed secondary executable before use.
 
 ## Semantic-completeness boundary
 
@@ -262,10 +263,10 @@ OS execution and unrestricted GDScript evaluation remain unavailable. The curate
 covers the major Godot authoring systems, while the generic substrate provides broad bounded
 Variant transport and version-bound API discovery without turning introspection into execution.
 
-Remaining completeness work is infrastructure-level: broker-native promotion of provider-owned
-refs into Semwright's shared ref store, companion plugin distribution, loopback-only network
-authority, managed secrets/secondary executables, per-operation persistent-driver budgets and
-cross-platform Driver Host certification.
+The certified Linux path also has broker-native provider refs, loopback-only bridge authority,
+first-class secret delivery, sealed secondary tools, per-operation CPU budgeting and Package v2
+companion distribution. Remaining work is platform certification for real Godot on additional
+operating systems, not completion of the Linux semantic driver surface.
 
 ## Acceptance evidence
 
