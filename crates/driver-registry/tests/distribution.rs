@@ -421,6 +421,22 @@ fn package_v2_rejects_companion_traversal_duplicates_and_tampering() {
         .is_err()
     );
 
+    let symlink_source = d.path().join("plugin-link.gd");
+    symlink(&source, &symlink_source).unwrap();
+    let symlink_package = d.path().join("symlink.swdp");
+    assert!(
+        create_package_with_companions(
+            &manifest,
+            &requirement,
+            &[CompanionInput {
+                destination: "addons/semwright/plugin.gd".into(),
+                source: symlink_source,
+            }],
+            &symlink_package,
+        )
+        .is_err()
+    );
+
     let valid = d.path().join("valid.swdp");
     create_package_with_companions(
         &manifest,
@@ -432,6 +448,16 @@ fn package_v2_rejects_companion_traversal_duplicates_and_tampering() {
         &valid,
     )
     .unwrap();
+
+    let mut trailing_bytes = std::fs::read(&valid).unwrap();
+    trailing_bytes.push(0x7f);
+    let trailing = d.path().join("trailing.swdp");
+    std::fs::write(&trailing, trailing_bytes).unwrap();
+    assert_eq!(
+        inspect_package(&trailing).unwrap_err().code,
+        ErrorCode::InvalidArgument
+    );
+
     let mut bytes = std::fs::read(&valid).unwrap();
     let last = bytes.len() - 1;
     bytes[last] ^= 0x01;
