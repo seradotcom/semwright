@@ -506,6 +506,62 @@ def dispatch(command, args):
         if set(args) != {"ref"}:
             raise CommandError("InvalidArgument", "Spline remove requires ref")
         return semantic.spline_remove(args["ref"])
+    if command == "driver.blender.grease.layer.add":
+        if not set(args).issubset({"grease_ref", "name", "set_active"}) or not {"grease_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "Grease layer add requires grease_ref and name")
+        return semantic.grease_layer_add(args["grease_ref"], args["name"], args.get("set_active", True))
+    if command == "driver.blender.grease.layer.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Grease layer remove requires ref")
+        return semantic.grease_layer_remove(args["ref"])
+    if command == "driver.blender.grease.frame.add":
+        if set(args) != {"layer_ref", "frame"}:
+            raise CommandError("InvalidArgument", "Grease frame add requires layer_ref and frame")
+        return semantic.grease_frame_add(args["layer_ref"], args["frame"])
+    if command == "driver.blender.grease.frame.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Grease frame remove requires ref")
+        return semantic.grease_frame_remove(args["ref"])
+    if command == "driver.blender.grease.strokes.add":
+        if set(args) != {"drawing_ref", "sizes"}:
+            raise CommandError("InvalidArgument", "Grease strokes add requires drawing_ref and sizes")
+        return semantic.grease_strokes_add(args["drawing_ref"], args["sizes"])
+    if command == "driver.blender.grease.strokes.remove":
+        if set(args) != {"drawing_ref", "indices"}:
+            raise CommandError("InvalidArgument", "Grease strokes remove requires drawing_ref and indices")
+        return semantic.grease_strokes_remove(args["drawing_ref"], args["indices"])
+    if command == "driver.blender.grease.strokes.resize":
+        if set(args) != {"drawing_ref", "sizes", "indices"}:
+            raise CommandError("InvalidArgument", "Grease strokes resize requires drawing_ref, sizes and indices")
+        return semantic.grease_strokes_resize(args["drawing_ref"], args["sizes"], args["indices"])
+    if command == "driver.blender.hair_curves.add":
+        if set(args) != {"curves_ref", "sizes"}:
+            raise CommandError("InvalidArgument", "Curves add requires curves_ref and sizes")
+        return semantic.hair_curves_add(args["curves_ref"], args["sizes"])
+    if command == "driver.blender.hair_curves.remove":
+        if set(args) != {"curves_ref", "indices"}:
+            raise CommandError("InvalidArgument", "Curves remove requires curves_ref and indices")
+        return semantic.hair_curves_remove(args["curves_ref"], args["indices"])
+    if command == "driver.blender.hair_curves.resize":
+        if set(args) != {"curves_ref", "sizes", "indices"}:
+            raise CommandError("InvalidArgument", "Curves resize requires curves_ref, sizes and indices")
+        return semantic.hair_curves_resize(args["curves_ref"], args["sizes"], args["indices"])
+    if command == "driver.blender.hair_curves.reorder":
+        if set(args) != {"curves_ref", "new_indices"}:
+            raise CommandError("InvalidArgument", "Curves reorder requires curves_ref and new_indices")
+        return semantic.hair_curves_reorder(args["curves_ref"], args["new_indices"])
+    if command == "driver.blender.hair_curves.types.set":
+        if set(args) != {"curves_ref", "type", "indices"}:
+            raise CommandError("InvalidArgument", "Curves type set requires curves_ref, type and indices")
+        return semantic.hair_curves_set_types(args["curves_ref"], args["type"], args["indices"])
+    if command == "driver.blender.metaball.element.add":
+        if not set(args).issubset({"metaball_ref", "type"}) or "metaball_ref" not in args:
+            raise CommandError("InvalidArgument", "Metaball element add requires metaball_ref")
+        return semantic.metaball_element_add(args["metaball_ref"], args.get("type", "BALL"))
+    if command == "driver.blender.metaball.element.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Metaball element remove requires ref")
+        return semantic.metaball_element_remove(args["ref"])
     if command == "driver.blender.armature.bone.add":
         if not set(args).issubset({"object_ref", "name", "head", "tail", "parent_name", "connected"}) or not {"object_ref", "name", "head", "tail"}.issubset(args):
             raise CommandError("InvalidArgument", "Bone add requires object_ref, name, head and tail")

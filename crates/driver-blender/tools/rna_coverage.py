@@ -18,10 +18,6 @@ try:
 except (ValueError, IndexError):
     raise SystemExit("usage: blender ... --python rna_coverage.py -- OUTPUT.json")
 
-PERSISTENT_ID_ALIASES = {
-    "GreasePencilv3": "grease_pencils",
-}
-
 EXCLUDED_IDS = {
     "ID": "abstract Blender ID base is classified through concrete persistent subclasses",
     "Library": "external linked-library authority requires scoped asset/library semantics",
@@ -174,8 +170,6 @@ for identifier, candidate in sorted(types.items()):
         continue
     if identifier in root_by_type:
         entry = {"status": "managed_root", "root": root_by_type[identifier]}
-    elif identifier in PERSISTENT_ID_ALIASES:
-        entry = {"status": "managed_via_root", "root": PERSISTENT_ID_ALIASES[identifier], "reason": "Blender exposes this persistent ID through the same bpy.data root without normal Python subclass metadata"}
     else:
         inherited_root = None
         for root, root_class in sorted(root_classes.items()):

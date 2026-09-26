@@ -965,6 +965,237 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
 
+    let grease = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.create",
+        json!({"root":"grease_pencils_v3","name":"SemwrightGrease"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(grease["rna_type"], "GreasePencilv3");
+    let grease_ref = grease["ref"].as_str().unwrap().to_owned();
+    let grease_layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.grease.layer.add",
+        json!({"grease_ref":grease_ref,"name":"SemwrightLayer","set_active":true}),
+    )
+    .await
+    .unwrap();
+    let grease_layer_ref = grease_layer["ref"].as_str().unwrap().to_owned();
+    let grease_frame = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.grease.frame.add",
+        json!({"layer_ref":grease_layer_ref,"frame":1}),
+    )
+    .await
+    .unwrap();
+    let grease_frame_ref = grease_frame["ref"].as_str().unwrap().to_owned();
+    let drawing = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":grease_frame_ref,"property":"drawing","limit":8}),
+    )
+    .await
+    .unwrap();
+    let drawing_ref = drawing["items"][0]["ref"].as_str().unwrap().to_owned();
+    let strokes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.grease.strokes.add",
+        json!({"drawing_ref":drawing_ref,"sizes":[3,2]}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(strokes["strokes_added"], 2);
+    let drawing_ref = strokes["ref"].as_str().unwrap().to_owned();
+    let resized_strokes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.grease.strokes.resize",
+        json!({"drawing_ref":drawing_ref,"sizes":[4],"indices":[0]}),
+    )
+    .await
+    .unwrap();
+    let drawing_ref = resized_strokes["ref"].as_str().unwrap().to_owned();
+    let removed_strokes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.grease.strokes.remove",
+        json!({"drawing_ref":drawing_ref,"indices":[1]}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(removed_strokes["stroke_count"], 1);
+
+    let grease = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"grease_pencils_v3","query":"SemwrightGrease","limit":8}),
+    )
+    .await
+    .unwrap();
+    let grease_ref = grease["items"][0]["ref"].as_str().unwrap().to_owned();
+    let layers = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":grease_ref,"property":"layers","limit":8}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = layers["items"][0]["ref"].as_str().unwrap().to_owned();
+    let frames = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":layer_ref,"property":"frames","limit":8}),
+    )
+    .await
+    .unwrap();
+    let frame_ref = frames["items"][0]["ref"].as_str().unwrap().to_owned();
+    let removed_frame = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.grease.frame.remove",
+        json!({"ref":frame_ref}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = removed_frame["layer_ref"].as_str().unwrap().to_owned();
+    let removed_layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.grease.layer.remove",
+        json!({"ref":layer_ref}),
+    )
+    .await
+    .unwrap();
+    let grease_ref = removed_layer["grease_ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":grease_ref}),
+    )
+    .await
+    .unwrap();
+
+    let hair = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.create",
+        json!({"root":"hair_curves","name":"SemwrightHair"}),
+    )
+    .await
+    .unwrap();
+    let hair_ref = hair["ref"].as_str().unwrap().to_owned();
+    let hair_added = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.hair_curves.add",
+        json!({"curves_ref":hair_ref,"sizes":[2,3]}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(hair_added["curve_count"], 2);
+    let hair_ref = hair_added["ref"].as_str().unwrap().to_owned();
+    let hair_typed = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.hair_curves.types.set",
+        json!({"curves_ref":hair_ref,"type":"POLY","indices":[0,1]}),
+    )
+    .await
+    .unwrap();
+    let hair_ref = hair_typed["ref"].as_str().unwrap().to_owned();
+    let hair_resized = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.hair_curves.resize",
+        json!({"curves_ref":hair_ref,"sizes":[4],"indices":[0]}),
+    )
+    .await
+    .unwrap();
+    let hair_ref = hair_resized["ref"].as_str().unwrap().to_owned();
+    let hair_reordered = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.hair_curves.reorder",
+        json!({"curves_ref":hair_ref,"new_indices":[1,0]}),
+    )
+    .await
+    .unwrap();
+    let hair_ref = hair_reordered["ref"].as_str().unwrap().to_owned();
+    let hair_removed = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.hair_curves.remove",
+        json!({"curves_ref":hair_ref,"indices":[1]}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(hair_removed["curve_count"], 1);
+    let hair_ref = hair_removed["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":hair_ref}),
+    )
+    .await
+    .unwrap();
+
+    let metaball = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.create",
+        json!({"root":"metaballs","name":"SemwrightMetaBall"}),
+    )
+    .await
+    .unwrap();
+    let metaball_ref = metaball["ref"].as_str().unwrap().to_owned();
+    let element = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.metaball.element.add",
+        json!({"metaball_ref":metaball_ref,"type":"BALL"}),
+    )
+    .await
+    .unwrap();
+    let element_ref = element["ref"].as_str().unwrap().to_owned();
+    let resized_element = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.set",
+        json!({"ref":element_ref,"property":"radius","value":1.25}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(resized_element["value"], 1.25);
+    let element_ref = resized_element["ref"].as_str().unwrap().to_owned();
+    let removed_element = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.metaball.element.remove",
+        json!({"ref":element_ref}),
+    )
+    .await
+    .unwrap();
+    let metaball_ref = removed_element["metaball_ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":metaball_ref}),
+    )
+    .await
+    .unwrap();
+
     let refreshed_objects = call(
         provider.as_ref(),
         &capabilities,

@@ -33,6 +33,7 @@ ROOTS = {
     "curves": "Curve",
     "fonts": "VectorFont",
     "grease_pencils": "GreasePencil",
+    "grease_pencils_v3": "GreasePencilv3",
     "hair_curves": "Curves",
     "images": "Image",
     "lattices": "Lattice",
@@ -796,6 +797,7 @@ class SemanticStore:
             "cameras",
             "curves",
             "grease_pencils",
+            "grease_pencils_v3",
             "hair_curves",
             "lattices",
             "lights",
@@ -856,9 +858,10 @@ class SemanticStore:
         if collection.get(name) is not None:
             raise SemanticError("Conflict", "Datablock name already exists; implicit suffixing is forbidden")
         simple = {
-            "actions", "armatures", "brushes", "cameras", "collections", "lattices", "linestyles",
-            "masks", "materials", "meshes", "metaballs", "palettes", "particles", "pointclouds",
-            "scenes", "speakers", "volumes", "worlds",
+            "actions", "armatures", "brushes", "cameras", "collections", "grease_pencils",
+            "grease_pencils_v3", "hair_curves", "lattices", "linestyles", "masks", "materials", "meshes",
+            "metaballs", "palettes", "particles", "pointclouds", "scenes", "speakers",
+            "volumes", "worlds",
         }
         typed = {
             "curves": {"CURVE", "SURFACE", "FONT"},
@@ -2325,6 +2328,216 @@ class SemanticStore:
             "changed": True,
             "generation": self.generation,
         }
+    def _require_grease_pencil(self, reference):
+        root, name, path, grease = self._resolve(reference)
+        identifier = _text(getattr(getattr(grease, "bl_rna", None), "identifier", ""), 256)
+        if root != "grease_pencils_v3" or path or identifier != "GreasePencilv3":
+            raise SemanticError("InvalidArgument", "Operation requires a root modern GreasePencilv3 ref")
+        return root, name, path, grease
+
+    def grease_layer_add(self, grease_ref, name, set_active=True):
+        root, anchor_name, path, grease = self._require_grease_pencil(grease_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name or not isinstance(set_active, bool):
+            raise SemanticError("InvalidArgument", "Grease Pencil layer arguments are invalid")
+        if any(layer.name == name for layer in grease.layers):
+            raise SemanticError("Conflict", "Grease Pencil layer name already exists")
+        try:
+            layer = grease.layers.new(name, set_active=set_active)
+            if layer.name != name:
+                grease.layers.remove(layer)
+                raise SemanticError("Conflict", "Blender rewrote the requested Grease Pencil layer name")
+            index = list(grease.layers).index(layer)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Grease Pencil layer creation") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, path + [["c", "layers", index]]), "name": layer.name, "changed": True, "generation": self.generation}
+
+    def grease_layer_remove(self, layer_ref):
+        root, anchor_name, parent_path, grease, layer = self._collection_parent(layer_ref, "layers")
+        identifier = _text(getattr(getattr(grease, "bl_rna", None), "identifier", ""), 256)
+        if root != "grease_pencils_v3" or identifier != "GreasePencilv3":
+            raise SemanticError("InvalidArgument", "Layer parent is not modern GreasePencilv3 data")
+        try:
+            grease.layers.remove(layer)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Grease Pencil layer removal") from error
+        self.changed()
+        return {"grease_ref": self._ref(root, anchor_name, parent_path), "changed": True, "generation": self.generation}
+
+    def grease_frame_add(self, layer_ref, frame_number):
+        root, anchor_name, path, layer = self._resolve(layer_ref)
+        if _text(getattr(getattr(layer, "bl_rna", None), "identifier", ""), 256) != "GreasePencilLayer":
+            raise SemanticError("InvalidArgument", "Operation requires a GreasePencilLayer ref")
+        if isinstance(frame_number, bool) or not isinstance(frame_number, int) or not -1_048_574 <= frame_number <= 1_048_574:
+            raise SemanticError("InvalidArgument", "Grease Pencil frame number is outside Blender bounds")
+        if any(frame.frame_number == frame_number for frame in layer.frames):
+            raise SemanticError("Conflict", "Grease Pencil frame already exists")
+        try:
+            frame = layer.frames.new(frame_number)
+            index = list(layer.frames).index(frame)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Grease Pencil frame creation") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, path + [["c", "frames", index]]), "frame": frame_number, "changed": True, "generation": self.generation}
+
+    def grease_frame_remove(self, frame_ref):
+        root, anchor_name, parent_path, layer, frame = self._collection_parent(frame_ref, "frames")
+        if _text(getattr(getattr(layer, "bl_rna", None), "identifier", ""), 256) != "GreasePencilLayer":
+            raise SemanticError("InvalidArgument", "Frame parent is not a GreasePencilLayer")
+        frame_number = int(frame.frame_number)
+        try:
+            layer.frames.remove(frame_number)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Grease Pencil frame removal") from error
+        self.changed()
+        return {"layer_ref": self._ref(root, anchor_name, parent_path), "frame": frame_number, "changed": True, "generation": self.generation}
+
+    def _require_grease_drawing(self, drawing_ref):
+        root, name, path, drawing = self._resolve(drawing_ref)
+        identifier = _text(getattr(getattr(drawing, "bl_rna", None), "identifier", ""), 256)
+        if root != "grease_pencils_v3" or identifier != "GreasePencilDrawing":
+            raise SemanticError("InvalidArgument", "Operation requires a modern GreasePencilDrawing ref")
+        return root, name, path, drawing
+
+    def grease_strokes_add(self, drawing_ref, sizes):
+        root, name, path, drawing = self._require_grease_drawing(drawing_ref)
+        if not isinstance(sizes, list) or not sizes or len(sizes) > 10000 or any(isinstance(size, bool) or not isinstance(size, int) or not 1 <= size <= 1_000_000 for size in sizes) or sum(sizes) > 1_000_000:
+            raise SemanticError("InvalidArgument", "Grease Pencil stroke sizes exceed bounded limits")
+        before = len(drawing.strokes)
+        try:
+            drawing.add_strokes(sizes)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Grease Pencil stroke creation") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "strokes_added": len(drawing.strokes) - before, "points_added": sum(sizes), "stroke_count": len(drawing.strokes), "changed": True, "generation": self.generation}
+
+    def grease_strokes_remove(self, drawing_ref, indices):
+        root, name, path, drawing = self._require_grease_drawing(drawing_ref)
+        if not isinstance(indices, list) or not indices or len(indices) > 10000 or any(isinstance(index, bool) or not isinstance(index, int) or index < 0 or index >= len(drawing.strokes) for index in indices):
+            raise SemanticError("InvalidArgument", "Grease Pencil stroke indices are invalid")
+        unique = sorted(set(indices))
+        try:
+            drawing.remove_strokes(indices=unique)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Grease Pencil stroke removal") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "strokes_removed": len(unique), "stroke_count": len(drawing.strokes), "changed": True, "generation": self.generation}
+
+    def grease_strokes_resize(self, drawing_ref, sizes, indices):
+        root, name, path, drawing = self._require_grease_drawing(drawing_ref)
+        if not isinstance(sizes, list) or not isinstance(indices, list) or not sizes or len(sizes) != len(indices) or len(sizes) > 10000:
+            raise SemanticError("InvalidArgument", "Grease Pencil resize arrays must be equal and bounded")
+        if any(isinstance(size, bool) or not isinstance(size, int) or not 1 <= size <= 1_000_000 for size in sizes) or sum(sizes) > 1_000_000:
+            raise SemanticError("InvalidArgument", "Grease Pencil stroke sizes are invalid")
+        if any(isinstance(index, bool) or not isinstance(index, int) or index < 0 or index >= len(drawing.strokes) for index in indices):
+            raise SemanticError("InvalidArgument", "Grease Pencil stroke indices are invalid")
+        try:
+            drawing.resize_strokes(sizes, indices=indices)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Grease Pencil stroke resize") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "strokes_resized": len(indices), "changed": True, "generation": self.generation}
+
+    def _require_hair_curves(self, reference):
+        root, name, path, curves = self._resolve(reference)
+        if _text(getattr(getattr(curves, "bl_rna", None), "identifier", ""), 256) != "Curves":
+            raise SemanticError("InvalidArgument", "Operation requires a Curves datablock ref")
+        return root, name, path, curves
+
+    def hair_curves_add(self, curves_ref, sizes):
+        root, name, path, curves = self._require_hair_curves(curves_ref)
+        if not isinstance(sizes, list) or not sizes or len(sizes) > 10000 or any(isinstance(size, bool) or not isinstance(size, int) or not 1 <= size <= 1_000_000 for size in sizes) or sum(sizes) > 1_000_000:
+            raise SemanticError("InvalidArgument", "Curves sizes exceed bounded limits")
+        before = len(curves.curves)
+        try:
+            curves.add_curves(sizes)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Curves creation") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "curves_added": len(curves.curves) - before, "points_added": sum(sizes), "curve_count": len(curves.curves), "changed": True, "generation": self.generation}
+
+    def hair_curves_remove(self, curves_ref, indices):
+        root, name, path, curves = self._require_hair_curves(curves_ref)
+        if not isinstance(indices, list) or not indices or len(indices) > 10000 or any(isinstance(index, bool) or not isinstance(index, int) or index < 0 or index >= len(curves.curves) for index in indices):
+            raise SemanticError("InvalidArgument", "Curves indices are invalid")
+        unique = sorted(set(indices))
+        try:
+            curves.remove_curves(indices=unique)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Curves removal") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "curves_removed": len(unique), "curve_count": len(curves.curves), "changed": True, "generation": self.generation}
+
+    def hair_curves_resize(self, curves_ref, sizes, indices):
+        root, name, path, curves = self._require_hair_curves(curves_ref)
+        if not isinstance(sizes, list) or not isinstance(indices, list) or not sizes or len(sizes) != len(indices) or len(sizes) > 10000:
+            raise SemanticError("InvalidArgument", "Curves resize arrays must be equal and bounded")
+        if any(isinstance(size, bool) or not isinstance(size, int) or not 1 <= size <= 1_000_000 for size in sizes) or sum(sizes) > 1_000_000:
+            raise SemanticError("InvalidArgument", "Curves resize sizes are invalid")
+        if any(isinstance(index, bool) or not isinstance(index, int) or index < 0 or index >= len(curves.curves) for index in indices):
+            raise SemanticError("InvalidArgument", "Curves resize indices are invalid")
+        try:
+            curves.resize_curves(sizes, indices=indices)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Curves resize") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "curves_resized": len(indices), "changed": True, "generation": self.generation}
+
+    def hair_curves_reorder(self, curves_ref, new_indices):
+        root, name, path, curves = self._require_hair_curves(curves_ref)
+        count = len(curves.curves)
+        if not isinstance(new_indices, list) or len(new_indices) != count or sorted(new_indices) != list(range(count)):
+            raise SemanticError("InvalidArgument", "Curves reorder must be a complete permutation")
+        try:
+            curves.reorder_curves(new_indices)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Curves reorder") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "curve_count": count, "changed": True, "generation": self.generation}
+
+    def hair_curves_set_types(self, curves_ref, curve_type, indices):
+        root, name, path, curves = self._require_hair_curves(curves_ref)
+        if curve_type not in {"CATMULL_ROM", "POLY", "BEZIER", "NURBS"}:
+            raise SemanticError("InvalidArgument", "Curves type is invalid")
+        if not isinstance(indices, list) or not indices or len(indices) > 10000 or any(isinstance(index, bool) or not isinstance(index, int) or index < 0 or index >= len(curves.curves) for index in indices):
+            raise SemanticError("InvalidArgument", "Curves type indices are invalid")
+        try:
+            curves.set_types(type=curve_type, indices=indices)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Curves type mutation") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path), "type": curve_type, "curves_changed": len(indices), "changed": True, "generation": self.generation}
+
+    def _require_metaball(self, reference):
+        root, name, path, metaball = self._resolve(reference)
+        if _text(getattr(getattr(metaball, "bl_rna", None), "identifier", ""), 256) != "MetaBall":
+            raise SemanticError("InvalidArgument", "Operation requires a MetaBall datablock ref")
+        return root, name, path, metaball
+
+    def metaball_element_add(self, metaball_ref, element_type="BALL"):
+        root, name, path, metaball = self._require_metaball(metaball_ref)
+        if element_type not in {"BALL", "CAPSULE", "PLANE", "ELLIPSOID", "CUBE"}:
+            raise SemanticError("InvalidArgument", "Metaball element type is invalid")
+        try:
+            element = metaball.elements.new(type=element_type)
+            index = list(metaball.elements).index(element)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected MetaBall element creation") from error
+        self.changed()
+        return {"ref": self._ref(root, name, path + [["c", "elements", index]]), "type": element.type, "changed": True, "generation": self.generation}
+
+    def metaball_element_remove(self, element_ref):
+        root, name, parent_path, metaball, element = self._collection_parent(element_ref, "elements")
+        if _text(getattr(getattr(metaball, "bl_rna", None), "identifier", ""), 256) != "MetaBall":
+            raise SemanticError("InvalidArgument", "MetaBall element parent is invalid")
+        try:
+            metaball.elements.remove(element)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected MetaBall element removal") from error
+        self.changed()
+        return {"metaball_ref": self._ref(root, name, parent_path), "changed": True, "generation": self.generation}
 
     def _require_mesh(self, reference):
         root, name, path, item = self._resolve(reference)
