@@ -62,7 +62,7 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
                 "/popup" => "<!doctype html><title>Semwright Popup</title><p>Popup ready</p>",
                 _ => {
-                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><label>Upload<input id='upload' type='file' aria-label='Upload'></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><a id='popup' target='_blank' href='/popup'>Open popup</a><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
+                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><label>Upload<input id='upload' type='file' aria-label='Upload'></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><div aria-hidden='true' style='height:2400px'></div><a id='popup' target='_blank' href='/popup'>Open popup</a><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
                 }
             };
             let response = format!(
@@ -289,6 +289,26 @@ async fn exercise(
             .iter()
             .any(|row| row["role"] == "button" && row["name"] == "Shadow Save")
     );
+
+    let scrolled_down = browser
+        .execute(
+            ctx,
+            "browser.page.scroll",
+            &json!({"_target":tab,"direction":"down","amount":"page"}),
+        )
+        .await?;
+    assert_eq!(scrolled_down["accepted"], true);
+    assert_eq!(scrolled_down["changed"], true);
+    assert_eq!(scrolled_down["direction"], "down");
+    let scrolled_up = browser
+        .execute(
+            ctx,
+            "browser.page.scroll",
+            &json!({"_target":tab,"direction":"up","amount":"page"}),
+        )
+        .await?;
+    assert_eq!(scrolled_up["accepted"], true);
+    assert_eq!(scrolled_up["changed"], true);
 
     let editor = semantic_query(browser, ctx, &tab, "textbox", "Editor").await?;
     let inspected = browser

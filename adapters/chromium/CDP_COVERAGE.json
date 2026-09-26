@@ -24,21 +24,22 @@
         "focus",
         "scrollIntoViewIfNeeded",
         "getBoxModel",
-        "getNodeForLocation"
+        "getNodeForLocation",
+        "setFileInputFiles"
       ],
       "purpose": "identity, structure and exact action grounding"
     },
     {
       "name": "DOMSnapshot",
-      "status": "planned",
+      "status": "optional_evidence",
       "methods": [
         "captureSnapshot"
       ],
-      "purpose": "bounded computed structure/layout evidence without JavaScript"
+      "purpose": "optional computed structure/layout evidence; AX + DOM identity remain semantic authority"
     },
     {
       "name": "Page",
-      "status": "implemented_core",
+      "status": "implemented",
       "methods": [
         "enable",
         "navigate",
@@ -48,40 +49,33 @@
         "reload",
         "stopLoading",
         "captureScreenshot",
-        "handleJavaScriptDialog"
+        "handleJavaScriptDialog",
+        "getLayoutMetrics"
       ],
-      "purpose": "page/frame/lifecycle authority",
-      "remaining": [
-        "cross-origin/OOPIF acceptance"
-      ]
+      "purpose": "page/frame/lifecycle authority"
     },
     {
       "name": "Input",
-      "status": "implemented_core",
+      "status": "implemented_bounded",
       "methods": [
         "dispatchMouseEvent",
         "dispatchKeyEvent",
         "insertText"
       ],
-      "purpose": "bounded semantic action fallback",
-      "remaining": [
-        "drag/drop"
-      ]
+      "purpose": "bounded semantic keyboard/pointer/scroll/drag fallback after exact semantic grounding"
     },
     {
       "name": "Target",
-      "status": "implemented_core",
+      "status": "implemented",
       "methods": [
         "getTargets",
         "createTarget",
         "attachToTarget",
         "closeTarget",
-        "activateTarget"
+        "activateTarget",
+        "setAutoAttach"
       ],
-      "purpose": "owned tab/session lifecycle",
-      "remaining": [
-        "cross-origin/OOPIF acceptance"
-      ]
+      "purpose": "owned tab/session lifecycle"
     },
     {
       "name": "Browser",
@@ -124,8 +118,8 @@
     },
     {
       "intent": "frames",
-      "status": "implemented_needs_cross_origin_acceptance",
-      "surface": "browser.frame.list"
+      "status": "implemented",
+      "surface": "browser.frame.list + frame-scoped semantic refs/OOPIF sessions"
     },
     {
       "intent": "navigate/history/reload/stop",
@@ -169,15 +163,40 @@
     },
     {
       "intent": "drag/drop",
-      "status": "planned_or_fallback"
+      "status": "implemented_bounded",
+      "surface": "browser.element.drag_to",
+      "boundary": "same-frame exact source/destination refs; cross-frame drag is unsupported by design"
     },
     {
       "intent": "file upload",
-      "status": "blocked_on_file_grant_contract"
+      "status": "implemented_grant_scoped",
+      "surface": "browser.element.upload",
+      "boundary": "owner-readable filesystem grant + relative path + private staged copy; no arbitrary host path"
     },
     {
       "intent": "cookies/storage/raw network bodies",
       "status": "unsupported_by_design"
+    },
+    {
+      "intent": "semantic page scroll/lazy discovery",
+      "status": "implemented",
+      "surface": "browser.page.scroll"
+    },
+    {
+      "intent": "popups/new tabs",
+      "status": "implemented",
+      "surface": "browser.tab.list + generation-bound tab refs"
+    },
+    {
+      "intent": "shadow DOM semantics",
+      "status": "implemented",
+      "surface": "browser.semantic.* + bounded DOM snapshot"
     }
-  ]
+  ],
+  "completeness": {
+    "status": "complete",
+    "definition": "ordinary user-facing browser semantics on an owned isolated Chromium instance, excluding explicitly classified privileged/developer surfaces",
+    "agent_arbitrary_javascript": false,
+    "raw_cdp_exposed": false
+  }
 }

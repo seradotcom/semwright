@@ -1965,6 +1965,81 @@ impl Backend for Chromium {
                     .await?;
                 Ok(json!({"accepted":true}))
             }
+            "browser.page.scroll" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let direction = arg_str(args, "direction")?;
+                let amount = args["amount"].as_str().unwrap_or("page");
+                let before = cdp
+                    .call("Page.getLayoutMetrics", json!({}), Some(&session))
+                    .await?;
+                let viewport = &before["visualViewport"];
+                let width = viewport["clientWidth"].as_f64().unwrap_or(0.0);
+                let height = viewport["clientHeight"].as_f64().unwrap_or(0.0);
+                let before_x = viewport["pageX"].as_f64().unwrap_or(0.0);
+                let before_y = viewport["pageY"].as_f64().unwrap_or(0.0);
+                if !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Browser visual viewport is unavailable",
+                    ));
+                }
+                let factor = match amount {
+                    "small" => 0.25,
+                    "half_page" => 0.5,
+                    "page" => 0.9,
+                    _ => return Err(Error::invalid("Unknown semantic scroll amount")),
+                };
+                let vertical = (height * factor).clamp(1.0, 4096.0);
+                let horizontal = (width * factor).clamp(1.0, 4096.0);
+                let (delta_x, delta_y) = match direction {
+                    "up" => (0.0, -vertical),
+                    "down" => (0.0, vertical),
+                    "left" => (-horizontal, 0.0),
+                    "right" => (horizontal, 0.0),
+                    _ => return Err(Error::invalid("Unknown semantic scroll direction")),
+                };
+                ctx.check_cancelled()?;
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({
+                        "type":"mouseWheel",
+                        "x":width / 2.0,
+                        "y":height / 2.0,
+                        "deltaX":delta_x,
+                        "deltaY":delta_y,
+                        "button":"none"
+                    }),
+                    Some(&session),
+                )
+                .await?;
+                let mut after_x = before_x;
+                let mut after_y = before_y;
+                for _ in 0..10 {
+                    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                    ctx.check_cancelled()?;
+                    let after = cdp
+                        .call("Page.getLayoutMetrics", json!({}), Some(&session))
+                        .await?;
+                    after_x = after["visualViewport"]["pageX"]
+                        .as_f64()
+                        .unwrap_or(before_x);
+                    after_y = after["visualViewport"]["pageY"]
+                        .as_f64()
+                        .unwrap_or(before_y);
+                    if (after_x - before_x).abs() > 0.5 || (after_y - before_y).abs() > 0.5 {
+                        break;
+                    }
+                }
+                Ok(json!({
+                    "accepted":true,
+                    "changed":(after_x-before_x).abs()>0.5 || (after_y-before_y).abs()>0.5,
+                    "direction":direction,
+                    "amount":amount,
+                    "method":"viewport metrics + bounded CDP wheel"
+                }))
+            }
             "browser.page.back" | "browser.page.forward" => {
                 if node.is_some() || frame.is_some() {
                     return Err(Error::invalid("Tab reference required"));

@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-141 built-in descriptors. A descriptor is not proof of live backend support.
+142 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -152,6 +152,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `browser.dialog.respond` | `browser.modify` | mutating | 60000 ms | chromium |
 | `browser.element.drag_to` | `browser.modify` | mutating | 60000 ms | chromium |
 | `browser.element.upload` | `browser.modify`, `filesystem.read:root` | secret_access | 60000 ms | chromium |
+| `browser.page.scroll` | `browser.modify` | mutating_reversible | 60000 ms | chromium |
 
 ## `doctor`
 
@@ -4075,6 +4076,45 @@ Idempotency: `non_idempotent`. Dry run: `true`.
     "ref",
     "root",
     "paths"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.page.scroll`
+
+Scroll the owned page viewport by a semantic direction and bounded viewport-relative amount without agent-provided coordinates.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    },
+    "direction": {
+      "enum": [
+        "up",
+        "down",
+        "left",
+        "right"
+      ]
+    },
+    "amount": {
+      "enum": [
+        "small",
+        "half_page",
+        "page"
+      ]
+    }
+  },
+  "required": [
+    "ref",
+    "direction"
   ],
   "additionalProperties": false
 }
