@@ -50,4 +50,4 @@ Assets are copied only from validated project-relative paths, bounded in size an
 
 The read-only `project.detect` capability inspects bounded package metadata and the conventional project entry without loading or executing user TypeScript. An observed Motion Canvas dependency is reported as evidence; the driver never installs it.
 
-A valid `semwright-motion.json` selects managed mode. Otherwise external projects remain non-mutating: adoption, arbitrary TSX round-trip editing and package installation are outside format v1.
+A valid root `semwright-motion.json` selects managed mode. Exact-version external projects may instead opt into an isolated `.semwright/motion` managed island via `project.island.create`; Semwright publishes a generated `managed-scenes.ts` bridge but never edits the human `src/project.ts`. The island remains readable if the host later drifts, while mutations and new renders fail closed until `src/project.ts` and exact Motion Canvas 3.17.2 compatibility are restored. Arbitrary TSX round-trip editing and package installation remain outside format v1.

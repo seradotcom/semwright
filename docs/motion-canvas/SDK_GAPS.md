@@ -1,6 +1,6 @@
 # Driver SDK gaps proven by Motion Canvas
 
-This document records only gaps exercised by the implementation; it is not a proposal for speculative Driver Protocol v2.
+This document records only gaps exercised by the implementation; it is not a proposal for speculative protocol features.
 
 ## 1. Multi-tool runtime distribution
 
@@ -8,11 +8,11 @@ Driver Registry packages pin a driver executable/manifest but do not currently d
 
 A generic future tool-dependency/package primitive could remove this manual runtime preparation without widening filesystem access.
 
-## 2. Protocol-v2 adoption for long-running child jobs
+## 2. Protocol-v3 adoption for long-running child jobs
 
-The final integration includes Driver Protocol v2 support for progress, artifacts and request cancellation. Motion Canvas deliberately remains on protocol-v1 compatibility in this PR because its tested render lifecycle is already exposed as `render.start/status/cancel/result`; it does not advertise v2 interfaces it has not wired end-to-end. This is a driver adoption gap, not a generic SDK absence.
+The current Driver SDK exposes Protocol v3 progress, artifacts and request cancellation. Motion Canvas negotiates Driver Protocol v3 for cooperative cancellation, progress and artifact reporting. The asynchronous `render.start/status/cancel/result` API remains available, while `render.execute` maps the same renderer onto one protocol-owned request lifecycle. Native refs remain disabled because Motion Canvas refs are managed semantic refs rather than broker-native application references.
 
-A later Motion Canvas pass can map its existing job registry onto protocol-v2 progress/cancellation without changing the semantic render model.
+The protocol-v3 path reuses the existing bounded job registry; it does not introduce a second render authority or duplicate renderer implementation.
 
 ## 3. Browser sandbox composition
 

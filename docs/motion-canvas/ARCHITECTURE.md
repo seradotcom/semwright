@@ -1,8 +1,8 @@
 # Motion Canvas driver architecture
 
-The first-party Motion Canvas integration is a Rust driver using the protocol-v1 compatibility mode of the current v2-capable Driver SDK. The Rust process owns capability schemas, semantic validation, refs/revisions, dry-run/diff, atomic persistence, deterministic code generation, render-job lifecycle and artifact validation.
+The first-party Motion Canvas integration is a Rust driver negotiating Driver Protocol v3. The Rust process owns capability schemas, semantic validation, refs/revisions, dry-run/diff, atomic persistence, deterministic code generation, render-job lifecycle, cooperative cancellation, progress reporting and artifact validation.
 
-`semwright-motion.json` is the authoritative editable source. Generated TypeScript/TSX is a content-addressed derivative. The agent never receives an eval, arbitrary TypeScript, shell, package-install or remote-script capability.
+`semwright-motion.json` is the authoritative editable source. Generated TypeScript/TSX is a content-addressed derivative. For exact-version external projects, the same model may live in an isolated `.semwright/motion` managed island; Semwright publishes only a generated scene bridge and never rewrites human `src/project.ts`. The agent never receives an eval, arbitrary TypeScript, shell, package-install or remote-script capability.
 
 ```text
 Agent
@@ -33,6 +33,6 @@ Dry-run stops before any write and returns the same prospective semantic diff/ge
 
 ## Jobs and artifacts
 
-This driver intentionally negotiates protocol v1 and therefore does not use the newer protocol-v2 child progress/events/cancellation interfaces. Rendering remains a driver-local job surface: `render.start/status/cancel/result`. Cancellation terminates the owned process group and removes partial output. Successful jobs validate exact frame names/count, every frame's bounded PNG header/dimensions and compressed-byte hash, plus exhaustive pixel evidence for short renders or deterministic deep pixel samples for long sequences before returning path metadata.
+The driver negotiates Protocol v3. The legacy asynchronous job surface (`render.start/status/cancel/result`) remains available, while `render.execute` maps the same renderer and job registry onto one protocol-owned request lifecycle with cooperative cancellation, observed-state progress messages and a validated artifact record. Cancellation terminates the owned process group and removes partial output. Successful jobs validate exact frame names/count, every frame's bounded PNG header/dimensions and compressed-byte hash, plus exhaustive pixel evidence for short renders or deterministic deep pixel samples for long sequences before returning path metadata.
 
 The driver requests named `project`, `media`, `output` and `runtime` grants plus an explicit read-only `fontconfig` system-config grant mapped only to `/etc/fonts`. The runtime mount is owner-provided, read-only and executable only by explicit Driver manifest opt-in; Node, helper and Firefox are SHA-256 pinned. Final binary media is never returned inside protocol JSON.

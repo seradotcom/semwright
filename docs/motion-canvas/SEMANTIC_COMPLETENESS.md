@@ -32,7 +32,7 @@ These are not treated as accidental completeness gaps:
 - **shader source**: `Node.shaders` can carry executable shader programs and needs a separate trusted shader domain.
 - **ambient/runtime configuration** (`Latex.renderProps`, custom logger, DOM `tagName`, experimental feature switches): not persistent bounded motion semantics.
 - **physical spring generators and parameterized easing factories**: their callback/dynamic-duration model does not fit the exact bounded duration/frame contract. Fixed standard easing functions are managed instead.
-- **arbitrary external TypeScript/custom packages/plugins**: `project.detect` may inspect them without execution, but mutation remains fail-closed. Semwright never claims closures/side effects are structured editable data.
+- **arbitrary external TypeScript/custom packages/plugins**: `project.detect` inspects them without execution and root mutation remains fail-closed. Exact-version projects can host isolated Semwright-managed scene islands under `.semwright/motion`; the generated bridge is the only integration surface and human TypeScript remains opaque/preserved. Semwright never claims closures/side effects are structured editable data.
 
 ## Completeness invariant
 

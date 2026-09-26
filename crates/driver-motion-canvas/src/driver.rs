@@ -5,7 +5,7 @@ use crate::{
     edit::{self, Operation},
     model::*,
     refs::{self, Kind, ObjectRef, Reference},
-    renderer::{JobView, RenderManager, RendererRuntime},
+    renderer::{JobView, RenderManager, RenderState, RendererRuntime},
     security,
     semantic::{self, NodeTypeDescriptor},
     store::{ProjectStore, Snapshot},
@@ -13,13 +13,20 @@ use crate::{
 };
 use async_trait::async_trait;
 use schemars::{JsonSchema, schema_for};
-use semwright_driver_sdk::{Capability, Driver, descriptor_digest};
-use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Risk};
+use semwright_driver_sdk::{
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, artifact_output_tag,
+    descriptor_digest,
+};
+use semwright_types::{
+    CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Risk,
+};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
+    fs,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 const ID: &str = "motion-canvas";
@@ -146,10 +153,11 @@ struct ValidationOutput {
     revision: u64,
     generated_fingerprint: String,
 }
-#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum ProjectMode {
     Managed,
+    ManagedIsland,
     External,
     Empty,
 }
@@ -162,6 +170,8 @@ struct ProjectDetectOutput {
     motion_canvas_version: Option<String>,
     exact_runtime_match: bool,
     mutation_supported: bool,
+    managed_root: Option<String>,
+    bridge: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -173,6 +183,16 @@ struct MutationOutput {
     diff: SemanticDiff,
     generated: Vec<crate::compiler::GeneratedFile>,
     refs: Vec<ObjectRef>,
+}
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct IslandCreateOutput {
+    applied: bool,
+    managed_root: String,
+    semantic_file: String,
+    bridge: String,
+    import_example: Option<String>,
+    mutation: MutationOutput,
 }
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -366,6 +386,17 @@ pub struct MotionDriver {
     renderer_reason: String,
 }
 impl MotionDriver {
+    fn store_for_project_root(root: &Path) -> Result<ProjectStore> {
+        let island = root.join(crate::store::ISLAND_DIR);
+        if !root.join(crate::store::SEMANTIC_FILE).try_exists()?
+            && island.join(crate::store::SEMANTIC_FILE).try_exists()?
+        {
+            ProjectStore::open_island(fs::canonicalize(island)?)
+        } else {
+            ProjectStore::open(root)
+        }
+    }
+
     pub fn production() -> Result<Self> {
         let roots: BTreeMap<String, PathBuf> = [
             ("project", "/workspace/project"),
@@ -377,7 +408,10 @@ impl MotionDriver {
         .filter(|(_, path)| Path::new(path).is_dir())
         .map(|(name, path)| (name.into(), PathBuf::from(path)))
         .collect();
-        let store = roots.get("project").map(ProjectStore::open).transpose()?;
+        let store = roots
+            .get("project")
+            .map(|root| Self::store_for_project_root(root))
+            .transpose()?;
         let (runtime, renderer_reason) = match roots.get("runtime") {
             Some(root) => match RendererRuntime::from_root(root) {
                 Ok(runtime) => (
@@ -419,7 +453,7 @@ impl MotionDriver {
         let renderer = RenderManager::new(None, root.join("test-output"));
         Ok(Self {
             roots,
-            store: Some(ProjectStore::open(root)?),
+            store: Some(Self::store_for_project_root(root)?),
             renderer,
             renderer_reason: "Test harness has no owner-approved render runtime".into(),
         })
@@ -452,10 +486,23 @@ impl MotionDriver {
     fn detect_project(&self) -> Result<ProjectDetectOutput> {
         let semantic =
             self.optional_project_file(crate::store::SEMANTIC_FILE, MAX_PROJECT_BYTES)?;
+        let island_semantic = self.optional_project_file(
+            &format!(
+                "{}/{}",
+                crate::store::ISLAND_DIR,
+                crate::store::SEMANTIC_FILE
+            ),
+            MAX_PROJECT_BYTES,
+        )?;
         let package = self.optional_project_file("package.json", 65_536)?;
         let project_entry = self
             .optional_project_file("src/project.ts", 262_144)?
             .is_some();
+        let version = package
+            .as_deref()
+            .map(external_motion_canvas_version)
+            .transpose()?
+            .flatten();
         if let Some(bytes) = semantic {
             validate::parse(&bytes)?;
             return Ok(ProjectDetectOutput {
@@ -465,13 +512,28 @@ impl MotionDriver {
                 motion_canvas_version: Some(MOTION_CANVAS_VERSION.into()),
                 exact_runtime_match: true,
                 mutation_supported: true,
+                managed_root: Some(".".into()),
+                bridge: None,
             });
         }
-        let version = package
-            .as_deref()
-            .map(external_motion_canvas_version)
-            .transpose()?
-            .flatten();
+        if let Some(bytes) = island_semantic {
+            validate::parse(&bytes)?;
+            let exact = version.as_deref() == Some(MOTION_CANVAS_VERSION);
+            return Ok(ProjectDetectOutput {
+                mode: ProjectMode::ManagedIsland,
+                package_json: package.is_some(),
+                project_entry,
+                motion_canvas_version: version,
+                exact_runtime_match: exact,
+                mutation_supported: exact && project_entry,
+                managed_root: Some(crate::store::ISLAND_DIR.into()),
+                bridge: Some(format!(
+                    "{}/{}",
+                    crate::store::ISLAND_DIR,
+                    crate::store::ISLAND_BRIDGE
+                )),
+            });
+        }
         Ok(ProjectDetectOutput {
             mode: if package.is_some() || project_entry {
                 ProjectMode::External
@@ -483,8 +545,31 @@ impl MotionDriver {
             exact_runtime_match: version.as_deref() == Some(MOTION_CANVAS_VERSION),
             motion_canvas_version: version,
             mutation_supported: false,
+            managed_root: None,
+            bridge: None,
         })
     }
+
+    fn ensure_island_runtime_compatible(&self) -> Result<()> {
+        let Some(store) = &self.store else {
+            return Err(Error::new(
+                ErrorCode::Unavailable,
+                "Project grant is not mounted",
+            ));
+        };
+        if !store.is_island() {
+            return Ok(());
+        }
+        let detected = self.detect_project()?;
+        if detected.mode == ProjectMode::ManagedIsland && detected.mutation_supported {
+            return Ok(());
+        }
+        Err(Error::new(
+            ErrorCode::Conflict,
+            "Managed island host is no longer an exact Motion Canvas 3.17.2 project; mutation and new renders are refused",
+        ))
+    }
+
     fn parse<T: DeserializeOwned>(args: Value) -> Result<T> {
         serde_json::from_value(args).map_err(Into::into)
     }
@@ -518,6 +603,21 @@ impl MotionDriver {
             object_types: vec!["motion-project".into()],
         })
     }
+    fn render_execute_capability() -> Result<Capability> {
+        let mut capability = Self::cap::<RenderStartArgs, JobView>(
+            "driver.motion-canvas.render.execute",
+            "Render a bounded Motion Canvas frame sequence synchronously with protocol progress, artifacts and cooperative cancellation",
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+        )?;
+        capability.descriptor.timeout_ms = 300_000;
+        capability
+            .tags
+            .push(artifact_output_tag("image/png-sequence")?);
+        Ok(capability)
+    }
+
     fn catalog() -> Result<Vec<Capability>> {
         Ok(vec![
             Self::cap::<EmptyArgs, DoctorOutput>(
@@ -565,6 +665,13 @@ impl MotionDriver {
             Self::cap::<CreateArgs, MutationOutput>(
                 "driver.motion-canvas.project.create",
                 "Create a managed semwright-motion.json project or truthfully dry-run creation",
+                Risk::MutatingReversible,
+                Idempotency::NonIdempotent,
+                true,
+            )?,
+            Self::cap::<CreateArgs, IslandCreateOutput>(
+                "driver.motion-canvas.project.island.create",
+                "Create an isolated Semwright-managed scene island inside an exact-version external Motion Canvas project without editing human TypeScript",
                 Risk::MutatingReversible,
                 Idempotency::NonIdempotent,
                 true,
@@ -660,6 +767,7 @@ impl MotionDriver {
                 Idempotency::NonIdempotent,
                 false,
             )?,
+            Self::render_execute_capability()?,
             Self::cap::<JobArgs, JobView>(
                 "driver.motion-canvas.render.status",
                 "Inspect the observed phase of a driver-local render job",
@@ -691,13 +799,13 @@ impl MotionDriver {
         reference.check(&snapshot.project, &snapshot.source_sha256, Kind::Scene)?;
         Ok(reference.id)
     }
-    fn mutation_output(
+    fn mutation_struct(
         source: Option<String>,
         snapshot: &Snapshot,
         diff: SemanticDiff,
         applied: bool,
-    ) -> Result<Value> {
-        Ok(serde_json::to_value(MutationOutput {
+    ) -> MutationOutput {
+        MutationOutput {
             applied,
             source_fingerprint: source,
             resulting_fingerprint: snapshot.source_sha256.clone(),
@@ -705,7 +813,17 @@ impl MotionDriver {
             diff,
             generated: snapshot.generated.inventory(),
             refs: refs::all(&snapshot.project, &snapshot.source_sha256),
-        })?)
+        }
+    }
+    fn mutation_output(
+        source: Option<String>,
+        snapshot: &Snapshot,
+        diff: SemanticDiff,
+        applied: bool,
+    ) -> Result<Value> {
+        Ok(serde_json::to_value(Self::mutation_struct(
+            source, snapshot, diff, applied,
+        ))?)
     }
     fn prospective_output(
         source: Option<String>,
@@ -720,6 +838,101 @@ impl MotionDriver {
         };
         Self::mutation_output(source, &snapshot, prepared.diff, false)
     }
+    fn checked_render_input(&self, args: Value) -> Result<RenderStartArgs> {
+        Self::parse(args)
+    }
+
+    async fn start_render_from_input(&self, input: RenderStartArgs) -> Result<JobView> {
+        self.ensure_island_runtime_compatible()?;
+        let mut snapshot = self.load()?;
+        if input.expected_fingerprint != snapshot.source_sha256 {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Managed project fingerprint changed; inspect again",
+            ));
+        }
+        let generated = self.store()?.materialize(&snapshot)?;
+        snapshot.generated_dir = Some(generated);
+        self.renderer.start(&snapshot, input.profile).await
+    }
+
+    async fn execute_render_with_context(
+        &self,
+        input: RenderStartArgs,
+        context: &DriverExecutionContext,
+    ) -> Result<JobView> {
+        context.check_cancelled()?;
+        let started = self.start_render_from_input(input).await?;
+        let job_ref = started.job_ref.clone();
+        context.report_progress(
+            JobProgress {
+                completed: 0,
+                total: None,
+                message: Some("Motion Canvas render queued".into()),
+            },
+            vec![],
+        )?;
+        let cancellation = context.cancellation();
+        let mut last_state = Some(started.state);
+        loop {
+            tokio::select! {
+                _ = cancellation.cancelled() => {
+                    let _ = self.renderer.cancel(&job_ref).await;
+                    return Err(Error::new(ErrorCode::Cancelled, "Motion Canvas render cancelled by request"));
+                }
+                _ = tokio::time::sleep(Duration::from_millis(50)) => {}
+            }
+            let view = self.renderer.status(&job_ref).await?;
+            if last_state.as_ref() != Some(&view.state) {
+                last_state = Some(view.state.clone());
+                let message = match view.state {
+                    RenderState::Queued => "Motion Canvas render queued",
+                    RenderState::Starting => "Motion Canvas renderer starting",
+                    RenderState::Rendering => "Motion Canvas frames rendering",
+                    RenderState::Succeeded => "Motion Canvas render succeeded",
+                    RenderState::Failed => "Motion Canvas render failed",
+                    RenderState::Cancelled => "Motion Canvas render cancelled",
+                };
+                context.report_progress(
+                    JobProgress {
+                        completed: u64::from(matches!(view.state, RenderState::Succeeded)),
+                        total: matches!(view.state, RenderState::Succeeded).then_some(1),
+                        message: Some(message.into()),
+                    },
+                    if let (RenderState::Succeeded, Some(artifact)) = (&view.state, &view.artifact)
+                    {
+                        vec![JobArtifact {
+                            name: "motion-canvas-frame-sequence-manifest".into(),
+                            reference: artifact.manifest.clone(),
+                            media_type: Some("application/json".into()),
+                            sha256: Some(artifact.manifest_sha256.clone()),
+                            bytes: None,
+                        }]
+                    } else {
+                        vec![]
+                    },
+                )?;
+            }
+            match view.state {
+                RenderState::Succeeded => return Ok(view),
+                RenderState::Cancelled => {
+                    return Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "Motion Canvas render cancelled",
+                    ));
+                }
+                RenderState::Failed => {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        view.error
+                            .unwrap_or_else(|| "Motion Canvas render failed".into()),
+                    ));
+                }
+                RenderState::Queued | RenderState::Starting | RenderState::Rendering => {}
+            }
+        }
+    }
+
     async fn dispatch(&mut self, command: &str, args: Value) -> Result<Value> {
         match command {
             "driver.motion-canvas.doctor" => {
@@ -784,6 +997,15 @@ impl MotionDriver {
             }
             "driver.motion-canvas.project.create" => {
                 let input: CreateArgs = Self::parse(args)?;
+                if matches!(
+                    self.detect_project()?.mode,
+                    ProjectMode::External | ProjectMode::ManagedIsland
+                ) {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "External or managed-island Motion Canvas projects require project.island.create; root takeover is refused",
+                    ));
+                }
                 validate::project_valid(&input.project)?;
                 if !input.project.assets.is_empty() || !input.project.audio.is_empty() {
                     return Err(Error::invalid(
@@ -809,8 +1031,69 @@ impl MotionDriver {
                 let saved = self.store()?.create(&input.project)?;
                 Self::mutation_output(None, &saved, SemanticDiff::default(), true)
             }
+            "driver.motion-canvas.project.island.create" => {
+                let input: CreateArgs = Self::parse(args)?;
+                let detected = self.detect_project()?;
+                if detected.mode != ProjectMode::External
+                    || !detected.project_entry
+                    || !detected.exact_runtime_match
+                {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Managed island requires an external project with src/project.ts and exact Motion Canvas 3.17.2",
+                    ));
+                }
+                validate::project_valid(&input.project)?;
+                if !input.project.assets.is_empty() || !input.project.audio.is_empty() {
+                    return Err(Error::invalid(
+                        "Create islands without media; import bounded media through asset.import after creation",
+                    ));
+                }
+                let generated = crate::compiler::compile(&input.project)?;
+                let fingerprint = security::sha256(&serde_json::to_vec_pretty(&input.project)?);
+                let provisional = Snapshot {
+                    project: input.project.clone(),
+                    source_sha256: fingerprint,
+                    generated,
+                    generated_dir: None,
+                };
+                let mutation = if input.dry_run {
+                    Self::mutation_struct(None, &provisional, SemanticDiff::default(), false)
+                } else {
+                    let project_root = self.roots.get("project").ok_or_else(|| {
+                        Error::new(ErrorCode::Unavailable, "Project grant is not mounted")
+                    })?;
+                    let island_root = ProjectStore::create_island_root(project_root)?;
+                    let island_store = ProjectStore::open_island(island_root)?;
+                    let saved = island_store.create(&input.project)?;
+                    self.store = Some(island_store);
+                    Self::mutation_struct(None, &saved, SemanticDiff::default(), true)
+                };
+                let import_example = (!input.project.scenes.is_empty()).then(|| {
+                    "import {scene0} from '../.semwright/motion/managed-scenes';".to_string()
+                });
+                Ok(serde_json::to_value(IslandCreateOutput {
+                    applied: !input.dry_run,
+                    managed_root: crate::store::ISLAND_DIR.into(),
+                    semantic_file: format!(
+                        "{}/{}",
+                        crate::store::ISLAND_DIR,
+                        crate::store::SEMANTIC_FILE
+                    ),
+                    bridge: format!(
+                        "{}/{}",
+                        crate::store::ISLAND_DIR,
+                        crate::store::ISLAND_BRIDGE
+                    ),
+                    import_example,
+                    mutation,
+                })?)
+            }
             "driver.motion-canvas.project.diff" | "driver.motion-canvas.project.apply" => {
                 let input: ApplyArgs = Self::parse(args)?;
+                if command.ends_with(".apply") {
+                    self.ensure_island_runtime_compatible()?;
+                }
                 let current = self.load()?;
                 if input.expected_fingerprint != current.source_sha256 {
                     return Err(Error::new(
@@ -944,6 +1227,7 @@ impl MotionDriver {
             }
             "driver.motion-canvas.node.property.set" => {
                 let input: NodePropertySetArgs = Self::parse(args)?;
+                self.ensure_island_runtime_compatible()?;
                 let current = self.load()?;
                 if input.expected_fingerprint != current.source_sha256 {
                     return Err(Error::new(
@@ -1004,6 +1288,7 @@ impl MotionDriver {
             }
             "driver.motion-canvas.asset.import" => {
                 let input: AssetImportArgs = Self::parse(args)?;
+                self.ensure_island_runtime_compatible()?;
                 let current = self.load()?;
                 if input.expected_fingerprint != current.source_sha256 {
                     return Err(Error::new(
@@ -1188,20 +1473,15 @@ impl MotionDriver {
                 )?)?)
             }
             "driver.motion-canvas.render.start" => {
-                let input: RenderStartArgs = Self::parse(args)?;
-                let mut snapshot = self.load()?;
-                if input.expected_fingerprint != snapshot.source_sha256 {
-                    return Err(Error::new(
-                        ErrorCode::StaleReference,
-                        "Managed project fingerprint changed; inspect again",
-                    ));
-                }
-                let generated = self.store()?.materialize(&snapshot)?;
-                snapshot.generated_dir = Some(generated);
+                let input = self.checked_render_input(args)?;
                 Ok(serde_json::to_value(
-                    self.renderer.start(&snapshot, input.profile).await?,
+                    self.start_render_from_input(input).await?,
                 )?)
             }
+            "driver.motion-canvas.render.execute" => Err(Error::new(
+                ErrorCode::Unsupported,
+                "render.execute requires Driver Protocol v3 execution context",
+            )),
             "driver.motion-canvas.render.status"
             | "driver.motion-canvas.render.cancel"
             | "driver.motion-canvas.render.result" => {
@@ -1234,6 +1514,15 @@ impl Driver for MotionDriver {
     fn version(&self) -> &str {
         env!("CARGO_PKG_VERSION")
     }
+    fn interfaces(&self) -> DriverInterfaces {
+        DriverInterfaces {
+            cooperative_cancellation: true,
+            progress: true,
+            artifacts: true,
+            health: true,
+            ..DriverInterfaces::default()
+        }
+    }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
         Self::catalog()
     }
@@ -1261,6 +1550,44 @@ impl Driver for MotionDriver {
             ));
         }
         let value = self.dispatch(command, args).await?;
+        let validator = jsonschema::validator_for(&capability.descriptor.output_schema)
+            .map_err(|_| Error::new(ErrorCode::Internal, "Invalid embedded output schema"))?;
+        if !validator.is_valid(&value) {
+            return Err(Error::new(
+                ErrorCode::PluginProtocolError,
+                "Motion Canvas driver produced output outside its descriptor schema",
+            ));
+        }
+        Ok(value)
+    }
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        if command != "driver.motion-canvas.render.execute" {
+            return self.execute(command, digest, args).await;
+        }
+        let capability = Self::render_execute_capability()?;
+        if descriptor_digest(&capability.descriptor)? != digest {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Pinned capability descriptor changed",
+            ));
+        }
+        let validator = jsonschema::validator_for(&capability.descriptor.input_schema)
+            .map_err(|_| Error::new(ErrorCode::Internal, "Invalid embedded capability schema"))?;
+        if !validator.is_valid(&args) {
+            return Err(Error::invalid(
+                "Capability arguments do not match the strict schema",
+            ));
+        }
+        let input = self.checked_render_input(args)?;
+        let view = self.execute_render_with_context(input, &context).await?;
+        let value = serde_json::to_value(view)?;
         let validator = jsonschema::validator_for(&capability.descriptor.output_schema)
             .map_err(|_| Error::new(ErrorCode::Internal, "Invalid embedded output schema"))?;
         if !validator.is_valid(&value) {
@@ -1306,13 +1633,13 @@ mod tests {
         let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             digest,
-            "1efa7adbf544c6acf8094a1c02268a10559634fcc3c1a2285e9388003f9343cd"
+            "824bd2edb781f8d952e5ce09caf0bd866547f8aa055d22fef4c690a8282f1c29"
         );
 
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");
         assert_eq!(
             crate::security::sha256(manifest_bytes),
-            "a9c3945c7809e3cb8ee591bdf4d7fbce11cfc0c73ea89e95ce5474a5ab858c05"
+            "b31318bb7a4264ea06cd62d2edec062a1e6df710ff352932e048591473d9f8f1"
         );
         let manifest: semwright_driver_sdk::Manifest =
             serde_json::from_slice(manifest_bytes).unwrap();
@@ -1377,7 +1704,7 @@ mod tests {
     #[test]
     fn catalog_is_curated_and_descriptor_names_are_owned() {
         let catalog = MotionDriver::catalog().unwrap();
-        assert_eq!(catalog.len(), 23);
+        assert_eq!(catalog.len(), 25);
         assert!(
             catalog
                 .iter()
@@ -1472,13 +1799,50 @@ mod driver_tests {
         driver.execute(name, &digest, args).await
     }
 
+    #[test]
+    fn protocol_v3_render_execute_contract_is_explicit() {
+        let temp = tempfile::tempdir().unwrap();
+        let driver =
+            MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
+        let interfaces = Driver::interfaces(&driver);
+        assert!(interfaces.cooperative_cancellation);
+        assert!(interfaces.progress);
+        assert!(interfaces.artifacts);
+        assert!(!interfaces.dynamic_capabilities);
+        assert!(!interfaces.events);
+        assert!(!interfaces.native_refs);
+
+        let capability = MotionDriver::catalog()
+            .unwrap()
+            .into_iter()
+            .find(|capability| capability.descriptor.name == "driver.motion-canvas.render.execute")
+            .unwrap();
+        assert_eq!(capability.descriptor.timeout_ms, 300_000);
+        assert!(
+            capability
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-out:image/png-sequence")
+        );
+
+        let manifest: semwright_driver_sdk::Manifest =
+            serde_json::from_slice(include_bytes!("../driver.manifest.example.json")).unwrap();
+        assert_eq!(manifest.protocol, 3);
+        assert_eq!(manifest.request_timeout_ms, 300_000);
+        assert!(manifest.interfaces.cooperative_cancellation);
+        assert!(manifest.interfaces.progress);
+        assert!(manifest.interfaces.artifacts);
+        assert!(!manifest.interfaces.native_refs);
+        manifest.validate().unwrap();
+    }
+
     #[tokio::test]
     async fn catalog_is_strict_bounded_and_namespace_owned() {
         let temp = tempfile::tempdir().unwrap();
         let mut driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
         let caps = driver.capabilities().await.unwrap();
-        assert_eq!(caps.len(), 23);
+        assert_eq!(caps.len(), 25);
         let mut names = std::collections::BTreeSet::new();
         for cap in caps {
             assert!(cap.descriptor.name.starts_with("driver.motion-canvas."));
@@ -1499,7 +1863,7 @@ mod driver_tests {
         assert_eq!(out["node_version"], NODE_VERSION);
         assert_eq!(out["network"], false);
         assert_eq!(out["render_available"], false);
-        assert_eq!(out["capability_count"], 23);
+        assert_eq!(out["capability_count"], 25);
     }
 
     #[tokio::test]
@@ -1868,6 +2232,198 @@ mod driver_tests {
         .await
         .unwrap_err();
         assert_eq!(invalid.code, ErrorCode::InvalidArgument);
+    }
+
+    fn write_external_project(root: &Path, version: &str, source: &[u8]) {
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join("src/project.ts"), source).unwrap();
+        std::fs::write(
+            root.join("package.json"),
+            serde_json::to_vec_pretty(&json!({
+                "dependencies": {"@motion-canvas/core": version}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn managed_island_preserves_external_typescript_and_refreshes_owned_bridge() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        let human_source = b"import {makeProject} from '@motion-canvas/core';\nexport default makeProject({scenes: []});\n";
+        write_external_project(&root, "3.17.1", human_source);
+        let mut driver = MotionDriver::for_project_root(&root).unwrap();
+
+        let mismatch = call(
+            &mut driver,
+            "driver.motion-canvas.project.island.create",
+            json!({"project":fixture(),"dry_run":true}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(mismatch.code, ErrorCode::Conflict);
+        assert!(!root.join(".semwright").exists());
+        assert_eq!(
+            std::fs::read(root.join("src/project.ts")).unwrap(),
+            human_source
+        );
+
+        write_external_project(&root, MOTION_CANVAS_VERSION, human_source);
+        let dry = call(
+            &mut driver,
+            "driver.motion-canvas.project.island.create",
+            json!({"project":fixture(),"dry_run":true}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(dry["applied"], false);
+        assert_eq!(dry["managed_root"], crate::store::ISLAND_DIR);
+        assert!(!root.join(".semwright").exists());
+
+        let created = call(
+            &mut driver,
+            "driver.motion-canvas.project.island.create",
+            json!({"project":fixture(),"dry_run":false}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(created["applied"], true);
+        let island = root.join(crate::store::ISLAND_DIR);
+        assert!(island.join(crate::store::SEMANTIC_FILE).is_file());
+        let bridge_path = island.join(crate::store::ISLAND_BRIDGE);
+        let bridge_before = std::fs::read_to_string(&bridge_path).unwrap();
+        assert!(bridge_before.contains("export {default as scene0}"));
+        assert!(bridge_before.contains("semwrightMotionFingerprint"));
+        assert_eq!(
+            std::fs::read(root.join("src/project.ts")).unwrap(),
+            human_source
+        );
+
+        let detected = call(
+            &mut driver,
+            "driver.motion-canvas.project.detect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(detected["mode"], "managed_island");
+        assert_eq!(detected["mutation_supported"], true);
+        assert_eq!(detected["managed_root"], crate::store::ISLAND_DIR);
+
+        let listed = call(&mut driver, "driver.motion-canvas.node.list", json!({}))
+            .await
+            .unwrap();
+        let title = listed["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["id"] == "title")
+            .unwrap()["reference"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let changed = call(
+            &mut driver,
+            "driver.motion-canvas.node.property.set",
+            json!({
+                "expected_fingerprint": listed["fingerprint"],
+                "node_ref": title,
+                "property": "opacity",
+                "edit": {"mode":"set","value":0.5},
+                "dry_run": false
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(changed["applied"], true);
+        let bridge_after = std::fs::read_to_string(&bridge_path).unwrap();
+        assert_ne!(bridge_before, bridge_after);
+        assert!(bridge_after.contains(changed["resulting_fingerprint"].as_str().unwrap()));
+        assert_eq!(
+            std::fs::read(root.join("src/project.ts")).unwrap(),
+            human_source
+        );
+
+        let takeover = call(
+            &mut driver,
+            "driver.motion-canvas.project.create",
+            json!({"project":fixture(),"dry_run":true}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(takeover.code, ErrorCode::Conflict);
+
+        write_external_project(&root, "3.18.0", human_source);
+        let detected = call(
+            &mut driver,
+            "driver.motion-canvas.project.detect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(detected["mode"], "managed_island");
+        assert_eq!(detected["mutation_supported"], false);
+
+        let inspect = call(
+            &mut driver,
+            "driver.motion-canvas.project.inspect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        let fingerprint = inspect["fingerprint"].as_str().unwrap().to_owned();
+        let blocked = call(
+            &mut driver,
+            "driver.motion-canvas.project.apply",
+            json!({"expected_fingerprint":fingerprint,"operations":[],"dry_run":true}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(blocked.code, ErrorCode::Conflict);
+
+        let blocked_render = call(
+            &mut driver,
+            "driver.motion-canvas.render.start",
+            json!({
+                "expected_fingerprint": inspect["fingerprint"],
+                "profile": {
+                    "first_frame": 0,
+                    "end_frame_exclusive": 1,
+                    "scale": "full",
+                    "transparent": false,
+                    "timeout_ms": 1000
+                }
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(blocked_render.code, ErrorCode::Conflict);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn managed_island_rejects_symlinked_control_directory() {
+        use std::os::unix::fs::symlink;
+        let temp = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        write_external_project(
+            &root,
+            MOTION_CANVAS_VERSION,
+            b"export default {human: true};\n",
+        );
+        symlink(outside.path(), root.join(".semwright")).unwrap();
+        let mut driver = MotionDriver::for_project_root(&root).unwrap();
+        let error = call(
+            &mut driver,
+            "driver.motion-canvas.project.island.create",
+            json!({"project":fixture(),"dry_run":false}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
     }
 
     #[tokio::test]

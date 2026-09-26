@@ -1,6 +1,6 @@
 # Motion Canvas capabilities
 
-Driver identity: `driver:motion-canvas`. Protocol catalog count: **23**. The catalog is intentionally compact: type-specific creation and patching are expressed as bounded `project.apply` operations instead of dozens of redundant setters.
+Driver identity: `driver:motion-canvas`. Protocol catalog count: **25**. The catalog is intentionally compact: type-specific creation and patching are expressed as bounded `project.apply` operations instead of dozens of redundant setters.
 
 | Capability | Risk / idempotency | Purpose |
 |---|---|---|
@@ -10,7 +10,8 @@ Driver identity: `driver:motion-canvas`. Protocol catalog count: **23**. The cat
 | `project.detect` | read_only / read_only | Detect managed/external project metadata and exact Motion Canvas dependency evidence without executing project code. |
 | `project.inspect` | read_only / read_only | Return the authoritative managed model, source fingerprint, generated inventory and revision-bound refs. |
 | `project.validate` | read_only / read_only | Validate model and deterministic compiler without writing. |
-| `project.create` | mutating_reversible / non_idempotent | Create `semwright-motion.json`; supports truthful dry-run. |
+| `project.create` | mutating_reversible / non_idempotent | Create `semwright-motion.json`; supports truthful dry-run and refuses external/island root takeover. |
+| `project.island.create` | mutating_reversible / non_idempotent | Create an isolated `.semwright/motion` managed scene island inside an exact-version external Motion Canvas project without editing human TypeScript. |
 | `project.diff` | read_only / read_only | Apply a prospective transaction in memory and return semantic/generated impact. |
 | `project.apply` | mutating_reversible / non_idempotent | Atomically apply a bounded semantic transaction; supports dry-run. |
 | `scene.list` | read_only / read_only | List scenes and stable refs. |
@@ -24,11 +25,12 @@ Driver identity: `driver:motion-canvas`. Protocol catalog count: **23**. The cat
 | `animation.list` | read_only / read_only | List declarative animations. |
 | `render.plan` | read_only / read_only | Validate exact bounded frame range/resolution/alpha plan. |
 | `render.start` | mutating_reversible / non_idempotent | Start a driver-local render job after source fingerprint verification. |
+| `render.execute` | mutating_reversible / non_idempotent | Execute the same bounded renderer under Protocol v3 progress/artifact/cooperative-cancellation context. |
 | `render.status` | read_only / read_only | Return observed render phase only; no invented percentage. |
 | `render.cancel` | mutating_reversible / idempotent | Cancel the owned render process tree. |
 | `render.result` | read_only / read_only | Return validated artifact metadata for a terminal job. |
 
-Every descriptor has strict schemars-derived input/output schemas, owner namespace/scope, bounded timeout, risk, idempotency and truthful dry-run metadata. Descriptor SHA-256 pinning is enforced by the Driver SDK; this driver currently negotiates protocol v1.
+Every descriptor has strict schemars-derived input/output schemas, owner namespace/scope, bounded timeout, risk, idempotency and truthful dry-run metadata. Descriptor SHA-256 pinning is enforced by the Driver SDK; this driver negotiates protocol v3.
 
 ## Transaction operations
 
@@ -58,4 +60,4 @@ The managed 3.17.2 substrate currently exposes 20 concrete node kinds: group, la
 
 ## External projects
 
-Arbitrary hand-written Motion Canvas TypeScript is not treated as structured editable data. The managed driver does not promise safe mutation of closures, side effects, custom components or arbitrary packages. External-project mutation remains fail-closed rather than exposing arbitrary TypeScript execution.
+Arbitrary hand-written Motion Canvas TypeScript is not treated as structured editable data. The managed driver does not promise safe mutation of closures, side effects, custom components or arbitrary packages. Root mutation of external projects remains fail-closed; exact-version external projects may host an isolated `.semwright/motion` managed scene island whose generated bridge can be imported by human code without giving Semwright authority to rewrite that code. If the host version or `src/project.ts` later drifts, the island remains inspectable but mutations and new renders fail closed.
