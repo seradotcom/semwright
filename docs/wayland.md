@@ -19,13 +19,20 @@ private temporary artifact with normal expiry. The ScreenCast route also support
 sessions and bounded PipeWire frame capture; hosted native integration executes a real synthetic
 PipeWire source and validates packed-frame/stride handling plus private PNG artifact output.
 
-The EIS sender transport has an executed protocol-level test that negotiates a real
-`reis` sender session and transmits keysym, UTF-8 text, relative motion, buttons and scroll.
-A separate GNOME Shell 46.0 Wayland run now certifies real owner approval, portal consent,
-keyboard+pointer `ConnectToEIS` negotiation, explicit stop and inactive post-stop state; see
-`verification/live-portal-eis/gnome-connect-to-eis.json`. Focused input dispatch,
-coordinate/scaling behavior, in-flight input cancellation and the broader desktop matrix remain
-live verification work.
+The EIS sender transport has executed protocol-level tests that negotiate real `reis` sender
+sessions and transmit text/keysyms, relative motion, buttons and scroll. `ei_text` remains the
+preferred keyboard route when the compositor exposes it. For keycode-only `ei_keyboard` devices,
+Semwright parses only the XKB keymap advertised by EIS and derives direct key/modifier sequences
+from that mapping; it does not substitute the host layout or guess compose/IME sequences, and a
+missing/unusable keymap remains `Unsupported`.
+
+Real GNOME Shell 46.0 Wayland runs now certify owner approval, portal consent, keyboard+pointer
+`ConnectToEIS` negotiation, focused pointer move/click against a disposable GTK4 target, exact
+relative-logical delta behavior, focus-drift rejection with no fallback, explicit stop and inactive
+post-stop state; see `verification/live-portal-eis/gnome-connect-to-eis.json`. GNOME's keycode-only
+keyboard path is protocol-tested through the advertised XKB keymap but still needs focused live
+keyboard retesting. In-flight input cancellation and the broader desktop matrix remain live
+verification work.
 
 **Still not certified end-to-end:** mapping input to ScreenCast stream coordinates, focused
 portal input across the supported desktop matrix, and multi-monitor/scaling behavior. Relative
