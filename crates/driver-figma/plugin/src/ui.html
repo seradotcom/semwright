@@ -15,7 +15,7 @@ button{margin:12px 8px 0 0;padding:8px 12px}
 <script>
 const $=id=>document.getElementById(id);
 let ws=null,session=null,generation=0,activeGeneration=0,context=null;
-let pairingSecret=null,manualDisconnect=true,reconnectTimer=null,reconnectAttempt=0,connecting=false;
+let pairingSecret=null,manualDisconnect=true,reconnectTimer=null,reconnectAttempt=0,connecting=false,authenticatedOnce=false,preReadyFailures=0;
 function state(s){$("state").textContent=s}
 function hex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
 function randomSessionId(){
@@ -54,8 +54,25 @@ async function websocketText(data){
 function clearReconnect(){
  if(reconnectTimer!==null){clearTimeout(reconnectTimer);reconnectTimer=null}
 }
+function stopPreAuthRetry(reason){
+ manualDisconnect=true;
+ pairingSecret=null;
+ activeGeneration=0;
+ connecting=false;
+ reconnectAttempt=0;
+ preReadyFailures=0;
+ clearReconnect();
+ state(reason+"\nEnter a fresh pairing code and press Connect.");
+}
 function scheduleReconnect(reason){
  if(manualDisconnect||!pairingSecret||!session)return;
+ if(!authenticatedOnce){
+  preReadyFailures++;
+  if(preReadyFailures>=3){
+   stopPreAuthRetry(reason+" before authentication");
+   return;
+  }
+ }
  clearReconnect();
  const delay=Math.min(4000,250*(2**Math.min(reconnectAttempt,4)));
  reconnectAttempt++;
@@ -86,7 +103,7 @@ function openSocket(){
     state("Authenticating…\nGeneration "+gen);
    }
    else if(m.type==="ready"){
-    activeGeneration=gen;connecting=false;reconnectAttempt=0;clearReconnect();$("secret").value="";
+    activeGeneration=gen;connecting=false;authenticatedOnce=true;preReadyFailures=0;reconnectAttempt=0;clearReconnect();$("secret").value="";
     state("Connected\nSession "+sid+"\nGeneration "+gen);
    }
    else if(m.type==="request"){
@@ -94,7 +111,16 @@ function openSocket(){
     parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision,operation:m.operation,args:m.args}}},"*");
    }
    else if(m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}));
-   else if(m.type==="close"){state("Server requested reconnect: "+String(m.reason??"session closed"));socket.close()}
+   else if(m.type==="close"){
+    const reason=String(m.reason??"session closed");
+    if(!authenticatedOnce&&(reason.includes("authentication")||reason.includes("protocol"))){
+     stopPreAuthRetry("Pairing rejected: "+reason);
+     socket.close();
+     return;
+    }
+    state("Server requested reconnect: "+reason);
+    socket.close();
+   }
   }catch(err){
    state("Bridge message failed: "+(err instanceof Error?err.message:"invalid server message"));
    socket.close();
@@ -129,12 +155,12 @@ $("connect").onclick=()=>{
   if(!Number.isInteger(port)||port<1024||port>65535||!/^[0-9a-f]{64}$/.test(secret)){state("Invalid pairing data");return}
   manualDisconnect=true;clearReconnect();
   const old=ws;ws=null;old?.close();
-  pairingSecret=secret;session=randomSessionId();generation=0;activeGeneration=0;reconnectAttempt=0;connecting=false;
+  pairingSecret=secret;session=randomSessionId();generation=0;activeGeneration=0;reconnectAttempt=0;connecting=false;authenticatedOnce=false;preReadyFailures=0;
   manualDisconnect=false;openSocket();
  }catch(err){state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))}
 };
 $("disconnect").onclick=()=>{
- manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;clearReconnect();
+ manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect();
  const old=ws;ws=null;old?.close();$("secret").value="";state("Disconnected");
 };
 </script>
