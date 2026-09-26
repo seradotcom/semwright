@@ -77,12 +77,25 @@ struct RefStamp:Equatable {
         return RefStamp(kind:kind,identity:id,revision:n.uint64Value,fingerprint:f,app:app)
     }
 }
-struct RefRecord<T>{let stamp:RefStamp;let pid:Int32;let launch:Double;let expires:Double;let value:T}
+final class SemanticEventEpoch {
+    static let shared=SemanticEventEpoch()
+    private let lock=NSLock()
+    private var value:UInt64=1
+    init(){}
+    func current()->UInt64{lock.lock();defer{lock.unlock()};return value}
+    @discardableResult func bump()->UInt64{
+        lock.lock();defer{lock.unlock()}
+        value = value == UInt64.max ? 1 : value + 1
+        return value
+    }
+}
+struct RefRecord<T>{let stamp:RefStamp;let pid:Int32;let launch:Double;let expires:Double;let eventEpoch:UInt64;let value:T}
 final class RefLedger<T>{
     private(set) var entries:[String:RefRecord<T>]=[:]
     private var generations:[Int32:UInt64]=[:]
+    private let eventEpoch:SemanticEventEpoch
     let capacity:Int
-    init(capacity:Int=8192){self.capacity=capacity}
+    init(capacity:Int=8192,eventEpoch:SemanticEventEpoch = .shared){self.capacity=capacity;self.eventEpoch=eventEpoch}
     func generation(_ pid:Int32)->UInt64{generations[pid] ?? 1}
     func invalidate(_ pid:Int32){
         generations[pid]=generation(pid) &+ 1
@@ -93,11 +106,11 @@ final class RefLedger<T>{
         prune(now);try require(entries.count<capacity,"ResourceExhausted","Native reference capacity exhausted")
         try require(launch.isFinite && now.isFinite && now>=0)
         let stamp=RefStamp(kind:kind,identity:UUID().uuidString.lowercased(),revision:generation(pid),fingerprint:UUID().uuidString.lowercased(),app:app)
-        entries[stamp.identity]=RefRecord(stamp:stamp,pid:pid,launch:launch,expires:now+60,value:value)
+        entries[stamp.identity]=RefRecord(stamp:stamp,pid:pid,launch:launch,expires:now+60,eventEpoch:eventEpoch.current(),value:value)
         return stamp
     }
     func resolve(_ s:RefStamp,now:Double,launch:(Int32)->Double?)throws->RefRecord<T>{
-        guard let e=entries[s.identity],e.stamp==s,e.expires>now,e.stamp.revision==generation(e.pid),launch(e.pid)==e.launch else {
+        guard let e=entries[s.identity],e.stamp==s,e.expires>now,e.stamp.revision==generation(e.pid),e.eventEpoch==eventEpoch.current(),launch(e.pid)==e.launch else {
             throw SWFailure(code:"StaleReference",message:"Native identity expired, changed, or was destroyed")
         }
         return e

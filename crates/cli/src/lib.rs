@@ -244,6 +244,9 @@ pub enum Window {
     },
 }
 #[derive(Subcommand, Debug)]
+// `Ui::Find` intentionally owns its clap-parsed selector strings. Boxing individual CLI
+// fields would add indirection to one-shot parser state without reducing persistent memory.
+#[allow(clippy::large_enum_variant)]
 pub enum Ui {
     Snapshot {
         #[arg(long)]
@@ -255,6 +258,10 @@ pub enum Ui {
         #[arg(long)]
         actionable: bool,
     },
+    HitTest {
+        x: i64,
+        y: i64,
+    },
     Find {
         #[arg(long)]
         app: Option<String>,
@@ -264,6 +271,23 @@ pub enum Ui {
         name: Option<String>,
         #[arg(long)]
         name_regex: Option<String>,
+        #[arg(long = "help-text", conflicts_with = "help_regex")]
+        help_text: Option<String>,
+        #[arg(long)]
+        help_regex: Option<String>,
+        #[arg(long)]
+        framework: Option<String>,
+        #[arg(long, value_name = "KEY=VALUE")]
+        attribute: Vec<String>,
+        #[arg(long)]
+        relation: Option<String>,
+        #[arg(long, requires = "relation")]
+        relation_target: Option<String>,
+        #[arg(long, value_parser = [
+            "text", "value", "selection", "table", "document",
+            "image", "hypertext", "scroll", "window", "transform"
+        ])]
+        facet: Option<String>,
         #[arg(long)]
         ancestor: Option<String>,
         #[arg(long)]
@@ -871,11 +895,19 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
                 put(&mut a, "app", app);
                 ("ui.snapshot".into(), a)
             }
+            Ui::HitTest { x, y } => ("ui.hit_test".into(), json!({"x":x,"y":y})),
             Ui::Find {
                 app,
                 role,
                 name,
                 name_regex,
+                help_text,
+                help_regex,
+                framework,
+                attribute,
+                relation,
+                relation_target,
+                facet,
                 ancestor,
                 action,
                 state,
@@ -886,6 +918,8 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
                 for (k, v) in [
                     ("app", app),
                     ("role", role),
+                    ("framework", framework),
+                    ("facet", facet),
                     ("ancestor", ancestor),
                     ("action", action),
                     ("query", query),
@@ -897,6 +931,32 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
                 }
                 if let Some(name) = name_regex {
                     s["name"] = json!({"op":"regex","value":name});
+                }
+                if let Some(help) = help_text {
+                    s["help"] = json!({"op":"exact","value":help});
+                }
+                if let Some(help) = help_regex {
+                    s["help"] = json!({"op":"regex","value":help});
+                }
+                if !attribute.is_empty() {
+                    let mut attributes = serde_json::Map::new();
+                    for item in attribute {
+                        let (key, value) = item
+                            .split_once('=')
+                            .ok_or_else(|| Error::invalid("--attribute must use KEY=VALUE"))?;
+                        if key.is_empty() || key.len() > 128 || value.len() > 1024 {
+                            return Err(Error::invalid(
+                                "--attribute exceeds semantic selector bounds",
+                            ));
+                        }
+                        attributes.insert(key.to_owned(), json!(value));
+                    }
+                    s["attributes"] = Value::Object(attributes);
+                }
+                if let Some(kind) = relation {
+                    let mut r = json!({"kind":kind});
+                    put(&mut r, "target", relation_target);
+                    s["relation"] = r;
                 }
                 (
                     "ui.find".into(),
@@ -1355,6 +1415,17 @@ mod tests {
     #[test]
     fn no_permission_upgrade_flags() {
         assert!(Cli::try_parse_from(["semwright", "--approve", "doctor"]).is_err());
+    }
+    #[test]
+    fn ui_find_help_text_does_not_shadow_clap_help() {
+        let parsed =
+            Cli::try_parse_from(["semwright", "ui", "find", "--help-text", "tooltip"]).unwrap();
+        let request = request(&parsed).unwrap().unwrap();
+        assert_eq!(request.args["selector"]["help"]["op"], "exact");
+        assert_eq!(request.args["selector"]["help"]["value"], "tooltip");
+
+        let help = Cli::try_parse_from(["semwright", "ui", "find", "--help"]).unwrap_err();
+        assert_eq!(help.kind(), clap::error::ErrorKind::DisplayHelp);
     }
     #[test]
     fn known_examples_match_schemas() {
