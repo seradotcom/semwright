@@ -647,11 +647,13 @@ pub struct Cue {
     pub time_ms: u64,
     pub duration_ms: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Transition {
     pub kind: TransitionKind,
     pub duration_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<[f64; 4]>,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

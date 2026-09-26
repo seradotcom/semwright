@@ -26,7 +26,7 @@ Code contents are bounded display data with a fixed language/highlighter allowli
 
 ## Animations, cues and components
 
-Animations name a target, allowlisted property, typed from/to values, integer timing anchor/duration and curated easing. In addition to the original named animation properties, `semantic(name)` can animate only registry properties whose bounded value type has a safe Motion Canvas signal interpolation. The fixed easing enum covers the standard non-parameterized Motion Canvas timing functions; scene transitions include fade, four slide directions, zoom-in and zoom-out. Overlapping writes to the same effective property are rejected unless represented through supported grouping semantics.
+Animations name a target, allowlisted property, typed from/to values, integer timing anchor/duration and curated easing. In addition to the original named animation properties, `semantic(name)` can animate only registry properties whose bounded value type has a safe Motion Canvas signal interpolation. The fixed easing enum covers the standard non-parameterized Motion Canvas timing functions; scene transitions include fade, four slide directions, zoom-in and zoom-out. Zoom transitions require a bounded declarative `area: [x,y,width,height]`, which compiles to Motion Canvas `BBox`; non-zoom transitions reject `area`. Overlapping writes to the same effective property are rejected unless represented through supported grouping semantics.
 
 Cues have stable IDs, unique names per scene, integer start and duration. Animations may anchor to cues or use cue duration.
 

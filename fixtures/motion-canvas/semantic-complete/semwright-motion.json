@@ -398,7 +398,8 @@
       "cues": [],
       "transition": {
         "kind": "zoom_in",
-        "duration_ms": 200
+        "duration_ms": 200,
+        "area": [-320.0, -180.0, 640.0, 360.0]
       }
     }
   ],

@@ -72,11 +72,11 @@
         "status": "compiler_managed"
       },
       "zoomInTransition": {
-        "semantic": "transition.zoom_in",
+        "semantic": "transition.zoom_in(area,duration)",
         "status": "managed"
       },
       "zoomOutTransition": {
-        "semantic": "transition.zoom_out",
+        "semantic": "transition.zoom_out(area,duration)",
         "status": "managed"
       }
     },

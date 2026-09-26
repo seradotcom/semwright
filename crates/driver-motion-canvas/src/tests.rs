@@ -514,6 +514,26 @@ fn semantic_complete_fixture_exercises_rich_public_value_shapes() {
 }
 
 #[test]
+fn zoom_transition_requires_bounded_bbox_and_non_zoom_rejects_it() {
+    let mut project = fixture();
+    project.scenes[0].transition = Some(Transition {
+        kind: TransitionKind::ZoomIn,
+        duration_ms: 200,
+        area: None,
+    });
+    assert!(validate::project_valid(&project).is_err());
+
+    project.scenes[0].transition.as_mut().unwrap().area = Some([-160.0, -90.0, 320.0, 180.0]);
+    validate::project_valid(&project).unwrap();
+    let generated = compiler::compile(&project).unwrap();
+    let source = std::str::from_utf8(generated.files.get("src/scenes/main.tsx").unwrap()).unwrap();
+    assert!(source.contains("zoomInTransition(new BBox(-160,-90,320,180),0.200)"));
+
+    project.scenes[0].transition.as_mut().unwrap().kind = TransitionKind::Fade;
+    assert!(validate::project_valid(&project).is_err());
+}
+
+#[test]
 fn rich_semantic_values_fail_closed_on_invalid_bounds() {
     let semantic = crate::semantic::property(NodeKind::Rect, "fill_gradient").unwrap();
     assert_eq!(semantic.upstream_name, "fill");

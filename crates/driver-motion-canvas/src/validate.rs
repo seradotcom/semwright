@@ -621,6 +621,22 @@ pub fn project_valid(project: &Project) -> Result<()> {
                 t.duration_ms <= scene.duration_ms && t.duration_ms <= 5000,
                 "Transition duration exceeds bounds",
             )?;
+            match t.kind {
+                TransitionKind::ZoomIn | TransitionKind::ZoomOut => {
+                    let area = t
+                        .area
+                        .ok_or_else(|| Error::invalid("Zoom transition requires an area"))?;
+                    ensure(
+                        area.iter().all(|v| v.is_finite())
+                            && area[2] > 0.0
+                            && area[3] > 0.0
+                            && area[2] <= 32768.0
+                            && area[3] <= 32768.0,
+                        "Zoom transition area exceeds bounds",
+                    )?;
+                }
+                _ => ensure(t.area.is_none(), "Only zoom transitions accept an area")?,
+            }
         }
         let map = scene
             .nodes
