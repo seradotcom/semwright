@@ -10,7 +10,7 @@ use semwright_types::*;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     io::Write,
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
@@ -155,6 +155,7 @@ struct Cdp {
     sequence: Arc<AtomicU64>,
     generations: Arc<StdMutex<BTreeMap<String, u64>>>,
     attached_sessions: Arc<StdMutex<BTreeMap<String, String>>>,
+    enabled_sessions: Arc<StdMutex<BTreeSet<String>>>,
     events: Arc<StdMutex<VecDeque<Value>>>,
     downloads: Arc<StdMutex<DownloadState>>,
     alive: Arc<AtomicBool>,
@@ -343,6 +344,7 @@ impl Cdp {
             sequence: Arc::new(AtomicU64::new(1)),
             generations: Arc::new(StdMutex::new(BTreeMap::new())),
             attached_sessions: Arc::new(StdMutex::new(BTreeMap::new())),
+            enabled_sessions: Arc::new(StdMutex::new(BTreeSet::new())),
             events: Arc::new(StdMutex::new(VecDeque::new())),
             downloads: Arc::new(StdMutex::new(DownloadState::default())),
             alive: Arc::new(AtomicBool::new(true)),
@@ -596,6 +598,36 @@ impl Cdp {
             .get(target)
             .cloned())
     }
+    async fn ensure_session_domains(&self, session: &str) -> Result<()> {
+        if self
+            .enabled_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP enabled-session lock poisoned"))?
+            .contains(session)
+        {
+            return Ok(());
+        }
+        for domain in [
+            "DOM.enable",
+            "Page.enable",
+            "Accessibility.enable",
+            "Log.enable",
+            "Network.enable",
+        ] {
+            self.call(domain, json!({}), Some(session)).await?;
+        }
+        self.call(
+            "Target.setAutoAttach",
+            json!({"autoAttach":true,"waitForDebuggerOnStart":false,"flatten":true}),
+            Some(session),
+        )
+        .await?;
+        self.enabled_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP enabled-session lock poisoned"))?
+            .insert(session.to_owned());
+        Ok(())
+    }
     /// Invalidate semantic DOM references synchronously before a Semwright-initiated
     /// mutation. CDP events may advance the generation again; generation equality, not
     /// adjacency, is the contract.
@@ -700,28 +732,35 @@ impl Instance {
             )
             .await?;
         let session = arg_str(&result, "sessionId")?.to_owned();
-        for domain in [
-            "DOM.enable",
-            "Page.enable",
-            "Accessibility.enable",
-            "Log.enable",
-            "Network.enable",
-        ] {
-            self.cdp.call(domain, json!({}), Some(&session)).await?;
-        }
-        self.cdp
-            .call(
-                "Target.setAutoAttach",
-                json!({"autoAttach":true,"waitForDebuggerOnStart":false,"flatten":true}),
-                Some(&session),
-            )
-            .await?;
+        self.cdp.ensure_session_domains(&session).await?;
         // Establish a read barrier after enabling domains. CDP may emit the current
-        // document/frame events as a consequence of enable/attach; process those before
-        // the first semantic ref captures this session's generation.
-        self.cdp
-            .call("Page.getFrameTree", json!({}), Some(&session))
-            .await?;
+        // document/frame events as a consequence of enable/attach. Require the root
+        // LoaderId to be stable across two ordered reads so all earlier navigation
+        // events have crossed the same websocket before the first semantic ref is made.
+        let mut previous_loader: Option<String> = None;
+        let mut stable = false;
+        for _ in 0..20 {
+            let tree = self
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&session))
+                .await?;
+            let loader = tree["frameTree"]["frame"]["loaderId"]
+                .as_str()
+                .unwrap_or("")
+                .to_owned();
+            if !loader.is_empty() && previous_loader.as_deref() == Some(loader.as_str()) {
+                stable = true;
+                break;
+            }
+            previous_loader = Some(loader);
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        if !stable {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Browser document identity did not stabilize after attach",
+            ));
+        }
         self.cdp
             .call("DOM.getDocument", json!({"depth":0}), Some(&session))
             .await?;
@@ -1195,6 +1234,9 @@ impl Chromium {
                 .cdp
                 .attached_session(frame_id)?
                 .unwrap_or_else(|| parent_session.clone());
+            if session != parent_session {
+                instance.cdp.ensure_session_domains(&session).await?;
+            }
         } else if node.is_some() && instance.cdp.generation(&session)? != target.revision {
             return Err(Error::new(
                 ErrorCode::StaleReference,
