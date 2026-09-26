@@ -1798,12 +1798,7 @@ async fn actionable_point(cdp: &Cdp, session: &str, node: u64) -> Result<(f64, f
     let hit = cdp
         .call(
             "DOM.getNodeForLocation",
-            json!({
-                "x":x.round() as i32,
-                "y":y.round() as i32,
-                "includeUserAgentShadowDOM":false,
-                "ignorePointerEventsNone":false
-            }),
+            json!({"x":x.round() as i32,"y":y.round() as i32}),
             Some(session),
         )
         .await?;

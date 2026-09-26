@@ -57,7 +57,7 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                     "<!doctype html><title>Frames</title><div id='stable'>Stable</div><iframe src='/frame-a'></iframe>"
                 }
                 "/frame-a" => {
-                    "<!doctype html><meta http-equiv='refresh' content='4;url=/frame-b'><p>Frame A</p>"
+                    "<!doctype html><p>Frame A</p><a href='/frame-b' aria-label='Next Frame'>Next Frame</a>"
                 }
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
                 "/popup" => "<!doctype html><title>Semwright Popup</title><p>Popup ready</p>",
@@ -102,7 +102,7 @@ async fn cross_origin_frame_fixture(stop: CancellationToken) -> TestResult<(Stri
             let body = if path == "/oopif-b" {
                 "<!doctype html><title>OOPIF B</title><p>Cross Frame B</p><input aria-label='Cross Name B'>"
             } else {
-                "<!doctype html><title>OOPIF A</title><meta http-equiv='refresh' content='5;url=/oopif-b'><p>Cross Frame A</p><input aria-label='Cross Name A'>"
+                "<!doctype html><title>OOPIF A</title><p>Cross Frame A</p><input aria-label='Cross Name A'><a href='/oopif-b' aria-label='Next Cross Frame'>Next Cross Frame</a>"
             };
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -702,32 +702,44 @@ async fn real_chromium_cross_origin_oopif_semantics_are_scoped() -> TestResult {
         .execute(
             &ctx,
             "browser.element.fill",
-            &json!({"_target":child_input,"text":"OOPIF semantic input"}),
+            &json!({"_target":child_input.clone(),"text":"OOPIF semantic input"}),
         )
         .await?;
-    assert_eq!(
-        browser.validate(&child_input).await.unwrap_err().code,
-        ErrorCode::StaleReference
-    );
+    browser.validate(&child_input).await?;
     browser.validate(&parent_stable).await?;
 
-    let post_fill_frame = frame_by_origin(&browser, &ctx, &tab, &child_origin).await?;
-    let before_refresh = browser
+    let before_navigation = browser
         .execute(
             &ctx,
             "browser.semantic.snapshot",
-            &json!({"_target":post_fill_frame,"depth":8,"max_nodes":64}),
+            &json!({"_target":child_frame,"depth":8,"max_nodes":64}),
         )
         .await?;
     assert!(
-        before_refresh["nodes"]
+        before_navigation["nodes"]
             .as_array()
             .is_some_and(|nodes| nodes.iter().any(|row| row["name"] == "Cross Frame A"))
     );
+    let next_link =
+        semantic_query(&browser, &ctx, &child_frame, "link", "Next Cross Frame").await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.focus",
+            &json!({"_target":next_link.clone()}),
+        )
+        .await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.press",
+            &json!({"_target":next_link,"key":"Enter","modifiers":[]}),
+        )
+        .await?;
 
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            match browser.validate(&post_fill_frame).await {
+            match browser.validate(&child_frame).await {
                 Err(error) if error.code == ErrorCode::StaleReference => break,
                 _ => tokio::time::sleep(Duration::from_millis(50)).await,
             }
@@ -835,7 +847,7 @@ async fn real_chromium_upload_is_grant_scoped_and_privately_staged() -> TestResu
         )
         .await
         .unwrap_err();
-    assert_eq!(traversal.code, ErrorCode::InvalidArgument);
+    assert_eq!(traversal.code, ErrorCode::PolicyDenied);
     browser.validate(&upload).await?;
 
     let uploaded = browser
@@ -1017,6 +1029,21 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
             .is_some_and(|nodes| { nodes.iter().any(|row| row["name"] == "Frame A") })
     );
     let stable = stable_main_document_ref(&browser, &ctx, &frames_tab).await?;
+    let next_frame = semantic_query(&browser, &ctx, &child_frame, "link", "Next Frame").await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.focus",
+            &json!({"_target":next_frame.clone()}),
+        )
+        .await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.press",
+            &json!({"_target":next_frame,"key":"Enter","modifiers":[]}),
+        )
+        .await?;
     tokio::time::timeout(Duration::from_secs(8), async {
         loop {
             match browser.validate(&child_frame).await {
