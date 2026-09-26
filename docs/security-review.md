@@ -17,6 +17,27 @@ Record at minimum:
 - Rust toolchains and security-tool versions;
 - which live desktop/application tests were actually executed.
 
+### Reviewer handoff procedure
+
+The maintainer may prepare an immutable source handoff, but that handoff is **UNREVIEWED** and is
+not closure evidence by itself. Use the exact commit, not the maintainer working tree:
+
+```sh
+BASELINE_SHA=$(git rev-parse HEAD)
+SHORT_SHA=${BASELINE_SHA:0:12}
+git archive --format=tar --prefix="semwright-${SHORT_SHA}/" "$BASELINE_SHA" \
+  | gzip -n -9 > "semwright-security-review-${SHORT_SHA}.tar.gz"
+sha256sum "semwright-security-review-${SHORT_SHA}.tar.gz" \
+  > "semwright-security-review-${SHORT_SHA}.sha256"
+printf '%s\n' "$BASELINE_SHA" > "semwright-security-review-${SHORT_SHA}.baseline"
+```
+
+The reviewer should independently verify the archive hash, record the baseline SHA in the final
+report, and work from a fresh extraction or clone. The report must identify every required review
+area as executed, not executed or blocked; list exact tool versions and commands; and give each
+finding an explicit remediation status. A maintainer-generated archive, green CI, zero automated
+findings or a completed checklist cannot substitute for the independent reviewer conclusion.
+
 ## Trust model to challenge
 
 Semwright treats the broker and owner policy as trusted. Agent intent, MCP clients,
