@@ -16,8 +16,11 @@ test -f "$TMP/usr/lib/x86_64-linux-gnu/libatk-bridge-2.0.so.0.0.0"
 test -f "$TMP/usr/share/doc/libatk-bridge2.0-0t64/changelog.Debian.gz"
 zgrep -F "d442ee182ec8fa095c6bc5298a17663cfc70cf9a"   "$TMP/usr/share/doc/libatk-bridge2.0-0t64/changelog.Debian.gz"
 
-sha256sum "$DIR"/*.deb | sort > "$DIR/SHA256SUMS"
-sha256sum -c "$DIR/SHA256SUMS"
+(
+  cd "$DIR"
+  sha256sum ./*.deb | sed 's#  \./#  #' | sort > SHA256SUMS
+  sha256sum -c SHA256SUMS
+)
 
 python3 - "$DIR" "$BRIDGE" <<'PY'
 from pathlib import Path
