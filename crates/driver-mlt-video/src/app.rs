@@ -60,17 +60,16 @@ impl App {
     pub fn production() -> Result<Self> {
         let mut roots = BTreeMap::new();
         for (name, writable) in [("project", false), ("media", false), ("output", true)] {
-            let path = format!("/workspace/{name}");
-            if Path::new(&path).is_dir() {
-                roots.insert(
-                    name.into(),
-                    Arc::new(Root::open(Path::new(&path), true, writable)?),
-                );
+            if let Ok(path) = semwright_driver_sdk::workspace_mount(name)
+                && path.is_dir()
+            {
+                roots.insert(name.into(), Arc::new(Root::open(&path, true, writable)?));
             }
         }
         let mut reason = "No owner-provided read-only runtime configuration mount".to_string();
-        let config = Path::new("/workspace/runtime");
-        let runtime = if config.is_dir() {
+        let config = semwright_driver_sdk::workspace_mount("runtime").ok();
+        let runtime = if config.as_ref().is_some_and(|path| path.is_dir()) {
+            let config = config.as_deref().expect("checked runtime mount");
             let attempt = (|| -> Result<Arc<Runtime>> {
                 let root = Root::open(config, true, false)?;
                 let mut file = root.read_file("runtime.json", 16384)?;

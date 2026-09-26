@@ -18,7 +18,7 @@ use tokio::{
 
 const DRIVER_ID: &str = "libreoffice";
 const DRIVER_SCOPE: &str = "driver:libreoffice";
-const WORKSPACE: &str = "/workspace/workspace";
+const WORKSPACE_MOUNT: &str = "workspace";
 const PYTHON: &str = "/usr/bin/python3";
 const SOFFICE: &str = "/usr/bin/soffice";
 const SYSTEM_SHELL: &str = "/usr/bin/sh";
@@ -299,7 +299,8 @@ fn relative_path(args: &Value, key: &str, extensions: &[&str]) -> Result<(String
             "LibreOffice document extension is not allowed",
         ));
     }
-    Ok((raw.into(), Path::new(WORKSPACE).join(path)))
+    let workspace = semwright_driver_sdk::workspace_mount(WORKSPACE_MOUNT)?;
+    Ok((raw.into(), workspace.join(path)))
 }
 
 fn ensure_source(path: &Path) -> Result<()> {
@@ -425,7 +426,8 @@ impl LibreOffice {
                 "LibreOffice and the system Python UNO bridge are required",
             ));
         }
-        let workspace = std::fs::metadata(WORKSPACE)
+        let workspace_root = semwright_driver_sdk::workspace_mount(WORKSPACE_MOUNT)?;
+        let workspace = std::fs::metadata(&workspace_root)
             .map_err(|_| Error::unavailable("LibreOffice driver requires the workspace mount"))?;
         if !workspace.is_dir() {
             return Err(Error::unavailable(
