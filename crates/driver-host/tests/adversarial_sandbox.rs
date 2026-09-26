@@ -195,6 +195,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             "PATH",
             "PWD",
             "SEMWRIGHT_DRIVER_SANDBOX",
+            "SEMWRIGHT_SANDBOX_MOUNTS_V1",
             "XDG_CACHE_HOME",
             "XDG_CONFIG_HOME",
             "XDG_DATA_HOME",
