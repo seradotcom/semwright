@@ -135,7 +135,11 @@ fn server(
     seen: Arc<Mutex<Vec<String>>>,
     keyboard_mode: KeyboardMode,
     mut pause_after_bind: Option<Duration>,
+    echo_modifiers: bool,
 ) {
+    if echo_modifiers {
+        set_send_buffer(&stream, 4096);
+    }
     let context = eis::Context::new(stream).unwrap();
     let mut handshaker = reis::handshake::EisHandshaker::new(&context, 1);
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -220,6 +224,12 @@ fn server(
                 }
                 EisRequest::KeyboardKey(event) => {
                     record(&seen, format!("key:{}:{:?}", event.key, event.state));
+                    if echo_modifiers {
+                        let keyboard = event.device.interface::<eis::Keyboard>().unwrap();
+                        connection.with_next_serial(|serial| {
+                            keyboard.modifiers(serial, 0, 0, 0, 0);
+                        });
+                    }
                 }
                 EisRequest::PointerMotion(event) => {
                     record(&seen, format!("motion:{:.1}:{:.1}", event.dx, event.dy));
@@ -245,8 +255,9 @@ async fn real_eis_protocol_negotiates_and_sends_input() {
     let (server_stream, client_stream) = UnixStream::pair().unwrap();
     let seen = Arc::new(Mutex::new(Vec::new()));
     let server_seen = seen.clone();
-    let thread =
-        std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Text, None));
+    let thread = std::thread::spawn(move || {
+        server(server_stream, server_seen, KeyboardMode::Text, None, false)
+    });
 
     let client = EisClient::connect(
         client_stream,
@@ -298,8 +309,15 @@ async fn keycode_only_keyboard_negotiates_without_claiming_text_support() {
     let (server_stream, client_stream) = UnixStream::pair().unwrap();
     let seen = Arc::new(Mutex::new(Vec::new()));
     let server_seen = seen.clone();
-    let thread =
-        std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Keycode, None));
+    let thread = std::thread::spawn(move || {
+        server(
+            server_stream,
+            server_seen,
+            KeyboardMode::Keycode,
+            None,
+            false,
+        )
+    });
 
     let client = EisClient::connect(
         client_stream,
@@ -339,6 +357,7 @@ async fn keycode_keyboard_uses_announced_xkb_keymap_for_text_and_keysym() {
             server_seen,
             KeyboardMode::KeycodeWithKeymap,
             None,
+            false,
         )
     });
 
@@ -408,6 +427,7 @@ async fn keycode_text_cancellation_stops_after_partial_dispatch() {
             server_seen,
             KeyboardMode::KeycodeWithKeymap,
             None,
+            false,
         )
     });
 
@@ -520,6 +540,7 @@ async fn keycode_text_waits_for_writable_socket_under_backpressure() {
             server_seen,
             KeyboardMode::KeycodeWithKeymap,
             Some(Duration::from_millis(150)),
+            false,
         )
     });
 
@@ -582,6 +603,7 @@ async fn keycode_text_paces_large_bursts() {
             server_seen,
             KeyboardMode::KeycodeWithKeymap,
             None,
+            false,
         )
     });
 
@@ -621,6 +643,64 @@ async fn keycode_text_paces_large_bursts() {
             "paced EIS key events stalled at {count}/{expected}"
         );
         tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+
+    client.stop().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), client.wait_closed())
+        .await
+        .expect("EIS client should observe transport shutdown");
+    thread.join().unwrap();
+}
+
+#[tokio::test]
+async fn keycode_text_survives_bidirectional_modifier_feedback() {
+    let (server_stream, client_stream) = UnixStream::pair().unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let server_seen = seen.clone();
+    let thread = std::thread::spawn(move || {
+        server(
+            server_stream,
+            server_seen,
+            KeyboardMode::KeycodeWithKeymap,
+            None,
+            true,
+        )
+    });
+
+    let client = EisClient::connect(
+        client_stream,
+        Requested {
+            keyboard: true,
+            pointer: false,
+        },
+    )
+    .await
+    .unwrap();
+
+    let text = "A".repeat(2_048);
+    tokio::time::timeout(Duration::from_secs(8), client.type_text(&text))
+        .await
+        .expect("bidirectional EIS burst should not stall")
+        .expect("modifier feedback should not break text dispatch");
+
+    let expected = text.len() * 4;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    loop {
+        let count = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|row| row.starts_with("key:"))
+            .count();
+        if count >= expected {
+            assert_eq!(count, expected);
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "bidirectional EIS key events stalled at {count}/{expected}"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
     client.stop().await.unwrap();

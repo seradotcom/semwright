@@ -290,6 +290,17 @@ fn frame(
     flush_with_backpressure(context, connection)
 }
 
+fn drain_incoming(context: &ei::Context) -> Result<()> {
+    // Nonblocking read only moves socket bytes into reis' internal buffer. The existing
+    // EiConvertEventStream remains responsible for parsing and applying those events.
+    context.read().map(|_| ()).map_err(|error| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            format!("EIS inbound drain: {error}"),
+        )
+    })
+}
+
 fn flush_with_backpressure(
     context: &ei::Context,
     connection: &reis::event::Connection,
@@ -538,6 +549,7 @@ fn send_text(
         send_keyboard_stroke(context, connection, &live.device, &stroke)?;
         if (index + 1) % EIS_KEYCODE_TEXT_BATCH_SIZE == 0 {
             check_input_cancelled(cancellation)?;
+            drain_incoming(context)?;
             let elapsed = batch_started.elapsed();
             if elapsed < EIS_KEYCODE_TEXT_BATCH_INTERVAL {
                 std::thread::sleep(EIS_KEYCODE_TEXT_BATCH_INTERVAL - elapsed);
@@ -546,6 +558,7 @@ fn send_text(
             batch_started = Instant::now();
         }
     }
+    drain_incoming(context)?;
     Ok(())
 }
 
