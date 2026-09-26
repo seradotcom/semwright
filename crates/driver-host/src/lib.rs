@@ -31,7 +31,7 @@ use std::{
 use std::{ffi::CString, os::fd::FromRawFd};
 #[cfg(unix)]
 use std::{
-    io::Write,
+    io::{Seek, SeekFrom, Write},
     os::{
         fd::AsRawFd,
         unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
@@ -98,6 +98,7 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
             "Driver tool memfd could not be sealed",
         ));
     }
+    file.seek(SeekFrom::Start(0))?;
     Ok(SealedTool {
         name: name.to_owned(),
         file,
