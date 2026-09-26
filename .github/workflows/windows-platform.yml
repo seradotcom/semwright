@@ -137,10 +137,20 @@ jobs:
       - name: Record CI class
         run: |
           set -euo pipefail
-          cat >"verification/platform-ci/windows-${{ matrix.arch }}-class.txt" <<'EOF'
+          CLASS="verification/platform-ci/windows-${{ matrix.arch }}-class.txt"
+          cat >"$CLASS" <<'EOF'
           PASS_WINDOWS_NATIVE_CI can only be claimed after this job is green.
           This hosted runner is not evidence of PASS_WINDOWS_INTERACTIVE.
           EOF
+          if [[ -f verification/platform-ci/windows-arm64-uia-hit-test.txt ]]; then
+            cat >>"$CLASS" <<'EOF'
+          BLOCKED_NONINTERACTIVE_OCCLUSION: the hosted ARM64 runner exposed no fixture-owned
+          physical pixel. Native ui.hit_test physical-point fidelity remains unverified here
+          and requires interactive Windows evidence; all non-pixel UIA fixture assertions ran.
+          EOF
+          else
+            echo "Native UIA physical-point hit-test fixture executed without hosted occlusion." >>"$CLASS"
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

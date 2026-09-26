@@ -109,7 +109,7 @@ impl Broker {
         let (sender, _) = broadcast::channel(256);
         let runtime_stop = CancellationToken::new();
         let catalog = ProviderCatalog::bootstrap(Registry::builtin()?, map, &runtime_stop);
-        Ok(Arc::new(Self {
+        let broker = Arc::new(Self {
             registry: StdRwLock::new(catalog),
             policy,
             references: StdMutex::new(RefStore::new(Duration::from_secs(60), 65536)),
@@ -131,7 +131,9 @@ impl Broker {
             environment,
             fake,
             started: Instant::now(),
-        }))
+        });
+        broker.start_builtin_provider_watchers()?;
+        Ok(broker)
     }
     pub fn describe(&self, command: &str) -> Result<CommandDescriptor> {
         Ok(self
@@ -542,10 +544,10 @@ impl Broker {
             .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?;
         walk(session, backend, value, &mut store, &mut BTreeMap::new(), 0)
     }
-    fn filter_apps(&self, value: &mut Value) {
+    fn filter_apps(&self, value: &mut Value) -> Result<()> {
         let apps = &self.policy.config().apps;
         if apps.is_empty() {
-            return;
+            return Ok(());
         }
         for key in ["nodes", "windows", "apps"] {
             if let Some(values) = value.get_mut(key).and_then(Value::as_array_mut) {
@@ -556,6 +558,16 @@ impl Broker {
                 });
             }
         }
+        if let Some(node) = value.get("node").and_then(Value::as_object)
+            && let Some(app) = node.get("app").and_then(Value::as_str)
+            && !apps.contains(app)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Observed semantic target is outside the configured application scope",
+            ));
+        }
+        Ok(())
     }
     pub fn execute(
         self: Arc<Self>,
@@ -990,7 +1002,7 @@ impl Broker {
             };
             if request.command != "ui.find" {
                 if capability.metadata.source == SourceKind::Builtin {
-                    self.filter_apps(&mut output);
+                    self.filter_apps(&mut output)?;
                 }
                 if selected_provider
                     .as_ref()
@@ -1054,16 +1066,33 @@ impl Broker {
         args: &Value,
     ) -> Result<Value> {
         let mut selector: Selector = serde_json::from_value(args["selector"].clone())?;
-        let mut snapshot_args = json!({"max_nodes":args["max_nodes"].as_u64().unwrap_or(500),"max_depth":args["max_depth"].as_u64().unwrap_or(8)});
+        let max_nodes = args["max_nodes"].as_u64().unwrap_or(500).min(2_000) as usize;
+        let max_depth = args["max_depth"].as_u64().unwrap_or(8).min(32) as usize;
+        let mut snapshot_args = json!({"max_nodes":max_nodes,"max_depth":max_depth});
         if let Some(app) = &selector.app {
             snapshot_args["app"] = json!(app);
         }
-        let mut output = self
+        let provider = self
             .provider(backend)
-            .ok_or_else(|| Error::unavailable("UI backend missing"))?
-            .execute(context, &self.describe("ui.snapshot")?, &snapshot_args)
-            .await?;
-        self.filter_apps(&mut output);
+            .ok_or_else(|| Error::unavailable("UI backend missing"))?;
+        // Ancestor refs are broker-owned handles. Until a backend can prove an equivalent
+        // native ancestry scope, preserve the existing bounded snapshot semantics.
+        let pushed = if selector.ancestor.is_none() {
+            provider
+                .find_ui_candidates(context, &selector, max_nodes, max_depth)
+                .await?
+        } else {
+            None
+        };
+        let mut output = match pushed {
+            Some(output) => output,
+            None => {
+                provider
+                    .execute(context, &self.describe("ui.snapshot")?, &snapshot_args)
+                    .await?
+            }
+        };
+        self.filter_apps(&mut output)?;
         self.materialize(session, backend, &mut output)?;
         let nodes: Vec<UiNode> = serde_json::from_value(output["nodes"].clone())?;
         if let Some(old) = selector.ancestor.clone() {

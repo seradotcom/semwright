@@ -2,10 +2,11 @@
 pub mod roles;
 pub mod transport;
 use async_trait::async_trait;
-use semwright_backend_api::{Backend, Context, feature};
+use semwright_backend_api::{Backend, Context, ProviderSignal, feature};
 use semwright_types::{Error, ErrorCode, Feature, NativeTarget, Result};
 use serde_json::{Value, json};
 use std::{path::Path, sync::Arc};
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 use transport::{NativeTransport, Transport};
 pub const COMMANDS: &[&str] = &[
@@ -16,6 +17,8 @@ pub const COMMANDS: &[&str] = &[
     "window.resize",
     "window.close",
     "ui.snapshot",
+    "ui.hit_test",
+    "ui.inspect",
     "ui.invoke",
     "ui.set_text",
     "ui.read_text",
@@ -38,14 +41,17 @@ pub struct Macos {
 impl Macos {
     pub async fn new(artifacts: &Path) -> Result<Self> {
         semwright_protocol::private_directory(artifacts)?;
-        let t: Arc<dyn Transport> = Arc::new(NativeTransport::default());
-        t.call(
-            "configure",
-            &json!({"artifact_directory":artifacts}),
-            CancellationToken::new(),
-        )
-        .await?;
-        Ok(Self { transport: t })
+        let native = Arc::new(NativeTransport::default());
+        native
+            .call(
+                "configure",
+                &json!({"artifact_directory":artifacts}),
+                CancellationToken::new(),
+            )
+            .await?;
+        native.start_event_pump();
+        let transport: Arc<dyn Transport> = native;
+        Ok(Self { transport })
     }
     pub fn with_transport(transport: Arc<dyn Transport>) -> Self {
         Self { transport }
@@ -61,6 +67,9 @@ impl Backend for Macos {
     }
     fn operation_feature(&self, c: &str) -> Option<String> {
         self.supports(c).then(|| c.to_owned())
+    }
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.transport.events()
     }
     async fn probe(&self) -> Vec<Feature> {
         let status = self
@@ -128,10 +137,13 @@ impl Backend for Macos {
         Ok(result["focused"].as_bool() == Some(true))
     }
     async fn shutdown(&self) -> Result<()> {
-        self.transport
+        let result = self
+            .transport
             .call("shutdown", &json!({}), CancellationToken::new())
             .await
-            .map(|_| ())
+            .map(|_| ());
+        self.transport.stop_events();
+        result
     }
 }
 #[cfg(test)]
