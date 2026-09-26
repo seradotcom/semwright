@@ -16,6 +16,32 @@ const RESERVED: &[&str] = &[
     "payload",
 ];
 
+pub mod semantic_ui_event {
+    pub const BACKEND_INVALIDATED: &str = "semantic.backend.invalidated";
+    pub const WINDOW_CHANGED: &str = "semantic.window.changed";
+    pub const STRUCTURE_CHANGED: &str = "semantic.structure.changed";
+    pub const SELECTION_CHANGED: &str = "semantic.selection.changed";
+    pub const TEXT_CHANGED: &str = "semantic.text.changed";
+    pub const FOCUS_CHANGED: &str = "semantic.focus.changed";
+    pub const STATE_CHANGED: &str = "semantic.state.changed";
+    pub const PROPERTY_CHANGED: &str = "semantic.property.changed";
+    pub const GEOMETRY_CHANGED: &str = "semantic.geometry.changed";
+    pub const OBJECT_CHANGED: &str = "semantic.object.changed";
+
+    pub const ALL: &[&str] = &[
+        BACKEND_INVALIDATED,
+        WINDOW_CHANGED,
+        STRUCTURE_CHANGED,
+        SELECTION_CHANGED,
+        TEXT_CHANGED,
+        FOCUS_CHANGED,
+        STATE_CHANGED,
+        PROPERTY_CHANGED,
+        GEOMETRY_CHANGED,
+        OBJECT_CHANGED,
+    ];
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct EventEnvelope {
     pub kind: String,
@@ -146,6 +172,14 @@ mod tests {
                 .validate()
                 .is_ok()
         );
+    }
+
+    #[test]
+    fn semantic_ui_event_kinds_are_bounded_and_valid() {
+        for kind in semantic_ui_event::ALL {
+            assert!(valid_kind(kind), "invalid semantic UI event kind: {kind}");
+            assert!(kind.starts_with("semantic."));
+        }
     }
 
     #[test]

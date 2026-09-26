@@ -6,9 +6,11 @@ pub mod roles;
 pub mod uia;
 
 use async_trait::async_trait;
-use semwright_backend_api::{Backend, Context, feature};
+use semwright_backend_api::{Backend, Context, ProviderSignal, feature};
 use semwright_platform_windows_sys::{capture, clipboard, input, window};
-use semwright_types::{CapabilityStatus, Error, ErrorCode, Feature, NativeTarget, Result};
+use semwright_types::{
+    CapabilityStatus, Error, ErrorCode, Feature, NativeTarget, Result, Selector,
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -17,6 +19,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+use tokio::sync::broadcast;
 use uia::UiaActor;
 use windows::Win32::Foundation::HWND;
 
@@ -28,6 +31,8 @@ pub const COMMANDS: &[&str] = &[
     "window.resize",
     "window.close",
     "ui.snapshot",
+    "ui.hit_test",
+    "ui.inspect",
     "ui.invoke",
     "ui.set_text",
     "ui.read_text",
@@ -59,6 +64,7 @@ pub struct Windows {
     artifacts: PathBuf,
     windows: Arc<Mutex<BTreeMap<String, WindowStamp>>>,
     next_revision: Arc<Mutex<u64>>,
+    signals: broadcast::Sender<ProviderSignal>,
 }
 
 fn hash_window(pid: u32, start: u64, hwnd: isize, title: &str) -> String {
@@ -112,11 +118,13 @@ impl Windows {
     pub fn new(artifacts: &Path) -> Result<Self> {
         semwright_platform_windows_sys::dll::harden_default_dll_search()?;
         semwright_platform_windows_sys::paths::ensure_owner_only_directory(artifacts)?;
+        let (signals, _) = broadcast::channel(512);
         Ok(Self {
-            uia: UiaActor::start()?,
+            uia: UiaActor::start(signals.clone())?,
             artifacts: artifacts.to_path_buf(),
             windows: Arc::new(Mutex::new(BTreeMap::new())),
             next_revision: Arc::new(Mutex::new(0)),
+            signals,
         })
     }
 
@@ -260,6 +268,10 @@ impl Backend for Windows {
         self.supports(command).then(|| command.to_owned())
     }
 
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.uia.events_active().then(|| self.signals.subscribe())
+    }
+
     async fn probe(&self) -> Vec<Feature> {
         COMMANDS.iter().map(|c| {
             if *c == "screen.capture" {
@@ -283,6 +295,22 @@ impl Backend for Windows {
                 feature("windows", c, true, "Public Windows API implementation present; probe is not an acceptance certificate", "Run native Windows CI and interactive acceptance")
             }
         }).collect()
+    }
+
+    async fn find_ui_candidates(
+        &self,
+        ctx: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        ctx.check_cancelled()?;
+        if !uia::selector_has_pushdown(selector) {
+            return Ok(None);
+        }
+        self.uia
+            .find_candidates(selector.clone(), max_nodes, max_depth)
+            .map(Some)
     }
 
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
@@ -320,10 +348,45 @@ impl Backend for Windows {
                 window::close(h)?;
                 Ok(json!({"requested":true,"delivery_verified":false}))
             }
-            "ui.snapshot" => self.uia.snapshot(
-                args.get("_target")
-                    .and_then(|v| serde_json::from_value(v.clone()).ok()),
-            ),
+            "ui.snapshot" => {
+                let max_nodes = args
+                    .get("max_nodes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(200)
+                    .min(2_000) as usize;
+                let max_depth = args
+                    .get("max_depth")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(5)
+                    .min(32) as usize;
+                let scoped = args
+                    .get("_target")
+                    .and_then(|v| serde_json::from_value::<NativeTarget>(v.clone()).ok());
+                match scoped {
+                    Some(reference) if reference.identity.starts_with("win:") => {
+                        let hwnd = self.resolve_window(&reference)?;
+                        self.uia
+                            .snapshot_hwnd(hwnd.0 as isize, max_nodes, max_depth)
+                    }
+                    other => self.uia.snapshot(other, max_nodes, max_depth),
+                }
+            }
+            "ui.inspect" => self.uia.inspect(target(args)?),
+            "ui.hit_test" => {
+                let x = args
+                    .get("x")
+                    .and_then(Value::as_i64)
+                    .ok_or_else(|| Error::invalid("x required"))?;
+                let y = args
+                    .get("y")
+                    .and_then(Value::as_i64)
+                    .ok_or_else(|| Error::invalid("y required"))?;
+                if !(-1_000_000..=1_000_000).contains(&x) || !(-1_000_000..=1_000_000).contains(&y)
+                {
+                    return Err(Error::invalid("UI hit-test coordinates exceed budget"));
+                }
+                self.uia.hit_test(x as i32, y as i32)
+            }
             "ui.invoke" => self.uia.invoke(target(args)?),
             "ui.set_text" => self.uia.set_text(
                 target(args)?,
