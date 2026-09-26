@@ -61,6 +61,9 @@ struct SealedTool {
 #[cfg(unix)]
 impl SealedTool {
     fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
+        // path_file only names the memfd; file owns the immutable executable bytes
+        // for the full provider lifetime, so keep that ownership explicit here.
+        let _sealed_data_fd = self.file.as_raw_fd();
         semwright_platform_api::launch::SealedToolMount {
             fd: self.path_file.as_raw_fd(),
             name: self.name.clone(),
@@ -112,9 +115,12 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
     // ro-bind-fd needs this descriptor to survive the exec into bubblewrap.
     // SAFETY: F_GETFD/F_SETFD operate only on the live descriptor and scalar flags.
     let fd_flags = unsafe { libc::fcntl(path_fd, libc::F_GETFD) };
-    if fd_flags < 0
-        || unsafe { libc::fcntl(path_fd, libc::F_SETFD, fd_flags & !libc::FD_CLOEXEC) } != 0
-    {
+    if fd_flags < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: F_SETFD updates only descriptor flags on the live O_PATH descriptor.
+    let set_fd = unsafe { libc::fcntl(path_fd, libc::F_SETFD, fd_flags & !libc::FD_CLOEXEC) };
+    if set_fd != 0 {
         return Err(std::io::Error::last_os_error().into());
     }
     Ok(SealedTool {
