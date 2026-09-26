@@ -1787,6 +1787,56 @@ impl Atspi {
         best.map(|(_, object)| object)
     }
 
+    async fn semantic_geometry_hit(
+        &self,
+        ctx: &Context,
+        app: &str,
+        x: i32,
+        y: i32,
+    ) -> Option<Value> {
+        let args = json!({
+            "app": app,
+            "max_nodes": 512,
+            "max_depth": 32
+        });
+        let snapshot = tokio::time::timeout(Duration::from_secs(2), self.snapshot(ctx, &args))
+            .await
+            .ok()?
+            .ok()?;
+        let nodes = snapshot["nodes"].as_array()?;
+        let mut best: Option<(i128, Value)> = None;
+        for node in nodes {
+            let Some(bounds) = node["bounds"].as_object() else {
+                continue;
+            };
+            let (Some(left), Some(top), Some(width), Some(height)) = (
+                bounds.get("x").and_then(Value::as_i64),
+                bounds.get("y").and_then(Value::as_i64),
+                bounds.get("width").and_then(Value::as_i64),
+                bounds.get("height").and_then(Value::as_i64),
+            ) else {
+                continue;
+            };
+            if width <= 0 || height <= 0 {
+                continue;
+            }
+            let px = i64::from(x);
+            let py = i64::from(y);
+            if px < left
+                || py < top
+                || px >= left.saturating_add(width)
+                || py >= top.saturating_add(height)
+            {
+                continue;
+            }
+            let area = i128::from(width).saturating_mul(i128::from(height));
+            if best.as_ref().is_none_or(|(best_area, _)| area < *best_area) {
+                best = Some((area, node.clone()));
+            }
+        }
+        best.map(|(_, node)| node)
+    }
+
     async fn hit_test(&self, ctx: &Context, args: &Value) -> Result<Value> {
         let x = args["x"]
             .as_i64()
@@ -1808,6 +1858,17 @@ impl Atspi {
             };
             let framework = self.app_framework(&c, &app_object).await;
             let Some(hit) = self.native_hit_at_point(&c, &app_object, x, y).await else {
+                // Some toolkits expose valid Component extents but do not implement
+                // GetAccessibleAtPoint/Contains consistently on application roots. Fall back
+                // to the same native AT-SPI tree geometry; this is semantic accessibility
+                // grounding, not pixel inspection or synthetic pointer input.
+                if let Some(node) = self.semantic_geometry_hit(ctx, &app, x, y).await {
+                    return Ok(json!({
+                        "node": node,
+                        "point": {"x": x, "y": y, "coordinate_space": "screen"},
+                        "semantic_coverage": "native_hit_test"
+                    }));
+                }
                 continue;
             };
             let identity = object_id(&hit);
