@@ -57,7 +57,7 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                     "<!doctype html><title>Frames</title><div id='stable'>Stable</div><iframe src='/frame-a'></iframe>"
                 }
                 "/frame-a" => {
-                    "<!doctype html><meta http-equiv='refresh' content='2;url=/frame-b'><p>Frame A</p>"
+                    "<!doctype html><meta http-equiv='refresh' content='4;url=/frame-b'><p>Frame A</p>"
                 }
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
                 "/popup" => "<!doctype html><title>Semwright Popup</title><p>Popup ready</p>",
@@ -1017,7 +1017,7 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
             .is_some_and(|nodes| { nodes.iter().any(|row| row["name"] == "Frame A") })
     );
     let stable = stable_main_document_ref(&browser, &ctx, &frames_tab).await?;
-    tokio::time::sleep(Duration::from_millis(2400)).await;
+    tokio::time::sleep(Duration::from_millis(4400)).await;
     assert_eq!(
         browser.validate(&child_frame).await.unwrap_err().code,
         ErrorCode::StaleReference,

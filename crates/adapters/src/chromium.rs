@@ -157,6 +157,7 @@ struct Cdp {
     attached_sessions: Arc<StdMutex<BTreeMap<String, String>>>,
     enabled_sessions: Arc<StdMutex<BTreeSet<String>>>,
     events: Arc<StdMutex<VecDeque<Value>>>,
+    lifecycle_events: Arc<StdMutex<VecDeque<Value>>>,
     downloads: Arc<StdMutex<DownloadState>>,
     alive: Arc<AtomicBool>,
     stop: CancellationToken,
@@ -346,6 +347,7 @@ impl Cdp {
             attached_sessions: Arc::new(StdMutex::new(BTreeMap::new())),
             enabled_sessions: Arc::new(StdMutex::new(BTreeSet::new())),
             events: Arc::new(StdMutex::new(VecDeque::new())),
+            lifecycle_events: Arc::new(StdMutex::new(VecDeque::new())),
             downloads: Arc::new(StdMutex::new(DownloadState::default())),
             alive: Arc::new(AtomicBool::new(true)),
             stop: CancellationToken::new(),
@@ -356,6 +358,7 @@ impl Cdp {
         let generations = this.generations.clone();
         let attached_sessions = this.attached_sessions.clone();
         let events = this.events.clone();
+        let lifecycle_events = this.lifecycle_events.clone();
         let downloads = this.downloads.clone();
         let alive = this.alive.clone();
         let stop = this.stop.clone();
@@ -421,6 +424,25 @@ impl Cdp {
                     {
                         let n = map.entry(session.into()).or_insert(0);
                         *n = n.saturating_add(1);
+                    }
+                    if method == "Page.lifecycleEvent"
+                        && let Some(session) = value.get("sessionId").and_then(Value::as_str)
+                        && let Some(frame_id) =
+                            value.pointer("/params/frameId").and_then(Value::as_str)
+                        && let Some(loader_id) =
+                            value.pointer("/params/loaderId").and_then(Value::as_str)
+                        && let Some(name) = value.pointer("/params/name").and_then(Value::as_str)
+                        && let Ok(mut queue) = lifecycle_events.lock()
+                    {
+                        if queue.len() == 512 {
+                            queue.pop_front();
+                        }
+                        queue.push_back(json!({
+                            "session":session.chars().take(256).collect::<String>(),
+                            "frame_id":frame_id.chars().take(256).collect::<String>(),
+                            "loader_id":loader_id.chars().take(256).collect::<String>(),
+                            "name":name.chars().take(64).collect::<String>()
+                        }));
                     }
 
                     let mut quota_exceeded = false;
@@ -617,6 +639,12 @@ impl Cdp {
             self.call(domain, json!({}), Some(session)).await?;
         }
         self.call(
+            "Page.setLifecycleEventsEnabled",
+            json!({"enabled":true}),
+            Some(session),
+        )
+        .await?;
+        self.call(
             "Target.setAutoAttach",
             json!({"autoAttach":true,"waitForDebuggerOnStart":false,"flatten":true}),
             Some(session),
@@ -627,6 +655,45 @@ impl Cdp {
             .map_err(|_| Error::new(ErrorCode::Internal, "CDP enabled-session lock poisoned"))?
             .insert(session.to_owned());
         Ok(())
+    }
+    async fn wait_document_ready(
+        &self,
+        session: &str,
+        frame_id: &str,
+        loader_id: &str,
+    ) -> Result<()> {
+        if loader_id.is_empty() {
+            return Ok(());
+        }
+        let started = std::time::Instant::now();
+        loop {
+            if !self.alive.load(Ordering::SeqCst) || self.stop.is_cancelled() {
+                return Err(Error::unavailable(
+                    "Browser closed while waiting for document readiness",
+                ));
+            }
+            let ready = self
+                .lifecycle_events
+                .lock()
+                .map_err(|_| Error::new(ErrorCode::Internal, "CDP lifecycle lock poisoned"))?
+                .iter()
+                .any(|event| {
+                    event["session"].as_str() == Some(session)
+                        && event["frame_id"].as_str() == Some(frame_id)
+                        && event["loader_id"].as_str() == Some(loader_id)
+                        && matches!(event["name"].as_str(), Some("DOMContentLoaded" | "load"))
+                });
+            if ready {
+                return Ok(());
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(10) {
+                return Err(Error::new(
+                    ErrorCode::Timeout,
+                    "Browser document did not reach a semantic-ready lifecycle state",
+                ));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
     }
     /// Invalidate semantic DOM references synchronously before a Semwright-initiated
     /// mutation. CDP events may advance the generation again; generation equality, not
@@ -1056,6 +1123,7 @@ impl Chromium {
                 "--disable-component-update",
                 "--disable-sync",
                 "--disable-extensions",
+                "--site-per-process",
                 "--password-store=basic",
                 "--disk-cache-size=33554432",
             ]);
@@ -1212,27 +1280,45 @@ impl Chromium {
         let mut session = parent_session.clone();
 
         if let Some(frame_id) = frame.as_deref() {
-            let tree = instance
-                .cdp
-                .call("Page.getFrameTree", json!({}), Some(&parent_session))
-                .await?;
-            let frame_tree = frame_tree_find(&tree["frameTree"], frame_id).ok_or_else(|| {
-                Error::new(ErrorCode::StaleReference, "Browser frame no longer exists")
-            })?;
-            let frame_url = frame_tree["frame"]["url"].as_str().unwrap_or("");
-            self.config.check_url(frame_url)?;
-            if frame_document_revision(&frame_tree["frame"]) != target.revision {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "Frame document changed; obtain a fresh semantic reference",
-                ));
-            }
-            session = instance
-                .cdp
-                .attached_session(frame_id)?
-                .unwrap_or_else(|| parent_session.clone());
-            if session != parent_session {
+            if let Some(child_session) = instance.cdp.attached_session(frame_id)? {
+                session = child_session;
                 instance.cdp.ensure_session_domains(&session).await?;
+                let tree = instance
+                    .cdp
+                    .call("Page.getFrameTree", json!({}), Some(&session))
+                    .await?;
+                let child_frame = &tree["frameTree"]["frame"];
+                if child_frame["id"].as_str() != Some(frame_id) {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "OOPIF session no longer represents the requested frame",
+                    ));
+                }
+                self.config
+                    .check_url(child_frame["url"].as_str().unwrap_or(""))?;
+                if frame_document_revision(child_frame) != target.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Frame document changed; obtain a fresh semantic reference",
+                    ));
+                }
+            } else {
+                let tree = instance
+                    .cdp
+                    .call("Page.getFrameTree", json!({}), Some(&parent_session))
+                    .await?;
+                let frame_tree =
+                    frame_tree_find(&tree["frameTree"], frame_id).ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Browser frame no longer exists")
+                    })?;
+                let frame_url = frame_tree["frame"]["url"].as_str().unwrap_or("");
+                self.config.check_url(frame_url)?;
+                if frame_document_revision(&frame_tree["frame"]) != target.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Frame document changed; obtain a fresh semantic reference",
+                    ));
+                }
             }
         } else if node.is_some() && instance.cdp.generation(&session)? != target.revision {
             return Err(Error::new(
@@ -1978,6 +2064,15 @@ impl Backend for Chromium {
                     Error::new(ErrorCode::BackendFailed, "Browser navigation failed").uncertain(),
                 );
             }
+            if let (Some(frame_id), Some(loader_id)) = (
+                navigation["frameId"].as_str(),
+                navigation["loaderId"].as_str(),
+            ) {
+                instance
+                    .cdp
+                    .wait_document_ready(&session, frame_id, loader_id)
+                    .await?;
+            }
             return Ok(json!({"ref":instance.tab_ref(&tab),"changed":true}));
         }
         let target = native_target(args)?;
@@ -2024,6 +2119,12 @@ impl Backend for Chromium {
                     return Err(
                         Error::new(ErrorCode::BackendFailed, "Navigation failed").uncertain()
                     );
+                }
+                if let (Some(frame_id), Some(loader_id)) =
+                    (result["frameId"].as_str(), result["loaderId"].as_str())
+                {
+                    cdp.wait_document_ready(&session, frame_id, loader_id)
+                        .await?;
                 }
                 Ok(json!({"changed":true}))
             }
