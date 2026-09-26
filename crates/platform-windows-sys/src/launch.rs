@@ -964,10 +964,13 @@ impl SandboxLauncher for WindowsSandbox {
                 &mut process_info,
             )
         }
-        .map_err(|_| {
+        .map_err(|error| {
             Error::new(
                 ErrorCode::SandboxDenied,
-                "Windows AppContainer process creation failed",
+                format!(
+                    "Windows AppContainer process creation failed ({:#x})",
+                    error.code().0
+                ),
             )
         })?;
 
