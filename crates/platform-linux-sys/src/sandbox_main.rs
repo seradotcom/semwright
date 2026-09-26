@@ -35,6 +35,13 @@ fn valid_read_root(path: &str) -> bool {
         && !path.contains('\0')
 }
 
+fn valid_exec_root(path: &str) -> bool {
+    let sealed_tool = path
+        .strip_prefix("/plugin/tools/")
+        .is_some_and(|name| !name.is_empty() && !name.contains('/'));
+    (path.starts_with("/workspace/") || sealed_tool) && !path.contains("..") && !path.contains('\0')
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let mut writable = vec!["/tmp".to_owned(), "/dev/shm".to_owned()];
@@ -65,7 +72,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--exec-root" => {
                 let path = args.next().ok_or("exec root missing")?;
-                if !path.starts_with("/workspace/") || path.contains("..") || path.contains('\0') {
+                if !valid_exec_root(&path) {
                     return Err("invalid sandbox exec root".into());
                 }
                 readable.push((path, true));
@@ -220,6 +227,15 @@ mod tests {
         assert!(!valid_read_root("/run/secrets/nested/key"));
         assert!(!valid_read_root("/run/secrets/../escape"));
         assert!(!valid_read_root("/run/other/key"));
+    }
+
+    #[test]
+    fn sealed_tool_exec_roots_are_single_file_and_confined() {
+        assert!(valid_exec_root("/plugin/tools/godot"));
+        assert!(!valid_exec_root("/plugin/tools"));
+        assert!(!valid_exec_root("/plugin/tools/nested/tool"));
+        assert!(!valid_exec_root("/plugin/tools/../escape"));
+        assert!(!valid_exec_root("/plugin/other/tool"));
     }
 
     #[test]

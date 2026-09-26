@@ -67,6 +67,28 @@ impl Mount {
 }
 
 #[derive(Clone, Debug)]
+pub struct SealedToolMount {
+    pub fd: i32,
+    pub name: String,
+}
+impl SealedToolMount {
+    pub fn validate(&self) -> Result<()> {
+        if self.fd < 3
+            || self.name.is_empty()
+            || self.name.len() > 64
+            || self.name.starts_with("semwright-internal-")
+            || !self
+                .name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+        {
+            return Err(Error::invalid("Invalid sealed sandbox tool mount"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ResourceLimits {
     pub open_files: u64,
     pub processes: u64,
@@ -90,6 +112,8 @@ pub struct SandboxSpec {
     pub args: Vec<String>,
     /// Host-controlled environment only. Manifests cannot populate this directly.
     pub environment: Vec<(String, String)>,
+    /// Host-created immutable executable files mounted under `/plugin/tools/<name>`.
+    pub sealed_tools: Vec<SealedToolMount>,
     pub network: bool,
     pub limits: Option<ResourceLimits>,
 }
@@ -117,6 +141,17 @@ impl SandboxSpec {
         }
         if self.environment.len() > 16 {
             return Err(Error::invalid("Sandbox environment exceeds bounds"));
+        }
+        if self.sealed_tools.len() > 8 {
+            return Err(Error::invalid("Sandbox sealed tool count exceeds bounds"));
+        }
+        let mut tool_names = std::collections::BTreeSet::new();
+        let mut tool_fds = std::collections::BTreeSet::new();
+        for tool in &self.sealed_tools {
+            tool.validate()?;
+            if !tool_names.insert(&tool.name) || !tool_fds.insert(tool.fd) {
+                return Err(Error::invalid("Duplicate sealed sandbox tool mount"));
+            }
         }
         let mut environment_names = std::collections::BTreeSet::new();
         for (name, value) in &self.environment {

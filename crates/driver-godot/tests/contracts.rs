@@ -488,3 +488,49 @@ fn physics_area_schema_rejects_ambiguous_gravity_vector_modes() {
     });
     assert!(area.validate_input(&ambiguous).is_err());
 }
+
+#[test]
+fn companion_list_exactly_tracks_the_editor_plugin_tree() {
+    use std::{collections::BTreeSet, path::Path};
+
+    fn collect(root: &Path, dir: &Path, out: &mut BTreeSet<String>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if path.is_dir() {
+                collect(root, &path, out);
+            } else if path.is_file() {
+                out.insert(
+                    path.strip_prefix(root)
+                        .unwrap()
+                        .to_string_lossy()
+                        .replace('\\', "/"),
+                );
+            }
+        }
+    }
+
+    let crate_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let plugin_root = crate_root
+        .join("../../integrations/godot/addons/semwright")
+        .canonicalize()
+        .unwrap();
+    let mut actual = BTreeSet::new();
+    collect(&plugin_root, &plugin_root, &mut actual);
+
+    let list = std::fs::read_to_string(crate_root.join("companions.list")).unwrap();
+    let mut declared = BTreeSet::new();
+    for line in list.lines().map(str::trim) {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let (destination, source) = line.split_once('=').unwrap();
+        let relative = destination.strip_prefix("addons/semwright/").unwrap();
+        assert!(declared.insert(relative.to_owned()));
+        assert_eq!(
+            crate_root.join(source).canonicalize().unwrap(),
+            plugin_root.join(relative).canonicalize().unwrap()
+        );
+    }
+    assert_eq!(declared, actual);
+}

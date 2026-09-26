@@ -15,12 +15,18 @@
   "mounts": [
     {"root": "godot-config", "read_only": true},
     {"root": "godot-project", "read_only": false},
-    {"root": "godot-output", "read_only": false},
-    {"root": "godot-runtime", "read_only": true}
+    {"root": "godot-output", "read_only": false}
   ],
   "system_config": [],
   "secrets": [
     {"root": "godot-pairing", "name": "godot-pairing"}
+  ],
+  "tools": [
+    {
+      "root": "godot-runtime",
+      "name": "godot",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
   ],
   "network": false,
   "loopback_port": 9877,
