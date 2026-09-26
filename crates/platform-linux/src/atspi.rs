@@ -2469,6 +2469,13 @@ impl Backend for Atspi {
         max_nodes: usize,
         max_depth: usize,
     ) -> Result<Option<Value>> {
+        // Ubuntu Noble's legacy AT-SPI bridge is guarded because richer collection/object
+        // traffic can crash the bridge. Keep native pushdown disabled there and let the
+        // already-bounded portable snapshot path remain authoritative until the fixed bridge
+        // version is detected.
+        if self.noble_legacy_guard {
+            return Ok(None);
+        }
         match tokio::time::timeout(
             COLLECTION_CANDIDATE_BUDGET,
             self.collection_candidates(ctx, selector, max_nodes, max_depth),
