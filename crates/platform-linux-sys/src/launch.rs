@@ -144,7 +144,7 @@ impl SandboxLauncher for LinuxSandbox {
             p.arg("--ro-bind").arg(&m.source).arg(destination);
         }
         for tool in &s.sealed_tools {
-            p.arg("--ro-bind-fd")
+            p.args(["--perms", "0500", "--ro-bind-data"])
                 .arg(tool.fd.to_string())
                 .arg(format!("/plugin/tools/{}", tool.name));
         }

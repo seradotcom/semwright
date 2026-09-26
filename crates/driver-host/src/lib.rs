@@ -31,7 +31,7 @@ use std::{
 use std::{ffi::CString, os::fd::FromRawFd};
 #[cfg(unix)]
 use std::{
-    io::{Seek, SeekFrom, Write},
+    io::Write,
     os::{
         fd::AsRawFd,
         unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
@@ -55,18 +55,18 @@ impl Drop for StagedFile {
 #[cfg(unix)]
 struct SealedTool {
     name: String,
-    // Retained solely to keep the sealed memfd inode alive for the O_PATH handle.
+    // Own the immutable sealed memfd for the full provider lifetime.
     _file: std::fs::File,
-    path_file: std::fs::File,
+    // Read-only descriptor inherited only by bubblewrap so --ro-bind-data can
+    // materialize the verified bytes at a fixed executable path.
+    data_file: std::fs::File,
 }
 #[cfg(unix)]
 impl SealedTool {
     fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
-        // path_file only names the memfd; file owns the immutable executable bytes
-        // for the full provider lifetime, so keep that ownership explicit here.
-        let _sealed_data_fd = self._file.as_raw_fd();
+        let _sealed_owner_fd = self._file.as_raw_fd();
         semwright_platform_api::launch::SealedToolMount {
-            fd: self.path_file.as_raw_fd(),
+            fd: self.data_file.as_raw_fd(),
             name: self.name.clone(),
         }
     }
@@ -104,31 +104,35 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
             "Driver tool memfd could not be sealed",
         ));
     }
-    file.seek(SeekFrom::Start(0))?;
     let proc_path = CString::new(format!("/proc/self/fd/{fd}"))
         .map_err(|_| Error::invalid("Invalid sealed tool descriptor path"))?;
+    // Re-open the sealed inode read-only. This descriptor deliberately omits
+    // O_CLOEXEC so bubblewrap can consume it with --ro-bind-data; the original
+    // read-write memfd stays CLOEXEC and sealed.
     // SAFETY: proc_path is a live NUL-terminated path to the sealed memfd.
-    let path_fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_PATH) };
-    if path_fd < 0 {
+    let data_fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_RDONLY) };
+    if data_fd < 0 {
         return Err(std::io::Error::last_os_error().into());
     }
-    // SAFETY: open returned a new owned O_PATH descriptor on success.
-    let path_file = unsafe { std::fs::File::from_raw_fd(path_fd) };
-    // ro-bind-fd needs this descriptor to survive the exec into bubblewrap.
-    // SAFETY: F_GETFD/F_SETFD operate only on the live descriptor and scalar flags.
-    let fd_flags = unsafe { libc::fcntl(path_fd, libc::F_GETFD) };
-    if fd_flags < 0 {
-        return Err(std::io::Error::last_os_error().into());
-    }
-    // SAFETY: F_SETFD updates only descriptor flags on the live O_PATH descriptor.
-    let set_fd = unsafe { libc::fcntl(path_fd, libc::F_SETFD, fd_flags & !libc::FD_CLOEXEC) };
-    if set_fd != 0 {
-        return Err(std::io::Error::last_os_error().into());
+    // SAFETY: open returned a new owned read-only descriptor on success.
+    let data_file = unsafe { std::fs::File::from_raw_fd(data_fd) };
+    // SAFETY: F_GETFD/F_GETFL read scalar descriptor/status flags only.
+    let fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+    let status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
+    if fd_flags < 0
+        || status_flags < 0
+        || fd_flags & libc::FD_CLOEXEC != 0
+        || status_flags & libc::O_ACCMODE != libc::O_RDONLY
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Driver tool materialization descriptor is not read-only/inheritable",
+        ));
     }
     Ok(SealedTool {
         name: name.to_owned(),
         _file: file,
-        path_file,
+        data_file,
     })
 }
 
@@ -1357,20 +1361,23 @@ mod tests {
         let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
         let tool = seal_verified_tool(source, &digest, "probe").unwrap();
         let fd = tool._file.as_raw_fd();
-        let path_fd = tool.path_file.as_raw_fd();
-        // SAFETY: F_GETFD reads scalar flags from the live memfd descriptor.
-        let data_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
-        assert!(data_flags >= 0);
-        assert_ne!(data_flags & libc::FD_CLOEXEC, 0);
-        let data_metadata = tool._file.metadata().unwrap();
-        let path_metadata = tool.path_file.metadata().unwrap();
-        assert_eq!(data_metadata.dev(), path_metadata.dev());
-        assert_eq!(data_metadata.ino(), path_metadata.ino());
-        assert_eq!(path_metadata.permissions().mode() & 0o777, 0o500);
-        // SAFETY: F_GETFD reads scalar flags from the live O_PATH descriptor.
-        let path_flags = unsafe { libc::fcntl(path_fd, libc::F_GETFD) };
-        assert!(path_flags >= 0);
-        assert_eq!(path_flags & libc::FD_CLOEXEC, 0);
+        let data_fd = tool.data_file.as_raw_fd();
+        // SAFETY: F_GETFD reads scalar flags from the live sealed memfd descriptor.
+        let owner_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(owner_flags >= 0);
+        assert_ne!(owner_flags & libc::FD_CLOEXEC, 0);
+        let owner_metadata = tool._file.metadata().unwrap();
+        let data_metadata = tool.data_file.metadata().unwrap();
+        assert_eq!(owner_metadata.dev(), data_metadata.dev());
+        assert_eq!(owner_metadata.ino(), data_metadata.ino());
+        assert_eq!(data_metadata.permissions().mode() & 0o777, 0o500);
+        // SAFETY: F_GETFD/F_GETFL read scalar flags from the live read-only descriptor.
+        let data_fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+        let data_status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
+        assert!(data_fd_flags >= 0);
+        assert!(data_status_flags >= 0);
+        assert_eq!(data_fd_flags & libc::FD_CLOEXEC, 0);
+        assert_eq!(data_status_flags & libc::O_ACCMODE, libc::O_RDONLY);
         let required =
             libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
         // SAFETY: fd is a live memfd retained by tool.
