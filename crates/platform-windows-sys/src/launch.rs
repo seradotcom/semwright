@@ -961,10 +961,10 @@ impl SandboxLauncher for WindowsSandbox {
 
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
-        if !spec.mounts.is_empty() {
+        if !spec.mounts.is_empty() || !spec.sealed_tools.is_empty() {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
-                "Windows sandbox filesystem mounts remain fail-closed until AppContainer ACL grants are transactional",
+                "Windows sandbox filesystem and sealed-tool mounts remain fail-closed until AppContainer grants are transactional",
             ));
         }
         if spec.network {

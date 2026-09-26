@@ -22,7 +22,10 @@ use serde_json::{Value, json};
 #[cfg(all(test, unix))]
 use sha2::{Digest, Sha256};
 #[cfg(unix)]
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+use std::os::{
+    fd::AsRawFd,
+    unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+};
 use std::{
     collections::BTreeMap,
     io::Write,
@@ -30,6 +33,8 @@ use std::{
     sync::{Arc, RwLock as StdRwLock},
     time::Duration,
 };
+#[cfg(target_os = "linux")]
+use std::{ffi::CString, os::fd::FromRawFd};
 #[cfg(all(test, unix))]
 use tokio::process::Command;
 use tokio::sync::{Mutex, broadcast, oneshot};
@@ -40,6 +45,100 @@ impl Drop for StagedFile {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.0);
     }
+}
+
+#[cfg(unix)]
+struct SealedTool {
+    name: String,
+    // Own the immutable sealed memfd for the full provider lifetime.
+    _file: std::fs::File,
+    // Read-only descriptor inherited only by Bubblewrap so --file can
+    // materialize the verified bytes at a fixed executable path inside the
+    // private mount namespace.
+    data_file: std::fs::File,
+}
+#[cfg(unix)]
+impl SealedTool {
+    fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
+        let _sealed_owner_fd = self._file.as_raw_fd();
+        semwright_platform_api::launch::SealedToolMount {
+            fd: self.data_file.as_raw_fd(),
+            name: self.name.clone(),
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedTool> {
+    let bytes = semwright_platform_services::verify_executable(path, digest)?;
+    let label = CString::new(format!("semwright-tool-{name}"))
+        .map_err(|_| Error::invalid("Invalid tool name"))?;
+    // SAFETY: label is a live NUL-terminated CString and flags contain no pointers.
+    let fd =
+        unsafe { libc::memfd_create(label.as_ptr(), libc::MFD_ALLOW_SEALING | libc::MFD_CLOEXEC) };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: memfd_create returned a new owned descriptor on success.
+    let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    // SAFETY: fd is live and fchmod only reads scalar arguments.
+    if unsafe { libc::fchmod(fd, 0o500) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    let seals = libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
+    // SAFETY: fd is a live memfd created with MFD_ALLOW_SEALING.
+    if unsafe { libc::fcntl(fd, libc::F_ADD_SEALS, seals) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: F_GET_SEALS returns scalar seal bits for a live memfd.
+    let actual = unsafe { libc::fcntl(fd, libc::F_GET_SEALS) };
+    if actual < 0 || actual & seals != seals {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Driver tool memfd could not be sealed",
+        ));
+    }
+    let proc_path = CString::new(format!("/proc/self/fd/{fd}"))
+        .map_err(|_| Error::invalid("Invalid sealed tool descriptor path"))?;
+    // Re-open the sealed inode read-only. This descriptor deliberately omits
+    // O_CLOEXEC so Bubblewrap can consume it with --file; the original
+    // read-write memfd stays CLOEXEC and sealed.
+    // SAFETY: proc_path is a live NUL-terminated path to the sealed memfd.
+    let data_fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_RDONLY) };
+    if data_fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: open returned a new owned read-only descriptor on success.
+    let data_file = unsafe { std::fs::File::from_raw_fd(data_fd) };
+    // SAFETY: F_GETFD reads scalar descriptor flags only.
+    let fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+    // SAFETY: F_GETFL reads scalar file status flags only.
+    let status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
+    if fd_flags < 0
+        || status_flags < 0
+        || fd_flags & libc::FD_CLOEXEC != 0
+        || status_flags & libc::O_ACCMODE != libc::O_RDONLY
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Driver tool materialization descriptor is not read-only/inheritable",
+        ));
+    }
+    Ok(SealedTool {
+        name: name.to_owned(),
+        _file: file,
+        data_file,
+    })
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn seal_verified_tool(_path: &Path, _digest: &str, _name: &str) -> Result<SealedTool> {
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "Sealed Driver Host tools are not implemented on this platform",
+    ))
 }
 
 fn verify_owned_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
@@ -289,6 +388,18 @@ fn validate_owner_permissions(
         }
         validate_secret_source(&grant.path)?;
     }
+    for tool in &manifest.tools {
+        let grant = roots
+            .iter()
+            .find(|grant| grant.name == tool.root)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver tool has no owner grant"))?;
+        if !grant.read || std::fs::canonicalize(&grant.path)? != grant.path {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver tool requires canonical readable owner grant",
+            ));
+        }
+    }
     if manifest.protocol == 1
         && (manifest.interfaces.dynamic_capabilities
             || manifest.interfaces.cooperative_cancellation
@@ -487,6 +598,7 @@ fn sandbox_spec(
     helper: &Path,
     roots: &[FilesystemGrant],
     loopback_directory: Option<&Path>,
+    sealed_tools: &[SealedTool],
 ) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
@@ -574,47 +686,7 @@ fn sandbox_spec(
         mounts,
         args: vec![],
         environment,
-        network: manifest.network,
-        limits: Some(ResourceLimits {
-            open_files: manifest.resources.open_files,
-            processes: manifest.resources.processes,
-            cpu_seconds: manifest.resources.cpu_seconds,
-            address_space_bytes: manifest.resources.address_space_bytes,
-            file_size_bytes: manifest.resources.file_size_bytes,
-        }),
-    })
-}
-
-#[cfg(target_os = "windows")]
-fn sandbox_spec_windows(
-    manifest: &Manifest,
-    staged: &Path,
-    helper: &Path,
-) -> Result<semwright_platform_api::launch::SandboxSpec> {
-    use semwright_platform_api::launch::{ResourceLimits, SandboxKind, SandboxSpec};
-
-    if !manifest.mounts.is_empty()
-        || !manifest.system_config.is_empty()
-        || !manifest.secrets.is_empty()
-    {
-        return Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Windows driver filesystem grants remain fail-closed until AppContainer mount grants are implemented",
-        ));
-    }
-    if manifest.loopback_port.is_some() {
-        return Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Windows driver loopback remains fail-closed until a non-Unix bridge is implemented",
-        ));
-    }
-    Ok(SandboxSpec {
-        kind: SandboxKind::Driver,
-        staged_executable: staged.into(),
-        helper: helper.into(),
-        mounts: vec![],
-        args: vec![],
-        environment: vec![],
+        sealed_tools: sealed_tools.iter().map(SealedTool::sandbox_mount).collect(),
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
@@ -632,10 +704,60 @@ fn sandbox_command(
     staged: &Path,
     helper: &Path,
     roots: &[FilesystemGrant],
+    loopback_directory: Option<&Path>,
+    sealed_tools: &[SealedTool],
 ) -> Result<Command> {
     semwright_platform_services::sandbox_command(&sandbox_spec(
-        manifest, staged, helper, roots, None,
+        manifest,
+        staged,
+        helper,
+        roots,
+        loopback_directory,
+        sealed_tools,
     )?)
+}
+
+#[cfg(target_os = "windows")]
+fn sandbox_spec_windows(
+    manifest: &Manifest,
+    staged: &Path,
+    helper: &Path,
+) -> Result<semwright_platform_api::launch::SandboxSpec> {
+    use semwright_platform_api::launch::{ResourceLimits, SandboxKind, SandboxSpec};
+
+    if !manifest.mounts.is_empty()
+        || !manifest.system_config.is_empty()
+        || !manifest.secrets.is_empty()
+        || !manifest.tools.is_empty()
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows driver filesystem, secret and tool grants remain fail-closed until AppContainer grants are transactional",
+        ));
+    }
+    if manifest.loopback_port.is_some() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows driver loopback remains fail-closed until a non-Unix bridge is implemented",
+        ));
+    }
+    Ok(SandboxSpec {
+        kind: SandboxKind::Driver,
+        staged_executable: staged.into(),
+        helper: helper.into(),
+        mounts: vec![],
+        args: vec![],
+        environment: vec![],
+        sealed_tools: vec![],
+        network: manifest.network,
+        limits: Some(ResourceLimits {
+            open_files: manifest.resources.open_files,
+            processes: manifest.resources.processes,
+            cpu_seconds: manifest.resources.cpu_seconds,
+            address_space_bytes: manifest.resources.address_space_bytes,
+            file_size_bytes: manifest.resources.file_size_bytes,
+        }),
+    })
 }
 
 pub struct DriverProvider {
@@ -652,6 +774,8 @@ pub struct DriverProvider {
     _staged: Arc<StagedFile>,
     #[cfg(unix)]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
+    #[cfg(unix)]
+    _tools: Vec<SealedTool>,
 }
 
 impl DriverProvider {
@@ -663,233 +787,441 @@ impl DriverProvider {
         allow_network: bool,
     ) -> Result<Arc<Self>> {
         validate_owner_permissions(&manifest, roots, allow_network)?;
-        semwright_protocol::private_directory(state)?;
-        let identity = manifest.identity()?;
-        let bytes = verify_owned_executable(&manifest.executable, &manifest.sha256)?;
-        #[cfg(unix)]
-        let staged_path = state.join(format!("driver-{}", unique_id()));
-        #[cfg(target_os = "windows")]
-        let staged_path = state.join(format!("driver-{}.exe", unique_id()));
-        let staged = Arc::new(StagedFile(staged_path.clone()));
-
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        options.mode(0o600);
-        let mut file = options.open(&staged_path)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        #[cfg(unix)]
-        file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
-        drop(file);
-
         #[cfg(target_os = "windows")]
         {
-            // Re-verify the staged copy so its inherited private DACL, PE architecture,
-            // digest and Authenticode policy are all bound to the exact path we execute.
+            semwright_protocol::private_directory(state)?;
+            let identity = manifest.identity()?;
+            let bytes = verify_owned_executable(&manifest.executable, &manifest.sha256)?;
+            let staged_path = state.join(format!("driver-{}.exe", unique_id()));
+            let staged = Arc::new(StagedFile(staged_path.clone()));
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&staged_path)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            drop(file);
+
+            // Bind trust checks to the exact staged file that will execute.
             let _ = verify_owned_executable(&staged_path, &manifest.sha256)?;
-        }
+            let spec = sandbox_spec_windows(&manifest, &staged_path, helper)?;
+            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let process_id = child
+                .id()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
+            let input = child.take_stdin()?;
+            let output = child.take_stdout()?;
+            let mut io = Io { input, output };
+            let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
 
-        #[cfg(unix)]
-        let loopback = match manifest.loopback_port {
-            Some(port) => Some(loopback::start(state, port).await?),
-            None => None,
-        };
-        #[cfg(unix)]
-        let spec = sandbox_spec(
-            &manifest,
-            &staged_path,
-            helper,
-            roots,
-            loopback.as_deref().map(loopback::LoopbackProxy::directory),
-        )?;
-        #[cfg(target_os = "windows")]
-        let spec = sandbox_spec_windows(&manifest, &staged_path, helper)?;
+            let hello = request(
+                &mut io,
+                &Request::Hello {
+                    protocol: manifest.protocol,
+                    provider: identity.clone(),
+                    executable_sha256: manifest.sha256.to_ascii_lowercase(),
+                },
+                timeout,
+            )
+            .await?;
+            match hello {
+                Response::Ready {
+                    protocol,
+                    id,
+                    version,
+                } if protocol == manifest.protocol
+                    && id == manifest.id
+                    && version == manifest.version => {}
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver handshake did not attest the expected identity/version",
+                    ));
+                }
+            }
 
-        let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
-        let process_id = child
-            .id()
-            .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
-        let input = child.take_stdin()?;
-        let output = child.take_stdout()?;
-        let mut io = Io { input, output };
-        let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
-        let hello = request(
-            &mut io,
-            &Request::Hello {
-                protocol: manifest.protocol,
-                provider: identity.clone(),
-                executable_sha256: manifest.sha256.to_ascii_lowercase(),
-            },
-            timeout,
-        )
-        .await?;
-        match hello {
-            Response::Ready {
-                protocol,
-                id,
-                version,
-            } if protocol == manifest.protocol
-                && id == manifest.id
-                && version == manifest.version => {}
-            _ => {
+            if manifest.protocol >= 2 {
+                let interfaces_id = unique_id();
+                match request(
+                    &mut io,
+                    &Request::Interfaces {
+                        id: interfaces_id.clone(),
+                    },
+                    timeout,
+                )
+                .await?
+                {
+                    Response::Interfaces { id, interfaces }
+                        if id == interfaces_id && interfaces == manifest.interfaces => {}
+                    _ => {
+                        let _ = child.kill().await;
+                        return Err(Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            "Driver interface negotiation did not match the owner manifest",
+                        ));
+                    }
+                }
+            }
+
+            let id = unique_id();
+            let response =
+                request(&mut io, &Request::Capabilities { id: id.clone() }, timeout).await?;
+            let capabilities = match response {
+                Response::Capabilities {
+                    id: response_id,
+                    capabilities,
+                    digest,
+                } if response_id == id && digest == capabilities_digest(&capabilities)? => {
+                    capabilities
+                }
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver capability attestation mismatch",
+                    ));
+                }
+            };
+            if capabilities.is_empty() || capabilities.len() > 2048 {
                 let _ = child.kill().await;
-                return Err(Error::new(
-                    ErrorCode::ProtocolMismatch,
-                    "Driver handshake did not attest the expected identity/version",
+                return Err(Error::invalid(
+                    "Driver returned an invalid capability count",
                 ));
             }
-        }
+            let mut provided = Vec::with_capacity(capabilities.len());
+            let mut digests = BTreeMap::new();
+            for capability in capabilities {
+                capability.validate_for(&identity)?;
+                let digest = descriptor_digest(&capability.descriptor)?;
+                if digests
+                    .insert(capability.descriptor.name.clone(), digest)
+                    .is_some()
+                {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Driver returned duplicate capability names",
+                    ));
+                }
+                provided.push(ProvidedCapability {
+                    descriptor: capability.descriptor,
+                    aliases: capability.aliases,
+                    tags: capability.tags,
+                    object_types: capability.object_types,
+                });
+            }
 
-        if manifest.protocol >= 2 {
-            let interfaces_id = unique_id();
+            let health_id = unique_id();
             match request(
                 &mut io,
-                &Request::Interfaces {
-                    id: interfaces_id.clone(),
+                &Request::Health {
+                    id: health_id.clone(),
                 },
                 timeout,
             )
             .await?
             {
-                Response::Interfaces { id, interfaces }
-                    if id == interfaces_id && interfaces == manifest.interfaces => {}
+                Response::Healthy { id, .. } if id == health_id => {}
                 _ => {
                     let _ = child.kill().await;
                     return Err(Error::new(
                         ErrorCode::ProtocolMismatch,
-                        "Driver interface negotiation did not match the owner manifest",
+                        "Driver health handshake failed",
                     ));
                 }
             }
-        }
 
-        let id = unique_id();
-        let response = request(&mut io, &Request::Capabilities { id: id.clone() }, timeout).await?;
-        let capabilities = match response {
-            Response::Capabilities {
-                id: response_id,
-                capabilities,
-                digest,
-            } if response_id == id && digest == capabilities_digest(&capabilities)? => capabilities,
-            _ => {
-                let _ = child.kill().await;
-                return Err(Error::new(
-                    ErrorCode::ProtocolMismatch,
-                    "Driver capability attestation mismatch",
-                ));
-            }
-        };
-        if capabilities.is_empty() || capabilities.len() > 2048 {
-            let _ = child.kill().await;
-            return Err(Error::invalid(
-                "Driver returned an invalid capability count",
-            ));
-        }
-        let mut provided = Vec::with_capacity(capabilities.len());
-        let mut digests = BTreeMap::new();
-        for capability in capabilities {
-            capability.validate_for(&identity)?;
-            let digest = descriptor_digest(&capability.descriptor)?;
-            if digests
-                .insert(capability.descriptor.name.clone(), digest)
-                .is_some()
-            {
-                let _ = child.kill().await;
-                return Err(Error::new(
-                    ErrorCode::Conflict,
-                    "Driver returned duplicate capability names",
-                ));
-            }
-            provided.push(ProvidedCapability {
-                descriptor: capability.descriptor,
-                aliases: capability.aliases,
-                tags: capability.tags,
-                object_types: capability.object_types,
-            });
-        }
-
-        let health_id = unique_id();
-        match request(
-            &mut io,
-            &Request::Health {
-                id: health_id.clone(),
-            },
-            timeout,
-        )
-        .await?
-        {
-            Response::Healthy { id, .. } if id == health_id => {}
-            _ => {
-                let _ = child.kill().await;
-                return Err(Error::new(
-                    ErrorCode::ProtocolMismatch,
-                    "Driver health handshake failed",
-                ));
-            }
-        }
-
-        let closed = CancellationToken::new();
-        let terminate = CancellationToken::new();
-        let interfaces = if manifest.protocol >= 2 {
-            provider_interfaces(manifest.interfaces)
-        } else {
-            ProviderInterfaces {
-                health: manifest.interfaces.health,
-                ..Default::default()
-            }
-        };
-        let (protocol_io, signals) = if manifest.protocol >= 2 {
-            let (signals, _) = broadcast::channel(128);
-            let pending = Arc::new(Mutex::new(BTreeMap::new()));
-            let Io { input, output } = io;
-            spawn_v2_reader(
-                output,
-                pending.clone(),
-                signals.clone(),
-                manifest.interfaces,
-                closed.clone(),
-                terminate.clone(),
-            );
-            (
-                ProtocolIo::V2(V2Io {
-                    input: Mutex::new(input),
-                    pending,
-                }),
-                Some(signals),
-            )
-        } else {
-            (ProtocolIo::V1(Mutex::new(io)), None)
-        };
-        let monitor_closed = closed.clone();
-        let monitor_terminate = terminate.clone();
-        let monitor_staged = staged.clone();
-        tokio::spawn(async move {
-            tokio::select! {
-                _ = monitor_terminate.cancelled() => {
-                    let _ = child.kill().await;
+            let closed = CancellationToken::new();
+            let terminate = CancellationToken::new();
+            let interfaces = if manifest.protocol >= 2 {
+                provider_interfaces(manifest.interfaces)
+            } else {
+                ProviderInterfaces {
+                    health: manifest.interfaces.health,
+                    ..Default::default()
                 }
-                _ = child.wait() => {}
-            }
-            monitor_closed.cancel();
-            drop(monitor_staged);
-        });
+            };
+            let (protocol_io, signals) = if manifest.protocol >= 2 {
+                let (signals, _) = broadcast::channel(128);
+                let pending = Arc::new(Mutex::new(BTreeMap::new()));
+                let Io { input, output } = io;
+                spawn_v2_reader(
+                    output,
+                    pending.clone(),
+                    signals.clone(),
+                    manifest.interfaces,
+                    closed.clone(),
+                    terminate.clone(),
+                );
+                (
+                    ProtocolIo::V2(V2Io {
+                        input: Mutex::new(input),
+                        pending,
+                    }),
+                    Some(signals),
+                )
+            } else {
+                (ProtocolIo::V1(Mutex::new(io)), None)
+            };
+            let monitor_closed = closed.clone();
+            let monitor_terminate = terminate.clone();
+            let monitor_staged = staged.clone();
+            tokio::spawn(async move {
+                tokio::select! {
+                    _ = monitor_terminate.cancelled() => {
+                        let _ = child.kill().await;
+                    }
+                    _ = child.wait() => {}
+                }
+                monitor_closed.cancel();
+                drop(monitor_staged);
+            });
 
-        Ok(Arc::new(Self {
-            identity,
-            manifest,
-            capabilities: StdRwLock::new(provided),
-            descriptor_digests: StdRwLock::new(digests),
-            io: protocol_io,
-            signals,
-            interfaces,
-            closed,
-            terminate,
-            process_id,
-            _staged: staged,
-            #[cfg(unix)]
-            _loopback: loopback,
-        }))
+            Ok(Arc::new(Self {
+                identity,
+                manifest,
+                capabilities: StdRwLock::new(provided),
+                descriptor_digests: StdRwLock::new(digests),
+                io: protocol_io,
+                signals,
+                interfaces,
+                closed,
+                terminate,
+                process_id,
+                _staged: staged,
+            }))
+        }
+        #[cfg(unix)]
+        {
+            semwright_protocol::private_directory(state)?;
+            let identity = manifest.identity()?;
+            let bytes = verify_owned_executable(&manifest.executable, &manifest.sha256)?;
+            let staged_path = state.join(format!("driver-{}", unique_id()));
+            let staged = Arc::new(StagedFile(staged_path.clone()));
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&staged_path)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
+            drop(file);
+
+            let sealed_tools = manifest
+                .tools
+                .iter()
+                .map(|tool| {
+                    let grant = roots
+                        .iter()
+                        .find(|grant| grant.name == tool.root)
+                        .ok_or_else(|| {
+                            Error::new(ErrorCode::PolicyDenied, "Driver tool grant disappeared")
+                        })?;
+                    seal_verified_tool(&grant.path, &tool.sha256, &tool.name)
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let loopback = match manifest.loopback_port {
+                Some(port) => Some(loopback::start(state, port).await?),
+                None => None,
+            };
+            let spec = sandbox_spec(
+                &manifest,
+                &staged_path,
+                helper,
+                roots,
+                loopback.as_deref().map(loopback::LoopbackProxy::directory),
+                &sealed_tools,
+            )?;
+            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let process_id = child
+                .id()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
+            let input = child.take_stdin()?;
+            let output = child.take_stdout()?;
+            let mut io = Io { input, output };
+            let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
+            let hello = request(
+                &mut io,
+                &Request::Hello {
+                    protocol: manifest.protocol,
+                    provider: identity.clone(),
+                    executable_sha256: manifest.sha256.to_ascii_lowercase(),
+                },
+                timeout,
+            )
+            .await?;
+            match hello {
+                Response::Ready {
+                    protocol,
+                    id,
+                    version,
+                } if protocol == manifest.protocol
+                    && id == manifest.id
+                    && version == manifest.version => {}
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver handshake did not attest the expected identity/version",
+                    ));
+                }
+            }
+
+            if manifest.protocol >= 2 {
+                let interfaces_id = unique_id();
+                match request(
+                    &mut io,
+                    &Request::Interfaces {
+                        id: interfaces_id.clone(),
+                    },
+                    timeout,
+                )
+                .await?
+                {
+                    Response::Interfaces { id, interfaces }
+                        if id == interfaces_id && interfaces == manifest.interfaces => {}
+                    _ => {
+                        let _ = child.kill().await;
+                        return Err(Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            "Driver interface negotiation did not match the owner manifest",
+                        ));
+                    }
+                }
+            }
+
+            let id = unique_id();
+            let response =
+                request(&mut io, &Request::Capabilities { id: id.clone() }, timeout).await?;
+            let capabilities = match response {
+                Response::Capabilities {
+                    id: response_id,
+                    capabilities,
+                    digest,
+                } if response_id == id && digest == capabilities_digest(&capabilities)? => {
+                    capabilities
+                }
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver capability attestation mismatch",
+                    ));
+                }
+            };
+            if capabilities.is_empty() || capabilities.len() > 2048 {
+                let _ = child.kill().await;
+                return Err(Error::invalid(
+                    "Driver returned an invalid capability count",
+                ));
+            }
+            let mut provided = Vec::with_capacity(capabilities.len());
+            let mut digests = BTreeMap::new();
+            for capability in capabilities {
+                capability.validate_for(&identity)?;
+                let digest = descriptor_digest(&capability.descriptor)?;
+                if digests
+                    .insert(capability.descriptor.name.clone(), digest)
+                    .is_some()
+                {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Driver returned duplicate capability names",
+                    ));
+                }
+                provided.push(ProvidedCapability {
+                    descriptor: capability.descriptor,
+                    aliases: capability.aliases,
+                    tags: capability.tags,
+                    object_types: capability.object_types,
+                });
+            }
+
+            let health_id = unique_id();
+            match request(
+                &mut io,
+                &Request::Health {
+                    id: health_id.clone(),
+                },
+                timeout,
+            )
+            .await?
+            {
+                Response::Healthy { id, .. } if id == health_id => {}
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver health handshake failed",
+                    ));
+                }
+            }
+
+            let closed = CancellationToken::new();
+            let terminate = CancellationToken::new();
+            let interfaces = if manifest.protocol >= 2 {
+                provider_interfaces(manifest.interfaces)
+            } else {
+                ProviderInterfaces {
+                    health: manifest.interfaces.health,
+                    ..Default::default()
+                }
+            };
+            let (protocol_io, signals) = if manifest.protocol >= 2 {
+                let (signals, _) = broadcast::channel(128);
+                let pending = Arc::new(Mutex::new(BTreeMap::new()));
+                let Io { input, output } = io;
+                spawn_v2_reader(
+                    output,
+                    pending.clone(),
+                    signals.clone(),
+                    manifest.interfaces,
+                    closed.clone(),
+                    terminate.clone(),
+                );
+                (
+                    ProtocolIo::V2(V2Io {
+                        input: Mutex::new(input),
+                        pending,
+                    }),
+                    Some(signals),
+                )
+            } else {
+                (ProtocolIo::V1(Mutex::new(io)), None)
+            };
+            let monitor_closed = closed.clone();
+            let monitor_terminate = terminate.clone();
+            let monitor_staged = staged.clone();
+            tokio::spawn(async move {
+                tokio::select! {
+                    _ = monitor_terminate.cancelled() => {
+                        let _ = child.kill().await;
+                    }
+                    _ = child.wait() => {}
+                }
+                monitor_closed.cancel();
+                drop(monitor_staged);
+            });
+
+            Ok(Arc::new(Self {
+                identity,
+                manifest,
+                capabilities: StdRwLock::new(provided),
+                descriptor_digests: StdRwLock::new(digests),
+                io: protocol_io,
+                signals,
+                interfaces,
+                closed,
+                terminate,
+                process_id,
+                _staged: staged,
+                _loopback: loopback,
+                _tools: sealed_tools,
+            }))
+        }
     }
 
     pub fn manifest(&self) -> &Manifest {
@@ -1411,7 +1743,7 @@ pub async fn conformance(
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
     fn manifest() -> Manifest {
         Manifest {
@@ -1430,6 +1762,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             secrets: vec![],
+            tools: vec![],
             network: false,
             loopback_port: None,
             resources: semwright_driver_sdk::DriverResources::default(),
@@ -1454,6 +1787,47 @@ mod tests {
             validate_owner_permissions(&dynamic, &[], false),
             Err(error) if error.code == ErrorCode::Unsupported
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn sealed_tool_memfd_is_write_sealed() {
+        let source = Path::new("/usr/bin/true");
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let tool = seal_verified_tool(source, &digest, "probe").unwrap();
+        let fd = tool._file.as_raw_fd();
+        let data_fd = tool.data_file.as_raw_fd();
+        // SAFETY: F_GETFD reads scalar flags from the live sealed memfd descriptor.
+        let owner_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(owner_flags >= 0);
+        assert_ne!(owner_flags & libc::FD_CLOEXEC, 0);
+        let owner_metadata = tool._file.metadata().unwrap();
+        let data_metadata = tool.data_file.metadata().unwrap();
+        assert_eq!(owner_metadata.dev(), data_metadata.dev());
+        assert_eq!(owner_metadata.ino(), data_metadata.ino());
+        assert_eq!(data_metadata.permissions().mode() & 0o777, 0o500);
+        // SAFETY: F_GETFD reads scalar descriptor flags from the live read-only descriptor.
+        let data_fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+        // SAFETY: F_GETFL reads scalar file status flags from the live read-only descriptor.
+        let data_status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
+        assert!(data_fd_flags >= 0);
+        assert!(data_status_flags >= 0);
+        assert_eq!(data_fd_flags & libc::FD_CLOEXEC, 0);
+        assert_eq!(data_status_flags & libc::O_ACCMODE, libc::O_RDONLY);
+        let required =
+            libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
+        // SAFETY: fd is a live memfd retained by tool.
+        let actual = unsafe { libc::fcntl(fd, libc::F_GET_SEALS) };
+        assert_eq!(actual & required, required);
+
+        let byte = b"x";
+        // SAFETY: pwrite reads one byte from a live static buffer and targets the live memfd.
+        let written = unsafe { libc::pwrite(fd, byte.as_ptr().cast(), 1, 0) };
+        assert_eq!(written, -1);
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::EPERM)
+        );
     }
 
     #[cfg(target_os = "linux")]
@@ -1586,7 +1960,7 @@ mod tests {
         std::fs::write(&staged, b"driver").unwrap();
         std::fs::write(&helper, b"helper").unwrap();
 
-        let command = sandbox_command(&manifest(), &staged, &helper, &[]).unwrap();
+        let command = sandbox_command(&manifest(), &staged, &helper, &[], None, &[]).unwrap();
         let args: Vec<_> = command
             .as_std()
             .get_args()
@@ -1605,6 +1979,43 @@ mod tests {
         );
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn sealed_tools_are_materialized_as_private_files_not_deleted_bind_data() {
+        if !Path::new("/usr/bin/bwrap").is_file() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let staged = dir.path().join("driver");
+        let helper = dir.path().join("sandbox");
+        std::fs::write(&staged, b"driver").unwrap();
+        std::fs::write(&helper, b"helper").unwrap();
+
+        let source = Path::new("/usr/bin/true");
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let tool = seal_verified_tool(source, &digest, "probe").unwrap();
+        let command = sandbox_command(&manifest(), &staged, &helper, &[], None, &[tool]).unwrap();
+        let args = command
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(
+            args.windows(5).any(|window| {
+                window[0] == "--perms"
+                    && window[1] == "0500"
+                    && window[2] == "--file"
+                    && window[4] == "/plugin/tools/probe"
+            }),
+            "sealed tool must be copied from the sealed Host fd into the private sandbox root"
+        );
+        assert!(
+            !args.iter().any(|arg| arg == "--ro-bind-data"),
+            "deleted backing bind-data must not be used for executable sealed tools"
+        );
+    }
+
     #[test]
     fn writable_or_wrong_digest_executable_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
@@ -1612,8 +2023,8 @@ mod tests {
         let body = b"ELFfixture";
         std::fs::write(&path, body).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
-        assert!(verify_owned_executable(&path, &format!("{:x}", Sha256::digest(body))).is_err());
+        assert!(verify_owned_elf(&path, &format!("{:x}", Sha256::digest(body))).is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(verify_owned_executable(&path, &"0".repeat(64)).is_err());
+        assert!(verify_owned_elf(&path, &"0".repeat(64)).is_err());
     }
 }

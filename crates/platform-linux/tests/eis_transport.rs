@@ -621,8 +621,8 @@ async fn keycode_text_paces_large_bursts() {
     let started = Instant::now();
     client.type_text(&text).await.unwrap();
     assert!(
-        started.elapsed() >= Duration::from_millis(40),
-        "large keycode bursts must be paced to protect the compositor and target"
+        started.elapsed() >= Duration::from_millis(120),
+        "large keycode bursts must retain the sustained compositor-safe pacing budget"
     );
 
     let expected = text.len() * 4;

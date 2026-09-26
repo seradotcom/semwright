@@ -62,6 +62,15 @@ fn capabilities() -> Vec<Capability> {
         },
         Capability {
             descriptor: descriptor(
+                "driver.adversarial.tool_probe",
+                "Test-only sealed secondary executable probe",
+            ),
+            aliases: vec![],
+            tags: vec!["test".into(), "sandbox".into()],
+            object_types: vec![],
+        },
+        Capability {
+            descriptor: descriptor(
                 "driver.adversarial.cpu_burn",
                 "Test-only per-operation CPU budget probe",
             ),
@@ -171,6 +180,17 @@ impl Driver for Adversarial {
                     .map_err(|_| Error::new(ErrorCode::BackendFailed, "descendant spawn failed"))?;
                 Ok(json!({"spawned":true}))
             }
+            "driver.adversarial.tool_probe" => match Command::new("/plugin/tools/probe").status() {
+                Ok(status) => Ok(json!({
+                    "tool_executed": status.success(),
+                    "exit_code": status.code()
+                })),
+                Err(error) => Ok(json!({
+                    "tool_executed": false,
+                    "spawn_error_kind": format!("{:?}", error.kind()),
+                    "spawn_errno": error.raw_os_error()
+                })),
+            },
             "driver.adversarial.cpu_burn" => {
                 let started = Instant::now();
                 let mut accumulator = 0u64;

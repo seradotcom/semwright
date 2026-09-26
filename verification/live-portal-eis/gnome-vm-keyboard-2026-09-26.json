@@ -1,0 +1,88 @@
+{
+  "status": "PASS",
+  "certification_scope": "isolated_gnome_wayland_vm_keyboard_delivery_and_cancellation",
+  "r02_complete": false,
+  "date_utc": "2026-09-26",
+  "methodology": {
+    "authority_boundary": "independent KVM virtual machine",
+    "preflight": "PASS_PREFLIGHT_ONLY",
+    "isolation_mode": "vm",
+    "virtualization": "kvm",
+    "desktop": "GNOME",
+    "session_type": "wayland",
+    "human_portal_consent": true,
+    "owner_active_host_keyboard_targeting": false,
+    "same_login_nested_shell": false,
+    "vnc_binding": "loopback-only"
+  },
+  "environment": {
+    "guest_os": "Ubuntu 24.04.5 LTS",
+    "guest_kernel": "6.8.0-139-generic",
+    "gnome_shell": "46.0",
+    "xdg_desktop_portal": "1.18.4-1ubuntu2.24.04.3",
+    "xdg_desktop_portal_gnome": "46.2-0ubuntu1",
+    "libeis": "1.2.1-1",
+    "host_qemu": "8.2.2"
+  },
+  "source_provenance": {
+    "live_tested_baseline_commit": "132355b5a182349eb165460307cc8ed0ddcef940",
+    "candidate_fix_commit": "d46158f7b429fb13a64f22b0ed777765e898a993",
+    "live_tested_daemon_sha256": "d27a9bb8ecacb95d75e62ae3209c3ac75ccfbba425c0d6bef1d4013a596d0766",
+    "candidate_branch_daemon_sha256": "d22daff05284b35f6ccb676b516ffeb0290867d583aa9791fc1e6d9814a4c821",
+    "live_tested_eis_sha256": "e8650141764bb98904116ca785c28a5bbd09fc1ed922e82e4ba88fd32726a322",
+    "candidate_eis_sha256": "dae6b165cecdbb38868e6ccd9928b37012630196360c71783bf90d520d5bbc71",
+    "eis_semantic_equivalence": "The only file-level difference between the live-tested EIS implementation and the candidate EIS implementation is a source comment. The 4-character / 9-ms pacing logic is identical. eis.rs was unchanged between the live baseline and the candidate branch base."
+  },
+  "keyboard_delivery": {
+    "requested_characters": 4096,
+    "delivered_characters": 4096,
+    "character": "A",
+    "single_input_type_call": true,
+    "backend": "portal",
+    "input_route": "eis",
+    "broker_duration_ms": 9422,
+    "cli_duration_ms": 9440,
+    "stable_after_ms": 800,
+    "stable_length": 4096,
+    "result": "PASS"
+  },
+  "cancellation": {
+    "requested_characters": 4096,
+    "character": "A",
+    "cancel_sent_after_ms": 20.214139,
+    "cancel_result_after_ms": 33.756212,
+    "result_code": "Cancelled",
+    "delivered_before_quiescence": 4,
+    "quiescent_observation_ms": 1458.978026,
+    "followup_text": "z",
+    "followup_backend": "portal",
+    "followup_route": "eis",
+    "followup_ok": true,
+    "final_tail": "AAAAz",
+    "shift_stuck": false,
+    "result": "PASS"
+  },
+  "shutdown": {
+    "portal_stop_ok": true,
+    "consent_after_stop": "expired",
+    "eis_after_stop": "inactive",
+    "input_route_after_stop": "none",
+    "session_active_after_stop": false
+  },
+  "local_candidate_verification": {
+    "eis_transport_tests": "7/7 PASS",
+    "clippy_deny_warnings": "PASS",
+    "cargo_fmt": "PASS",
+    "verify_source": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "excluded_evidence": [
+    "owner-active direct-desktop keyboard targeting",
+    "same-login nested GNOME keyboard targeting"
+  ],
+  "limitations": [
+    "This evidence certifies the isolated GNOME Wayland VM keyboard-delivery and cancellation slice only.",
+    "It does not certify portal keyboard behavior on additional Wayland desktops.",
+    "The exact candidate-branch ELF differs from the live-tested ELF because main advanced in unrelated linked modules; the EIS implementation under test is semantically identical apart from a comment."
+  ]
+}
