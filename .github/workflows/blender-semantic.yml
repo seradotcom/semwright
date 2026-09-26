@@ -58,6 +58,10 @@ jobs:
           assert summary["missing_relation_targets"] == [], summary["missing_relation_targets"]
           assert summary["unavailable_roots"] == 0, summary["unavailable_roots"]
           assert summary["reachable_rna_types"] >= 1000, summary["reachable_rna_types"]
+          reachable=set(data["reachable_rna_types"])
+          assert not any("_OT_" in identifier for identifier in reachable), "operator classes escaped semantic boundary"
+          forbidden={"WindowManager","Window","Screen","Area","Region","Space","Operator","OperatorProperties","UILayout"}
+          assert not (reachable & forbidden), sorted(reachable & forbidden)
           PY
       - name: Bounded semantic security and adversarial refs
         run: |

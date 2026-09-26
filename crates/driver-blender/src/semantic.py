@@ -68,7 +68,7 @@ EXECUTABLE_IDENTIFIERS = {
     "code",
 }
 SENSITIVE_RELATIONS = {"driver", "drivers", "library", "script", "text"}
-RUNTIME_RELATIONS = {"id_data", "original", "override_library", "library_weak_reference"}
+RUNTIME_RELATIONS = {"id_data", "original", "override_library", "library_weak_reference", "user"}
 SENSITIVE_STRING_FRAGMENTS = {"filepath", "directory", "filename", "url", "uri", "command", "module", "script", "expression"}
 
 

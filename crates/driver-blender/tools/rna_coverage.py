@@ -100,6 +100,25 @@ for child_identifier, child in types.items():
         if base_identifier and base_identifier in types:
             subtypes.setdefault(base_identifier, set()).add(child_identifier)
 
+NON_EXPANDING_BASE_TYPES = {
+    "ID",
+    "bpy_struct",
+    "Operator",
+    "OperatorProperties",
+    "UILayout",
+    "Window",
+    "WindowManager",
+    "WorkSpace",
+    "Screen",
+    "Area",
+    "Region",
+    "Space",
+    "Context",
+    "Event",
+    "Preferences",
+    "Addon",
+}
+
 reachable_types = {}
 missing_relation_targets = set()
 pending = [identifier for identifier in sorted(root_by_type) if identifier in types]
@@ -113,9 +132,10 @@ while pending:
     rna = getattr(candidate, "bl_rna", None)
     if rna is None:
         continue
-    for subtype in sorted(subtypes.get(identifier, ())):
-        if subtype not in seen:
-            pending.append(subtype)
+    if identifier not in NON_EXPANDING_BASE_TYPES:
+        for subtype in sorted(subtypes.get(identifier, ())):
+            if subtype not in seen:
+                pending.append(subtype)
     props = {}
     relation_targets = {}
     for prop in list(rna.properties):

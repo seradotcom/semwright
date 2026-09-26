@@ -39,6 +39,8 @@ def main():
     assert semantic._property_status(Prop("label", "STRING"))[0] == "managed"
     assert semantic._property_status(Prop("filepath", "STRING"))[0] == "unsupported_by_design"
     assert semantic._property_status(Prop("driver", "POINTER"))[0] == "unsupported_by_design"
+    assert semantic._property_status(Prop("user", "POINTER"))[0] == "runtime_owned"
+    assert semantic._property_status(Prop("id_data", "POINTER"))[0] == "runtime_owned"
     assert semantic._property_status(Prop("items", "COLLECTION", readonly=True))[0] == "relation"
     assert semantic._property_status(Prop("cache", "STRING", subtype="FILE_PATH"))[0] == "unsupported_by_design"
 
