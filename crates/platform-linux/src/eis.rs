@@ -6,8 +6,13 @@ use reis::{
     enumflags2::BitFlags,
     event::{Device, DeviceCapability, EiEvent},
 };
+use rustix::event::{PollFd, PollFlags, Timespec, poll};
 use semwright_types::{Error, ErrorCode, Result};
-use std::{os::unix::net::UnixStream, sync::OnceLock, time::Instant};
+use std::{
+    os::unix::net::UnixStream,
+    sync::OnceLock,
+    time::{Duration, Instant},
+};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
@@ -73,13 +78,16 @@ impl EisClient {
                             .map_err(|e| {
                                 Error::new(ErrorCode::BackendFailed, format!("EIS handshake: {e}"))
                             })?;
-                        Ok::<_, Error>((connection, events))
+                        Ok::<_, Error>((context, connection, events))
                     }
                     .await;
                     match setup {
-                        Ok((connection, events)) => {
+                        Ok((context, connection, events)) => {
                             let _ = setup_tx.send(Ok(()));
-                            run(connection, events, rx, caps_tx, closed_tx, requested).await;
+                            run(
+                                context, connection, events, rx, caps_tx, closed_tx, requested,
+                            )
+                            .await;
                         }
                         Err(error) => {
                             let _ = setup_tx.send(Err(error));
@@ -266,13 +274,84 @@ fn find_keyboard_device(devices: &[LiveDevice]) -> Result<&LiveDevice> {
         })
 }
 
-fn frame(connection: &reis::event::Connection, device: &Device) -> Result<()> {
+const EIS_FLUSH_BACKPRESSURE_TIMEOUT: Duration = Duration::from_millis(500);
+const EIS_FLUSH_POLL_SLICE: Duration = Duration::from_millis(10);
+const EIS_KEYCODE_TEXT_BATCH_SIZE: usize = 8;
+const EIS_KEYCODE_TEXT_BATCH_INTERVAL: Duration = Duration::from_millis(8);
+
+fn frame(
+    context: &ei::Context,
+    connection: &reis::event::Connection,
+    device: &Device,
+) -> Result<()> {
     device
         .device()
         .frame(connection.serial(), monotonic_micros());
-    connection
-        .flush()
-        .map_err(|e| Error::new(ErrorCode::BackendFailed, format!("EIS flush: {e}")))
+    flush_with_backpressure(context, connection)
+}
+
+fn drain_incoming(context: &ei::Context) -> Result<()> {
+    // Nonblocking read only moves socket bytes into reis' internal buffer. The existing
+    // EiConvertEventStream remains responsible for parsing and applying those events.
+    context.read().map(|_| ()).map_err(|error| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            format!("EIS inbound drain: {error}"),
+        )
+    })
+}
+
+fn flush_with_backpressure(
+    context: &ei::Context,
+    connection: &reis::event::Connection,
+) -> Result<()> {
+    let deadline = Instant::now() + EIS_FLUSH_BACKPRESSURE_TIMEOUT;
+    loop {
+        match connection.flush() {
+            Ok(()) => return Ok(()),
+            Err(error)
+                if error == rustix::io::Errno::AGAIN || error == rustix::io::Errno::WOULDBLOCK =>
+            {
+                let now = Instant::now();
+                if now >= deadline {
+                    return Err(Error::new(
+                        ErrorCode::Timeout,
+                        "EIS flush backpressure timed out",
+                    ));
+                }
+                let wait = deadline
+                    .saturating_duration_since(now)
+                    .min(EIS_FLUSH_POLL_SLICE);
+                let timeout = Timespec {
+                    tv_sec: wait.as_secs().try_into().unwrap_or(i64::MAX),
+                    tv_nsec: i64::from(wait.subsec_nanos()),
+                };
+                let mut fds = [PollFd::new(context, PollFlags::OUT)];
+                let ready = poll(&mut fds, Some(&timeout)).map_err(|poll_error| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        format!("EIS writable poll: {poll_error}"),
+                    )
+                })?;
+                if ready == 0 {
+                    continue;
+                }
+                let revents = fds[0].revents();
+                if revents.intersects(PollFlags::ERR | PollFlags::HUP | PollFlags::NVAL) {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        format!("EIS writable poll failed: {revents:?}"),
+                    ));
+                }
+            }
+            Err(error) => {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    format!("EIS flush: {error}"),
+                ));
+            }
+        }
+    }
 }
 
 fn set_resumed(devices: &mut [LiveDevice], device: &Device, resumed: bool) {
@@ -312,6 +391,7 @@ fn bind_requested(seat: &reis::event::Seat, requested: Requested) {
 }
 
 async fn run(
+    context: ei::Context,
     connection: reis::event::Connection,
     mut events: reis::tokio::EiConvertEventStream,
     mut commands: mpsc::Receiver<Command>,
@@ -364,7 +444,7 @@ async fn run(
             }
             command = commands.recv() => {
                 let Some(command) = command else { break };
-                if handle_command(&connection, &devices, command) {
+                if handle_command(&context, &connection, &devices, command) {
                     break;
                 }
             }
@@ -376,25 +456,32 @@ async fn run(
 }
 
 fn handle_command(
+    context: &ei::Context,
     connection: &reis::event::Connection,
     devices: &[LiveDevice],
     command: Command,
 ) -> bool {
     match command {
         Command::KeySym(keysym, reply) => {
-            let _ = reply.send(send_keysym(connection, devices, keysym));
+            let _ = reply.send(send_keysym(context, connection, devices, keysym));
         }
         Command::Text(text, cancellation, reply) => {
-            let _ = reply.send(send_text(connection, devices, &text, &cancellation));
+            let _ = reply.send(send_text(
+                context,
+                connection,
+                devices,
+                &text,
+                &cancellation,
+            ));
         }
         Command::Motion(dx, dy, reply) => {
-            let _ = reply.send(send_motion(connection, devices, dx, dy));
+            let _ = reply.send(send_motion(context, connection, devices, dx, dy));
         }
         Command::Button(button, reply) => {
-            let _ = reply.send(send_button(connection, devices, button));
+            let _ = reply.send(send_button(context, connection, devices, button));
         }
         Command::Scroll(dx, dy, reply) => {
-            let _ = reply.send(send_scroll(connection, devices, dx, dy));
+            let _ = reply.send(send_scroll(context, connection, devices, dx, dy));
         }
         Command::Stop(reply) => {
             let _ = reply.send(Ok(()));
@@ -405,6 +492,7 @@ fn handle_command(
 }
 
 fn send_keysym(
+    context: &ei::Context,
     connection: &reis::event::Connection,
     devices: &[LiveDevice],
     keysym: u32,
@@ -414,9 +502,9 @@ fn send_keysym(
             .interface::<ei::Text>()
             .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
         text.keysym(keysym, ei::keyboard::KeyState::Press);
-        frame(connection, device)?;
+        frame(context, connection, device)?;
         text.keysym(keysym, ei::keyboard::KeyState::Released);
-        return frame(connection, device);
+        return frame(context, connection, device);
     }
     let live = find_keyboard_device(devices)?;
     let keymap = KeyboardMap::from_device(&live.device)?.ok_or_else(|| {
@@ -426,10 +514,11 @@ fn send_keysym(
         )
     })?;
     let stroke = keymap.stroke_for_keysym(keysym, live.modifiers)?;
-    send_keyboard_stroke(connection, &live.device, &stroke)
+    send_keyboard_stroke(context, connection, &live.device, &stroke)
 }
 
 fn send_text(
+    context: &ei::Context,
     connection: &reis::event::Connection,
     devices: &[LiveDevice],
     text_value: &str,
@@ -442,7 +531,7 @@ fn send_text(
         for chunk in utf8_chunks(text_value, 254)? {
             check_input_cancelled(cancellation)?;
             text.utf8(chunk);
-            frame(connection, device)?;
+            frame(context, connection, device)?;
         }
         return Ok(());
     }
@@ -453,11 +542,23 @@ fn send_text(
             "EIS keyboard has no XKB keymap for text translation",
         )
     })?;
-    for character in text_value.chars() {
+    let mut batch_started = Instant::now();
+    for (index, character) in text_value.chars().enumerate() {
         check_input_cancelled(cancellation)?;
         let stroke = keymap.stroke_for_char(character, live.modifiers)?;
-        send_keyboard_stroke(connection, &live.device, &stroke)?;
+        send_keyboard_stroke(context, connection, &live.device, &stroke)?;
+        if (index + 1) % EIS_KEYCODE_TEXT_BATCH_SIZE == 0 {
+            check_input_cancelled(cancellation)?;
+            drain_incoming(context)?;
+            let elapsed = batch_started.elapsed();
+            if elapsed < EIS_KEYCODE_TEXT_BATCH_INTERVAL {
+                std::thread::sleep(EIS_KEYCODE_TEXT_BATCH_INTERVAL - elapsed);
+            }
+            check_input_cancelled(cancellation)?;
+            batch_started = Instant::now();
+        }
     }
+    drain_incoming(context)?;
     Ok(())
 }
 
@@ -473,6 +574,7 @@ fn check_input_cancelled(cancellation: &CancellationToken) -> Result<()> {
 }
 
 fn send_keyboard_stroke(
+    context: &ei::Context,
     connection: &reis::event::Connection,
     device: &Device,
     stroke: &Stroke,
@@ -482,15 +584,15 @@ fn send_keyboard_stroke(
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS keyboard interface disappeared"))?;
     for modifier in &stroke.modifiers {
         keyboard.key(*modifier, ei::keyboard::KeyState::Press);
-        frame(connection, device)?;
+        frame(context, connection, device)?;
     }
     keyboard.key(stroke.keycode, ei::keyboard::KeyState::Press);
-    frame(connection, device)?;
+    frame(context, connection, device)?;
     keyboard.key(stroke.keycode, ei::keyboard::KeyState::Released);
-    frame(connection, device)?;
+    frame(context, connection, device)?;
     for modifier in stroke.modifiers.iter().rev() {
         keyboard.key(*modifier, ei::keyboard::KeyState::Released);
-        frame(connection, device)?;
+        frame(context, connection, device)?;
     }
     Ok(())
 }
@@ -521,6 +623,7 @@ fn utf8_chunks(value: &str, limit: usize) -> Result<Vec<&str>> {
 }
 
 fn send_motion(
+    context: &ei::Context,
     connection: &reis::event::Connection,
     devices: &[LiveDevice],
     dx: f32,
@@ -531,9 +634,10 @@ fn send_motion(
         .interface::<ei::Pointer>()
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS pointer interface disappeared"))?;
     pointer.motion_relative(dx, dy);
-    frame(connection, device)
+    frame(context, connection, device)
 }
 fn send_button(
+    context: &ei::Context,
     connection: &reis::event::Connection,
     devices: &[LiveDevice],
     button: u32,
@@ -543,12 +647,13 @@ fn send_button(
         .interface::<ei::Button>()
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS button interface disappeared"))?;
     interface.button(button, ei::button::ButtonState::Press);
-    frame(connection, device)?;
+    frame(context, connection, device)?;
     interface.button(button, ei::button::ButtonState::Released);
-    frame(connection, device)
+    frame(context, connection, device)
 }
 
 fn send_scroll(
+    context: &ei::Context,
     connection: &reis::event::Connection,
     devices: &[LiveDevice],
     dx: f32,
@@ -559,9 +664,9 @@ fn send_scroll(
         .interface::<ei::Scroll>()
         .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS scroll interface disappeared"))?;
     scroll.scroll(dx, dy);
-    frame(connection, device)?;
+    frame(context, connection, device)?;
     scroll.scroll_stop(u32::from(dx != 0.0), u32::from(dy != 0.0), 0);
-    frame(connection, device)
+    frame(context, connection, device)
 }
 
 #[cfg(test)]
