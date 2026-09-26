@@ -735,7 +735,7 @@ class SemanticStore:
             "images": {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".exr", ".hdr"},
             "sounds": {".wav", ".flac", ".ogg", ".mp3"},
             "fonts": {".ttf", ".otf"},
-            "movieclips": {".mp4", ".mov", ".avi", ".mkv", ".webm"},
+            "movieclips": {".mp4", ".mov", ".avi", ".mkv", ".webm", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".exr"},
             "volumes": {".vdb"},
             "cache_files": {".abc"},
         }
@@ -1637,12 +1637,24 @@ class SemanticStore:
         if keyframe_type not in {"KEYFRAME", "BREAKDOWN", "MOVING_HOLD", "EXTREME", "JITTER", "GENERATED"}:
             raise SemanticError("InvalidArgument", "F-Curve keyframe type is invalid")
         try:
-            point = curve.keyframe_points.insert(
-                float(frame),
-                float(value),
-                options={"REPLACE"},
-                keyframe_type=keyframe_type,
+            target_frame = float(frame)
+            point = next(
+                (
+                    candidate
+                    for candidate in curve.keyframe_points
+                    if abs(float(candidate.co[0]) - target_frame) <= 1e-6
+                ),
+                None,
             )
+            if point is None:
+                point = curve.keyframe_points.insert(
+                    target_frame,
+                    float(value),
+                    keyframe_type=keyframe_type,
+                )
+            else:
+                point.co[1] = float(value)
+                point.type = keyframe_type
             index = list(curve.keyframe_points).index(point)
             curve.update()
         except Exception as error:
@@ -2185,6 +2197,127 @@ class SemanticStore:
         self.changed()
         return {
             "spline_ref": self._ref(root, mask_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def _require_tracking(self, reference):
+        root, name, path, tracking = self._resolve(reference)
+        if _text(getattr(getattr(tracking, "bl_rna", None), "identifier", ""), 256) != "MovieTracking":
+            raise SemanticError("InvalidArgument", "Operation requires a MovieTracking RNA ref")
+        return root, name, path, tracking
+
+    def tracking_object_add(self, tracking_ref, name):
+        root, clip_name, path, tracking = self._require_tracking(tracking_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Tracking object name is invalid")
+        if tracking.objects.get(name) is not None:
+            raise SemanticError("Conflict", "Tracking object name already exists")
+        try:
+            obj = tracking.objects.new(name)
+            if obj.name != name:
+                tracking.objects.remove(obj)
+                raise SemanticError("Conflict", "Blender rewrote the requested tracking object name")
+            index = list(tracking.objects).index(obj)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected tracking object creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, clip_name, path + [["c", "objects", index]]),
+            "name": obj.name,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def tracking_object_remove(self, object_ref):
+        root, clip_name, parent_path, tracking, obj = self._collection_parent(object_ref, "objects")
+        if _text(getattr(getattr(tracking, "bl_rna", None), "identifier", ""), 256) != "MovieTracking":
+            raise SemanticError("InvalidArgument", "Tracking object parent is not MovieTracking")
+        try:
+            tracking.objects.remove(obj)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected tracking object removal") from error
+        self.changed()
+        return {
+            "tracking_ref": self._ref(root, clip_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def tracking_track_add(self, object_ref, name, frame=1, co=None):
+        root, clip_name, path, obj = self._resolve(object_ref)
+        if _text(getattr(getattr(obj, "bl_rna", None), "identifier", ""), 256) != "MovieTrackingObject":
+            raise SemanticError("InvalidArgument", "Operation requires a MovieTrackingObject ref")
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Tracking track name is invalid")
+        if isinstance(frame, bool) or not isinstance(frame, int) or not 0 <= frame <= 1_048_574:
+            raise SemanticError("InvalidArgument", "Tracking frame is outside Blender bounds")
+        if co is None:
+            co = [0.0, 0.0]
+        if not isinstance(co, list) or len(co) != 2 or any(not _finite(v) or not -1.0 <= float(v) <= 1.0 for v in co):
+            raise SemanticError("InvalidArgument", "Tracking coordinates must be two normalized finite values")
+        if obj.tracks.get(name) is not None:
+            raise SemanticError("Conflict", "Tracking track name already exists")
+        try:
+            track = obj.tracks.new(name=name, frame=frame)
+            marker = track.markers.find_frame(frame, exact=True)
+            if marker is None:
+                raise SemanticError("BackendFailed", "Blender did not create the initial tracking marker")
+            marker.co = [float(co[0]), float(co[1])]
+            index = list(obj.tracks).index(track)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected tracking track creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, clip_name, path + [["c", "tracks", index]]),
+            "name": track.name,
+            "frame": frame,
+            "co": [float(marker.co[0]), float(marker.co[1])],
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def tracking_marker_add(self, track_ref, frame, co):
+        root, clip_name, path, track = self._resolve(track_ref)
+        if _text(getattr(getattr(track, "bl_rna", None), "identifier", ""), 256) != "MovieTrackingTrack":
+            raise SemanticError("InvalidArgument", "Operation requires a MovieTrackingTrack ref")
+        if isinstance(frame, bool) or not isinstance(frame, int) or not 0 <= frame <= 1_048_574:
+            raise SemanticError("InvalidArgument", "Tracking marker frame is outside Blender bounds")
+        if not isinstance(co, list) or len(co) != 2 or any(not _finite(v) or not -1.0 <= float(v) <= 1.0 for v in co):
+            raise SemanticError("InvalidArgument", "Tracking marker coordinates must be normalized finite values")
+        if track.markers.find_frame(frame, exact=True) is not None:
+            raise SemanticError("Conflict", "Tracking marker already exists at this frame")
+        try:
+            marker = track.markers.insert_frame(frame, co=[float(co[0]), float(co[1])])
+            index = list(track.markers).index(marker)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected tracking marker insertion") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, clip_name, path + [["c", "markers", index]]),
+            "frame": int(marker.frame),
+            "co": [float(marker.co[0]), float(marker.co[1])],
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def tracking_marker_remove(self, marker_ref):
+        root, clip_name, parent_path, track, marker = self._collection_parent(marker_ref, "markers")
+        if _text(getattr(getattr(track, "bl_rna", None), "identifier", ""), 256) != "MovieTrackingTrack":
+            raise SemanticError("InvalidArgument", "Tracking marker parent is not a MovieTrackingTrack")
+        frame = int(marker.frame)
+        try:
+            track.markers.delete_frame(frame)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected tracking marker deletion") from error
+        self.changed()
+        return {
+            "track_ref": self._ref(root, clip_name, parent_path),
+            "frame": frame,
             "changed": True,
             "generation": self.generation,
         }

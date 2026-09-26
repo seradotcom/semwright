@@ -2505,6 +2505,134 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
 
+    let clip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.asset.load",
+        json!({"root":"movieclips","path":"preview.png","name":"SemwrightPreviewClip"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(clip["root"], "movieclips");
+    let clip_ref = clip["ref"].as_str().unwrap().to_owned();
+    let tracking = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":clip_ref,"property":"tracking","limit":8}),
+    )
+    .await
+    .unwrap();
+    let tracking_ref = tracking["items"][0]["ref"].as_str().unwrap().to_owned();
+    let tracking_object = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.tracking.object.add",
+        json!({"tracking_ref":tracking_ref,"name":"SemwrightTrackingObject"}),
+    )
+    .await
+    .unwrap();
+    let tracking_object_ref = tracking_object["ref"].as_str().unwrap().to_owned();
+    let track = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.tracking.track.add",
+        json!({"object_ref":tracking_object_ref,"name":"SemwrightTrack","frame":1,"co":[0.25,0.5]}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(track["frame"], 1);
+    let track_ref = track["ref"].as_str().unwrap().to_owned();
+    let marker = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.tracking.marker.add",
+        json!({"track_ref":track_ref,"frame":2,"co":[0.3,0.55]}),
+    )
+    .await
+    .unwrap();
+    let marker_ref = marker["ref"].as_str().unwrap().to_owned();
+    let marker_position = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.get",
+        json!({"ref":marker_ref,"property":"co"}),
+    )
+    .await
+    .unwrap();
+    let marker_co = marker_position["value"].as_array().unwrap();
+    assert!((marker_co[0].as_f64().unwrap() - 0.3).abs() < 1e-5);
+    assert!((marker_co[1].as_f64().unwrap() - 0.55).abs() < 1e-5);
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.tracking.marker.remove",
+        json!({"ref":marker_ref}),
+    )
+    .await
+    .unwrap();
+
+    let clips = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"movieclips","query":"SemwrightPreviewClip","limit":8}),
+    )
+    .await
+    .unwrap();
+    let clip_ref = clips["items"][0]["ref"].as_str().unwrap().to_owned();
+    let tracking = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":clip_ref,"property":"tracking","limit":8}),
+    )
+    .await
+    .unwrap();
+    let tracking_ref = tracking["items"][0]["ref"].as_str().unwrap().to_owned();
+    let tracking_objects = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":tracking_ref,"property":"objects","limit":16}),
+    )
+    .await
+    .unwrap();
+    let tracking_object_ref = tracking_objects["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "SemwrightTrackingObject")
+        .unwrap()["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.tracking.object.remove",
+        json!({"ref":tracking_object_ref}),
+    )
+    .await
+    .unwrap();
+    let clips = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"movieclips","query":"SemwrightPreviewClip","limit":8}),
+    )
+    .await
+    .unwrap();
+    let clip_ref = clips["items"][0]["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":clip_ref}),
+    )
+    .await
+    .unwrap();
+
     call(
         provider.as_ref(),
         &capabilities,

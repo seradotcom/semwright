@@ -686,6 +686,26 @@ def dispatch(command, args):
         if set(args) != {"ref"}:
             raise CommandError("InvalidArgument", "Mask point remove requires ref")
         return semantic.mask_point_remove(args["ref"])
+    if command == "driver.blender.tracking.object.add":
+        if set(args) != {"tracking_ref", "name"}:
+            raise CommandError("InvalidArgument", "Tracking object add requires tracking_ref and name")
+        return semantic.tracking_object_add(args["tracking_ref"], args["name"])
+    if command == "driver.blender.tracking.object.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Tracking object remove requires ref")
+        return semantic.tracking_object_remove(args["ref"])
+    if command == "driver.blender.tracking.track.add":
+        if not set(args).issubset({"object_ref", "name", "frame", "co"}) or not {"object_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "Tracking track add requires object_ref and name")
+        return semantic.tracking_track_add(args["object_ref"], args["name"], args.get("frame", 1), args.get("co"))
+    if command == "driver.blender.tracking.marker.add":
+        if set(args) != {"track_ref", "frame", "co"}:
+            raise CommandError("InvalidArgument", "Tracking marker add requires track_ref, frame and co")
+        return semantic.tracking_marker_add(args["track_ref"], args["frame"], args["co"])
+    if command == "driver.blender.tracking.marker.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Tracking marker remove requires ref")
+        return semantic.tracking_marker_remove(args["ref"])
     if command == "driver.blender.modifier.add":
         if set(args) != {"object_ref", "name", "type"}:
             raise CommandError("InvalidArgument", "Modifier add requires object_ref, name and type")
