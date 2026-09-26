@@ -26,6 +26,8 @@ type HmacSha256 = Hmac<Sha256>;
 const DEFAULT_PORT: u16 = 38_471;
 const MAX_PENDING: usize = 128;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(25);
+const RECONNECT_GRACE: Duration = Duration::from_secs(2);
+const RECONNECT_POLL: Duration = Duration::from_millis(25);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 const HEARTBEAT_DEADLINE: Duration = Duration::from_secs(35);
 
@@ -292,26 +294,37 @@ impl BridgeHub {
         if operation.len() > 128 || !args.is_object() {
             return Err(BridgeError::Protocol);
         }
-        let (chosen_id, generation, revision, tx, pending) = {
-            let state = self.state.read().await;
-            let session = match session_id {
-                Some(id) => state.sessions.get(id).ok_or(BridgeError::Unavailable)?,
-                None if state.sessions.len() == 1 => {
-                    state.sessions.values().next().expect("len checked")
-                }
-                None => return Err(BridgeError::Unavailable),
+        let reconnect_deadline = Instant::now() + RECONNECT_GRACE;
+        let (chosen_id, generation, revision, tx, pending) = loop {
+            let selected = {
+                let state = self.state.read().await;
+                let session = match session_id {
+                    Some(id) => state.sessions.get(id),
+                    None if state.sessions.len() == 1 => state.sessions.values().next(),
+                    None if state.sessions.len() > 1 => return Err(BridgeError::Unavailable),
+                    None => None,
+                };
+                session.map(|session| {
+                    (
+                        session.info.session_id.clone(),
+                        session.info.generation,
+                        session.info.revision,
+                        session.outbound.clone(),
+                        Arc::clone(&session.pending),
+                    )
+                })
             };
-            if expected_revision.is_some_and(|rev| rev != session.info.revision) {
-                return Err(BridgeError::Stale);
+            if let Some(selected) = selected {
+                break selected;
             }
-            (
-                session.info.session_id.clone(),
-                session.info.generation,
-                session.info.revision,
-                session.outbound.clone(),
-                Arc::clone(&session.pending),
-            )
+            if Instant::now() >= reconnect_deadline {
+                return Err(BridgeError::Unavailable);
+            }
+            tokio::time::sleep(RECONNECT_POLL).await;
         };
+        if expected_revision.is_some_and(|rev| rev != revision) {
+            return Err(BridgeError::Stale);
+        }
 
         let id = request_id();
         let (reply_tx, reply_rx) = oneshot::channel();
@@ -935,6 +948,62 @@ mod tests {
             _ => {}
         }
         assert!(hub.sessions().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn request_waits_through_short_reconnect_gap() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+
+        let (result, mut ws) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(3),
+                    hub.execute(
+                        Some("late"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"after-gap"}),
+                    ),
+                )
+                .await
+                .expect("request exceeded reconnect grace")
+            },
+            async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let mut ws = authenticate(&hub, "late", 1).await;
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 1,
+                        ok: true,
+                        value: Some(serde_json::json!({"gap_hidden":true})),
+                        error: None,
+                    },
+                )
+                .await;
+                ws
+            }
+        );
+
+        assert_eq!(
+            result.expect("execute through reconnect gap"),
+            serde_json::json!({"gap_hidden":true})
+        );
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
     }
 
     #[tokio::test]
