@@ -14,6 +14,43 @@ fn ensure(condition: bool, message: &str) -> Result<()> {
 fn number(value: f64, min: f64, max: f64) -> bool {
     value.is_finite() && (min..=max).contains(&value)
 }
+fn percent(value: &str, max: f64) -> bool {
+    value
+        .strip_suffix('%')
+        .and_then(|v| v.parse::<f64>().ok())
+        .is_some_and(|v| number(v, 0.0, max))
+}
+fn length(value: &LengthValue, max_number: f64) -> bool {
+    match value {
+        LengthValue::Number(v) => number(*v, 0.0, max_number),
+        LengthValue::Percent(v) => percent(v, 10000.0),
+    }
+}
+fn gap(value: &GapValue) -> bool {
+    match value {
+        GapValue::Single(v) => length(v, 4096.0),
+        GapValue::Pair(v) => v.iter().all(|x| length(x, 4096.0)),
+    }
+}
+fn basis(value: &FlexBasisValue) -> bool {
+    match value {
+        FlexBasisValue::Number(v) => number(*v, 0.0, 16384.0),
+        FlexBasisValue::Text(v) => {
+            matches!(
+                v.as_str(),
+                "content" | "max-content" | "min-content" | "fit-content"
+            ) || percent(v, 10000.0)
+        }
+    }
+}
+fn radius(value: &RadiusValue, rect: bool) -> bool {
+    match value {
+        RadiusValue::Number(v) => number(*v, 0.0, 8192.0),
+        RadiusValue::Two(v) => rect && v.iter().all(|x| number(*x, 0.0, 8192.0)),
+        RadiusValue::Three(v) => rect && v.iter().all(|x| number(*x, 0.0, 8192.0)),
+        RadiusValue::Four(v) => rect && v.iter().all(|x| number(*x, 0.0, 8192.0)),
+    }
+}
 fn unique<'a>(ids: impl Iterator<Item = &'a str>, max: usize) -> Result<()> {
     let mut seen = BTreeSet::new();
     for id in ids {
@@ -116,19 +153,43 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
     for (key, value) in &p.semantic {
         semantic::validate_value(node.kind, key, value, theme)?;
     }
+    ensure(
+        !(p.fill.is_some() && p.semantic.contains_key("fill_gradient")),
+        "Fill color and gradient are mutually exclusive",
+    )?;
+    ensure(
+        !(p.stroke.is_some() && p.semantic.contains_key("stroke_gradient")),
+        "Stroke color and gradient are mutually exclusive",
+    )?;
+    ensure(
+        !(p.line_height.is_some() && p.semantic.contains_key("line_height_value")),
+        "Legacy line-height multiplier and exact line-height value are mutually exclusive",
+    )?;
     for v in p.position.iter().flatten() {
         ensure(number(*v, -32768.0, 32768.0), "Position exceeds bounds")?;
     }
     for v in p.scale.iter().flatten() {
         ensure(number(*v, 0.001, 100.0), "Scale exceeds bounds")?;
     }
+    if let Some(v) = &p.width {
+        ensure(length(v, 16384.0), "Width exceeds bounds")?;
+    }
+    if let Some(v) = &p.height {
+        ensure(length(v, 16384.0), "Height exceeds bounds")?;
+    }
+    if let Some(v) = &p.radius {
+        ensure(
+            radius(v, node.kind == NodeKind::Rect),
+            "Radius exceeds bounds",
+        )?;
+    }
+    if let Some(TextWrapValue::Keyword(v)) = &p.wrap {
+        ensure(v == "pre", "Invalid text wrap mode")?;
+    }
     for (v, min, max) in [
         (p.rotation, -36000.0, 36000.0),
         (p.opacity, 0.0, 1.0),
-        (p.width, 0.0, 16384.0),
-        (p.height, 0.0, 16384.0),
         (p.stroke_width, 0.0, 64.0),
-        (p.radius, 0.0, 8192.0),
         (p.font_size, 4.0, 512.0),
         (p.line_height, 0.1, 10.0),
         (p.letter_spacing, -100.0, 200.0),
@@ -161,7 +222,22 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
         security::validate_svg(v)?;
     }
     if let Some(v) = &p.latex {
-        security::validate_latex(v)?;
+        match v {
+            LatexValue::Text(value) => security::validate_latex(value)?,
+            LatexValue::Parts(parts) => {
+                ensure(
+                    (1..=128).contains(&parts.len()),
+                    "LaTeX parts exceed bounds",
+                )?;
+                let total = parts.iter().try_fold(0usize, |total, value| {
+                    security::validate_latex(value)?;
+                    total
+                        .checked_add(value.len())
+                        .ok_or_else(|| Error::invalid("LaTeX size overflow"))
+                })?;
+                ensure(total <= 8192, "LaTeX exceeds bounds")?;
+            }
+        }
     }
     if let Some(v) = p.media_offset_ms {
         ensure(v <= MAX_PROJECT_MS, "Media offset exceeds bounds")?;
@@ -198,10 +274,10 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
     }
     if let Some(l) = &p.layout {
         ensure(
-            number(l.gap, 0.0, 4096.0)
+            gap(&l.gap)
                 && number(l.grow, 0.0, 100.0)
                 && l.padding.iter().all(|v| number(*v, 0.0, 4096.0))
-                && l.basis.is_none_or(|v| number(v, 0.0, 16384.0)),
+                && l.basis.as_ref().is_none_or(basis),
             "Layout exceeds bounds",
         )?;
     }
@@ -229,6 +305,31 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
                     u64::from(*start) + u64::from(*length) <= text.chars().count() as u64,
                     "Code word selection is out of range",
                 )?;
+            }
+            CodeSelection::Ranges { ranges } => {
+                ensure(
+                    (1..=128).contains(&ranges.len()),
+                    "Code range selection exceeds bounds",
+                )?;
+                for [start, end] in ranges {
+                    let [sl, sc] = *start;
+                    let [el, ec] = *end;
+                    let Some(start_line) = lines.get(sl as usize) else {
+                        return Err(Error::invalid("Code range start is out of range"));
+                    };
+                    let Some(end_line) = lines.get(el as usize) else {
+                        return Err(Error::invalid("Code range end is out of range"));
+                    };
+                    ensure((sl, sc) <= (el, ec), "Code range is reversed")?;
+                    ensure(
+                        sc as usize <= start_line.chars().count(),
+                        "Code range start column is out of range",
+                    )?;
+                    ensure(
+                        ec as usize <= end_line.chars().count(),
+                        "Code range end column is out of range",
+                    )?;
+                }
             }
         }
     }
@@ -438,6 +539,7 @@ pub fn project_valid(project: &Project) -> Result<()> {
             SemanticValue::NumberList(v) => {
                 v.len() <= 512 && v.iter().all(|x| number(*x, -32768.0, 32768.0))
             }
+            SemanticValue::Gradient(_) => false,
         };
         ensure(valid, "Invalid project variable value")?;
     }

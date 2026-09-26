@@ -13,5 +13,8 @@ fuzz_target!(|data: &[u8]| {
         let _ = semwright_driver_motion_canvas::semantic::emitted_value(
             kind, &name, &value, &theme,
         );
+        let _ = semwright_driver_motion_canvas::semantic::emitted_expression(
+            kind, &name, &value, &theme,
+        );
     }
 });

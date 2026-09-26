@@ -52,9 +52,9 @@ These operations cover project variables, layouts, text, shapes, curves, diagram
 
 ## Semantic substrate
 
-The managed 3.17.2 substrate currently exposes 20 concrete node kinds: group, layout, rect, circle, line, text, code, svg, image, video, latex, camera, grid, polygon, path, cubic_bezier, quad_bezier, spline, knot and ray. `properties.semantic` carries only registry-approved bounded values; inherited Node/Layout/Shape/Curve properties retain their exact upstream names in the descriptor. Filters use a finite typed enum and compile through Motion Canvas filter helpers. `AnimatedProperty::Semantic(name)` is accepted only when the registry marks that semantic property safely animatable.
+The managed 3.17.2 substrate currently exposes 20 concrete node kinds: group, layout, rect, circle, line, text, code, svg, image, video, latex, camera, grid, polygon, path, cubic_bezier, quad_bezier, spline, knot and ray. `properties.semantic` carries only registry-approved bounded values; inherited Node/Layout/Shape/Curve properties retain their upstream mapping in the descriptor. The value codec preserves canonical meaning for numeric/percentage lengths, flex-basis/content keywords, tri-state layout inheritance, reverse flex directions, baseline/space-evenly alignment, `textWrap="pre"`, corner-spacing radius, filters, arbitrary bounded CodeRanges, segmented LaTeX and declarative Gradients. Pattern/CanvasImageSource, active SVG, unrestricted TeX, shader source and dynamic CodeTag/SignalValue objects remain explicit trust-boundary exclusions. `AnimatedProperty::Semantic(name)` is accepted only when the registry marks that canonical value safely interpolatable.
 
-`API_COVERAGE.json` and `CORE_API_COVERAGE.json` are executable coverage contracts. See `SEMANTIC_COMPLETENESS.md` for the exact boundary and exclusions.
+`API_COVERAGE.json`, `CORE_API_COVERAGE.json` and `AUX_API_COVERAGE.json` are executable coverage contracts. `mixed` union properties must classify each managed/represented/excluded arm independently. See `SEMANTIC_COMPLETENESS.md` for the exact boundary and exclusions.
 
 ## External projects
 

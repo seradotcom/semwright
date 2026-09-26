@@ -204,6 +204,114 @@ pub struct FilterSpec {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(untagged)]
+pub enum LengthValue {
+    Number(f64),
+    Percent(String),
+}
+impl From<f64> for LengthValue {
+    fn from(value: f64) -> Self {
+        Self::Number(value)
+    }
+}
+impl LengthValue {
+    pub fn pixels(&self) -> Option<f64> {
+        if let Self::Number(v) = self {
+            Some(*v)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
+pub enum GapValue {
+    Single(LengthValue),
+    Pair([LengthValue; 2]),
+}
+impl Default for GapValue {
+    fn default() -> Self {
+        Self::Single(0.0.into())
+    }
+}
+impl From<f64> for GapValue {
+    fn from(value: f64) -> Self {
+        Self::Single(value.into())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
+pub enum FlexBasisValue {
+    Number(f64),
+    Text(String),
+}
+impl From<f64> for FlexBasisValue {
+    fn from(value: f64) -> Self {
+        Self::Number(value)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
+pub enum RadiusValue {
+    Number(f64),
+    Two([f64; 2]),
+    Three([f64; 3]),
+    Four([f64; 4]),
+}
+impl From<f64> for RadiusValue {
+    fn from(value: f64) -> Self {
+        Self::Number(value)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
+pub enum TextWrapValue {
+    Bool(bool),
+    Keyword(String),
+}
+impl From<bool> for TextWrapValue {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GradientKind {
+    #[default]
+    Linear,
+    Conic,
+    Radial,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct GradientStopSpec {
+    pub offset: f64,
+    pub color: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct GradientSpec {
+    #[serde(default)]
+    pub kind: GradientKind,
+    #[serde(default)]
+    pub from: [f64; 2],
+    #[serde(default)]
+    pub to: [f64; 2],
+    #[serde(default)]
+    pub angle: f64,
+    #[serde(default)]
+    pub from_radius: f64,
+    #[serde(default)]
+    pub to_radius: f64,
+    pub stops: Vec<GradientStopSpec>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
 pub enum SemanticValue {
     Bool(bool),
     Number(f64),
@@ -211,6 +319,7 @@ pub enum SemanticValue {
     Vec2([f64; 2]),
     Spacing([f64; 4]),
     NumberList(Vec<f64>),
+    Gradient(GradientSpec),
 }
 
 /// Only these properties can appear in generated source. A node-kind validator
@@ -227,9 +336,9 @@ pub struct Properties {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub width: Option<f64>,
+    pub width: Option<LengthValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub height: Option<f64>,
+    pub height: Option<LengthValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fill: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -237,7 +346,7 @@ pub struct Properties {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stroke_width: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub radius: Option<f64>,
+    pub radius: Option<RadiusValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_family: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -251,7 +360,7 @@ pub struct Properties {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_align: Option<TextAlign>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub wrap: Option<bool>,
+    pub wrap: Option<TextWrapValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -277,7 +386,7 @@ pub struct Properties {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub svg: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub latex: Option<String>,
+    pub latex: Option<LatexValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub asset: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -305,6 +414,8 @@ pub enum TextAlign {
     Left,
     Center,
     Right,
+    Start,
+    End,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -316,17 +427,39 @@ pub enum Language {
     Rust,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum LatexValue {
+    Text(String),
+    Parts(Vec<String>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum CodeSelection {
     Lines { start: u32, end: u32 },
     Word { line: u32, start: u32, length: u32 },
+    Ranges { ranges: Vec<[[u32; 2]; 2]> },
 }
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LayoutMode {
+    Inherit,
+    #[default]
+    Enabled,
+    Disabled,
+}
+fn layout_mode_is_enabled(value: &LayoutMode) -> bool {
+    *value == LayoutMode::Enabled
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Layout {
+    #[serde(default, skip_serializing_if = "layout_mode_is_enabled")]
+    pub mode: LayoutMode,
     pub direction: LayoutDirection,
     #[serde(default)]
-    pub gap: f64,
+    pub gap: GapValue,
     #[serde(default)]
     pub padding: [f64; 4],
     #[serde(default)]
@@ -336,13 +469,15 @@ pub struct Layout {
     #[serde(default)]
     pub grow: f64,
     #[serde(default)]
-    pub basis: Option<f64>,
+    pub basis: Option<FlexBasisValue>,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum LayoutDirection {
     Row,
+    RowReverse,
     Column,
+    ColumnReverse,
 }
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -352,6 +487,7 @@ pub enum Align {
     Center,
     End,
     Stretch,
+    Baseline,
 }
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -362,6 +498,7 @@ pub enum Justify {
     End,
     SpaceBetween,
     SpaceAround,
+    SpaceEvenly,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]

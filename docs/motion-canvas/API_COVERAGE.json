@@ -3,7 +3,8 @@
     "managed",
     "represented_by",
     "compiler_managed",
-    "unsupported_by_design"
+    "unsupported_by_design",
+    "mixed"
   ],
   "components": {
     "Bezier": {
@@ -54,16 +55,36 @@
       "managed_kind": "code",
       "properties": {
         "code": {
-          "semantic": "code",
-          "status": "managed"
+          "reason": "PossibleCodeScope includes dynamic CodeTag/SignalValue forms; managed source persists bounded code text only",
+          "status": "mixed",
+          "variants": {
+            "CodeScope_or_CodeTag_array": {
+              "reason": "may contain SignalValue/dynamic executable construction; use declarative animations and text/code state instead",
+              "status": "unsupported_by_design"
+            },
+            "string": {
+              "semantic": "code",
+              "status": "managed"
+            }
+          }
         },
         "drawHooks": {
           "reason": "draw hook is an arbitrary Canvas callback",
           "status": "unsupported_by_design"
         },
         "highlighter": {
-          "semantic": "language",
-          "status": "represented_by"
+          "reason": "upstream accepts arbitrary CodeHighlighter implementations; managed projects use a fixed parser allowlist",
+          "status": "mixed",
+          "variants": {
+            "builtin_bounded_language": {
+              "semantic": "language",
+              "status": "represented_by"
+            },
+            "custom_highlighter_object": {
+              "reason": "custom highlighter is executable application code",
+              "status": "unsupported_by_design"
+            }
+          }
         },
         "selection": {
           "semantic": "selection",
@@ -214,8 +235,18 @@
           "status": "managed"
         },
         "src": {
-          "semantic": "asset",
-          "status": "represented_by"
+          "reason": "upstream src can be arbitrary/remote; managed rendering is network=false and accepts owner-attested local assets only",
+          "status": "mixed",
+          "variants": {
+            "local_attested_asset": {
+              "semantic": "asset",
+              "status": "represented_by"
+            },
+            "remote_or_ambient_url": {
+              "reason": "network/ambient resource authority is not granted",
+              "status": "unsupported_by_design"
+            }
+          }
         }
       },
       "props_interface": "ImgProps",
@@ -256,8 +287,18 @@
           "status": "unsupported_by_design"
         },
         "tex": {
-          "semantic": "latex",
-          "status": "represented_by"
+          "reason": "string and string[] segmentation are managed within Semwright\u2019s bounded MathJax command vocabulary; unrestricted TeX packages/macros are outside the trust boundary",
+          "status": "mixed",
+          "variants": {
+            "bounded_string_or_parts": {
+              "semantic": "latex",
+              "status": "managed"
+            },
+            "unrestricted_tex_commands": {
+              "reason": "not accepted by the bounded managed LaTeX vocabulary",
+              "status": "unsupported_by_design"
+            }
+          }
         }
       },
       "props_interface": "LatexProps",
@@ -339,7 +380,8 @@
           "status": "represented_by"
         },
         "layout": {
-          "semantic": "layout",
+          "notes": "null/inherit is represented by property absence; true/false are explicit layout_mode values",
+          "semantic": "layout_mode",
           "status": "managed"
         },
         "left": {
@@ -351,7 +393,8 @@
           "status": "managed"
         },
         "lineHeight": {
-          "semantic": "line_height",
+          "notes": "exact upstream Length; legacy line_height remains a compatibility multiplier only",
+          "semantic": "line_height_value",
           "status": "managed"
         },
         "margin": {
@@ -395,15 +438,15 @@
           "status": "managed"
         },
         "offset": {
-          "semantic": "position",
-          "status": "represented_by"
+          "semantic": "offset",
+          "status": "managed"
         },
         "offsetX": {
-          "semantic": "position",
+          "semantic": "offset",
           "status": "represented_by"
         },
         "offsetY": {
-          "semantic": "position",
+          "semantic": "offset",
           "status": "represented_by"
         },
         "padding": {
@@ -755,8 +798,18 @@
       "managed_kind": "svg",
       "properties": {
         "svg": {
-          "semantic": "svg",
-          "status": "managed"
+          "reason": "managed inline SVG is a structural non-active geometry subset; script/event/foreignObject/external-resource forms are rejected",
+          "status": "mixed",
+          "variants": {
+            "active_or_external_svg": {
+              "reason": "would widen active content or external-resource authority",
+              "status": "unsupported_by_design"
+            },
+            "bounded_structural_svg": {
+              "semantic": "svg",
+              "status": "managed"
+            }
+          }
         }
       },
       "props_interface": "SVGProps",
@@ -769,8 +822,28 @@
           "status": "managed"
         },
         "fill": {
-          "semantic": "fill",
-          "status": "managed"
+          "reason": "PossibleCanvasStyle includes Color/Gradient/Pattern; Pattern requires a live CanvasImageSource runtime object and is not serialized as ambient state",
+          "status": "mixed",
+          "variants": {
+            "color": {
+              "notes": "canonical bounded color string/theme token",
+              "semantic": "fill",
+              "status": "managed"
+            },
+            "gradient": {
+              "semantic": "fill_gradient",
+              "status": "managed"
+            },
+            "null": {
+              "notes": "reset/unset",
+              "semantic": "fill",
+              "status": "represented_by"
+            },
+            "pattern": {
+              "reason": "Pattern requires live CanvasImageSource identity; use an attested local image node instead",
+              "status": "unsupported_by_design"
+            }
+          }
         },
         "lineCap": {
           "semantic": "line_cap",
@@ -793,8 +866,28 @@
           "status": "managed"
         },
         "stroke": {
-          "semantic": "stroke",
-          "status": "managed"
+          "reason": "PossibleCanvasStyle includes Color/Gradient/Pattern; Pattern requires a live CanvasImageSource runtime object and is not serialized as ambient state",
+          "status": "mixed",
+          "variants": {
+            "color": {
+              "notes": "canonical bounded color string/theme token",
+              "semantic": "stroke",
+              "status": "managed"
+            },
+            "gradient": {
+              "semantic": "stroke_gradient",
+              "status": "managed"
+            },
+            "null": {
+              "notes": "reset/unset",
+              "semantic": "stroke",
+              "status": "represented_by"
+            },
+            "pattern": {
+              "reason": "Pattern requires live CanvasImageSource identity; use an attested local image node instead",
+              "status": "unsupported_by_design"
+            }
+          }
         },
         "strokeFirst": {
           "semantic": "stroke_first",
@@ -860,8 +953,18 @@
           "status": "managed"
         },
         "src": {
-          "semantic": "asset",
-          "status": "represented_by"
+          "reason": "upstream src can be arbitrary/remote; managed rendering is network=false and accepts owner-attested local assets only",
+          "status": "mixed",
+          "variants": {
+            "local_attested_asset": {
+              "semantic": "asset",
+              "status": "represented_by"
+            },
+            "remote_or_ambient_url": {
+              "reason": "network/ambient resource authority is not granted",
+              "status": "unsupported_by_design"
+            }
+          }
         },
         "time": {
           "semantic": "media_offset_ms",

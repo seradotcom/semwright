@@ -41,21 +41,25 @@
           "name": "Root",
           "kind": "layout",
           "properties": {
-            "width": 1180.0,
+            "width": "92%",
             "height": 620.0,
             "layout": {
-              "direction": "column",
-              "gap": 12.0,
+              "direction": "row_reverse",
+              "gap": [
+                "2%",
+                "3%"
+              ],
               "padding": [
                 24.0,
                 24.0,
                 24.0,
                 24.0
               ],
-              "align": "center",
-              "justify": "center",
+              "align": "baseline",
+              "justify": "space_evenly",
               "grow": 0.0,
-              "basis": null
+              "basis": "fit-content",
+              "mode": "inherit"
             },
             "semantic": {
               "shadow_color": "#202d42",
@@ -64,7 +68,12 @@
                 2.0,
                 3.0
               ],
-              "cache": true
+              "cache": true,
+              "layout_mode": true,
+              "offset": [
+                0.0,
+                0.0
+              ]
             }
           }
         },
@@ -97,7 +106,6 @@
           "properties": {
             "width": 160.0,
             "height": 160.0,
-            "fill": "#dce9dc",
             "stroke": "#202d42",
             "radius": 72.0,
             "filters": [
@@ -112,7 +120,31 @@
             ],
             "semantic": {
               "sides": 6.0,
-              "z_index": 2.0
+              "z_index": 2.0,
+              "fill_gradient": {
+                "kind": "linear",
+                "from": [
+                  -80.0,
+                  0.0
+                ],
+                "to": [
+                  80.0,
+                  0.0
+                ],
+                "angle": 0.0,
+                "from_radius": 0.0,
+                "to_radius": 0.0,
+                "stops": [
+                  {
+                    "offset": 0.0,
+                    "color": "@mint"
+                  },
+                  {
+                    "offset": 1.0,
+                    "color": "@accent"
+                  }
+                ]
+              }
             }
           }
         },
@@ -255,6 +287,98 @@
                 0.0
               ]
             }
+          }
+        },
+        {
+          "id": "rounded",
+          "name": "Rounded spacing",
+          "kind": "rect",
+          "parent": "root",
+          "properties": {
+            "width": "28%",
+            "height": 96.0,
+            "fill": "#f2ddc8",
+            "radius": [
+              12.0,
+              24.0,
+              36.0,
+              24.0
+            ],
+            "semantic": {
+              "min_width": "12%",
+              "max_width": "40%",
+              "row_gap": "1.5%",
+              "font_style": "italic"
+            }
+          }
+        },
+        {
+          "id": "pre-text",
+          "name": "Pre text",
+          "kind": "text",
+          "parent": "root",
+          "properties": {
+            "text": "semantic\\nlayout",
+            "wrap": "pre",
+            "text_align": "start",
+            "font_size": 24.0,
+            "fill": "#202d42",
+            "semantic": {
+              "line_height_value": "140%",
+              "font_style": "oblique 10deg"
+            }
+          }
+        },
+        {
+          "id": "code-ranges",
+          "name": "Code ranges",
+          "kind": "code",
+          "parent": "root",
+          "properties": {
+            "code": "alpha();\nbeta();",
+            "language": "typescript",
+            "font_size": 20.0,
+            "selection": {
+              "kind": "ranges",
+              "ranges": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    0,
+                    5
+                  ]
+                ],
+                [
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    4
+                  ]
+                ]
+              ]
+            },
+            "fill": "#202d42"
+          }
+        },
+        {
+          "id": "latex-parts",
+          "name": "Latex parts",
+          "kind": "latex",
+          "parent": "root",
+          "properties": {
+            "latex": [
+              "x^2",
+              " + ",
+              "y^2"
+            ],
+            "fill": "#202d42",
+            "font_size": 30.0
           }
         }
       ],

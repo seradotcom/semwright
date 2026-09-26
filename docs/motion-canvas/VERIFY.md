@@ -31,7 +31,8 @@ The render test is accepted only through the real Driver Host with `network=fals
 `integrations/motion-canvas/runtime/tools/semantic-coverage.mjs` compares the checked-in matrices to the exact installed 3.17.2 typings. Current acceptance requires:
 
 - all 25 public `@motion-canvas/2d` component exports classified;
-- every own field of every public component `Props` interface classified;
+- every own field of every public component `Props` interface classified, including per-arm classification for mixed union values;
+- all remaining public 2D root modules classified: code (47 exports), curves (17), decorators (28), partials (31), scenes (3), utils (19) and `jsx-runtime` (4);
 - all 15 root `@motion-canvas/core` exports classified;
 - all 8 `ProjectSettings` fields classified;
 - every public flow (13), transition (6) and tweening (60) function/constant classified;
@@ -40,7 +41,7 @@ The render test is accepted only through the real Driver Host with `network=fals
 - every managed easing/transition in core coverage maps to a real compiler enum/function;
 - the `semantic-complete` fixture validates/compiles in Rust and typechecks/Vite-builds against the exact installed Motion Canvas runtime.
 
-The matrices may classify a surface as `compiler_managed`, `runtime_internal` or `unsupported_by_design`; such entries require an explicit boundary rather than silently disappearing.
+The matrices may classify a surface as `compiler_managed`, `runtime_internal`/`runtime_utility`, `mixed` or `unsupported_by_design`; such entries require an explicit boundary rather than silently disappearing. A `mixed` property is accepted only when every union arm is itself managed, represented or explicitly excluded.
 
 ## Full film
 

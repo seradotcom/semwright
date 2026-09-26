@@ -26,6 +26,12 @@ pub enum ValueKind {
     CodeSelection,
     AssetRef,
     EdgeRef,
+    Length,
+    LengthLimit,
+    FlexBasis,
+    TextWrap,
+    Radius,
+    Gradient,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -163,9 +169,8 @@ const COMPOSITE: &[&str] = &[
 ];
 const LINE_JOIN: &[&str] = &["bevel", "round", "miter"];
 const LINE_CAP: &[&str] = &["butt", "round", "square"];
-const TEXT_ALIGN: &[&str] = &["left", "center", "right"];
+const TEXT_ALIGN: &[&str] = &["left", "center", "right", "start", "end"];
 const LANGUAGE: &[&str] = &["plain", "javascript", "typescript", "python", "rust"];
-const FONT_STYLE: &[&str] = &["normal", "italic", "oblique"];
 const TEXT_DIRECTION: &[&str] = &["inherit", "ltr", "rtl"];
 const FLEX_WRAP: &[&str] = &["nowrap", "wrap", "wrap-reverse"];
 const FLEX_CONTENT: &[&str] = &[
@@ -177,7 +182,7 @@ const FLEX_CONTENT: &[&str] = &[
     "space-evenly",
     "stretch",
 ];
-const FLEX_ITEMS: &[&str] = &["start", "end", "center", "stretch"];
+const FLEX_ITEMS: &[&str] = &["start", "end", "center", "stretch", "baseline"];
 
 const NODE: &[Spec] = &[
     e("position", "position", ValueKind::Vec2, true, "NodeProps"),
@@ -238,8 +243,8 @@ const NODE: &[Spec] = &[
     ),
 ];
 const LAYOUT: &[Spec] = &[
-    e("width", "width", ValueKind::Number, true, "LayoutProps"),
-    e("height", "height", ValueKind::Number, true, "LayoutProps"),
+    e("width", "width", ValueKind::Length, true, "LayoutProps"),
+    e("height", "height", ValueKind::Length, true, "LayoutProps"),
     e(
         "font_family",
         "fontFamily",
@@ -266,7 +271,7 @@ const LAYOUT: &[Spec] = &[
         "lineHeight",
         ValueKind::Number,
         true,
-        "LayoutProps",
+        "SemwrightLegacyLineHeightMultiplier",
     ),
     e(
         "letter_spacing",
@@ -276,7 +281,7 @@ const LAYOUT: &[Spec] = &[
         "LayoutProps",
     ),
     ee("text_align", "textAlign", TEXT_ALIGN, true, "LayoutProps"),
-    e("wrap", "textWrap", ValueKind::Boolean, true, "LayoutProps"),
+    e("wrap", "textWrap", ValueKind::TextWrap, true, "LayoutProps"),
     e(
         "layout",
         "layout",
@@ -288,28 +293,28 @@ const LAYOUT: &[Spec] = &[
     s(
         "min_width",
         "minWidth",
-        ValueKind::Number,
+        ValueKind::LengthLimit,
         true,
         "LayoutProps",
     ),
     s(
         "max_width",
         "maxWidth",
-        ValueKind::Number,
+        ValueKind::LengthLimit,
         true,
         "LayoutProps",
     ),
     s(
         "min_height",
         "minHeight",
-        ValueKind::Number,
+        ValueKind::LengthLimit,
         true,
         "LayoutProps",
     ),
     s(
         "max_height",
         "maxHeight",
-        ValueKind::Number,
+        ValueKind::LengthLimit,
         true,
         "LayoutProps",
     ),
@@ -323,11 +328,26 @@ const LAYOUT: &[Spec] = &[
         "LayoutProps",
     ),
     s("shrink", "shrink", ValueKind::Number, true, "LayoutProps"),
-    s("row_gap", "rowGap", ValueKind::Number, true, "LayoutProps"),
+    s("row_gap", "rowGap", ValueKind::Length, true, "LayoutProps"),
     s(
         "column_gap",
         "columnGap",
-        ValueKind::Number,
+        ValueKind::Length,
+        true,
+        "LayoutProps",
+    ),
+    s(
+        "layout_mode",
+        "layout",
+        ValueKind::Boolean,
+        false,
+        "LayoutProps",
+    ),
+    s("offset", "offset", ValueKind::Vec2, true, "LayoutProps"),
+    s(
+        "line_height_value",
+        "lineHeight",
+        ValueKind::Length,
         true,
         "LayoutProps",
     ),
@@ -340,7 +360,13 @@ const LAYOUT: &[Spec] = &[
         "LayoutProps",
     ),
     se("align_self", "alignSelf", FLEX_ITEMS, true, "LayoutProps"),
-    se("font_style", "fontStyle", FONT_STYLE, true, "LayoutProps"),
+    s(
+        "font_style",
+        "fontStyle",
+        ValueKind::Text,
+        true,
+        "LayoutProps",
+    ),
     se(
         "text_direction",
         "textDirection",
@@ -350,6 +376,20 @@ const LAYOUT: &[Spec] = &[
     ),
 ];
 const SHAPE: &[Spec] = &[
+    s(
+        "fill_gradient",
+        "fill",
+        ValueKind::Gradient,
+        false,
+        "ShapeProps",
+    ),
+    s(
+        "stroke_gradient",
+        "stroke",
+        ValueKind::Gradient,
+        false,
+        "ShapeProps",
+    ),
     e("fill", "fill", ValueKind::Color, true, "ShapeProps"),
     e("stroke", "stroke", ValueKind::Color, true, "ShapeProps"),
     e(
@@ -506,7 +546,7 @@ pub fn node_class(kind: NodeKind) -> &'static str {
 fn specific(kind: NodeKind) -> Vec<Spec> {
     match kind {
         NodeKind::Rect => vec![
-            e("radius", "radius", ValueKind::Number, true, "RectProps"),
+            e("radius", "radius", ValueKind::Radius, true, "RectProps"),
             s(
                 "smooth_corners",
                 "smoothCorners",
@@ -809,6 +849,45 @@ fn color(v: &str, theme: &Theme) -> bool {
         security::literal_color(v)
     }
 }
+fn valid_percent(value: &str) -> bool {
+    value
+        .strip_suffix('%')
+        .and_then(|v| v.parse::<f64>().ok())
+        .is_some_and(|v| number(v, 0.0, 10000.0))
+}
+fn gradient(value: &crate::model::GradientSpec, theme: &Theme) -> bool {
+    value
+        .from
+        .iter()
+        .chain(value.to.iter())
+        .all(|v| number(*v, -32768.0, 32768.0))
+        && number(value.angle, -36000.0, 36000.0)
+        && number(value.from_radius, 0.0, 32768.0)
+        && number(value.to_radius, 0.0, 32768.0)
+        && (2..=32).contains(&value.stops.len())
+        && value
+            .stops
+            .iter()
+            .all(|stop| number(stop.offset, 0.0, 1.0) && color(&stop.color, theme))
+        && value
+            .stops
+            .windows(2)
+            .all(|pair| pair[0].offset <= pair[1].offset)
+}
+fn resolve_color(value: &str, theme: &Theme) -> Result<String> {
+    if let Some(name) = value.strip_prefix('@') {
+        theme
+            .colors
+            .get(name)
+            .cloned()
+            .ok_or_else(|| Error::invalid("Unknown theme color"))
+    } else if security::literal_color(value) {
+        Ok(value.to_owned())
+    } else {
+        Err(Error::invalid("Invalid color"))
+    }
+}
+
 pub fn validate_value(
     kind: NodeKind,
     name: &str,
@@ -848,6 +927,21 @@ pub fn validate_value(
                     .chars()
                     .any(|c| c.is_control() && !c.is_ascii_whitespace())
         }
+        (ValueKind::Length, SemanticValue::Number(v)) => number(*v, 0.0, 16384.0),
+        (ValueKind::Length, SemanticValue::Text(v)) => valid_percent(v),
+        (ValueKind::LengthLimit, SemanticValue::Number(v)) => number(*v, 0.0, 16384.0),
+        (ValueKind::LengthLimit, SemanticValue::Text(v)) => {
+            valid_percent(v) || matches!(v.as_str(), "max-content" | "min-content")
+        }
+        (ValueKind::FlexBasis, SemanticValue::Number(v)) => number(*v, 0.0, 16384.0),
+        (ValueKind::FlexBasis, SemanticValue::Text(v)) => {
+            valid_percent(v)
+                || matches!(
+                    v.as_str(),
+                    "content" | "max-content" | "min-content" | "fit-content"
+                )
+        }
+        (ValueKind::Gradient, SemanticValue::Gradient(v)) => gradient(v, theme),
         _ => false,
     };
     if ok {
@@ -858,6 +952,49 @@ pub fn validate_value(
         ))
     }
 }
+pub fn emitted_expression(
+    kind: NodeKind,
+    name: &str,
+    value: &SemanticValue,
+    theme: &Theme,
+) -> Result<Option<String>> {
+    validate_value(kind, name, value, theme)?;
+    let p = spec(kind, name).expect("validated property");
+    if p.kind != ValueKind::Gradient {
+        return Ok(None);
+    }
+    let SemanticValue::Gradient(value) = value else {
+        return Err(Error::invalid("Expected gradient"));
+    };
+    let gradient_kind = match value.kind {
+        crate::model::GradientKind::Linear => "linear",
+        crate::model::GradientKind::Conic => "conic",
+        crate::model::GradientKind::Radial => "radial",
+    };
+    let stops = value
+        .stops
+        .iter()
+        .map(|stop| {
+            Ok(format!(
+                "{{offset:{},color:{}}}",
+                stop.offset,
+                security::js_string(&resolve_color(&stop.color, theme)?)
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?
+        .join(",");
+    Ok(Some(format!(
+        "new Gradient({{type:{},from:{},to:{},angle:{},fromRadius:{},toRadius:{},stops:[{}]}})",
+        security::js_string(gradient_kind),
+        serde_json::to_string(&value.from)?,
+        serde_json::to_string(&value.to)?,
+        value.angle,
+        value.from_radius,
+        value.to_radius,
+        stops
+    )))
+}
+
 pub fn emitted_value(
     kind: NodeKind,
     name: &str,
@@ -926,16 +1063,27 @@ mod coverage_tests {
             let Some(witness) = witness else { continue };
             let kind: NodeKind = serde_json::from_value(Value::String(witness.to_owned())).unwrap();
             for (upstream_name, entry) in component["properties"].as_object().unwrap() {
+                let mut mappings = Vec::new();
                 let status = entry["status"].as_str().unwrap();
-                if !matches!(status, "managed" | "represented_by") {
-                    continue;
+                if matches!(status, "managed" | "represented_by") {
+                    mappings.push(entry["semantic"].as_str().unwrap());
+                } else if status == "mixed" {
+                    for variant in entry["variants"].as_object().unwrap().values() {
+                        if matches!(
+                            variant["status"].as_str(),
+                            Some("managed" | "represented_by")
+                        ) {
+                            mappings.push(variant["semantic"].as_str().unwrap());
+                        }
+                    }
                 }
-                let mapping = entry["semantic"].as_str().unwrap();
-                for semantic_name in mapping.split('+') {
-                    assert!(
-                        super::property(kind, semantic_name).is_some(),
-                        "coverage maps {component_name}.{upstream_name} to missing semantic property {semantic_name}"
-                    );
+                for mapping in mappings {
+                    for semantic_name in mapping.split('+') {
+                        assert!(
+                            super::property(kind, semantic_name).is_some(),
+                            "coverage maps {component_name}.{upstream_name} to missing semantic property {semantic_name}"
+                        );
+                    }
                 }
             }
         }
@@ -947,18 +1095,24 @@ mod coverage_tests {
             "../../../docs/motion-canvas/API_COVERAGE.json"
         ))
         .unwrap();
-        let mapped = coverage["components"]
-            .as_object()
-            .unwrap()
-            .values()
-            .flat_map(|component| component["properties"].as_object().into_iter().flatten())
-            .filter_map(|(_, entry)| {
-                let status = entry["status"].as_str()?;
-                matches!(status, "managed" | "represented_by").then(|| entry["semantic"].as_str())
-            })
-            .flatten()
-            .flat_map(|mapping| mapping.split('+'))
-            .collect::<BTreeSet<_>>();
+        let mut mapped = BTreeSet::new();
+        for component in coverage["components"].as_object().unwrap().values() {
+            for entry in component["properties"].as_object().unwrap().values() {
+                let status = entry["status"].as_str().unwrap();
+                if matches!(status, "managed" | "represented_by") {
+                    mapped.extend(entry["semantic"].as_str().unwrap().split('+'));
+                } else if status == "mixed" {
+                    for variant in entry["variants"].as_object().unwrap().values() {
+                        if matches!(
+                            variant["status"].as_str(),
+                            Some("managed" | "represented_by")
+                        ) {
+                            mapped.extend(variant["semantic"].as_str().unwrap().split('+'));
+                        }
+                    }
+                }
+            }
+        }
         for ty in node_types() {
             for property in ty.properties {
                 if property.storage == PropertyStorage::Semantic {

@@ -1051,17 +1051,25 @@ fn component_nodes(
     let code = matches!(component, Component::TerminalWindow | Component::CodePanel);
     let compact = matches!(component, Component::Badge | Component::CapabilityChip);
     let mut properties = Properties {
-        width: Some(if compact { 280.0 } else { 720.0 }),
-        height: Some(if compact { 76.0 } else { 400.0 }),
+        width: Some((if compact { 280.0 } else { 720.0 }).into()),
+        height: Some((if compact { 76.0 } else { 400.0 }).into()),
         fill: Some("@surface".into()),
         stroke: Some("@ink".into()),
         stroke_width: Some(theme.line_width),
-        radius: Some(theme.radius),
+        radius: Some(theme.radius.into()),
         ..Properties::default()
     };
     properties = patched(&properties, &serde_json::to_value(overrides)?)?;
-    let width = properties.width.unwrap_or(720.0);
-    let height = properties.height.unwrap_or(400.0);
+    let width = properties
+        .width
+        .as_ref()
+        .and_then(LengthValue::pixels)
+        .unwrap_or(720.0);
+    let height = properties
+        .height
+        .as_ref()
+        .and_then(LengthValue::pixels)
+        .unwrap_or(400.0);
     let root = Node {
         id: id.into(),
         name: format!("{component:?}"),
@@ -1089,8 +1097,8 @@ fn component_nodes(
             ));
         }
         child.properties.asset = asset.map(str::to_owned);
-        child.properties.width = Some((width - 2.0 * theme.spacing).max(0.0));
-        child.properties.height = Some((height - 2.0 * theme.spacing).max(0.0));
+        child.properties.width = Some((width - 2.0 * theme.spacing).max(0.0).into());
+        child.properties.height = Some((height - 2.0 * theme.spacing).max(0.0).into());
     } else if code {
         child.properties.code = Some(text.into());
         child.properties.language = Some(Language::Plain);
@@ -1103,8 +1111,8 @@ fn component_nodes(
         } else {
             theme.font_size
         });
-        child.properties.width = Some((width - 2.0 * theme.spacing).max(0.0));
-        child.properties.wrap = Some(true);
+        child.properties.width = Some((width - 2.0 * theme.spacing).max(0.0).into());
+        child.properties.wrap = Some(true.into());
     }
     Ok(vec![root, child])
 }

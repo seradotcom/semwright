@@ -25,9 +25,17 @@ for (const name of exports) {
   if (JSON.stringify(props) !== JSON.stringify(covered)) throw new Error(`${name} property coverage drift\nupstream=${props}\nclassified=${covered}`);
   for (const prop of props) {
     const p = entry.properties[prop];
-    if (!['managed','represented_by','compiler_managed','unsupported_by_design'].includes(p.status)) throw new Error(`bad ${name}.${prop} status`);
+    if (!['managed','represented_by','compiler_managed','unsupported_by_design','mixed'].includes(p.status)) throw new Error(`bad ${name}.${prop} status`);
     if ((p.status === 'managed' || p.status === 'represented_by') && !p.semantic) throw new Error(`missing semantic mapping for ${name}.${prop}`);
     if (p.status === 'unsupported_by_design' && !p.reason) throw new Error(`missing exclusion reason for ${name}.${prop}`);
+    if (p.status === 'mixed') {
+      if (!p.reason || !p.variants || Object.keys(p.variants).length < 2) throw new Error(`incomplete mixed classification for ${name}.${prop}`);
+      for (const [variant, v] of Object.entries(p.variants)) {
+        if (!['managed','represented_by','unsupported_by_design'].includes(v.status)) throw new Error(`bad mixed status ${name}.${prop}.${variant}`);
+        if ((v.status === 'managed' || v.status === 'represented_by') && !v.semantic) throw new Error(`missing semantic mapping ${name}.${prop}.${variant}`);
+        if (v.status === 'unsupported_by_design' && !v.reason) throw new Error(`missing exclusion reason ${name}.${prop}.${variant}`);
+      }
+    }
   }
 }
 console.log(JSON.stringify({motion_canvas_version: expectedVersion, exports: exports.length, classified: classified.length, status: 'complete'}));
@@ -81,3 +89,49 @@ for (const [group, section] of Object.entries(coreCoverage.authoring_exports)) {
 }
 console.log(JSON.stringify({motion_canvas_core_version: expectedCoreVersion, root_exports: coreRoot.length, project_settings: projectFields.length, authoring_exports: Object.fromEntries(['flow','transitions','tweening'].map(g => [g, publicFunctions(g).length])), status:'complete'}));
 
+
+
+const auxCoveragePath = path.resolve(root, '../../../docs/motion-canvas/AUX_API_COVERAGE.json');
+const auxCoverage = JSON.parse(fs.readFileSync(auxCoveragePath, 'utf8'));
+if (auxCoverage.motion_canvas_version !== expectedVersion) throw new Error('aux coverage version drift');
+const twoDDir = process.env.SEMWRIGHT_MOTION_2D_DIR ?? path.dirname(componentsDir);
+const twoDIndex = fs.readFileSync(path.join(twoDDir, 'index.d.ts'), 'utf8');
+const rootModules = [...twoDIndex.matchAll(/export \* from '\.\/([^']+)'/g)].map(m => m[1]).sort();
+const classifiedModules = Object.keys(auxCoverage.root_modules).sort();
+if (JSON.stringify(rootModules) !== JSON.stringify(classifiedModules)) throw new Error(`2d root module coverage drift\nupstream=${rootModules}\nclassified=${classifiedModules}`);
+
+function declarations(text) {
+  const names = new Set();
+  for (const m of text.matchAll(/^export (?:declare )?(?:abstract )?(?:class|function|const|interface|type|enum|namespace) ([A-Za-z_][A-Za-z0-9_]*)/gm)) names.add(m[1]);
+  for (const m of text.matchAll(/^export \{([^}]+)\};?/gm)) {
+    for (const raw of m[1].split(',')) {
+      const part = raw.trim();
+      const alias = part.match(/^([A-Za-z_][A-Za-z0-9_]*)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/);
+      names.add(alias ? alias[2] : part.split(/\s+/)[0]);
+    }
+  }
+  return names;
+}
+function moduleExports(name) {
+  if (name === 'jsx-runtime') return [...declarations(fs.readFileSync(path.join(twoDDir, 'jsx-runtime.d.ts'), 'utf8'))].sort();
+  const moduleDir = path.join(twoDDir, name);
+  const moduleIndex = fs.readFileSync(path.join(moduleDir, 'index.d.ts'), 'utf8');
+  const names = new Set();
+  for (const m of moduleIndex.matchAll(/export \* from '\.\/([^']+)'/g)) {
+    const file = path.join(moduleDir, `${m[1]}.d.ts`);
+    for (const item of declarations(fs.readFileSync(file, 'utf8'))) names.add(item);
+  }
+  return [...names].sort();
+}
+const auxStatuses = new Set(['represented_by','compiler_managed','runtime_utility','unsupported_by_design','mixed']);
+for (const [moduleName, moduleEntry] of Object.entries(auxCoverage.modules)) {
+  const upstream = moduleExports(moduleName);
+  const classified = Object.keys(moduleEntry.exports).sort();
+  if (JSON.stringify(upstream) !== JSON.stringify(classified)) throw new Error(`${moduleName} aux coverage drift\nupstream=${upstream}\nclassified=${classified}`);
+  for (const [name, entry] of Object.entries(moduleEntry.exports)) {
+    if (!auxStatuses.has(entry.status)) throw new Error(`bad aux status ${moduleName}.${name}`);
+    if (entry.status === 'represented_by' && !entry.semantic) throw new Error(`missing aux semantic mapping ${moduleName}.${name}`);
+    if ((entry.status === 'unsupported_by_design' || entry.status === 'mixed') && !entry.reason) throw new Error(`missing aux boundary reason ${moduleName}.${name}`);
+  }
+}
+console.log(JSON.stringify({motion_canvas_2d_aux_version: expectedVersion, modules:Object.fromEntries(Object.keys(auxCoverage.modules).map(name => [name,moduleExports(name).length])), status:'complete'}));
