@@ -74,6 +74,7 @@ fn manifest(executable: PathBuf, network: bool, loopback_port: Option<u16>) -> M
             open_files: 128,
             processes: 32,
             cpu_seconds: 60,
+            operation_cpu_seconds: 0,
             address_space_bytes: 536_870_912,
             file_size_bytes: 16_777_216,
         },

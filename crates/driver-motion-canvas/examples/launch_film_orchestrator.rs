@@ -194,6 +194,7 @@ mod linux {
                 open_files: 512,
                 processes: 256,
                 cpu_seconds: 300,
+                operation_cpu_seconds: 0,
                 address_space_bytes: 4_294_967_296,
                 file_size_bytes: 1_073_741_824,
             },

@@ -91,6 +91,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
         open_files: 64,
         processes: 16,
         cpu_seconds: 20,
+        operation_cpu_seconds: 0,
         address_space_bytes: 536_870_912,
         file_size_bytes: 16_777_216,
     };

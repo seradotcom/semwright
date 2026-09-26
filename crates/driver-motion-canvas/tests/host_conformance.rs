@@ -117,6 +117,7 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
             open_files: 128,
             processes: 32,
             cpu_seconds: 60,
+            operation_cpu_seconds: 0,
             address_space_bytes: 1_073_741_824,
             file_size_bytes: 268_435_456,
         },

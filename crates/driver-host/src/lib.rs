@@ -52,12 +52,123 @@ fn verify_owned_elf(path: &Path, digest: &str) -> Result<Vec<u8>> {
     semwright_platform_services::verify_executable(path, digest)
 }
 
+#[cfg(target_os = "linux")]
+fn one_process_cpu_ticks(pid: u32) -> Result<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .map_err(|_| Error::unavailable("Driver process CPU accounting disappeared"))?;
+    let end = stat
+        .rfind(')')
+        .ok_or_else(|| Error::new(ErrorCode::Internal, "Malformed /proc process stat"))?;
+    let fields = stat[end + 1..].split_whitespace().collect::<Vec<_>>();
+    if fields.len() <= 14 {
+        return Err(Error::new(
+            ErrorCode::Internal,
+            "Malformed /proc process CPU fields",
+        ));
+    }
+    let mut total = 0u64;
+    // After the command name, indexes 11..=14 are utime, stime, cutime and cstime.
+    // Including waited-for children plus live descendants prevents secondary runners from
+    // escaping a per-operation CPU budget.
+    for field in &fields[11..=14] {
+        total = total
+            .checked_add(
+                field
+                    .parse::<u64>()
+                    .map_err(|_| Error::new(ErrorCode::Internal, "Malformed process CPU ticks"))?,
+            )
+            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Process CPU tick overflow"))?;
+    }
+    Ok(total)
+}
+
+#[cfg(target_os = "linux")]
+fn process_tree_cpu_ticks(root: u32) -> Result<u64> {
+    let mut pending = vec![root];
+    let mut seen = std::collections::BTreeSet::new();
+    let mut total = 0u64;
+    while let Some(pid) = pending.pop() {
+        if !seen.insert(pid) {
+            continue;
+        }
+        if seen.len() > 256 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Driver process tree exceeded CPU accounting bounds",
+            ));
+        }
+        let ticks = match one_process_cpu_ticks(pid) {
+            Ok(ticks) => ticks,
+            Err(error) if pid != root && error.code == ErrorCode::Unavailable => continue,
+            Err(error) => return Err(error),
+        };
+        total = total
+            .checked_add(ticks)
+            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Process CPU tick overflow"))?;
+        let children =
+            std::fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")).unwrap_or_default();
+        for child in children.split_whitespace() {
+            if let Ok(child) = child.parse::<u32>() {
+                pending.push(child);
+            }
+        }
+    }
+    Ok(total)
+}
+
+#[cfg(target_os = "linux")]
+fn cpu_ticks_per_second() -> Result<u64> {
+    // SAFETY: sysconf with _SC_CLK_TCK has no pointer arguments or memory-safety preconditions.
+    let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
+    u64::try_from(ticks)
+        .ok()
+        .filter(|ticks| *ticks > 0)
+        .ok_or_else(|| Error::new(ErrorCode::Unavailable, "CPU clock tick rate is unavailable"))
+}
+
+#[cfg(target_os = "linux")]
+async fn wait_for_operation_cpu_budget(pid: u32, seconds: u64) -> Result<()> {
+    if seconds == 0 {
+        return std::future::pending::<Result<()>>().await;
+    }
+    let start = process_tree_cpu_ticks(pid)?;
+    let limit = seconds
+        .checked_mul(cpu_ticks_per_second()?)
+        .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "CPU budget overflow"))?;
+    loop {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let current = process_tree_cpu_ticks(pid)?;
+        if current.saturating_sub(start) >= limit {
+            return Ok(());
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn wait_for_operation_cpu_budget(_pid: u32, seconds: u64) -> Result<()> {
+    if seconds == 0 {
+        std::future::pending::<Result<()>>().await
+    } else {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Per-operation driver CPU accounting is Linux-only",
+        ))
+    }
+}
+
 fn validate_owner_permissions(
     manifest: &Manifest,
     roots: &[FilesystemGrant],
     allow_network: bool,
 ) -> Result<()> {
     manifest.validate()?;
+    #[cfg(not(target_os = "linux"))]
+    if manifest.resources.operation_cpu_seconds != 0 {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Per-operation driver CPU accounting is Linux-only",
+        ));
+    }
     if manifest.network && !allow_network {
         return Err(Error::new(
             ErrorCode::PolicyDenied,
@@ -395,6 +506,7 @@ pub struct DriverProvider {
     interfaces: ProviderInterfaces,
     closed: CancellationToken,
     terminate: CancellationToken,
+    process_id: u32,
     _staged: Arc<StagedFile>,
     #[cfg(unix)]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
@@ -448,6 +560,9 @@ impl DriverProvider {
             let mut child = command.spawn().map_err(|_| {
                 Error::new(ErrorCode::SandboxDenied, "Driver sandbox failed to start")
             })?;
+            let process_id = child
+                .id()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
             let input = child
                 .stdin
                 .take()
@@ -632,6 +747,7 @@ impl DriverProvider {
                 interfaces,
                 closed,
                 terminate,
+                process_id,
                 _staged: staged,
                 _loopback: loopback,
             }))
@@ -875,81 +991,105 @@ impl Provider for DriverProvider {
             context: request_context,
         };
 
-        let response = match &self.io {
-            ProtocolIo::V1(io) => {
-                let mut io = io.lock().await;
-                tokio::select! {
-                    biased;
-                    _ = context.cancellation.cancelled() => {
-                        self.terminate.cancel();
-                        return Err(Error::new(
-                            ErrorCode::Cancelled,
-                            "Driver v1 execution cancelled by terminating its isolated process",
-                        ).uncertain());
-                    }
-                    response = request(&mut io, &execute, timeout) => response
-                }
-            }
-            ProtocolIo::V2(io) => {
-                let receiver = io.begin(&execute, &id).await?;
-                let response_future = async {
-                    match tokio::time::timeout(timeout, receiver).await {
-                        Ok(Ok(response)) => Ok(response),
-                        Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
-                        Err(_) => {
-                            io.pending.lock().await.remove(&id);
-                            Err(Error::new(ErrorCode::Timeout, "Driver execution timed out"))
-                        }
-                    }
-                };
-                tokio::pin!(response_future);
-                if self.interfaces.cooperative_cancellation {
+        let response_future = async {
+            match &self.io {
+                ProtocolIo::V1(io) => {
+                    let mut io = io.lock().await;
                     tokio::select! {
-                        response = &mut response_future => response,
-                        _ = context.cancellation.cancelled() => {
-                            let cancel_id = unique_id();
-                            let ack = io.request(
-                                &Request::Cancel {
-                                    id: cancel_id.clone(),
-                                    target: id.clone(),
-                                },
-                                &cancel_id,
-                                Duration::from_secs(2),
-                            ).await?;
-                            match ack {
-                                Response::Cancelled { id: response_id, target, .. }
-                                    if response_id == cancel_id && target == id => {}
-                                _ => {
-                                    self.terminate.cancel();
-                                    return Err(Error::new(
-                                        ErrorCode::ProtocolMismatch,
-                                        "Driver cancellation acknowledgement mismatch",
-                                    ).uncertain());
-                                }
-                            }
-                            match tokio::time::timeout(Duration::from_secs(3), &mut response_future).await {
-                                Ok(response) => response,
-                                Err(_) => {
-                                    self.terminate.cancel();
-                                    return Err(Error::new(
-                                        ErrorCode::Cancelled,
-                                        "Driver accepted cancellation but did not terminate the request",
-                                    ).uncertain());
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    tokio::select! {
-                        response = &mut response_future => response,
+                        biased;
                         _ = context.cancellation.cancelled() => {
                             self.terminate.cancel();
                             return Err(Error::new(
                                 ErrorCode::Cancelled,
-                                "Driver execution cancelled; child has no cooperative cancellation contract",
+                                "Driver v1 execution cancelled by terminating its isolated process",
                             ).uncertain());
                         }
+                        response = request(&mut io, &execute, timeout) => response
                     }
+                }
+                ProtocolIo::V2(io) => {
+                    let receiver = io.begin(&execute, &id).await?;
+                    let response_future = async {
+                        match tokio::time::timeout(timeout, receiver).await {
+                            Ok(Ok(response)) => Ok(response),
+                            Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
+                            Err(_) => {
+                                io.pending.lock().await.remove(&id);
+                                Err(Error::new(ErrorCode::Timeout, "Driver execution timed out"))
+                            }
+                        }
+                    };
+                    tokio::pin!(response_future);
+                    if self.interfaces.cooperative_cancellation {
+                        tokio::select! {
+                            response = &mut response_future => response,
+                            _ = context.cancellation.cancelled() => {
+                                let cancel_id = unique_id();
+                                let ack = io.request(
+                                    &Request::Cancel {
+                                        id: cancel_id.clone(),
+                                        target: id.clone(),
+                                    },
+                                    &cancel_id,
+                                    Duration::from_secs(2),
+                                ).await?;
+                                match ack {
+                                    Response::Cancelled { id: response_id, target, .. }
+                                        if response_id == cancel_id && target == id => {}
+                                    _ => {
+                                        self.terminate.cancel();
+                                        return Err(Error::new(
+                                            ErrorCode::ProtocolMismatch,
+                                            "Driver cancellation acknowledgement mismatch",
+                                        ).uncertain());
+                                    }
+                                }
+                                match tokio::time::timeout(Duration::from_secs(3), &mut response_future).await {
+                                    Ok(response) => response,
+                                    Err(_) => {
+                                        self.terminate.cancel();
+                                        return Err(Error::new(
+                                            ErrorCode::Cancelled,
+                                            "Driver accepted cancellation but did not terminate the request",
+                                        ).uncertain());
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        tokio::select! {
+                            response = &mut response_future => response,
+                            _ = context.cancellation.cancelled() => {
+                                self.terminate.cancel();
+                                return Err(Error::new(
+                                    ErrorCode::Cancelled,
+                                    "Driver execution cancelled; child has no cooperative cancellation contract",
+                                ).uncertain());
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        tokio::pin!(response_future);
+        let cpu_watch = wait_for_operation_cpu_budget(
+            self.process_id,
+            self.manifest.resources.operation_cpu_seconds,
+        );
+        tokio::pin!(cpu_watch);
+        let response = tokio::select! {
+            biased;
+            response = &mut response_future => response,
+            budget = &mut cpu_watch => {
+                self.terminate.cancel();
+                match budget {
+                    Ok(()) => {
+                        return Err(Error::new(
+                            ErrorCode::ResourceExhausted,
+                            "Driver exceeded its per-operation CPU budget",
+                        ).uncertain());
+                    }
+                    Err(error) => return Err(error.uncertain()),
                 }
             }
         };
@@ -1160,6 +1300,31 @@ mod tests {
             validate_owner_permissions(&dynamic, &[], false),
             Err(error) if error.code == ErrorCode::Unsupported
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn operation_cpu_watchdog_counts_busy_descendants() {
+        let mut child = tokio::process::Command::new("/bin/sh")
+            .args(["-c", "/usr/bin/yes >/dev/null & wait"])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let pid = child.id().expect("busy fixture must have PID");
+
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            wait_for_operation_cpu_budget(pid, 1),
+        )
+        .await
+        .expect("CPU watchdog did not fire")
+        .expect("CPU accounting failed");
+
+        let _ = child.kill().await;
+        let _ = child.wait().await;
     }
 
     #[test]

@@ -131,8 +131,12 @@ pub struct DriverResources {
     pub open_files: u64,
     #[serde(default = "default_processes")]
     pub processes: u64,
+    /// Hard cumulative CPU lifetime cap enforced by the sandbox.
     #[serde(default = "default_cpu_seconds")]
     pub cpu_seconds: u64,
+    /// Optional Linux per-operation CPU budget. Zero preserves the lifetime-only contract.
+    #[serde(default)]
+    pub operation_cpu_seconds: u64,
     #[serde(default = "default_address_space_bytes")]
     pub address_space_bytes: u64,
     #[serde(default = "default_file_size_bytes")]
@@ -159,6 +163,7 @@ impl Default for DriverResources {
             open_files: default_open_files(),
             processes: default_processes(),
             cpu_seconds: default_cpu_seconds(),
+            operation_cpu_seconds: 0,
             address_space_bytes: default_address_space_bytes(),
             file_size_bytes: default_file_size_bytes(),
         }
@@ -168,7 +173,11 @@ impl DriverResources {
     fn validate(&self) -> Result<()> {
         if !(32..=1024).contains(&self.open_files)
             || !(8..=256).contains(&self.processes)
-            || !(5..=300).contains(&self.cpu_seconds)
+            || !(5..=86_400).contains(&self.cpu_seconds)
+            || (self.operation_cpu_seconds != 0
+                && (!(1..=300).contains(&self.operation_cpu_seconds)
+                    || self.operation_cpu_seconds > self.cpu_seconds))
+            || (self.cpu_seconds > 300 && self.operation_cpu_seconds == 0)
             || !(134_217_728..=4_294_967_296).contains(&self.address_space_bytes)
             || !(1_048_576..=1_073_741_824).contains(&self.file_size_bytes)
         {
@@ -1138,6 +1147,7 @@ mod tests {
     fn resource_requests_are_bounded_and_default_to_existing_sandbox_limits() {
         let resources = DriverResources::default();
         assert_eq!(resources.address_space_bytes, 536_870_912);
+        assert_eq!(resources.operation_cpu_seconds, 0);
         assert!(resources.validate().is_ok());
 
         let mut manifest = manifest();
@@ -1145,6 +1155,19 @@ mod tests {
         manifest.resources.cpu_seconds = 120;
         manifest.validate().unwrap();
 
+        manifest.resources.cpu_seconds = 3_600;
+        assert!(manifest.validate().is_err());
+        manifest.resources.operation_cpu_seconds = 60;
+        manifest.validate().unwrap();
+
+        manifest.resources.operation_cpu_seconds = 301;
+        assert!(manifest.validate().is_err());
+        manifest.resources.operation_cpu_seconds = 60;
+        manifest.resources.cpu_seconds = 30;
+        assert!(manifest.validate().is_err());
+
+        manifest.resources.cpu_seconds = 3_600;
+        manifest.resources.operation_cpu_seconds = 60;
         manifest.resources.address_space_bytes = 4_294_967_297;
         assert!(manifest.validate().is_err());
         manifest.resources.address_space_bytes = 2_147_483_648;
