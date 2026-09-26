@@ -258,9 +258,14 @@ by GTK as the exact same relative logical delta, a left click was observed by GT
 to another disposable target caused a fail-closed `Conflict` with no additional GTK pointer event.
 Explicit `portal.stop` then produced `eis=inactive` and `session_active=false`. The sanitized evidence
 is stored in `verification/live-portal-eis/gnome-connect-to-eis.json`. GNOME exposes keycode-only
-`ei_keyboard` rather than `ei_text`; EIS-advertised XKB keymap translation is protocol-tested in the
-follow-up branch but focused keyboard live evidence and cancellation of an in-flight input operation
-remain release work.
+`ei_keyboard` rather than `ei_text`; EIS-advertised XKB keymap translation and cooperative in-flight
+text cancellation are now protocol-tested in the merged Linux transport. Real-desktop keyboard
+certification is intentionally **not** claimed: later owner-observed keyboard runs were invalidated
+when EIS input reached an unintended host application despite fixture focus checks. A second attempt
+using nested GNOME with private `HOME`, runtime, Wayland and session D-Bus was also invalid because
+the portal/Mutter RemoteDesktop authority still resolved to the host logind graphical session. The
+sanitized `verification/live-portal-eis/gnome-eis-cancellation.json` is marked `INVALIDATED`; live
+keyboard/cancellation evidence must be repeated in a VM or genuinely independent seat/login.
 
 ## PipeWire ScreenCast closure included in this development line
 
@@ -311,9 +316,11 @@ and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route, p
 nested Hyprland native-IPC lifecycle/stale-ref evidence and a synthetic mixed-scale second output.
 It also records a real owner-approved GNOME RemoteDesktop/`ConnectToEIS` grant-and-stop lifecycle
 plus focused EIS pointer move/click, exact relative-logical coordinate behavior and focus-drift
-rejection. It does **not** yet claim a physical Hyprland login, focused keyboard live certification,
-in-flight input cancellation, physical mixed-scale display evidence or a complete real-login desktop
-matrix. It does not yet certify a sandbox for
+rejection. It does **not** yet claim a physical Hyprland login, focused keyboard or live in-flight
+cancellation certification, physical mixed-scale display evidence or a complete real-login desktop
+matrix. Protocol-level cancellation is implemented; the prior live keyboard method was invalidated
+for insufficient target isolation and must be repeated in a VM/independent seat. It does not yet
+certify a sandbox for
 same-UID MCP upstream executables, a remote signed driver marketplace or universal cryptographic
 publisher identity.
 Adversarial plugin/driver sandbox regressions are executed but do not constitute a formal security
