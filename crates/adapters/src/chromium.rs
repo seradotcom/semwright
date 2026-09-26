@@ -776,9 +776,6 @@ impl Instance {
             app: "org.semwright.Chromium".into(),
         })
     }
-    fn dom_ref(&self, target: &str, node: &Value, session: &str) -> Result<Value> {
-        self.dom_ref_in_frame(target, node, session, None, None)
-    }
     fn dom_ref_in_frame(
         &self,
         target: &str,
