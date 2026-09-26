@@ -3149,6 +3149,7 @@ version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
  "schemars",
+ "semwright-platform-api",
  "semwright-protocol",
  "semwright-types",
  "serde",
@@ -3256,6 +3257,7 @@ dependencies = [
 name = "semwright-platform-api"
 version = "0.9.0-dev.1"
 dependencies = [
+ "async-trait",
  "semwright-backend-api",
  "semwright-types",
  "serde",
@@ -3420,6 +3422,7 @@ dependencies = [
 name = "semwright-platform-windows-sys"
 version = "0.9.0-dev.1"
 dependencies = [
+ "async-trait",
  "png",
  "proptest",
  "semwright-platform-api",

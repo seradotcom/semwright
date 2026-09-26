@@ -1,25 +1,37 @@
-use crate::{identity::current_user_sid_bytes, pe::require_native_architecture};
-use semwright_platform_api::launch::{ExecutableVerifier, SandboxLauncher, SandboxSpec};
-use semwright_types::{Error, ErrorCode, Result};
+use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
+use async_trait::async_trait;
+use semwright_platform_api::launch::{
+    ExecutableVerifier, SandboxChildControl, SandboxLauncher, SandboxProcess, SandboxSpec,
+};
+use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
 use std::{
+    ffi::OsStr,
     fs::File,
     io::Read,
-    os::windows::{ffi::OsStrExt, fs::OpenOptionsExt, io::AsRawHandle},
+    os::windows::{
+        ffi::OsStrExt,
+        fs::OpenOptionsExt,
+        io::{AsRawHandle, FromRawHandle},
+    },
     path::Path,
 };
-use tokio::process::Command;
+use tokio::{fs::File as TokioFile, process::Command};
 use windows::Win32::{
     Foundation::{
-        GENERIC_ALL, GENERIC_WRITE, HANDLE, HLOCAL, HWND, LocalFree, TRUST_E_EXPLICIT_DISTRUST,
-        TRUST_E_NOSIGNATURE,
+        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_WRITE, HANDLE,
+        HANDLE_FLAG_INHERIT, HANDLE_FLAGS, HLOCAL, HWND, LocalFree, TRUST_E_EXPLICIT_DISTRUST,
+        TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
     },
     Security::{
         ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
         Authorization::{GetSecurityInfo, SE_FILE_OBJECT},
-        CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, GetAce, GetAclInformation,
-        OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_MAX_SID_SIZE,
-        WinBuiltinAdministratorsSid, WinLocalSystemSid,
+        CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
+        GetAclInformation,
+        Isolation::{CreateAppContainerProfile, DeleteAppContainerProfile},
+        OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
+        SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE, WinBuiltinAdministratorsSid,
+        WinLocalSystemSid,
         WinTrust::{
             WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
             WTD_CACHE_ONLY_URL_RETRIEVAL, WTD_CHOICE_FILE, WTD_REVOCATION_CHECK_NONE,
@@ -28,19 +40,31 @@ use windows::Win32::{
         },
     },
     Storage::FileSystem::{
-        BY_HANDLE_FILE_INFORMATION, DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_REPARSE_POINT,
-        FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_WRITE, FILE_SHARE_DELETE, FILE_SHARE_READ,
-        FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
-        WRITE_DAC, WRITE_OWNER,
+        BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL,
+        FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_WRITE,
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES,
+        FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC,
+        WRITE_OWNER,
     },
-    System::SystemServices::{
-        ACCESS_ALLOWED_ACE_TYPE, ACCESS_ALLOWED_CALLBACK_ACE_TYPE,
-        ACCESS_ALLOWED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_ALLOWED_OBJECT_ACE_TYPE,
-        ACCESS_DENIED_ACE_TYPE, ACCESS_DENIED_CALLBACK_ACE_TYPE,
-        ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_DENIED_OBJECT_ACE_TYPE,
+    System::{
+        Pipes::CreatePipe,
+        SystemServices::{
+            ACCESS_ALLOWED_ACE_TYPE, ACCESS_ALLOWED_CALLBACK_ACE_TYPE,
+            ACCESS_ALLOWED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_ALLOWED_OBJECT_ACE_TYPE,
+            ACCESS_DENIED_ACE_TYPE, ACCESS_DENIED_CALLBACK_ACE_TYPE,
+            ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_DENIED_OBJECT_ACE_TYPE,
+        },
+        Threading::{
+            CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
+            DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
+            INFINITE, InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
+            PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+            TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+        },
     },
 };
-use windows::core::PCWSTR;
+use windows::core::{BOOL, PCWSTR, PWSTR};
 
 const MAX_EXECUTABLE: u64 = 64 * 1024 * 1024;
 
@@ -393,25 +417,622 @@ impl ExecutableVerifier for WindowsVerifier {
     }
 }
 
-/// The current shared `SandboxLauncher` contract returns a normal `Command`. On Windows that is
-/// not sufficient to prove CREATE_SUSPENDED -> AppContainer/LPAC token -> Job assignment -> resume
-/// ordering before untrusted code runs. Refuse arbitrary child execution rather than race it.
+struct NativeHandle(HANDLE);
+// SAFETY: kernel HANDLE values are process-wide. This wrapper owns one handle and closes it once.
+unsafe impl Send for NativeHandle {}
+
+impl NativeHandle {
+    fn raw(&self) -> HANDLE {
+        self.0
+    }
+
+    fn into_file(mut self) -> File {
+        let raw = self.0.0;
+        self.0 = HANDLE::default();
+        // SAFETY: ownership of the live HANDLE moves from this guard to std::fs::File.
+        unsafe { File::from_raw_handle(raw) }
+    }
+}
+
+impl Drop for NativeHandle {
+    fn drop(&mut self) {
+        if !self.0.is_invalid() {
+            // SAFETY: this guard exclusively owns the HANDLE.
+            unsafe {
+                let _ = CloseHandle(self.0);
+            }
+        }
+    }
+}
+
+struct ProcAttributes {
+    _storage: Vec<usize>,
+    list: LPPROC_THREAD_ATTRIBUTE_LIST,
+}
+
+impl ProcAttributes {
+    fn new(count: u32) -> Result<Self> {
+        let mut bytes = 0usize;
+        // SAFETY: a null attribute-list pointer is the documented sizing probe; bytes is a
+        // valid writable SIZE_T out-parameter and no attribute storage is dereferenced.
+        let _ = unsafe { InitializeProcThreadAttributeList(None, count, None, &mut bytes) };
+        if bytes == 0 {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows process attribute sizing failed",
+            ));
+        }
+        let word = std::mem::size_of::<usize>();
+        let mut storage = vec![0usize; bytes.div_ceil(word)];
+        let list = LPPROC_THREAD_ATTRIBUTE_LIST(storage.as_mut_ptr().cast());
+        // SAFETY: storage is aligned, writable, and lives for the attribute-list lifetime.
+        unsafe { InitializeProcThreadAttributeList(Some(list), count, None, &mut bytes) }.map_err(
+            |_| {
+                Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Windows process attribute initialization failed",
+                )
+            },
+        )?;
+        Ok(Self {
+            _storage: storage,
+            list,
+        })
+    }
+
+    fn set_value<T>(&mut self, attribute: u32, value: &T) -> Result<()> {
+        // SAFETY: value remains live until CreateProcessW returns and its exact size is supplied.
+        unsafe {
+            UpdateProcThreadAttribute(
+                LPPROC_THREAD_ATTRIBUTE_LIST(self.list.0),
+                0,
+                attribute as usize,
+                Some((value as *const T).cast()),
+                std::mem::size_of::<T>(),
+                None,
+                None,
+            )
+        }
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows process attribute could not be applied",
+            )
+        })
+    }
+
+    fn set_slice<T>(&mut self, attribute: u32, values: &[T]) -> Result<()> {
+        // SAFETY: values remains live until CreateProcessW returns and its byte length is exact.
+        unsafe {
+            UpdateProcThreadAttribute(
+                LPPROC_THREAD_ATTRIBUTE_LIST(self.list.0),
+                0,
+                attribute as usize,
+                Some(values.as_ptr().cast()),
+                std::mem::size_of_val(values),
+                None,
+                None,
+            )
+        }
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows process handle allowlist could not be applied",
+            )
+        })
+    }
+}
+
+impl Drop for ProcAttributes {
+    fn drop(&mut self) {
+        if !self.list.is_invalid() {
+            // SAFETY: the initialized list points into _storage, which is still live here.
+            unsafe { DeleteProcThreadAttributeList(LPPROC_THREAD_ATTRIBUTE_LIST(self.list.0)) };
+        }
+    }
+}
+
+struct AppContainerProfile {
+    name: Vec<u16>,
+    sid: PSID,
+    delete_on_drop: bool,
+}
+
+impl AppContainerProfile {
+    fn create() -> Result<Self> {
+        let suffix: String = unique_id()
+            .chars()
+            .filter(char::is_ascii_alphanumeric)
+            .take(32)
+            .collect();
+        let name = format!("Semwright.Sandbox.{suffix}");
+        let wide = wide_null(OsStr::new(&name))?;
+        // SAFETY: all strings are stable NUL-terminated buffers; no capabilities are requested.
+        let sid = unsafe {
+            CreateAppContainerProfile(
+                PCWSTR(wide.as_ptr()),
+                PCWSTR(wide.as_ptr()),
+                PCWSTR(wide.as_ptr()),
+                None,
+            )
+        }
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows AppContainer profile creation failed",
+            )
+        })?;
+        Ok(Self {
+            name: wide,
+            sid,
+            delete_on_drop: true,
+        })
+    }
+
+    fn transfer_name(mut self) -> Vec<u16> {
+        self.delete_on_drop = false;
+        self.name.clone()
+    }
+}
+
+impl Drop for AppContainerProfile {
+    fn drop(&mut self) {
+        if !self.sid.is_invalid() {
+            // SAFETY: CreateAppContainerProfile allocated this SID for the caller.
+            unsafe {
+                let _ = FreeSid(self.sid);
+            }
+        }
+        if self.delete_on_drop {
+            // SAFETY: name is a stable NUL-terminated profile name.
+            unsafe {
+                let _ = DeleteAppContainerProfile(PCWSTR(self.name.as_ptr()));
+            }
+        }
+    }
+}
+
+fn wide_null(value: &OsStr) -> Result<Vec<u16>> {
+    let mut wide: Vec<u16> = value.encode_wide().collect();
+    if wide.is_empty() || wide.len() >= 32_767 || wide.contains(&0) {
+        return Err(Error::invalid(
+            "Windows sandbox string is empty, oversized or contains NUL",
+        ));
+    }
+    wide.push(0);
+    Ok(wide)
+}
+
+fn push_quoted_arg(out: &mut Vec<u16>, arg: &OsStr) {
+    let units: Vec<u16> = arg.encode_wide().collect();
+    let quote = units.is_empty()
+        || units
+            .iter()
+            .any(|unit| matches!(*unit, 9 | 10 | 13 | 32 | 34));
+    if !quote {
+        out.extend(units);
+        return;
+    }
+    out.push(34);
+    let mut slashes = 0usize;
+    for unit in units {
+        if unit == 92 {
+            slashes += 1;
+            continue;
+        }
+        if unit == 34 {
+            for _ in 0..(slashes * 2 + 1) {
+                out.push(92);
+            }
+            out.push(34);
+        } else {
+            for _ in 0..slashes {
+                out.push(92);
+            }
+            out.push(unit);
+        }
+        slashes = 0;
+    }
+    for _ in 0..(slashes * 2) {
+        out.push(92);
+    }
+    out.push(34);
+}
+
+fn command_line(spec: &SandboxSpec) -> Result<Vec<u16>> {
+    let mut out = Vec::new();
+    push_quoted_arg(&mut out, spec.staged_executable.as_os_str());
+    for arg in &spec.args {
+        out.push(32);
+        push_quoted_arg(&mut out, OsStr::new(arg));
+    }
+    if out.len() >= 32_767 {
+        return Err(Error::invalid(
+            "Windows sandbox command line exceeds CreateProcess budget",
+        ));
+    }
+    out.push(0);
+    Ok(out)
+}
+
+fn environment_block(spec: &SandboxSpec) -> Result<Vec<u16>> {
+    let mut entries = spec.environment.clone();
+    if let Some(system_root) = std::env::var_os("SystemRoot") {
+        entries.push((
+            "SystemRoot".into(),
+            system_root.to_string_lossy().into_owned(),
+        ));
+    }
+    entries.sort_by_key(|(name, _)| name.to_ascii_uppercase());
+    let mut out = Vec::new();
+    for (name, value) in entries {
+        let entry = format!("{name}={value}");
+        if entry.contains('\0') {
+            return Err(Error::invalid("Windows sandbox environment contains NUL"));
+        }
+        out.extend(entry.encode_utf16());
+        out.push(0);
+    }
+    if out.is_empty() {
+        out.push(0);
+    }
+    out.push(0);
+    if out.len() >= 32_767 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows sandbox environment exceeds CreateProcess budget",
+        ));
+    }
+    Ok(out)
+}
+
+fn inheritable_pipe() -> Result<(NativeHandle, NativeHandle)> {
+    let attrs = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: std::ptr::null_mut(),
+        bInheritHandle: BOOL(1),
+    };
+    let mut read = HANDLE::default();
+    let mut write = HANDLE::default();
+    // SAFETY: outputs are writable and attrs remains live for the synchronous call.
+    unsafe { CreatePipe(&mut read, &mut write, Some(&attrs), 0) }.map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox stdio pipe creation failed",
+        )
+    })?;
+    Ok((NativeHandle(read), NativeHandle(write)))
+}
+
+fn clear_inheritance(handle: HANDLE) -> Result<()> {
+    // SAFETY: handle is live and owned by the parent; only its inheritance flag changes.
+    unsafe {
+        windows::Win32::Foundation::SetHandleInformation(
+            handle,
+            HANDLE_FLAG_INHERIT.0,
+            HANDLE_FLAGS(0),
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows parent pipe inheritance hardening failed",
+        )
+    })
+}
+
+fn duplicate_owned_handle(handle: HANDLE) -> Result<NativeHandle> {
+    // SAFETY: GetCurrentProcess returns a pseudo-handle for this process and needs no cleanup.
+    let current = unsafe { GetCurrentProcess() };
+    let mut duplicate = HANDLE::default();
+    // SAFETY: source/target are the current process and duplicate receives a separately owned
+    // process handle with the same access mask. No pseudo handle is passed as the source object.
+    unsafe {
+        DuplicateHandle(
+            current,
+            handle,
+            current,
+            &mut duplicate,
+            0,
+            false,
+            DUPLICATE_SAME_ACCESS,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Windows sandbox process handle duplication failed",
+        )
+    })?;
+    Ok(NativeHandle(duplicate))
+}
+
+fn inherited_null() -> Result<NativeHandle> {
+    let attrs = SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: std::ptr::null_mut(),
+        bInheritHandle: BOOL(1),
+    };
+    let name = wide_null(OsStr::new("NUL"))?;
+    // SAFETY: name and attrs remain live for the synchronous open.
+    let handle = unsafe {
+        CreateFileW(
+            PCWSTR(name.as_ptr()),
+            GENERIC_WRITE.0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            Some(&attrs),
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            None,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows NUL handle creation failed",
+        )
+    })?;
+    Ok(NativeHandle(handle))
+}
+
+struct NativeSandboxChild {
+    process: NativeHandle,
+    _job: ProcessJob,
+    pid: u32,
+    profile_name: Option<Vec<u16>>,
+    exited: bool,
+}
+
+impl NativeSandboxChild {
+    fn cleanup_profile(&mut self) {
+        if let Some(name) = self.profile_name.take() {
+            // SAFETY: name is the NUL-terminated profile created for this child.
+            unsafe {
+                let _ = DeleteAppContainerProfile(PCWSTR(name.as_ptr()));
+            }
+        }
+    }
+
+    fn observed_exit(&mut self) -> bool {
+        // SAFETY: process is a live owned process HANDLE.
+        let wait = unsafe { WaitForSingleObject(self.process.raw(), 0) };
+        if wait == WAIT_OBJECT_0 {
+            self.exited = true;
+            self.cleanup_profile();
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[async_trait]
+impl SandboxChildControl for NativeSandboxChild {
+    fn id(&self) -> Option<u32> {
+        Some(self.pid)
+    }
+
+    async fn kill(&mut self) -> Result<()> {
+        if self.observed_exit() {
+            return Ok(());
+        }
+        // SAFETY: process is a live child owned by this controller.
+        unsafe { TerminateProcess(self.process.raw(), 1) }.map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox child termination failed",
+            )
+        })?;
+        self.wait().await
+    }
+
+    async fn wait(&mut self) -> Result<()> {
+        if self.observed_exit() {
+            return Ok(());
+        }
+        let wait_handle = duplicate_owned_handle(self.process.raw())?;
+        let wait = tokio::task::spawn_blocking(move || {
+            // SAFETY: wait_handle exclusively owns a duplicate process HANDLE.
+            unsafe { WaitForSingleObject(wait_handle.raw(), INFINITE) }
+        })
+        .await
+        .map_err(|_| Error::new(ErrorCode::Internal, "Windows sandbox wait task failed"))?;
+        if wait != WAIT_OBJECT_0 {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Windows sandbox wait returned an unexpected status",
+            ));
+        }
+        self.exited = true;
+        self.cleanup_profile();
+        Ok(())
+    }
+}
+
+impl Drop for NativeSandboxChild {
+    fn drop(&mut self) {
+        if !self.exited {
+            // SAFETY: best-effort containment cleanup for the owned child.
+            unsafe {
+                let _ = TerminateProcess(self.process.raw(), 1);
+                if WaitForSingleObject(self.process.raw(), 5_000) == WAIT_OBJECT_0 {
+                    self.exited = true;
+                }
+            }
+        }
+        if self.exited {
+            self.cleanup_profile();
+        }
+    }
+}
+
+/// Windows arbitrary-child launch is platform-owned: an AppContainer identity and explicit
+/// inherited-handle list are attached at creation, the process starts suspended, enters a
+/// kill-on-close Job Object, and is resumed only after that boundary exists.
 pub struct WindowsSandbox;
 impl SandboxLauncher for WindowsSandbox {
     fn command(&self, spec: &SandboxSpec) -> Result<Command> {
         spec.validate()?;
         Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows arbitrary driver/plugin launch is fail-closed until secure pre-exec spawn is part of the platform contract",
+            "Windows sandbox creation is only available through platform-owned spawn",
+        ))
+    }
+
+    fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
+        spec.validate()?;
+        if !spec.mounts.is_empty() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox filesystem mounts remain fail-closed until AppContainer ACL grants are transactional",
+            ));
+        }
+        if spec.network {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox network remains fail-closed until capability grants are explicit",
+            ));
+        }
+
+        let profile = AppContainerProfile::create()?;
+        let (child_stdin, parent_stdin) = inheritable_pipe()?;
+        let (parent_stdout, child_stdout) = inheritable_pipe()?;
+        clear_inheritance(parent_stdin.raw())?;
+        clear_inheritance(parent_stdout.raw())?;
+        let child_stderr = inherited_null()?;
+
+        let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
+        let mut attributes = ProcAttributes::new(2)?;
+        attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
+        let capabilities = SECURITY_CAPABILITIES {
+            AppContainerSid: profile.sid,
+            ..Default::default()
+        };
+        attributes.set_value(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, &capabilities)?;
+
+        let mut startup = STARTUPINFOEXW::default();
+        startup.StartupInfo.cb = std::mem::size_of::<STARTUPINFOEXW>() as u32;
+        startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+        startup.StartupInfo.hStdInput = child_stdin.raw();
+        startup.StartupInfo.hStdOutput = child_stdout.raw();
+        startup.StartupInfo.hStdError = child_stderr.raw();
+        startup.lpAttributeList = LPPROC_THREAD_ATTRIBUTE_LIST(attributes.list.0);
+
+        let limits = spec.limits.as_ref();
+        let process_limit = limits
+            .map(|limit| u32::try_from(limit.processes))
+            .transpose()
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Windows process limit exceeds Job budget",
+                )
+            })?;
+        let memory_limit = limits
+            .map(|limit| usize::try_from(limit.address_space_bytes))
+            .transpose()
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Windows memory limit exceeds Job budget",
+                )
+            })?;
+        let cpu_seconds = limits.map(|limit| limit.cpu_seconds);
+        let job = ProcessJob::new(process_limit, memory_limit, cpu_seconds)?;
+
+        let application = wide_null(spec.staged_executable.as_os_str())?;
+        let mut command = command_line(spec)?;
+        let environment = environment_block(spec)?;
+        let mut process_info = PROCESS_INFORMATION::default();
+        let flags = CREATE_SUSPENDED
+            | EXTENDED_STARTUPINFO_PRESENT
+            | CREATE_UNICODE_ENVIRONMENT
+            | CREATE_NO_WINDOW;
+        // SAFETY: all pointed-to buffers, handles, attributes and security capabilities remain
+        // live through CreateProcessW. Inheritance is restricted by HANDLE_LIST.
+        unsafe {
+            windows::Win32::System::Threading::CreateProcessW(
+                PCWSTR(application.as_ptr()),
+                Some(PWSTR(command.as_mut_ptr())),
+                None,
+                None,
+                true,
+                flags,
+                Some(environment.as_ptr().cast()),
+                PCWSTR::null(),
+                (&startup as *const STARTUPINFOEXW).cast(),
+                &mut process_info,
+            )
+        }
+        .map_err(|error| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                format!(
+                    "Windows AppContainer process creation failed ({:#x})",
+                    error.code().0
+                ),
+            )
+        })?;
+
+        let process = NativeHandle(process_info.hProcess);
+        let thread = NativeHandle(process_info.hThread);
+        if let Err(error) = job.assign_suspended_process(process.raw()) {
+            // SAFETY: child is still suspended and must not survive a failed containment step.
+            unsafe {
+                let _ = TerminateProcess(process.raw(), 1);
+            }
+            return Err(error);
+        }
+        // SAFETY: containment is established; resuming now is the first point untrusted code runs.
+        if unsafe { ResumeThread(thread.raw()) } == u32::MAX {
+            // SAFETY: resume failed while we still own the process.
+            unsafe {
+                let _ = TerminateProcess(process.raw(), 1);
+            }
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox child could not be resumed",
+            ));
+        }
+        drop(thread);
+        drop(child_stdin);
+        drop(child_stdout);
+        drop(child_stderr);
+        drop(attributes);
+
+        let stdin = Box::new(TokioFile::from_std(parent_stdin.into_file()));
+        let stdout = Box::new(TokioFile::from_std(parent_stdout.into_file()));
+        let profile_name = profile.transfer_name();
+        Ok(SandboxProcess::from_parts(
+            stdin,
+            stdout,
+            Box::new(NativeSandboxChild {
+                process,
+                _job: job,
+                pid: process_info.dwProcessId,
+                profile_name: Some(profile_name),
+                exited: false,
+            }),
         ))
     }
 
     fn available(&self, _helper: &Path) -> bool {
-        false
+        true
     }
 
     fn mechanism(&self) -> &'static str {
-        "unavailable:windows-appcontainer-lpac-job-preexec-contract"
+        "windows-appcontainer-job-handle-list-v1"
+    }
+
+    fn diagnostics(&self, _helper: &Path) -> serde_json::Value {
+        serde_json::json!({
+            "available": true,
+            "mechanism": self.mechanism(),
+            "pre_first_instruction_containment": true,
+            "filesystem_mounts": "fail_closed_pending_transactional_acl_grants",
+            "network": "fail_closed_pending_explicit_capabilities",
+            "resource_limits": ["processes", "cpu_seconds", "process_memory"],
+        })
     }
 }
 

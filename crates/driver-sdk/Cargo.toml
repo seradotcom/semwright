@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 semwright-types.workspace = true
 semwright-protocol.workspace = true
+semwright-platform-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

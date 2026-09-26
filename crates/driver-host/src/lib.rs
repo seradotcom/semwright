@@ -11,6 +11,7 @@ use semwright_driver_sdk::DriverInterfaces;
 use semwright_driver_sdk::{
     DriverRequestContext, Manifest, Request, Response, capabilities_digest, descriptor_digest,
 };
+use semwright_platform_api::launch::{SandboxStdin, SandboxStdout};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::{
@@ -32,12 +33,9 @@ use std::{
     io::Write,
     os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
 };
-#[cfg(unix)]
+#[cfg(all(test, unix))]
 use tokio::process::Command;
-use tokio::{
-    process::{ChildStdin, ChildStdout},
-    sync::{Mutex, broadcast, oneshot},
-};
+use tokio::sync::{Mutex, broadcast, oneshot};
 use tokio_util::sync::CancellationToken;
 
 struct StagedFile(PathBuf);
@@ -169,12 +167,12 @@ fn validate_owner_permissions(
 }
 
 struct Io {
-    input: ChildStdin,
-    output: ChildStdout,
+    input: SandboxStdin,
+    output: SandboxStdout,
 }
 
 struct V2Io {
-    input: Mutex<ChildStdin>,
+    input: Mutex<SandboxStdin>,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
 }
 
@@ -256,7 +254,7 @@ fn response_id(response: &Response) -> Option<&str> {
 
 #[cfg(unix)]
 fn spawn_v2_reader(
-    mut output: ChildStdout,
+    mut output: SandboxStdout,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
     signals: broadcast::Sender<ProviderSignal>,
     interfaces: DriverInterfaces,
@@ -343,13 +341,13 @@ async fn request<T: Serialize>(io: &mut Io, request: &T, timeout: Duration) -> R
 }
 
 #[cfg(unix)]
-fn sandbox_command(
+fn sandbox_spec(
     manifest: &Manifest,
     staged: &Path,
     helper: &Path,
     roots: &[FilesystemGrant],
     loopback_directory: Option<&Path>,
-) -> Result<Command> {
+) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
@@ -429,7 +427,7 @@ fn sandbox_command(
             loopback::SANDBOX_SOCKET.into(),
         ));
     }
-    semwright_platform_services::sandbox_command(&SandboxSpec {
+    Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
         helper: helper.into(),
@@ -445,6 +443,18 @@ fn sandbox_command(
             file_size_bytes: manifest.resources.file_size_bytes,
         }),
     })
+}
+
+#[cfg(all(test, unix))]
+fn sandbox_command(
+    manifest: &Manifest,
+    staged: &Path,
+    helper: &Path,
+    roots: &[FilesystemGrant],
+) -> Result<Command> {
+    semwright_platform_services::sandbox_command(&sandbox_spec(
+        manifest, staged, helper, roots, None,
+    )?)
 }
 
 pub struct DriverProvider {
@@ -500,24 +510,16 @@ impl DriverProvider {
                 Some(port) => Some(loopback::start(state, port).await?),
                 None => None,
             };
-            let mut command = sandbox_command(
+            let spec = sandbox_spec(
                 &manifest,
                 &staged_path,
                 helper,
                 roots,
                 loopback.as_deref().map(loopback::LoopbackProxy::directory),
             )?;
-            let mut child = command.spawn().map_err(|_| {
-                Error::new(ErrorCode::SandboxDenied, "Driver sandbox failed to start")
-            })?;
-            let input = child
-                .stdin
-                .take()
-                .ok_or_else(|| Error::new(ErrorCode::ProtocolMismatch, "Driver stdin missing"))?;
-            let output = child
-                .stdout
-                .take()
-                .ok_or_else(|| Error::new(ErrorCode::ProtocolMismatch, "Driver stdout missing"))?;
+            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let input = child.take_stdin()?;
+            let output = child.take_stdout()?;
             let mut io = Io { input, output };
             let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
             let hello = request(

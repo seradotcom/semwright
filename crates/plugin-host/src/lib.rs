@@ -190,7 +190,7 @@ impl Host {
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let mut process = semwright_platform_services::sandbox_command(&SandboxSpec {
+            let spec = SandboxSpec {
                 kind: SandboxKind::Plugin,
                 staged_executable: staged.clone(),
                 helper: self.helper.clone(),
@@ -199,22 +199,16 @@ impl Host {
                 environment: vec![],
                 network: manifest.network,
                 limits: None,
-            })?;
+            };
             if cancellation.is_cancelled() {
                 return Err(Error::new(
                     ErrorCode::Cancelled,
                     "Plugin cancelled before spawn",
                 ));
             }
-            let mut child = process
-                .spawn()
-                .map_err(|_| Error::new(ErrorCode::SandboxDenied, "Sandbox launcher failed"))?;
-            let mut input = child.stdin.take().ok_or_else(|| {
-                Error::new(ErrorCode::PluginProtocolError, "Plugin stdin missing")
-            })?;
-            let mut output = child.stdout.take().ok_or_else(|| {
-                Error::new(ErrorCode::PluginProtocolError, "Plugin stdout missing")
-            })?;
+            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let mut input = child.take_stdin()?;
+            let mut output = child.take_stdout()?;
             let id = unique_id();
             let expected_commands_sha256 = commands_digest(&manifest.commands)?;
             let conversation = async {
