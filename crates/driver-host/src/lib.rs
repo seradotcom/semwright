@@ -55,7 +55,8 @@ impl Drop for StagedFile {
 #[cfg(unix)]
 struct SealedTool {
     name: String,
-    file: std::fs::File,
+    // Retained solely to keep the sealed memfd inode alive for the O_PATH handle.
+    _file: std::fs::File,
     path_file: std::fs::File,
 }
 #[cfg(unix)]
@@ -63,7 +64,7 @@ impl SealedTool {
     fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
         // path_file only names the memfd; file owns the immutable executable bytes
         // for the full provider lifetime, so keep that ownership explicit here.
-        let _sealed_data_fd = self.file.as_raw_fd();
+        let _sealed_data_fd = self._file.as_raw_fd();
         semwright_platform_api::launch::SealedToolMount {
             fd: self.path_file.as_raw_fd(),
             name: self.name.clone(),
@@ -125,7 +126,7 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
     }
     Ok(SealedTool {
         name: name.to_owned(),
-        file,
+        _file: file,
         path_file,
     })
 }
@@ -1354,9 +1355,9 @@ mod tests {
         let source = Path::new("/usr/bin/true");
         let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
         let tool = seal_verified_tool(source, &digest, "probe").unwrap();
-        let fd = tool.file.as_raw_fd();
+        let fd = tool._file.as_raw_fd();
         let path_fd = tool.path_file.as_raw_fd();
-        let data_metadata = tool.file.metadata().unwrap();
+        let data_metadata = tool._file.metadata().unwrap();
         let path_metadata = tool.path_file.metadata().unwrap();
         assert_eq!(data_metadata.dev(), path_metadata.dev());
         assert_eq!(data_metadata.ino(), path_metadata.ino());
