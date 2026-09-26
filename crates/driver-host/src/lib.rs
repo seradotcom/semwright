@@ -116,8 +116,9 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
     }
     // SAFETY: open returned a new owned read-only descriptor on success.
     let data_file = unsafe { std::fs::File::from_raw_fd(data_fd) };
-    // SAFETY: F_GETFD/F_GETFL read scalar descriptor/status flags only.
+    // SAFETY: F_GETFD reads scalar descriptor flags only.
     let fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+    // SAFETY: F_GETFL reads scalar file status flags only.
     let status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
     if fd_flags < 0
         || status_flags < 0
