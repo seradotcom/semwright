@@ -103,6 +103,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
             open_files: 256,
             processes: 64,
             cpu_seconds: 300,
+            operation_cpu_seconds: 0,
             address_space_bytes: 4_294_967_296,
             file_size_bytes: 1_073_741_824,
         },
