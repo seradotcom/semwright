@@ -2,7 +2,8 @@ use clap::{CommandFactory, Parser};
 use semwright_cli::*;
 use semwright_driver_host::conformance as driver_conformance;
 use semwright_driver_registry::{
-    Index as DriverIndex, InstallRoots, create_package as create_driver_package,
+    CompanionInput, Index as DriverIndex, InstallRoots,
+    create_package_with_companions as create_driver_package,
     inspect_package as inspect_driver_package, install_from_index as install_driver_from_index,
     remove_installed as remove_installed_driver,
 };
@@ -21,6 +22,42 @@ fn load_driver_manifest(path: &std::path::Path) -> Result<DriverManifest> {
     let manifest: DriverManifest = serde_json::from_str(&read_file(path, 1_048_576)?)?;
     manifest.validate()?;
     Ok(manifest)
+}
+
+fn parse_companion(value: &str) -> Result<CompanionInput> {
+    let (destination, source) = value
+        .split_once('=')
+        .ok_or_else(|| Error::invalid("Companion mapping must be DEST=SOURCE"))?;
+    if destination.is_empty() || source.is_empty() {
+        return Err(Error::invalid("Companion mapping must be DEST=SOURCE"));
+    }
+    Ok(CompanionInput {
+        destination: PathBuf::from(destination),
+        source: PathBuf::from(source),
+    })
+}
+
+fn load_companion_list(path: &std::path::Path) -> Result<Vec<CompanionInput>> {
+    let base = path.parent().unwrap_or_else(|| std::path::Path::new("."));
+    let mut out = Vec::new();
+    for (line_number, line) in read_file(path, 512 * 1024)?.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut entry = parse_companion(line).map_err(|_| {
+            Error::invalid(format!(
+                "Invalid companion mapping at {}:{}",
+                path.display(),
+                line_number + 1
+            ))
+        })?;
+        if entry.source.is_relative() {
+            entry.source = base.join(&entry.source);
+        }
+        out.push(entry);
+    }
+    Ok(out)
 }
 
 fn driver_view(manifest: &DriverManifest) -> Result<serde_json::Value> {
@@ -198,8 +235,17 @@ async fn main() {{
                 manifest,
                 output,
                 semwright,
+                companion,
+                companion_list,
             } => {
                 let manifest = load_driver_manifest(manifest)?;
+                let mut companions = companion
+                    .iter()
+                    .map(|value| parse_companion(value))
+                    .collect::<Result<Vec<_>>>()?;
+                for list in companion_list {
+                    companions.extend(load_companion_list(list)?);
+                }
                 let requirement = semwright
                     .clone()
                     .unwrap_or_else(|| format!("={}", env!("CARGO_PKG_VERSION")));
@@ -210,12 +256,14 @@ async fn main() {{
                             "created": false,
                             "output": output,
                             "semwright": requirement,
+                            "companions": companions.iter().map(|entry| &entry.destination).collect::<Vec<_>>(),
                             "executed": false
                         }),
                         cli.json,
                     )
                 } else {
-                    let digest = create_driver_package(&manifest, &requirement, output)?;
+                    let digest =
+                        create_driver_package(&manifest, &requirement, &companions, output)?;
                     print_result(
                         &json!({
                             "created": true,
