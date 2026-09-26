@@ -56,4 +56,4 @@ The companion list is checked against `integrations/godot/addons/semwright/` in 
 
 Start from `driver.manifest.example.json`, pin the driver and Godot runtime digests, provide owner grants for config/project/output, the pairing secret file and the Godot runtime tool. Driver Host exposes the editor bridge through loopback-only authority without granting the driver ambient network access, delivers pairing material through a read-only secret mount, and stages the Godot runtime as a sealed secondary executable.
 
-See [security](docs/SECURITY.md), [compatibility](docs/COMPATIBILITY.md), [capabilities](docs/CAPABILITIES.md), [semantic-domain completeness](docs/SEMANTIC_DOMAINS.md), and [SDK gaps](docs/SDK_GAPS.md).
+See [security](docs/SECURITY.md), [compatibility](docs/COMPATIBILITY.md), [capabilities](docs/CAPABILITIES.md), [completeness boundary](docs/COMPLETENESS.md), [semantic domains](docs/SEMANTIC_DOMAINS.md), and [SDK closeout](docs/SDK_GAPS.md).
