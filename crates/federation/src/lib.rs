@@ -222,11 +222,15 @@ impl StdioUpstreamConfig {
     }
     pub fn validate(&self) -> Result<()> {
         self.validate_definition()?;
+        #[cfg(unix)]
         if std::fs::canonicalize(&self.program).ok().as_ref() != Some(&self.program) {
             return Err(Error::invalid(
                 "Federated stdio executable must be an absolute canonical path",
             ));
         }
+        // Windows trust is established by the HANDLE-based platform verifier. Do not
+        // canonicalize here: std::fs::canonicalize rewrites DOS paths as \\?\ paths,
+        // which are intentionally rejected by the verifier to avoid device-path semantics.
         for mount in &self.mounts {
             mount.validate_source()?;
         }
@@ -280,9 +284,9 @@ pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
 }
 #[cfg(target_os = "windows")]
 pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
-    if !program.is_absolute() || std::fs::canonicalize(program).ok().as_deref() != Some(program) {
+    if !program.is_absolute() {
         return Err(Error::invalid(
-            "Federated stdio executable must be an absolute canonical path",
+            "Federated Windows stdio executable must use an absolute DOS path",
         ));
     }
     let metadata = std::fs::metadata(program)?;

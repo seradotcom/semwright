@@ -37,12 +37,15 @@ async fn secure_windows_external_mcp_roundtrips_echo() {
     let copied = binary_dir.path().join("mcp-fixture.exe");
     std::fs::copy(&source, &copied).expect("copy MCP fixture");
     harden_fixture(&copied);
-    let program = std::fs::canonicalize(&copied).expect("canonical MCP fixture");
+    assert!(
+        copied.is_absolute(),
+        "temp MCP fixture path must be absolute"
+    );
 
     let config = StdioUpstreamConfig {
         slug: "windows-secure".into(),
-        program: program.clone(),
-        sha256: digest(&program),
+        program: copied.clone(),
+        sha256: digest(&copied),
         args: vec![],
         mounts: vec![],
         network: false,
