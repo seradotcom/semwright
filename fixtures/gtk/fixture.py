@@ -4,6 +4,9 @@ import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib
 
+GLib.set_application_name('SemwrightGtkFixture')
+GLib.set_prgname('semwright-gtk-fixture')
+
 class Fixture(Gtk.Application):
     def __init__(self):
         super().__init__(application_id='org.semwright.Fixture')
@@ -18,7 +21,7 @@ class Fixture(Gtk.Application):
             getattr(box, 'set_margin_' + name)(16)
         window.set_child(box)
         box.append(Gtk.Label(label='Disposable fixture — buttons do not save real files.'))
-        entry = Gtk.Entry(text='fixture.txt')
+        entry = Gtk.Entry()
         entry.update_property([Gtk.AccessibleProperty.LABEL], ['Filename'])
         box.append(entry)
         password = Gtk.PasswordEntry()

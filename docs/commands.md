@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-118 built-in descriptors. A descriptor is not proof of live backend support.
+120 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -31,6 +31,8 @@ for many backends in this development handoff; strengthening them is a release g
 | `window.close` | `window.manage` | destructive | 10000 ms | sway, hyprland, gnome, kwin, x11, macos, windows |
 | `ui.snapshot` | `ui.observe` | read_only | 10000 ms | atspi, macos, windows |
 | `ui.find` | `ui.observe` | read_only | 10000 ms | core |
+| `ui.hit_test` | `ui.observe` | read_only | 3000 ms | atspi, macos, windows |
+| `ui.inspect` | `ui.observe` | read_only | 5000 ms | atspi, macos, windows |
 | `ui.invoke` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `ui.set_text` | `ui.invoke` | mutating | 10000 ms | atspi, macos, windows |
 | `ui.read_text` | `ui.text.read` | secret_access | 10000 ms | atspi, macos, windows |
@@ -623,6 +625,141 @@ Idempotency: `read_only`. Dry run: `true`.
         "query": {
           "type": "string",
           "maxLength": 256
+        },
+        "help": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "exact",
+                "regex"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "op",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "framework": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "attributes": {
+          "type": "object",
+          "maxProperties": 32,
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        },
+        "relation": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "target": {
+              "type": "string",
+              "maxLength": 80,
+              "pattern": "^(ui|win|app|dom|tab|screen|process):[0-9a-f]{32}$"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "facet": {
+          "type": "string",
+          "enum": [
+            "text",
+            "value",
+            "selection",
+            "table",
+            "document",
+            "image",
+            "hypertext",
+            "scroll",
+            "window",
+            "transform"
+          ]
+        },
+        "text": {
+          "type": "object",
+          "properties": {
+            "editable": {
+              "type": "boolean"
+            },
+            "password": {
+              "type": "boolean"
+            },
+            "has_selection": {
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "value": {
+          "type": "object",
+          "properties": {
+            "current_minimum": {
+              "type": "number"
+            },
+            "current_maximum": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "selection": {
+          "type": "object",
+          "properties": {
+            "selected": {
+              "type": "boolean"
+            },
+            "multi_select": {
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "table": {
+          "type": "object",
+          "properties": {
+            "row": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "column": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "min_rows": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "min_columns": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            }
+          },
+          "required": [],
+          "additionalProperties": false
         }
       },
       "required": [],
@@ -641,6 +778,58 @@ Idempotency: `read_only`. Dry run: `true`.
   },
   "required": [
     "selector"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `ui.hit_test`
+
+Resolve a screen point through the native accessibility system into an exact semantic UI reference. Read-only; never clicks.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "x": {
+      "type": "integer",
+      "minimum": -1000000,
+      "maximum": 1000000
+    },
+    "y": {
+      "type": "integer",
+      "minimum": -1000000,
+      "maximum": 1000000
+    }
+  },
+  "required": [
+    "x",
+    "y"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `ui.inspect`
+
+Inspect one exact live semantic UI reference without traversing descendants.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
   ],
   "additionalProperties": false
 }

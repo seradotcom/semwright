@@ -99,6 +99,7 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
             vec![]
         },
         network: false,
+        loopback_port: None,
         resources: DriverResources {
             open_files: 512,
             processes: 256,
