@@ -1418,7 +1418,7 @@ mod tests {
             read: true,
             write: false,
         };
-        validate_owner_permissions(&candidate, &[readable.clone()], false).unwrap();
+        validate_owner_permissions(&candidate, std::slice::from_ref(&readable), false).unwrap();
 
         std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o644)).unwrap();
         assert!(matches!(
