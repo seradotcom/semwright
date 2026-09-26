@@ -27,6 +27,7 @@ tokio.workspace = true
 tokio-util.workspace = true
 uuid.workspace = true
 libc.workspace = true
+rustix.workspace = true
 zbus.workspace = true
 x11rb.workspace = true
 futures-util.workspace = true

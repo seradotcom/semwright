@@ -1,0 +1,657 @@
+{
+  "modules": {
+    "code": {
+      "exports": {
+        "CODE": {
+          "reason": "dynamic CodeTag/SignalValue scope construction is executable/runtime authoring state; managed projects persist bounded code text and declarative animations",
+          "status": "unsupported_by_design"
+        },
+        "CodeCursor": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodeDiffer": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodeFragment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodeFragmentDrawingInfo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodeHighlighter": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodePoint": {
+          "semantic": "code selection",
+          "status": "represented_by"
+        },
+        "CodeRange": {
+          "semantic": "code selection",
+          "status": "represented_by"
+        },
+        "CodeScope": {
+          "reason": "dynamic CodeTag/SignalValue scope construction is executable/runtime authoring state; managed projects persist bounded code text and declarative animations",
+          "status": "unsupported_by_design"
+        },
+        "CodeSelection": {
+          "semantic": "code selection",
+          "status": "represented_by"
+        },
+        "CodeSignal": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodeSignalContext": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodeSignalHelpers": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CodeTag": {
+          "reason": "dynamic CodeTag/SignalValue scope construction is executable/runtime authoring state; managed projects persist bounded code text and declarative animations",
+          "status": "unsupported_by_design"
+        },
+        "CodeTokenizer": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "DefaultHighlightStyle": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "HighlightResult": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "LezerHighlighter": {
+          "semantic": "bounded language highlighter",
+          "status": "represented_by"
+        },
+        "PossibleCodeFragment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "PossibleCodeScope": {
+          "reason": "string form is managed by Code.code; CodeScope/CodeTag[] forms may contain dynamic SignalValue construction and are excluded",
+          "status": "mixed"
+        },
+        "PossibleCodeSelection": {
+          "semantic": "code selection",
+          "status": "represented_by"
+        },
+        "RawCodeFragment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "codeSignal": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "consolidateCodeRanges": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "defaultDiffer": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "defaultTokenize": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "extractRange": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "findAllCodeRanges": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "insert": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "inverseCodeRange": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "isCodeRange": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "isCodeScope": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "isPointInCodeRange": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "isPointInCodeSelection": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "lines": {
+          "semantic": "code selection",
+          "status": "represented_by"
+        },
+        "metricsToFragment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "parseCodeFragment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "parseCodeScope": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "parseCodeSelection": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "patienceDiff": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "pointToPoint": {
+          "semantic": "code selection",
+          "status": "represented_by"
+        },
+        "printDiff": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "remove": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "replace": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "resolveCodeTag": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "resolveScope": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "word": {
+          "semantic": "code selection",
+          "status": "represented_by"
+        }
+      }
+    },
+    "curves": {
+      "exports": {
+        "CircleSegment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CubicBezierSegment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CurveDrawingInfo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CurvePoint": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "CurveProfile": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "KnotAutoHandles": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "KnotInfo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "LineSegment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "Polynomial": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "Polynomial2D": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "QuadBezierSegment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "Segment": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "getBezierSplineProfile": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "getCircleProfile": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "getPointAtDistance": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "getPolylineProfile": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "getRectProfile": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        }
+      }
+    },
+    "decorators": {
+      "exports": {
+        "CanvasStyleSignal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "FiltersSignal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "FiltersSignalContext": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "Initializer": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "NODE_NAME": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "PropertyMetadata": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "Vector2LengthSignal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "addInitializer": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "canvasStyleSignal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "cloneable": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "colorSignal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "compound": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "computed": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "defaultStyle": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "filtersSignal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "getPropertiesOf": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "getPropertyMeta": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "getPropertyMetaOrCreate": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "initial": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "initialize": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "initializeSignals": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "inspectable": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "interpolation": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "nodeName": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "parser": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "signal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "vector2Signal": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        },
+        "wrapper": {
+          "reason": "decorator is for defining executable/custom components; managed projects persist values instead",
+          "status": "runtime_utility"
+        }
+      }
+    },
+    "jsx-runtime": {
+      "exports": {
+        "Fragment": {
+          "reason": "scene/JSX construction is emitted deterministically by the Semwright compiler",
+          "status": "compiler_managed"
+        },
+        "JSX": {
+          "reason": "scene/JSX construction is emitted deterministically by the Semwright compiler",
+          "status": "compiler_managed"
+        },
+        "jsx": {
+          "reason": "scene/JSX construction is emitted deterministically by the Semwright compiler",
+          "status": "compiler_managed"
+        },
+        "jsxs": {
+          "reason": "scene/JSX construction is emitted deterministically by the Semwright compiler",
+          "status": "compiler_managed"
+        }
+      }
+    },
+    "partials": {
+      "exports": {
+        "CanvasRepetition": {
+          "reason": "Pattern requires a live CanvasImageSource object; managed projects use attested local image nodes instead of serializing ambient DOM objects",
+          "status": "unsupported_by_design"
+        },
+        "CanvasStyle": {
+          "reason": "colors and Gradient are managed; Pattern is explicitly excluded because it requires CanvasImageSource runtime identity",
+          "status": "mixed"
+        },
+        "DesiredLength": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "FILTERS": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "Filter": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "FilterName": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "FilterProps": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "FlexBasis": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "FlexContent": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "FlexDirection": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "FlexItems": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "FlexWrap": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "Gradient": {
+          "semantic": "fill_gradient / stroke_gradient",
+          "status": "represented_by"
+        },
+        "GradientProps": {
+          "semantic": "fill_gradient / stroke_gradient",
+          "status": "represented_by"
+        },
+        "GradientStop": {
+          "semantic": "fill_gradient / stroke_gradient",
+          "status": "represented_by"
+        },
+        "GradientType": {
+          "semantic": "fill_gradient / stroke_gradient",
+          "status": "represented_by"
+        },
+        "LayoutMode": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "Length": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "LengthLimit": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "Pattern": {
+          "reason": "Pattern requires a live CanvasImageSource object; managed projects use attested local image nodes instead of serializing ambient DOM objects",
+          "status": "unsupported_by_design"
+        },
+        "PatternProps": {
+          "reason": "Pattern requires a live CanvasImageSource object; managed projects use attested local image nodes instead of serializing ambient DOM objects",
+          "status": "unsupported_by_design"
+        },
+        "PossibleCanvasStyle": {
+          "reason": "colors and Gradient are managed; Pattern is explicitly excluded because it requires CanvasImageSource runtime identity",
+          "status": "mixed"
+        },
+        "TextWrap": {
+          "semantic": "typed layout value codec",
+          "status": "represented_by"
+        },
+        "blur": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "brightness": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "contrast": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "grayscale": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "hue": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "invert": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "saturate": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        },
+        "sepia": {
+          "semantic": "typed node filters",
+          "status": "represented_by"
+        }
+      }
+    },
+    "scenes": {
+      "exports": {
+        "Scene2D": {
+          "reason": "scene/JSX construction is emitted deterministically by the Semwright compiler",
+          "status": "compiler_managed"
+        },
+        "makeScene2D": {
+          "reason": "scene/JSX construction is emitted deterministically by the Semwright compiler",
+          "status": "compiler_managed"
+        },
+        "useScene2D": {
+          "reason": "scene/JSX construction is emitted deterministically by the Semwright compiler",
+          "status": "compiler_managed"
+        }
+      }
+    },
+    "utils": {
+      "exports": {
+        "adjustRectRadius": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "arc": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "arcTo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "bezierCurveTo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "canvasStyleParser": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "drawImage": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "drawLine": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "drawPivot": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "drawPolygon": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "drawRect": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "drawRoundRect": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "fillRect": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "is": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "lineTo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "moveTo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "quadraticCurveTo": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "resolveCanvasStyle": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "strokeRect": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        },
+        "withDefaults": {
+          "reason": "public helper/type is implementation or imperative authoring machinery, not persistent managed project state",
+          "status": "runtime_utility"
+        }
+      }
+    }
+  },
+  "motion_canvas_version": "3.17.2",
+  "package": "@motion-canvas/2d",
+  "root_modules": {
+    "code": {
+      "status": "classified_here"
+    },
+    "components": {
+      "status": "component_matrix"
+    },
+    "curves": {
+      "status": "classified_here"
+    },
+    "decorators": {
+      "status": "classified_here"
+    },
+    "jsx-runtime": {
+      "status": "classified_here"
+    },
+    "partials": {
+      "status": "classified_here"
+    },
+    "scenes": {
+      "status": "classified_here"
+    },
+    "utils": {
+      "status": "classified_here"
+    }
+  },
+  "schema": 1
+}

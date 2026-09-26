@@ -28,6 +28,7 @@ tokio-util = { version = "0.7", features = ["rt"] }
 async-trait = "0.1"
 sha2 = "0.10"
 libc = "0.2"
+rustix = { version = "1", features = ["event"] }
 jsonschema = { version = "0.33", default-features = false }
 serde_yaml_ng = "0.10"
 toml = "1.1"

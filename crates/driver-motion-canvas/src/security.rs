@@ -47,11 +47,7 @@ pub fn literal_color(value: &str) -> bool {
             && value[1..].bytes().all(|b| b.is_ascii_hexdigit()))
 }
 pub fn font(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 128
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b" _-".contains(&b))
+    !value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control)
 }
 /// The compiler emits JSON string expressions in external TypeScript modules.
 /// No user content is inserted into HTML or a JavaScript template literal.

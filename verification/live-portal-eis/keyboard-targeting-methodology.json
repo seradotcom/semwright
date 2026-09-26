@@ -1,0 +1,31 @@
+{
+  "not_certified": [
+    "real keyboard target delivery",
+    "real keyboard in-flight cancellation target effects",
+    "nested-shell isolation for RemoteDesktop/EIS"
+  ],
+  "observations": [
+    {
+      "method": "owner-active GNOME Wayland login with disposable semantic window focus",
+      "reason": "EIS keyboard text reached the owner-active ChatGPT text box despite semantic window-focus checks.",
+      "result": "invalid"
+    },
+    {
+      "method": "GNOME Shell nested compositor with separate HOME, XDG runtime, session D-Bus and Wayland socket on the same logged-in host",
+      "reason": "The broker enumerated only nested windows, but RemoteDesktop/EIS keyboard text still reached the owner-active ChatGPT text box, so the portal authority was not isolated from the real graphical login.",
+      "result": "invalid"
+    }
+  ],
+  "required_next_environment": "A VM or independent seat/session with a graphical authority boundary that cannot inject into the owner-active login.",
+  "safe_evidence_retained": [
+    "real portal consent and ConnectToEIS lifecycle",
+    "pointer relative-motion and click delivery against disposable target",
+    "focus-drift rejection with no fallback",
+    "explicit portal stop and inactive post-stop state",
+    "deterministic fake-EIS protocol tests for XKB translation, cancellation, sender backpressure, pacing and bidirectional modifier feedback"
+  ],
+  "safety_decision": "Do not perform further EIS keyboard injection on the owner-active login or on a nested compositor attached to that login.",
+  "schema_version": 1,
+  "scope": "GNOME RemoteDesktop/EIS keyboard live-test targeting methodology",
+  "status": "INVALIDATED"
+}

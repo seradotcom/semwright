@@ -1,0 +1,993 @@
+{
+  "classification_contract": [
+    "managed",
+    "represented_by",
+    "compiler_managed",
+    "unsupported_by_design",
+    "mixed"
+  ],
+  "components": {
+    "Bezier": {
+      "properties": {},
+      "props_interface": null,
+      "reason": "abstract curve base; concrete bezier nodes are managed",
+      "status": "abstract_substrate"
+    },
+    "Camera": {
+      "managed_kind": "camera",
+      "properties": {
+        "scene": {
+          "reason": "camera scene graph is compiler-owned",
+          "status": "compiler_managed"
+        },
+        "zoom": {
+          "semantic": "zoom",
+          "status": "managed"
+        }
+      },
+      "props_interface": "CameraProps",
+      "status": "managed"
+    },
+    "Circle": {
+      "managed_kind": "circle",
+      "properties": {
+        "closed": {
+          "semantic": "closed",
+          "status": "represented_by"
+        },
+        "counterclockwise": {
+          "semantic": "counterclockwise",
+          "status": "managed"
+        },
+        "endAngle": {
+          "semantic": "end_angle",
+          "status": "managed"
+        },
+        "startAngle": {
+          "semantic": "start_angle",
+          "status": "managed"
+        }
+      },
+      "props_interface": "CircleProps",
+      "status": "managed"
+    },
+    "Code": {
+      "managed_kind": "code",
+      "properties": {
+        "code": {
+          "reason": "PossibleCodeScope includes dynamic CodeTag/SignalValue forms; managed source persists bounded code text only",
+          "status": "mixed",
+          "variants": {
+            "CodeScope_or_CodeTag_array": {
+              "reason": "may contain SignalValue/dynamic executable construction; use declarative animations and text/code state instead",
+              "status": "unsupported_by_design"
+            },
+            "string": {
+              "semantic": "code",
+              "status": "managed"
+            }
+          }
+        },
+        "drawHooks": {
+          "reason": "draw hook is an arbitrary Canvas callback",
+          "status": "unsupported_by_design"
+        },
+        "highlighter": {
+          "reason": "upstream accepts arbitrary CodeHighlighter implementations; managed projects use a fixed parser allowlist",
+          "status": "mixed",
+          "variants": {
+            "builtin_bounded_language": {
+              "semantic": "language",
+              "status": "represented_by"
+            },
+            "custom_highlighter_object": {
+              "reason": "custom highlighter is executable application code",
+              "status": "unsupported_by_design"
+            }
+          }
+        },
+        "selection": {
+          "semantic": "selection",
+          "status": "managed"
+        }
+      },
+      "props_interface": "CodeProps",
+      "status": "managed"
+    },
+    "CubicBezier": {
+      "managed_kind": "cubic_bezier",
+      "properties": {
+        "p0": {
+          "semantic": "p0",
+          "status": "managed"
+        },
+        "p0X": {
+          "semantic": "p0",
+          "status": "represented_by"
+        },
+        "p0Y": {
+          "semantic": "p0",
+          "status": "represented_by"
+        },
+        "p1": {
+          "semantic": "p1",
+          "status": "managed"
+        },
+        "p1X": {
+          "semantic": "p1",
+          "status": "represented_by"
+        },
+        "p1Y": {
+          "semantic": "p1",
+          "status": "represented_by"
+        },
+        "p2": {
+          "semantic": "p2",
+          "status": "managed"
+        },
+        "p2X": {
+          "semantic": "p2",
+          "status": "represented_by"
+        },
+        "p2Y": {
+          "semantic": "p2",
+          "status": "represented_by"
+        },
+        "p3": {
+          "semantic": "p3",
+          "status": "managed"
+        },
+        "p3X": {
+          "semantic": "p3",
+          "status": "represented_by"
+        },
+        "p3Y": {
+          "semantic": "p3",
+          "status": "represented_by"
+        }
+      },
+      "props_interface": "CubicBezierProps",
+      "status": "managed"
+    },
+    "Curve": {
+      "properties": {
+        "arrowSize": {
+          "semantic": "arrow_size",
+          "status": "managed"
+        },
+        "closed": {
+          "semantic": "closed",
+          "status": "managed"
+        },
+        "end": {
+          "semantic": "end",
+          "status": "managed"
+        },
+        "endArrow": {
+          "semantic": "end_arrow",
+          "status": "managed"
+        },
+        "endOffset": {
+          "semantic": "end_offset",
+          "status": "managed"
+        },
+        "start": {
+          "semantic": "start",
+          "status": "managed"
+        },
+        "startArrow": {
+          "semantic": "start_arrow",
+          "status": "managed"
+        },
+        "startOffset": {
+          "semantic": "start_offset",
+          "status": "managed"
+        }
+      },
+      "props_interface": "CurveProps",
+      "reason": "abstract curve base inherited by managed concrete curves",
+      "status": "abstract_substrate",
+      "witness_kind": "line"
+    },
+    "Grid": {
+      "managed_kind": "grid",
+      "properties": {
+        "end": {
+          "semantic": "end",
+          "status": "managed"
+        },
+        "spacing": {
+          "semantic": "spacing",
+          "status": "managed"
+        },
+        "start": {
+          "semantic": "start",
+          "status": "managed"
+        }
+      },
+      "props_interface": "GridProps",
+      "status": "managed"
+    },
+    "Icon": {
+      "properties": {
+        "color": {
+          "reason": "Icon is excluded as a network-backed component",
+          "status": "unsupported_by_design"
+        },
+        "icon": {
+          "reason": "Icon resolves through the remote Iconify API and conflicts with network=false",
+          "status": "unsupported_by_design"
+        }
+      },
+      "props_interface": "IconProps",
+      "reason": "Motion Canvas Icon constructs Iconify network URLs; Semwright rendering is network=false",
+      "status": "unsupported_by_design"
+    },
+    "Img": {
+      "managed_kind": "image",
+      "properties": {
+        "alpha": {
+          "semantic": "alpha",
+          "status": "managed"
+        },
+        "smoothing": {
+          "semantic": "smoothing",
+          "status": "managed"
+        },
+        "src": {
+          "reason": "upstream src can be arbitrary/remote; managed rendering is network=false and accepts owner-attested local assets only",
+          "status": "mixed",
+          "variants": {
+            "local_attested_asset": {
+              "semantic": "asset",
+              "status": "represented_by"
+            },
+            "remote_or_ambient_url": {
+              "reason": "network/ambient resource authority is not granted",
+              "status": "unsupported_by_design"
+            }
+          }
+        }
+      },
+      "props_interface": "ImgProps",
+      "status": "managed"
+    },
+    "Knot": {
+      "managed_kind": "knot",
+      "properties": {
+        "auto": {
+          "semantic": "start_handle_auto+end_handle_auto",
+          "status": "represented_by"
+        },
+        "endHandle": {
+          "semantic": "end_handle",
+          "status": "managed"
+        },
+        "endHandleAuto": {
+          "semantic": "end_handle_auto",
+          "status": "managed"
+        },
+        "startHandle": {
+          "semantic": "start_handle",
+          "status": "managed"
+        },
+        "startHandleAuto": {
+          "semantic": "start_handle_auto",
+          "status": "managed"
+        }
+      },
+      "props_interface": "KnotProps",
+      "status": "managed"
+    },
+    "Latex": {
+      "managed_kind": "latex",
+      "properties": {
+        "renderProps": {
+          "reason": "MathJax renderer option bag is intentionally not an ambient configuration escape hatch",
+          "status": "unsupported_by_design"
+        },
+        "tex": {
+          "reason": "string and string[] segmentation are managed within Semwright\u2019s bounded MathJax command vocabulary; unrestricted TeX packages/macros are outside the trust boundary",
+          "status": "mixed",
+          "variants": {
+            "bounded_string_or_parts": {
+              "semantic": "latex",
+              "status": "managed"
+            },
+            "unrestricted_tex_commands": {
+              "reason": "not accepted by the bounded managed LaTeX vocabulary",
+              "status": "unsupported_by_design"
+            }
+          }
+        }
+      },
+      "props_interface": "LatexProps",
+      "status": "managed"
+    },
+    "Layout": {
+      "managed_kind": "layout",
+      "properties": {
+        "alignContent": {
+          "semantic": "align_content",
+          "status": "managed"
+        },
+        "alignItems": {
+          "semantic": "layout",
+          "status": "represented_by"
+        },
+        "alignSelf": {
+          "semantic": "align_self",
+          "status": "managed"
+        },
+        "basis": {
+          "semantic": "layout",
+          "status": "represented_by"
+        },
+        "bottom": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "bottomLeft": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "bottomRight": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "clip": {
+          "semantic": "clip",
+          "status": "managed"
+        },
+        "columnGap": {
+          "semantic": "column_gap",
+          "status": "managed"
+        },
+        "direction": {
+          "semantic": "layout",
+          "status": "represented_by"
+        },
+        "fontFamily": {
+          "semantic": "font_family",
+          "status": "managed"
+        },
+        "fontSize": {
+          "semantic": "font_size",
+          "status": "managed"
+        },
+        "fontStyle": {
+          "semantic": "font_style",
+          "status": "managed"
+        },
+        "fontWeight": {
+          "semantic": "font_weight",
+          "status": "managed"
+        },
+        "gap": {
+          "semantic": "layout",
+          "status": "represented_by"
+        },
+        "grow": {
+          "semantic": "layout",
+          "status": "represented_by"
+        },
+        "height": {
+          "semantic": "height",
+          "status": "managed"
+        },
+        "justifyContent": {
+          "semantic": "layout",
+          "status": "represented_by"
+        },
+        "layout": {
+          "notes": "null/inherit is represented by property absence; true/false are explicit layout_mode values",
+          "semantic": "layout_mode",
+          "status": "managed"
+        },
+        "left": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "letterSpacing": {
+          "semantic": "letter_spacing",
+          "status": "managed"
+        },
+        "lineHeight": {
+          "notes": "exact upstream Length; legacy line_height remains a compatibility multiplier only",
+          "semantic": "line_height_value",
+          "status": "managed"
+        },
+        "margin": {
+          "semantic": "margin",
+          "status": "managed"
+        },
+        "marginBottom": {
+          "semantic": "margin",
+          "status": "represented_by"
+        },
+        "marginLeft": {
+          "semantic": "margin",
+          "status": "represented_by"
+        },
+        "marginRight": {
+          "semantic": "margin",
+          "status": "represented_by"
+        },
+        "marginTop": {
+          "semantic": "margin",
+          "status": "represented_by"
+        },
+        "maxHeight": {
+          "semantic": "max_height",
+          "status": "managed"
+        },
+        "maxWidth": {
+          "semantic": "max_width",
+          "status": "managed"
+        },
+        "middle": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "minHeight": {
+          "semantic": "min_height",
+          "status": "managed"
+        },
+        "minWidth": {
+          "semantic": "min_width",
+          "status": "managed"
+        },
+        "offset": {
+          "semantic": "offset",
+          "status": "managed"
+        },
+        "offsetX": {
+          "semantic": "offset",
+          "status": "represented_by"
+        },
+        "offsetY": {
+          "semantic": "offset",
+          "status": "represented_by"
+        },
+        "padding": {
+          "semantic": "padding",
+          "status": "managed"
+        },
+        "paddingBottom": {
+          "semantic": "padding",
+          "status": "represented_by"
+        },
+        "paddingLeft": {
+          "semantic": "padding",
+          "status": "represented_by"
+        },
+        "paddingRight": {
+          "semantic": "padding",
+          "status": "represented_by"
+        },
+        "paddingTop": {
+          "semantic": "padding",
+          "status": "represented_by"
+        },
+        "ratio": {
+          "semantic": "ratio",
+          "status": "managed"
+        },
+        "right": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "rowGap": {
+          "semantic": "row_gap",
+          "status": "managed"
+        },
+        "shrink": {
+          "semantic": "shrink",
+          "status": "managed"
+        },
+        "size": {
+          "semantic": "width+height",
+          "status": "represented_by"
+        },
+        "tagName": {
+          "reason": "DOM implementation hint is not part of the rendered semantic model",
+          "status": "unsupported_by_design"
+        },
+        "textAlign": {
+          "semantic": "text_align",
+          "status": "managed"
+        },
+        "textDirection": {
+          "semantic": "text_direction",
+          "status": "managed"
+        },
+        "textWrap": {
+          "semantic": "wrap",
+          "status": "represented_by"
+        },
+        "top": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "topLeft": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "topRight": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "width": {
+          "semantic": "width",
+          "status": "managed"
+        },
+        "wrap": {
+          "semantic": "flex_wrap",
+          "status": "managed"
+        }
+      },
+      "props_interface": "LayoutProps",
+      "status": "managed"
+    },
+    "Line": {
+      "managed_kind": "line",
+      "properties": {
+        "points": {
+          "semantic": "points",
+          "status": "managed"
+        },
+        "radius": {
+          "semantic": "radius",
+          "status": "managed"
+        }
+      },
+      "props_interface": "LineProps",
+      "status": "managed"
+    },
+    "Node": {
+      "managed_kind": "group",
+      "properties": {
+        "cache": {
+          "semantic": "cache",
+          "status": "managed"
+        },
+        "cachePadding": {
+          "semantic": "cache_padding",
+          "status": "managed"
+        },
+        "cachePaddingBottom": {
+          "semantic": "cache_padding",
+          "status": "represented_by"
+        },
+        "cachePaddingLeft": {
+          "semantic": "cache_padding",
+          "status": "represented_by"
+        },
+        "cachePaddingRight": {
+          "semantic": "cache_padding",
+          "status": "represented_by"
+        },
+        "cachePaddingTop": {
+          "semantic": "cache_padding",
+          "status": "represented_by"
+        },
+        "children": {
+          "reason": "managed hierarchy owns children",
+          "status": "compiler_managed"
+        },
+        "composite": {
+          "semantic": "composite",
+          "status": "managed"
+        },
+        "compositeOperation": {
+          "semantic": "composite_operation",
+          "status": "managed"
+        },
+        "filters": {
+          "semantic": "filters",
+          "status": "managed"
+        },
+        "key": {
+          "reason": "managed node ids own identity",
+          "status": "compiler_managed"
+        },
+        "opacity": {
+          "semantic": "opacity",
+          "status": "managed"
+        },
+        "position": {
+          "semantic": "position",
+          "status": "managed"
+        },
+        "ref": {
+          "reason": "revision-bound refs are emitted by the compiler",
+          "status": "compiler_managed"
+        },
+        "rotation": {
+          "semantic": "rotation",
+          "status": "managed"
+        },
+        "scale": {
+          "semantic": "scale",
+          "status": "managed"
+        },
+        "scaleX": {
+          "semantic": "scale",
+          "status": "represented_by"
+        },
+        "scaleY": {
+          "semantic": "scale",
+          "status": "represented_by"
+        },
+        "shaders": {
+          "reason": "shader configuration can carry executable shader source and requires a separate trusted shader domain",
+          "status": "unsupported_by_design"
+        },
+        "shadowBlur": {
+          "semantic": "shadow_blur",
+          "status": "managed"
+        },
+        "shadowColor": {
+          "semantic": "shadow_color",
+          "status": "managed"
+        },
+        "shadowOffset": {
+          "semantic": "shadow_offset",
+          "status": "managed"
+        },
+        "shadowOffsetX": {
+          "semantic": "shadow_offset",
+          "status": "represented_by"
+        },
+        "shadowOffsetY": {
+          "semantic": "shadow_offset",
+          "status": "represented_by"
+        },
+        "skew": {
+          "semantic": "skew",
+          "status": "managed"
+        },
+        "skewX": {
+          "semantic": "skew",
+          "status": "represented_by"
+        },
+        "skewY": {
+          "semantic": "skew",
+          "status": "represented_by"
+        },
+        "spawner": {
+          "reason": "dynamic child callback would execute arbitrary application code",
+          "status": "unsupported_by_design"
+        },
+        "x": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "y": {
+          "semantic": "position",
+          "status": "represented_by"
+        },
+        "zIndex": {
+          "semantic": "z_index",
+          "status": "managed"
+        }
+      },
+      "props_interface": "NodeProps",
+      "status": "managed"
+    },
+    "Path": {
+      "managed_kind": "path",
+      "properties": {
+        "data": {
+          "semantic": "data",
+          "status": "managed"
+        }
+      },
+      "props_interface": "PathProps",
+      "status": "managed"
+    },
+    "Polygon": {
+      "managed_kind": "polygon",
+      "properties": {
+        "radius": {
+          "semantic": "radius",
+          "status": "managed"
+        },
+        "sides": {
+          "semantic": "sides",
+          "status": "managed"
+        }
+      },
+      "props_interface": "PolygonProps",
+      "status": "managed"
+    },
+    "QuadBezier": {
+      "managed_kind": "quad_bezier",
+      "properties": {
+        "p0": {
+          "semantic": "p0",
+          "status": "managed"
+        },
+        "p0X": {
+          "semantic": "p0",
+          "status": "represented_by"
+        },
+        "p0Y": {
+          "semantic": "p0",
+          "status": "represented_by"
+        },
+        "p1": {
+          "semantic": "p1",
+          "status": "managed"
+        },
+        "p1X": {
+          "semantic": "p1",
+          "status": "represented_by"
+        },
+        "p1Y": {
+          "semantic": "p1",
+          "status": "represented_by"
+        },
+        "p2": {
+          "semantic": "p2",
+          "status": "managed"
+        },
+        "p2X": {
+          "semantic": "p2",
+          "status": "represented_by"
+        },
+        "p2Y": {
+          "semantic": "p2",
+          "status": "represented_by"
+        }
+      },
+      "props_interface": "QuadBezierProps",
+      "status": "managed"
+    },
+    "Ray": {
+      "managed_kind": "ray",
+      "properties": {
+        "from": {
+          "semantic": "from",
+          "status": "managed"
+        },
+        "fromX": {
+          "semantic": "from",
+          "status": "represented_by"
+        },
+        "fromY": {
+          "semantic": "from",
+          "status": "represented_by"
+        },
+        "to": {
+          "semantic": "to",
+          "status": "managed"
+        },
+        "toX": {
+          "semantic": "to",
+          "status": "represented_by"
+        },
+        "toY": {
+          "semantic": "to",
+          "status": "represented_by"
+        }
+      },
+      "props_interface": "RayProps",
+      "status": "managed"
+    },
+    "Rect": {
+      "managed_kind": "rect",
+      "properties": {
+        "cornerSharpness": {
+          "semantic": "corner_sharpness",
+          "status": "managed"
+        },
+        "radius": {
+          "semantic": "radius",
+          "status": "managed"
+        },
+        "smoothCorners": {
+          "semantic": "smooth_corners",
+          "status": "managed"
+        }
+      },
+      "props_interface": "RectProps",
+      "status": "managed"
+    },
+    "SVG": {
+      "managed_kind": "svg",
+      "properties": {
+        "svg": {
+          "reason": "managed inline SVG is a structural non-active geometry subset; script/event/foreignObject/external-resource forms are rejected",
+          "status": "mixed",
+          "variants": {
+            "active_or_external_svg": {
+              "reason": "would widen active content or external-resource authority",
+              "status": "unsupported_by_design"
+            },
+            "bounded_structural_svg": {
+              "semantic": "svg",
+              "status": "managed"
+            }
+          }
+        }
+      },
+      "props_interface": "SVGProps",
+      "status": "managed"
+    },
+    "Shape": {
+      "properties": {
+        "antialiased": {
+          "semantic": "antialiased",
+          "status": "managed"
+        },
+        "fill": {
+          "reason": "PossibleCanvasStyle includes Color/Gradient/Pattern; Pattern requires a live CanvasImageSource runtime object and is not serialized as ambient state",
+          "status": "mixed",
+          "variants": {
+            "color": {
+              "notes": "canonical bounded color string/theme token",
+              "semantic": "fill",
+              "status": "managed"
+            },
+            "gradient": {
+              "semantic": "fill_gradient",
+              "status": "managed"
+            },
+            "null": {
+              "notes": "reset/unset",
+              "semantic": "fill",
+              "status": "represented_by"
+            },
+            "pattern": {
+              "reason": "Pattern requires live CanvasImageSource identity; use an attested local image node instead",
+              "status": "unsupported_by_design"
+            }
+          }
+        },
+        "lineCap": {
+          "semantic": "line_cap",
+          "status": "managed"
+        },
+        "lineDash": {
+          "semantic": "dash",
+          "status": "managed"
+        },
+        "lineDashOffset": {
+          "semantic": "line_dash_offset",
+          "status": "managed"
+        },
+        "lineJoin": {
+          "semantic": "line_join",
+          "status": "managed"
+        },
+        "lineWidth": {
+          "semantic": "stroke_width",
+          "status": "managed"
+        },
+        "stroke": {
+          "reason": "PossibleCanvasStyle includes Color/Gradient/Pattern; Pattern requires a live CanvasImageSource runtime object and is not serialized as ambient state",
+          "status": "mixed",
+          "variants": {
+            "color": {
+              "notes": "canonical bounded color string/theme token",
+              "semantic": "stroke",
+              "status": "managed"
+            },
+            "gradient": {
+              "semantic": "stroke_gradient",
+              "status": "managed"
+            },
+            "null": {
+              "notes": "reset/unset",
+              "semantic": "stroke",
+              "status": "represented_by"
+            },
+            "pattern": {
+              "reason": "Pattern requires live CanvasImageSource identity; use an attested local image node instead",
+              "status": "unsupported_by_design"
+            }
+          }
+        },
+        "strokeFirst": {
+          "semantic": "stroke_first",
+          "status": "managed"
+        }
+      },
+      "props_interface": "ShapeProps",
+      "reason": "abstract shape base inherited by managed concrete shapes",
+      "status": "abstract_substrate",
+      "witness_kind": "rect"
+    },
+    "Spline": {
+      "managed_kind": "spline",
+      "properties": {
+        "points": {
+          "semantic": "points",
+          "status": "managed"
+        },
+        "smoothness": {
+          "semantic": "smoothness",
+          "status": "managed"
+        }
+      },
+      "props_interface": "SplineProps",
+      "status": "managed"
+    },
+    "Txt": {
+      "managed_kind": "text",
+      "properties": {
+        "children": {
+          "reason": "managed hierarchy/text semantics own children",
+          "status": "compiler_managed"
+        },
+        "text": {
+          "semantic": "text",
+          "status": "managed"
+        }
+      },
+      "props_interface": "TxtProps",
+      "status": "managed"
+    },
+    "Video": {
+      "managed_kind": "video",
+      "properties": {
+        "alpha": {
+          "semantic": "alpha",
+          "status": "managed"
+        },
+        "loop": {
+          "semantic": "loop_media",
+          "status": "represented_by"
+        },
+        "play": {
+          "reason": "managed videos are emitted with play=true",
+          "status": "compiler_managed"
+        },
+        "playbackRate": {
+          "semantic": "playback_rate",
+          "status": "represented_by"
+        },
+        "smoothing": {
+          "semantic": "smoothing",
+          "status": "managed"
+        },
+        "src": {
+          "reason": "upstream src can be arbitrary/remote; managed rendering is network=false and accepts owner-attested local assets only",
+          "status": "mixed",
+          "variants": {
+            "local_attested_asset": {
+              "semantic": "asset",
+              "status": "represented_by"
+            },
+            "remote_or_ambient_url": {
+              "reason": "network/ambient resource authority is not granted",
+              "status": "unsupported_by_design"
+            }
+          }
+        },
+        "time": {
+          "semantic": "media_offset_ms",
+          "status": "represented_by"
+        }
+      },
+      "props_interface": "VideoProps",
+      "status": "managed"
+    },
+    "View2D": {
+      "properties": {
+        "assetHash": {
+          "reason": "scene root lifecycle and asset hash are compiler-owned",
+          "status": "compiler_managed"
+        }
+      },
+      "props_interface": "View2DProps",
+      "reason": "makeScene2D owns the View2D root",
+      "status": "compiler_managed"
+    }
+  },
+  "motion_canvas_version": "3.17.2",
+  "package": "@motion-canvas/2d",
+  "schema": 1,
+  "scope": "public component exports and own Props fields"
+}
