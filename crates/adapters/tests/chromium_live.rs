@@ -59,8 +59,9 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                     "<!doctype html><meta http-equiv='refresh' content='2;url=/frame-b'><p>Frame A</p>"
                 }
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
+                "/popup" => "<!doctype html><title>Semwright Popup</title><p>Popup ready</p>",
                 _ => {
-                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
+                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><a id='popup' target='_blank' href='/popup'>Open popup</a><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
                 }
             };
             let response = format!(
@@ -405,6 +406,38 @@ async fn exercise(
         browser.validate(&drag_target).await.unwrap_err().code,
         ErrorCode::StaleReference
     );
+
+    let popup_link = semantic_query(browser, ctx, &tab, "link", "Open popup").await?;
+    browser
+        .execute(ctx, "browser.element.click", &json!({"_target":popup_link}))
+        .await?;
+    let popup = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let tabs = browser.execute(ctx, "browser.tab.list", &json!({})).await?;
+            if let Some(row) = tabs["tabs"]
+                .as_array()
+                .and_then(|rows| rows.iter().find(|row| row["title"] == "Semwright Popup"))
+            {
+                return Ok::<NativeTarget, semwright_types::Error>(serde_json::from_value(
+                    row["ref"].clone(),
+                )?);
+            }
+            tokio::time::sleep(Duration::from_millis(40)).await;
+        }
+    })
+    .await??;
+    browser.validate(&popup).await?;
+    browser
+        .execute(ctx, "browser.tab.focus", &json!({"_target":popup.clone()}))
+        .await?;
+    browser
+        .execute(ctx, "browser.tab.close", &json!({"_target":popup.clone()}))
+        .await?;
+    assert_eq!(
+        browser.validate(&popup).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+    browser.validate(&tab).await?;
 
     let dialog_button = semantic_query(browser, ctx, &tab, "button", "Open dialog").await?;
     browser

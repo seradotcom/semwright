@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use semwright_backend_api::{Backend, Context};
+use semwright_policy::{FilesystemGrant, Root, validate_relative_path};
 use semwright_protocol::{current_uid, private_directory};
 use semwright_types::*;
 use serde::Deserialize;
@@ -12,7 +13,7 @@ use std::{
     collections::{BTreeMap, VecDeque},
     io::Write,
     os::unix::fs::{MetadataExt, OpenOptionsExt},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{
         Arc, Mutex as StdMutex,
@@ -2635,6 +2636,7 @@ impl Backend for Chromium {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     #[test]
     fn browser_startup_timeout_is_bounded_but_ci_tolerant() {
         assert!(BROWSER_STARTUP_TIMEOUT >= std::time::Duration::from_secs(20));
@@ -2811,5 +2813,44 @@ mod tests {
         assert_eq!(bounded_byte_count(&json!(42)), Some(42));
         assert_eq!(bounded_byte_count(&json!(-1)), None);
         assert_eq!(bounded_byte_count(&json!("42")), None);
+    }
+
+    proptest! {
+        #[test]
+        fn frame_scoped_dom_target_parses_without_losing_identity(
+            tab in "[A-Za-z0-9_-]{1,32}",
+            frame in "[A-Za-z0-9_-]{1,64}",
+            node in 1u64..u32::MAX as u64,
+        ) {
+            let target = NativeTarget {
+                kind: "dom".into(),
+                identity: format!("{tab}#frame:{frame}#node:{node}"),
+                revision: 7,
+                fingerprint: "epoch".into(),
+                app: "org.semwright.Chromium".into(),
+            };
+            let (parsed_tab, parsed_node, parsed_frame) = Chromium::target_parts(&target).unwrap();
+            prop_assert_eq!(parsed_tab, tab);
+            prop_assert_eq!(parsed_node, Some(node));
+            prop_assert_eq!(parsed_frame.as_deref(), Some(frame.as_str()));
+        }
+
+        #[test]
+        fn frame_target_identity_is_exact_and_bounded(
+            tab in "[A-Za-z0-9_-]{1,32}",
+            frame in "[A-Za-z0-9_-]{1,128}",
+        ) {
+            let target = NativeTarget {
+                kind: "frame".into(),
+                identity: format!("{tab}#frame:{frame}"),
+                revision: 3,
+                fingerprint: "epoch".into(),
+                app: "org.semwright.Chromium".into(),
+            };
+            let (parsed_tab, node, parsed_frame) = Chromium::target_parts(&target).unwrap();
+            prop_assert_eq!(parsed_tab, tab);
+            prop_assert_eq!(node, None);
+            prop_assert_eq!(parsed_frame.as_deref(), Some(frame.as_str()));
+        }
     }
 }
