@@ -34,6 +34,14 @@ keyboard path is protocol-tested through the advertised XKB keymap but still nee
 keyboard retesting. In-flight input cancellation and the broader desktop matrix remain live
 verification work.
 
+**RemoteDesktop/EIS test isolation warning:** a nested GNOME Shell, private `HOME`, private runtime,
+private Wayland socket and even a private session D-Bus are **not** a sufficient safety boundary for
+keyboard injection on a logged-in host. Portal/Mutter RemoteDesktop can still resolve the process to
+the owner's real logind graphical session and route EIS input there. Do not treat a nested compositor
+as an isolated keyboard target. Live keyboard tests must run in a VM or genuinely independent
+seat/login session that cannot inject into the owner's active desktop. Focus checks against a nested
+window list do not prove that the portal input authority is scoped to that nested compositor.
+
 **Still not certified end-to-end:** mapping input to ScreenCast stream coordinates, focused
 portal input across the supported desktop matrix, and multi-monitor/scaling behavior. Relative
 pointer motion is not an assertion that monitor scaling or absolute coordinate mapping is solved.

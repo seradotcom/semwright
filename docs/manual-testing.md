@@ -52,6 +52,14 @@ through the compositor chooser. Reject it once; approve a later intentional requ
 revoke during use. Check owner-session isolation, session close, pending request cleanup,
 focus change between observation and action and cancellation without a stuck chooser.
 
+For **keyboard/pointer RemoteDesktop/EIS testing**, do not use the owner's active graphical login as
+the safety boundary. In particular, a nested GNOME Shell with private `HOME`, runtime, Wayland and
+session D-Bus can still have its portal/Mutter authority resolved to the host's real logind session.
+A nested window being focused is therefore not proof that injected input cannot reach host
+applications. Use a VM or a genuinely independent seat/login session with only disposable test data.
+If target exclusivity is not independently guaranteed, the result is diagnostic only and must not be
+recorded as PASS.
+
 Capture only a disposable fixture. Check artifact permissions, PNG metadata, normal expiry,
 no bytes in audit and cleanup after normal/abnormal termination.
 
