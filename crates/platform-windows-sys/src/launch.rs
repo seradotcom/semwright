@@ -720,6 +720,31 @@ fn clear_inheritance(handle: HANDLE) -> Result<()> {
     })
 }
 
+fn duplicate_owned_handle(handle: HANDLE) -> Result<NativeHandle> {
+    let current = unsafe { GetCurrentProcess() };
+    let mut duplicate = HANDLE::default();
+    // SAFETY: source/target are the current process and duplicate receives a separately owned
+    // process handle with the same access mask. No pseudo handle is passed as the source object.
+    unsafe {
+        DuplicateHandle(
+            current,
+            handle,
+            current,
+            &mut duplicate,
+            0,
+            false,
+            DUPLICATE_SAME_ACCESS,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Windows sandbox process handle duplication failed",
+        )
+    })?;
+    Ok(NativeHandle(duplicate))
+}
+
 fn inherited_null() -> Result<NativeHandle> {
     let attrs = SECURITY_ATTRIBUTES {
         nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
@@ -803,28 +828,7 @@ impl SandboxChildControl for NativeSandboxChild {
         if self.observed_exit() {
             return Ok(());
         }
-        let current = unsafe { GetCurrentProcess() };
-        let mut duplicate = HANDLE::default();
-        // SAFETY: source/target are the current process; the duplicated process handle is
-        // independently owned by the blocking waiter and survives cancellation of this future.
-        unsafe {
-            DuplicateHandle(
-                current,
-                self.process.raw(),
-                current,
-                &mut duplicate,
-                0,
-                false,
-                DUPLICATE_SAME_ACCESS,
-            )
-        }
-        .map_err(|_| {
-            Error::new(
-                ErrorCode::BackendFailed,
-                "Windows sandbox process handle duplication failed",
-            )
-        })?;
-        let wait_handle = NativeHandle(duplicate);
+        let wait_handle = duplicate_owned_handle(self.process.raw())?;
         let wait = tokio::task::spawn_blocking(move || {
             // SAFETY: wait_handle exclusively owns a duplicate process HANDLE.
             unsafe { WaitForSingleObject(wait_handle.raw(), INFINITE) }
