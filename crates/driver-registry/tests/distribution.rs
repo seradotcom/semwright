@@ -289,6 +289,41 @@ fn installing_newer_version_switches_stable_manifest_without_deleting_old_versio
 }
 
 #[test]
+fn failed_manifest_publication_rolls_back_install_transaction() {
+    let d = tempfile::tempdir().unwrap();
+    let repo = d.path().join("repo");
+    std::fs::create_dir(&repo).unwrap();
+    let requirement = format!("={}", env!("CARGO_PKG_VERSION"));
+    let (index_path, entries) = make_index(&repo, &[("6.0.0", &requirement, vec![])]);
+    let roots = InstallRoots {
+        data: d.path().join("data"),
+        config: d.path().join("config"),
+    };
+
+    std::fs::create_dir(&roots.config).unwrap();
+    std::fs::set_permissions(&roots.config, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let blocking_manifest = roots.config.join("fixture.json");
+    std::fs::create_dir(&blocking_manifest).unwrap();
+
+    let error = install_from_index(&index_path, &entries[0], None, &roots)
+        .expect_err("publishing over a directory must fail");
+    assert!(matches!(
+        error.code,
+        ErrorCode::BackendFailed | ErrorCode::PermissionDenied | ErrorCode::Conflict
+    ));
+    assert!(!roots.data.join("fixture/6.0.0").exists());
+    assert!(blocking_manifest.is_dir());
+
+    let id_dir = roots.data.join("fixture");
+    if id_dir.is_dir() {
+        for entry in std::fs::read_dir(id_dir).unwrap() {
+            let name = entry.unwrap().file_name();
+            assert!(!name.to_string_lossy().starts_with(".install-"));
+        }
+    }
+}
+
+#[test]
 fn package_v2_companions_install_privately_without_activation() {
     let d = tempfile::tempdir().unwrap();
     let repo = d.path().join("repo");
