@@ -381,13 +381,16 @@ jobs:
           fi
       - name: Real sandboxed DriverProvider against Blender 4.5.14 LTS
         run: |
+          set -o pipefail
           SEMWRIGHT_TEST_BLENDER=1 SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox" \
             cargo test --locked -p semwright-driver-blender real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/blender-driver-live.log
       - name: Broker, policy, CLI and Blender end-to-end
         run: |
+          set -o pipefail
           BIN_DIR=target/debug scripts/dev/blender-driver-smoke.sh 2>&1 | tee verification/native-ci/blender-broker-smoke.log
       - name: Interactive add-on through Xvfb, broker and Blender main thread
         run: |
+          set -o pipefail
           BIN_DIR=target/debug BLENDER_BIN=/usr/local/bin/blender scripts/dev/blender-addon-live-smoke.sh 2>&1 | tee verification/native-ci/blender-addon-live.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

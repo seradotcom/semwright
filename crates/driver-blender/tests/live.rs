@@ -886,15 +886,13 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     )
     .await
     .unwrap();
-    let root_ref = bones["items"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|item| item["name"] == "Root")
-        .unwrap()["ref"]
-        .as_str()
-        .unwrap()
-        .to_owned();
+    assert!(
+        bones["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["name"] == "Root")
+    );
     let child_ref = bones["items"]
         .as_array()
         .unwrap()
@@ -1129,7 +1127,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     let camera_object_ref = attached["ref"].as_str().unwrap().to_owned();
-    let camera_data_ref = attached["target_ref"].as_str().unwrap().to_owned();
+    assert!(attached["target_ref"].as_str().is_some());
     let camera_object = call(
         provider.as_ref(),
         &capabilities,

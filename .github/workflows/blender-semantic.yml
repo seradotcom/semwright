@@ -77,6 +77,7 @@ jobs:
           SEMWRIGHT_TEST_BLENDER: "1"
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
         run: |
+          set -o pipefail
           cargo test --locked -p semwright-driver-blender \
             real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox \
             -- --ignored --nocapture 2>&1 | tee verification/blender-semantic/live.log

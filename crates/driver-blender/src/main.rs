@@ -1101,18 +1101,41 @@ mod tests {
             jsonschema::validator_for(&capability.descriptor.output_schema)
                 .expect("Blender output schema must compile");
         }
+        let identity = semwright_types::ProviderIdentity::external(
+            semwright_types::SourceKind::Driver,
+            DRIVER_ID,
+            env!("CARGO_PKG_VERSION"),
+        )
+        .unwrap();
+        for capability in &catalog {
+            capability.validate_for(&identity).unwrap_or_else(|error| {
+                panic!(
+                    "{} failed owner validation: {error}",
+                    capability.descriptor.name
+                )
+            });
+        }
         let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         let response = semwright_driver_sdk::Response::Capabilities {
-            id: "blender-catalog-size".into(),
+            id: "b".repeat(64),
             capabilities: catalog,
             digest,
         };
-        let bytes = serde_json::to_vec(&response).unwrap();
+        let bytes = semwright_protocol::encode(&response).unwrap();
+        eprintln!(
+            "Blender capability frame bytes={} budget={}",
+            bytes.len(),
+            semwright_types::MAX_FRAME
+        );
         assert!(
             bytes.len() <= semwright_types::MAX_FRAME,
             "Blender catalog is {} bytes but protocol budget is {}",
             bytes.len(),
             semwright_types::MAX_FRAME
+        );
+        assert!(
+            bytes.len() < 900_000,
+            "Blender capability frame must preserve at least ~148 KiB protocol headroom"
         );
     }
 
