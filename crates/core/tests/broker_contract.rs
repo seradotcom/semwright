@@ -313,18 +313,16 @@ async fn secondary_target_ref_is_validated_and_session_bound() {
         ..Default::default()
     })
     .unwrap();
-    let broker = Arc::new(
-        Broker::new(
-            policy,
-            vec![browser.clone()],
-            audit,
-            Arc::new(NoApprover),
-            None,
-            json!({"fixture":"dual-ref-browser"}),
-            false,
-        )
-        .unwrap(),
-    );
+    let broker = Broker::new(
+        policy,
+        vec![browser.clone()],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({"fixture":"dual-ref-browser"}),
+        false,
+    )
+    .unwrap();
     let session = unique_id();
     let tab = broker
         .clone()
