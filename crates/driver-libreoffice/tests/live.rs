@@ -102,6 +102,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
             },
         ],
         network: false,
+        loopback_port: None,
         resources: DriverResources {
             address_space_bytes: 2_147_483_648,
             cpu_seconds: 120,
