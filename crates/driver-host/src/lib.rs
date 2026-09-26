@@ -1372,8 +1372,9 @@ mod tests {
         assert_eq!(owner_metadata.dev(), data_metadata.dev());
         assert_eq!(owner_metadata.ino(), data_metadata.ino());
         assert_eq!(data_metadata.permissions().mode() & 0o777, 0o500);
-        // SAFETY: F_GETFD/F_GETFL read scalar flags from the live read-only descriptor.
+        // SAFETY: F_GETFD reads scalar descriptor flags from the live read-only descriptor.
         let data_fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+        // SAFETY: F_GETFL reads scalar file status flags from the live read-only descriptor.
         let data_status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
         assert!(data_fd_flags >= 0);
         assert!(data_status_flags >= 0);
