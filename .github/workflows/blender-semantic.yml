@@ -72,6 +72,13 @@ jobs:
           assert summary["unavailable_roots"] == 0, summary["unavailable_roots"]
           assert summary["reachable_rna_types"] >= 1000, summary["reachable_rna_types"]
           reachable=set(data["reachable_rna_types"])
+          roots=data["roots"]
+          assert roots["grease_pencils"]["status"] == "managed_root", roots["grease_pencils"]
+          assert roots["grease_pencils_v3"]["status"] == "managed_root", roots["grease_pencils_v3"]
+          assert roots["grease_pencils"]["rna_type"] == "GreasePencil", roots["grease_pencils"]
+          assert roots["grease_pencils_v3"]["rna_type"] == "GreasePencilv3", roots["grease_pencils_v3"]
+          for identifier in ("GreasePencilLayer","GreasePencilFrame","GreasePencilDrawing"):
+              assert identifier in reachable, f"modern Grease Pencil RNA type missing: {identifier}"
           assert not any("_OT_" in identifier for identifier in reachable), "operator classes escaped semantic boundary"
           forbidden={"WindowManager","Window","Screen","Area","Region","Space","Operator","OperatorProperties","UILayout"}
           assert not (reachable & forbidden), sorted(reachable & forbidden)
