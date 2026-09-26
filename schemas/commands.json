@@ -17191,8 +17191,11 @@
           "enum": [
             "focus",
             "scroll",
+            "hover",
             "click",
+            "press",
             "fill",
+            "select",
             "check"
           ]
         },

@@ -23,6 +23,17 @@ class ContractTests(unittest.TestCase):
     def test_unique_command_names(self):
         self.assertEqual(len(COMMANDS), len(REGISTRY))
 
+    def test_browser_semantic_action_filters_cover_advertised_actions(self):
+        node_actions = set(
+            REGISTRY["browser.semantic.snapshot"]["output_schema"]["properties"]["nodes"]
+            ["items"]["properties"]["actions"]["items"]["enum"]
+        )
+        for command in ("browser.semantic.query", "browser.semantic.wait"):
+            advertised = set(
+                REGISTRY[command]["input_schema"]["properties"]["action"]["enum"]
+            )
+            self.assertEqual(advertised, node_actions, command)
+
     def test_schema_unions_have_unique_branches(self):
         def walk(value, path):
             if isinstance(value, dict):

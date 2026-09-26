@@ -3594,8 +3594,11 @@ Idempotency: `read_only`. Dry run: `true`.
       "enum": [
         "focus",
         "scroll",
+        "hover",
         "click",
+        "press",
         "fill",
+        "select",
         "check"
       ]
     },
