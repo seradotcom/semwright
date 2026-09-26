@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 1,
+  "protocol": 3,
   "id": "motion-canvas",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -8,18 +8,39 @@
   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "application": {
     "desktop_id": null,
-    "process_names": ["node"],
-    "supported_versions": ["Motion Canvas 3.17.2", "Node 22.22.0"]
+    "process_names": [
+      "node"
+    ],
+    "supported_versions": [
+      "Motion Canvas 3.17.2",
+      "Node 22.22.0"
+    ]
   },
   "transport": "stdio_v1",
   "mounts": [
-    {"root": "project", "read_only": false},
-    {"root": "media", "read_only": true},
-    {"root": "output", "read_only": false},
-    {"root": "runtime", "read_only": true, "execute": true}
+    {
+      "root": "project",
+      "read_only": false
+    },
+    {
+      "root": "media",
+      "read_only": true
+    },
+    {
+      "root": "output",
+      "read_only": false
+    },
+    {
+      "root": "runtime",
+      "read_only": true,
+      "execute": true
+    }
   ],
   "system_config": [
-    {"root": "fontconfig", "destination": "/etc/fonts"}
+    {
+      "root": "fontconfig",
+      "destination": "/etc/fonts"
+    }
   ],
   "network": false,
   "resources": {
@@ -29,11 +50,14 @@
     "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
-  "request_timeout_ms": 30000,
+  "request_timeout_ms": 300000,
   "interfaces": {
     "dynamic_capabilities": false,
-    "cooperative_cancellation": false,
+    "cooperative_cancellation": true,
     "events": false,
-    "health": true
+    "health": true,
+    "progress": true,
+    "artifacts": true,
+    "native_refs": false
   }
 }

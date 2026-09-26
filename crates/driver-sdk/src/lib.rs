@@ -175,6 +175,29 @@ impl SystemConfigMount {
     }
 }
 
+/// Owner-granted secret file exposed read-only under `/run/secrets/<name>`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DriverSecretMount {
+    pub root: String,
+    pub name: String,
+}
+impl DriverSecretMount {
+    fn validate(&self) -> Result<()> {
+        if !canonical_slug(&self.root)
+            || self.root.starts_with("semwright-internal-")
+            || !canonical_slug(&self.name)
+            || self.name.len() > 64
+            || self.name.starts_with("semwright-internal-")
+        {
+            return Err(Error::invalid(
+                "Driver secret mounts require canonical owner grant and bounded secret name",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DriverResources {
@@ -182,8 +205,12 @@ pub struct DriverResources {
     pub open_files: u64,
     #[serde(default = "default_processes")]
     pub processes: u64,
+    /// Hard cumulative CPU lifetime cap enforced by the sandbox.
     #[serde(default = "default_cpu_seconds")]
     pub cpu_seconds: u64,
+    /// Optional Linux per-operation CPU budget. Zero preserves the lifetime-only contract.
+    #[serde(default)]
+    pub operation_cpu_seconds: u64,
     #[serde(default = "default_address_space_bytes")]
     pub address_space_bytes: u64,
     #[serde(default = "default_file_size_bytes")]
@@ -210,6 +237,7 @@ impl Default for DriverResources {
             open_files: default_open_files(),
             processes: default_processes(),
             cpu_seconds: default_cpu_seconds(),
+            operation_cpu_seconds: 0,
             address_space_bytes: default_address_space_bytes(),
             file_size_bytes: default_file_size_bytes(),
         }
@@ -219,7 +247,11 @@ impl DriverResources {
     fn validate(&self) -> Result<()> {
         if !(32..=1024).contains(&self.open_files)
             || !(8..=256).contains(&self.processes)
-            || !(5..=300).contains(&self.cpu_seconds)
+            || !(5..=86_400).contains(&self.cpu_seconds)
+            || (self.operation_cpu_seconds != 0
+                && (!(1..=300).contains(&self.operation_cpu_seconds)
+                    || self.operation_cpu_seconds > self.cpu_seconds))
+            || (self.cpu_seconds > 300 && self.operation_cpu_seconds == 0)
             || !(134_217_728..=4_294_967_296).contains(&self.address_space_bytes)
             || !(1_048_576..=1_073_741_824).contains(&self.file_size_bytes)
         {
@@ -247,6 +279,8 @@ pub struct Manifest {
     pub mounts: Vec<DriverMount>,
     #[serde(default)]
     pub system_config: Vec<SystemConfigMount>,
+    #[serde(default)]
+    pub secrets: Vec<DriverSecretMount>,
     #[serde(default)]
     pub network: bool,
     /// Optional owner-selected TCP port exposed through a Host-managed loopback proxy.
@@ -323,6 +357,7 @@ impl Manifest {
             || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
             || self.mounts.len() > 16
             || self.system_config.len() > 8
+            || self.secrets.len() > 8
             || self.request_timeout_ms == 0
             || self.request_timeout_ms > 300_000
         {
@@ -351,6 +386,15 @@ impl Manifest {
             {
                 return Err(Error::invalid(
                     "Driver system config roots and destinations must be unique",
+                ));
+            }
+        }
+        let mut secret_names = BTreeSet::new();
+        for secret in &self.secrets {
+            secret.validate()?;
+            if !roots.insert(&secret.root) || !secret_names.insert(&secret.name) {
+                return Err(Error::invalid(
+                    "Driver secret roots and names must be unique and non-overlapping",
                 ));
             }
         }
@@ -1149,6 +1193,7 @@ mod tests {
             transport: Transport::StdioV1,
             mounts: vec![],
             system_config: vec![],
+            secrets: vec![],
             network: false,
             loopback_port: None,
             resources: DriverResources::default(),
@@ -1189,6 +1234,7 @@ mod tests {
     fn resource_requests_are_bounded_and_default_to_existing_sandbox_limits() {
         let resources = DriverResources::default();
         assert_eq!(resources.address_space_bytes, 536_870_912);
+        assert_eq!(resources.operation_cpu_seconds, 0);
         assert!(resources.validate().is_ok());
 
         let mut manifest = manifest();
@@ -1196,6 +1242,19 @@ mod tests {
         manifest.resources.cpu_seconds = 120;
         manifest.validate().unwrap();
 
+        manifest.resources.cpu_seconds = 3_600;
+        assert!(manifest.validate().is_err());
+        manifest.resources.operation_cpu_seconds = 60;
+        manifest.validate().unwrap();
+
+        manifest.resources.operation_cpu_seconds = 301;
+        assert!(manifest.validate().is_err());
+        manifest.resources.operation_cpu_seconds = 60;
+        manifest.resources.cpu_seconds = 30;
+        assert!(manifest.validate().is_err());
+
+        manifest.resources.cpu_seconds = 3_600;
+        manifest.resources.operation_cpu_seconds = 60;
         manifest.resources.address_space_bytes = 4_294_967_297;
         assert!(manifest.validate().is_err());
         manifest.resources.address_space_bytes = 2_147_483_648;
@@ -1232,6 +1291,46 @@ mod tests {
             destination: "/etc/example".into(),
         });
         assert!(duplicate_root.validate().is_err());
+    }
+
+    #[test]
+    fn secret_mounts_are_unique_bounded_and_separate_from_other_grants() {
+        let mut valid = manifest();
+        valid.secrets = vec![DriverSecretMount {
+            root: "pairing-secret".into(),
+            name: "pairing".into(),
+        }];
+        valid.validate().unwrap();
+
+        let mut duplicate_root = valid.clone();
+        duplicate_root.mounts.push(DriverMount {
+            root: "pairing-secret".into(),
+            read_only: true,
+            execute: false,
+        });
+        assert!(duplicate_root.validate().is_err());
+
+        let mut duplicate_name = manifest();
+        duplicate_name.secrets = vec![
+            DriverSecretMount {
+                root: "secret-a".into(),
+                name: "pairing".into(),
+            },
+            DriverSecretMount {
+                root: "secret-b".into(),
+                name: "pairing".into(),
+            },
+        ];
+        assert!(duplicate_name.validate().is_err());
+
+        for bad in ["", "../pairing", "Pairing Secret", "semwright-internal-x"] {
+            let mut candidate = manifest();
+            candidate.secrets = vec![DriverSecretMount {
+                root: "secret".into(),
+                name: bad.into(),
+            }];
+            assert!(candidate.validate().is_err(), "{bad}");
+        }
     }
 
     #[test]

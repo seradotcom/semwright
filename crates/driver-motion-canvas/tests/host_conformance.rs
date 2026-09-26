@@ -93,7 +93,7 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
     let project_root = std::fs::canonicalize(project.path()).unwrap();
     let manifest = Manifest {
         manifest_version: 1,
-        protocol: 1,
+        protocol: 3,
         id: "motion-canvas".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -111,17 +111,25 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
             execute: false,
         }],
         system_config: vec![],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 128,
             processes: 32,
             cpu_seconds: 60,
+            operation_cpu_seconds: 0,
             address_space_bytes: 1_073_741_824,
             file_size_bytes: 268_435_456,
         },
         request_timeout_ms: 10_000,
-        interfaces: DriverInterfaces::default(),
+        interfaces: DriverInterfaces {
+            cooperative_cancellation: true,
+            progress: true,
+            artifacts: true,
+            health: true,
+            ..DriverInterfaces::default()
+        },
     };
     let grants = vec![FilesystemGrant {
         name: "project".into(),
@@ -133,7 +141,7 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
         .await
         .unwrap();
     let caps = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert_eq!(caps.len(), 18);
+    assert_eq!(caps.len(), 25);
     assert!(
         caps.iter()
             .all(|c| c.descriptor.name.starts_with("driver.motion-canvas."))
@@ -189,7 +197,7 @@ async fn manifest_requesting_network_is_denied_without_owner_opt_in() {
     std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let manifest = Manifest {
         manifest_version: 1,
-        protocol: 1,
+        protocol: 3,
         id: "motion-canvas".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -203,11 +211,18 @@ async fn manifest_requesting_network_is_denied_without_owner_opt_in() {
         transport: Transport::StdioV1,
         mounts: vec![],
         system_config: vec![],
+        secrets: vec![],
         network: true,
         loopback_port: None,
         resources: DriverResources::default(),
         request_timeout_ms: 2000,
-        interfaces: DriverInterfaces::default(),
+        interfaces: DriverInterfaces {
+            cooperative_cancellation: true,
+            progress: true,
+            artifacts: true,
+            health: true,
+            ..DriverInterfaces::default()
+        },
     };
     let error = match DriverProvider::connect(manifest, state.path(), &helper, &[], false).await {
         Ok(_) => panic!("network driver started without owner opt-in"),

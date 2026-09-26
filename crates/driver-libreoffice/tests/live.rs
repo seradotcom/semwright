@@ -101,11 +101,13 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 destination: "/etc/fonts".into(),
             },
         ],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {
             address_space_bytes: 2_147_483_648,
             cpu_seconds: 120,
+            operation_cpu_seconds: 0,
             ..DriverResources::default()
         },
         request_timeout_ms: 30_000,

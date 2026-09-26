@@ -31,7 +31,7 @@ socket/ticket/config modes using a second user account, not chmod bypasses.
 | GNOME Wayland, GNOME Shell 46.0 | **EXECUTED:** disposable Zenity/GTK fixture via production AT-SPI; discovery, snapshot, semantic text mutation, delta, close/resync and stale-ref rejection | Portal consent/revocation, optional bridge, different bus sender, locked screen, scaling/multi-monitor remain |
 | Plasma Wayland | Qt/GTK accessibility; KWin mailbox focus/resize | Broker restart, stale heartbeat, cancelled queue, script disabled |
 | Sway | Native window tree, focus/move and semantic UI | IPC endpoint ownership, window ID reuse, workspace change, failed command |
-| Hyprland | Current native JSON client list and dispatch | Stale address/fingerprint, compositor restart, mixed scale/monitors |
+| Hyprland | **EXECUTED (hardware-backed nested):** native JSON list/focus/move/resize against a native Wayland fixture, stale-ref rejection, cleanup and synthetic second output at scale 1.25 | Physical login, compositor restart/reconnect, focus drift/cancellation and physical mixed-scale/multi-monitor |
 | Native X11 + EWMH manager | Window lifecycle, focus, XTEST on a fixture | Missing WM, hung X server, server disconnect, destroyed/reused XID |
 
 X11 I/O/lifecycle design fixes are implemented and the dedicated Xvfb lifecycle regression passes.
@@ -51,6 +51,13 @@ use an explicit operator console when risk requires it, then request keyboard/po
 through the compositor chooser. Reject it once; approve a later intentional request;
 revoke during use. Check owner-session isolation, session close, pending request cleanup,
 focus change between observation and action and cancellation without a stuck chooser.
+
+For **keyboard/pointer RemoteDesktop/EIS testing**, do not use the owner's active graphical login as
+the safety boundary. A nested GNOME Shell with private `HOME`, runtime, Wayland and session D-Bus is
+also insufficient on this host: portal/Mutter RemoteDesktop can still resolve authority to the real
+logind graphical session. Use a VM or genuinely independent seat/login containing only disposable
+test data. If target exclusivity is not independently guaranteed, record the result as diagnostic,
+not PASS.
 
 Capture only a disposable fixture. Check artifact permissions, PNG metadata, normal expiry,
 no bytes in audit and cleanup after normal/abnormal termination.

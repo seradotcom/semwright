@@ -231,6 +231,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             },
         ],
         system_config: vec![],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         // Match the launch-film production sandbox budget. These are ceilings,
@@ -239,6 +240,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         resources: DriverResources {
             address_space_bytes: 4_294_967_296,
             cpu_seconds: 300,
+            operation_cpu_seconds: 0,
             file_size_bytes: 1_073_741_824,
             processes: 256,
             open_files: 512,

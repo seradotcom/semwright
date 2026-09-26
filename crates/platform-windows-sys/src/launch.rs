@@ -25,10 +25,12 @@ use windows::Win32::{
     },
     Security::{
         ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
-        Authorization::{GetSecurityInfo, SE_FILE_OBJECT},
+        Authorization::{ConvertSidToStringSidW, GetSecurityInfo, SE_FILE_OBJECT},
         CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
         GetAclInformation,
-        Isolation::{CreateAppContainerProfile, DeleteAppContainerProfile},
+        Isolation::{
+            CreateAppContainerProfile, DeleteAppContainerProfile, GetAppContainerFolderPath,
+        },
         OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
         SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE, WinBuiltinAdministratorsSid,
         WinLocalSystemSid,
@@ -47,6 +49,7 @@ use windows::Win32::{
         WRITE_OWNER,
     },
     System::{
+        Com::CoTaskMemFree,
         Pipes::CreatePipe,
         SystemServices::{
             ACCESS_ALLOWED_ACE_TYPE, ACCESS_ALLOWED_CALLBACK_ACE_TYPE,
@@ -532,9 +535,63 @@ impl Drop for ProcAttributes {
     }
 }
 
+fn pwstr_to_string_bounded(value: PWSTR, max_units: usize) -> Result<String> {
+    if value.0.is_null() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows AppContainer returned a null path",
+        ));
+    }
+    let mut len = 0usize;
+    // SAFETY: caller supplies a Windows-owned NUL-terminated string. Reads are capped.
+    unsafe {
+        while len < max_units && *value.0.add(len) != 0 {
+            len += 1;
+        }
+        if len == max_units {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Windows AppContainer path exceeds budget",
+            ));
+        }
+        String::from_utf16(std::slice::from_raw_parts(value.0, len))
+            .map_err(|_| Error::invalid("Windows AppContainer path is not valid UTF-16"))
+    }
+}
+
+fn appcontainer_folder(sid: PSID) -> Result<String> {
+    let mut sid_text = PWSTR::null();
+    // SAFETY: sid is returned by CreateAppContainerProfile and sid_text is a writable out-pointer.
+    unsafe { ConvertSidToStringSidW(sid, &mut sid_text) }.map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows AppContainer SID string conversion failed",
+        )
+    })?;
+    // SAFETY: sid_text is a NUL-terminated string allocated by LocalAlloc.
+    let folder = unsafe { GetAppContainerFolderPath(PCWSTR(sid_text.0)) };
+    // SAFETY: ConvertSidToStringSidW allocated sid_text with LocalAlloc.
+    unsafe {
+        let _ = LocalFree(Some(HLOCAL(sid_text.0.cast())));
+    }
+    let folder = folder.map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows AppContainer local profile path lookup failed",
+        )
+    })?;
+    let result = pwstr_to_string_bounded(folder, 32_767);
+    // SAFETY: GetAppContainerFolderPath returns memory that must be released with CoTaskMemFree.
+    unsafe {
+        CoTaskMemFree(Some(folder.0.cast()));
+    }
+    result
+}
+
 struct AppContainerProfile {
     name: Vec<u16>,
     sid: PSID,
+    local_app_data: String,
     delete_on_drop: bool,
 }
 
@@ -562,9 +619,22 @@ impl AppContainerProfile {
                 "Windows AppContainer profile creation failed",
             )
         })?;
+        let local_app_data = match appcontainer_folder(sid) {
+            Ok(path) => path,
+            Err(error) => {
+                // SAFETY: cleanup for resources created immediately above before ownership
+                // transfers into AppContainerProfile.
+                unsafe {
+                    let _ = FreeSid(sid);
+                    let _ = DeleteAppContainerProfile(PCWSTR(wide.as_ptr()));
+                }
+                return Err(error);
+            }
+        };
         Ok(Self {
             name: wide,
             sid,
+            local_app_data,
             delete_on_drop: true,
         })
     }
@@ -655,7 +725,7 @@ fn command_line(spec: &SandboxSpec) -> Result<Vec<u16>> {
     Ok(out)
 }
 
-fn environment_block(spec: &SandboxSpec) -> Result<Vec<u16>> {
+fn environment_block(spec: &SandboxSpec, profile: &AppContainerProfile) -> Result<Vec<u16>> {
     let mut entries = spec.environment.clone();
     if let Some(system_root) = std::env::var_os("SystemRoot") {
         entries.push((
@@ -663,6 +733,16 @@ fn environment_block(spec: &SandboxSpec) -> Result<Vec<u16>> {
             system_root.to_string_lossy().into_owned(),
         ));
     }
+    let temp = std::path::Path::new(&profile.local_app_data).join("Temp");
+    std::fs::create_dir_all(&temp).map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows AppContainer TEMP directory could not be prepared",
+        )
+    })?;
+    entries.push(("LOCALAPPDATA".into(), profile.local_app_data.clone()));
+    entries.push(("TEMP".into(), temp.to_string_lossy().into_owned()));
+    entries.push(("TMP".into(), temp.to_string_lossy().into_owned()));
     entries.sort_by_key(|(name, _)| name.to_ascii_uppercase());
     let mut out = Vec::new();
     for (name, value) in entries {
@@ -942,7 +1022,7 @@ impl SandboxLauncher for WindowsSandbox {
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
         let mut command = command_line(spec)?;
-        let environment = environment_block(spec)?;
+        let environment = environment_block(spec, &profile)?;
         let mut process_info = PROCESS_INFORMATION::default();
         let flags = CREATE_SUSPENDED
             | EXTENDED_STARTUPINFO_PRESENT

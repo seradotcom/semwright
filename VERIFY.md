@@ -241,22 +241,35 @@ the fixture, forces structural resync and rejects the old ref as stale. Sanitize
 in `verification/live-gnome/gnome-wayland-atspi.json`. This certifies the GNOME semantic GTK route,
 not the optional GJS bridge or focused portal input dispatch. Separate real portal evidence below
 covers consent and `ConnectToEIS` negotiation, while hosted jobs certify Plasma/KWin Wayland, real
-headless Sway IPC and Openbox/EWMH X11; Hyprland and broader interactive/scaling coverage remain
-part of the live matrix.
+headless Sway IPC and Openbox/EWMH X11. A separate owner-hardware run certifies Hyprland 0.56.2
+nested on KWin 6.7.5 over a real AMD render node: the production native-socket backend lists,
+focuses, moves and resizes a native Wayland fixture, rejects its stale ref after exit, cleans it up,
+and verifies a synthetic second output at scale 1.25. Sanitized evidence is stored in
+`verification/live-hyprland-kwin/summary.json`. Physical Hyprland login/restart and broader physical
+mixed-scale coverage remain part of the live matrix.
 
 The RemoteDesktop EIS sender is implemented in the platformized Linux host and a real EIS protocol
 fixture negotiates a sender session and transmits keysym, UTF-8 text, relative pointer motion,
-buttons and scrolling. Separate real GNOME Shell 46.0 Wayland evidence now records an owner-approved
+buttons and scrolling. Separate real GNOME Shell 46.0 Wayland evidence records an owner-approved
 RemoteDesktop request for keyboard+pointer, successful `ConnectToEIS` negotiation with three EIS
 devices and `input_route=eis`. A later owner-approved run targeted a disposable GTK4 Wayland window:
 the production broker enforced a focused GNOME window ref, EIS `pointer.move(+24,+13)` was observed
 by GTK as the exact same relative logical delta, a left click was observed by GTK, and moving focus
 to another disposable target caused a fail-closed `Conflict` with no additional GTK pointer event.
-Explicit `portal.stop` then produced `eis=inactive` and `session_active=false`. The sanitized evidence
-is stored in `verification/live-portal-eis/gnome-connect-to-eis.json`. GNOME exposes keycode-only
-`ei_keyboard` rather than `ei_text`; EIS-advertised XKB keymap translation is protocol-tested in the
-follow-up branch but focused keyboard live evidence and cancellation of an in-flight input operation
-remain release work.
+Explicit `portal.stop` then produced `eis=inactive` and `session_active=false`. The sanitized pointer
+evidence remains in `verification/live-portal-eis/gnome-connect-to-eis.json`.
+
+Keyboard evidence has a stricter boundary. GNOME exposes keycode-only `ei_keyboard` rather than
+`ei_text`; EIS-advertised XKB translation, cooperative in-flight cancellation, sender backpressure,
+pacing and bidirectional modifier-feedback handling now have deterministic protocol coverage.
+However, subsequent owner-observed keyboard runs showed that EIS text could reach the owner-active
+ChatGPT input despite semantic window-focus checks. A second attempt using GNOME Shell nested with
+separate HOME, runtime, D-Bus and Wayland namespaces also failed to isolate RemoteDesktop/EIS from
+the real graphical login. Those keyboard runs are diagnostic only and must not be used as live
+target-delivery certification. The invalidated record is
+`verification/live-portal-eis/gnome-eis-cancellation.json`, and the methodology boundary is recorded
+in `verification/live-portal-eis/keyboard-targeting-methodology.json`. Future keyboard live testing
+must use a VM or independent seat/session that cannot inject into the owner-active login.
 
 ## PipeWire ScreenCast closure included in this development line
 
@@ -303,11 +316,13 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 ## Evidence boundaries
 
 This baseline now claims executed hosted evidence for Plasma/KWin Wayland, real headless Sway IPC
-and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route. It also records a
-real owner-approved GNOME RemoteDesktop/`ConnectToEIS` grant-and-stop lifecycle plus focused EIS
-pointer move/click, exact relative-logical coordinate behavior and focus-drift rejection. It does
-**not** yet claim focused keyboard live certification, in-flight input cancellation, Hyprland live
-certification or a complete real-login/scaling/multi-monitor desktop matrix. It does not yet certify a sandbox for
+and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route, plus owner-hardware
+nested Hyprland native-IPC lifecycle/stale-ref evidence and a synthetic mixed-scale second output.
+It also records a real owner-approved GNOME RemoteDesktop/`ConnectToEIS` grant-and-stop lifecycle
+plus focused EIS pointer move/click, exact relative-logical coordinate behavior and focus-drift
+rejection. It does **not** yet claim a physical Hyprland login, focused keyboard live certification,
+in-flight input cancellation, physical mixed-scale display evidence or a complete real-login desktop
+matrix. It does not yet certify a sandbox for
 same-UID MCP upstream executables, a remote signed driver marketplace or universal cryptographic
 publisher identity.
 Adversarial plugin/driver sandbox regressions are executed but do not constitute a formal security
