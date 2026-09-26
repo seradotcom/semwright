@@ -165,7 +165,7 @@ impl Driver for Adversarial {
                 Command::new("/usr/bin/sh")
                     .args([
                         "-c",
-                        "sleep 1; printf escaped > /workspace/rw/driver-descendant.txt",
+                        "parent=$PPID; while kill -0 \"$parent\" 2>/dev/null; do sleep 0.05; done; printf escaped > /workspace/rw/driver-descendant.txt",
                     ])
                     .spawn()
                     .map_err(|_| Error::new(ErrorCode::BackendFailed, "descendant spawn failed"))?;
