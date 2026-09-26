@@ -999,10 +999,10 @@ impl Provider for DriverProvider {
                         biased;
                         _ = context.cancellation.cancelled() => {
                             self.terminate.cancel();
-                            return Err(Error::new(
+                            Err(Error::new(
                                 ErrorCode::Cancelled,
                                 "Driver v1 execution cancelled by terminating its isolated process",
-                            ).uncertain());
+                            ).uncertain())
                         }
                         response = request(&mut io, &execute, timeout) => response
                     }
@@ -1048,10 +1048,10 @@ impl Provider for DriverProvider {
                                     Ok(response) => response,
                                     Err(_) => {
                                         self.terminate.cancel();
-                                        return Err(Error::new(
+                                        Err(Error::new(
                                             ErrorCode::Cancelled,
                                             "Driver accepted cancellation but did not terminate the request",
-                                        ).uncertain());
+                                        ).uncertain())
                                     }
                                 }
                             }
@@ -1061,10 +1061,10 @@ impl Provider for DriverProvider {
                             response = &mut response_future => response,
                             _ = context.cancellation.cancelled() => {
                                 self.terminate.cancel();
-                                return Err(Error::new(
+                                Err(Error::new(
                                     ErrorCode::Cancelled,
                                     "Driver execution cancelled; child has no cooperative cancellation contract",
-                                ).uncertain());
+                                ).uncertain())
                             }
                         }
                     }
