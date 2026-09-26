@@ -90,6 +90,7 @@ fn manifest(executable: PathBuf) -> Manifest {
         transport: Transport::StdioV1,
         mounts: vec![],
         system_config: vec![],
+        secrets: vec![],
         network: true,
         loopback_port: None,
         resources: DriverResources {

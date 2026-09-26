@@ -30,7 +30,7 @@ use std::{
 #[cfg(unix)]
 use std::{
     io::Write,
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
+    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
 };
 #[cfg(unix)]
 use tokio::process::Command;
@@ -156,6 +156,35 @@ async fn wait_for_operation_cpu_budget(_pid: u32, seconds: u64) -> Result<()> {
     }
 }
 
+fn validate_secret_source(path: &Path) -> Result<()> {
+    if std::fs::canonicalize(path)? != path {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Driver secret source must be canonical",
+        ));
+    }
+    let metadata = std::fs::symlink_metadata(path)?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 4096 {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Driver secret source must be a small regular file",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        if metadata.uid() != semwright_platform_services::current_uid()
+            || metadata.mode() & 0o077 != 0
+            || metadata.nlink() != 1
+        {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Driver secret source must be owner-only and single-linked",
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn validate_owner_permissions(
     manifest: &Manifest,
     roots: &[FilesystemGrant],
@@ -211,6 +240,24 @@ fn validate_owner_permissions(
                 "Driver system config mount requires a canonical readable owner grant",
             ));
         }
+    }
+    for secret in &manifest.secrets {
+        let grant = roots
+            .iter()
+            .find(|grant| grant.name == secret.root)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Driver secret mount has no owner grant",
+                )
+            })?;
+        if !grant.read {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver secret mount requires readable owner grant",
+            ));
+        }
+        validate_secret_source(&grant.path)?;
     }
     if manifest.protocol == 1
         && (manifest.interfaces.dynamic_capabilities
@@ -458,6 +505,21 @@ fn sandbox_command(
                     source: lookup(&m.root)?.path.clone(),
                     class: MountClass::SystemConfig,
                     logical_name,
+                    read_only: true,
+                    execute: false,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
+    );
+    mounts.extend(
+        manifest
+            .secrets
+            .iter()
+            .map(|secret| {
+                Ok(Mount {
+                    source: lookup(&secret.root)?.path.clone(),
+                    class: MountClass::Secret,
+                    logical_name: secret.name.clone(),
                     read_only: true,
                     execute: false,
                 })
@@ -1276,6 +1338,7 @@ mod tests {
             transport: semwright_driver_sdk::Transport::StdioV1,
             mounts: vec![],
             system_config: vec![],
+            secrets: vec![],
             network: false,
             loopback_port: None,
             resources: semwright_driver_sdk::DriverResources::default(),
@@ -1360,6 +1423,52 @@ mod tests {
             write: false,
         };
         validate_owner_permissions(&candidate, &[readable], false).unwrap();
+    }
+
+    #[test]
+    fn secret_mount_requires_private_small_regular_owner_file() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let secret_path = dir.path().join("pairing");
+        std::fs::write(&secret_path, b"0123456789abcdef").unwrap();
+        std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let secret_path = std::fs::canonicalize(secret_path).unwrap();
+
+        let mut candidate = manifest();
+        candidate.secrets = vec![semwright_driver_sdk::DriverSecretMount {
+            root: "pairing-secret".into(),
+            name: "pairing".into(),
+        }];
+
+        assert!(matches!(
+            validate_owner_permissions(&candidate, &[], false),
+            Err(error) if error.code == ErrorCode::PolicyDenied
+        ));
+
+        let unreadable = FilesystemGrant {
+            name: "pairing-secret".into(),
+            path: secret_path.clone(),
+            read: false,
+            write: false,
+        };
+        assert!(matches!(
+            validate_owner_permissions(&candidate, &[unreadable], false),
+            Err(error) if error.code == ErrorCode::PolicyDenied
+        ));
+
+        let readable = FilesystemGrant {
+            name: "pairing-secret".into(),
+            path: secret_path.clone(),
+            read: true,
+            write: false,
+        };
+        validate_owner_permissions(&candidate, std::slice::from_ref(&readable), false).unwrap();
+
+        std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(matches!(
+            validate_owner_permissions(&candidate, &[readable], false),
+            Err(error) if error.code == ErrorCode::PermissionDenied
+        ));
     }
 
     #[test]

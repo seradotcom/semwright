@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "PASS_WITH_REMAINING_LIVE_GAPS",
-  "scope": "owner-approved GNOME Wayland RemoteDesktop ConnectToEIS negotiation and lifecycle",
+  "scope": "owner-approved GNOME Wayland RemoteDesktop ConnectToEIS negotiation, focused pointer dispatch and lifecycle",
   "observed_at_utc": "2026-09-24T02:28:40Z",
   "source": {
     "baseline_before_fix": "13b486aa67f89c039bc526321cccd869d1a68bd8",
@@ -48,13 +48,17 @@
     "desktop_portal_consent": true,
     "connect_to_eis_keyboard_pointer_negotiation": true,
     "explicit_session_stop": true,
-    "post_stop_inactive_state": true
+    "post_stop_inactive_state": true,
+    "focused_pointer_injection": true,
+    "relative_pointer_coordinate_behavior": true,
+    "pointer_click_delivery": true,
+    "focus_drift_rejection": true
   },
   "not_certified": {
-    "focused_input_injection": true,
-    "coordinate_behavior": true,
     "input_operation_cancellation": true,
-    "multi_desktop_portal_matrix": true
+    "multi_desktop_portal_matrix": true,
+    "focused_keyboard_input": true,
+    "xkb_keycode_translation_live_retest": true
   },
   "source_file_sha256": {
     "portal_start_output": "504094fb04216bf67a4a996fbd528cdcd843df980237472280db82d9bc2209da",
@@ -70,8 +74,70 @@
   },
   "notes": [
     "An earlier owner-approved baseline attempt with keyboard and pointer reached ConnectToEIS but timed out during EIS device negotiation.",
-    "A pointer-only baseline session connected successfully and was explicitly stopped.",
-    "After PR 69, the real keyboard-plus-pointer session negotiated three EIS devices and used the EIS route.",
-    "This evidence intentionally does not convert R02 to PASS until focused input, coordinate behavior and input-operation cancellation are executed."
-  ]
+    "After PR 69, a real keyboard-plus-pointer session negotiated three EIS devices and used the EIS route.",
+    "A later owner-approved GNOME Wayland session targeted a disposable GTK4 window through the narrow GNOME bridge. EIS relative motion of +24,+13 was observed by GTK as exactly +24,+13, and an EIS left click was observed by GTK at the resulting pointer coordinates.",
+    "After focus moved to a different disposable target, Semwright rejected pointer input with Conflict and GTK observed no additional pointer event, proving the focused-reference guard did not fall back.",
+    "GNOME exposed ei_keyboard keycodes but not ei_text, so baseline input.type correctly returned Unsupported. The feat/eis-keymap-keycodes follow-up uses the EIS-advertised XKB keymap and is protocol-tested but not yet live-certified.",
+    "R02 remains open for focused keyboard live evidence, cancellation of an in-flight input operation, and the broader portal-granted desktop matrix."
+  ],
+  "focused_pointer_execution": {
+    "observed_at_utc": "2026-09-24T23:56:47Z",
+    "baseline": "7f608632c22d739723c65b8c7198dccbf21c00b0",
+    "target": "disposable GTK4 Wayland fixture",
+    "window_route": "gnome",
+    "target_coordinate_space": "compositor_logical",
+    "input_route": "eis",
+    "input_coordinate_space": "relative_logical_delta",
+    "requested_delta": {
+      "dx": 24.0,
+      "dy": 13.0
+    },
+    "observed_before": {
+      "x": 1275.6484375,
+      "y": 359.3125
+    },
+    "observed_after": {
+      "x": 1299.6484375,
+      "y": 372.3125
+    },
+    "observed_delta": {
+      "dx": 24.0,
+      "dy": 13.0
+    },
+    "click_observed": {
+      "button": 1,
+      "x": 1299.6484375,
+      "y": 372.3125
+    },
+    "focus_drift_rejection": {
+      "error_code": "Conflict",
+      "gtk_event_count_before": 34,
+      "gtk_event_count_after": 34,
+      "fallback_attempted": false
+    },
+    "keyboard_baseline_result": {
+      "input_type": "Unsupported",
+      "reason": "GNOME EIS exposed ei_keyboard keycodes without ei_text"
+    }
+  },
+  "keyboard_keycode_followup": {
+    "baseline": "3d23cbda69d1356cbf8819e560152261e8e3759a",
+    "branch": "feat/eis-keymap-keycodes",
+    "status": "PROTOCOL_TESTED_LIVE_RETEST_PENDING",
+    "behavior": "Parse the EIS-advertised XKB keymap and translate direct text/keysyms to ei_keyboard keycodes; retain ei_text as the preferred route when available.",
+    "negative_boundary": "Keycode-only keyboards without an XKB keymap remain Unsupported; compose/IME-only characters are not guessed.",
+    "tests": [
+      "keycode_only_keyboard_negotiates_without_claiming_text_support",
+      "keycode_keyboard_uses_announced_xkb_keymap_for_text_and_keysym",
+      "real_eis_protocol_negotiates_and_sends_input"
+    ]
+  },
+  "focused_pointer_source_sha256": {
+    "pointer_move_output": "c4e19c4a8892b2da9ee07232e8a87a39b2df4cb5d79471fe50e6a10bf65d7a53",
+    "gtk_pointer_event_log": "b7a7b34d19f68acbdae336a814414d2e7e9609f6e20b542cd27d67c38faf3ced",
+    "focus_drift_denial": "251fcd61a0931533de39665feb83ebbbaec41b18fce7b9a367a24b1b093ec619",
+    "baseline_keyboard_unsupported": "5327b400464cfd453a9b6bbc3ea0e8a600de08c6241eecba0cde5be842048ad7",
+    "portal_stop_output": "7d3dc33812a5b4e5cefe418e460f973c54ff3696f9d3a039ff1a92e15f508bb9",
+    "post_stop_status": "5c14b3a9b894acb6882c0663ac473806b92b0ba574741a1480d8499f15ba9182"
+  }
 }

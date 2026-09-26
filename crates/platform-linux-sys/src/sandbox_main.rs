@@ -26,6 +26,15 @@ fn bounded_limit(
     Ok(value)
 }
 
+fn valid_read_root(path: &str) -> bool {
+    let secret = path
+        .strip_prefix("/run/secrets/")
+        .is_some_and(|name| !name.is_empty() && !name.contains('/'));
+    (path.starts_with("/workspace/") || path.starts_with("/etc/") || secret)
+        && !path.contains("..")
+        && !path.contains('\0')
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let mut writable = vec!["/tmp".to_owned(), "/dev/shm".to_owned()];
@@ -49,10 +58,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--read-root" => {
                 let path = args.next().ok_or("read root missing")?;
-                if !(path.starts_with("/workspace/") || path.starts_with("/etc/"))
-                    || path.contains("..")
-                    || path.contains('\0')
-                {
+                if !valid_read_root(&path) {
                     return Err("invalid sandbox read root".into());
                 }
                 readable.push((path, false));
@@ -154,6 +160,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         ("/lib64", read_exec),
         ("/etc", read_only),
         ("/plugin", read_only),
+        ("/run/secrets", read_only),
         ("/dev", read_only),
         ("/proc", read_only),
     ] {
@@ -205,6 +212,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn secret_read_roots_are_single_file_and_confined() {
+        assert!(valid_read_root("/run/secrets/godot-pairing"));
+        assert!(!valid_read_root("/run/secrets"));
+        assert!(!valid_read_root("/run/secrets/nested/key"));
+        assert!(!valid_read_root("/run/secrets/../escape"));
+        assert!(!valid_read_root("/run/other/key"));
+    }
 
     #[test]
     fn resource_bounds_match_driver_manifest_hard_limits() {

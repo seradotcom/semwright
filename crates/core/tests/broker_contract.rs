@@ -75,6 +75,35 @@ async fn doctor_labels_fixture_not_live_desktop() {
     assert_eq!(r.data.unwrap()["fake"], true);
 }
 #[tokio::test]
+async fn semantic_hit_test_materializes_a_ref_without_input_side_effects() {
+    let f = Fixture::new(Profile::Observe);
+    let result = f.call("ui.hit_test", json!({"x":10,"y":10})).await;
+    assert!(result.ok, "{result:?}");
+    let data = result.data.unwrap();
+    let reference = data["node"]["ref"].as_str().unwrap();
+    assert!(reference.starts_with("ui:"));
+    assert_eq!(data["semantic_coverage"], "native_hit_test");
+    assert_eq!(f.desktop.invocations(), 0);
+
+    let miss = f.call("ui.hit_test", json!({"x":1000,"y":1000})).await;
+    assert_eq!(miss.error.unwrap().code, ErrorCode::NotFound);
+}
+
+#[tokio::test]
+async fn semantic_inspect_revalidates_and_materializes_one_exact_ref() {
+    let f = Fixture::new(Profile::Observe);
+    let found = f.find("Export").await;
+    let reference = found["nodes"][0]["ref"].as_str().unwrap().to_owned();
+    let result = f.call("ui.inspect", json!({"ref":reference})).await;
+    assert!(result.ok, "{result:?}");
+    let data = result.data.unwrap();
+    assert_eq!(data["node"]["name"], "Export");
+    assert!(data["node"]["ref"].as_str().unwrap().starts_with("ui:"));
+    assert_eq!(data["semantic_coverage"], "exact_ref");
+    assert_eq!(f.desktop.invocations(), 0);
+}
+
+#[tokio::test]
 async fn observe_can_inspect_but_cannot_invoke() {
     let f = Fixture::new(Profile::Observe);
     let n = f.find("Export").await;
@@ -91,6 +120,35 @@ async fn duplicate_labels_remain_discovery_candidates() {
     assert_eq!(n["count"], 2);
     assert_eq!(f.desktop.invocations(), 0);
 }
+
+#[tokio::test]
+async fn ui_find_pushdown_is_optional_and_portably_refiltered() {
+    let f = Fixture::new(Profile::Observe);
+
+    let fallback = f.find("Export").await;
+    assert_eq!(fallback["count"], 1);
+    assert_eq!(f.desktop.candidate_queries(), 0);
+
+    let pushed = f
+        .call(
+            "ui.find",
+            json!({
+                "selector": {
+                    "framework": "fixture",
+                    "name": {"op": "exact", "value": "Export"}
+                }
+            }),
+        )
+        .await;
+    assert!(pushed.ok, "{pushed:?}");
+    let data = pushed.data.unwrap();
+    assert_eq!(data["count"], 1);
+    assert_eq!(data["nodes"][0]["name"], "Export");
+    assert_eq!(data["nodes"][0]["framework"], "fixture");
+    assert_eq!(f.desktop.candidate_queries(), 1);
+    assert_eq!(f.desktop.invocations(), 0);
+}
+
 #[tokio::test]
 async fn mutation_requires_reference_not_selector() {
     let f = Fixture::new(Profile::Desktop);
@@ -254,6 +312,19 @@ async fn app_scope_filters_discovery() {
     let n = f.find("Export").await;
     assert_eq!(n["count"], 0);
 }
+#[tokio::test]
+async fn app_scope_blocks_semantic_hit_test_observation() {
+    let mut config = PolicyConfig {
+        profile: Profile::Observe,
+        ..Default::default()
+    };
+    config.apps.insert("different.application".into());
+    let f = Fixture::with_policy(config);
+    let result = f.call("ui.hit_test", json!({"x":10,"y":10})).await;
+    assert_eq!(result.error.unwrap().code, ErrorCode::PolicyDenied);
+    assert_eq!(f.desktop.invocations(), 0);
+}
+
 #[tokio::test]
 async fn denied_audit_is_not_labelled_allow() {
     let f = Fixture::new(Profile::Observe);

@@ -101,6 +101,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 destination: "/etc/fonts".into(),
             },
         ],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {

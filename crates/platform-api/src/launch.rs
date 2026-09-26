@@ -19,6 +19,7 @@ pub trait ExecutableVerifier: Send + Sync {
 pub enum MountClass {
     Workspace,
     SystemConfig,
+    Secret,
 }
 
 #[derive(Clone, Debug)]
@@ -39,12 +40,26 @@ impl Mount {
         if self.logical_name.len() > 255 {
             return Err(Error::invalid("Logical mount name exceeds budget"));
         }
-        if (self.class == MountClass::SystemConfig && (!self.read_only || self.execute))
-            || (self.execute && !self.read_only)
+        if matches!(self.class, MountClass::SystemConfig | MountClass::Secret)
+            && (!self.read_only || self.execute)
         {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
+                "System-config and secret mounts must be read-only and non-executable",
+            ));
+        }
+        if self.execute && (self.class != MountClass::Workspace || !self.read_only) {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
                 "Executable mounts must be read-only workspace mounts",
+            ));
+        }
+        if self.class == MountClass::Secret
+            && (Path::new(&self.logical_name).components().count() != 1
+                || self.logical_name.len() > 64)
+        {
+            return Err(Error::invalid(
+                "Secret mount names must be one bounded path component",
             ));
         }
         Ok(())
