@@ -14,6 +14,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+use tokio_util::sync::CancellationToken;
 use xkbcommon_dl::{
     xkb_context_flags, xkb_keymap_compile_flags, xkb_keymap_format, xkb_rule_names,
     xkbcommon_handle,
@@ -355,6 +356,111 @@ async fn keycode_keyboard_uses_announced_xkb_keymap_for_text_and_keysym() {
         );
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
+
+    client.stop().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), client.wait_closed())
+        .await
+        .expect("EIS client should observe transport shutdown");
+    thread.join().unwrap();
+}
+
+#[tokio::test]
+async fn keycode_text_cancellation_stops_after_partial_dispatch() {
+    let (server_stream, client_stream) = UnixStream::pair().unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let server_seen = seen.clone();
+    let thread = std::thread::spawn(move || {
+        server(server_stream, server_seen, KeyboardMode::KeycodeWithKeymap)
+    });
+
+    let client = EisClient::connect(
+        client_stream,
+        Requested {
+            keyboard: true,
+            pointer: false,
+        },
+    )
+    .await
+    .unwrap();
+
+    let cancellation = CancellationToken::new();
+    let task_client = client.clone();
+    let task_cancellation = cancellation.clone();
+    let task = tokio::spawn(async move {
+        let text = "A".repeat(5_000);
+        task_client
+            .type_text_cancellable(&text, task_cancellation)
+            .await
+    });
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    loop {
+        let count = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|row| row.starts_with("key:"))
+            .count();
+        if count >= 8 {
+            cancellation.cancel();
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "EIS key events never started: {:?}",
+            seen.lock().unwrap()
+        );
+        tokio::task::yield_now().await;
+    }
+
+    let error = tokio::time::timeout(Duration::from_secs(3), task)
+        .await
+        .expect("cancelled EIS text should finish promptly")
+        .expect("text task should not panic")
+        .unwrap_err();
+    assert_eq!(error.code, semwright_types::ErrorCode::Cancelled);
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let settled_events = seen
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|row| row.starts_with("key:"))
+        .count();
+    assert!(
+        settled_events >= 8,
+        "cancellation must happen after dispatch starts"
+    );
+    assert!(
+        settled_events < 20_000,
+        "cancellation must stop before all 5,000 shifted key strokes are sent"
+    );
+    assert_eq!(
+        settled_events % 4,
+        0,
+        "cancellation must finish the current shifted key stroke before stopping"
+    );
+    assert_eq!(
+        seen.lock()
+            .unwrap()
+            .iter()
+            .rfind(|row| row.starts_with("key:"))
+            .map(String::as_str),
+        Some("key:42:Released"),
+        "the final shifted stroke must release Shift"
+    );
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let later_events = seen
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|row| row.starts_with("key:"))
+        .count();
+    assert_eq!(
+        settled_events, later_events,
+        "cancelled EIS input must not keep dispatching after the call returns"
+    );
 
     client.stop().await.unwrap();
     tokio::time::timeout(Duration::from_secs(1), client.wait_closed())

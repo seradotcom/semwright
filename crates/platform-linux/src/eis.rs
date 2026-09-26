@@ -9,6 +9,7 @@ use reis::{
 use semwright_types::{Error, ErrorCode, Result};
 use std::{os::unix::net::UnixStream, sync::OnceLock, time::Instant};
 use tokio::sync::{mpsc, oneshot, watch};
+use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Requested {
@@ -34,7 +35,7 @@ impl Capabilities {
 }
 enum Command {
     KeySym(u32, oneshot::Sender<Result<()>>),
-    Text(String, oneshot::Sender<Result<()>>),
+    Text(String, CancellationToken, oneshot::Sender<Result<()>>),
     Motion(f32, f32, oneshot::Sender<Result<()>>),
     Button(u32, oneshot::Sender<Result<()>>),
     Scroll(f32, f32, oneshot::Sender<Result<()>>),
@@ -152,10 +153,25 @@ impl EisClient {
     }
 
     pub async fn type_text(&self, text: &str) -> Result<()> {
+        self.type_text_cancellable(text, CancellationToken::new())
+            .await
+    }
+
+    pub async fn type_text_cancellable(
+        &self,
+        text: &str,
+        cancellation: CancellationToken,
+    ) -> Result<()> {
         if text.is_empty() {
             return Ok(());
         }
-        self.send(|reply| Command::Text(text.to_owned(), reply))
+        if cancellation.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "EIS text input cancelled before dispatch",
+            ));
+        }
+        self.send(|reply| Command::Text(text.to_owned(), cancellation, reply))
             .await
     }
 
@@ -368,8 +384,8 @@ fn handle_command(
         Command::KeySym(keysym, reply) => {
             let _ = reply.send(send_keysym(connection, devices, keysym));
         }
-        Command::Text(text, reply) => {
-            let _ = reply.send(send_text(connection, devices, &text));
+        Command::Text(text, cancellation, reply) => {
+            let _ = reply.send(send_text(connection, devices, &text, &cancellation));
         }
         Command::Motion(dx, dy, reply) => {
             let _ = reply.send(send_motion(connection, devices, dx, dy));
@@ -417,12 +433,14 @@ fn send_text(
     connection: &reis::event::Connection,
     devices: &[LiveDevice],
     text_value: &str,
+    cancellation: &CancellationToken,
 ) -> Result<()> {
     if let Some(device) = find_native_text_device(devices) {
         let text = device
             .interface::<ei::Text>()
             .ok_or_else(|| Error::new(ErrorCode::Unsupported, "EIS text interface disappeared"))?;
         for chunk in utf8_chunks(text_value, 254)? {
+            check_input_cancelled(cancellation)?;
             text.utf8(chunk);
             frame(connection, device)?;
         }
@@ -436,10 +454,22 @@ fn send_text(
         )
     })?;
     for character in text_value.chars() {
+        check_input_cancelled(cancellation)?;
         let stroke = keymap.stroke_for_char(character, live.modifiers)?;
         send_keyboard_stroke(connection, &live.device, &stroke)?;
     }
     Ok(())
+}
+
+fn check_input_cancelled(cancellation: &CancellationToken) -> Result<()> {
+    if cancellation.is_cancelled() {
+        Err(Error::new(
+            ErrorCode::Cancelled,
+            "EIS text input cancelled during dispatch",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn send_keyboard_stroke(
