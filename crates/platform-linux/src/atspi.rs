@@ -655,9 +655,10 @@ impl Atspi {
                 .position(|candidate| object_id(candidate) == identity)?;
             let index = i32::try_from(index).ok()?;
             let table = self.proxy(c, &parent, "org.a11y.atspi.Table").await.ok()?;
+            let index_args = (index,);
             let (row, column) = tokio::join!(
-                bounded(table.call::<_, _, i32>("GetRowAtIndex", &(index,))),
-                bounded(table.call::<_, _, i32>("GetColumnAtIndex", &(index,)))
+                bounded(table.call::<_, _, i32>("GetRowAtIndex", &index_args)),
+                bounded(table.call::<_, _, i32>("GetColumnAtIndex", &index_args))
             );
             let row = row
                 .ok()
