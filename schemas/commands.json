@@ -8789,16 +8789,9 @@
             "type": "object",
             "properties": {
               "ref": {
-                "type": "object",
-                "propertyNames": {
-                  "const": "$ref"
-                },
-                "additionalProperties": {
-                  "type": "string",
-                  "maxLength": 512
-                },
-                "minProperties": 1,
-                "maxProperties": 1
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^tab:[0-9a-f]{32}$"
               },
               "title": {
                 "type": "string",
@@ -8864,16 +8857,9 @@
       "type": "object",
       "properties": {
         "ref": {
-          "type": "object",
-          "propertyNames": {
-            "const": "$ref"
-          },
-          "additionalProperties": {
-            "type": "string",
-            "maxLength": 512
-          },
-          "minProperties": 1,
-          "maxProperties": 1
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^tab:[0-9a-f]{32}$"
         },
         "changed": {
           "type": "boolean",
@@ -9133,16 +9119,9 @@
             "type": "object",
             "properties": {
               "ref": {
-                "type": "object",
-                "propertyNames": {
-                  "const": "$ref"
-                },
-                "additionalProperties": {
-                  "type": "string",
-                  "maxLength": 512
-                },
-                "minProperties": 1,
-                "maxProperties": 1
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^dom:[0-9a-f]{32}$"
               },
               "node_name": {
                 "type": "string",
@@ -9171,16 +9150,9 @@
               "type": "object",
               "properties": {
                 "ref": {
-                  "type": "object",
-                  "propertyNames": {
-                    "const": "$ref"
-                  },
-                  "additionalProperties": {
-                    "type": "string",
-                    "maxLength": 512
-                  },
-                  "minProperties": 1,
-                  "maxProperties": 1
+                  "type": "string",
+                  "maxLength": 80,
+                  "pattern": "^dom:[0-9a-f]{32}$"
                 },
                 "node_name": {
                   "type": "string",
@@ -16869,16 +16841,9 @@
             "type": "object",
             "properties": {
               "ref": {
-                "type": "object",
-                "propertyNames": {
-                  "const": "$ref"
-                },
-                "additionalProperties": {
-                  "type": "string",
-                  "maxLength": 512
-                },
-                "minProperties": 1,
-                "maxProperties": 1
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^frame:[0-9a-f]{32}$"
               },
               "name": {
                 "type": "string",
@@ -17067,16 +17032,9 @@
               "ref": {
                 "oneOf": [
                   {
-                    "type": "object",
-                    "propertyNames": {
-                      "const": "$ref"
-                    },
-                    "additionalProperties": {
-                      "type": "string",
-                      "maxLength": 512
-                    },
-                    "minProperties": 1,
-                    "maxProperties": 1
+                    "type": "string",
+                    "maxLength": 80,
+                    "pattern": "^dom:[0-9a-f]{32}$"
                   },
                   {
                     "type": "null"
@@ -17298,16 +17256,9 @@
               "ref": {
                 "oneOf": [
                   {
-                    "type": "object",
-                    "propertyNames": {
-                      "const": "$ref"
-                    },
-                    "additionalProperties": {
-                      "type": "string",
-                      "maxLength": 512
-                    },
-                    "minProperties": 1,
-                    "maxProperties": 1
+                    "type": "string",
+                    "maxLength": 80,
+                    "pattern": "^dom:[0-9a-f]{32}$"
                   },
                   {
                     "type": "null"
@@ -17429,16 +17380,9 @@
                 "ref": {
                   "oneOf": [
                     {
-                      "type": "object",
-                      "propertyNames": {
-                        "const": "$ref"
-                      },
-                      "additionalProperties": {
-                        "type": "string",
-                        "maxLength": 512
-                      },
-                      "minProperties": 1,
-                      "maxProperties": 1
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^dom:[0-9a-f]{32}$"
                     },
                     {
                       "type": "null"
@@ -17616,16 +17560,9 @@
             "ref": {
               "oneOf": [
                 {
-                  "type": "object",
-                  "propertyNames": {
-                    "const": "$ref"
-                  },
-                  "additionalProperties": {
-                    "type": "string",
-                    "maxLength": 512
-                  },
-                  "minProperties": 1,
-                  "maxProperties": 1
+                  "type": "string",
+                  "maxLength": 80,
+                  "pattern": "^dom:[0-9a-f]{32}$"
                 },
                 {
                   "type": "null"
@@ -18355,16 +18292,9 @@
               "ref": {
                 "oneOf": [
                   {
-                    "type": "object",
-                    "propertyNames": {
-                      "const": "$ref"
-                    },
-                    "additionalProperties": {
-                      "type": "string",
-                      "maxLength": 512
-                    },
-                    "minProperties": 1,
-                    "maxProperties": 1
+                    "type": "string",
+                    "maxLength": 80,
+                    "pattern": "^dom:[0-9a-f]{32}$"
                   },
                   {
                     "type": "null"

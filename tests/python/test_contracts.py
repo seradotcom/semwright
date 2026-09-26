@@ -34,6 +34,23 @@ class ContractTests(unittest.TestCase):
             )
             self.assertEqual(advertised, node_actions, command)
 
+    def test_browser_outputs_never_expose_internal_native_ref_markers(self):
+        def contains_internal_marker(value):
+            if isinstance(value, dict):
+                if value.get("propertyNames") == {"const": "$ref"}:
+                    return True
+                return any(contains_internal_marker(child) for child in value.values())
+            if isinstance(value, list):
+                return any(contains_internal_marker(child) for child in value)
+            return False
+
+        for command in COMMANDS:
+            if command["name"].startswith("browser."):
+                self.assertFalse(
+                    contains_internal_marker(command["output_schema"]),
+                    command["name"],
+                )
+
     def test_browser_upload_is_grant_scoped_sensitive_and_bounded(self):
         upload = REGISTRY["browser.element.upload"]
         self.assertEqual(upload["risk"], "secret_access")
