@@ -86,7 +86,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if !seen.insert(argument.clone()) {
                     return Err("duplicate sandbox resource limit".into());
                 }
-                cpu = bounded_limit(args.next(), 5, 300)?;
+                cpu = bounded_limit(args.next(), 5, 86_400)?;
             }
             "--limit-as" => {
                 if !seen.insert(argument.clone()) {
@@ -228,6 +228,11 @@ mod tests {
         assert!(bounded_limit(Some("31".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("1025".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("not-a-number".into()), 32, 1024).is_err());
+        assert_eq!(
+            bounded_limit(Some("86400".into()), 5, 86_400).unwrap(),
+            86_400
+        );
+        assert!(bounded_limit(Some("86401".into()), 5, 86_400).is_err());
         assert_eq!(
             bounded_limit(Some("4294967296".into()), 134_217_728, 4_294_967_296).unwrap(),
             4_294_967_296

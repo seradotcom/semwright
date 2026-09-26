@@ -49,6 +49,7 @@ fn manifest(executable: PathBuf) -> Manifest {
             open_files: 128,
             processes: 256,
             cpu_seconds: 20,
+            operation_cpu_seconds: 0,
             address_space_bytes: 1_073_741_824,
             file_size_bytes: 16_777_216,
         },

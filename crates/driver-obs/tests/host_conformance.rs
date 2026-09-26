@@ -150,6 +150,7 @@ async fn obs_driver_runs_through_real_driver_host() {
         loopback_port: None,
         resources: DriverResources {
             cpu_seconds: 60,
+            operation_cpu_seconds: 0,
             address_space_bytes: 1_073_741_824,
             ..DriverResources::default()
         },
