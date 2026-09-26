@@ -1,17 +1,19 @@
 use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
-    ExecutableVerifier, SandboxChildControl, SandboxLauncher, SandboxProcess, SandboxSpec,
+    ExecutableVerifier, MaterializedMount, Mount, MountClass, SANDBOX_MOUNTS_ENV,
+    SandboxChildControl, SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeSet,
     ffi::OsStr,
     fs::File,
     io::Read,
     os::windows::{
         ffi::OsStrExt,
-        fs::OpenOptionsExt,
+        fs::{MetadataExt, OpenOptionsExt},
         io::{AsRawHandle, FromRawHandle},
     },
     path::Path,
@@ -25,15 +27,19 @@ use windows::Win32::{
     },
     Security::{
         ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
-        Authorization::{ConvertSidToStringSidW, GetSecurityInfo, SE_FILE_OBJECT},
-        CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
-        GetAclInformation,
+        Authorization::{
+            ConvertSidToStringSidW, EXPLICIT_ACCESS_W, GRANT_ACCESS, GetNamedSecurityInfoW,
+            GetSecurityInfo, NO_MULTIPLE_TRUSTEE, REVOKE_ACCESS, SE_FILE_OBJECT, SetEntriesInAclW,
+            SetNamedSecurityInfoW, TRUSTEE_IS_SID, TRUSTEE_IS_USER, TRUSTEE_W,
+        },
+        CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
+        GetAclInformation, GetLengthSid,
         Isolation::{
             CreateAppContainerProfile, DeleteAppContainerProfile, GetAppContainerFolderPath,
         },
-        OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES,
-        SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE, WinBuiltinAdministratorsSid,
-        WinLocalSystemSid,
+        NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
+        SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE,
+        SUB_CONTAINERS_AND_OBJECTS_INHERIT, WinBuiltinAdministratorsSid, WinLocalSystemSid,
         WinTrust::{
             WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
             WTD_CACHE_ONLY_URL_RETRIEVAL, WTD_CHOICE_FILE, WTD_REVOCATION_CHECK_NONE,
@@ -43,10 +49,10 @@ use windows::Win32::{
     },
     Storage::FileSystem::{
         BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL,
-        FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_WRITE,
-        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES,
-        FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC,
-        WRITE_OWNER,
+        FILE_ATTRIBUTE_REPARSE_POINT, FILE_DELETE_CHILD, FILE_FLAG_OPEN_REPARSE_POINT,
+        FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
+        FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA,
+        GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
     },
     System::{
         Com::CoTaskMemFree,
@@ -588,6 +594,548 @@ fn appcontainer_folder(sid: PSID) -> Result<String> {
     result
 }
 
+fn copy_sid_bytes(sid: PSID) -> Result<Vec<u8>> {
+    if sid.is_invalid() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows AppContainer SID is invalid",
+        ));
+    }
+    // SAFETY: sid points to a live SID returned by the AppContainer APIs.
+    let len = unsafe { GetLengthSid(sid) };
+    if len == 0 || len > SECURITY_MAX_SID_SIZE {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows AppContainer SID length is invalid",
+        ));
+    }
+    let mut bytes = vec![0u8; len as usize];
+    // SAFETY: destination is exactly len bytes and source remains live for the call.
+    unsafe { CopySid(len, PSID(bytes.as_mut_ptr().cast()), sid) }.map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows AppContainer SID copy failed",
+        )
+    })?;
+    Ok(bytes)
+}
+
+struct LocalAcl(*mut ACL);
+impl Drop for LocalAcl {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            // SAFETY: SetEntriesInAclW allocates this ACL with LocalAlloc.
+            unsafe {
+                let _ = LocalFree(Some(HLOCAL(self.0.cast())));
+            }
+        }
+    }
+}
+
+fn named_dacl(path: &[u16]) -> Result<(*mut ACL, SecurityDescriptor)> {
+    let mut dacl: *mut ACL = std::ptr::null_mut();
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    // SAFETY: path is NUL-terminated and all out-pointers reference live locals.
+    let status = unsafe {
+        GetNamedSecurityInfoW(
+            PCWSTR(path.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(&mut dacl),
+            None,
+            &mut descriptor,
+        )
+    };
+    if status.0 != 0 || descriptor.is_invalid() || dacl.is_null() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox mount DACL could not be read",
+        ));
+    }
+    Ok((dacl, SecurityDescriptor(descriptor)))
+}
+
+fn dacl_has_sid(path: &[u16], sid: PSID) -> Result<bool> {
+    let (dacl, _descriptor) = named_dacl(path)?;
+    let mut acl_info = ACL_SIZE_INFORMATION::default();
+    // SAFETY: dacl belongs to the live descriptor guard and acl_info is a sized output buffer.
+    unsafe {
+        GetAclInformation(
+            dacl,
+            (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
+            std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+            AclSizeInformation,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox mount DACL is invalid",
+        )
+    })?;
+    if acl_info.AceCount > 4_096 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows sandbox mount DACL exceeds verification budget",
+        ));
+    }
+    for index in 0..acl_info.AceCount {
+        let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
+        // SAFETY: index is bounded by AceCount and raw is a writable ACE out-pointer.
+        unsafe { GetAce(dacl, index, &mut raw) }.map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount DACL entry could not be inspected",
+            )
+        })?;
+        if raw.is_null() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount DACL contains a null ACE",
+            ));
+        }
+        // SAFETY: GetAce returned storage owned by the live DACL/security descriptor.
+        let header = unsafe { &*(raw.cast::<ACE_HEADER>()) };
+        if header.AceType as u32 != ACCESS_ALLOWED_ACE_TYPE
+            || usize::from(header.AceSize) < std::mem::size_of::<ACCESS_ALLOWED_ACE>()
+        {
+            continue;
+        }
+        // SAFETY: a simple access-allowed ACE is at least ACCESS_ALLOWED_ACE bytes.
+        let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
+        let ace_sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
+        // SAFETY: both SIDs are live for this comparison.
+        if unsafe { EqualSid(ace_sid, sid).is_ok() } {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn dacl_has_grant(
+    path: &[u16],
+    sid: PSID,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<bool> {
+    let (dacl, _descriptor) = named_dacl(path)?;
+    let mut acl_info = ACL_SIZE_INFORMATION::default();
+    // SAFETY: dacl belongs to the live descriptor guard and acl_info is a sized output buffer.
+    unsafe {
+        GetAclInformation(
+            dacl,
+            (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
+            std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+            AclSizeInformation,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox mount DACL is invalid",
+        )
+    })?;
+    if acl_info.AceCount > 4_096 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows sandbox mount DACL exceeds verification budget",
+        ));
+    }
+    let inheritance_mask = SUB_CONTAINERS_AND_OBJECTS_INHERIT.0;
+    for index in 0..acl_info.AceCount {
+        let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
+        // SAFETY: index is bounded by AceCount and raw is a writable ACE out-pointer.
+        unsafe { GetAce(dacl, index, &mut raw) }.map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount DACL entry could not be inspected",
+            )
+        })?;
+        if raw.is_null() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount DACL contains a null ACE",
+            ));
+        }
+        // SAFETY: GetAce returned storage owned by the live DACL/security descriptor.
+        let header = unsafe { &*(raw.cast::<ACE_HEADER>()) };
+        if header.AceType as u32 != ACCESS_ALLOWED_ACE_TYPE
+            || usize::from(header.AceSize) < std::mem::size_of::<ACCESS_ALLOWED_ACE>()
+        {
+            continue;
+        }
+        // SAFETY: a simple access-allowed ACE is at least ACCESS_ALLOWED_ACE bytes.
+        let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
+        let ace_sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
+        // SAFETY: both SIDs are live for this comparison.
+        if unsafe { EqualSid(ace_sid, sid).is_ok() }
+            && ace.Mask & permissions == permissions
+            && u32::from(header.AceFlags) & inheritance_mask == inheritance.0
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn set_mount_ace(
+    path: &[u16],
+    sid: PSID,
+    access_mode: windows::Win32::Security::Authorization::ACCESS_MODE,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<()> {
+    let (dacl, _descriptor) = named_dacl(path)?;
+    let entry = EXPLICIT_ACCESS_W {
+        grfAccessPermissions: permissions,
+        grfAccessMode: access_mode,
+        grfInheritance: inheritance,
+        Trustee: TRUSTEE_W {
+            pMultipleTrustee: std::ptr::null_mut(),
+            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: TRUSTEE_IS_USER,
+            ptstrName: PWSTR(sid.0.cast()),
+        },
+    };
+    let mut updated: *mut ACL = std::ptr::null_mut();
+    // SAFETY: entry, dacl and updated out-pointer remain live for this synchronous call.
+    let status =
+        unsafe { SetEntriesInAclW(Some(std::slice::from_ref(&entry)), Some(dacl), &mut updated) };
+    if status.0 != 0 || updated.is_null() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox mount ACE could not be constructed",
+        ));
+    }
+    let updated = LocalAcl(updated);
+    // SAFETY: path is NUL-terminated and updated contains a valid ACL allocated above.
+    let status = unsafe {
+        SetNamedSecurityInfoW(
+            PCWSTR(path.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(updated.0),
+            None,
+        )
+    };
+    if status.0 != 0 {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox mount ACE could not be applied",
+        ));
+    }
+    Ok(())
+}
+
+fn apply_mount_ace(
+    path: &[u16],
+    sid: PSID,
+    access_mode: windows::Win32::Security::Authorization::ACCESS_MODE,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+    expected_present: bool,
+) -> Result<()> {
+    set_mount_ace(path, sid, access_mode, permissions, inheritance)?;
+
+    let verified = if expected_present {
+        dacl_has_grant(path, sid, permissions, inheritance)
+    } else {
+        dacl_has_sid(path, sid).map(|present| !present)
+    };
+    if matches!(verified, Ok(true)) {
+        return Ok(());
+    }
+
+    if expected_present {
+        // A unique AppContainer SID must not survive a failed grant verification. Revoke it
+        // immediately and prove absence before propagating the original verification failure.
+        let rollback = set_mount_ace(path, sid, REVOKE_ACCESS, 0, NO_INHERITANCE)
+            .and_then(|_| dacl_has_sid(path, sid))
+            .map(|present| !present);
+        if !matches!(rollback, Ok(true)) {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount grant verification failed and rollback could not be proven",
+            ));
+        }
+    }
+
+    Err(Error::new(
+        ErrorCode::SandboxDenied,
+        "Windows sandbox mount ACE verification failed",
+    ))
+}
+
+const WINDOWS_MOUNT_MAX_ENTRIES: usize = 50_000;
+const WINDOWS_MOUNT_MAX_DEPTH: usize = 128;
+
+fn normalized_windows_mount_path(path: &Path) -> String {
+    let spelling = path.as_os_str().to_string_lossy().replace('/', "\\");
+    let spelling = spelling.strip_prefix(r"\\?\").unwrap_or(&spelling);
+    spelling.trim_end_matches('\\').to_ascii_lowercase()
+}
+
+fn validate_mount_tree(root: &Path) -> Result<()> {
+    let canonical = std::fs::canonicalize(root)?;
+    if normalized_windows_mount_path(&canonical) != normalized_windows_mount_path(root) {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows sandbox mount roots must use canonical DOS paths without aliases",
+        ));
+    }
+
+    let root_metadata = std::fs::symlink_metadata(root)?;
+    if root_metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows sandbox mount roots may not be reparse points",
+        ));
+    }
+    if root_metadata.is_file() {
+        if root_metadata.number_of_links() != Some(1) {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows sandbox mount files must be single-linked",
+            ));
+        }
+        return Ok(());
+    }
+    if !root_metadata.is_dir() {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows sandbox mounts must be regular files or directories",
+        ));
+    }
+
+    let mut pending = vec![(root.to_path_buf(), 0usize)];
+    let mut entries = 0usize;
+    while let Some((directory, depth)) = pending.pop() {
+        if depth > WINDOWS_MOUNT_MAX_DEPTH {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Windows sandbox mount tree exceeds depth budget",
+            ));
+        }
+        for entry in std::fs::read_dir(&directory)? {
+            let entry = entry?;
+            entries = entries.saturating_add(1);
+            if entries > WINDOWS_MOUNT_MAX_ENTRIES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Windows sandbox mount tree exceeds entry budget",
+                ));
+            }
+            let path = entry.path();
+            let metadata = std::fs::symlink_metadata(&path)?;
+            if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Windows sandbox mount trees may not contain reparse points",
+                ));
+            }
+            if metadata.is_dir() {
+                pending.push((path, depth.saturating_add(1)));
+            } else if metadata.is_file() {
+                if metadata.number_of_links() != Some(1) {
+                    return Err(Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Windows sandbox mount trees may not contain hard-linked files",
+                    ));
+                }
+            } else {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Windows sandbox mount trees may contain only regular files and directories",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+struct PreparedMountGrant {
+    path: Vec<u16>,
+    materialized: MaterializedMount,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+}
+
+fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
+    mount.validate()?;
+    if !mount.source.is_absolute() {
+        return Err(Error::invalid(
+            "Windows sandbox mount source must be absolute",
+        ));
+    }
+    let spelling = mount.source.as_os_str().to_string_lossy();
+    let lower = spelling.to_ascii_lowercase();
+    if lower.starts_with(r"\\") || lower.starts_with(r"\\?\") || lower.starts_with(r"\\.\") {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "UNC, extended and device sandbox mount paths are not accepted",
+        ));
+    }
+    if mount.source.components().count() <= 2 {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows sandbox mounts may not expose an entire volume root",
+        ));
+    }
+    validate_mount_tree(&mount.source)?;
+    let metadata = std::fs::symlink_metadata(&mount.source)?;
+    let materialized_path = mount
+        .source
+        .to_str()
+        .ok_or_else(|| Error::invalid("Windows sandbox mount path must be Unicode"))?
+        .to_owned();
+    let mut permissions = FILE_GENERIC_READ.0;
+    if mount.execute {
+        permissions |= FILE_GENERIC_EXECUTE.0;
+    }
+    if !mount.read_only {
+        permissions |= FILE_GENERIC_WRITE.0;
+        if metadata.is_dir() {
+            permissions |= FILE_DELETE_CHILD.0;
+        }
+    }
+    Ok(PreparedMountGrant {
+        path: wide_null(mount.source.as_os_str())?,
+        materialized: MaterializedMount {
+            class: mount.class,
+            logical_name: mount.logical_name.clone(),
+            path: materialized_path,
+            read_only: mount.read_only,
+        },
+        permissions,
+        inheritance: if metadata.is_dir() {
+            SUB_CONTAINERS_AND_OBJECTS_INHERIT
+        } else {
+            NO_INHERITANCE
+        },
+    })
+}
+
+struct WindowsMountGrant {
+    path: Vec<u16>,
+    sid: Vec<u8>,
+    active: bool,
+}
+
+impl WindowsMountGrant {
+    fn grant(prepared: &PreparedMountGrant, sid: PSID) -> Result<Self> {
+        let sid_bytes = copy_sid_bytes(sid)?;
+        let owned_sid = PSID(sid_bytes.as_ptr().cast_mut().cast());
+        if dacl_has_sid(&prepared.path, owned_sid)? {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Fresh Windows AppContainer SID unexpectedly already has mount authority",
+            ));
+        }
+        apply_mount_ace(
+            &prepared.path,
+            PSID(sid_bytes.as_ptr().cast_mut().cast()),
+            GRANT_ACCESS,
+            prepared.permissions,
+            prepared.inheritance,
+            true,
+        )?;
+        Ok(Self {
+            path: prepared.path.clone(),
+            sid: sid_bytes,
+            active: true,
+        })
+    }
+
+    fn revoke(&mut self) -> Result<()> {
+        if !self.active {
+            return Ok(());
+        }
+        apply_mount_ace(
+            &self.path,
+            PSID(self.sid.as_ptr().cast_mut().cast()),
+            REVOKE_ACCESS,
+            0,
+            NO_INHERITANCE,
+            false,
+        )?;
+        self.active = false;
+        Ok(())
+    }
+}
+
+impl Drop for WindowsMountGrant {
+    fn drop(&mut self) {
+        let _ = self.revoke();
+    }
+}
+
+fn revoke_mount_grants(grants: &mut [WindowsMountGrant]) -> Result<()> {
+    let mut first_error = None;
+    for grant in grants.iter_mut().rev() {
+        if let Err(error) = grant.revoke()
+            && first_error.is_none()
+        {
+            first_error = Some(error);
+        }
+    }
+    if let Some(error) = first_error {
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
+fn prepare_windows_mounts(
+    spec: &SandboxSpec,
+    profile: &AppContainerProfile,
+) -> Result<(Vec<WindowsMountGrant>, Option<String>)> {
+    if spec.mounts.is_empty() {
+        return Ok((Vec::new(), None));
+    }
+    if spec.kind != semwright_platform_api::launch::SandboxKind::Driver {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows filesystem grants are currently limited to Driver children with mount-table semantics",
+        ));
+    }
+    let mut seen_sources = BTreeSet::new();
+    let mut prepared = Vec::with_capacity(spec.mounts.len());
+    let mut materialized = Vec::with_capacity(spec.mounts.len());
+    for mount in &spec.mounts {
+        let plan = prepare_mount_grant(mount)?;
+        let source_key = normalized_windows_mount_path(Path::new(&plan.materialized.path));
+        if !seen_sources.insert(source_key) {
+            return Err(Error::invalid(
+                "Windows sandbox mount sources must be unique after DOS path normalization",
+            ));
+        }
+        materialized.push(plan.materialized.clone());
+        prepared.push(plan);
+    }
+    let encoded = encode_materialized_mounts(&materialized)?;
+    let mut grants = Vec::with_capacity(prepared.len());
+    for plan in &prepared {
+        match WindowsMountGrant::grant(plan, profile.sid) {
+            Ok(grant) => grants.push(grant),
+            Err(error) => {
+                if revoke_mount_grants(&mut grants).is_err() {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Windows sandbox mount transaction failed and prior grants could not be fully revoked",
+                    ));
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok((grants, Some(encoded)))
+}
+
 struct AppContainerProfile {
     name: Vec<u16>,
     sid: PSID,
@@ -725,8 +1273,20 @@ fn command_line(spec: &SandboxSpec) -> Result<Vec<u16>> {
     Ok(out)
 }
 
-fn environment_block(spec: &SandboxSpec, profile: &AppContainerProfile) -> Result<Vec<u16>> {
+fn environment_block(
+    spec: &SandboxSpec,
+    profile: &AppContainerProfile,
+    mount_table: Option<&str>,
+) -> Result<Vec<u16>> {
     let mut entries = spec.environment.clone();
+    if entries.iter().any(|(name, _)| name == SANDBOX_MOUNTS_ENV) {
+        return Err(Error::invalid(
+            "Sandbox mount table environment is reserved to the platform host",
+        ));
+    }
+    if let Some(table) = mount_table {
+        entries.push((SANDBOX_MOUNTS_ENV.into(), table.to_owned()));
+    }
     if let Some(system_root) = std::env::var_os("SystemRoot") {
         entries.push((
             "SystemRoot".into(),
@@ -859,6 +1419,7 @@ struct NativeSandboxChild {
     process: NativeHandle,
     _job: ProcessJob,
     pid: u32,
+    mount_grants: Vec<WindowsMountGrant>,
     profile_name: Option<Vec<u16>>,
     exited: bool,
 }
@@ -873,15 +1434,22 @@ impl NativeSandboxChild {
         }
     }
 
-    fn observed_exit(&mut self) -> bool {
+    fn cleanup_authority(&mut self) -> Result<()> {
+        let result = revoke_mount_grants(&mut self.mount_grants);
+        self.mount_grants.clear();
+        self.cleanup_profile();
+        result
+    }
+
+    fn observed_exit(&mut self) -> Result<bool> {
         // SAFETY: process is a live owned process HANDLE.
         let wait = unsafe { WaitForSingleObject(self.process.raw(), 0) };
         if wait == WAIT_OBJECT_0 {
             self.exited = true;
-            self.cleanup_profile();
-            true
+            self.cleanup_authority()?;
+            Ok(true)
         } else {
-            false
+            Ok(false)
         }
     }
 }
@@ -893,7 +1461,7 @@ impl SandboxChildControl for NativeSandboxChild {
     }
 
     async fn kill(&mut self) -> Result<()> {
-        if self.observed_exit() {
+        if self.observed_exit()? {
             return Ok(());
         }
         // SAFETY: process is a live child owned by this controller.
@@ -907,7 +1475,7 @@ impl SandboxChildControl for NativeSandboxChild {
     }
 
     async fn wait(&mut self) -> Result<()> {
-        if self.observed_exit() {
+        if self.observed_exit()? {
             return Ok(());
         }
         let wait_handle = duplicate_owned_handle(self.process.raw())?;
@@ -924,8 +1492,7 @@ impl SandboxChildControl for NativeSandboxChild {
             ));
         }
         self.exited = true;
-        self.cleanup_profile();
-        Ok(())
+        self.cleanup_authority()
     }
 }
 
@@ -941,7 +1508,7 @@ impl Drop for NativeSandboxChild {
             }
         }
         if self.exited {
-            self.cleanup_profile();
+            let _ = self.cleanup_authority();
         }
     }
 }
@@ -961,10 +1528,10 @@ impl SandboxLauncher for WindowsSandbox {
 
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
-        if !spec.mounts.is_empty() || !spec.sealed_tools.is_empty() {
+        if !spec.sealed_tools.is_empty() {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
-                "Windows sandbox filesystem and sealed-tool mounts remain fail-closed until AppContainer grants are transactional",
+                "Windows sealed-tool mounts remain fail-closed until immutable executable grants are transactional",
             ));
         }
         if spec.network {
@@ -975,6 +1542,7 @@ impl SandboxLauncher for WindowsSandbox {
         }
 
         let profile = AppContainerProfile::create()?;
+        let (mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
         let (child_stdin, parent_stdin) = inheritable_pipe()?;
         let (parent_stdout, child_stdout) = inheritable_pipe()?;
         clear_inheritance(parent_stdin.raw())?;
@@ -1022,7 +1590,7 @@ impl SandboxLauncher for WindowsSandbox {
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
         let mut command = command_line(spec)?;
-        let environment = environment_block(spec, &profile)?;
+        let environment = environment_block(spec, &profile, mount_table.as_deref())?;
         let mut process_info = PROCESS_INFORMATION::default();
         let flags = CREATE_SUSPENDED
             | EXTENDED_STARTUPINFO_PRESENT
@@ -1090,6 +1658,7 @@ impl SandboxLauncher for WindowsSandbox {
                 process,
                 _job: job,
                 pid: process_info.dwProcessId,
+                mount_grants,
                 profile_name: Some(profile_name),
                 exited: false,
             }),
@@ -1109,7 +1678,8 @@ impl SandboxLauncher for WindowsSandbox {
             "available": true,
             "mechanism": self.mechanism(),
             "pre_first_instruction_containment": true,
-            "filesystem_mounts": "fail_closed_pending_transactional_acl_grants",
+            "filesystem_mounts": "driver_appcontainer_sid_acl_v1",
+            "plugin_mcp_mounts": "fail_closed_pending_portable_mount_lookup",
             "network": "fail_closed_pending_explicit_capabilities",
             "resource_limits": ["processes", "cpu_seconds", "process_memory"],
         })
@@ -1170,5 +1740,94 @@ mod verifier_tests {
         assert!(!system.is_empty());
         assert!(!admins.is_empty());
         assert_ne!(system, admins);
+    }
+
+    #[test]
+    fn windows_mount_preflight_rejects_parent_aliases() {
+        let directory = tempfile::tempdir().expect("workspace directory");
+        let child = directory.path().join("child");
+        std::fs::create_dir(&child).expect("child directory");
+        let aliased = child.join("..").join("child");
+        let mount = Mount {
+            source: aliased,
+            class: MountClass::Workspace,
+            logical_name: "fixture-data".into(),
+            read_only: true,
+            execute: false,
+        };
+        assert!(
+            matches!(prepare_mount_grant(&mount), Err(error) if error.code == ErrorCode::PolicyDenied),
+            "non-canonical parent aliases must fail closed"
+        );
+    }
+
+    #[test]
+    fn windows_mount_preflight_rejects_hardlinked_files() {
+        let directory = tempfile::tempdir().expect("workspace directory");
+        let source = directory.path().join("source.txt");
+        let alias = directory.path().join("alias.txt");
+        std::fs::write(&source, b"hardlink").expect("source file");
+        std::fs::hard_link(&source, &alias).expect("hard link");
+        let mount = Mount {
+            source,
+            class: MountClass::Workspace,
+            logical_name: "fixture-data".into(),
+            read_only: true,
+            execute: false,
+        };
+        assert!(
+            matches!(prepare_mount_grant(&mount), Err(error) if error.code == ErrorCode::PolicyDenied),
+            "hard-linked files must not become AppContainer mounts"
+        );
+    }
+
+    #[test]
+    fn appcontainer_workspace_ace_is_verified_and_revoked() {
+        let profile = AppContainerProfile::create().expect("AppContainer profile");
+        let directory = tempfile::tempdir().expect("workspace directory");
+        let mount = Mount {
+            source: directory.path().to_path_buf(),
+            class: MountClass::Workspace,
+            logical_name: "fixture-data".into(),
+            read_only: true,
+            execute: false,
+        };
+        let prepared = prepare_mount_grant(&mount).expect("prepare workspace grant");
+        assert!(
+            !dacl_has_sid(&prepared.path, profile.sid).expect("initial workspace DACL"),
+            "fresh unique AppContainer SID must not already own workspace authority"
+        );
+
+        let mut grant =
+            WindowsMountGrant::grant(&prepared, profile.sid).expect("grant workspace authority");
+        assert!(
+            dacl_has_grant(
+                &prepared.path,
+                profile.sid,
+                prepared.permissions,
+                prepared.inheritance,
+            )
+            .expect("verify workspace grant"),
+            "workspace grant must carry the requested rights and inheritance"
+        );
+
+        let inherited_file = directory.path().join("inherited.txt");
+        std::fs::write(&inherited_file, b"inheritance").expect("create inherited fixture");
+        let inherited_path = wide_null(inherited_file.as_os_str()).expect("wide inherited path");
+        assert!(
+            dacl_has_sid(&inherited_path, profile.sid).expect("verify inherited workspace ACE"),
+            "files created under the active workspace grant must inherit the AppContainer SID"
+        );
+
+        grant.revoke().expect("revoke workspace authority");
+        assert!(
+            !dacl_has_sid(&prepared.path, profile.sid).expect("verify workspace revocation"),
+            "workspace SID must be absent after revocation"
+        );
+        assert!(
+            !dacl_has_sid(&inherited_path, profile.sid)
+                .expect("verify inherited workspace revocation"),
+            "revocation must remove inherited AppContainer authority from existing children"
+        );
     }
 }
