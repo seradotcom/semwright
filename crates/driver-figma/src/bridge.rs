@@ -25,7 +25,11 @@ use uuid::Uuid;
 type HmacSha256 = Hmac<Sha256>;
 const DEFAULT_PORT: u16 = 38_471;
 const MAX_PENDING: usize = 128;
+const MAX_EXPIRED_REQUESTS: usize = 256;
+#[cfg(not(test))]
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(25);
+#[cfg(test)]
+const REQUEST_TIMEOUT: Duration = Duration::from_millis(150);
 const RECONNECT_GRACE: Duration = Duration::from_secs(2);
 const RECONNECT_POLL: Duration = Duration::from_millis(25);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
@@ -174,6 +178,7 @@ struct SessionHandle {
     info: SessionInfo,
     outbound: mpsc::Sender<Message>,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Message>>>>,
+    expired: Arc<Mutex<BTreeSet<String>>>,
 }
 
 #[derive(Default)]
@@ -205,6 +210,17 @@ async fn retire_session(handle: SessionHandle, reason: Option<&str>) {
         });
     }
     handle.pending.lock().await.clear();
+    handle.expired.lock().await.clear();
+}
+
+async fn remember_expired(expired: &Arc<Mutex<BTreeSet<String>>>, id: String) {
+    let mut expired = expired.lock().await;
+    if expired.len() >= MAX_EXPIRED_REQUESTS
+        && let Some(oldest) = expired.iter().next().cloned()
+    {
+        expired.remove(&oldest);
+    }
+    expired.insert(id);
 }
 
 pub struct BridgeHub {
@@ -295,7 +311,7 @@ impl BridgeHub {
             return Err(BridgeError::Protocol);
         }
         let reconnect_deadline = Instant::now() + RECONNECT_GRACE;
-        let (chosen_id, generation, revision, tx, pending) = loop {
+        let (chosen_id, generation, revision, tx, pending, expired) = loop {
             let selected = {
                 let state = self.state.read().await;
                 let session = match session_id {
@@ -311,6 +327,7 @@ impl BridgeHub {
                         session.info.revision,
                         session.outbound.clone(),
                         Arc::clone(&session.pending),
+                        Arc::clone(&session.expired),
                     )
                 })
             };
@@ -368,12 +385,7 @@ impl BridgeHub {
             }
             Err(_) => {
                 pending.lock().await.remove(&id);
-                self.invalidate_generation(
-                    &chosen_id,
-                    generation,
-                    "Figma plugin request timed out",
-                )
-                .await;
+                remember_expired(&expired, id).await;
                 return Err(BridgeError::Timeout);
             }
         };
@@ -495,6 +507,7 @@ async fn serve_connection(
 
     let (outbound_tx, mut outbound_rx) = mpsc::channel::<Message>(MAX_PENDING);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
+    let expired = Arc::new(Mutex::new(BTreeSet::new()));
     let superseded = {
         let mut guard = state.write().await;
         if guard
@@ -521,6 +534,7 @@ async fn serve_connection(
                 },
                 outbound: outbound_tx,
                 pending: Arc::clone(&pending),
+                expired: Arc::clone(&expired),
             },
         )
     };
@@ -586,11 +600,15 @@ async fn serve_connection(
                             if response_session != &session_id || *response_generation != generation {
                                 return Err(BridgeError::Stale);
                             }
-                            let sender = pending
-                                .lock()
-                                .await
-                                .remove(id)
-                                .ok_or(BridgeError::Duplicate)?;
+                            let sender = pending.lock().await.remove(id);
+                            let was_expired = if sender.is_none() {
+                                expired.lock().await.remove(id)
+                            } else {
+                                false
+                            };
+                            if sender.is_none() && !was_expired {
+                                return Err(BridgeError::Duplicate);
+                            }
                             {
                                 let mut guard = state.write().await;
                                 if let Some(active) = guard.sessions.get_mut(&session_id)
@@ -599,7 +617,9 @@ async fn serve_connection(
                                     active.info.revision = *revision;
                                 }
                             }
-                            let _ = sender.send(message);
+                            if let Some(sender) = sender {
+                                let _ = sender.send(message);
+                            }
                         }
                         Message::Event {
                             session_id: event_session,
@@ -657,6 +677,7 @@ async fn serve_connection(
     // The connection owns this pending map even if a newer generation replaced it.
     // Clearing it guarantees every waiter wakes immediately on all exit paths.
     pending.lock().await.clear();
+    expired.lock().await.clear();
     connection_result
 }
 
@@ -1002,6 +1023,107 @@ mod tests {
             result.expect("execute through reconnect gap"),
             serde_json::json!({"gap_hidden":true})
         );
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn late_response_after_timeout_keeps_session_usable() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "slow", 1).await;
+
+        let (first_result, ()) = tokio::join!(
+            async {
+                hub.execute(
+                    Some("slow"),
+                    "node.query",
+                    None,
+                    serde_json::json!({"nameEquals":"slow"}),
+                )
+                .await
+            },
+            async {
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                tokio::time::sleep(Duration::from_millis(250)).await;
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 5,
+                        ok: true,
+                        value: Some(serde_json::json!({"late":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert!(matches!(first_result, Err(BridgeError::Timeout)));
+
+        timeout(Duration::from_secs(1), async {
+            loop {
+                let sessions = hub.sessions().await;
+                if sessions.len() == 1 && sessions[0].revision == 5 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("late response did not settle without disconnecting");
+
+        let (second_result, ()) = tokio::join!(
+            async {
+                hub.execute(
+                    Some("slow"),
+                    "node.query",
+                    None,
+                    serde_json::json!({"nameEquals":"after-timeout"}),
+                )
+                .await
+            },
+            async {
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 6,
+                        ok: true,
+                        value: Some(serde_json::json!({"still_connected":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert_eq!(
+            second_result.expect("session should remain usable after late response"),
+            serde_json::json!({"still_connected":true})
+        );
+
         ws.close(None).await.expect("close websocket");
         wait_for_no_sessions(&hub).await;
     }
