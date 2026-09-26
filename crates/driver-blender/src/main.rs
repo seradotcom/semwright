@@ -258,7 +258,7 @@ fn semantic_ref_schema() -> Value {
 }
 
 fn semantic_root_schema() -> Value {
-    json!({"type":"string","enum":["actions","armatures","brushes","cache_files","cameras","collections","curves","fonts","grease_pencils","hair_curves","images","lattices","lights","linestyles","masks","materials","meshes","metaballs","movieclips","node_groups","objects","paint_curves","palettes","particles","pointclouds","scenes","shape_keys","sounds","speakers","textures","volumes","worlds"]})
+    json!({"type":"string","enum":["actions","armatures","brushes","cache_files","cameras","collections","curves","fonts","grease_pencils","hair_curves","images","lattices","lights","lightprobes","linestyles","masks","materials","meshes","metaballs","movieclips","node_groups","objects","paint_curves","palettes","particles","pointclouds","scenes","shape_keys","sounds","speakers","textures","volumes","worlds"]})
 }
 
 fn semantic_value_schema() -> Value {
@@ -267,7 +267,7 @@ fn semantic_value_schema() -> Value {
         {"type":"integer"},
         {"type":"number"},
         {"type":"string","maxLength":2048},
-        {"type":"array","maxItems":32,"items":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":256}]}}
+        {"type":"array","maxItems":32,"items":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]}}
     ]})
 }
 
@@ -283,12 +283,15 @@ fn semantic_property_descriptor_schema() -> Value {
             "array_length":{"type":"integer","minimum":0,"maximum":4096},
             "animatable":{"type":"boolean"},
             "status":{"type":"string","enum":["managed","read_only","relation","runtime_owned","unsupported_by_design"]},
+            "writable":{"type":"boolean"},
+            "relation_kind":{"type":"string","enum":["pointer","collection"]},
+            "relation_mutation":{"type":"string","enum":["pointer_set","domain_specific"]},
             "reason":{"type":"string","maxLength":2048},
             "minimum":{"type":"number"},
             "maximum":{"type":"number"},
             "enum":{"type":"array","maxItems":128,"items":{"type":"object","properties":{"id":{"type":"string","maxLength":256},"name":{"type":"string","maxLength":512}},"required":["id","name"],"additionalProperties":false}}
         },
-        "required":["id","name","description","type","subtype","array_length","animatable","status"],
+        "required":["id","name","description","type","subtype","array_length","animatable","status","writable"],
         "additionalProperties":false
     })
 }
@@ -378,10 +381,357 @@ fn semantic_capabilities() -> Vec<Capability> {
             json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"limit":{"type":"integer","minimum":1,"maximum":256,"default":50},"offset":{"type":"integer","minimum":0,"maximum":1000000,"default":0}},"required":["ref","property"],"additionalProperties":false}),
             json!({"type":"object","properties":{
                 "items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":256},"rna_type":{"type":"string","maxLength":256},"index":{"type":"integer","minimum":0,"maximum":1000000}},"required":["ref","name","rna_type","index"],"additionalProperties":false}},
-                "truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1},"offset":{"type":"integer","minimum":0,"maximum":1000000},"relation":property_id.clone()
-            },"required":["items","truncated","generation","offset","relation"],"additionalProperties":false}),
+                "truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1},"offset":{"type":"integer","minimum":0,"maximum":1000000},"relation":property_id.clone(),
+                "mutation":{"type":"string","enum":["pointer_set","link_unlink","domain_specific"]}
+            },"required":["items","truncated","generation","offset","relation","mutation"],"additionalProperties":false}),
             Risk::ReadOnly,
             Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.query",
+            "Filter a persistent RNA root by one bounded scalar property and return semantic refs",
+            json!({"type":"object","properties":{"root":semantic_root_schema(),"property":property_id.clone(),"operator":{"type":"string","enum":["eq","ne","lt","lte","gt","gte","contains"]},"value":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]},"limit":{"type":"integer","minimum":1,"maximum":256,"default":50},"offset":{"type":"integer","minimum":0,"maximum":1000000,"default":0}},"required":["root","property","operator","value"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":256},"value":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]}},"required":["ref","name","value"],"additionalProperties":false}},"offset":{"type":"integer","minimum":0,"maximum":1000000},"truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1},"property":property_id.clone(),"operator":{"type":"string","enum":["eq","ne","lt","lte","gt","gte","contains"]}},"required":["items","offset","truncated","generation","property","operator"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.rna.describe",
+            "Describe any concrete Blender RNA type using the bounded semantic property classifier",
+            json!({"type":"object","properties":{"identifier":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z_][A-Za-z0-9_]*$"}},"required":["identifier"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"identifier":{"type":"string","maxLength":256},"name":{"type":"string","maxLength":512},"description":{"type":"string","maxLength":2048},"base":{"type":["string","null"],"maxLength":256},"properties":{"type":"array","maxItems":1024,"items":property.clone()},"truncated":{"type":"boolean"}},"required":["identifier","name","description","base","properties","truncated"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.rename",
+            "Rename one named RNA object while rotating revision-bound references safely",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128}},"required":["ref","name"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"changed":{"type":"boolean"},"generation":{"type":"integer","minimum":1}},"required":["ref","name","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.custom.list",
+            "List bounded Blender custom properties on one RNA object",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"limit":{"type":"integer","minimum":1,"maximum":256,"default":50},"offset":{"type":"integer","minimum":0,"maximum":1000000,"default":0}},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"key":{"type":"string","maxLength":128},"status":{"type":"string","enum":["managed","unsupported_by_design"]},"value":{"oneOf":[semantic_value_schema(),{"type":"null"}]}},"required":["key","status","value"],"additionalProperties":false}},"offset":{"type":"integer","minimum":0,"maximum":1000000},"truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1}},"required":["ref","items","offset","truncated","generation"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.custom.get",
+            "Read one bounded Blender custom property",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"key":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z_][A-Za-z0-9_.:-]*$"}},"required":["ref","key"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"key":{"type":"string","maxLength":128},"value":semantic_value_schema()},"required":["ref","key","value"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.custom.set",
+            "Set one bounded JSON-compatible Blender custom property",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"key":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z_][A-Za-z0-9_.:-]*$"},"value":semantic_value_schema()},"required":["ref","key","value"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"key":{"type":"string","maxLength":128},"value":semantic_value_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","key","value","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.custom.remove",
+            "Remove one bounded Blender custom property",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"key":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z_][A-Za-z0-9_.:-]*$"}},"required":["ref","key"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"key":{"type":"string","maxLength":128},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","key","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.asset.load",
+            "Load one allowlisted file-backed Blender asset from the owner-granted workspace",
+            json!({"type":"object","properties":{
+                "root":{"type":"string","enum":["cache_files","fonts","images","movieclips","sounds","volumes"]},
+                "path":{"type":"string","minLength":1,"maxLength":4096,"pattern":"^[^/].*$"},
+                "name":{"type":"string","minLength":1,"maxLength":128}
+            },"required":["root","path","name"],"additionalProperties":false}),
+            json!({"type":"object","properties":{
+                "ref":semantic_ref_schema(),"root":{"type":"string","enum":["cache_files","fonts","images","movieclips","sounds","volumes"]},
+                "name":{"type":"string","maxLength":128},"bytes":{"type":"integer","minimum":0,"maximum":536870912},
+                "path":{"type":"string","maxLength":4096},"changed":{"const":true},"generation":{"type":"integer","minimum":1}
+            },"required":["ref","root","name","bytes","path","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.datablock.create",
+            "Create one bounded persistent Blender datablock in a supported semantic root",
+            json!({"type":"object","properties":{"root":semantic_root_schema(),"name":{"type":"string","minLength":1,"maxLength":128},"kind":{"type":"string","minLength":1,"maxLength":128}},"required":["root","name"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"root":semantic_root_schema(),"name":{"type":"string","maxLength":128},"rna_type":{"type":"string","maxLength":256},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","root","name","rna_type","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.datablock.remove",
+            "Remove one root Blender datablock through its revision-bound semantic ref",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"root":semantic_root_schema(),"name":{"type":"string","maxLength":256},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["root","name","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.relation.link",
+            "Link one referenced datablock into an RNA collection relation exposing Blender link semantics",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"target_ref":semantic_ref_schema()},"required":["ref","property","target_ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"target_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","property","target_ref","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.relation.unlink",
+            "Unlink one referenced datablock from an RNA collection relation exposing Blender unlink semantics",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"target_ref":semantic_ref_schema()},"required":["ref","property","target_ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"target_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","property","target_ref","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.relation.set",
+            "Set one safe RNA pointer relation to another revision-bound semantic ref or null",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"target_ref":{"oneOf":[semantic_ref_schema(),{"type":"null"}]}},"required":["ref","property","target_ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"target_ref":{"oneOf":[semantic_ref_schema(),{"type":"null"}]},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","property","target_ref","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.armature.bone.add",
+            "Create one persistent Armature bone through a controlled Edit Mode transaction",
+            json!({"type":"object","properties":{
+                "object_ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128},
+                "head":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000,"maximum":1000000}},
+                "tail":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000,"maximum":1000000}},
+                "parent_name":{"type":["string","null"],"maxLength":128},"connected":{"type":"boolean","default":false}
+            },"required":["object_ref","name","head","tail"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.armature.bone.remove",
+            "Remove one revision-bound persistent Armature bone",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["object_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.armature.bone.parent.set",
+            "Set or clear one persistent Armature bone parent using refs from the same armature",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"parent_ref":{"oneOf":[semantic_ref_schema(),{"type":"null"}]},"connected":{"type":"boolean","default":false}},"required":["ref","parent_ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"parent_name":{"type":["string","null"],"maxLength":128},"connected":{"type":"boolean"},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","parent_name","connected","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.mesh.summary",
+            "Inspect bounded mesh topology counts through a semantic Mesh ref",
+            json!({"type":"object","properties":{"mesh_ref":semantic_ref_schema()},"required":["mesh_ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"vertices":{"type":"integer","minimum":0},"edges":{"type":"integer","minimum":0},"faces":{"type":"integer","minimum":0},"shape_keys":{"type":"integer","minimum":0}},"required":["ref","vertices","edges","faces","shape_keys"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.mesh.geometry.replace",
+            "Replace one bounded Mesh topology with validated vertex/edge/face data",
+            json!({"type":"object","properties":{
+                "mesh_ref":semantic_ref_schema(),
+                "vertices":{"type":"array","maxItems":10000,"items":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000,"maximum":1000000}}},
+                "edges":{"type":"array","maxItems":30000,"items":{"type":"array","minItems":2,"maxItems":2,"items":{"type":"integer","minimum":0,"maximum":9999}}},
+                "faces":{"type":"array","maxItems":10000,"items":{"type":"array","minItems":3,"maxItems":64,"items":{"type":"integer","minimum":0,"maximum":9999}}}
+            },"required":["mesh_ref","vertices","edges","faces"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"vertices":{"type":"integer","minimum":0},"edges":{"type":"integer","minimum":0},"faces":{"type":"integer","minimum":0},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","vertices","edges","faces","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.mesh.attribute.add",
+            "Create one typed mesh attribute whose data elements remain reachable through RNA refs",
+            json!({"type":"object","properties":{"mesh_ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128},"data_type":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Z][A-Z0-9_]*$"},"domain":{"type":"string","enum":["POINT","EDGE","FACE","CORNER"]}},"required":["mesh_ref","name","data_type","domain"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"data_type":{"type":"string","maxLength":64},"domain":{"type":"string","maxLength":32},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","data_type","domain","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.mesh.attribute.remove",
+            "Remove one revision-bound mesh attribute",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"mesh_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["mesh_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.mesh.uv_layer.add",
+            "Create one named UV layer on a referenced Mesh",
+            json!({"type":"object","properties":{"mesh_ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128},"do_init":{"type":"boolean","default":true}},"required":["mesh_ref","name"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.mesh.uv_layer.remove",
+            "Remove one revision-bound UV layer",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"mesh_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["mesh_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.vertex_group.add",
+            "Create one named vertex group on a mesh Object",
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128}},"required":["object_ref","name"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.vertex_group.remove",
+            "Remove one revision-bound vertex group",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["object_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.vertex_group.weights.set",
+            "Set bounded vertex weights on one referenced mesh Object vertex group",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"indices":{"type":"array","maxItems":10000,"items":{"type":"integer","minimum":0,"maximum":99999999}},"weight":{"type":"number","minimum":0.0,"maximum":1.0},"mode":{"type":"string","enum":["REPLACE","ADD","SUBTRACT"],"default":"REPLACE"}},"required":["ref","indices","weight"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"vertices":{"type":"integer","minimum":0,"maximum":10000},"weight":{"type":"number","minimum":0.0,"maximum":1.0},"mode":{"type":"string","enum":["REPLACE","ADD","SUBTRACT"]},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","vertices","weight","mode","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.vertex_group.weights.remove",
+            "Remove bounded vertex memberships from one referenced vertex group",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"indices":{"type":"array","maxItems":10000,"items":{"type":"integer","minimum":0,"maximum":99999999}}},"required":["ref","indices"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"vertices":{"type":"integer","minimum":0,"maximum":10000},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","vertices","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.shape_key.add",
+            "Add one named shape key to a referenced Object with supported geometry data",
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128},"from_mix":{"type":"boolean","default":false}},"required":["object_ref","name"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.shape_key.remove",
+            "Remove one revision-bound shape key",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["object_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.curve.spline.add",
+            "Add one bounded POLY, BEZIER or NURBS spline to a Curve datablock",
+            json!({"type":"object","properties":{"curve_ref":semantic_ref_schema(),"type":{"type":"string","enum":["POLY","BEZIER","NURBS"]},"points":{"type":"integer","minimum":1,"maximum":10000,"default":1}},"required":["curve_ref","type"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"type":{"type":"string","enum":["POLY","BEZIER","NURBS"]},"points":{"type":"integer","minimum":1,"maximum":10000},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","type","points","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.curve.spline.remove",
+            "Remove one revision-bound spline from a Curve datablock",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"curve_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["curve_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.modifier.add",
+            "Create one typed Blender modifier on an Object without generic operator invocation",
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128},"type":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Z][A-Z0-9_]*$"}},"required":["object_ref","name","type"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"type":{"type":"string","maxLength":64},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","type","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.modifier.remove",
+            "Remove one revision-bound Blender modifier",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["object_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.constraint.add",
+            "Create one typed Blender constraint on an Object without generic operator invocation",
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"name":{"type":"string","minLength":1,"maxLength":128},"type":{"type":"string","minLength":1,"maxLength":64,"pattern":"^[A-Z][A-Z0-9_]*$"}},"required":["object_ref","name","type"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"type":{"type":"string","maxLength":64},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","type","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.constraint.remove",
+            "Remove one revision-bound Blender constraint",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"object_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["object_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.animation.keyframe.insert",
+            "Insert a keyframe only for a generically managed animatable RNA property",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"frame":{"type":"number","minimum":-1000000,"maximum":1000000},"index":{"type":"integer","minimum":-1,"maximum":31,"default":-1}},"required":["ref","property","frame"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"frame":{"type":"number"},"index":{"type":"integer","minimum":-1,"maximum":31},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","property","frame","index","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.animation.keyframe.delete",
+            "Delete one keyframe from a managed animatable RNA property",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"frame":{"type":"number","minimum":-1000000,"maximum":1000000},"index":{"type":"integer","minimum":-1,"maximum":31,"default":-1}},"required":["ref","property","frame"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"frame":{"type":"number"},"index":{"type":"integer","minimum":-1,"maximum":31},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","property","frame","index","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.node.types",
+            "Discover bounded built-in Blender node classes and explicit executable-code exclusions",
+            query_schema(),
+            json!({"type":"object","properties":{"items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"id":{"type":"string","maxLength":256},"name":{"type":"string","maxLength":512},"status":{"type":"string","enum":["managed","unsupported_by_design"]},"reason":{"type":["string","null"],"maxLength":2048}},"required":["id","name","status","reason"],"additionalProperties":false}},"truncated":{"type":"boolean"}},"required":["items","truncated"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.node.add",
+            "Create one bounded non-script node inside a referenced Blender NodeTree",
+            json!({"type":"object","properties":{"tree_ref":semantic_ref_schema(),"type":{"type":"string","minLength":1,"maxLength":128,"pattern":"^[A-Za-z][A-Za-z0-9_]*$"},"name":{"type":"string","minLength":1,"maxLength":128}},"required":["tree_ref","type"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":128},"node_type":{"type":"string","maxLength":256},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","name","node_type","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.node.remove",
+            "Remove one revision-bound node from its Blender NodeTree",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"tree_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["tree_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+        ),
+        semantic_descriptor(
+            "driver.blender.node.link",
+            "Create one typed link between two NodeSocket refs in the same NodeTree",
+            json!({"type":"object","properties":{"tree_ref":semantic_ref_schema(),"from_socket_ref":semantic_ref_schema(),"to_socket_ref":semantic_ref_schema()},"required":["tree_ref","from_socket_ref","to_socket_ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.node.unlink",
+            "Remove one revision-bound NodeLink",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"tree_ref":semantic_ref_schema(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["tree_ref","changed","generation"],"additionalProperties":false}),
+            Risk::Destructive,
+            Idempotency::Destructive,
         ),
         semantic_descriptor(
             "driver.blender.semantic.property.get",
@@ -620,13 +970,36 @@ impl Driver for BlenderDriver {
                 "Blender capability descriptor changed",
             ));
         }
-        request(
+        let input =
+            jsonschema::validator_for(&capability.descriptor.input_schema).map_err(|_| {
+                Error::new(ErrorCode::Internal, "Invalid embedded Blender input schema")
+            })?;
+        if !input.is_valid(&args) {
+            return Err(Error::invalid(
+                "Blender capability arguments do not match the strict schema",
+            ));
+        }
+        let value = request(
             &self.socket,
             command,
             args,
             (capability.descriptor.timeout_ms / 1000).saturating_add(2),
         )
-        .await
+        .await?;
+        let output =
+            jsonschema::validator_for(&capability.descriptor.output_schema).map_err(|_| {
+                Error::new(
+                    ErrorCode::Internal,
+                    "Invalid embedded Blender output schema",
+                )
+            })?;
+        if !output.is_valid(&value) {
+            return Err(Error::new(
+                ErrorCode::PluginProtocolError,
+                "Blender driver produced output outside its descriptor schema",
+            ));
+        }
+        Ok(value)
     }
 
     async fn health(&mut self) -> Result<Value> {
@@ -710,6 +1083,58 @@ mod tests {
             assert!(!serialized.contains("additionalProperties\":true"));
             assert!(capability.descriptor.risk == Risk::ReadOnly);
         }
+    }
+
+    #[test]
+    fn semantic_catalog_is_unique_bounded_and_non_executable() {
+        let catalog = capabilities().unwrap();
+        let mut names = std::collections::BTreeSet::new();
+        for capability in &catalog {
+            assert!(
+                names.insert(capability.descriptor.name.clone()),
+                "duplicate Blender capability {}",
+                capability.descriptor.name
+            );
+            assert_ne!(capability.descriptor.risk, Risk::CodeExecution);
+            jsonschema::validator_for(&capability.descriptor.input_schema)
+                .expect("Blender input schema must compile");
+            jsonschema::validator_for(&capability.descriptor.output_schema)
+                .expect("Blender output schema must compile");
+        }
+        let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
+        let response = semwright_driver_sdk::Response::Capabilities {
+            id: "blender-catalog-size".into(),
+            capabilities: catalog,
+            digest,
+        };
+        let bytes = serde_json::to_vec(&response).unwrap();
+        assert!(
+            bytes.len() <= semwright_types::MAX_FRAME,
+            "Blender catalog is {} bytes but protocol budget is {}",
+            bytes.len(),
+            semwright_types::MAX_FRAME
+        );
+    }
+
+    #[test]
+    fn semantic_source_has_no_generic_python_or_operator_escape() {
+        for token in [
+            "eval(",
+            "exec(",
+            "__import__(",
+            "subprocess",
+            "os.system(",
+            r#"generic_operator_invoke":true"#,
+        ] {
+            assert!(
+                !SEMANTIC_PY.contains(token),
+                "semantic substrate contains forbidden escape token {token}"
+            );
+        }
+        assert!(!semantic_capabilities().iter().any(|capability| {
+            capability.descriptor.name.contains("python")
+                || capability.descriptor.name.ends_with("operator.invoke")
+        }));
     }
 
     #[test]

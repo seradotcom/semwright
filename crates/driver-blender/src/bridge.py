@@ -29,7 +29,7 @@ from semwright_blender_runtime.validation import CommandError  # noqa: E402
 from semwright_blender_runtime.semantic import SemanticError, SemanticStore  # noqa: E402
 
 commands = Commands(bpy, workspace)
-semantic = SemanticStore(bpy)
+semantic = SemanticStore(bpy, workspace)
 
 
 def exact(stream, size):
@@ -388,6 +388,174 @@ def dispatch(command, args):
         if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= 1_000_000:
             raise CommandError("InvalidArgument", "Semantic relation offset is invalid")
         return semantic.relations(args["ref"], args["property"], limit_arg(args), offset)
+    if command == "driver.blender.semantic.query":
+        if not set(args).issubset({"root", "property", "operator", "value", "limit", "offset"}) or not {"root", "property", "operator", "value"}.issubset(args):
+            raise CommandError("InvalidArgument", "Semantic query requires root, property, operator and value")
+        offset = args.get("offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= 1_000_000:
+            raise CommandError("InvalidArgument", "Semantic query offset is invalid")
+        return semantic.query(args["root"], args["property"], args["operator"], args["value"], limit_arg(args), offset)
+    if command == "driver.blender.semantic.rna.describe":
+        if set(args) != {"identifier"}:
+            raise CommandError("InvalidArgument", "RNA type description requires identifier")
+        return semantic.rna_describe(args["identifier"])
+    if command == "driver.blender.semantic.rename":
+        if set(args) != {"ref", "name"}:
+            raise CommandError("InvalidArgument", "Semantic rename requires ref and name")
+        return semantic.rename(args["ref"], args["name"])
+    if command == "driver.blender.semantic.custom.list":
+        if not set(args).issubset({"ref", "limit", "offset"}) or "ref" not in args:
+            raise CommandError("InvalidArgument", "Custom property listing requires ref")
+        offset = args.get("offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= 1_000_000:
+            raise CommandError("InvalidArgument", "Custom property offset is invalid")
+        return semantic.custom_list(args["ref"], limit_arg(args), offset)
+    if command == "driver.blender.semantic.custom.get":
+        if set(args) != {"ref", "key"}:
+            raise CommandError("InvalidArgument", "Custom property read requires ref and key")
+        return semantic.custom_get(args["ref"], args["key"])
+    if command == "driver.blender.semantic.custom.set":
+        if set(args) != {"ref", "key", "value"}:
+            raise CommandError("InvalidArgument", "Custom property write requires ref, key and value")
+        return semantic.custom_set(args["ref"], args["key"], args["value"])
+    if command == "driver.blender.semantic.custom.remove":
+        if set(args) != {"ref", "key"}:
+            raise CommandError("InvalidArgument", "Custom property removal requires ref and key")
+        return semantic.custom_remove(args["ref"], args["key"])
+    if command == "driver.blender.asset.load":
+        if set(args) != {"root", "path", "name"}:
+            raise CommandError("InvalidArgument", "Asset load requires root, path and name")
+        return semantic.asset_load(args["root"], args["path"], args["name"])
+    if command == "driver.blender.semantic.datablock.create":
+        if not set(args).issubset({"root", "name", "kind"}) or not {"root", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "Datablock create requires root and name")
+        return semantic.datablock_create(args["root"], args["name"], args.get("kind"))
+    if command == "driver.blender.semantic.datablock.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Datablock remove requires ref")
+        return semantic.datablock_remove(args["ref"])
+    if command == "driver.blender.semantic.relation.link":
+        if set(args) != {"ref", "property", "target_ref"}:
+            raise CommandError("InvalidArgument", "Semantic relation link requires ref, property and target_ref")
+        return semantic.relation_link(args["ref"], args["property"], args["target_ref"])
+    if command == "driver.blender.semantic.relation.unlink":
+        if set(args) != {"ref", "property", "target_ref"}:
+            raise CommandError("InvalidArgument", "Semantic relation unlink requires ref, property and target_ref")
+        return semantic.relation_unlink(args["ref"], args["property"], args["target_ref"])
+    if command == "driver.blender.semantic.relation.set":
+        if set(args) != {"ref", "property", "target_ref"}:
+            raise CommandError("InvalidArgument", "Semantic relation write requires ref, property and target_ref")
+        return semantic.relation_set(args["ref"], args["property"], args["target_ref"])
+    if command == "driver.blender.mesh.summary":
+        if set(args) != {"mesh_ref"}:
+            raise CommandError("InvalidArgument", "Mesh summary requires mesh_ref")
+        return semantic.mesh_summary(args["mesh_ref"])
+    if command == "driver.blender.mesh.geometry.replace":
+        if set(args) != {"mesh_ref", "vertices", "edges", "faces"}:
+            raise CommandError("InvalidArgument", "Mesh geometry replace requires mesh_ref, vertices, edges and faces")
+        return semantic.mesh_geometry_replace(args["mesh_ref"], args["vertices"], args["edges"], args["faces"])
+    if command == "driver.blender.mesh.attribute.add":
+        if set(args) != {"mesh_ref", "name", "data_type", "domain"}:
+            raise CommandError("InvalidArgument", "Mesh attribute add requires mesh_ref, name, data_type and domain")
+        return semantic.mesh_attribute_add(args["mesh_ref"], args["name"], args["data_type"], args["domain"])
+    if command == "driver.blender.mesh.attribute.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Mesh attribute remove requires ref")
+        return semantic.mesh_attribute_remove(args["ref"])
+    if command == "driver.blender.mesh.uv_layer.add":
+        if not set(args).issubset({"mesh_ref", "name", "do_init"}) or not {"mesh_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "UV layer add requires mesh_ref and name")
+        return semantic.mesh_uv_layer_add(args["mesh_ref"], args["name"], args.get("do_init", True))
+    if command == "driver.blender.mesh.uv_layer.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "UV layer remove requires ref")
+        return semantic.mesh_uv_layer_remove(args["ref"])
+    if command == "driver.blender.vertex_group.add":
+        if set(args) != {"object_ref", "name"}:
+            raise CommandError("InvalidArgument", "Vertex-group add requires object_ref and name")
+        return semantic.vertex_group_add(args["object_ref"], args["name"])
+    if command == "driver.blender.vertex_group.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Vertex-group remove requires ref")
+        return semantic.vertex_group_remove(args["ref"])
+    if command == "driver.blender.vertex_group.weights.set":
+        if not set(args).issubset({"ref", "indices", "weight", "mode"}) or not {"ref", "indices", "weight"}.issubset(args):
+            raise CommandError("InvalidArgument", "Vertex-group weight set requires ref, indices and weight")
+        return semantic.vertex_group_weights_set(args["ref"], args["indices"], args["weight"], args.get("mode", "REPLACE"))
+    if command == "driver.blender.vertex_group.weights.remove":
+        if set(args) != {"ref", "indices"}:
+            raise CommandError("InvalidArgument", "Vertex-group weight remove requires ref and indices")
+        return semantic.vertex_group_weights_remove(args["ref"], args["indices"])
+    if command == "driver.blender.shape_key.add":
+        if not set(args).issubset({"object_ref", "name", "from_mix"}) or not {"object_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "Shape-key add requires object_ref and name")
+        return semantic.shape_key_add(args["object_ref"], args["name"], args.get("from_mix", False))
+    if command == "driver.blender.shape_key.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Shape-key remove requires ref")
+        return semantic.shape_key_remove(args["ref"])
+    if command == "driver.blender.curve.spline.add":
+        if not set(args).issubset({"curve_ref", "type", "points"}) or not {"curve_ref", "type"}.issubset(args):
+            raise CommandError("InvalidArgument", "Spline add requires curve_ref and type")
+        return semantic.spline_add(args["curve_ref"], args["type"], args.get("points", 1))
+    if command == "driver.blender.curve.spline.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Spline remove requires ref")
+        return semantic.spline_remove(args["ref"])
+    if command == "driver.blender.armature.bone.add":
+        if not set(args).issubset({"object_ref", "name", "head", "tail", "parent_name", "connected"}) or not {"object_ref", "name", "head", "tail"}.issubset(args):
+            raise CommandError("InvalidArgument", "Bone add requires object_ref, name, head and tail")
+        return semantic.armature_bone_add(args["object_ref"], args["name"], args["head"], args["tail"], args.get("parent_name"), args.get("connected", False))
+    if command == "driver.blender.armature.bone.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Bone remove requires ref")
+        return semantic.armature_bone_remove(args["ref"])
+    if command == "driver.blender.armature.bone.parent.set":
+        if not set(args).issubset({"ref", "parent_ref", "connected"}) or not {"ref", "parent_ref"}.issubset(args):
+            raise CommandError("InvalidArgument", "Bone parent set requires ref and parent_ref")
+        return semantic.armature_bone_parent_set(args["ref"], args["parent_ref"], args.get("connected", False))
+    if command == "driver.blender.modifier.add":
+        if set(args) != {"object_ref", "name", "type"}:
+            raise CommandError("InvalidArgument", "Modifier add requires object_ref, name and type")
+        return semantic.modifier_add(args["object_ref"], args["name"], args["type"])
+    if command == "driver.blender.modifier.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Modifier remove requires ref")
+        return semantic.modifier_remove(args["ref"])
+    if command == "driver.blender.constraint.add":
+        if set(args) != {"object_ref", "name", "type"}:
+            raise CommandError("InvalidArgument", "Constraint add requires object_ref, name and type")
+        return semantic.constraint_add(args["object_ref"], args["name"], args["type"])
+    if command == "driver.blender.constraint.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Constraint remove requires ref")
+        return semantic.constraint_remove(args["ref"])
+    if command == "driver.blender.animation.keyframe.insert":
+        if not set(args).issubset({"ref", "property", "frame", "index"}) or not {"ref", "property", "frame"}.issubset(args):
+            raise CommandError("InvalidArgument", "Keyframe insert requires ref, property and frame")
+        return semantic.keyframe_insert(args["ref"], args["property"], args["frame"], args.get("index", -1))
+    if command == "driver.blender.animation.keyframe.delete":
+        if not set(args).issubset({"ref", "property", "frame", "index"}) or not {"ref", "property", "frame"}.issubset(args):
+            raise CommandError("InvalidArgument", "Keyframe delete requires ref, property and frame")
+        return semantic.keyframe_delete(args["ref"], args["property"], args["frame"], args.get("index", -1))
+    if command == "driver.blender.node.types":
+        return semantic.node_types(args.get("query", ""), limit_arg(args))
+    if command == "driver.blender.node.add":
+        if not set(args).issubset({"tree_ref", "type", "name"}) or not {"tree_ref", "type"}.issubset(args):
+            raise CommandError("InvalidArgument", "Node add requires tree_ref and type")
+        return semantic.node_add(args["tree_ref"], args["type"], args.get("name"))
+    if command == "driver.blender.node.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Node remove requires ref")
+        return semantic.node_remove(args["ref"])
+    if command == "driver.blender.node.link":
+        if set(args) != {"tree_ref", "from_socket_ref", "to_socket_ref"}:
+            raise CommandError("InvalidArgument", "Node link requires tree_ref and two socket refs")
+        return semantic.node_link(args["tree_ref"], args["from_socket_ref"], args["to_socket_ref"])
+    if command == "driver.blender.node.unlink":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Node unlink requires ref")
+        return semantic.node_unlink(args["ref"])
     if command == "driver.blender.semantic.property.get":
         if set(args) != {"ref", "property"}:
             raise CommandError("InvalidArgument", "Semantic property read requires ref and property")
