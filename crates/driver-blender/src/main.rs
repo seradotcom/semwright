@@ -262,12 +262,15 @@ fn semantic_root_schema() -> Value {
 }
 
 fn semantic_value_schema() -> Value {
-    json!({"oneOf":[
+    // JSON Schema integer is a subset of number (e.g. 1.0 validates as both).
+    // Use anyOf so ordinary Blender float/vector values are not rejected by
+    // strict output validation merely because they are mathematically integral.
+    json!({"anyOf":[
         {"type":"boolean"},
         {"type":"integer"},
         {"type":"number"},
         {"type":"string","maxLength":2048},
-        {"type":"array","maxItems":32,"items":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]}}
+        {"type":"array","maxItems":32,"items":{"anyOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]}}
     ]})
 }
 
@@ -390,8 +393,8 @@ fn semantic_capabilities() -> Vec<Capability> {
         semantic_descriptor(
             "driver.blender.semantic.query",
             "Filter a persistent RNA root by one bounded scalar property and return semantic refs",
-            json!({"type":"object","properties":{"root":semantic_root_schema(),"property":property_id.clone(),"operator":{"type":"string","enum":["eq","ne","lt","lte","gt","gte","contains"]},"value":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]},"limit":{"type":"integer","minimum":1,"maximum":256,"default":50},"offset":{"type":"integer","minimum":0,"maximum":1000000,"default":0}},"required":["root","property","operator","value"],"additionalProperties":false}),
-            json!({"type":"object","properties":{"items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":256},"value":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]}},"required":["ref","name","value"],"additionalProperties":false}},"offset":{"type":"integer","minimum":0,"maximum":1000000},"truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1},"property":property_id.clone(),"operator":{"type":"string","enum":["eq","ne","lt","lte","gt","gte","contains"]}},"required":["items","offset","truncated","generation","property","operator"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"root":semantic_root_schema(),"property":property_id.clone(),"operator":{"type":"string","enum":["eq","ne","lt","lte","gt","gte","contains"]},"value":{"anyOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]},"limit":{"type":"integer","minimum":1,"maximum":256,"default":50},"offset":{"type":"integer","minimum":0,"maximum":1000000,"default":0}},"required":["root","property","operator","value"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":256},"value":{"anyOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":2048}]}},"required":["ref","name","value"],"additionalProperties":false}},"offset":{"type":"integer","minimum":0,"maximum":1000000},"truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1},"property":property_id.clone(),"operator":{"type":"string","enum":["eq","ne","lt","lte","gt","gte","contains"]}},"required":["items","offset","truncated","generation","property","operator"],"additionalProperties":false}),
             Risk::ReadOnly,
             Idempotency::ReadOnly,
         ),
@@ -1137,6 +1140,27 @@ mod tests {
             bytes.len() < 900_000,
             "Blender capability frame must preserve at least ~148 KiB protocol headroom"
         );
+    }
+
+    #[test]
+    fn semantic_value_schema_accepts_integral_blender_floats_and_vectors() {
+        let validator = jsonschema::validator_for(&semantic_value_schema()).unwrap();
+        for value in [
+            json!(1),
+            json!(1.0),
+            json!(0.5),
+            json!([1.0, 2.0, 3.0]),
+            json!([0.0, 0.25, 1.0]),
+            json!("label"),
+            json!(true),
+        ] {
+            assert!(
+                validator.is_valid(&value),
+                "semantic value rejected: {value}"
+            );
+        }
+        assert!(!validator.is_valid(&Value::Null));
+        assert!(!validator.is_valid(&json!({"x":1})));
     }
 
     #[test]
