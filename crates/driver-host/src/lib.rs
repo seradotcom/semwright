@@ -1179,12 +1179,27 @@ impl Provider for DriverProvider {
             biased;
             response = &mut response_future => response,
             budget = &mut cpu_watch => {
+                if let ProtocolIo::V2(io) = &self.io {
+                    io.pending.lock().await.remove(&id);
+                }
                 self.terminate.cancel();
+                let terminated = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    self.closed.cancelled(),
+                )
+                .await
+                .is_ok();
                 match budget {
-                    Ok(()) => {
+                    Ok(()) if terminated => {
                         return Err(Error::new(
                             ErrorCode::ResourceExhausted,
                             "Driver exceeded its per-operation CPU budget",
+                        ).uncertain());
+                    }
+                    Ok(()) => {
+                        return Err(Error::new(
+                            ErrorCode::ResourceExhausted,
+                            "Driver exceeded its per-operation CPU budget and termination did not complete",
                         ).uncertain());
                     }
                     Err(error) => return Err(error.uncertain()),
