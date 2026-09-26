@@ -822,7 +822,7 @@ pub fn install_from_index(
 ) -> Result<Receipt> {
     Err(Error::new(
         ErrorCode::SandboxDenied,
-        "Windows driver installation is fail-closed until package v2 and secure pre-exec Driver Host containment are implemented",
+        "Windows driver installation is fail-closed until secure pre-exec Driver Host containment is implemented",
     ))
 }
 
