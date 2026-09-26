@@ -56,11 +56,11 @@ fn hello_text_source_codegen_and_render_plan_match_goldens() {
     for (path, expected) in [
         (
             "src/scenes/intro.tsx",
-            "419104879877906f1fe239520f6f6dc65be6af9ef98f43539023fd0e5160b09f",
+            "340ce9d9df7ce032d05800ff356a1b1f2318bc26dbcf96f09d907fab7323381f",
         ),
         (
             "src/project.ts",
-            "d7446f88841b2b918f8a4d6a843da267d687ab81411422e05f0417fb1847fd65",
+            "17ad831fc1be72351a7069dc118a699c6c163cacc144ed766827b903c1a7cea0",
         ),
         (
             "vite.config.ts",
@@ -68,7 +68,7 @@ fn hello_text_source_codegen_and_render_plan_match_goldens() {
         ),
         (
             "semwright-compiler.json",
-            "89f4fb1a33f0e686ad14ab432b2d3ed35c0b2b742b76bdb5a6c13f948c71a6cd",
+            "4b24a774d5e3b27e389cb88a6fe6b4cf2506d872c1e8bd82342f360a7389da2e",
         ),
     ] {
         let bytes = generated
@@ -125,8 +125,8 @@ fn bounded_stress_500_nodes_100_animations_50_edges_validates_and_compiles() {
                     ((index % 25) as f64 - 12.0) * 60.0,
                     ((index / 25) as f64 - 9.0) * 44.0,
                 ]),
-                width: Some(48.0),
-                height: Some(28.0),
+                width: Some(48.0.into()),
+                height: Some(28.0.into()),
                 fill: Some("@surface".into()),
                 opacity: Some(1.0),
                 ..Default::default()
@@ -266,7 +266,7 @@ fn project_version_is_explicit() {
 #[test]
 fn unsupported_properties_are_rejected_by_kind() {
     let mut p = fixture();
-    p.scenes[0].nodes[0].properties.radius = Some(12.0);
+    p.scenes[0].nodes[0].properties.radius = Some(12.0.into());
     assert!(validate::project_valid(&p).is_err());
 }
 #[test]
@@ -449,6 +449,8 @@ fn required_managed_fixtures_validate_and_compile() {
             .as_slice(),
         include_bytes!("../../../fixtures/motion-canvas/media-embed/semwright-motion.json")
             .as_slice(),
+        include_bytes!("../../../fixtures/motion-canvas/semantic-complete/semwright-motion.json")
+            .as_slice(),
     ] {
         let project = validate::parse(bytes).unwrap();
         let first = compiler::compile(&project).unwrap();
@@ -480,4 +482,164 @@ proptest! {
         let r = refs::Reference::new(&p,&"a".repeat(64),refs::Kind::Project,&p.id);
         prop_assert_eq!(refs::Reference::decode(&r.encode()).unwrap(),r);
     }
+}
+
+#[test]
+fn semantic_complete_fixture_exercises_rich_public_value_shapes() {
+    let project = validate::parse(include_bytes!(
+        "../../../fixtures/motion-canvas/semantic-complete/semwright-motion.json"
+    ))
+    .unwrap();
+    let generated = compiler::compile(&project).unwrap();
+    let source =
+        std::str::from_utf8(generated.files.get("src/scenes/semantic.tsx").unwrap()).unwrap();
+    for witness in [
+        "width={\"92%\"}",
+        "direction={\"row-reverse\"}",
+        "alignItems={\"baseline\"}",
+        "justifyContent={\"space-evenly\"}",
+        "basis={\"fit-content\"}",
+        "new Gradient(",
+        "radius={[12.0,24.0,36.0,24.0]}",
+        "textWrap={\"pre\"}",
+        "lineHeight={\"140%\"}",
+        "selection={[[[0,0],[0,5]],[[1,0],[1,4]]]}",
+        "tex={[\"x^2\",\" + \",\"y^2\"]}",
+    ] {
+        assert!(
+            source.contains(witness),
+            "missing rich semantic codegen witness: {witness}"
+        );
+    }
+}
+
+#[test]
+fn zoom_transition_requires_bounded_bbox_and_non_zoom_rejects_it() {
+    let mut project = fixture();
+    project.scenes[0].transition = Some(Transition {
+        kind: TransitionKind::ZoomIn,
+        duration_ms: 200,
+        area: None,
+    });
+    assert!(validate::project_valid(&project).is_err());
+
+    project.scenes[0].transition.as_mut().unwrap().area = Some([-160.0, -90.0, 320.0, 180.0]);
+    validate::project_valid(&project).unwrap();
+    let generated = compiler::compile(&project).unwrap();
+    let source = std::str::from_utf8(generated.files.get("src/scenes/main.tsx").unwrap()).unwrap();
+    assert!(source.contains("zoomInTransition(new BBox(-160,-90,320,180),0.200)"));
+
+    project.scenes[0].transition.as_mut().unwrap().kind = TransitionKind::Fade;
+    assert!(validate::project_valid(&project).is_err());
+}
+
+#[test]
+fn rich_semantic_values_fail_closed_on_invalid_bounds() {
+    let semantic = crate::semantic::property(NodeKind::Rect, "fill_gradient").unwrap();
+    assert_eq!(semantic.upstream_name, "fill");
+    let theme = Theme::default();
+    let bad_gradient = SemanticValue::Gradient(GradientSpec {
+        kind: GradientKind::Linear,
+        from: [0.0, 0.0],
+        to: [100.0, 0.0],
+        angle: 0.0,
+        from_radius: 0.0,
+        to_radius: 0.0,
+        stops: vec![
+            GradientStopSpec {
+                offset: 0.8,
+                color: "@accent".into(),
+            },
+            GradientStopSpec {
+                offset: 0.2,
+                color: "@ink".into(),
+            },
+        ],
+    });
+    assert!(
+        crate::semantic::validate_value(NodeKind::Rect, "fill_gradient", &bad_gradient, &theme)
+            .is_err()
+    );
+    assert!(
+        crate::semantic::validate_value(
+            NodeKind::Rect,
+            "min_width",
+            &SemanticValue::Text("10001%".into()),
+            &theme
+        )
+        .is_err()
+    );
+    assert!(
+        crate::semantic::validate_value(
+            NodeKind::Rect,
+            "font_style",
+            &SemanticValue::Text("ok\nnot-css".into()),
+            &theme
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn code_ranges_segmented_latex_and_font_strings_are_bounded_data() {
+    let mut project = fixture();
+    {
+        let node = &mut project.scenes[0].nodes[0];
+        node.kind = NodeKind::Code;
+        node.properties = Properties {
+            code: Some("alpha();\nbeta();".into()),
+            language: Some(Language::Typescript),
+            selection: Some(CodeSelection::Ranges {
+                ranges: vec![[[0, 0], [0, 5]], [[1, 0], [1, 4]]],
+            }),
+            font_family: Some("Quoted Font, sans-serif".into()),
+            ..Default::default()
+        };
+    }
+    validate::project_valid(&project).unwrap();
+    let generated = compiler::compile(&project).unwrap();
+    let source = std::str::from_utf8(generated.files.get("src/scenes/main.tsx").unwrap()).unwrap();
+    assert!(source.contains("selection={[[[0,0],[0,5]],[[1,0],[1,4]]]}"));
+    assert!(source.contains("fontFamily={\"Quoted Font, sans-serif\"}"));
+
+    project.scenes[0].nodes[0].properties.selection = Some(CodeSelection::Ranges {
+        ranges: vec![[[2, 0], [2, 1]]],
+    });
+    assert!(validate::project_valid(&project).is_err());
+
+    {
+        let node = &mut project.scenes[0].nodes[0];
+        node.kind = NodeKind::Latex;
+        node.properties = Properties {
+            latex: Some(LatexValue::Parts(vec![
+                "x^2".into(),
+                " + ".into(),
+                "y^2".into(),
+            ])),
+            ..Default::default()
+        };
+    }
+    validate::project_valid(&project).unwrap();
+}
+
+#[test]
+fn layout_mode_preserves_legacy_enabled_default_and_exposes_inherit() {
+    let enabled = Layout {
+        mode: LayoutMode::Enabled,
+        direction: LayoutDirection::Row,
+        gap: 0.0.into(),
+        padding: [0.0; 4],
+        align: Align::Center,
+        justify: Justify::Start,
+        grow: 0.0,
+        basis: None,
+    };
+    let value = serde_json::to_value(&enabled).unwrap();
+    assert!(
+        value.get("mode").is_none(),
+        "legacy enabled default must stay serialization-compatible"
+    );
+    let mut inherit = enabled;
+    inherit.mode = LayoutMode::Inherit;
+    assert_eq!(serde_json::to_value(inherit).unwrap()["mode"], "inherit");
 }

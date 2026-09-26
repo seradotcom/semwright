@@ -77,7 +77,7 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
     }
     Manifest {
         manifest_version: 1,
-        protocol: 1,
+        protocol: 3,
         id: "motion-canvas".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -109,7 +109,13 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
             file_size_bytes: 1_073_741_824,
         },
         request_timeout_ms: 300_000,
-        interfaces: DriverInterfaces::default(),
+        interfaces: DriverInterfaces {
+            cooperative_cancellation: true,
+            progress: true,
+            artifacts: true,
+            health: true,
+            ..DriverInterfaces::default()
+        },
     }
 }
 struct Harness {
@@ -244,26 +250,19 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
         std::fs::copy(&first, evidence.join("opaque-first.png")).unwrap();
     }
 
-    let alpha_started = call(provider.as_ref(), &caps, "driver.motion-canvas.render.start", json!({"expected_fingerprint":fingerprint,"profile":{"first_frame":0,"end_frame_exclusive":2,"scale":"full","transparent":true,"timeout_ms":120000}})).await.unwrap();
-    let alpha_job = alpha_started["job_ref"].as_str().unwrap().to_owned();
-    let alpha_terminal = loop {
-        let status = call(
-            provider.as_ref(),
-            &caps,
-            "driver.motion-canvas.render.status",
-            json!({"job_ref":alpha_job}),
-        )
-        .await
-        .unwrap();
-        match status["state"].as_str().unwrap() {
-            "succeeded" | "failed" | "cancelled" => break status,
-            _ => tokio::time::sleep(Duration::from_millis(50)).await,
-        }
-    };
+    let alpha_terminal = call(
+        provider.as_ref(),
+        &caps,
+        "driver.motion-canvas.render.execute",
+        json!({"expected_fingerprint":fingerprint,"profile":{"first_frame":0,"end_frame_exclusive":2,"scale":"full","transparent":true,"timeout_ms":120000}}),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         alpha_terminal["state"], "succeeded",
-        "alpha: {alpha_terminal:#}"
+        "protocol-v3 alpha render: {alpha_terminal:#}"
     );
+    assert_eq!(alpha_terminal["artifact"]["frame_count"], 2);
     let alpha_dir = h
         .output
         .path()
@@ -311,5 +310,42 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
         }
     };
     assert_eq!(cancelled["state"], "cancelled", "cancelled: {cancelled:#}");
+
+    let request_cancel = CancellationToken::new();
+    let request_context = Context {
+        session: "motion-canvas-live-v3-cancel".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: request_cancel.clone(),
+    };
+    let execute_descriptor = find(&caps, "driver.motion-canvas.render.execute")
+        .descriptor
+        .clone();
+    let execute_args = json!({"expected_fingerprint":fingerprint,"profile":{"first_frame":0,"end_frame_exclusive":300,"scale":"full","transparent":false,"timeout_ms":120000}});
+    let provider_for_cancel = provider.clone();
+    let execute_task = tokio::spawn(async move {
+        Provider::execute(
+            provider_for_cancel.as_ref(),
+            &request_context,
+            &execute_descriptor,
+            &execute_args,
+        )
+        .await
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    request_cancel.cancel();
+    let error = execute_task.await.unwrap().unwrap_err();
+    assert_eq!(error.code, semwright_types::ErrorCode::Cancelled);
+    let still_healthy = call(
+        provider.as_ref(),
+        &caps,
+        "driver.motion-canvas.doctor",
+        json!({}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(still_healthy["render_available"], true);
+    assert_eq!(still_healthy["network"], false);
+    assert_eq!(still_healthy["capability_count"], 25);
+
     Provider::shutdown(provider.as_ref()).await.unwrap();
 }

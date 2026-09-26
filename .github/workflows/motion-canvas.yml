@@ -200,6 +200,14 @@ jobs:
           cd "$RUNNER_TEMP/motion-generated"
           "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/tsc" --noEmit
           "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/vite" build
+      - name: Typecheck semantic-completeness fixture against Motion Canvas 3.17.2
+        run: |
+          rm -rf "$RUNNER_TEMP/motion-semantic-complete"
+          cargo run --locked -q -p semwright-driver-motion-canvas --example materialize -- fixtures/motion-canvas/semantic-complete/semwright-motion.json "$RUNNER_TEMP/motion-semantic-complete"
+          ln -s "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules" "$RUNNER_TEMP/motion-semantic-complete/node_modules"
+          cd "$RUNNER_TEMP/motion-semantic-complete"
+          "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/tsc" --noEmit
+          "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/vite" build
       - name: Build owner-pinned runtime manifest for Driver Host
         working-directory: integrations/motion-canvas/runtime
         run: |
@@ -291,7 +299,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p verification/motion-canvas-fuzz
-          for target in motion_project motion_reference motion_animation motion_path motion_svg motion_codegen; do
+          for target in motion_project motion_reference motion_animation motion_path motion_svg motion_codegen motion_semantic; do
             cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=5 -timeout=3 -rss_limit_mb=1024 -max_len=131072 2>&1 | tee "verification/motion-canvas-fuzz/$target.log"
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -12,10 +12,13 @@ use std::{
 };
 
 pub const SEMANTIC_FILE: &str = "semwright-motion.json";
+pub const ISLAND_DIR: &str = ".semwright/motion";
+pub const ISLAND_BRIDGE: &str = "managed-scenes.ts";
 
 #[derive(Clone, Debug)]
 pub struct ProjectStore {
     root: PathBuf,
+    publish_island_bridge: bool,
 }
 
 #[derive(Debug)]
@@ -27,6 +30,53 @@ pub struct Snapshot {
 }
 
 impl ProjectStore {
+    pub fn create_island_root(project_root: &Path) -> Result<PathBuf> {
+        if !project_root.is_absolute() || !project_root.is_dir() {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Project grant root must be an existing absolute directory",
+            ));
+        }
+        let root = fs::canonicalize(project_root)?;
+        if root != project_root {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Project grant root must be canonical",
+            ));
+        }
+        let mut current = root.clone();
+        for name in [".semwright", "motion"] {
+            current.push(name);
+            match fs::symlink_metadata(&current) {
+                Ok(metadata) => {
+                    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                        return Err(Error::new(
+                            ErrorCode::PermissionDenied,
+                            "Managed island path component is not a real directory",
+                        ));
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    fs::create_dir(&current)?;
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        fs::set_permissions(&current, fs::Permissions::from_mode(0o700))?;
+                    }
+                }
+                Err(error) => return Err(error.into()),
+            }
+            let canonical = fs::canonicalize(&current)?;
+            if canonical != current || !canonical.starts_with(&root) {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Managed island path escapes the project grant",
+                ));
+            }
+        }
+        Ok(current)
+    }
+
     pub fn open(root: impl Into<PathBuf>) -> Result<Self> {
         let root = root.into();
         if !root.is_absolute() || !root.is_dir() {
@@ -42,7 +92,18 @@ impl ProjectStore {
                 "Managed project root must be canonical",
             ));
         }
-        Ok(Self { root })
+        Ok(Self {
+            root,
+            publish_island_bridge: false,
+        })
+    }
+    pub fn open_island(root: impl Into<PathBuf>) -> Result<Self> {
+        let mut store = Self::open(root)?;
+        store.publish_island_bridge = true;
+        Ok(store)
+    }
+    pub fn is_island(&self) -> bool {
+        self.publish_island_bridge
     }
     pub fn root(&self) -> &Path {
         &self.root
@@ -86,6 +147,26 @@ impl ProjectStore {
         self.commit_inner(Some(expected_source_sha256), project)
     }
 
+    fn validate_island_bridge_target(&self) -> Result<()> {
+        if !self.publish_island_bridge {
+            return Ok(());
+        }
+        let final_path = self.root.join(ISLAND_BRIDGE);
+        match fs::symlink_metadata(&final_path) {
+            Ok(metadata) => {
+                if !metadata.file_type().is_file() || metadata.file_type().is_symlink() {
+                    return Err(Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Managed island bridge path is not a regular owned file",
+                    ));
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        Ok(())
+    }
+
     fn commit_inner(&self, expected: Option<&str>, project: &Project) -> Result<Snapshot> {
         validate::project_valid(project)?;
         let bytes = serde_json::to_vec_pretty(project)?;
@@ -105,6 +186,9 @@ impl ProjectStore {
                 ));
             }
         }
+        // A managed-island bridge is a derived integration surface, but a hostile
+        // path must be detected before the authoritative semantic file changes.
+        self.validate_island_bridge_target()?;
         let generated_dir = self.materialize_generated(project, &generated)?;
         let token = uuid::Uuid::new_v4().simple().to_string();
         let tmp = self.root.join(format!(".semwright-motion-{token}.tmp"));
@@ -149,12 +233,90 @@ impl ProjectStore {
             let _ = fs::remove_file(&tmp);
         }
         result?;
+        if self.publish_island_bridge {
+            self.publish_island_bridge(project, &generated)?;
+        }
         Ok(Snapshot {
             project: project.clone(),
             source_sha256: security::sha256(&bytes),
             generated,
             generated_dir: Some(generated_dir),
         })
+    }
+
+    fn island_bridge_source(&self, project: &Project, generated: &Generated) -> Result<Vec<u8>> {
+        let generated_fingerprint = generated.fingerprint()?;
+        let source_fingerprint = security::sha256(&serde_json::to_vec_pretty(project)?);
+        let generated_dir = format!(".semwright-generated-{generated_fingerprint}");
+        let mut source = String::from(
+            "// Generated by Semwright. Import only the named scenes you need; do not edit.\n",
+        );
+        source.push_str(&format!(
+            "export const semwrightMotionRevision = {};\nexport const semwrightMotionFingerprint = {};\nexport const semwrightGeneratedFingerprint = {};\n",
+            project.revision,
+            security::js_string(&source_fingerprint),
+            security::js_string(&generated_fingerprint)
+        ));
+        source.push_str("export const semwrightSceneIds = [");
+        for (index, scene) in project.scenes.iter().enumerate() {
+            if index > 0 {
+                source.push(',');
+            }
+            source.push_str(&security::js_string(&scene.id));
+        }
+        source.push_str("] as const;\n");
+        for (index, scene) in project.scenes.iter().enumerate() {
+            let specifier = format!("./{generated_dir}/src/scenes/{}?scene", scene.id);
+            source.push_str(&format!(
+                "export {{default as scene{index}}} from {};\n",
+                security::js_string(&specifier)
+            ));
+        }
+        Ok(source.into_bytes())
+    }
+
+    fn publish_island_bridge(&self, project: &Project, generated: &Generated) -> Result<()> {
+        let bytes = self.island_bridge_source(project, generated)?;
+        let token = uuid::Uuid::new_v4().simple().to_string();
+        let tmp_name = format!(".managed-scenes-{token}.tmp");
+        let tmp = self.root.join(&tmp_name);
+        let final_path = self.root.join(ISLAND_BRIDGE);
+        self.validate_island_bridge_target()?;
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options
+                .mode(0o600)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+        }
+        let result = (|| -> Result<()> {
+            let mut file = options.open(&tmp)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            fs::rename(&tmp, &final_path)?;
+            #[cfg(unix)]
+            File::open(&self.root)?.sync_all()?;
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&tmp);
+        }
+        result
+    }
+
+    pub fn island_bridge(&self) -> Result<Option<String>> {
+        if !self.publish_island_bridge {
+            return Ok(None);
+        }
+        match read_granted_file(&self.root, ISLAND_BRIDGE, MAX_PROJECT_BYTES) {
+            Ok(bytes) => String::from_utf8(bytes)
+                .map(Some)
+                .map_err(|_| Error::new(ErrorCode::Conflict, "Managed island bridge is not UTF-8")),
+            Err(error) if error.code == ErrorCode::NotFound => Ok(None),
+            Err(error) => Err(error),
+        }
     }
 
     pub fn install_asset(&self, relative: &str, bytes: &[u8]) -> Result<()> {
@@ -563,6 +725,37 @@ mod store_tests {
         symlink(outside.path(), temp.path().join(SEMANTIC_FILE)).unwrap();
         let error = store(&temp).load().unwrap_err();
         assert_eq!(error.code, ErrorCode::PermissionDenied);
+    }
+
+    #[test]
+    fn island_bridge_points_to_materialized_scene_and_hostile_path_preserves_source() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        let store = ProjectStore::open_island(root.clone()).unwrap();
+        let project = fixture();
+        let saved = store.create(&project).unwrap();
+        let bridge = store.island_bridge().unwrap().unwrap();
+        let specifier = bridge
+            .lines()
+            .find_map(|line| line.split(" from ").nth(1))
+            .and_then(|quoted| serde_json::from_str::<String>(quoted.trim_end_matches(';')).ok())
+            .unwrap();
+        let target = specifier
+            .trim_start_matches("./")
+            .split('?')
+            .next()
+            .unwrap();
+        assert!(root.join(format!("{target}.tsx")).is_file());
+
+        let before = std::fs::read(store.semantic_path()).unwrap();
+        std::fs::remove_file(root.join(ISLAND_BRIDGE)).unwrap();
+        std::fs::create_dir(root.join(ISLAND_BRIDGE)).unwrap();
+        let mut changed = project.clone();
+        changed.revision = 2;
+        changed.scenes[0].name = "Changed".into();
+        let error = store.commit(&saved.source_sha256, &changed).unwrap_err();
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+        assert_eq!(std::fs::read(store.semantic_path()).unwrap(), before);
     }
 
     #[test]

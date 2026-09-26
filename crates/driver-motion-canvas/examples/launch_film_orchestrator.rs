@@ -172,9 +172,10 @@ mod linux {
         process: &str,
         mounts: Vec<DriverMount>,
     ) -> AnyResult<Manifest> {
+        let motion_v3 = id == "motion-canvas";
         Ok(Manifest {
             manifest_version: 1,
-            protocol: 1,
+            protocol: if motion_v3 { 3 } else { 1 },
             id: id.into(),
             version: env!("CARGO_PKG_VERSION").into(),
             publisher: "semwright-launch-film".into(),
@@ -199,7 +200,17 @@ mod linux {
                 file_size_bytes: 1_073_741_824,
             },
             request_timeout_ms: 300_000,
-            interfaces: DriverInterfaces::default(),
+            interfaces: if motion_v3 {
+                DriverInterfaces {
+                    cooperative_cancellation: true,
+                    progress: true,
+                    artifacts: true,
+                    health: true,
+                    ..DriverInterfaces::default()
+                }
+            } else {
+                DriverInterfaces::default()
+            },
         })
     }
     fn command_ok(mut command: Command, label: &str) -> AnyResult<()> {

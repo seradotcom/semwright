@@ -89,6 +89,55 @@ fn empty_and_semantic_noop_do_not_advance_revision() {
 }
 
 #[test]
+fn project_variables_are_bounded_transactional_diffed_and_compiled() {
+    let project = fixture();
+    let prepared = prepare(
+        &project,
+        &fingerprint(&project),
+        &[Operation::VariableSet {
+            name: "locale".into(),
+            value: SemanticValue::Text("en-MX".into()),
+        }],
+    )
+    .unwrap();
+    assert_eq!(
+        prepared.project.variables.get("locale"),
+        Some(&SemanticValue::Text("en-MX".into()))
+    );
+    assert!(
+        prepared
+            .diff
+            .properties_changed
+            .iter()
+            .any(|change| { change.scope == "project" && change.property == "variables.locale" })
+    );
+    let project_ts = String::from_utf8(prepared.generated.files["src/project.ts"].clone()).unwrap();
+    assert!(project_ts.contains("variables:{\"locale\":\"en-MX\"}"));
+
+    let invalid = apply(
+        &project,
+        &fingerprint(&project),
+        &[Operation::VariableSet {
+            name: "not valid".into(),
+            value: SemanticValue::Bool(true),
+        }],
+    )
+    .unwrap_err();
+    assert_eq!(invalid.code, semwright_types::ErrorCode::InvalidArgument);
+
+    let fingerprint = security::sha256(&serde_json::to_vec(&prepared.project).unwrap());
+    let removed = apply(
+        &prepared.project,
+        &fingerprint,
+        &[Operation::VariableRemove {
+            name: "locale".into(),
+        }],
+    )
+    .unwrap();
+    assert!(removed.variables.is_empty());
+}
+
+#[test]
 fn successful_batch_changes_one_revision_and_leaves_input_untouched() {
     let project = fixture();
     let before = project.clone();

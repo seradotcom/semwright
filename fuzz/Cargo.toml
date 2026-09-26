@@ -263,3 +263,10 @@ path = "fuzz_targets/godot_substrate_schema.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "motion_semantic"
+path = "fuzz_targets/motion_semantic.rs"
+test = false
+doc = false
+bench = false

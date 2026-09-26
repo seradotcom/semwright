@@ -1,5 +1,5 @@
 //! Whole-project validation precedes every write and render.
-use crate::{Error, Result, model::*, security};
+use crate::{Error, Result, model::*, security, semantic};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -13,6 +13,43 @@ fn ensure(condition: bool, message: &str) -> Result<()> {
 }
 fn number(value: f64, min: f64, max: f64) -> bool {
     value.is_finite() && (min..=max).contains(&value)
+}
+fn percent(value: &str, max: f64) -> bool {
+    value
+        .strip_suffix('%')
+        .and_then(|v| v.parse::<f64>().ok())
+        .is_some_and(|v| number(v, 0.0, max))
+}
+fn length(value: &LengthValue, max_number: f64) -> bool {
+    match value {
+        LengthValue::Number(v) => number(*v, 0.0, max_number),
+        LengthValue::Percent(v) => percent(v, 10000.0),
+    }
+}
+fn gap(value: &GapValue) -> bool {
+    match value {
+        GapValue::Single(v) => length(v, 4096.0),
+        GapValue::Pair(v) => v.iter().all(|x| length(x, 4096.0)),
+    }
+}
+fn basis(value: &FlexBasisValue) -> bool {
+    match value {
+        FlexBasisValue::Number(v) => number(*v, 0.0, 16384.0),
+        FlexBasisValue::Text(v) => {
+            matches!(
+                v.as_str(),
+                "content" | "max-content" | "min-content" | "fit-content"
+            ) || percent(v, 10000.0)
+        }
+    }
+}
+fn radius(value: &RadiusValue, rect: bool) -> bool {
+    match value {
+        RadiusValue::Number(v) => number(*v, 0.0, 8192.0),
+        RadiusValue::Two(v) => rect && v.iter().all(|x| number(*x, 0.0, 8192.0)),
+        RadiusValue::Three(v) => rect && v.iter().all(|x| number(*x, 0.0, 8192.0)),
+        RadiusValue::Four(v) => rect && v.iter().all(|x| number(*x, 0.0, 8192.0)),
+    }
 }
 fn unique<'a>(ids: impl Iterator<Item = &'a str>, max: usize) -> Result<()> {
     let mut seen = BTreeSet::new();
@@ -96,32 +133,9 @@ pub fn theme(theme: &Theme) -> Result<()> {
     Ok(())
 }
 fn allows(kind: NodeKind, key: &str) -> bool {
-    use NodeKind::*;
-    match key {
-        "position" | "scale" | "rotation" | "opacity" => true,
-        "width" | "height" => !matches!(kind, Group | Camera),
-        "fill" | "stroke" | "stroke_width" => {
-            matches!(kind, Rect | Circle | Line | Text | Code | Svg | Latex)
-        }
-        "radius" => kind == Rect,
-        "font_family" | "font_size" | "font_weight" | "line_height" | "letter_spacing" => {
-            matches!(kind, Text | Code)
-        }
-        "text_align" | "wrap" | "text" => kind == Text,
-        "code" | "language" | "selection" => kind == Code,
-        "points" | "start" | "end" | "start_arrow" | "end_arrow" | "arrow_size" | "edge" => {
-            kind == Line
-        }
-        "dash" => matches!(kind, Rect | Circle | Line),
-        "svg" => kind == Svg,
-        "latex" => kind == Latex,
-        "asset" => matches!(kind, Image | Video | Svg),
-        "media_offset_ms" | "playback_rate" | "loop_media" => kind == Video,
-        "layout" | "clip" => matches!(kind, Layout | Rect),
-        "zoom" => kind == Camera,
-        _ => false,
-    }
+    semantic::property(kind, key).is_some()
 }
+
 pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
     let p = &node.properties;
     let object = serde_json::to_value(p)?;
@@ -129,25 +143,53 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
         .as_object()
         .expect("properties serialize as object")
         .keys()
+        .filter(|key| key.as_str() != "semantic")
     {
         ensure(
             allows(node.kind, key),
             "Property is not supported for this node kind",
         )?;
     }
+    for (key, value) in &p.semantic {
+        semantic::validate_value(node.kind, key, value, theme)?;
+    }
+    ensure(
+        !(p.fill.is_some() && p.semantic.contains_key("fill_gradient")),
+        "Fill color and gradient are mutually exclusive",
+    )?;
+    ensure(
+        !(p.stroke.is_some() && p.semantic.contains_key("stroke_gradient")),
+        "Stroke color and gradient are mutually exclusive",
+    )?;
+    ensure(
+        !(p.line_height.is_some() && p.semantic.contains_key("line_height_value")),
+        "Legacy line-height multiplier and exact line-height value are mutually exclusive",
+    )?;
     for v in p.position.iter().flatten() {
         ensure(number(*v, -32768.0, 32768.0), "Position exceeds bounds")?;
     }
     for v in p.scale.iter().flatten() {
         ensure(number(*v, 0.001, 100.0), "Scale exceeds bounds")?;
     }
+    if let Some(v) = &p.width {
+        ensure(length(v, 16384.0), "Width exceeds bounds")?;
+    }
+    if let Some(v) = &p.height {
+        ensure(length(v, 16384.0), "Height exceeds bounds")?;
+    }
+    if let Some(v) = &p.radius {
+        ensure(
+            radius(v, node.kind == NodeKind::Rect),
+            "Radius exceeds bounds",
+        )?;
+    }
+    if let Some(TextWrapValue::Keyword(v)) = &p.wrap {
+        ensure(v == "pre", "Invalid text wrap mode")?;
+    }
     for (v, min, max) in [
         (p.rotation, -36000.0, 36000.0),
         (p.opacity, 0.0, 1.0),
-        (p.width, 0.0, 16384.0),
-        (p.height, 0.0, 16384.0),
         (p.stroke_width, 0.0, 64.0),
-        (p.radius, 0.0, 8192.0),
         (p.font_size, 4.0, 512.0),
         (p.line_height, 0.1, 10.0),
         (p.letter_spacing, -100.0, 200.0),
@@ -180,7 +222,22 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
         security::validate_svg(v)?;
     }
     if let Some(v) = &p.latex {
-        security::validate_latex(v)?;
+        match v {
+            LatexValue::Text(value) => security::validate_latex(value)?,
+            LatexValue::Parts(parts) => {
+                ensure(
+                    (1..=128).contains(&parts.len()),
+                    "LaTeX parts exceed bounds",
+                )?;
+                let total = parts.iter().try_fold(0usize, |total, value| {
+                    security::validate_latex(value)?;
+                    total
+                        .checked_add(value.len())
+                        .ok_or_else(|| Error::invalid("LaTeX size overflow"))
+                })?;
+                ensure(total <= 8192, "LaTeX exceeds bounds")?;
+            }
+        }
     }
     if let Some(v) = p.media_offset_ms {
         ensure(v <= MAX_PROJECT_MS, "Media offset exceeds bounds")?;
@@ -201,12 +258,26 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
             "Invalid line dash",
         )?;
     }
+    ensure(p.filters.len() <= 16, "Too many node filters")?;
+    for filter in &p.filters {
+        let valid = match filter.kind {
+            FilterKind::Invert | FilterKind::Sepia | FilterKind::Grayscale => {
+                number(filter.value, 0.0, 1.0)
+            }
+            FilterKind::Brightness | FilterKind::Contrast | FilterKind::Saturate => {
+                number(filter.value, 0.0, 10.0)
+            }
+            FilterKind::Hue => number(filter.value, -3600.0, 3600.0),
+            FilterKind::Blur => number(filter.value, 0.0, 512.0),
+        };
+        ensure(valid, "Node filter exceeds bounds")?;
+    }
     if let Some(l) = &p.layout {
         ensure(
-            number(l.gap, 0.0, 4096.0)
+            gap(&l.gap)
                 && number(l.grow, 0.0, 100.0)
                 && l.padding.iter().all(|v| number(*v, 0.0, 4096.0))
-                && l.basis.is_none_or(|v| number(v, 0.0, 16384.0)),
+                && l.basis.as_ref().is_none_or(basis),
             "Layout exceeds bounds",
         )?;
     }
@@ -234,6 +305,31 @@ pub fn properties(node: &Node, theme: &Theme) -> Result<()> {
                     u64::from(*start) + u64::from(*length) <= text.chars().count() as u64,
                     "Code word selection is out of range",
                 )?;
+            }
+            CodeSelection::Ranges { ranges } => {
+                ensure(
+                    (1..=128).contains(&ranges.len()),
+                    "Code range selection exceeds bounds",
+                )?;
+                for [start, end] in ranges {
+                    let [sl, sc] = *start;
+                    let [el, ec] = *end;
+                    let Some(start_line) = lines.get(sl as usize) else {
+                        return Err(Error::invalid("Code range start is out of range"));
+                    };
+                    let Some(end_line) = lines.get(el as usize) else {
+                        return Err(Error::invalid("Code range end is out of range"));
+                    };
+                    ensure((sl, sc) <= (el, ec), "Code range is reversed")?;
+                    ensure(
+                        sc as usize <= start_line.chars().count(),
+                        "Code range start column is out of range",
+                    )?;
+                    ensure(
+                        ec as usize <= end_line.chars().count(),
+                        "Code range end column is out of range",
+                    )?;
+                }
             }
         }
     }
@@ -273,8 +369,27 @@ pub fn animation_times(scene: &Scene, animation: &Animation) -> Result<(u64, u64
     ensure(end <= scene.duration_ms, "Animation ends after the scene")?;
     Ok((start as u64, end))
 }
-fn animated_value(property: AnimatedProperty, value: &AnimatedValue, theme: &Theme) -> Result<()> {
+fn animated_value(
+    kind: NodeKind,
+    property: &AnimatedProperty,
+    value: &AnimatedValue,
+    theme: &Theme,
+) -> Result<()> {
     use AnimatedProperty::*;
+    if let Semantic(name) = property {
+        let descriptor = semantic::property(kind, name)
+            .ok_or_else(|| Error::invalid("Unknown semantic animation property"))?;
+        ensure(
+            descriptor.storage == semantic::PropertyStorage::Semantic && descriptor.animatable,
+            "Semantic property is not safely animatable",
+        )?;
+        let value = match value {
+            AnimatedValue::Number(value) => SemanticValue::Number(*value),
+            AnimatedValue::Vector(value) => SemanticValue::Vec2(*value),
+            AnimatedValue::Text(value) => SemanticValue::Text(value.clone()),
+        };
+        return semantic::validate_value(kind, name, &value, theme);
+    }
     match (property, value) {
         (Position, AnimatedValue::Vector(v)) => ensure(
             v.iter().all(|v| number(*v, -32768.0, 32768.0)),
@@ -321,10 +436,11 @@ fn animated_value(property: AnimatedProperty, value: &AnimatedValue, theme: &The
         (Counter, AnimatedValue::Number(v)) => {
             ensure(number(*v, -1e9, 1e9), "Counter exceeds bounds")
         }
+        (Semantic(_), _) => unreachable!("handled above"),
         _ => Err(Error::invalid("Animation value has the wrong type")),
     }
 }
-fn property_key(property: AnimatedProperty) -> &'static str {
+fn property_key(property: &AnimatedProperty) -> &str {
     use AnimatedProperty::*;
     match property {
         Position | X | Y | CameraFocus => "position",
@@ -343,9 +459,10 @@ fn property_key(property: AnimatedProperty) -> &'static str {
         FontSize => "font_size",
         LetterSpacing => "letter_spacing",
         CameraZoom => "zoom",
+        Semantic(name) => name,
     }
 }
-fn conflicting(a: AnimatedProperty, b: AnimatedProperty) -> bool {
+fn conflicting(a: &AnimatedProperty, b: &AnimatedProperty) -> bool {
     use AnimatedProperty::*;
     property_key(a) == property_key(b) && !matches!((a, b), (X, Y) | (Y, X))
 }
@@ -358,7 +475,7 @@ pub fn animations(scene: &Scene, theme: &Theme) -> Result<()> {
             .find(|n| n.id == animation.target)
             .ok_or_else(|| Error::invalid("Unknown animation target"))?;
         ensure(
-            allows(node.kind, property_key(animation.property)),
+            allows(node.kind, property_key(&animation.property)),
             "Animation property unsupported by target",
         )?;
         if animation.property == AnimatedProperty::CameraFocus {
@@ -373,15 +490,15 @@ pub fn animations(scene: &Scene, theme: &Theme) -> Result<()> {
                 )?;
             }
         }
-        animated_value(animation.property, &animation.to, theme)?;
+        animated_value(node.kind, &animation.property, &animation.to, theme)?;
         if let Some(v) = &animation.from {
-            animated_value(animation.property, v, theme)?;
+            animated_value(node.kind, &animation.property, v, theme)?;
         }
         let (start, end) = animation_times(scene, animation)?;
         for (other, os, oe) in &intervals {
             ensure(
                 !(other.target == animation.target
-                    && conflicting(other.property, animation.property)
+                    && conflicting(&other.property, &animation.property)
                     && ((start < *oe && *os < end)
                         || (start == end && start == *os && *os == *oe))),
                 "Overlapping animations drive the same property",
@@ -410,6 +527,22 @@ pub fn project_valid(project: &Project) -> Result<()> {
     )?;
     settings(&project.settings)?;
     theme(&project.theme)?;
+    ensure(project.variables.len() <= 128, "Too many project variables")?;
+    for (name, value) in &project.variables {
+        ensure(security::identifier(name), "Invalid project variable name")?;
+        let valid = match value {
+            SemanticValue::Bool(_) => true,
+            SemanticValue::Number(v) => number(*v, -1.0e12, 1.0e12),
+            SemanticValue::Text(v) => v.len() <= MAX_TEXT && !v.chars().any(char::is_control),
+            SemanticValue::Vec2(v) => v.iter().all(|x| number(*x, -32768.0, 32768.0)),
+            SemanticValue::Spacing(v) => v.iter().all(|x| number(*x, -8192.0, 8192.0)),
+            SemanticValue::NumberList(v) => {
+                v.len() <= 512 && v.iter().all(|x| number(*x, -32768.0, 32768.0))
+            }
+            SemanticValue::Gradient(_) => false,
+        };
+        ensure(valid, "Invalid project variable value")?;
+    }
     unique(project.scenes.iter().map(|s| s.id.as_str()), MAX_SCENES)?;
     unique(
         project
@@ -488,6 +621,22 @@ pub fn project_valid(project: &Project) -> Result<()> {
                 t.duration_ms <= scene.duration_ms && t.duration_ms <= 5000,
                 "Transition duration exceeds bounds",
             )?;
+            match t.kind {
+                TransitionKind::ZoomIn | TransitionKind::ZoomOut => {
+                    let area = t
+                        .area
+                        .ok_or_else(|| Error::invalid("Zoom transition requires an area"))?;
+                    ensure(
+                        area.iter().all(|v| v.is_finite())
+                            && area[2] > 0.0
+                            && area[3] > 0.0
+                            && area[2] <= 32768.0
+                            && area[3] <= 32768.0,
+                        "Zoom transition area exceeds bounds",
+                    )?;
+                }
+                _ => ensure(t.area.is_none(), "Only zoom transitions accept an area")?,
+            }
         }
         let map = scene
             .nodes
@@ -508,15 +657,24 @@ pub fn project_valid(project: &Project) -> Result<()> {
                     .get(parent.as_str())
                     .ok_or_else(|| Error::invalid("Unknown node parent"))?;
                 ensure(
-                    matches!(
-                        current.kind,
-                        NodeKind::Group
-                            | NodeKind::Layout
-                            | NodeKind::Rect
-                            | NodeKind::Circle
-                            | NodeKind::Camera
-                    ),
+                    semantic::can_have_children(current.kind),
                     "Node kind cannot contain children",
+                )?;
+            }
+            if node.kind == NodeKind::Knot {
+                let parent = node.parent.as_deref().and_then(|id| map.get(id).copied());
+                ensure(
+                    parent.is_some_and(|p| p.kind == NodeKind::Spline),
+                    "Knot must be a direct child of a Spline",
+                )?;
+            }
+            if node.kind == NodeKind::Spline && node.properties.points.is_some() {
+                ensure(
+                    !scene.nodes.iter().any(|child| {
+                        child.parent.as_deref() == Some(node.id.as_str())
+                            && child.kind == NodeKind::Knot
+                    }),
+                    "Spline cannot mix fixed points with Knot children",
                 )?;
             }
             if let Some(edge) = &node.properties.edge {
