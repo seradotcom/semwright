@@ -40,7 +40,7 @@ fn interfaces() -> DriverInterfaces {
     }
 }
 
-fn manifest(executable: PathBuf) -> Manifest {
+fn manifest(executable: PathBuf, network: bool, loopback_port: Option<u16>) -> Manifest {
     Manifest {
         manifest_version: DRIVER_MANIFEST_VERSION,
         protocol: DRIVER_PROTOCOL_VERSION,
@@ -68,7 +68,8 @@ fn manifest(executable: PathBuf) -> Manifest {
             },
         ],
         system_config: vec![],
-        network: true,
+        network,
+        loopback_port,
         resources: DriverResources {
             open_files: 128,
             processes: 32,
@@ -315,11 +316,11 @@ async fn godot_driver_runs_through_real_driver_host() {
     let fixture = fixture();
 
     let provider = DriverProvider::connect(
-        manifest(executable),
+        manifest(executable, false, Some(fixture.port)),
         state.path(),
         &helper,
         &fixture.roots,
-        true,
+        false,
     )
     .await
     .unwrap();
@@ -387,7 +388,7 @@ async fn godot_driver_network_requires_owner_opt_in() {
     let fixture = fixture();
 
     let error = match DriverProvider::connect(
-        manifest(executable),
+        manifest(executable, true, None),
         state.path(),
         &helper,
         &fixture.roots,

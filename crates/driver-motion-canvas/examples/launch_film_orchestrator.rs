@@ -189,6 +189,7 @@ mod linux {
             mounts,
             system_config: vec![],
             network: false,
+            loopback_port: None,
             resources: DriverResources {
                 open_files: 512,
                 processes: 256,
