@@ -43,6 +43,16 @@ The render test is accepted only through the real Driver Host with `network=fals
 
 The matrices may classify a surface as `compiler_managed`, `runtime_internal`/`runtime_utility`, `mixed` or `unsupported_by_design`; such entries require an explicit boundary rather than silently disappearing. A `mixed` property is accepted only when every union arm is itself managed, represented or explicitly excluded.
 
+## Integrated semantic-completeness evidence
+
+The managed semantic-completeness pass merged through PR #109 as `132355b5a182349eb165460307cc8ed0ddcef940`. The exact final PR head `eca2df1a101830469923e4e600d1c70de47234d6` has authoritative green Motion Canvas evidence in run `36259065194`: domain, portable macOS/Windows compile, real Driver Host render/conformance and all bounded Motion Canvas fuzz targets completed successfully.
+
+The same exact PR head produced the complete 52-second launch film successfully in run `36259061603`. This is the render acceptance for the semantic-completeness revision, not inherited evidence from the earlier driver PR.
+
+Post-merge `main` at `132355b5a182349eb165460307cc8ed0ddcef940` also completed Quality (`36259427151`), dependency/coverage/fuzz (`36259427071`), Native application integration (`36259427090`), macOS (`36259427170`), packaging (`36259427105`), OBS (`36259427069`), X11 (`36259427096`) and Plasma (`36259427093`) successfully. The initial hosted Windows ARM64 UIA run reported a noninteractive occlusion/stale-reference condition; an explicit full Windows rerun (`36260204223`) then completed both x64 and ARM64 successfully on the same merged SHA.
+
+Protocol evidence is executable rather than documentary: the manifest requests Driver Protocol 3, `MotionDriver::interfaces` advertises cooperative cancellation/progress/artifacts, and `render.execute` is exercised through `DriverExecutionContext` while the legacy asynchronous render-job capabilities remain available.
+
 ## Full film
 
 The expensive 52-second render is isolated in `.github/workflows/motion-canvas-launch-film.yml`. It builds both first-party providers, renders 1,560 Motion Canvas frames through Driver Host, creates a fixed mezzanine, and uses the real MLT provider for final H.264/AAC assembly.

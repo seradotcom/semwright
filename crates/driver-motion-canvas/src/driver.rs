@@ -1,4 +1,4 @@
-//! Driver Protocol v1 adapter for bounded, Semwright-managed Motion Canvas projects.
+//! Driver Protocol v3 adapter for bounded, Semwright-managed Motion Canvas projects.
 use crate::{
     Result,
     diff::SemanticDiff,
