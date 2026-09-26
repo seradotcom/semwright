@@ -522,6 +522,287 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     assert_eq!(unkeyed["changed"], true);
     authored_object_ref = unkeyed["ref"].as_str().unwrap().to_owned();
 
+    // Exercise Blender 4.5's layered/slotted Action API without relying on
+    // legacy Action.fcurves.
+    let layered_action = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.create",
+        json!({"root":"actions","name":"SemwrightLayeredAction"}),
+    )
+    .await
+    .unwrap();
+    let action_ref = layered_action["ref"].as_str().unwrap().to_owned();
+    let slot = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.slot.add",
+        json!({"action_ref":action_ref,"id_type":"OBJECT","name":"SemwrightCube"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(slot["id_type"], "OBJECT");
+
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","query":"SemwrightLayeredAction","limit":8}),
+    )
+    .await
+    .unwrap();
+    let action_ref = actions["items"][0]["ref"].as_str().unwrap().to_owned();
+    let layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.layer.add",
+        json!({"action_ref":action_ref,"name":"SemwrightLayer"}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = layer["ref"].as_str().unwrap().to_owned();
+    let strip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.strip.add",
+        json!({"layer_ref":layer_ref}),
+    )
+    .await
+    .unwrap();
+    let strip_ref = strip["ref"].as_str().unwrap().to_owned();
+
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","query":"SemwrightLayeredAction","limit":8}),
+    )
+    .await
+    .unwrap();
+    let action_ref = actions["items"][0]["ref"].as_str().unwrap().to_owned();
+    let slots = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":action_ref,"property":"slots","limit":8}),
+    )
+    .await
+    .unwrap();
+    let slot_ref = slots["items"][0]["ref"].as_str().unwrap().to_owned();
+    let channelbag = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.channelbag.ensure",
+        json!({"strip_ref":strip_ref,"slot_ref":slot_ref}),
+    )
+    .await
+    .unwrap();
+    let channelbag_ref = channelbag["ref"].as_str().unwrap().to_owned();
+    let action_curve = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.fcurve.ensure",
+        json!({"channelbag_ref":channelbag_ref,"data_path":"location","index":0,"group_name":"Semwright"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(action_curve["data_path"], "location");
+    let curve_ref = action_curve["ref"].as_str().unwrap().to_owned();
+    let point = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.fcurve.keyframe.add",
+        json!({"fcurve_ref":curve_ref,"frame":10.0,"value":2.0,"keyframe_type":"KEYFRAME"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(point["frame"], 10.0);
+
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","query":"SemwrightLayeredAction","limit":8}),
+    )
+    .await
+    .unwrap();
+    let action_ref = actions["items"][0]["ref"].as_str().unwrap().to_owned();
+    let layers = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":action_ref,"property":"layers","limit":8}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = layers["items"][0]["ref"].as_str().unwrap().to_owned();
+    let strips = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":layer_ref,"property":"strips","limit":8}),
+    )
+    .await
+    .unwrap();
+    let strip_ref = strips["items"][0]["ref"].as_str().unwrap().to_owned();
+    let bags = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":strip_ref,"property":"channelbags","limit":8}),
+    )
+    .await
+    .unwrap();
+    let bag_ref = bags["items"][0]["ref"].as_str().unwrap().to_owned();
+    let curves = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":bag_ref,"property":"fcurves","limit":8}),
+    )
+    .await
+    .unwrap();
+    let curve_ref = curves["items"][0]["ref"].as_str().unwrap().to_owned();
+    let curve_modifier = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.fcurve.modifier.add",
+        json!({"fcurve_ref":curve_ref,"type":"NOISE"}),
+    )
+    .await
+    .unwrap();
+    let modifier_ref = curve_modifier["ref"].as_str().unwrap().to_owned();
+    let removed_curve_modifier = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.fcurve.modifier.remove",
+        json!({"ref":modifier_ref}),
+    )
+    .await
+    .unwrap();
+    let curve_ref = removed_curve_modifier["fcurve_ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let points = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":curve_ref,"property":"keyframe_points","limit":8}),
+    )
+    .await
+    .unwrap();
+    let point_ref = points["items"][0]["ref"].as_str().unwrap().to_owned();
+    let removed_point = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.fcurve.keyframe.remove",
+        json!({"ref":point_ref}),
+    )
+    .await
+    .unwrap();
+    let curve_ref = removed_point["fcurve_ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.fcurve.remove",
+        json!({"ref":curve_ref}),
+    )
+    .await
+    .unwrap();
+
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","query":"SemwrightLayeredAction","limit":8}),
+    )
+    .await
+    .unwrap();
+    let action_ref = actions["items"][0]["ref"].as_str().unwrap().to_owned();
+    let layers = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":action_ref,"property":"layers","limit":8}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = layers["items"][0]["ref"].as_str().unwrap().to_owned();
+    let strips = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":layer_ref,"property":"strips","limit":8}),
+    )
+    .await
+    .unwrap();
+    let strip_ref = strips["items"][0]["ref"].as_str().unwrap().to_owned();
+    let removed_action_strip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.strip.remove",
+        json!({"ref":strip_ref}),
+    )
+    .await
+    .unwrap();
+    let layer_ref = removed_action_strip["layer_ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.layer.remove",
+        json!({"ref":layer_ref}),
+    )
+    .await
+    .unwrap();
+
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","query":"SemwrightLayeredAction","limit":8}),
+    )
+    .await
+    .unwrap();
+    let action_ref = actions["items"][0]["ref"].as_str().unwrap().to_owned();
+    let slots = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":action_ref,"property":"slots","limit":8}),
+    )
+    .await
+    .unwrap();
+    let slot_ref = slots["items"][0]["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.action.slot.remove",
+        json!({"ref":slot_ref}),
+    )
+    .await
+    .unwrap();
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","query":"SemwrightLayeredAction","limit":8}),
+    )
+    .await
+    .unwrap();
+    let action_ref = actions["items"][0]["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":action_ref}),
+    )
+    .await
+    .unwrap();
+
     let basis = call(
         provider.as_ref(),
         &capabilities,
@@ -1324,6 +1605,151 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     assert_eq!(cleared_camera["target_ref"], Value::Null);
+
+    let scenes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","limit":8}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = scenes["items"][0]["ref"].as_str().unwrap().to_owned();
+    let view_layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.scene.view_layer.add",
+        json!({"scene_ref":scene_ref,"name":"SemwrightView"}),
+    )
+    .await
+    .unwrap();
+    let view_layer_ref = view_layer["ref"].as_str().unwrap().to_owned();
+    let moved_layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.scene.view_layer.move",
+        json!({"ref":view_layer_ref,"to_index":0}),
+    )
+    .await
+    .unwrap();
+    let view_layer_ref = moved_layer["ref"].as_str().unwrap().to_owned();
+    let removed_layer = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.scene.view_layer.remove",
+        json!({"ref":view_layer_ref}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = removed_layer["scene_ref"].as_str().unwrap().to_owned();
+    let marker = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.scene.marker.add",
+        json!({"scene_ref":scene_ref,"name":"SemwrightMarker","frame":12}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(marker["frame"], 12);
+    let marker_ref = marker["ref"].as_str().unwrap().to_owned();
+    let removed_marker = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.scene.marker.remove",
+        json!({"ref":marker_ref}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = removed_marker["scene_ref"].as_str().unwrap().to_owned();
+    let sequence = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.ensure",
+        json!({"scene_ref":scene_ref}),
+    )
+    .await
+    .unwrap();
+    assert!(
+        sequence["ref"]
+            .as_str()
+            .unwrap()
+            .contains("sequence_editor")
+    );
+
+    let scenes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","limit":8}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = scenes["items"][0]["ref"].as_str().unwrap().to_owned();
+    let meta = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.meta.add",
+        json!({"scene_ref":scene_ref,"name":"SemwrightMeta","channel":1,"frame_start":1}),
+    )
+    .await
+    .unwrap();
+    let meta_ref = meta["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.strip.remove",
+        json!({"ref":meta_ref}),
+    )
+    .await
+    .unwrap();
+
+    let scenes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","limit":8}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = scenes["items"][0]["ref"].as_str().unwrap().to_owned();
+    let effect = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.effect.add",
+        json!({"scene_ref":scene_ref,"name":"SemwrightColor","type":"COLOR","channel":1,"frame_start":1,"frame_end":20}),
+    )
+    .await
+    .unwrap();
+    let effect_ref = effect["ref"].as_str().unwrap().to_owned();
+    let strip_modifier = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.modifier.add",
+        json!({"strip_ref":effect_ref,"name":"SemwrightContrast","type":"BRIGHT_CONTRAST"}),
+    )
+    .await
+    .unwrap();
+    let strip_modifier_ref = strip_modifier["ref"].as_str().unwrap().to_owned();
+    let removed_strip_modifier = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.modifier.remove",
+        json!({"ref":strip_modifier_ref}),
+    )
+    .await
+    .unwrap();
+    let effect_ref = removed_strip_modifier["strip_ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.strip.remove",
+        json!({"ref":effect_ref}),
+    )
+    .await
+    .unwrap();
 
     let camera_objects = call(
         provider.as_ref(),

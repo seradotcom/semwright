@@ -1335,6 +1335,206 @@ class SemanticStore:
             raise SemanticError("Unsupported", "RNA object cannot own animation data")
         return root, name, path, owner
 
+    def _require_action(self, action_ref):
+        root, name, path, action = self._resolve(action_ref)
+        if root != "actions" or path or _text(getattr(getattr(action, "bl_rna", None), "identifier", ""), 256) != "Action":
+            raise SemanticError("InvalidArgument", "Operation requires a root Action datablock ref")
+        return root, name, path, action
+
+    def action_slot_add(self, action_ref, id_type, name):
+        root, action_name, path, action = self._require_action(action_ref)
+        allowed = {
+            "OBJECT", "MESH", "CURVE", "SURFACE", "FONT", "META", "ARMATURE", "LATTICE",
+            "CAMERA", "LIGHT", "SPEAKER", "MATERIAL", "WORLD", "SCENE", "KEY", "POINTCLOUD",
+            "CURVES", "GREASEPENCIL", "VOLUME",
+        }
+        if id_type not in allowed:
+            raise SemanticError("InvalidArgument", "Action slot ID type is outside the managed persistent boundary")
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Action slot name is invalid")
+        try:
+            slot = action.slots.new(id_type=id_type, name=name)
+            index = list(action.slots).index(slot)
+        except Exception as error:
+            raise SemanticError("Unsupported", "Blender rejected Action slot creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, action_name, path + [["c", "slots", index]]),
+            "name": _text(getattr(slot, "name_display", name), 128),
+            "id_type": _text(getattr(slot, "target_id_type", id_type), 64),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def action_slot_remove(self, slot_ref):
+        root, action_name, parent_path, action, slot = self._collection_parent(slot_ref, "slots")
+        if _text(getattr(getattr(action, "bl_rna", None), "identifier", ""), 256) != "Action":
+            raise SemanticError("InvalidArgument", "Action slot parent is not an Action")
+        try:
+            action.slots.remove(slot)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Action slot removal") from error
+        self.changed()
+        return {
+            "action_ref": self._ref(root, action_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def action_layer_add(self, action_ref, name):
+        root, action_name, path, action = self._require_action(action_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Action layer name is invalid")
+        if any(layer.name == name for layer in action.layers):
+            raise SemanticError("Conflict", "Action layer name already exists")
+        try:
+            layer = action.layers.new(name)
+            if layer.name != name:
+                action.layers.remove(layer)
+                raise SemanticError("Conflict", "Blender rewrote the requested Action layer name")
+            index = list(action.layers).index(layer)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("Unsupported", "Blender rejected Action layer creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, action_name, path + [["c", "layers", index]]),
+            "name": layer.name,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def action_layer_remove(self, layer_ref):
+        root, action_name, parent_path, action, layer = self._collection_parent(layer_ref, "layers")
+        if _text(getattr(getattr(action, "bl_rna", None), "identifier", ""), 256) != "Action":
+            raise SemanticError("InvalidArgument", "Action layer parent is not an Action")
+        try:
+            action.layers.remove(layer)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Action layer removal") from error
+        self.changed()
+        return {
+            "action_ref": self._ref(root, action_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def action_strip_add(self, layer_ref):
+        root, action_name, path, layer = self._resolve(layer_ref)
+        if _text(getattr(getattr(layer, "bl_rna", None), "identifier", ""), 256) != "ActionLayer":
+            raise SemanticError("InvalidArgument", "Operation requires an ActionLayer ref")
+        if len(layer.strips) >= 1:
+            raise SemanticError("Conflict", "Blender 4.5 ActionLayer supports at most one keyframe strip")
+        try:
+            strip = layer.strips.new(type="KEYFRAME")
+            index = list(layer.strips).index(strip)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Action keyframe strip creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, action_name, path + [["c", "strips", index]]),
+            "type": _text(getattr(strip, "type", "KEYFRAME"), 64),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def action_strip_remove(self, strip_ref):
+        root, action_name, parent_path, layer, strip = self._collection_parent(strip_ref, "strips")
+        if _text(getattr(getattr(layer, "bl_rna", None), "identifier", ""), 256) != "ActionLayer":
+            raise SemanticError("InvalidArgument", "Action strip parent is not an ActionLayer")
+        try:
+            layer.strips.remove(strip)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Action strip removal") from error
+        self.changed()
+        return {
+            "layer_ref": self._ref(root, action_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def action_channelbag_ensure(self, strip_ref, slot_ref):
+        root, action_name, path, strip = self._resolve(strip_ref)
+        slot_parts = self._resolve(slot_ref)
+        if _text(getattr(getattr(strip, "bl_rna", None), "identifier", ""), 256) != "ActionKeyframeStrip":
+            raise SemanticError("InvalidArgument", "Operation requires an ActionKeyframeStrip ref")
+        slot = slot_parts[3]
+        if _text(getattr(getattr(slot, "bl_rna", None), "identifier", ""), 256) != "ActionSlot":
+            raise SemanticError("InvalidArgument", "slot_ref must reference an ActionSlot")
+        if (slot_parts[0], slot_parts[1]) != (root, action_name):
+            raise SemanticError("InvalidArgument", "Action strip and slot must belong to the same Action")
+        existing = None
+        for candidate in strip.channelbags:
+            if getattr(candidate, "slot", None) is slot:
+                existing = candidate
+                break
+        try:
+            channelbag = existing if existing is not None else strip.channelbag(slot, ensure=True)
+            if channelbag is None:
+                raise SemanticError("BackendFailed", "Blender did not create an Action channelbag")
+            index = list(strip.channelbags).index(channelbag)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Action channelbag creation") from error
+        changed = existing is None
+        if changed:
+            self.changed()
+        return {
+            "ref": self._ref(root, action_name, path + [["c", "channelbags", index]]),
+            "created": changed,
+            "generation": self.generation,
+        }
+
+    def action_fcurve_ensure(self, channelbag_ref, data_path, index=0, group_name=""):
+        root, action_name, path, channelbag = self._resolve(channelbag_ref)
+        if _text(getattr(getattr(channelbag, "bl_rna", None), "identifier", ""), 256) != "ActionChannelbag":
+            raise SemanticError("InvalidArgument", "Operation requires an ActionChannelbag ref")
+        if not isinstance(data_path, str) or not 1 <= len(data_path) <= 512 or "\x00" in data_path:
+            raise SemanticError("InvalidArgument", "F-Curve data path is invalid")
+        allowed_path = re.fullmatch(
+            r'[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*|\["[A-Za-z0-9_.:-]{1,128}"\])*',
+            data_path,
+        )
+        if allowed_path is None:
+            raise SemanticError("PolicyDenied", "F-Curve data path is outside the bounded semantic path grammar")
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < MAX_ARRAY:
+            raise SemanticError("InvalidArgument", "F-Curve array index is invalid")
+        if not isinstance(group_name, str) or len(group_name) > 128 or "\x00" in group_name:
+            raise SemanticError("InvalidArgument", "F-Curve group name is invalid")
+        try:
+            existing = channelbag.fcurves.find(data_path, index=index)
+            curve = channelbag.fcurves.ensure(data_path, index=index, group_name=group_name)
+            position = list(channelbag.fcurves).index(curve)
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected Action F-Curve ensure") from error
+        changed = existing is None
+        if changed:
+            self.changed()
+        return {
+            "ref": self._ref(root, action_name, path + [["c", "fcurves", position]]),
+            "data_path": curve.data_path,
+            "index": curve.array_index,
+            "created": changed,
+            "generation": self.generation,
+        }
+
+    def action_fcurve_remove(self, fcurve_ref):
+        root, action_name, parent_path, channelbag, curve = self._collection_parent(fcurve_ref, "fcurves")
+        if _text(getattr(getattr(channelbag, "bl_rna", None), "identifier", ""), 256) != "ActionChannelbag":
+            raise SemanticError("InvalidArgument", "F-Curve parent is not an ActionChannelbag")
+        try:
+            channelbag.fcurves.remove(curve)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Action F-Curve removal") from error
+        self.changed()
+        return {
+            "channelbag_ref": self._ref(root, action_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
     def nla_track_add(self, owner_ref, name, previous_ref=None):
         root, anchor_name, path, owner = self._animation_owner(owner_ref)
         if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
@@ -1414,6 +1614,454 @@ class SemanticStore:
             raise SemanticError("BackendFailed", "Blender rejected NLA strip removal") from error
         self.changed()
         return {"track_ref": self._ref(root, anchor_name, parent_path), "changed": True, "generation": self.generation}
+
+    def _require_fcurve(self, reference):
+        root, name, path, curve = self._resolve(reference)
+        if _text(getattr(getattr(curve, "bl_rna", None), "identifier", ""), 256) != "FCurve":
+            raise SemanticError("InvalidArgument", "Operation requires an FCurve RNA reference")
+        return root, name, path, curve
+
+    def fcurve_keyframe_add(self, fcurve_ref, frame, value, keyframe_type="KEYFRAME"):
+        root, name, path, curve = self._require_fcurve(fcurve_ref)
+        if not _finite(frame) or not -1_000_000 <= float(frame) <= 1_000_000:
+            raise SemanticError("InvalidArgument", "F-Curve keyframe frame is outside bounded limits")
+        if not _finite(value) or abs(float(value)) > 1_000_000_000:
+            raise SemanticError("InvalidArgument", "F-Curve keyframe value is outside bounded limits")
+        if keyframe_type not in {"KEYFRAME", "BREAKDOWN", "MOVING_HOLD", "EXTREME", "JITTER", "GENERATED"}:
+            raise SemanticError("InvalidArgument", "F-Curve keyframe type is invalid")
+        try:
+            point = curve.keyframe_points.insert(
+                float(frame),
+                float(value),
+                options={"REPLACE"},
+                keyframe_type=keyframe_type,
+            )
+            index = list(curve.keyframe_points).index(point)
+            curve.update()
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected F-Curve keyframe insertion") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, name, path + [["c", "keyframe_points", index]]),
+            "frame": float(point.co[0]),
+            "value": float(point.co[1]),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def fcurve_keyframe_remove(self, keyframe_ref):
+        root, name, parent_path, curve, point = self._collection_parent(keyframe_ref, "keyframe_points")
+        if _text(getattr(getattr(curve, "bl_rna", None), "identifier", ""), 256) != "FCurve":
+            raise SemanticError("InvalidArgument", "Keyframe parent is not an FCurve")
+        try:
+            curve.keyframe_points.remove(point, fast=False)
+            curve.update()
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected F-Curve keyframe removal") from error
+        self.changed()
+        return {
+            "fcurve_ref": self._ref(root, name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def fcurve_modifier_add(self, fcurve_ref, modifier_type):
+        root, name, path, curve = self._require_fcurve(fcurve_ref)
+        if modifier_type not in {"GENERATOR", "FNGENERATOR", "ENVELOPE", "CYCLES", "NOISE", "LIMITS", "STEPPED"}:
+            raise SemanticError("InvalidArgument", "F-Curve modifier type is invalid")
+        try:
+            modifier = curve.modifiers.new(type=modifier_type)
+            index = list(curve.modifiers).index(modifier)
+        except Exception as error:
+            raise SemanticError("Unsupported", "Blender rejected F-Curve modifier creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, name, path + [["c", "modifiers", index]]),
+            "type": modifier.type,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def fcurve_modifier_remove(self, modifier_ref):
+        root, name, parent_path, curve, modifier = self._collection_parent(modifier_ref, "modifiers")
+        if _text(getattr(getattr(curve, "bl_rna", None), "identifier", ""), 256) != "FCurve":
+            raise SemanticError("InvalidArgument", "F-Curve modifier parent is not an FCurve")
+        try:
+            curve.modifiers.remove(modifier)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected F-Curve modifier removal") from error
+        self.changed()
+        return {
+            "fcurve_ref": self._ref(root, name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def _require_scene(self, reference):
+        root, name, path, scene = self._resolve(reference)
+        if _text(getattr(getattr(scene, "bl_rna", None), "identifier", ""), 256) != "Scene":
+            raise SemanticError("InvalidArgument", "Operation requires a Scene RNA reference")
+        return root, name, path, scene
+
+    def view_layer_add(self, scene_ref, name):
+        root, scene_name, path, scene = self._require_scene(scene_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "View-layer name is invalid")
+        if scene.view_layers.get(name) is not None:
+            raise SemanticError("Conflict", "View-layer name already exists")
+        try:
+            layer = scene.view_layers.new(name)
+            index = list(scene.view_layers).index(layer)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected view-layer creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, scene_name, path + [["c", "view_layers", index]]),
+            "name": layer.name,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def view_layer_remove(self, layer_ref):
+        root, scene_name, parent_path, scene, layer = self._collection_parent(layer_ref, "view_layers")
+        if _text(getattr(getattr(scene, "bl_rna", None), "identifier", ""), 256) != "Scene":
+            raise SemanticError("InvalidArgument", "View-layer parent is not a Scene")
+        if len(scene.view_layers) <= 1:
+            raise SemanticError("Conflict", "Blender Scene must retain at least one view layer")
+        try:
+            scene.view_layers.remove(layer)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected view-layer removal") from error
+        self.changed()
+        return {
+            "scene_ref": self._ref(root, scene_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def view_layer_move(self, layer_ref, to_index):
+        root, scene_name, parent_path, scene, layer = self._collection_parent(layer_ref, "view_layers")
+        if _text(getattr(getattr(scene, "bl_rna", None), "identifier", ""), 256) != "Scene":
+            raise SemanticError("InvalidArgument", "View-layer parent is not a Scene")
+        if isinstance(to_index, bool) or not isinstance(to_index, int) or not 0 <= to_index < len(scene.view_layers):
+            raise SemanticError("InvalidArgument", "View-layer target index is invalid")
+        try:
+            from_index = list(scene.view_layers).index(layer)
+            scene.view_layers.move(from_index, to_index)
+            new_index = list(scene.view_layers).index(layer)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected view-layer reorder") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, scene_name, parent_path + [["c", "view_layers", new_index]]),
+            "index": new_index,
+            "changed": from_index != new_index,
+            "generation": self.generation,
+        }
+
+    def timeline_marker_add(self, scene_ref, name, frame):
+        root, scene_name, path, scene = self._require_scene(scene_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Timeline-marker name is invalid")
+        if isinstance(frame, bool) or not isinstance(frame, int) or not -1_048_574 <= frame <= 1_048_574:
+            raise SemanticError("InvalidArgument", "Timeline-marker frame is invalid")
+        if any(marker.name == name for marker in scene.timeline_markers):
+            raise SemanticError("Conflict", "Timeline-marker name already exists")
+        try:
+            marker = scene.timeline_markers.new(name, frame=frame)
+            index = list(scene.timeline_markers).index(marker)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected timeline-marker creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, scene_name, path + [["c", "timeline_markers", index]]),
+            "name": marker.name,
+            "frame": marker.frame,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def timeline_marker_remove(self, marker_ref):
+        root, scene_name, parent_path, scene, marker = self._collection_parent(marker_ref, "timeline_markers")
+        if _text(getattr(getattr(scene, "bl_rna", None), "identifier", ""), 256) != "Scene":
+            raise SemanticError("InvalidArgument", "Timeline-marker parent is not a Scene")
+        try:
+            scene.timeline_markers.remove(marker)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected timeline-marker removal") from error
+        self.changed()
+        return {
+            "scene_ref": self._ref(root, scene_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def _sequence_editor(self, scene_ref, create=True):
+        root, scene_name, path, scene = self._require_scene(scene_ref)
+        editor = scene.sequence_editor
+        created = False
+        if editor is None and create:
+            try:
+                editor = scene.sequence_editor_create()
+                created = True
+            except Exception as error:
+                raise SemanticError("BackendFailed", "Blender rejected Sequence Editor creation") from error
+        if editor is None:
+            raise SemanticError("NotFound", "Scene does not have a Sequence Editor")
+        return root, scene_name, path, scene, editor, created
+
+    def sequence_editor_ensure(self, scene_ref):
+        root, scene_name, path, _scene, _editor, created = self._sequence_editor(scene_ref, True)
+        if created:
+            self.changed()
+        return {
+            "ref": self._ref(root, scene_name, path + [["p", "sequence_editor"]]),
+            "created": created,
+            "generation": self.generation,
+        }
+
+    def _sequence_name(self, editor, name):
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Sequence strip name is invalid")
+        if any(strip.name == name for strip in editor.strips):
+            raise SemanticError("Conflict", "Sequence strip name already exists")
+        return name
+
+    def _sequence_position(self, channel, frame_start):
+        if isinstance(channel, bool) or not isinstance(channel, int) or not 1 <= channel <= 128:
+            raise SemanticError("InvalidArgument", "Sequence channel must be in [1,128]")
+        if isinstance(frame_start, bool) or not isinstance(frame_start, int) or not -1_048_574 <= frame_start <= 1_048_574:
+            raise SemanticError("InvalidArgument", "Sequence start frame is invalid")
+        return channel, frame_start
+
+    def _sequence_strip_ref(self, root, scene_name, scene_path, editor, strip):
+        index = list(editor.strips).index(strip)
+        return self._ref(root, scene_name, scene_path + [["p", "sequence_editor"], ["c", "strips", index]])
+
+    def sequence_media_add(self, scene_ref, kind, name, relative_path, channel, frame_start, fit_method="ORIGINAL"):
+        root, scene_name, path, _scene, editor, _created = self._sequence_editor(scene_ref, True)
+        self._sequence_name(editor, name)
+        channel, frame_start = self._sequence_position(channel, frame_start)
+        if fit_method not in {"FIT", "FILL", "STRETCH", "ORIGINAL"}:
+            raise SemanticError("InvalidArgument", "Sequence fit method is invalid")
+        extensions = {
+            "IMAGE": {".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".exr", ".hdr"},
+            "MOVIE": {".mp4", ".mov", ".avi", ".mkv", ".webm"},
+            "SOUND": {".wav", ".flac", ".ogg", ".mp3"},
+        }
+        if kind not in extensions:
+            raise SemanticError("InvalidArgument", "Sequence media kind is invalid")
+        source, _size = self._asset_path(relative_path, extensions[kind])
+        strip = None
+        try:
+            if kind == "IMAGE":
+                strip = editor.strips.new_image(name, str(source), channel, frame_start, fit_method=fit_method)
+            elif kind == "MOVIE":
+                strip = editor.strips.new_movie(name, str(source), channel, frame_start, fit_method=fit_method)
+            else:
+                strip = editor.strips.new_sound(name, str(source), channel, frame_start)
+            if strip.name != name:
+                editor.strips.remove(strip)
+                raise SemanticError("Conflict", "Blender rewrote the requested Sequence strip name")
+        except SemanticError:
+            raise
+        except Exception as error:
+            if strip is not None:
+                try:
+                    editor.strips.remove(strip)
+                except Exception:
+                    pass
+            raise SemanticError("InvalidArgument", "Blender rejected scoped Sequence media") from error
+        self.changed()
+        return {
+            "ref": self._sequence_strip_ref(root, scene_name, path, editor, strip),
+            "kind": kind,
+            "name": strip.name,
+            "channel": strip.channel,
+            "frame_start": int(strip.frame_start),
+            "path": relative_path,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def sequence_datablock_add(self, scene_ref, kind, name, source_ref, channel, frame_start):
+        root, scene_name, path, scene, editor, _created = self._sequence_editor(scene_ref, True)
+        self._sequence_name(editor, name)
+        channel, frame_start = self._sequence_position(channel, frame_start)
+        allowed = {"SCENE": ("scenes", "Scene"), "CLIP": ("movieclips", "MovieClip"), "MASK": ("masks", "Mask")}
+        if kind not in allowed:
+            raise SemanticError("InvalidArgument", "Sequence datablock kind is invalid")
+        source_parts = self._resolve(source_ref)
+        expected_root, expected_type = allowed[kind]
+        if source_parts[0] != expected_root or source_parts[2]:
+            raise SemanticError("InvalidArgument", "Sequence source_ref must be a root datablock of the requested kind")
+        source = source_parts[3]
+        if _text(getattr(getattr(source, "bl_rna", None), "identifier", ""), 256) != expected_type:
+            raise SemanticError("InvalidArgument", "Sequence source_ref type does not match the requested kind")
+        if kind == "SCENE" and source is scene:
+            raise SemanticError("Conflict", "A Scene cannot sequence itself")
+        strip = None
+        try:
+            if kind == "SCENE":
+                strip = editor.strips.new_scene(name, source, channel, frame_start)
+            elif kind == "CLIP":
+                strip = editor.strips.new_clip(name, source, channel, frame_start)
+            else:
+                strip = editor.strips.new_mask(name, source, channel, frame_start)
+            if strip.name != name:
+                editor.strips.remove(strip)
+                raise SemanticError("Conflict", "Blender rewrote the requested Sequence strip name")
+        except SemanticError:
+            raise
+        except Exception as error:
+            if strip is not None:
+                try:
+                    editor.strips.remove(strip)
+                except Exception:
+                    pass
+            raise SemanticError("InvalidArgument", "Blender rejected Sequence datablock strip creation") from error
+        self.changed()
+        return {
+            "ref": self._sequence_strip_ref(root, scene_name, path, editor, strip),
+            "kind": kind,
+            "name": strip.name,
+            "channel": strip.channel,
+            "frame_start": int(strip.frame_start),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def sequence_meta_add(self, scene_ref, name, channel, frame_start):
+        root, scene_name, path, _scene, editor, _created = self._sequence_editor(scene_ref, True)
+        self._sequence_name(editor, name)
+        channel, frame_start = self._sequence_position(channel, frame_start)
+        try:
+            strip = editor.strips.new_meta(name, channel, frame_start)
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected meta-strip creation") from error
+        self.changed()
+        return {
+            "ref": self._sequence_strip_ref(root, scene_name, path, editor, strip),
+            "name": strip.name,
+            "channel": strip.channel,
+            "frame_start": int(strip.frame_start),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def _sequence_input(self, root, scene_name, reference):
+        if reference is None:
+            return None
+        parts = self._resolve(reference)
+        if (parts[0], parts[1]) != (root, scene_name):
+            raise SemanticError("InvalidArgument", "Sequence effect inputs must belong to the same Scene")
+        strip_type = getattr(self.bpy.types, "Strip", None)
+        if strip_type is None or not isinstance(parts[3], strip_type):
+            raise SemanticError("InvalidArgument", "Sequence effect input must be a Strip ref")
+        return parts[3]
+
+    def sequence_effect_add(self, scene_ref, name, effect_type, channel, frame_start, frame_end=0, input1_ref=None, input2_ref=None):
+        root, scene_name, path, _scene, editor, _created = self._sequence_editor(scene_ref, True)
+        self._sequence_name(editor, name)
+        channel, frame_start = self._sequence_position(channel, frame_start)
+        if isinstance(frame_end, bool) or not isinstance(frame_end, int) or not 0 <= frame_end <= 1_048_574:
+            raise SemanticError("InvalidArgument", "Sequence effect end frame is invalid")
+        effects = {
+            "CROSS", "ADD", "SUBTRACT", "ALPHA_OVER", "ALPHA_UNDER", "GAMMA_CROSS",
+            "MULTIPLY", "WIPE", "GLOW", "TRANSFORM", "COLOR", "SPEED", "MULTICAM",
+            "ADJUSTMENT", "GAUSSIAN_BLUR", "TEXT", "COLORMIX",
+        }
+        if effect_type not in effects:
+            raise SemanticError("InvalidArgument", "Sequence effect type is invalid")
+        input1 = self._sequence_input(root, scene_name, input1_ref)
+        input2 = self._sequence_input(root, scene_name, input2_ref)
+        try:
+            strip = editor.strips.new_effect(
+                name,
+                effect_type,
+                channel,
+                frame_start,
+                frame_end=frame_end,
+                input1=input1,
+                input2=input2,
+            )
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected Sequence effect creation or inputs") from error
+        self.changed()
+        return {
+            "ref": self._sequence_strip_ref(root, scene_name, path, editor, strip),
+            "name": strip.name,
+            "effect_type": effect_type,
+            "channel": strip.channel,
+            "frame_start": int(strip.frame_start),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def sequence_strip_remove(self, strip_ref):
+        root, scene_name, parent_path, editor, strip = self._collection_parent(strip_ref, "strips")
+        if _text(getattr(getattr(editor, "bl_rna", None), "identifier", ""), 256) != "SequenceEditor":
+            raise SemanticError("InvalidArgument", "Sequence strip parent is not a SequenceEditor")
+        try:
+            editor.strips.remove(strip)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Sequence strip removal") from error
+        self.changed()
+        return {
+            "editor_ref": self._ref(root, scene_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def _require_strip(self, reference):
+        root, scene_name, path, strip = self._resolve(reference)
+        strip_type = getattr(self.bpy.types, "Strip", None)
+        if strip_type is None or not isinstance(strip, strip_type):
+            raise SemanticError("InvalidArgument", "Operation requires a Sequence Strip ref")
+        return root, scene_name, path, strip
+
+    def sequence_modifier_add(self, strip_ref, name, modifier_type):
+        root, scene_name, path, strip = self._require_strip(strip_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Sequence modifier name is invalid")
+        if strip.modifiers.get(name) is not None:
+            raise SemanticError("Conflict", "Sequence modifier name already exists")
+        if not isinstance(modifier_type, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", modifier_type):
+            raise SemanticError("InvalidArgument", "Sequence modifier type is invalid")
+        try:
+            modifier = strip.modifiers.new(name, modifier_type)
+            if modifier.name != name:
+                strip.modifiers.remove(modifier)
+                raise SemanticError("Conflict", "Blender rewrote the requested Sequence modifier name")
+            index = list(strip.modifiers).index(modifier)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("Unsupported", "Blender rejected Sequence modifier creation") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, scene_name, path + [["c", "modifiers", index]]),
+            "name": modifier.name,
+            "type": modifier.type,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def sequence_modifier_remove(self, modifier_ref):
+        root, scene_name, parent_path, strip, modifier = self._collection_parent(modifier_ref, "modifiers")
+        strip_type = getattr(self.bpy.types, "Strip", None)
+        if strip_type is None or not isinstance(strip, strip_type):
+            raise SemanticError("InvalidArgument", "Sequence modifier parent is not a Strip")
+        try:
+            strip.modifiers.remove(modifier)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected Sequence modifier removal") from error
+        self.changed()
+        return {
+            "strip_ref": self._ref(root, scene_name, parent_path),
+            "changed": True,
+            "generation": self.generation,
+        }
 
     def _require_mesh(self, reference):
         root, name, path, item = self._resolve(reference)

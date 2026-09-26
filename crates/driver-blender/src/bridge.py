@@ -29,7 +29,7 @@ from semwright_blender_runtime.validation import CommandError  # noqa: E402
 from semwright_blender_runtime.semantic import SemanticError, SemanticStore  # noqa: E402
 
 commands = Commands(bpy, workspace)
-semantic = SemanticStore(bpy, workspace)
+semantic = SemanticStore(bpy, commands.workspace.root)
 
 
 def exact(stream, size):
@@ -542,6 +542,42 @@ def dispatch(command, args):
         if set(args) != {"collection_ref", "bone_ref"}:
             raise CommandError("InvalidArgument", "Bone collection unassign requires collection_ref and bone_ref")
         return semantic.bone_collection_assign(args["collection_ref"], args["bone_ref"], False)
+    if command == "driver.blender.action.slot.add":
+        if set(args) != {"action_ref", "id_type", "name"}:
+            raise CommandError("InvalidArgument", "Action slot add requires action_ref, id_type and name")
+        return semantic.action_slot_add(args["action_ref"], args["id_type"], args["name"])
+    if command == "driver.blender.action.slot.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Action slot remove requires ref")
+        return semantic.action_slot_remove(args["ref"])
+    if command == "driver.blender.action.layer.add":
+        if set(args) != {"action_ref", "name"}:
+            raise CommandError("InvalidArgument", "Action layer add requires action_ref and name")
+        return semantic.action_layer_add(args["action_ref"], args["name"])
+    if command == "driver.blender.action.layer.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Action layer remove requires ref")
+        return semantic.action_layer_remove(args["ref"])
+    if command == "driver.blender.action.strip.add":
+        if set(args) != {"layer_ref"}:
+            raise CommandError("InvalidArgument", "Action strip add requires layer_ref")
+        return semantic.action_strip_add(args["layer_ref"])
+    if command == "driver.blender.action.strip.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Action strip remove requires ref")
+        return semantic.action_strip_remove(args["ref"])
+    if command == "driver.blender.action.channelbag.ensure":
+        if set(args) != {"strip_ref", "slot_ref"}:
+            raise CommandError("InvalidArgument", "Action channelbag ensure requires strip_ref and slot_ref")
+        return semantic.action_channelbag_ensure(args["strip_ref"], args["slot_ref"])
+    if command == "driver.blender.action.fcurve.ensure":
+        if not set(args).issubset({"channelbag_ref", "data_path", "index", "group_name"}) or not {"channelbag_ref", "data_path"}.issubset(args):
+            raise CommandError("InvalidArgument", "Action F-Curve ensure requires channelbag_ref and data_path")
+        return semantic.action_fcurve_ensure(args["channelbag_ref"], args["data_path"], args.get("index", 0), args.get("group_name", ""))
+    if command == "driver.blender.action.fcurve.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Action F-Curve remove requires ref")
+        return semantic.action_fcurve_remove(args["ref"])
     if command == "driver.blender.nla.track.add":
         if not set(args).issubset({"owner_ref", "name", "previous_ref"}) or not {"owner_ref", "name"}.issubset(args):
             raise CommandError("InvalidArgument", "NLA track add requires owner_ref and name")
@@ -558,6 +594,74 @@ def dispatch(command, args):
         if set(args) != {"ref"}:
             raise CommandError("InvalidArgument", "NLA strip remove requires ref")
         return semantic.nla_strip_remove(args["ref"])
+    if command == "driver.blender.fcurve.keyframe.add":
+        if not set(args).issubset({"fcurve_ref", "frame", "value", "keyframe_type"}) or not {"fcurve_ref", "frame", "value"}.issubset(args):
+            raise CommandError("InvalidArgument", "F-Curve keyframe add requires fcurve_ref, frame and value")
+        return semantic.fcurve_keyframe_add(args["fcurve_ref"], args["frame"], args["value"], args.get("keyframe_type", "KEYFRAME"))
+    if command == "driver.blender.fcurve.keyframe.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "F-Curve keyframe remove requires ref")
+        return semantic.fcurve_keyframe_remove(args["ref"])
+    if command == "driver.blender.fcurve.modifier.add":
+        if set(args) != {"fcurve_ref", "type"}:
+            raise CommandError("InvalidArgument", "F-Curve modifier add requires fcurve_ref and type")
+        return semantic.fcurve_modifier_add(args["fcurve_ref"], args["type"])
+    if command == "driver.blender.fcurve.modifier.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "F-Curve modifier remove requires ref")
+        return semantic.fcurve_modifier_remove(args["ref"])
+    if command == "driver.blender.scene.view_layer.add":
+        if set(args) != {"scene_ref", "name"}:
+            raise CommandError("InvalidArgument", "View-layer add requires scene_ref and name")
+        return semantic.view_layer_add(args["scene_ref"], args["name"])
+    if command == "driver.blender.scene.view_layer.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "View-layer remove requires ref")
+        return semantic.view_layer_remove(args["ref"])
+    if command == "driver.blender.scene.view_layer.move":
+        if set(args) != {"ref", "to_index"}:
+            raise CommandError("InvalidArgument", "View-layer move requires ref and to_index")
+        return semantic.view_layer_move(args["ref"], args["to_index"])
+    if command == "driver.blender.scene.marker.add":
+        if set(args) != {"scene_ref", "name", "frame"}:
+            raise CommandError("InvalidArgument", "Timeline-marker add requires scene_ref, name and frame")
+        return semantic.timeline_marker_add(args["scene_ref"], args["name"], args["frame"])
+    if command == "driver.blender.scene.marker.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Timeline-marker remove requires ref")
+        return semantic.timeline_marker_remove(args["ref"])
+    if command == "driver.blender.sequence.ensure":
+        if set(args) != {"scene_ref"}:
+            raise CommandError("InvalidArgument", "Sequence ensure requires scene_ref")
+        return semantic.sequence_editor_ensure(args["scene_ref"])
+    if command == "driver.blender.sequence.media.add":
+        if not set(args).issubset({"scene_ref", "kind", "name", "path", "channel", "frame_start", "fit_method"}) or not {"scene_ref", "kind", "name", "path", "channel", "frame_start"}.issubset(args):
+            raise CommandError("InvalidArgument", "Sequence media add requires scene_ref, kind, name, path, channel and frame_start")
+        return semantic.sequence_media_add(args["scene_ref"], args["kind"], args["name"], args["path"], args["channel"], args["frame_start"], args.get("fit_method", "ORIGINAL"))
+    if command == "driver.blender.sequence.datablock.add":
+        if set(args) != {"scene_ref", "kind", "name", "source_ref", "channel", "frame_start"}:
+            raise CommandError("InvalidArgument", "Sequence datablock add requires scene_ref, kind, name, source_ref, channel and frame_start")
+        return semantic.sequence_datablock_add(args["scene_ref"], args["kind"], args["name"], args["source_ref"], args["channel"], args["frame_start"])
+    if command == "driver.blender.sequence.meta.add":
+        if set(args) != {"scene_ref", "name", "channel", "frame_start"}:
+            raise CommandError("InvalidArgument", "Sequence meta add requires scene_ref, name, channel and frame_start")
+        return semantic.sequence_meta_add(args["scene_ref"], args["name"], args["channel"], args["frame_start"])
+    if command == "driver.blender.sequence.effect.add":
+        if not set(args).issubset({"scene_ref", "name", "type", "channel", "frame_start", "frame_end", "input1_ref", "input2_ref"}) or not {"scene_ref", "name", "type", "channel", "frame_start"}.issubset(args):
+            raise CommandError("InvalidArgument", "Sequence effect add requires scene_ref, name, type, channel and frame_start")
+        return semantic.sequence_effect_add(args["scene_ref"], args["name"], args["type"], args["channel"], args["frame_start"], args.get("frame_end", 0), args.get("input1_ref"), args.get("input2_ref"))
+    if command == "driver.blender.sequence.strip.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Sequence strip remove requires ref")
+        return semantic.sequence_strip_remove(args["ref"])
+    if command == "driver.blender.sequence.modifier.add":
+        if set(args) != {"strip_ref", "name", "type"}:
+            raise CommandError("InvalidArgument", "Sequence modifier add requires strip_ref, name and type")
+        return semantic.sequence_modifier_add(args["strip_ref"], args["name"], args["type"])
+    if command == "driver.blender.sequence.modifier.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Sequence modifier remove requires ref")
+        return semantic.sequence_modifier_remove(args["ref"])
     if command == "driver.blender.modifier.add":
         if set(args) != {"object_ref", "name", "type"}:
             raise CommandError("InvalidArgument", "Modifier add requires object_ref, name and type")
