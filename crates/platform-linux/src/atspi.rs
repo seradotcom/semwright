@@ -681,13 +681,7 @@ impl Atspi {
             "changed_during_snapshot": ending != revision,
             "semantic_coverage": if partial {"partial"} else {"reported_tree"},
             "event_invalidation": events_live && !self.noble_legacy_guard,
-            "visited": visited,
-            "compatibility_guard": self.noble_legacy_guard.then_some("ubuntu-noble-atspi-legacy"),
-            "effective_limits": {
-                "max_nodes": budget,
-                "max_depth": max_depth,
-                "children_per_node": child_limit
-            }
+            "visited": visited
         }))
     }
 }
