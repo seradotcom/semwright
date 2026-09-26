@@ -993,7 +993,11 @@ impl Driver for BlenderDriver {
                     "Invalid embedded Blender output schema",
                 )
             })?;
-        if !output.is_valid(&value) {
+        if let Some(error) = output.iter_errors(&value).next() {
+            eprintln!(
+                "Blender output schema rejected command={} at {}: {:?}",
+                command, error.instance_path, error.kind
+            );
             return Err(Error::new(
                 ErrorCode::PluginProtocolError,
                 "Blender driver produced output outside its descriptor schema",
