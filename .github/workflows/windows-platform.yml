@@ -127,6 +127,10 @@ jobs:
           -p semwright-driver-host
           -p semwright-plugin-host
           -p semwright-daemon
+      - name: Secure Windows Plugin Host round-trip
+        run: cargo test --locked -p semwright-plugin-host --features test-tools --test windows_secure_host -- --nocapture
+      - name: Secure Windows external MCP round-trip
+        run: cargo test --locked -p semwright-federation --test windows_secure_stdio -- --nocapture
       - name: Native Windows docs
         run: |
           set -euo pipefail

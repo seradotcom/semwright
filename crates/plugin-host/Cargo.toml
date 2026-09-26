@@ -41,3 +41,8 @@ path = "src/semwright-sandbox.rs"
 name = "semwright-adversarial-plugin-fixture"
 path = "src/bin/adversarial_plugin_fixture.rs"
 required-features = ["test-tools"]
+
+[[bin]]
+name = "semwright-windows-plugin-fixture"
+path = "src/bin/windows_plugin_fixture.rs"
+required-features = ["test-tools"]
