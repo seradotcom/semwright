@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-09-26",
+  "status": "PASS",
+  "scope": "R02 additional supported Wayland desktop portal-granted keyboard certification",
+  "candidate": {
+    "commit": "6e9fb1b158d7d59be391f6d5f931c9d761862e6b",
+    "daemon_sha256": "b54e5ab8c5d9f71a35c38c77c32db49a3fb3e3f68422d351eb6cb0485b99ec1a",
+    "cli_sha256": "d91455992d9fbfdee8c945e36282387cc92e1d90f40c68ba427b876f9aab0d29",
+    "portal_rs_blob": "e3d687175abc7a9b1f5c8578d5b31460936d03d7",
+    "kwin_bridge_blob": "2bd5aa2d1db6847337d22c2bccc1d6c2eb8b2f46"
+  },
+  "environment": {
+    "isolation_mode": "vm",
+    "virtualization": "kvm",
+    "os": "Ubuntu 24.04.5 LTS",
+    "session_type": "wayland",
+    "desktop": "KDE Plasma",
+    "kwin_version": "5.27.11",
+    "xdg_desktop_portal_version": "1.18.4-1ubuntu2.24.04.3",
+    "xdg_desktop_portal_kde_version": "5.27.11-0ubuntu3",
+    "remote_desktop_version": 2,
+    "connect_to_eis": "unavailable: org.freedesktop.portal.RemoteDesktop.ConnectToEIS returned UnknownMethod",
+    "input_route": "portal_notify",
+    "preflight_status": "PASS_PREFLIGHT_ONLY"
+  },
+  "human_consent": {
+    "semwright_broker": "Approved once",
+    "portal_session": "granted",
+    "note": "KDE Plasma 5.27 uses the legacy RemoteDesktop notification path here; no EIS connection or second EIS-specific dialog is claimed."
+  },
+  "regression_trigger": {
+    "unpaced_observation": "A 4096-character uppercase call returned ok=true while only 2753 characters reached the GTK Wayland target.",
+    "nine_ms_observation": "Four characters per 9 ms reached 3799 characters before the broker's 10 s timeout.",
+    "final_pacing": "Four characters per 8 ms."
+  },
+  "long_text": {
+    "requested_characters": 4096,
+    "target_characters": 4096,
+    "stable_target_characters": 4096,
+    "target_changes": 4096,
+    "character": "A",
+    "duration_ms": 9595.384814,
+    "command_ok": true,
+    "backend": "portal",
+    "route": "portal_notify",
+    "stable_after_completion": true,
+    "status": "PASS"
+  },
+  "cancellation": {
+    "requested_characters": 4096,
+    "cancel_delay_ms": 20,
+    "cancel_sent_after_ms": 20.274279,
+    "result_after_ms": 29.150047,
+    "result_code": "Cancelled",
+    "settled_characters": 1,
+    "plateau_observed": true,
+    "plateau_before_observation_end": true,
+    "followup_text": "z",
+    "final_text_tail": "Az",
+    "followup_route": "portal_notify",
+    "no_stuck_shift": true,
+    "status": "PASS"
+  },
+  "focus_drift": {
+    "stale_target_characters": 0,
+    "focused_target_characters": 0,
+    "result_ok": false,
+    "error_code": "Conflict",
+    "error_message": "Input requires a still-focused window reference; no fallback was attempted",
+    "backend": "portal",
+    "status": "PASS"
+  },
+  "shutdown": {
+    "portal_stop_ok": true,
+    "consent": "expired",
+    "eis": "inactive",
+    "input_route": "none",
+    "session_active": false,
+    "status": "PASS"
+  },
+  "limitations": [
+    "This certifies Plasma/KDE 5.27 RemoteDesktop keyboard delivery through portal_notify, not ConnectToEIS.",
+    "This evidence does not close the broader physical/real-login mixed-scale and compositor-restart matrix tracked by R06.",
+    "This evidence is not an independent security review and does not close R16."
+  ]
+}
