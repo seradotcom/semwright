@@ -47,10 +47,11 @@
   },
   "invalidation_reason": "Subsequent owner-observed GNOME Wayland stress testing demonstrated that EIS keyboard injection could escape the intended disposable fixture and land in the user-active ChatGPT text box despite prior window focus checks. Therefore the real-desktop keyboard methodology does not prove target exclusivity and this run must not be counted as end-to-end certification.",
   "limitations": [
-    "INVALIDATED FOR CERTIFICATION: real-desktop focus checks were insufficient to guarantee that all EIS keyboard events remained inside the disposable fixture.",
+    "INVALIDATED FOR CERTIFICATION: real-desktop focus checks were insufficient to guarantee that EIS keyboard events remained inside the disposable fixture.",
+    "A later nested-GNOME attempt with separate HOME/runtime/D-Bus/Wayland was also insufficient isolation because RemoteDesktop/EIS remained associated with the owner-active graphical login.",
     "The broker correctly reports outcome_known=false for cancelled mutating input; target state must be inspected before retrying.",
-    "The 4096-character uncancelled stress attempt encountered EIS socket backpressure after a partial effect; that diagnostic is not counted as passing cancellation evidence.",
-    "This run certifies GNOME Wayland only and does not substitute for portal-granted live runs on every supported Wayland desktop."
+    "The 4096-character uncancelled stress attempt exposed EIS transport backpressure; deterministic transport hardening is tracked separately.",
+    "This record is diagnostic only and does not certify GNOME keyboard target delivery."
   ],
   "methodology_valid": false,
   "observed_target": {
