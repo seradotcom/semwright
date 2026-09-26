@@ -429,7 +429,8 @@ impl Cdp {
                         }
                     }
 
-                    // Metadata only: no console text, headers, URLs, request bodies or download names.
+                    // Bounded metadata only: never console text, headers, URLs, request bodies,
+                    // download names or dialog prompt input. Dialog messages are page-visible data.
                     if matches!(
                         method,
                         "Browser.downloadWillBegin"
@@ -437,13 +438,32 @@ impl Cdp {
                             | "Log.entryAdded"
                             | "Network.loadingFailed"
                             | "Inspector.targetCrashed"
+                            | "Page.javascriptDialogOpening"
+                            | "Page.javascriptDialogClosed"
                     ) {
                         let mut row = json!({"event":method});
+                        if let Some(session) = value.get("sessionId").and_then(Value::as_str) {
+                            row["session"] = json!(session.chars().take(256).collect::<String>());
+                        }
                         if let Some(guid) = download_guid {
                             row["guid"] = json!(guid);
                         }
                         if let Some(state) = download_state {
                             row["state"] = json!(state);
+                        }
+                        if method == "Page.javascriptDialogOpening" {
+                            if let Some(kind) =
+                                value.pointer("/params/type").and_then(Value::as_str)
+                            {
+                                row["dialog_type"] =
+                                    json!(kind.chars().take(32).collect::<String>());
+                            }
+                            if let Some(message) =
+                                value.pointer("/params/message").and_then(Value::as_str)
+                            {
+                                row["message"] =
+                                    json!(message.chars().take(512).collect::<String>());
+                            }
                         }
                         for key in ["receivedBytes", "totalBytes"] {
                             if let Some(count) = value
@@ -1170,7 +1190,7 @@ fn compact_ax(instance: &Instance, target: &str, session: &str, node: &Value) ->
     }
     let mut actions = Vec::new();
     if reference.is_some() {
-        actions.extend(["focus", "scroll"]);
+        actions.extend(["focus", "scroll", "hover"]);
         if matches!(
             role.as_str(),
             "button"
@@ -1183,13 +1203,13 @@ fn compact_ax(instance: &Instance, target: &str, session: &str, node: &Value) ->
                 | "treeitem"
                 | "option"
         ) {
-            actions.push("click");
+            actions.extend(["click", "press"]);
         }
-        if matches!(
-            role.as_str(),
-            "textbox" | "searchbox" | "combobox" | "spinbutton"
-        ) {
-            actions.push("fill");
+        if matches!(role.as_str(), "textbox" | "searchbox" | "spinbutton") {
+            actions.extend(["fill", "press"]);
+        }
+        if matches!(role.as_str(), "combobox" | "listbox") {
+            actions.extend(["select", "press"]);
         }
         if matches!(role.as_str(), "checkbox" | "radio" | "switch") {
             actions.push("check");
@@ -1242,6 +1262,228 @@ fn semantic_query_matches(row: &Value, args: &Value) -> bool {
         return false;
     }
     true
+}
+
+fn key_spec(name: &str) -> Option<(&'static str, &'static str, u64)> {
+    Some(match name {
+        "Enter" => ("Enter", "Enter", 13),
+        "Tab" => ("Tab", "Tab", 9),
+        "Escape" => ("Escape", "Escape", 27),
+        "Space" => (" ", "Space", 32),
+        "ArrowUp" => ("ArrowUp", "ArrowUp", 38),
+        "ArrowDown" => ("ArrowDown", "ArrowDown", 40),
+        "ArrowLeft" => ("ArrowLeft", "ArrowLeft", 37),
+        "ArrowRight" => ("ArrowRight", "ArrowRight", 39),
+        "Home" => ("Home", "Home", 36),
+        "End" => ("End", "End", 35),
+        "PageUp" => ("PageUp", "PageUp", 33),
+        "PageDown" => ("PageDown", "PageDown", 34),
+        _ => return None,
+    })
+}
+
+fn modifier_mask(args: &Value) -> Result<u64> {
+    let Some(items) = args["modifiers"].as_array() else {
+        return Ok(0);
+    };
+    if items.len() > 4 {
+        return Err(Error::invalid(
+            "At most four keyboard modifiers are allowed",
+        ));
+    }
+    let mut mask = 0u64;
+    for item in items {
+        mask |= match item.as_str() {
+            Some("Alt") => 1,
+            Some("Control") => 2,
+            Some("Meta") => 4,
+            Some("Shift") => 8,
+            _ => return Err(Error::invalid("Unknown keyboard modifier")),
+        };
+    }
+    Ok(mask)
+}
+
+async fn dispatch_key(cdp: &Cdp, session: &str, name: &str, modifiers: u64) -> Result<()> {
+    let (key, code, virtual_key) =
+        key_spec(name).ok_or_else(|| Error::invalid("Unsupported semantic key"))?;
+    for kind in ["keyDown", "keyUp"] {
+        cdp.call(
+            "Input.dispatchKeyEvent",
+            json!({
+                "type":kind,
+                "key":key,
+                "code":code,
+                "windowsVirtualKeyCode":virtual_key,
+                "nativeVirtualKeyCode":virtual_key,
+                "modifiers":modifiers
+            }),
+            Some(session),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+async fn focus_backend_node(cdp: &Cdp, session: &str, node: u64) -> Result<()> {
+    cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(session))
+        .await?;
+    let doc = cdp
+        .call("DOM.getDocument", json!({"depth":0}), Some(session))
+        .await?;
+    let focused = cdp
+        .call(
+            "DOM.querySelector",
+            json!({"nodeId":doc["root"]["nodeId"],"selector":":focus"}),
+            Some(session),
+        )
+        .await?;
+    let focused = cdp
+        .call(
+            "DOM.describeNode",
+            json!({"nodeId":focused["nodeId"],"depth":0}),
+            Some(session),
+        )
+        .await?;
+    if focused["node"]["backendNodeId"].as_u64() != Some(node) {
+        return Err(Error::new(ErrorCode::Conflict, "DOM focus changed"));
+    }
+    Ok(())
+}
+
+async fn actionable_point(cdp: &Cdp, session: &str, node: u64) -> Result<(f64, f64)> {
+    let model = cdp
+        .call(
+            "DOM.getBoxModel",
+            json!({"backendNodeId":node}),
+            Some(session),
+        )
+        .await?;
+    let quad = model["model"]["content"]
+        .as_array()
+        .filter(|quad| quad.len() == 8)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::NotFound,
+                "DOM node has no actionable content quad",
+            )
+        })?;
+    let coordinates: Vec<f64> = quad
+        .iter()
+        .map(|value| value.as_f64().unwrap_or(f64::NAN))
+        .collect();
+    let x = (coordinates[0] + coordinates[2] + coordinates[4] + coordinates[6]) / 4.0;
+    let y = (coordinates[1] + coordinates[3] + coordinates[5] + coordinates[7]) / 4.0;
+    if !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 || x > 16384.0 || y > 16384.0 {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "DOM action coordinate is outside the bounded viewport",
+        ));
+    }
+    let hit = cdp
+        .call(
+            "DOM.getNodeForLocation",
+            json!({
+                "x":x.round() as i32,
+                "y":y.round() as i32,
+                "includeUserAgentShadowDOM":false,
+                "ignorePointerEventsNone":false
+            }),
+            Some(session),
+        )
+        .await?;
+    if hit["backendNodeId"].as_u64() != Some(node) {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Another DOM element covers the target; choose the precise hit element explicitly",
+        ));
+    }
+    Ok((x, y))
+}
+
+fn checked_state(node: &Value) -> Option<bool> {
+    match ax_property(node, "checked")? {
+        Value::Bool(value) => Some(value),
+        Value::String(value) if value == "true" => Some(true),
+        Value::String(value) if value == "false" => Some(false),
+        _ => None,
+    }
+}
+
+async fn ax_node_for_backend(cdp: &Cdp, session: &str, node: u64) -> Result<Value> {
+    let result = cdp
+        .call(
+            "Accessibility.getPartialAXTree",
+            json!({"backendNodeId":node,"fetchRelatives":false}),
+            Some(session),
+        )
+        .await?;
+    result["nodes"]
+        .as_array()
+        .and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|candidate| candidate["backendDOMNodeId"].as_u64() == Some(node))
+                .or_else(|| nodes.first())
+        })
+        .cloned()
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "No accessibility node found"))
+}
+
+fn dom_node_text(node: &Value, remaining: &mut usize, out: &mut String) {
+    if *remaining == 0 || out.len() >= 512 {
+        return;
+    }
+    *remaining -= 1;
+    let value = node["nodeValue"].as_str().unwrap_or("").trim();
+    if !value.is_empty() {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.extend(value.chars().take(512usize.saturating_sub(out.len())));
+    }
+    if let Some(children) = node["children"].as_array() {
+        for child in children {
+            dom_node_text(child, remaining, out);
+            if *remaining == 0 || out.len() >= 512 {
+                break;
+            }
+        }
+    }
+}
+
+fn collect_select_options(node: &Value, rows: &mut Vec<(usize, String)>) -> Result<()> {
+    if node["nodeName"].as_str() == Some("OPTION") {
+        if rows.len() >= 200 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Select contains more than 200 enabled options",
+            ));
+        }
+        if attribute(node, "disabled").is_some() {
+            return Ok(());
+        }
+        let mut label = attribute(node, "label").unwrap_or_default();
+        if label.is_empty() {
+            let mut budget = 16;
+            dom_node_text(node, &mut budget, &mut label);
+        }
+        let index = rows.len();
+        rows.push((index, label));
+        return Ok(());
+    }
+    if let Some(children) = node["children"].as_array() {
+        for child in children {
+            collect_select_options(child, rows)?;
+        }
+    }
+    Ok(())
+}
+
+fn select_options(node: &Value) -> Result<Vec<(usize, String)>> {
+    let mut rows = Vec::new();
+    collect_select_options(node, &mut rows)?;
+    Ok(rows)
 }
 
 fn compact_dom(
@@ -1567,6 +1809,51 @@ impl Backend for Chromium {
                 .await?;
                 Ok(json!({"changed":true}))
             }
+            "browser.dialog.status" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let mut latest: Option<Value> = None;
+                for event in cdp.metadata()? {
+                    if event["session"].as_str() != Some(session.as_str()) {
+                        continue;
+                    }
+                    if matches!(
+                        event["event"].as_str(),
+                        Some("Page.javascriptDialogOpening" | "Page.javascriptDialogClosed")
+                    ) {
+                        latest = Some(event);
+                    }
+                }
+                let open = latest.as_ref().and_then(|event| event["event"].as_str())
+                    == Some("Page.javascriptDialogOpening");
+                Ok(json!({
+                    "open":open,
+                    "dialog_type":if open { latest.as_ref().and_then(|event|event["dialog_type"].as_str()) } else { None },
+                    "message":if open { latest.as_ref().and_then(|event|event["message"].as_str()) } else { None },
+                    "prompt_value_redacted":true
+                }))
+            }
+            "browser.dialog.respond" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let accept = args["accept"].as_bool().unwrap_or(false);
+                if !accept && args.get("prompt_text").is_some() {
+                    return Err(Error::invalid(
+                        "prompt_text is only valid when accepting a prompt",
+                    ));
+                }
+                let mut params = json!({"accept":accept});
+                if let Some(prompt) = args["prompt_text"].as_str() {
+                    params["promptText"] = json!(prompt);
+                }
+                ctx.check_cancelled()?;
+                cdp.invalidate_session(&session)?;
+                cdp.call("Page.handleJavaScriptDialog", params, Some(&session))
+                    .await?;
+                Ok(json!({"accepted":accept,"handled":true}))
+            }
             "browser.frame.list" => {
                 if node.is_some() {
                     return Err(Error::invalid("Tab or frame reference required"));
@@ -1592,6 +1879,81 @@ impl Backend for Chromium {
                 }
                 let count = rows.len();
                 Ok(json!({"frames":rows,"count":count,"truncated":count==256}))
+            }
+            "browser.semantic.wait" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required for semantic wait"));
+                }
+                let timeout_ms = args["timeout_ms"]
+                    .as_u64()
+                    .unwrap_or(5_000)
+                    .clamp(1, 10_000);
+                let min_count = args["min_count"].as_u64().unwrap_or(1).clamp(1, 200) as usize;
+                let max_results = args["max_results"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
+                let deadline =
+                    std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
+                loop {
+                    ctx.check_cancelled()?;
+                    let generation = cdp.generation(&session)?;
+                    let result = cdp
+                        .call(
+                            "Accessibility.getFullAXTree",
+                            json!({"depth":args["depth"].as_u64().unwrap_or(16).min(32)}),
+                            Some(&session),
+                        )
+                        .await?;
+                    if cdp.generation(&session)? != generation {
+                        if std::time::Instant::now() >= deadline {
+                            return Err(Error::new(
+                                ErrorCode::Timeout,
+                                "Semantic wait timed out while the document kept changing",
+                            ));
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                        continue;
+                    }
+                    let nodes = result["nodes"].as_array().ok_or_else(|| {
+                        Error::new(ErrorCode::BackendFailed, "Accessibility tree is malformed")
+                    })?;
+                    let include_ignored = args["include_ignored"].as_bool().unwrap_or(false);
+                    let mut rows = Vec::new();
+                    let mut count = 0usize;
+                    for ax in nodes {
+                        if !include_ignored && ax["ignored"].as_bool().unwrap_or(false) {
+                            continue;
+                        }
+                        let row = compact_ax(instance, &tab, &session, ax)?;
+                        if !semantic_query_matches(&row, args) {
+                            continue;
+                        }
+                        count = count.saturating_add(1);
+                        if rows.len() < max_results {
+                            rows.push(row);
+                        }
+                    }
+                    if count >= min_count {
+                        let single = if count == 1 {
+                            rows.first().cloned()
+                        } else {
+                            None
+                        };
+                        return Ok(json!({
+                            "matches":rows,
+                            "single":single,
+                            "count":count,
+                            "truncated":count > max_results,
+                            "source":"cdp_accessibility_tree",
+                            "generation":generation
+                        }));
+                    }
+                    if std::time::Instant::now() >= deadline {
+                        return Err(Error::new(
+                            ErrorCode::Timeout,
+                            "Semantic wait timed out before enough matching elements appeared",
+                        ));
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                }
             }
             "browser.semantic.snapshot" | "browser.semantic.query" => {
                 if node.is_some() {
@@ -1659,6 +2021,68 @@ impl Backend for Chromium {
                     "generation": generation,
                     "arbitrary_javascript": false
                 }))
+            }
+            "browser.semantic.wait" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required for semantic wait"));
+                }
+                let timeout_ms = args["timeout_ms"]
+                    .as_u64()
+                    .unwrap_or(5_000)
+                    .clamp(1, 30_000);
+                let poll_ms = args["poll_ms"].as_u64().unwrap_or(100).clamp(50, 1_000);
+                let present = args["present"].as_bool().unwrap_or(true);
+                let deadline =
+                    std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
+                loop {
+                    ctx.check_cancelled()?;
+                    let generation = cdp.generation(&session)?;
+                    let result = cdp
+                        .call(
+                            "Accessibility.getFullAXTree",
+                            json!({"depth":args["depth"].as_u64().unwrap_or(8).min(32)}),
+                            Some(&session),
+                        )
+                        .await?;
+                    let nodes = result["nodes"].as_array().ok_or_else(|| {
+                        Error::new(ErrorCode::BackendFailed, "Accessibility tree is malformed")
+                    })?;
+                    let mut rows = Vec::new();
+                    for ax in nodes {
+                        if ax["ignored"].as_bool().unwrap_or(false) {
+                            continue;
+                        }
+                        let row = compact_ax(instance, &tab, &session, ax)?;
+                        if semantic_query_matches(&row, args) {
+                            rows.push(row);
+                            if rows.len() == 20 {
+                                break;
+                            }
+                        }
+                    }
+                    if cdp.generation(&session)? == generation {
+                        let satisfied = if present {
+                            !rows.is_empty()
+                        } else {
+                            rows.is_empty()
+                        };
+                        if satisfied {
+                            return Ok(json!({
+                                "satisfied":true,
+                                "present":present,
+                                "matches":rows,
+                                "generation":generation
+                            }));
+                        }
+                    }
+                    if std::time::Instant::now() >= deadline {
+                        return Err(Error::new(
+                            ErrorCode::Timeout,
+                            "Semantic wait timed out before the requested condition was satisfied",
+                        ));
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(poll_ms)).await;
+                }
             }
             "browser.semantic.inspect" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
@@ -1825,6 +2249,168 @@ impl Backend for Chromium {
                 self.validate_in(instance, &target).await?;
                 Ok(json!({"accepted":true,"method":"DOM.scrollIntoViewIfNeeded"}))
             }
+            "browser.element.hover" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                if frame.is_some() {
+                    return Err(Error::invalid("DOM reference required"));
+                }
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":node}),
+                    Some(&session),
+                )
+                .await?;
+                self.validate_in(instance, &target).await?;
+                let (x, y) = actionable_point(&cdp, &session, node).await?;
+                ctx.check_cancelled()?;
+                cdp.invalidate_session(&session)?;
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseMoved","x":x,"y":y,"button":"none"}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({
+                    "accepted":true,
+                    "method":"DOM hit-test + CDP Input hover",
+                    "coordinate_space":"viewport_css_pixels"
+                }))
+            }
+            "browser.element.press" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                if frame.is_some() {
+                    return Err(Error::invalid("DOM reference required"));
+                }
+                let key = arg_str(args, "key")?;
+                let modifiers = modifier_mask(args)?;
+                let reported_modifiers = args["modifiers"].as_array().cloned().unwrap_or_default();
+                focus_backend_node(&cdp, &session, node).await?;
+                ctx.check_cancelled()?;
+                cdp.invalidate_session(&session)?;
+                dispatch_key(&cdp, &session, key, modifiers).await?;
+                Ok(json!({"accepted":true,"key":key,"modifiers":reported_modifiers}))
+            }
+            "browser.element.check" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                if frame.is_some() {
+                    return Err(Error::invalid("DOM reference required"));
+                }
+                let desired = args["checked"].as_bool().unwrap_or(true);
+                let before = ax_node_for_backend(&cdp, &session, node).await?;
+                let role = ax_text(&before, "role").unwrap_or_default();
+                if !matches!(role.as_str(), "checkbox" | "radio" | "switch") {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Check requires a checkbox, radio or switch semantic role",
+                    ));
+                }
+                if role == "radio" && !desired {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Radio buttons cannot be unchecked directly; choose another radio option",
+                    ));
+                }
+                let current = checked_state(&before).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Semantic checked state is unavailable",
+                    )
+                })?;
+                if current == desired {
+                    return Ok(json!({"changed":false,"checked":current}));
+                }
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":node}),
+                    Some(&session),
+                )
+                .await?;
+                self.validate_in(instance, &target).await?;
+                let (x, y) = actionable_point(&cdp, &session, node).await?;
+                ctx.check_cancelled()?;
+                cdp.invalidate_session(&session)?;
+                for kind in ["mousePressed", "mouseReleased"] {
+                    cdp.call(
+                        "Input.dispatchMouseEvent",
+                        json!({"type":kind,"x":x,"y":y,"button":"left","clickCount":1}),
+                        Some(&session),
+                    )
+                    .await?;
+                }
+                let after = ax_node_for_backend(&cdp, &session, node).await?;
+                let checked = checked_state(&after).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Checked state disappeared after action",
+                    )
+                })?;
+                if checked != desired {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Semantic checked state did not reach the requested value",
+                    ));
+                }
+                Ok(json!({"changed":true,"checked":checked}))
+            }
+            "browser.element.select" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                if frame.is_some() {
+                    return Err(Error::invalid("DOM reference required"));
+                }
+                let label = arg_str(args, "label")?;
+                let description = cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":4,"pierce":false}),
+                        Some(&session),
+                    )
+                    .await?;
+                let select = &description["node"];
+                if select["nodeName"].as_str() != Some("SELECT")
+                    || attribute(select, "multiple").is_some()
+                {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Select currently supports one native single-select HTML SELECT element",
+                    ));
+                }
+                let options = select_options(select)?;
+                let matches: Vec<_> = options
+                    .iter()
+                    .filter(|(_, candidate)| candidate == label)
+                    .collect();
+                if matches.len() != 1 {
+                    return Err(if matches.is_empty() {
+                        Error::new(
+                            ErrorCode::NotFound,
+                            "No enabled option has that exact label",
+                        )
+                    } else {
+                        Error::new(
+                            ErrorCode::Conflict,
+                            "Multiple enabled options share that label",
+                        )
+                    });
+                }
+                let index = matches[0].0;
+                focus_backend_node(&cdp, &session, node).await?;
+                ctx.check_cancelled()?;
+                cdp.invalidate_session(&session)?;
+                dispatch_key(&cdp, &session, "Home", 0).await?;
+                for _ in 0..index {
+                    dispatch_key(&cdp, &session, "ArrowDown", 0).await?;
+                }
+                dispatch_key(&cdp, &session, "Enter", 0).await?;
+                let after = ax_node_for_backend(&cdp, &session, node).await?;
+                let value = ax_text(&after, "value").unwrap_or_default();
+                if value != label {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Native select did not expose the requested semantic value after input",
+                    ));
+                }
+                Ok(json!({"changed":true,"selected":value}))
+            }
             "browser.dom.click" | "browser.element.click" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
                 cdp.call(
@@ -1834,47 +2420,7 @@ impl Backend for Chromium {
                 )
                 .await?;
                 self.validate_in(instance, &target).await?;
-                let model = cdp
-                    .call(
-                        "DOM.getBoxModel",
-                        json!({"backendNodeId":node}),
-                        Some(&session),
-                    )
-                    .await?;
-                let quad = model["model"]["content"]
-                    .as_array()
-                    .filter(|q| q.len() == 8)
-                    .ok_or_else(|| {
-                        Error::new(
-                            ErrorCode::NotFound,
-                            "DOM node has no actionable content quad",
-                        )
-                    })?;
-                let coordinates: Vec<f64> = quad
-                    .iter()
-                    .map(|v| v.as_f64().unwrap_or(f64::NAN))
-                    .collect();
-                let x = (coordinates[0] + coordinates[2] + coordinates[4] + coordinates[6]) / 4.0;
-                let y = (coordinates[1] + coordinates[3] + coordinates[5] + coordinates[7]) / 4.0;
-                if !x.is_finite()
-                    || !y.is_finite()
-                    || x < 0.0
-                    || y < 0.0
-                    || x > 16384.0
-                    || y > 16384.0
-                {
-                    return Err(Error::new(
-                        ErrorCode::Conflict,
-                        "DOM click coordinate is outside the bounded viewport",
-                    ));
-                }
-                let hit=cdp.call("DOM.getNodeForLocation",json!({"x":x.round()as i32,"y":y.round()as i32,"includeUserAgentShadowDOM":false,"ignorePointerEventsNone":false}),Some(&session)).await?;
-                if hit["backendNodeId"].as_u64() != Some(node) {
-                    return Err(Error::new(
-                        ErrorCode::Conflict,
-                        "Another DOM element covers the target; choose the precise hit element explicitly",
-                    ));
-                }
+                let (x, y) = actionable_point(&cdp, &session, node).await?;
                 ctx.check_cancelled()?;
                 // A click may synchronously mutate or navigate before CDP emits its
                 // corresponding event. Conservatively retire all current DOM refs first.

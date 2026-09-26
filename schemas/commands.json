@@ -17045,14 +17045,17 @@
               },
               "actions": {
                 "type": "array",
-                "maxItems": 5,
+                "maxItems": 8,
                 "uniqueItems": true,
                 "items": {
                   "enum": [
                     "focus",
                     "scroll",
+                    "hover",
                     "click",
+                    "press",
                     "fill",
+                    "select",
                     "check"
                   ]
                 }
@@ -17270,14 +17273,17 @@
               },
               "actions": {
                 "type": "array",
-                "maxItems": 5,
+                "maxItems": 8,
                 "uniqueItems": true,
                 "items": {
                   "enum": [
                     "focus",
                     "scroll",
+                    "hover",
                     "click",
+                    "press",
                     "fill",
+                    "select",
                     "check"
                   ]
                 }
@@ -17398,14 +17404,17 @@
                 },
                 "actions": {
                   "type": "array",
-                  "maxItems": 5,
+                  "maxItems": 8,
                   "uniqueItems": true,
                   "items": {
                     "enum": [
                       "focus",
                       "scroll",
+                      "hover",
                       "click",
+                      "press",
                       "fill",
+                      "select",
                       "check"
                     ]
                   }
@@ -17582,14 +17591,17 @@
             },
             "actions": {
               "type": "array",
-              "maxItems": 5,
+              "maxItems": 8,
               "uniqueItems": true,
               "items": {
                 "enum": [
                   "focus",
                   "scroll",
+                  "hover",
                   "click",
+                  "press",
                   "fill",
+                  "select",
                   "check"
                 ]
               }
@@ -17896,6 +17908,629 @@
       "required": [
         "accepted",
         "replaced_selection"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.hover",
+    "version": "1.0",
+    "description": "Hover one exact semantic element after DOM generation validation and hit-testing.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "method": {
+          "const": "DOM hit-test + CDP Input hover"
+        },
+        "coordinate_space": {
+          "const": "viewport_css_pixels"
+        }
+      },
+      "required": [
+        "accepted",
+        "method",
+        "coordinate_space"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.press",
+    "version": "1.0",
+    "description": "Press one allowlisted semantic key on an exact focused element; arbitrary key sequences are not accepted.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "key": {
+          "enum": [
+            "Enter",
+            "Tab",
+            "Escape",
+            "Space",
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown"
+          ]
+        },
+        "modifiers": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "Alt",
+              "Control",
+              "Meta",
+              "Shift"
+            ]
+          }
+        }
+      },
+      "required": [
+        "ref",
+        "key"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "key": {
+          "enum": [
+            "Enter",
+            "Tab",
+            "Escape",
+            "Space",
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown"
+          ]
+        },
+        "modifiers": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "Alt",
+              "Control",
+              "Meta",
+              "Shift"
+            ]
+          }
+        }
+      },
+      "required": [
+        "accepted",
+        "key",
+        "modifiers"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.check",
+    "version": "1.0",
+    "description": "Set an exact checkbox/switch/radio semantic target to the requested checked state and verify it through AX.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "checked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "checked"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        },
+        "checked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "changed",
+        "checked"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.select",
+    "version": "1.0",
+    "description": "Select one enabled option by exact visible label in a native single-select HTML SELECT and verify the AX value.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "ref",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean",
+          "const": true
+        },
+        "selected": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "changed",
+        "selected"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.semantic.wait",
+    "version": "1.0",
+    "description": "Wait for a bounded accessibility-semantic condition without screenshots, polling or JavaScript supplied by the agent.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "exact_name": {
+          "type": "boolean"
+        },
+        "action": {
+          "enum": [
+            "focus",
+            "scroll",
+            "hover",
+            "click",
+            "press",
+            "fill",
+            "select",
+            "check"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        },
+        "poll_ms": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 1000
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "role"
+          ]
+        },
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "required": [
+            "action"
+          ]
+        }
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "satisfied": {
+          "type": "boolean",
+          "const": true
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "matches": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ax_id": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "ignored": {
+                "type": "boolean"
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "states": {
+                "type": "object",
+                "maxProperties": 16,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  ]
+                }
+              },
+              "actions": {
+                "type": "array",
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "focus",
+                    "scroll",
+                    "hover",
+                    "click",
+                    "press",
+                    "fill",
+                    "select",
+                    "check"
+                  ]
+                }
+              },
+              "ref": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "propertyNames": {
+                      "const": "$ref"
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    "minProperties": 1,
+                    "maxProperties": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "frame_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "parent_ax_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "child_ax_ids": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            },
+            "required": [
+              "ax_id",
+              "ignored",
+              "role",
+              "name",
+              "description",
+              "value",
+              "states",
+              "actions",
+              "ref",
+              "frame_id",
+              "parent_ax_id",
+              "child_ax_ids"
+            ]
+          }
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "satisfied",
+        "present",
+        "matches",
+        "generation"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dialog.status",
+    "version": "1.0",
+    "description": "Inspect the latest bounded JavaScript-dialog state for one owned tab without exposing prompt input.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "open": {
+          "type": "boolean"
+        },
+        "dialog_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "prompt_value_redacted": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "open",
+        "dialog_type",
+        "message",
+        "prompt_value_redacted"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dialog.respond",
+    "version": "1.0",
+    "description": "Accept or dismiss the currently open JavaScript dialog for one owned tab using the Page domain.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "accept": {
+          "type": "boolean"
+        },
+        "prompt_text": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "ref",
+        "accept"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        },
+        "handled": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "accepted",
+        "handled"
       ],
       "additionalProperties": false
     },

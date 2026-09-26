@@ -60,7 +60,7 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                 }
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
                 _ => {
-                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
+                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
                 }
             };
             let response = format!(
@@ -218,6 +218,110 @@ async fn exercise(
         browser.validate(&editor).await.unwrap_err().code,
         ErrorCode::StaleReference
     );
+
+    let waited = browser
+        .execute(
+            ctx,
+            "browser.semantic.wait",
+            &json!({
+                "_target":tab,
+                "role":"button",
+                "name":"Loaded later",
+                "exact_name":true,
+                "present":true,
+                "timeout_ms":5_000,
+                "poll_ms":50
+            }),
+        )
+        .await?;
+    assert_eq!(waited["satisfied"], true);
+    assert_eq!(waited["present"], true);
+
+    let late = semantic_query(browser, ctx, &tab, "button", "Loaded later").await?;
+    browser
+        .execute(ctx, "browser.element.hover", &json!({"_target":late}))
+        .await?;
+    assert_eq!(
+        browser.validate(&late).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let remember = semantic_query(browser, ctx, &tab, "checkbox", "Remember me").await?;
+    let checked = browser
+        .execute(
+            ctx,
+            "browser.element.check",
+            &json!({"_target":remember,"checked":true}),
+        )
+        .await?;
+    assert_eq!(checked["changed"], true);
+    assert_eq!(checked["checked"], true);
+    assert_eq!(
+        browser.validate(&remember).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let country = semantic_query(browser, ctx, &tab, "combobox", "Country").await?;
+    let selected = browser
+        .execute(
+            ctx,
+            "browser.element.select",
+            &json!({"_target":country,"label":"Canada"}),
+        )
+        .await?;
+    assert_eq!(selected["selected"], "Canada");
+    assert_eq!(
+        browser.validate(&country).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let press_target = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    let pressed = browser
+        .execute(
+            ctx,
+            "browser.element.press",
+            &json!({"_target":press_target,"key":"Tab","modifiers":[]}),
+        )
+        .await?;
+    assert_eq!(pressed["key"], "Tab");
+    assert_eq!(
+        browser.validate(&press_target).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let dialog_button = semantic_query(browser, ctx, &tab, "button", "Open dialog").await?;
+    browser
+        .execute(
+            ctx,
+            "browser.element.click",
+            &json!({"_target":dialog_button}),
+        )
+        .await?;
+    let dialog = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let status = browser
+                .execute(ctx, "browser.dialog.status", &json!({"_target":tab}))
+                .await?;
+            if status["open"] == true {
+                return Ok::<Value, semwright_types::Error>(status);
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await??;
+    assert_eq!(dialog["dialog_type"], "confirm");
+    assert_eq!(dialog["message"], "Confirm semantic action");
+    browser
+        .execute(
+            ctx,
+            "browser.dialog.respond",
+            &json!({"_target":tab,"accept":false}),
+        )
+        .await?;
+    let closed = browser
+        .execute(ctx, "browser.dialog.status", &json!({"_target":tab}))
+        .await?;
+    assert_eq!(closed["open"], false);
 
     let input = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
     browser

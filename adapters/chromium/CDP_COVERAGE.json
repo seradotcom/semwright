@@ -1,0 +1,183 @@
+{
+  "schema": "semwright-browser-cdp-coverage/1",
+  "baseline_sha": "e543a6bed1497840efdb06ce0f9b96748e9529a1",
+  "authority": "owned isolated Chromium via CDP; no Runtime.evaluate",
+  "domains": [
+    {
+      "name": "Accessibility",
+      "status": "implemented",
+      "methods": [
+        "enable",
+        "getFullAXTree",
+        "getPartialAXTree"
+      ],
+      "purpose": "role/name/value/state semantic authority"
+    },
+    {
+      "name": "DOM",
+      "status": "implemented",
+      "methods": [
+        "enable",
+        "getDocument",
+        "querySelectorAll",
+        "describeNode",
+        "focus",
+        "scrollIntoViewIfNeeded",
+        "getBoxModel",
+        "getNodeForLocation"
+      ],
+      "purpose": "identity, structure and exact action grounding"
+    },
+    {
+      "name": "DOMSnapshot",
+      "status": "planned",
+      "methods": [
+        "captureSnapshot"
+      ],
+      "purpose": "bounded computed structure/layout evidence without JavaScript"
+    },
+    {
+      "name": "Page",
+      "status": "implemented_core",
+      "methods": [
+        "enable",
+        "navigate",
+        "getFrameTree",
+        "getNavigationHistory",
+        "navigateToHistoryEntry",
+        "reload",
+        "stopLoading",
+        "captureScreenshot",
+        "handleJavaScriptDialog"
+      ],
+      "purpose": "page/frame/lifecycle authority",
+      "remaining": [
+        "cross-origin/OOPIF acceptance"
+      ]
+    },
+    {
+      "name": "Input",
+      "status": "implemented_core",
+      "methods": [
+        "dispatchMouseEvent",
+        "dispatchKeyEvent",
+        "insertText"
+      ],
+      "purpose": "bounded semantic action fallback",
+      "remaining": [
+        "drag/drop"
+      ]
+    },
+    {
+      "name": "Target",
+      "status": "implemented_core",
+      "methods": [
+        "getTargets",
+        "createTarget",
+        "attachToTarget",
+        "closeTarget",
+        "activateTarget"
+      ],
+      "purpose": "owned tab/session lifecycle",
+      "remaining": [
+        "cross-origin/OOPIF acceptance"
+      ]
+    },
+    {
+      "name": "Browser",
+      "status": "implemented_bounded",
+      "methods": [
+        "setDownloadBehavior",
+        "cancelDownload"
+      ],
+      "purpose": "bounded download lifecycle"
+    },
+    {
+      "name": "Network",
+      "status": "metadata_only",
+      "methods": [
+        "enable"
+      ],
+      "purpose": "redacted failure metadata; no headers or bodies"
+    },
+    {
+      "name": "Runtime",
+      "status": "unsupported_by_design",
+      "reason": "arbitrary JavaScript/object evaluation bypasses semantic and policy model"
+    },
+    {
+      "name": "Storage",
+      "status": "unsupported_by_design",
+      "reason": "cookies/storage can contain credentials and are not required for semantic page control"
+    },
+    {
+      "name": "Debugger/Profiler/Tracing",
+      "status": "unsupported_by_design",
+      "reason": "developer diagnostics are outside user-facing browser semantics"
+    }
+  ],
+  "intents": [
+    {
+      "intent": "observe roles/names/state",
+      "status": "implemented",
+      "surface": "browser.semantic.*"
+    },
+    {
+      "intent": "frames",
+      "status": "implemented_needs_cross_origin_acceptance",
+      "surface": "browser.frame.list"
+    },
+    {
+      "intent": "navigate/history/reload/stop",
+      "status": "implemented",
+      "surface": "browser.navigate + browser.page.*"
+    },
+    {
+      "intent": "focus/scroll/click/fill",
+      "status": "implemented",
+      "surface": "browser.element.*"
+    },
+    {
+      "intent": "toggle/check/radio",
+      "status": "implemented",
+      "surface": "browser.element.check"
+    },
+    {
+      "intent": "select option",
+      "status": "implemented",
+      "surface": "browser.element.select"
+    },
+    {
+      "intent": "bounded key press",
+      "status": "implemented",
+      "surface": "browser.element.press"
+    },
+    {
+      "intent": "semantic wait",
+      "status": "implemented",
+      "surface": "browser.semantic.wait"
+    },
+    {
+      "intent": "dialogs",
+      "status": "implemented",
+      "surface": "browser.dialog.*"
+    },
+    {
+      "intent": "hover",
+      "status": "implemented",
+      "surface": "browser.element.hover"
+    },
+    {
+      "intent": "drag/drop",
+      "status": "planned_or_fallback"
+    },
+    {
+      "intent": "file upload",
+      "status": "blocked_on_file_grant_contract"
+    },
+    {
+      "intent": "cookies/storage/raw network bodies",
+      "status": "unsupported_by_design"
+    }
+  ]
+}
