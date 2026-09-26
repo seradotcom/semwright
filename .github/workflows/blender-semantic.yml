@@ -65,13 +65,19 @@ jobs:
           PY
       - name: Bounded semantic security and adversarial refs
         run: |
-          python3 -m py_compile crates/driver-blender/src/semantic.py crates/driver-blender/src/bridge.py
+          python3 -m py_compile crates/driver-blender/src/semantic.py crates/driver-blender/src/bridge.py crates/driver-blender/tests/protocol_probe.py
           python3 crates/driver-blender/tests/semantic_security.py
       - name: Build semantic driver and sandbox
         run: |
           cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
             -p semwright-plugin-host --bin semwright-sandbox
-          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver -- --nocapture
+      - name: Direct framed protocol probe
+        run: |
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="semwright-driver-blender") | .version')
+          python3 crates/driver-blender/tests/protocol_probe.py \
+            --driver "$GITHUB_WORKSPACE/target/debug/semwright-blender-driver" \
+            --version "$VERSION"
       - name: Real semantic DriverProvider against Blender 4.5.14
         env:
           SEMWRIGHT_TEST_BLENDER: "1"
