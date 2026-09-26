@@ -208,7 +208,7 @@ pub type SandboxStdin = Box<dyn AsyncWrite + Send + Unpin>;
 pub type SandboxStdout = Box<dyn AsyncRead + Send + Unpin>;
 
 #[async_trait]
-trait SandboxChildControl: Send {
+pub trait SandboxChildControl: Send {
     fn id(&self) -> Option<u32>;
     async fn kill(&mut self) -> Result<()>;
     async fn wait(&mut self) -> Result<()>;
@@ -244,6 +244,22 @@ pub struct SandboxProcess {
 }
 
 impl SandboxProcess {
+    /// Construct a sandboxed process from platform-owned stdio and lifecycle control.
+    ///
+    /// Native process handles, tokens, jobs and sandbox authorities remain encapsulated by
+    /// the platform implementation behind `SandboxChildControl`.
+    pub fn from_parts(
+        stdin: SandboxStdin,
+        stdout: SandboxStdout,
+        control: Box<dyn SandboxChildControl>,
+    ) -> Self {
+        Self {
+            stdin: Some(stdin),
+            stdout: Some(stdout),
+            control,
+        }
+    }
+
     pub fn from_tokio_child(mut child: Child) -> Result<Self> {
         let stdin = child
             .stdin

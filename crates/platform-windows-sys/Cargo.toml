@@ -10,6 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
+async-trait.workspace = true
 semwright-platform-api.workspace = true
 semwright-types.workspace = true
 sha2.workspace = true
@@ -25,6 +26,7 @@ windows = { version = "0.62.2", features = [
     "Win32_Security",
     "Win32_Security_Authorization",
     "Win32_Security_Cryptography",
+    "Win32_Security_Isolation",
     "Win32_Security_WinTrust",
     "Win32_Storage_FileSystem",
     "Win32_System_Com",
