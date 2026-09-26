@@ -183,7 +183,10 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     )
     .await
     .unwrap();
-    assert_eq!(tool_result["tool_executed"], true);
+    assert_eq!(
+        tool_result["tool_executed"], true,
+        "sealed tool diagnostic: {tool_result}"
+    );
 
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let port = listener.local_addr().unwrap().port();

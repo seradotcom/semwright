@@ -171,12 +171,17 @@ impl Driver for Adversarial {
                     .map_err(|_| Error::new(ErrorCode::BackendFailed, "descendant spawn failed"))?;
                 Ok(json!({"spawned":true}))
             }
-            "driver.adversarial.tool_probe" => {
-                let status = Command::new("/plugin/tools/probe").status().map_err(|_| {
-                    Error::new(ErrorCode::BackendFailed, "sealed tool failed to start")
-                })?;
-                Ok(json!({"tool_executed":status.success()}))
-            }
+            "driver.adversarial.tool_probe" => match Command::new("/plugin/tools/probe").status() {
+                Ok(status) => Ok(json!({
+                    "tool_executed": status.success(),
+                    "exit_code": status.code()
+                })),
+                Err(error) => Ok(json!({
+                    "tool_executed": false,
+                    "spawn_error_kind": format!("{:?}", error.kind()),
+                    "spawn_errno": error.raw_os_error()
+                })),
+            },
             _ => Err(Error::new(
                 ErrorCode::NotFound,
                 "unknown adversarial command",
