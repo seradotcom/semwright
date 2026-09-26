@@ -52,7 +52,12 @@ jobs:
           import json
           from pathlib import Path
           data=json.loads(Path("verification/blender-semantic/RNA_COVERAGE.json").read_text())
-          print(json.dumps(data["summary"], sort_keys=True))
+          summary=data["summary"]
+          print(json.dumps(summary, sort_keys=True))
+          assert summary["unmapped_persistent_ids"] == 0, summary["unmapped_persistent_id_names"]
+          assert summary["missing_relation_targets"] == [], summary["missing_relation_targets"]
+          assert summary["unavailable_roots"] == 0, summary["unavailable_roots"]
+          assert summary["reachable_rna_types"] >= 1000, summary["reachable_rna_types"]
           PY
       - name: Bounded semantic security and adversarial refs
         run: |
