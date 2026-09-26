@@ -26,8 +26,10 @@ except (ValueError, IndexError):
 sys.path.insert(0, runtime)
 from semwright_blender_runtime.commands import Commands  # noqa: E402
 from semwright_blender_runtime.validation import CommandError  # noqa: E402
+from semwright_blender_runtime.semantic import SemanticError, SemanticStore  # noqa: E402
 
 commands = Commands(bpy, workspace)
+semantic = SemanticStore(bpy)
 
 
 def exact(stream, size):
@@ -358,6 +360,36 @@ def summary():
 def dispatch(command, args):
     if not isinstance(command, str) or not isinstance(args, dict):
         raise CommandError("InvalidArgument", "Blender driver request is malformed")
+    if command == "driver.blender.semantic.summary":
+        if args:
+            raise CommandError("InvalidArgument", "Semantic summary accepts no arguments")
+        return semantic.summary()
+    if command == "driver.blender.semantic.types":
+        return semantic.types(args.get("query", ""), limit_arg(args))
+    if command == "driver.blender.semantic.type.describe":
+        if set(args) != {"root"}:
+            raise CommandError("InvalidArgument", "Semantic type description requires root")
+        return semantic.type_describe(args["root"])
+    if command == "driver.blender.semantic.objects":
+        if not set(args).issubset({"root", "query", "limit"}) or "root" not in args:
+            raise CommandError("InvalidArgument", "Semantic object listing requires root")
+        return semantic.objects(args["root"], args.get("query", ""), limit_arg(args))
+    if command == "driver.blender.semantic.object.describe":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Semantic object description requires ref")
+        return semantic.object_describe(args["ref"])
+    if command == "driver.blender.semantic.property.get":
+        if set(args) != {"ref", "property"}:
+            raise CommandError("InvalidArgument", "Semantic property read requires ref and property")
+        return semantic.property_get(args["ref"], args["property"])
+    if command == "driver.blender.semantic.property.set":
+        if set(args) != {"ref", "property", "value"}:
+            raise CommandError("InvalidArgument", "Semantic property write requires ref, property and value")
+        return semantic.property_set(args["ref"], args["property"], args["value"] )
+    if command == "driver.blender.semantic.property.reset":
+        if set(args) != {"ref", "property"}:
+            raise CommandError("InvalidArgument", "Semantic property reset requires ref and property")
+        return semantic.property_reset(args["ref"], args["property"])
     if command == "driver.blender.introspect.summary":
         if args:
             raise CommandError("InvalidArgument", "Summary accepts no arguments")
@@ -373,7 +405,16 @@ def dispatch(command, args):
     if command == "driver.blender.introspect.addons":
         return search_addons(args)
     if command.startswith("driver.blender."):
-        return commands("blender." + command[len("driver.blender."):], args)
+        data = commands("blender." + command[len("driver.blender."):], args)
+        if command in {
+            "driver.blender.object.create", "driver.blender.object.delete",
+            "driver.blender.object.transform", "driver.blender.collection.create",
+            "driver.blender.collection.link", "driver.blender.material.create",
+            "driver.blender.material.assign", "driver.blender.render.settings",
+            "driver.blender.file.open",
+        }:
+            semantic.changed()
+        return data
     raise CommandError("Unsupported", "Command is outside the Blender driver namespace")
 
 
@@ -397,7 +438,7 @@ while True:
                 raise CommandError("InvalidArgument", "Malformed Blender driver frame")
             data = dispatch(request["command"], request["args"])
             write_frame(connection, {"ok": True, "data": data})
-        except CommandError as error:
+        except (CommandError, SemanticError) as error:
             write_frame(connection, {"ok": False, "error": {"code": error.code}})
         except (ValueError, TypeError, EOFError, OSError):
             try:

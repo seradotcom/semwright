@@ -31,6 +31,7 @@ const COMMANDS_JSON: &str =
 const VALIDATION_PY: &str =
     include_str!("../../../adapters/blender/semwright_blender/validation.py");
 const BRIDGE_PY: &str = include_str!("bridge.py");
+const SEMANTIC_PY: &str = include_str!("semantic.py");
 
 fn blender_binary() -> Result<&'static str> {
     ["/usr/local/bin/blender", "/usr/bin/blender"]
@@ -252,9 +253,156 @@ fn introspection_capabilities() -> Vec<Capability> {
     ]
 }
 
+fn semantic_ref_schema() -> Value {
+    json!({"type":"string","minLength":16,"maxLength":1024,"pattern":"^blender-rna/v1/"})
+}
+
+fn semantic_root_schema() -> Value {
+    json!({"type":"string","enum":["actions","armatures","cameras","collections","curves","lights","materials","meshes","node_groups","objects","scenes","worlds"]})
+}
+
+fn semantic_value_schema() -> Value {
+    json!({"oneOf":[
+        {"type":"boolean"},
+        {"type":"integer"},
+        {"type":"number"},
+        {"type":"string","maxLength":2048},
+        {"type":"array","maxItems":32,"items":{"oneOf":[{"type":"boolean"},{"type":"integer"},{"type":"number"},{"type":"string","maxLength":256}]}}
+    ]})
+}
+
+fn semantic_property_descriptor_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "id":{"type":"string","maxLength":256},
+            "name":{"type":"string","maxLength":512},
+            "description":{"type":"string","maxLength":2048},
+            "type":{"type":"string","maxLength":64},
+            "subtype":{"type":"string","maxLength":64},
+            "array_length":{"type":"integer","minimum":0,"maximum":4096},
+            "animatable":{"type":"boolean"},
+            "status":{"type":"string","enum":["managed","read_only","relation","runtime_owned","unsupported_by_design"]},
+            "reason":{"type":"string","maxLength":2048},
+            "minimum":{"type":"number"},
+            "maximum":{"type":"number"},
+            "enum":{"type":"array","maxItems":128,"items":{"type":"object","properties":{"id":{"type":"string","maxLength":256},"name":{"type":"string","maxLength":512}},"required":["id","name"],"additionalProperties":false}}
+        },
+        "required":["id","name","description","type","subtype","array_length","animatable","status"],
+        "additionalProperties":false
+    })
+}
+
+fn semantic_descriptor(
+    name: &str,
+    description: &str,
+    input_schema: Value,
+    output_schema: Value,
+    risk: Risk,
+    idempotency: Idempotency,
+) -> Capability {
+    let mut capability = descriptor(name, description, input_schema, output_schema, &["rna"]);
+    capability.descriptor.risk = risk;
+    capability.descriptor.idempotency = idempotency;
+    capability.descriptor.dry_run = matches!(risk, Risk::ReadOnly);
+    capability.tags = vec!["blender".into(), "rna".into(), "semantic".into()];
+    capability
+}
+
+fn semantic_capabilities() -> Vec<Capability> {
+    let property = semantic_property_descriptor_schema();
+    let value = semantic_value_schema();
+    let property_id =
+        json!({"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z_][A-Za-z0-9_]*$"});
+    vec![
+        semantic_descriptor(
+            "driver.blender.semantic.summary",
+            "Describe the version-pinned bounded Blender RNA semantic substrate",
+            json!({"type":"object","additionalProperties":false}),
+            json!({"type":"object","properties":{
+                "schema":{"const":"blender-rna-semantic/v1"},
+                "blender_version":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"integer","minimum":0,"maximum":99}},
+                "generation":{"type":"integer","minimum":1},
+                "roots":{"type":"array","maxItems":32,"items":{"type":"object","properties":{"root":semantic_root_schema(),"rna_type":{"type":"string","maxLength":256}},"required":["root","rna_type"],"additionalProperties":false}},
+                "generic_mutation":{"type":"array","maxItems":16,"items":{"type":"string","maxLength":128}},
+                "arbitrary_python":{"const":false},
+                "generic_operator_invoke":{"const":false}
+            },"required":["schema","blender_version","generation","roots","generic_mutation","arbitrary_python","generic_operator_invoke"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.types",
+            "Search allowlisted persistent Blender RNA root types",
+            query_schema(),
+            json!({"type":"object","properties":{
+                "items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"root":semantic_root_schema(),"identifier":{"type":"string","maxLength":256},"name":{"type":"string","maxLength":512},"properties":{"type":"integer","minimum":0,"maximum":4096}},"required":["root","identifier","name","properties"],"additionalProperties":false}},
+                "truncated":{"type":"boolean"}
+            },"required":["items","truncated"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.type.describe",
+            "Describe the complete bounded property classification for one Blender RNA root type",
+            json!({"type":"object","properties":{"root":semantic_root_schema()},"required":["root"],"additionalProperties":false}),
+            json!({"type":"object","properties":{
+                "root":semantic_root_schema(),"identifier":{"type":"string","maxLength":256},"name":{"type":"string","maxLength":512},"description":{"type":"string","maxLength":2048},
+                "properties":{"type":"array","maxItems":1024,"items":property.clone()},"truncated":{"type":"boolean"}
+            },"required":["root","identifier","name","description","properties","truncated"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.objects",
+            "List revision-bound refs for persistent Blender datablocks in an allowlisted RNA root",
+            json!({"type":"object","properties":{"root":semantic_root_schema(),"query":{"type":"string","maxLength":256},"limit":{"type":"integer","minimum":1,"maximum":256,"default":50}},"required":["root"],"additionalProperties":false}),
+            json!({"type":"object","properties":{
+                "items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":256},"rna_type":{"type":"string","maxLength":256}},"required":["ref","name","rna_type"],"additionalProperties":false}},
+                "truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1}
+            },"required":["items","truncated","generation"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.object.describe",
+            "Describe one revision-bound Blender RNA datablock and classify its properties",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"root":semantic_root_schema(),"name":{"type":"string","maxLength":256},"rna_type":{"type":"string","maxLength":256},"properties":{"type":"array","maxItems":1024,"items":property.clone()},"truncated":{"type":"boolean"}},"required":["ref","root","name","rna_type","properties","truncated"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.property.get",
+            "Read one bounded scalar/enum/array RNA property from a revision-bound datablock",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone()},"required":["ref","property"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"value":value.clone(),"descriptor":property.clone()},"required":["ref","property","value","descriptor"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.property.set",
+            "Set one RNA property through the bounded typed semantic codec and rotate generation",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"value":value.clone()},"required":["ref","property","value"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"value":value.clone(),"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","property","value","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.property.reset",
+            "Reset one generically managed RNA property to its Blender default and rotate generation",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone()},"required":["ref","property"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id,"value":value,"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","property","value","changed","generation"],"additionalProperties":false}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+        ),
+    ]
+}
+
 fn capabilities() -> Result<Vec<Capability>> {
     let mut values = curated_capabilities()?;
     values.extend(introspection_capabilities());
+    values.extend(semantic_capabilities());
     Ok(values)
 }
 
@@ -290,6 +438,8 @@ fn stage_runtime(runtime: &Path) -> Result<(PathBuf, PathBuf)> {
         .map_err(|error| io_step("Blender command schemas staging", error))?;
     fs::write(package.join("validation.py"), VALIDATION_PY)
         .map_err(|error| io_step("Blender validation staging", error))?;
+    fs::write(package.join("semantic.py"), SEMANTIC_PY)
+        .map_err(|error| io_step("Blender semantic staging", error))?;
     let bridge = runtime.join("bridge.py");
     fs::write(&bridge, BRIDGE_PY).map_err(|error| io_step("Blender bridge staging", error))?;
     Ok((bridge, runtime.join("bridge.sock")))
@@ -322,6 +472,8 @@ async fn request(socket: &Path, command: &str, args: Value, seconds: u64) -> Res
         Some("PolicyDenied") => ErrorCode::PolicyDenied,
         Some("Unsupported") => ErrorCode::Unsupported,
         Some("Timeout") => ErrorCode::Timeout,
+        Some("StaleReference") => ErrorCode::StaleReference,
+        Some("Unavailable") => ErrorCode::Unavailable,
         _ => ErrorCode::BackendFailed,
     };
     Err(Error::new(code, "Blender rejected the typed operation"))
@@ -510,6 +662,8 @@ mod tests {
         assert!(names.contains("driver.blender.object.create"));
         assert!(names.contains("driver.blender.render"));
         assert!(names.contains("driver.blender.introspect.operator.describe"));
+        assert!(names.contains("driver.blender.semantic.property.set"));
+        assert!(names.contains("driver.blender.semantic.type.describe"));
         assert!(!names.iter().any(|name| name.contains("python")));
         assert!(!names.iter().any(|name| name.ends_with("operator.invoke")));
         for capability in capabilities {
@@ -558,6 +712,7 @@ mod tests {
             "commands.py",
             "commands.json",
             "validation.py",
+            "semantic.py",
         ] {
             assert!(package.join(file).is_file(), "missing staged file {file}");
         }

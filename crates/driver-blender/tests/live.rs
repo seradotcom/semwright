@@ -128,7 +128,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         .await
         .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert!(capabilities.len() >= 22);
+    assert!(capabilities.len() >= 30);
     assert!(
         capabilities
             .iter()
@@ -160,6 +160,36 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     assert!(summary["operators"].as_u64().unwrap() > 100);
     assert_eq!(summary["arbitrary_python"], false);
     assert_eq!(summary["generic_operator_invoke"], false);
+
+    let semantic_summary = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.summary",
+        json!({}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(semantic_summary["schema"], "blender-rna-semantic/v1");
+    assert_eq!(semantic_summary["blender_version"][0], 4);
+    assert_eq!(semantic_summary["blender_version"][1], 5);
+    assert_eq!(semantic_summary["arbitrary_python"], false);
+
+    let object_type = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.type.describe",
+        json!({"root":"objects"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(object_type["identifier"], "Object");
+    assert!(
+        object_type["properties"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|property| { property["id"] == "location" && property["status"] == "managed" })
+    );
     let operators = call(
         provider.as_ref(),
         &capabilities,
@@ -230,6 +260,59 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     assert_eq!(object["object"]["name"], "SemwrightCube");
+
+    let semantic_objects = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"objects","query":"SemwrightCube","limit":8}),
+    )
+    .await
+    .unwrap();
+    let semantic_ref = semantic_objects["items"][0]["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let location = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.get",
+        json!({"ref":semantic_ref,"property":"location"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(location["value"], json!([1.0, 2.0, 3.0]));
+
+    let hide = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.set",
+        json!({"ref":semantic_ref,"property":"hide_render","value":true}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(hide["value"], true);
+    let fresh_ref = hide["ref"].as_str().unwrap().to_owned();
+
+    let stale = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.get",
+        json!({"ref":semantic_ref,"property":"hide_render"}),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
+
+    let reset = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.reset",
+        json!({"ref":fresh_ref,"property":"hide_render"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reset["value"], false);
 
     call(
         provider.as_ref(),
