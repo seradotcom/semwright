@@ -144,7 +144,13 @@ impl SandboxLauncher for LinuxSandbox {
             p.arg("--ro-bind").arg(&m.source).arg(destination);
         }
         for tool in &s.sealed_tools {
-            p.args(["--perms", "0500", "--ro-bind-data"])
+            // Materialize the Host-verified sealed bytes directly into the private
+            // sandbox root. The child receives no write/remove/create Landlock rights
+            // for this path, so the executable remains immutable after policy install.
+            // Avoid --ro-bind-data here: Bubblewrap unlinks its backing tempfile after
+            // bind-mounting it, which can make later execve() resolve as ENOENT under
+            // deleted-file mediation on Ubuntu/AppArmor.
+            p.args(["--perms", "0500", "--file"])
                 .arg(tool.fd.to_string())
                 .arg(format!("/plugin/tools/{}", tool.name));
         }

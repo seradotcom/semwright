@@ -192,7 +192,13 @@ pub fn between(before: &Project, after: &Project) -> Result<SemanticDiff> {
     );
     let bv = serde_json::to_value(before)?;
     let av = serde_json::to_value(after)?;
-    for key in ["settings", "theme", "audio", "component_version"] {
+    for key in [
+        "settings",
+        "theme",
+        "variables",
+        "audio",
+        "component_version",
+    ] {
         fields(
             "project",
             &before.id,

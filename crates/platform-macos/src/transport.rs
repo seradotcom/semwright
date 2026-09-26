@@ -1,6 +1,12 @@
 use async_trait::async_trait;
+use semwright_backend_api::ProviderSignal;
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::Value;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 #[async_trait]
 pub trait Transport: Send + Sync {
@@ -10,15 +16,33 @@ pub trait Transport: Send + Sync {
         args: &Value,
         cancellation: CancellationToken,
     ) -> Result<Value>;
+
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        None
+    }
+
+    fn stop_events(&self) {}
 }
 pub struct NativeTransport {
-    slots: std::sync::Arc<tokio::sync::Semaphore>,
+    slots: Arc<tokio::sync::Semaphore>,
+    signals: broadcast::Sender<ProviderSignal>,
+    event_stop: CancellationToken,
+    events_started: AtomicBool,
 }
 impl Default for NativeTransport {
     fn default() -> Self {
+        let (signals, _) = broadcast::channel(512);
         Self {
-            slots: std::sync::Arc::new(tokio::sync::Semaphore::new(4)),
+            slots: Arc::new(tokio::sync::Semaphore::new(4)),
+            signals,
+            event_stop: CancellationToken::new(),
+            events_started: AtomicBool::new(false),
         }
+    }
+}
+impl Drop for NativeTransport {
+    fn drop(&mut self) {
+        self.event_stop.cancel();
     }
 }
 #[cfg(all(target_os = "macos", feature = "native"))]
@@ -28,6 +52,7 @@ mod ffi {
     unsafe extern "C" {
         fn semwright_native_begin(id: *const c_char) -> i32;
         fn semwright_native_call(bytes: *const u8, len: usize, out_len: *mut usize) -> *mut u8;
+        fn semwright_native_drain_events(out_len: *mut usize) -> *mut u8;
         fn semwright_native_free(bytes: *mut u8);
         fn semwright_native_cancel(id: *const c_char);
         pub fn semwright_native_pump();
@@ -85,7 +110,113 @@ mod ffi {
             })?;
         Err(error)
     }
+
+    pub fn drain_events() -> Result<Vec<ProviderSignal>> {
+        let mut len = 0usize;
+        // SAFETY: native drain takes only an initialized output length and returns
+        // malloc-owned bytes. The Swift queue is internally synchronized.
+        let ptr = unsafe { semwright_native_drain_events(&mut len) };
+        if ptr.is_null() {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Native event drain failed",
+            ));
+        }
+        struct Buffer(*mut u8);
+        impl Drop for Buffer {
+            fn drop(&mut self) {
+                // SAFETY: pointer was returned by native malloc and is freed exactly once.
+                unsafe { semwright_native_free(self.0) }
+            }
+        }
+        let owned = Buffer(ptr);
+        if len == 0 || len > 1_048_576 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Native event batch exceeded budget",
+            ));
+        }
+        // SAFETY: ABI guarantees the allocation spans len bytes; length is bounded above.
+        let result: Value =
+            serde_json::from_slice(unsafe { std::slice::from_raw_parts(owned.0, len) })?;
+        if result["ok"].as_bool() != Some(true) {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Native event drain returned an invalid envelope",
+            ));
+        }
+        let rows = result["data"]["events"].as_array().ok_or_else(|| {
+            Error::new(ErrorCode::ProtocolMismatch, "Native events array missing")
+        })?;
+        if rows.len() > 512 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Native event count exceeded budget",
+            ));
+        }
+        rows.iter()
+            .map(|row| {
+                let kind = row["kind"]
+                    .as_str()
+                    .filter(|kind| kind.starts_with("semantic.") && kind.len() <= 128)
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::ProtocolMismatch, "Invalid native event kind")
+                    })?;
+                let payload = row
+                    .get("payload")
+                    .filter(|value| value.is_object())
+                    .cloned()
+                    .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
+                Ok(ProviderSignal::Event {
+                    kind: kind.to_owned(),
+                    payload,
+                })
+            })
+            .collect()
+    }
 }
+
+impl NativeTransport {
+    pub fn start_event_pump(&self) {
+        #[cfg(all(target_os = "macos", feature = "native"))]
+        {
+            if self.events_started.swap(true, Ordering::SeqCst) {
+                return;
+            }
+            let signals = self.signals.clone();
+            let stop = self.event_stop.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_millis(50));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                let mut failed = false;
+                loop {
+                    tokio::select! {
+                        _ = stop.cancelled() => break,
+                        _ = interval.tick() => {
+                            match ffi::drain_events() {
+                                Ok(events) => {
+                                    failed = false;
+                                    for event in events {
+                                        let _ = signals.send(event);
+                                    }
+                                }
+                                Err(_) if !failed => {
+                                    failed = true;
+                                    let _ = signals.send(ProviderSignal::Event {
+                                        kind: semwright_types::semantic_ui_event::BACKEND_INVALIDATED.into(),
+                                        payload: serde_json::json!({"reason":"native_event_transport_failed"}),
+                                    });
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
 #[async_trait]
 impl Transport for NativeTransport {
     async fn call(
@@ -136,6 +267,16 @@ impl Transport for NativeTransport {
                 "Native Apple frameworks are not linked in this build",
             ))
         }
+    }
+
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.events_started
+            .load(Ordering::SeqCst)
+            .then(|| self.signals.subscribe())
+    }
+
+    fn stop_events(&self) {
+        self.event_stop.cancel();
     }
 }
 /// Call ONLY on the initial OS main thread. Tokio tasks run on worker threads;

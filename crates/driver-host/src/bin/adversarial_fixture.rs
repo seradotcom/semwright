@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use std::{
     net::{SocketAddr, TcpStream},
     process::Command,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const ID: &str = "adversarial";
@@ -64,6 +64,15 @@ fn capabilities() -> Vec<Capability> {
             descriptor: descriptor(
                 "driver.adversarial.tool_probe",
                 "Test-only sealed secondary executable probe",
+            ),
+            aliases: vec![],
+            tags: vec!["test".into(), "sandbox".into()],
+            object_types: vec![],
+        },
+        Capability {
+            descriptor: descriptor(
+                "driver.adversarial.cpu_burn",
+                "Test-only per-operation CPU budget probe",
             ),
             aliases: vec![],
             tags: vec!["test".into(), "sandbox".into()],
@@ -165,17 +174,34 @@ impl Driver for Adversarial {
                 Command::new("/usr/bin/sh")
                     .args([
                         "-c",
-                        "sleep 1; printf escaped > /workspace/rw/driver-descendant.txt",
+                        "parent=$PPID; while kill -0 \"$parent\" 2>/dev/null; do sleep 0.05; done; printf escaped > /workspace/rw/driver-descendant.txt",
                     ])
                     .spawn()
                     .map_err(|_| Error::new(ErrorCode::BackendFailed, "descendant spawn failed"))?;
                 Ok(json!({"spawned":true}))
             }
-            "driver.adversarial.tool_probe" => {
-                let status = Command::new("/plugin/tools/probe").status().map_err(|_| {
-                    Error::new(ErrorCode::BackendFailed, "sealed tool failed to start")
-                })?;
-                Ok(json!({"tool_executed":status.success()}))
+            "driver.adversarial.tool_probe" => match Command::new("/plugin/tools/probe").status() {
+                Ok(status) => Ok(json!({
+                    "tool_executed": status.success(),
+                    "exit_code": status.code()
+                })),
+                Err(error) => Ok(json!({
+                    "tool_executed": false,
+                    "spawn_error_kind": format!("{:?}", error.kind()),
+                    "spawn_errno": error.raw_os_error()
+                })),
+            },
+            "driver.adversarial.cpu_burn" => {
+                let started = Instant::now();
+                let mut accumulator = 0u64;
+                while started.elapsed() < Duration::from_secs(10) {
+                    accumulator = std::hint::black_box(
+                        accumulator
+                            .wrapping_mul(6364136223846793005)
+                            .wrapping_add(1),
+                    );
+                }
+                Ok(json!({"completed":true,"accumulator":accumulator}))
             }
             _ => Err(Error::new(
                 ErrorCode::NotFound,

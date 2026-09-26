@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "status": "PASS_WITH_REMAINING_MATRIX_GAPS",
+  "observed_at_local": "2026-09-25T17:32:00-06:00",
+  "baseline_sha": "8d76053ff8a63760b553aeebae9bb1733c28c1e2",
+  "scope": "hardware-backed nested Hyprland native-socket lifecycle and mixed-scale multi-monitor verification",
+  "semwright_binaries": {
+    "source": "GitHub Actions supply-chain certification",
+    "run_id": 36199720444,
+    "artifact": "supply-chain-x86_64-8d76053ff8a63760b553aeebae9bb1733c28c1e2",
+    "semwright_sha256": "c42cd005c91969cec8654b395aaf6ef8fd9c87545935da4e311a96043252af1a",
+    "semwrightd_sha256": "76adb2731032d3592969ea67ed75833744f7109776899aeb247cf4935376b835",
+    "artifact_hash_verification": "PASS"
+  },
+  "host": {
+    "kernel": "6.8.0-139-generic",
+    "render_node": "/dev/dri/renderD129",
+    "render_driver": "amdgpu"
+  },
+  "container": {
+    "network": "none",
+    "no_new_privileges": true,
+    "image_id": "sha256:ecef31ef6ef2a69a0e96093e5f19a135dd18d98c65ea64e51f9c99eaa7bf6915",
+    "base_image": "fedora@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41",
+    "kwin": "6.7.5-1.fc46.x86_64",
+    "hyprland": "0.56.2-17.fc45.x86_64",
+    "aquamarine": "0.15.1",
+    "foot": "1.28.0-1.fc46.x86_64",
+    "mesa_dri_drivers": "26.2.3-1.fc46.x86_64",
+    "libdrm": "2.4.134-2.fc45.x86_64"
+  },
+  "execution": {
+    "parent": "KWin virtual Wayland compositor",
+    "child": "Hyprland nested Wayland compositor",
+    "fixture": "native Wayland foot client",
+    "semwright_backend": "hyprland",
+    "coordinate_space": "compositor_logical",
+    "doctor_supported": true,
+    "window_list": "PASS",
+    "window_focus": "PASS",
+    "window_move": {
+      "status": "PASS",
+      "target_position": [111, 77]
+    },
+    "window_resize": {
+      "status": "PASS",
+      "target_size": [500, 320]
+    },
+    "stale_reference_after_fixture_exit": "PASS",
+    "fixture_cleanup": "PASS"
+  },
+  "multi_monitor_scale": {
+    "status": "PASS",
+    "primary": {
+      "name": "WAYLAND-1",
+      "size": [800, 600],
+      "position": [0, 0],
+      "scale": 1.0
+    },
+    "secondary": {
+      "name": "semwright-extra",
+      "size": [640, 480],
+      "position": [800, 0],
+      "scale": 1.25
+    }
+  },
+  "raw_local_evidence_sha256": {
+    "summary_json": "07adfb8c064c3bb46e98f00e1724acb0d3081e9142553d17da92087efabc3f5b",
+    "doctor_json": "d83e35896d3ed28b22e6649d8e5c2da3d51db6fab193aee8d884d8e55ecacee3",
+    "stale_json": "cb406763f8b913b6d9c754e6b3fd241d9dafd1c4ac1d9bdf6972f4f3e8c9c1dd",
+    "multimon_final_json": "26c337dfffde272e6decd5bdcf64eb064ad37dd4136a2a6c62df4d94933f70b1"
+  },
+  "not_certified": {
+    "physical_hyprland_login_on_tty": true,
+    "physical_mixed_scale_multi_monitor": true,
+    "compositor_restart_recovery": true,
+    "focus_drift_negative_case": true,
+    "in_flight_cancellation": true,
+    "hyprland_portal_eis": true
+  },
+  "notes": [
+    "This is a real Hyprland compositor and a real native Wayland client; the native Hyprland IPC path is not mocked.",
+    "KWin 6.7.5 runs as the isolated parent compositor on a real AMD render node because hosted CI lacks the required DRM/dmabuf path.",
+    "The result narrows R06 substantially but does not equate a hardware-backed nested compositor with every physical Hyprland login or display topology.",
+    "Raw refs, request IDs and private runtime logs are intentionally not committed."
+  ]
+}

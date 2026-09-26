@@ -19,12 +19,39 @@ Unit/property/security tests are small enough for CI and may be run locally when
 
 `.github/workflows/motion-canvas.yml` runs four verification layers:
 
-- **domain**: complete driver compile, unit/property/security tests, explicit source/codegen/catalog/manifest/render-plan goldens, launch-film recipe validation against the real capability catalog and JSON Schemas, a bounded 500-node/100-animation/50-edge stress compile, launch-source/audio provenance verification, Clippy, rustfmt and whitespace.
+- **domain**: complete driver compile, unit/property/security tests, explicit source/codegen/catalog/manifest/render-plan goldens, bidirectional semantic-registry/API-coverage contracts, project-variable and property-introspection/stale-ref contracts, launch-film recipe validation against the real capability catalog and JSON Schemas, a bounded 500-node/100-animation/50-edge stress compile, launch-source/audio provenance verification, Clippy, rustfmt and whitespace.
 - **portable-compile**: locked Rust compile of the complete domain and Driver Protocol adapter on macOS and Windows runners.
-- **real-render-and-host**: exact Node/Motion Canvas/Firefox install on an ephemeral Linux runner, runtime contract tests, generated-project typecheck/Vite build, SHA-pinned runtime manifest, real Driver Host conformance, opaque render, transparent render/pixel evidence and cancellation.
+- **real-render-and-host**: exact Node/Motion Canvas/Firefox install on an ephemeral Linux runner, runtime contract tests, executable coverage checks against the installed 3.17.2 `.d.ts` surface, generated-project typecheck/Vite build for both the legacy fixture and `semantic-complete`, SHA-pinned runtime manifest, real Driver Host conformance, opaque render, transparent render/pixel evidence and cancellation.
 - **fuzz**: bounded smoke for semantic parser, refs, animation validation, path validation, SVG boundary and codegen escaping.
 
 The render test is accepted only through the real Driver Host with `network=false`; direct unsandboxed helper rendering is intentionally not an acceptance path. The runtime job also verifies that the pinned Firefox build can initialize Canvas under the original 4 GiB virtual-address-space ceiling.
+
+## Semantic completeness gates
+
+`integrations/motion-canvas/runtime/tools/semantic-coverage.mjs` compares the checked-in matrices to the exact installed 3.17.2 typings. Current acceptance requires:
+
+- all 25 public `@motion-canvas/2d` component exports classified;
+- every own field of every public component `Props` interface classified, including per-arm classification for mixed union values;
+- all remaining public 2D root modules classified: code (47 exports), curves (17), decorators (28), partials (31), scenes (3), utils (19) and `jsx-runtime` (4);
+- all 15 root `@motion-canvas/core` exports classified;
+- all 8 `ProjectSettings` fields classified;
+- every public flow (13), transition (6) and tweening (60) function/constant classified;
+- every managed/represented property mapping resolves through the Rust semantic registry;
+- every registry semantic-storage property has an upstream coverage witness;
+- every managed easing/transition in core coverage maps to a real compiler enum/function;
+- the `semantic-complete` fixture validates/compiles in Rust and typechecks/Vite-builds against the exact installed Motion Canvas runtime.
+
+The matrices may classify a surface as `compiler_managed`, `runtime_internal`/`runtime_utility`, `mixed` or `unsupported_by_design`; such entries require an explicit boundary rather than silently disappearing. A `mixed` property is accepted only when every union arm is itself managed, represented or explicitly excluded.
+
+## Integrated semantic-completeness evidence
+
+The managed semantic-completeness pass merged through PR #109 as `132355b5a182349eb165460307cc8ed0ddcef940`. The exact final PR head `eca2df1a101830469923e4e600d1c70de47234d6` has authoritative green Motion Canvas evidence in run `36259065194`: domain, portable macOS/Windows compile, real Driver Host render/conformance and all bounded Motion Canvas fuzz targets completed successfully.
+
+The same exact PR head produced the complete 52-second launch film successfully in run `36259061603`. This is the render acceptance for the semantic-completeness revision, not inherited evidence from the earlier driver PR.
+
+Post-merge `main` at `132355b5a182349eb165460307cc8ed0ddcef940` also completed Quality (`36259427151`), dependency/coverage/fuzz (`36259427071`), Native application integration (`36259427090`), macOS (`36259427170`), packaging (`36259427105`), OBS (`36259427069`), X11 (`36259427096`) and Plasma (`36259427093`) successfully. The initial hosted Windows ARM64 UIA run reported a noninteractive occlusion/stale-reference condition; an explicit full Windows rerun (`36260204223`) then completed both x64 and ARM64 successfully on the same merged SHA.
+
+Protocol evidence is executable rather than documentary: the manifest requests Driver Protocol 3, `MotionDriver::interfaces` advertises cooperative cancellation/progress/artifacts, and `render.execute` is exercised through `DriverExecutionContext` while the legacy asynchronous render-job capabilities remain available.
 
 ## Full film
 
@@ -53,7 +80,7 @@ If an optional platform or tool is unavailable, the driver must report it fail-c
 
 Pull-request CI performs locked Rust compilation, unit/property/security tests, Clippy with warnings denied, formatting and whitespace checks. The dedicated runtime job installs the exact Node lockfile and Playwright-pinned Firefox on an ephemeral runner, materializes a managed fixture, typechecks/builds generated source, exercises real Driver Host conformance, renders opaque and transparent PNG sequences, tests cancellation and checks the pinned browser under the same 4 GiB ceiling used by the driver.
 
-Six bounded Motion Canvas fuzz targets run in GitHub Actions. They cover the semantic project parser, reference decoder, animation validation, path validation, SVG boundary and code-generation escaping.
+Seven bounded Motion Canvas fuzz targets run in GitHub Actions. They cover the semantic project parser, reference decoder, animation validation, path validation, SVG boundary, code-generation escaping and the version-pinned semantic property registry/value boundary.
 
 The stress test emits a `MOTION_STRESS` line with measured validation/codegen microseconds and generated byte count for that runner. Those values are diagnostic measurements, not performance claims or fixed acceptance thresholds.
 

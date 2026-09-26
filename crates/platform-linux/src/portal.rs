@@ -1391,7 +1391,12 @@ impl Portal {
         *self.consent.lock().await = ConsentState::Expired;
         Ok(json!({"consent":"expired"}))
     }
-    async fn send_eis_input(eis: &EisClient, command: &str, args: &Value) -> Result<Value> {
+    async fn send_eis_input(
+        eis: &EisClient,
+        ctx: &Context,
+        command: &str,
+        args: &Value,
+    ) -> Result<Value> {
         match command {
             "input.key" => {
                 let raw = args["keysym"]
@@ -1401,7 +1406,10 @@ impl Portal {
                     u32::try_from(raw).map_err(|_| Error::invalid("keysym exceeds EIS range"))?;
                 eis.keysym(keysym).await?;
             }
-            "input.type" => eis.type_text(arg_str(args, "text")?).await?,
+            "input.type" => {
+                eis.type_text_cancellable(arg_str(args, "text")?, ctx.cancellation.clone())
+                    .await?;
+            }
             "pointer.move" => {
                 eis.motion(
                     args["dx"]
@@ -1483,7 +1491,7 @@ impl Portal {
                     "EIS transport was disconnected; start a new portal session",
                 ));
             }
-            return Self::send_eis_input(eis, command, args).await;
+            return Self::send_eis_input(eis, ctx, command, args).await;
         }
         let p = self.proxy(REMOTE).await?;
         let path = &session.path;

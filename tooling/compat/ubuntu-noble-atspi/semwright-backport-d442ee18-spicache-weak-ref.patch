@@ -1,0 +1,55 @@
+Description: Backport upstream SpiCache weak-ref lifetime fix
+Origin: upstream, https://gitlab.gnome.org/GNOME/at-spi2-core/-/commit/d442ee182ec8fa095c6bc5298a17663cfc70cf9a
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/at-spi2-core/+bug/2158636
+Forwarded: not-needed
+Author: Mike Gorse <mgorse@suse.com>
+Last-Update: 2026-09-25
+
+diff --git a/atk-adaptor/accessible-cache.c b/atk-adaptor/accessible-cache.c
+index 1452a10..26d9f75 100644
+--- a/atk-adaptor/accessible-cache.c
++++ b/atk-adaptor/accessible-cache.c
+@@ -135,0 +136,14 @@ spi_cache_init (SpiCache *cache)
++static void
++cache_weak_ref (gpointer data, GObject *gobj)
++{
++  SpiCache *cache = SPI_CACHE (data);
++
++  g_hash_table_remove (cache->objects, gobj);
++}
++
++static void
++spi_cache_remove_weak_ref (gpointer key, gpointer val, gpointer cache)
++{
++  g_object_weak_unref (val, cache_weak_ref, cache);
++}
++
+@@ -143,0 +158 @@ spi_cache_finalize (GObject *object)
++  g_hash_table_foreach (cache->objects, spi_cache_remove_weak_ref, cache);
+@@ -171,0 +187 @@ remove_object (GObject *source, GObject *gobj, gpointer data)
++      g_object_weak_unref (G_OBJECT (gobj), cache_weak_ref, cache);
+@@ -185,0 +202 @@ add_object (SpiCache *cache, GObject *gobj)
++  g_object_weak_ref (G_OBJECT (gobj), cache_weak_ref, cache);
+@@ -306,4 +322,0 @@ add_pending_items (gpointer data)
+-      /* Make sure object is registerd so we are notified if it goes away */
+-      g_free (spi_register_object_to_path (spi_global_register,
+-                                           G_OBJECT (current)));
+-
+diff --git a/atk-adaptor/accessible-register.c b/atk-adaptor/accessible-register.c
+index 6361ec4..e7521c0 100644
+--- a/atk-adaptor/accessible-register.c
++++ b/atk-adaptor/accessible-register.c
+@@ -201,4 +200,0 @@ spi_register_deregister_object (SpiRegister *reg, GObject *gobj, gboolean unref)
+-      g_signal_emit (reg,
+-                     register_signals[OBJECT_DEREGISTERED],
+-                     0,
+-                     gobj);
+@@ -206 +202,7 @@ spi_register_deregister_object (SpiRegister *reg, GObject *gobj, gboolean unref)
+-        g_object_weak_unref (gobj, deregister_object, reg);
++        {
++          g_signal_emit (reg,
++                         register_signals[OBJECT_DEREGISTERED],
++                         0,
++                         gobj);
++          g_object_weak_unref (gobj, deregister_object, reg);
++        }

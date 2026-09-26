@@ -21,6 +21,7 @@ struct State {
     focus: bool,
     clipboard: String,
     invocations: u64,
+    candidate_queries: u64,
     fail_next: bool,
     consent: bool,
 }
@@ -50,6 +51,7 @@ impl FakeDesktop {
                 focus: true,
                 clipboard: String::new(),
                 invocations: 0,
+                candidate_queries: 0,
                 fail_next: false,
                 consent: false,
                 nodes: vec![
@@ -88,6 +90,9 @@ impl FakeDesktop {
     pub fn invocations(&self) -> u64 {
         self.state.lock().map(|s| s.invocations).unwrap_or(0)
     }
+    pub fn candidate_queries(&self) -> u64 {
+        self.state.lock().map(|s| s.candidate_queries).unwrap_or(0)
+    }
     fn target(kind: &str, id: &str, revision: u64, fingerprint: &str) -> NativeTarget {
         NativeTarget {
             kind: kind.into(),
@@ -114,6 +119,8 @@ impl Backend for FakeDesktop {
                 | "window.close"
                 | "app.close"
                 | "ui.snapshot"
+                | "ui.hit_test"
+                | "ui.inspect"
                 | "ui.invoke"
                 | "ui.set_text"
                 | "ui.read_text"
@@ -146,6 +153,85 @@ impl Backend for FakeDesktop {
             "Never use fake results as evidence of compositor support",
         )]
     }
+
+    async fn find_ui_candidates(
+        &self,
+        ctx: &Context,
+        selector: &Selector,
+        max_nodes: usize,
+        max_depth: usize,
+    ) -> Result<Option<Value>> {
+        // Opt in only for an explicit fixture framework constraint. Ordinary fixture tests
+        // continue exercising the snapshot fallback path.
+        if selector.framework.as_deref() != Some("fixture") {
+            return Ok(None);
+        }
+        ctx.check_cancelled()?;
+        let mut s = self
+            .state
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Fake state poisoned"))?;
+        s.candidate_queries = s.candidate_queries.saturating_add(1);
+        let limit = max_nodes.min(2_000);
+        let nodes: Vec<Value> = s
+            .nodes
+            .iter()
+            .filter(|node| max_depth > 0 || node.parent.is_none())
+            .take(limit)
+            .map(|node| {
+                json!({
+                    "node_id": format!("fixture:{}", node.id),
+                    "ref": target_marker(Self::target(
+                        "ui",
+                        &node.id,
+                        s.revision,
+                        &format!("{}:{}", node.role, node.name),
+                    )),
+                    "role": node.role,
+                    "name": node.name,
+                    "description": "Deterministic test fixture",
+                    "help": "",
+                    "accessibility_id": format!("fixture-{}", node.id),
+                    "framework": "fixture",
+                    "attributes": {},
+                    "relations": [],
+                    "facets": {},
+                    "states": ["enabled", "visible"],
+                    "actions": node.actions,
+                    "app": "org.semwright.Fixture",
+                    "parent_ref": node.parent.as_ref().map(|parent| target_marker(Self::target(
+                        "ui",
+                        parent,
+                        s.revision,
+                        "fixture-parent",
+                    ))),
+                    "bounds": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "width": 80.0,
+                        "height": 24.0,
+                        "coordinate_space": "fixture_logical"
+                    },
+                    "children_count": s.nodes
+                        .iter()
+                        .filter(|child| child.parent.as_deref() == Some(node.id.as_str()))
+                        .count()
+                })
+            })
+            .collect();
+        Ok(Some(json!({
+            "revision": s.revision,
+            "partial": nodes.len() < s.nodes.len(),
+            "nodes": nodes,
+            "mode": "candidate_pushdown",
+            "base_revision": Value::Null,
+            "removed_node_ids": Vec::<String>::new(),
+            "resync_required": false,
+            "semantic_coverage": "fixture_candidates",
+            "budget": limit
+        })))
+    }
+
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
         ctx.check_cancelled()?;
         let mut s = self
@@ -195,6 +281,117 @@ impl Backend for FakeDesktop {
                     "resync_required":since_revision.is_some()&&!delta,
                     "semantic_coverage":"fixture",
                     "budget":limit
+                }))
+            }
+            "ui.inspect" => {
+                let target = native_target(args)?;
+                if target.revision != s.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Fixture revision changed",
+                    ));
+                }
+                let n = s
+                    .nodes
+                    .iter()
+                    .find(|n| n.id == target.identity)
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Fixture target disappeared")
+                    })?;
+                Ok(json!({
+                    "node": {
+                        "node_id": format!("fixture:{}", n.id),
+                        "ref": target_marker(Self::target(
+                            "ui",
+                            &n.id,
+                            s.revision,
+                            &format!("{}:{}", n.role, n.name),
+                        )),
+                        "role": n.role,
+                        "name": n.name,
+                        "description": "Deterministic test fixture",
+                        "help": "",
+                        "accessibility_id": format!("fixture-{}", n.id),
+                        "framework": "fixture",
+                        "attributes": {},
+                        "relations": [],
+                        "facets": {},
+                        "states": ["enabled", "visible"],
+                        "actions": n.actions,
+                        "app": "org.semwright.Fixture",
+                        "parent_ref": n.parent.as_ref().map(|parent| target_marker(Self::target(
+                            "ui",
+                            parent,
+                            s.revision,
+                            "fixture-parent",
+                        ))),
+                        "bounds": {
+                            "x": 0,
+                            "y": 0,
+                            "width": 80,
+                            "height": 24,
+                            "coordinate_space": "fixture_logical"
+                        },
+                        "children_count": s.nodes
+                            .iter()
+                            .filter(|c| c.parent.as_deref() == Some(n.id.as_str()))
+                            .count()
+                    },
+                    "semantic_coverage": "exact_ref"
+                }))
+            }
+            "ui.hit_test" => {
+                let x = args["x"]
+                    .as_f64()
+                    .ok_or_else(|| Error::invalid("x required"))?;
+                let y = args["y"]
+                    .as_f64()
+                    .ok_or_else(|| Error::invalid("y required"))?;
+                if !(0.0..80.0).contains(&x) || !(0.0..24.0).contains(&y) {
+                    return Err(Error::new(
+                        ErrorCode::NotFound,
+                        "Fixture has no semantic node at that point",
+                    ));
+                }
+                let n = s.nodes.first().ok_or_else(|| {
+                    Error::new(ErrorCode::NotFound, "Fixture has no semantic nodes")
+                })?;
+                Ok(json!({
+                    "node": {
+                        "node_id": format!("fixture:{}", n.id),
+                        "ref": target_marker(Self::target(
+                            "ui",
+                            &n.id,
+                            s.revision,
+                            &format!("{}:{}", n.role, n.name),
+                        )),
+                        "role": n.role,
+                        "name": n.name,
+                        "description": "Deterministic test fixture",
+                        "help": "",
+                        "accessibility_id": format!("fixture-{}", n.id),
+                        "framework": "fixture",
+                        "attributes": {},
+                        "relations": [],
+                        "facets": {},
+                        "states": ["enabled", "visible"],
+                        "actions": n.actions,
+                        "app": "org.semwright.Fixture",
+                        "parent_ref": Value::Null,
+                        "bounds": {
+                            "x": 0,
+                            "y": 0,
+                            "width": 80,
+                            "height": 24,
+                            "coordinate_space": "fixture_logical"
+                        },
+                        "children_count": s.nodes
+                            .iter()
+                            .filter(|c| c.parent.as_deref() == Some(n.id.as_str()))
+                            .count()
+                    },
+                    "point": {"x": x, "y": y, "coordinate_space": "fixture_logical"},
+                    "semantic_coverage": "native_hit_test"
                 }))
             }
             "window.focus" => {

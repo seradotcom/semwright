@@ -14,7 +14,7 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_command_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 118)
+        self.assertEqual(len(COMMANDS), 120)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
@@ -192,6 +192,44 @@ class ContractTests(unittest.TestCase):
     def test_bridge_metadata(self):
         for path in (ROOT / "bridges").rglob("metadata.json"):
             self.assertIsInstance(json.loads(path.read_text()), dict)
+
+    def test_semantic_ui_outputs_use_closed_rich_nodes(self):
+        node_schema = REGISTRY["ui.hit_test"]["output_schema"]["$defs"]["semantic_node"]
+        self.assertIs(node_schema["additionalProperties"], False)
+        self.assertIs(node_schema["properties"]["facets"]["additionalProperties"], False)
+        self.assertEqual(
+            set(node_schema["properties"]["facets"]["properties"]),
+            {"text", "value", "selection", "table", "document", "hypertext", "image", "scroll", "window", "transform"},
+        )
+        sample = {
+            "ref": "ui:" + "a" * 32,
+            "node_id": "ui-node:fixture",
+            "role": "image",
+            "name": "Architecture diagram",
+            "description": "",
+            "help": "Semwright architecture",
+            "accessibility_id": "architecture",
+            "framework": "gtk4",
+            "attributes": {"class": "diagram"},
+            "relations": [{"kind": "labelled_by", "targets": ["ui:" + "b" * 32]}],
+            "facets": {"image": {"description": "Architecture graph", "locale": "en-US"}},
+            "states": ["enabled"],
+            "actions": [],
+            "app": "org.semwright.Fixture",
+            "parent_ref": None,
+            "bounds": {
+                "x": -10.25,
+                "y": 20.5,
+                "width": 640.5,
+                "height": 360.25,
+                "coordinate_space": "screen",
+            },
+            "children_count": 0,
+        }
+        jsonschema.validate(sample, node_schema)
+        invalid = dict(sample)
+        invalid["native_hwnd"] = "0x1234"
+        self.assertFalse(jsonschema.Draft202012Validator(node_schema).is_valid(invalid))
 
     def test_runtime_schema_has_no_remote_refs(self):
         def walk(value):

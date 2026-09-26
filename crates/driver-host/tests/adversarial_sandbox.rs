@@ -7,6 +7,7 @@ use semwright_driver_sdk::{
     Transport,
 };
 use semwright_policy::FilesystemGrant;
+use semwright_types::ErrorCode;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -100,6 +101,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
         open_files: 64,
         processes: 16,
         cpu_seconds: 20,
+        operation_cpu_seconds: 1,
         address_space_bytes: 536_870_912,
         file_size_bytes: 16_777_216,
     };
@@ -183,7 +185,10 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     )
     .await
     .unwrap();
-    assert_eq!(tool_result["tool_executed"], true);
+    assert_eq!(
+        tool_result["tool_executed"], true,
+        "sealed tool diagnostic: {tool_result}"
+    );
 
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -240,11 +245,29 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     )
     .await
     .unwrap();
-    Provider::shutdown(provider.as_ref()).await.unwrap();
+
+    let budget_error = execute(
+        provider.as_ref(),
+        &capabilities,
+        "driver.adversarial.cpu_burn",
+        json!({}),
+    )
+    .await
+    .expect_err("CPU-bound request must exceed the per-operation budget");
+    assert_eq!(budget_error.code, ErrorCode::ResourceExhausted);
+    assert!(!budget_error.outcome_known);
+
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        Provider::shutdown(provider.as_ref()),
+    )
+    .await
+    .expect("budget termination did not close the provider")
+    .unwrap();
     tokio::time::sleep(Duration::from_millis(1400)).await;
 
     assert!(
         !rw_path.join("driver-descendant.txt").exists(),
-        "a driver descendant survived provider shutdown"
+        "a driver descendant survived per-operation CPU budget termination"
     );
 }

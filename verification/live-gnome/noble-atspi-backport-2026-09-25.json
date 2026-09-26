@@ -1,0 +1,102 @@
+{
+  "status": "PASS",
+  "date": "2026-09-25",
+  "scope": "controlled_real_host_acceptance",
+  "host": {
+    "os_release": "ubuntu 24.04",
+    "kernel": "6.8.0-139-generic",
+    "gnome_shell_package": "46.0-0ubuntu6~24.04.4",
+    "atk_bridge_package": "2.52.0-1build1+semwright1",
+    "atk_bridge_binary_sha256": "6ec2ab460a8fa7c68fdfe8edad9a40411717662df22cd7130a2f39eacef95733",
+    "gnome_shell_pid": 876697
+  },
+  "backport": {
+    "ubuntu_base": "2.52.0-1build1",
+    "local_version": "2.52.0-1build1+semwright1",
+    "upstream_fix": "d442ee182ec8fa095c6bc5298a17663cfc70cf9a",
+    "deb_sha256": "d8de46f5baf9e30e0338d4954e613f77db0012425ab9fb6aacfb6789b9e1791c"
+  },
+  "executed_evidence": [
+    {
+      "test": "github_build_backport",
+      "result": "PASS"
+    },
+    {
+      "test": "github_guarded_backend",
+      "result": "PASS"
+    },
+    {
+      "test": "github_patched_pressure_smoke",
+      "iterations": 12,
+      "result": "PASS"
+    },
+    {
+      "test": "host_registry_smoke",
+      "iterations": 5,
+      "result": "PASS"
+    },
+    {
+      "test": "host_direct_atspi_toplevel_enumeration",
+      "iterations": 20,
+      "result": "PASS"
+    },
+    {
+      "test": "host_direct_accessible_lifetime_churn",
+      "iterations": 12,
+      "result": "PASS"
+    },
+    {
+      "test": "semwright_normal_app_list",
+      "apps": 20,
+      "result": "PASS"
+    },
+    {
+      "test": "semwright_normal_snapshot",
+      "requested_nodes": 64,
+      "requested_depth": 4,
+      "returned_nodes": 64,
+      "event_invalidation": true,
+      "result": "PASS"
+    },
+    {
+      "test": "semwright_guard_oversized_snapshot",
+      "requested_nodes": 2000,
+      "requested_depth": 32,
+      "returned_nodes": 256,
+      "visited_max": 258,
+      "event_invalidation": false,
+      "result": "PASS"
+    },
+    {
+      "test": "semwright_guard_repeated_snapshots",
+      "iterations": 5,
+      "result": "PASS"
+    },
+    {
+      "test": "semwright_live_churn_snapshot",
+      "iterations": 12,
+      "requested_nodes": 256,
+      "requested_depth": 8,
+      "event_invalidation": true,
+      "result": "PASS"
+    },
+    {
+      "test": "semwright_ui_invoke_mutation",
+      "operation": "click OK",
+      "result": "PASS"
+    },
+    {
+      "test": "semwright_stale_ref_detection_after_mutation",
+      "result": "PASS"
+    }
+  ],
+  "crash_observation": {
+    "since_login": "2026-09-25 22:53:00",
+    "gnome_shell_sigsegv_count": 0,
+    "same_gnome_shell_pid_after_tests": true
+  },
+  "limitations": [
+    "This is one controlled Ubuntu 24.04 GNOME host, not universal certification of all Noble hardware/session combinations.",
+    "The temporary local package should be removed once Ubuntu ships an equivalent or newer official fix."
+  ]
+}

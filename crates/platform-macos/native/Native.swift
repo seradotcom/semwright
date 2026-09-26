@@ -5,6 +5,55 @@ import AppKit
 import ApplicationServices
 import Darwin
 
+final class SemanticEventQueue {
+    static let shared = SemanticEventQueue()
+    private let lock = NSLock()
+    private let capacity: Int
+    private let eventEpoch: SemanticEventEpoch
+    private var queue: [[String:Any]] = []
+    private var invalidated = false
+
+    init(capacity: Int = 512, eventEpoch: SemanticEventEpoch = .shared) {
+        self.capacity = max(1, min(capacity, 512))
+        self.eventEpoch = eventEpoch
+    }
+
+    func push(kind: String, pid: Int32, notification: String, structural: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        if queue.count >= capacity {
+            queue.removeAll(keepingCapacity: true)
+            invalidated = true
+            eventEpoch.bump()
+            return
+        }
+        queue.append([
+            "kind": kind,
+            "payload": [
+                "process_id": pid,
+                "native_notification": bounded(notification, 128),
+                "structural": structural,
+            ],
+        ])
+    }
+
+    func drain() -> [[String:Any]] {
+        lock.lock()
+        defer { lock.unlock() }
+        var output: [[String:Any]] = []
+        if invalidated {
+            output.append([
+                "kind": "semantic.backend.invalidated",
+                "payload": ["reason": "native_event_overflow"],
+            ])
+            invalidated = false
+        }
+        output.append(contentsOf: queue)
+        queue.removeAll(keepingCapacity: true)
+        return output
+    }
+}
+
 final class SWRequest {
     let id:String;let command:String;let args:[String:Any]
     var sideEffectsStarted=false
@@ -43,6 +92,11 @@ public func semwrightNativeCancel(_ id:UnsafePointer<CChar>?) {
 }
 @_cdecl("semwright_native_free")
 public func semwrightNativeFree(_ bytes:UnsafeMutableRawPointer?){free(bytes)}
+@_cdecl("semwright_native_drain_events")
+public func semwrightNativeDrainEvents(_ outputLength:UnsafeMutablePointer<Int>?)->UnsafeMutableRawPointer?{
+    let payload=["ok":true,"data":["events":SemanticEventQueue.shared.drain()]] as [String:Any]
+    return copyResult(encodeResponse(payload),outputLength)
+}
 @_cdecl("semwright_native_pump")
 public func semwrightNativePump(){
     guard Thread.isMainThread else{return}
@@ -135,6 +189,8 @@ public func semwrightNativeCall(_ bytes:UnsafePointer<UInt8>?,_ length:Int,_ out
             return ["apps":rows,"partial":rows.count==256]
         case "window.list":return try windows(r)
         case "ui.snapshot":return try snapshot(r)
+        case "ui.inspect":return try inspect(r)
+        case "ui.hit_test":return try hitTest(r)
         case "validate":_=try resolve(r.args);return["valid":true]
         case "focused":let t=try resolve(r.args,kind:"win");return["focused":try focused(t)]
         case "window.focus","window.move","window.resize","window.close":return try windowAction(r)

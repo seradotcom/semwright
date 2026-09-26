@@ -289,7 +289,7 @@ impl Broker {
             *catalog = candidate;
         }
         self.provider_lifecycle("provider.connected", &lease, revision);
-        self.watch_provider(lease, signals, closed);
+        self.watch_provider(identity.id.clone(), lease, signals, closed);
         Ok(revision)
     }
     fn provider_lifecycle(&self, kind: &str, lease: &ProviderLease, revision: u64) {
@@ -350,9 +350,14 @@ impl Broker {
         let lease = self
             .provider(id)
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Provider not found"))?;
-        self.refresh_connection(id, &lease.connection).await
+        self.refresh_connection(id, &lease.connection, false).await
     }
-    async fn refresh_connection(self: &Arc<Self>, id: &str, connection: &str) -> Result<u64> {
+    async fn refresh_connection(
+        self: &Arc<Self>,
+        id: &str,
+        connection: &str,
+        invalidate_previous_epoch: bool,
+    ) -> Result<u64> {
         // A catalog change is not a transport cancellation. Existing calls keep their pinned
         // descriptor/lease; a successful refresh atomically publishes a new generation for future
         // calls. Invalid replacement metadata still revokes the current generation fail-closed.
@@ -433,6 +438,9 @@ impl Broker {
             }
             *catalog = candidate;
         }
+        if invalidate_previous_epoch {
+            lease.epoch.cancel();
+        }
         self.provider_lifecycle("provider.capabilities.changed", &updated, revision);
         Ok(revision)
     }
@@ -464,8 +472,100 @@ impl Broker {
             })??;
         Ok(revision)
     }
+    pub(super) fn start_builtin_provider_watchers(self: &Arc<Self>) -> Result<()> {
+        if !self.policy.capabilities().contains("ui.observe") {
+            return Ok(());
+        }
+        let watchers = {
+            let catalog = self
+                .registry
+                .read()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+            catalog
+                .providers
+                .iter()
+                .filter(|(_, lease)| lease.identity.kind == SourceKind::Builtin)
+                .filter_map(|(route, lease)| {
+                    let signals = lease.events();
+                    let closed = lease.closed();
+                    (signals.is_some() || closed.is_some())
+                        .then(|| (route.clone(), lease.clone(), signals, closed))
+                })
+                .collect::<Vec<_>>()
+        };
+        if watchers.is_empty() {
+            return Ok(());
+        }
+        tokio::runtime::Handle::try_current().map_err(|_| {
+            Error::unavailable(
+                "Event-capable native backends with ui.observe require an active Tokio runtime",
+            )
+        })?;
+        for (route, lease, signals, closed) in watchers {
+            self.watch_provider(route, lease, signals, closed);
+        }
+        Ok(())
+    }
+
+    fn touch_connection_generation(
+        &self,
+        route: &str,
+        connection: &str,
+        lifecycle: &str,
+    ) -> Result<u64> {
+        let (previous, updated, revision) = {
+            let mut catalog = self
+                .registry
+                .write()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+            let previous = catalog
+                .providers
+                .get(route)
+                .cloned()
+                .filter(|provider| provider.connection == connection && provider.active())
+                .ok_or_else(|| Error::new(ErrorCode::Conflict, "Provider connection changed"))?;
+            let mut candidate = catalog.clone();
+            let expected = candidate.revision();
+            let revision = candidate.touch(expected)?;
+            let updated = Arc::new(ProviderLease {
+                provider: previous.provider.clone(),
+                identity: previous.identity.clone(),
+                generation: revision,
+                connection: previous.connection.clone(),
+                lifetime: previous.lifetime.clone(),
+                epoch: previous.lifetime.child_token(),
+            });
+            if !updated.active() {
+                return Err(Error::unavailable("Provider is no longer connected"));
+            }
+            candidate
+                .providers
+                .insert(route.to_owned(), updated.clone());
+            *catalog = candidate;
+            (previous, updated, revision)
+        };
+        previous.epoch.cancel();
+        self.provider_lifecycle(lifecycle, &updated, revision);
+        Ok(revision)
+    }
+
+    async fn recover_signal_loss(self: &Arc<Self>, route: &str, connection: &str) -> Result<u64> {
+        let kind = self
+            .provider(route)
+            .filter(|provider| provider.connection == connection && provider.active())
+            .ok_or_else(|| Error::new(ErrorCode::Conflict, "Provider connection changed"))?
+            .identity
+            .kind;
+        if kind == SourceKind::Builtin {
+            self.touch_connection_generation(route, connection, "provider.generation.invalidated")
+        } else {
+            self.refresh_connection(route, connection, true).await
+        }
+    }
+
     fn watch_provider(
         self: &Arc<Self>,
+        route: String,
         lease: Arc<ProviderLease>,
         mut signals: Option<broadcast::Receiver<ProviderSignal>>,
         closed: Option<CancellationToken>,
@@ -477,12 +577,24 @@ impl Broker {
         self.provider_tasks.spawn(async move {
             let never = CancellationToken::new();
             let closed = closed.unwrap_or(never);
+            let builtin = lease.identity.kind == SourceKind::Builtin;
+            let connection = lease.connection.clone();
             loop {
                 let signal = tokio::select! {
                     biased;
                     _ = lease.lifetime.cancelled() => break,
                     _ = closed.cancelled() => {
-                        if let Some(broker) = broker.upgrade() { let _ = broker.terminate_connection(&lease.identity.id, &lease.connection); }
+                        if let Some(broker) = broker.upgrade() {
+                            if builtin {
+                                let _ = broker.touch_connection_generation(
+                                    &route,
+                                    &connection,
+                                    "provider.generation.invalidated",
+                                );
+                            } else {
+                                let _ = broker.terminate_connection(&route, &connection);
+                            }
+                        }
                         break;
                     },
                     signal = async {
@@ -492,18 +604,64 @@ impl Broker {
                 let Some(broker) = broker.upgrade() else { break; };
                 match signal {
                     Ok(ProviderSignal::Disconnected) | Err(broadcast::error::RecvError::Closed) => {
-                        let _ = broker.terminate_connection(&lease.identity.id, &lease.connection);
+                        if builtin {
+                            let _ = broker.touch_connection_generation(
+                                &route,
+                                &connection,
+                                "provider.generation.invalidated",
+                            );
+                        } else {
+                            let _ = broker.terminate_connection(&route, &connection);
+                        }
                         break;
                     }
-                    Ok(ProviderSignal::CapabilitiesChanged) | Err(broadcast::error::RecvError::Lagged(_)) => {
+                    Ok(ProviderSignal::CapabilitiesChanged) => {
+                        let result = if builtin {
+                            broker.touch_connection_generation(
+                                &route,
+                                &connection,
+                                "provider.capabilities.changed",
+                            )
+                        } else {
+                            tokio::select! {
+                                _ = lease.lifetime.cancelled() => break,
+                                result = broker.refresh_connection(&route, &connection, false) => result,
+                            }
+                        };
+                        if result.is_err() && !builtin {
+                            let _ = broker.invalidate_connection(&route, &connection);
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(dropped)) => {
                         let result = tokio::select! {
                             _ = lease.lifetime.cancelled() => break,
-                            result = broker.refresh_connection(&lease.identity.id, &lease.connection) => result,
+                            result = broker.recover_signal_loss(&route, &connection) => result,
                         };
-                        if result.is_err() { let _ = broker.invalidate_connection(&lease.identity.id, &lease.connection); }
+                        if result.is_ok() {
+                            let _ = broker.ingest_provider_event(
+                                &route,
+                                &connection,
+                                semwright_types::semantic_ui_event::BACKEND_INVALIDATED,
+                                json!({"reason":"provider_signal_lag","dropped":dropped}),
+                            );
+                        }
                     }
                     Ok(ProviderSignal::Event { kind, payload }) => {
-                        let _ = broker.ingest_provider_event(&lease.identity.id, &lease.connection, &kind, payload);
+                        if kind == semwright_types::semantic_ui_event::BACKEND_INVALIDATED {
+                            let result = tokio::select! {
+                                _ = lease.lifetime.cancelled() => break,
+                                result = broker.recover_signal_loss(&route, &connection) => result,
+                            };
+                            if result.is_err() {
+                                continue;
+                            }
+                        }
+                        let _ = broker.ingest_provider_event(
+                            &route,
+                            &connection,
+                            &kind,
+                            payload,
+                        );
                     }
                     Ok(ProviderSignal::Progress {
                         request_id,
@@ -511,8 +669,8 @@ impl Broker {
                         artifacts,
                     }) => {
                         let _ = broker.ingest_provider_progress(
-                            &lease.identity.id,
-                            &lease.connection,
+                            &route,
+                            &connection,
                             &request_id,
                             progress,
                             artifacts,
@@ -614,13 +772,6 @@ impl Broker {
                 "Provider event payload is too large",
             ));
         }
-        // Events cannot expose a provider's data unless its owner-assigned scope is granted.
-        if !self.policy.capabilities().iter().any(|scope| scope == id) {
-            return Err(Error::new(
-                ErrorCode::PolicyDenied,
-                "Provider event scope is not granted",
-            ));
-        }
         let catalog = self
             .registry
             .read()
@@ -632,9 +783,37 @@ impl Broker {
             .ok_or_else(|| {
                 Error::new(ErrorCode::Conflict, "Event belongs to an inactive provider")
             })?;
+        if current.identity.kind == SourceKind::Builtin {
+            if !kind.starts_with("semantic.") {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native providers may expose only normalized semantic events",
+                ));
+            }
+            if !self.policy.capabilities().contains("ui.observe") {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native semantic events require ui.observe",
+                ));
+            }
+        } else if !self
+            .policy
+            .capabilities()
+            .iter()
+            .any(|scope| scope == &current.identity.id)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Provider event scope is not granted",
+            ));
+        }
         self.event(
-            EventEnvelope::new(kind, id, event_time())
-                .with_provider(id, Some(current.generation), Some(catalog.revision()))
+            EventEnvelope::new(kind, current.identity.id.clone(), event_time())
+                .with_provider(
+                    current.identity.id.clone(),
+                    Some(current.generation),
+                    Some(catalog.revision()),
+                )
                 .with_untrusted_payload(payload),
         );
         Ok(())

@@ -29,7 +29,7 @@ The helper never accepts arbitrary JavaScript, npm packages, commands or URLs fr
 
 ## Cancellation and timeout
 
-Node is started in a new owned process group; Firefox descendants inherit that group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. The Motion Canvas manifest currently negotiates protocol v1, so this driver does not transport protocol-v2 child progress events; status exposes observed phases only.
+Node is started in a new owned process group; Firefox descendants inherit that group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. The Motion Canvas manifest negotiates Protocol v3: `render.execute` reports observed render-state transitions plus the validated terminal artifact through the protocol context and honors cooperative request cancellation. The asynchronous `render.start/status/cancel/result` surface remains backed by the same job registry rather than a second renderer path.
 
 ## Firefox version pin
 
