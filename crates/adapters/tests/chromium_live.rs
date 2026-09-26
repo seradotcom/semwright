@@ -60,7 +60,7 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                 }
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
                 _ => {
-                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><button id='submit'>Submit</button></form><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
+                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
                 }
             };
             let response = format!(
@@ -101,6 +101,42 @@ async fn query(
     })
     .await?
 }
+
+async fn semantic_query(
+    browser: &Chromium,
+    ctx: &Context,
+    target_ref: &NativeTarget,
+    role: &str,
+    name: &str,
+) -> TestResult<NativeTarget> {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let result = browser
+                .execute(
+                    ctx,
+                    "browser.semantic.query",
+                    &json!({
+                        "_target":target_ref,
+                        "role":role,
+                        "name":name,
+                        "exact_name":true,
+                        "max_results":8,
+                        "depth":16
+                    }),
+                )
+                .await;
+            if let Ok(value) = result
+                && value["count"] == 1
+                && !value["matches"][0]["ref"].is_null()
+            {
+                return target(&value["matches"][0]["ref"]);
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await?
+}
+
 async fn exercise(
     browser: &Chromium,
     ctx: &Context,
@@ -132,11 +168,62 @@ async fn exercise(
         )
         .await?;
     let tab = target(&opened["ref"])?;
-    let input = query(browser, ctx, &tab, "#name").await?;
+    let semantic = browser
+        .execute(
+            ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":tab,"depth":16,"max_nodes":256}),
+        )
+        .await?;
+    assert_eq!(semantic["source"], "cdp_accessibility_tree");
+    assert_eq!(semantic["arbitrary_javascript"], false);
+    let semantic_nodes = semantic["nodes"]
+        .as_array()
+        .ok_or("semantic nodes missing")?;
+    assert!(
+        semantic_nodes
+            .iter()
+            .any(|row| row["role"] == "textbox" && row["name"] == "Name")
+    );
+    assert!(
+        semantic_nodes
+            .iter()
+            .any(|row| row["role"] == "button" && row["name"] == "Shadow Save")
+    );
+
+    let editor = semantic_query(browser, ctx, &tab, "textbox", "Editor").await?;
+    let inspected = browser
+        .execute(ctx, "browser.semantic.inspect", &json!({"_target":editor}))
+        .await?;
+    assert_eq!(inspected["semantic"]["role"], "textbox");
+    assert!(
+        inspected["semantic"]["actions"]
+            .as_array()
+            .is_some_and(|actions| { actions.iter().any(|action| action == "fill") })
+    );
+    browser
+        .execute(ctx, "browser.element.focus", &json!({"_target":editor}))
+        .await?;
+    browser
+        .execute(ctx, "browser.element.scroll", &json!({"_target":editor}))
+        .await?;
     browser
         .execute(
             ctx,
-            "browser.dom.fill",
+            "browser.element.fill",
+            &json!({"_target":editor,"text":"Edited semantically"}),
+        )
+        .await?;
+    assert_eq!(
+        browser.validate(&editor).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let input = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    browser
+        .execute(
+            ctx,
+            "browser.element.fill",
             &json!({"_target":input,"text":"Semwright integration"}),
         )
         .await?;
@@ -148,9 +235,9 @@ async fn exercise(
         )
         .await?;
     assert_eq!(snapshot["sensitive_attributes_omitted"], true);
-    let submit = query(browser, ctx, &tab, "#submit").await?;
+    let submit = semantic_query(browser, ctx, &tab, "button", "Submit").await?;
     browser
-        .execute(ctx, "browser.dom.click", &json!({"_target":submit}))
+        .execute(ctx, "browser.element.click", &json!({"_target":submit}))
         .await?;
     tokio::time::timeout(Duration::from_secs(10), async {
         while !requests
@@ -167,6 +254,27 @@ async fn exercise(
         browser.validate(&input).await.unwrap_err().code,
         ErrorCode::StaleReference
     );
+    let back = browser
+        .execute(ctx, "browser.page.back", &json!({"_target":tab}))
+        .await?;
+    assert_eq!(back["changed"], true);
+    let _ = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    let forward = browser
+        .execute(ctx, "browser.page.forward", &json!({"_target":tab}))
+        .await?;
+    assert_eq!(forward["changed"], true);
+    let _ = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    browser
+        .execute(
+            ctx,
+            "browser.page.reload",
+            &json!({"_target":tab,"ignore_cache":true}),
+        )
+        .await?;
+    let _ = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    browser
+        .execute(ctx, "browser.page.stop", &json!({"_target":tab}))
+        .await?;
     let screenshot = browser
         .execute(ctx, "browser.screenshot", &json!({"_target":tab}))
         .await?;
@@ -388,8 +496,34 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
         .await?;
 
     let frames_tab = target(&frames["ref"])?;
+    let frame_list = browser
+        .execute(&ctx, "browser.frame.list", &json!({"_target":frames_tab}))
+        .await?;
+    assert!(frame_list["count"].as_u64().is_some_and(|count| count >= 2));
+    let child = frame_list["frames"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|row| !row["parent_frame_id"].is_null()))
+        .ok_or("child frame missing")?;
+    let child_frame = target(&child["ref"])?;
+    let child_semantic = browser
+        .execute(
+            &ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":child_frame,"depth":8,"max_nodes":64}),
+        )
+        .await?;
+    assert!(
+        child_semantic["nodes"]
+            .as_array()
+            .is_some_and(|nodes| { nodes.iter().any(|row| row["name"] == "Frame A") })
+    );
     let stable = stable_main_document_ref(&browser, &ctx, &frames_tab).await?;
     tokio::time::sleep(Duration::from_millis(2400)).await;
+    assert_eq!(
+        browser.validate(&child_frame).await.unwrap_err().code,
+        ErrorCode::StaleReference,
+        "subframe navigation must retire frame references"
+    );
     assert_eq!(
         browser.validate(&stable).await.unwrap_err().code,
         ErrorCode::StaleReference,
@@ -397,6 +531,26 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
     );
     let refreshed = query(&browser, &ctx, &frames_tab, "#stable").await?;
     browser.validate(&refreshed).await?;
+    let refreshed_frames = browser
+        .execute(&ctx, "browser.frame.list", &json!({"_target":frames_tab}))
+        .await?;
+    let refreshed_child = refreshed_frames["frames"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|row| !row["parent_frame_id"].is_null()))
+        .ok_or("refreshed child frame missing")?;
+    let refreshed_frame = target(&refreshed_child["ref"])?;
+    let refreshed_semantic = browser
+        .execute(
+            &ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":refreshed_frame,"depth":8,"max_nodes":64}),
+        )
+        .await?;
+    assert!(
+        refreshed_semantic["nodes"]
+            .as_array()
+            .is_some_and(|nodes| { nodes.iter().any(|row| row["name"] == "Frame B") })
+    );
 
     let page = browser
         .execute(

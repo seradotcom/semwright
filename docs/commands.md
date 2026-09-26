@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-120 built-in descriptors. A descriptor is not proof of live backend support.
+132 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -131,6 +131,18 @@ for many backends in this development handoff; strengthening them is a release g
 | `workflow.proposal.get` | `workflow.record` | read_only | 30000 ms | core |
 | `workflow.proposal.plan` | `workflow.record` | read_only | 300000 ms | core |
 | `workflow.proposals.list` | `workflow.record` | read_only | 30000 ms | core |
+| `browser.page.reload` | `browser.modify` | mutating | 60000 ms | chromium |
+| `browser.page.stop` | `browser.modify` | mutating_reversible | 60000 ms | chromium |
+| `browser.page.back` | `browser.modify` | mutating | 60000 ms | chromium |
+| `browser.page.forward` | `browser.modify` | mutating | 60000 ms | chromium |
+| `browser.frame.list` | `browser.observe` | read_only | 60000 ms | chromium |
+| `browser.semantic.snapshot` | `browser.observe` | read_only | 60000 ms | chromium |
+| `browser.semantic.query` | `browser.observe` | read_only | 60000 ms | chromium |
+| `browser.semantic.inspect` | `browser.observe` | read_only | 60000 ms | chromium |
+| `browser.element.focus` | `browser.modify` | mutating_reversible | 60000 ms | chromium |
+| `browser.element.scroll` | `browser.modify` | mutating_reversible | 60000 ms | chromium |
+| `browser.element.click` | `browser.modify` | mutating | 60000 ms | chromium |
+| `browser.element.fill` | `browser.modify` | mutating | 60000 ms | chromium |
 
 ## `doctor`
 
@@ -3386,6 +3398,336 @@ Idempotency: `read_only`. Dry run: `false`.
       "type": "boolean"
     }
   },
+  "additionalProperties": false
+}
+```
+
+## `browser.page.reload`
+
+Reload a tab through the owned Page domain and retire stale semantic refs.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    },
+    "ignore_cache": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.page.stop`
+
+Stop the current page load without evaluating page JavaScript.
+
+Idempotency: `idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.page.back`
+
+Navigate one entry backward in the owned tab history when available.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.page.forward`
+
+Navigate one entry forward in the owned tab history when available.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.frame.list`
+
+List bounded frame semantics with generation-bound frame refs.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.semantic.snapshot`
+
+Read a bounded accessibility-semantic tree for a tab or frame without JavaScript evaluation.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    },
+    "depth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32
+    },
+    "max_nodes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "include_ignored": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.semantic.query`
+
+Find semantic elements by accessibility role/name/action and return exact DOM refs when backed by DOM.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    },
+    "role": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "exact_name": {
+      "type": "boolean"
+    },
+    "action": {
+      "enum": [
+        "focus",
+        "scroll",
+        "click",
+        "fill",
+        "check"
+      ]
+    },
+    "depth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32
+    },
+    "max_results": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "include_ignored": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.semantic.inspect`
+
+Inspect one exact DOM ref through both accessibility semantics and bounded DOM metadata.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.element.focus`
+
+Focus one exact DOM-backed semantic element and verify focus ownership.
+
+Idempotency: `idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.element.scroll`
+
+Scroll one exact DOM-backed semantic element into view.
+
+Idempotency: `idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.element.click`
+
+Click one exact semantic DOM ref after generation validation and hit-testing.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "ref"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `browser.element.fill`
+
+Replace text in a text-like or contenteditable semantic element using DOM focus and CDP input.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 65536
+    }
+  },
+  "required": [
+    "ref",
+    "text"
+  ],
   "additionalProperties": false
 }
 ```

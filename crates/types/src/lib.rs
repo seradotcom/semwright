@@ -302,7 +302,7 @@ impl RefStore {
         }
         if !matches!(
             target.kind.as_str(),
-            "ui" | "win" | "app" | "screen" | "dom" | "tab" | "process" | "native"
+            "ui" | "win" | "app" | "screen" | "dom" | "tab" | "frame" | "process" | "native"
         ) {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -968,6 +968,26 @@ mod tests {
         store.invalidate_backend("fake");
         assert!(store.get(&id, "s1").is_err());
     }
+    #[test]
+    fn browser_frame_refs_are_supported() {
+        let mut store = RefStore::new(Duration::from_secs(60), 1);
+        let id = store
+            .insert(
+                "s",
+                "chromium",
+                NativeTarget {
+                    kind: "frame".into(),
+                    identity: "tab-1#frame:frame-1".into(),
+                    revision: 7,
+                    fingerprint: "epoch".into(),
+                    app: "org.semwright.Chromium".into(),
+                },
+            )
+            .unwrap();
+        assert!(id.starts_with("frame:"));
+        assert!(store.get(&id, "s").is_ok());
+    }
+
     #[test]
     fn expired_refs_fail() {
         let mut store = RefStore::new(Duration::ZERO, 1);

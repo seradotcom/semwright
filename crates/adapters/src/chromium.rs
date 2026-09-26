@@ -626,7 +626,13 @@ impl Instance {
             )
             .await?;
         let session = arg_str(&result, "sessionId")?.to_owned();
-        for domain in ["DOM.enable", "Page.enable", "Log.enable", "Network.enable"] {
+        for domain in [
+            "DOM.enable",
+            "Page.enable",
+            "Accessibility.enable",
+            "Log.enable",
+            "Network.enable",
+        ] {
             self.cdp.call(domain, json!({}), Some(&session)).await?;
         }
         self.sessions.insert(target.into(), session.clone());
@@ -651,6 +657,15 @@ impl Instance {
         Ok(target_marker(NativeTarget {
             kind: "dom".into(),
             identity: format!("{target}#{id}"),
+            revision: self.cdp.generation(session)?,
+            fingerprint: self.epoch.clone(),
+            app: "org.semwright.Chromium".into(),
+        }))
+    }
+    fn frame_ref(&self, target: &str, frame: &str, session: &str) -> Result<Value> {
+        Ok(target_marker(NativeTarget {
+            kind: "frame".into(),
+            identity: format!("{target}#frame:{frame}"),
             revision: self.cdp.generation(session)?,
             fingerprint: self.epoch.clone(),
             app: "org.semwright.Chromium".into(),
@@ -883,9 +898,9 @@ impl Chromium {
             json!({"launched":true,"isolated_profile":true,"headless":headless,"browser_sandbox_disabled":false,"downloads_enabled":self.config.allow_downloads}),
         )
     }
-    fn target_parts(target: &NativeTarget) -> Result<(String, Option<u64>)> {
+    fn target_parts(target: &NativeTarget) -> Result<(String, Option<u64>, Option<String>)> {
         match target.kind.as_str() {
-            "tab" => Ok((target.identity.clone(), None)),
+            "tab" => Ok((target.identity.clone(), None, None)),
             "dom" => {
                 let (tab, id) = target.identity.split_once('#').ok_or_else(|| {
                     Error::new(ErrorCode::StaleReference, "Invalid DOM reference")
@@ -895,11 +910,24 @@ impl Chromium {
                     Some(id.parse().map_err(|_| {
                         Error::new(ErrorCode::StaleReference, "Invalid DOM identity")
                     })?),
+                    None,
                 ))
+            }
+            "frame" => {
+                let (tab, frame) = target.identity.split_once("#frame:").ok_or_else(|| {
+                    Error::new(ErrorCode::StaleReference, "Invalid frame reference")
+                })?;
+                if frame.is_empty() || frame.len() > 256 {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Invalid frame identity",
+                    ));
+                }
+                Ok((tab.into(), None, Some(frame.into())))
             }
             _ => Err(Error::new(
                 ErrorCode::InvalidArgument,
-                "A browser tab or DOM reference is required",
+                "A browser tab, frame or DOM reference is required",
             )),
         }
     }
@@ -907,24 +935,23 @@ impl Chromium {
         &self,
         instance: &mut Instance,
         target: &NativeTarget,
-    ) -> Result<(String, Option<u64>, String)> {
+    ) -> Result<(String, Option<u64>, Option<String>, String)> {
         if target.fingerprint != instance.epoch {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Browser instance has changed",
             ));
         }
-        let (tab, node) = Self::target_parts(target)?;
-        // Navigation invalidates a DOM ref semantically before target metadata necessarily
-        // settles on a parseable URL. Prefer the known generation mismatch over a transient
-        // URL/configuration error so stale identities never degrade into InvalidArgument.
-        if node.is_some()
+        let (tab, node, frame) = Self::target_parts(target)?;
+        // Navigation invalidates semantic refs before target metadata necessarily settles.
+        // Prefer a generation mismatch over a transient URL/configuration error.
+        if (node.is_some() || frame.is_some())
             && let Some(session) = instance.sessions.get(&tab)
             && instance.cdp.generation(session)? != target.revision
         {
             return Err(Error::new(
                 ErrorCode::StaleReference,
-                "DOM changed; obtain a fresh semantic reference",
+                "Browser document context changed; obtain a fresh semantic reference",
             ));
         }
         instance.check_tab(&tab, &self.config).await?;
@@ -957,7 +984,25 @@ impl Chromium {
                 ));
             }
         }
-        Ok((tab, node, session))
+        if let Some(frame_id) = frame.as_deref() {
+            if instance.cdp.generation(&session)? != target.revision {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Frame context changed; obtain a fresh semantic reference",
+                ));
+            }
+            let tree = instance
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&session))
+                .await?;
+            if !frame_tree_contains(&tree["frameTree"], frame_id) {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Browser frame no longer exists",
+                ));
+            }
+        }
+        Ok((tab, node, frame, session))
     }
     async fn artifact(&self, encoded: &str) -> Result<Value> {
         if encoded.len() > 44 * 1024 * 1024 {
@@ -1018,6 +1063,53 @@ impl Chromium {
         )
     }
 }
+fn frame_tree_contains(tree: &Value, frame_id: &str) -> bool {
+    frame_tree_find(tree, frame_id).is_some()
+}
+
+fn frame_tree_find<'a>(tree: &'a Value, frame_id: &str) -> Option<&'a Value> {
+    if tree["frame"]["id"].as_str() == Some(frame_id) {
+        return Some(tree);
+    }
+    tree["childFrames"]
+        .as_array()?
+        .iter()
+        .find_map(|child| frame_tree_find(child, frame_id))
+}
+
+fn collect_frame_rows(
+    instance: &Instance,
+    target: &str,
+    session: &str,
+    tree: &Value,
+    parent: Option<&str>,
+    rows: &mut Vec<Value>,
+) -> Result<()> {
+    if rows.len() >= 256 {
+        return Ok(());
+    }
+    let frame = &tree["frame"];
+    let id = arg_str(frame, "id")?;
+    let url = frame["url"].as_str().unwrap_or("");
+    rows.push(json!({
+        "ref": instance.frame_ref(target, id, session)?,
+        "name": frame["name"].as_str().unwrap_or("").chars().take(256).collect::<String>(),
+        "url_origin": Url::parse(url).ok().map(|value| value.origin().ascii_serialization()),
+        "parent_frame_id": parent,
+        "secure_context_type": frame["secureContextType"].as_str(),
+        "mime_type": frame["mimeType"].as_str()
+    }));
+    if let Some(children) = tree["childFrames"].as_array() {
+        for child in children {
+            collect_frame_rows(instance, target, session, child, Some(id), rows)?;
+            if rows.len() >= 256 {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn attribute(node: &Value, name: &str) -> Option<String> {
     node["attributes"]
         .as_array()?
@@ -1028,6 +1120,130 @@ fn attribute(node: &Value, name: &str) -> Option<String> {
         .and_then(|pair| pair[1].as_str())
         .map(str::to_owned)
 }
+fn ax_text(node: &Value, key: &str) -> Option<String> {
+    node[key]["value"]
+        .as_str()
+        .map(|value| value.chars().take(512).collect())
+}
+
+fn ax_property(node: &Value, name: &str) -> Option<Value> {
+    let raw = node["properties"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["name"].as_str() == Some(name))?
+        .pointer("/value/value")?;
+    match raw {
+        Value::Bool(_) | Value::Number(_) => Some(raw.clone()),
+        Value::String(value) => Some(json!(value.chars().take(512).collect::<String>())),
+        _ => None,
+    }
+}
+
+fn compact_ax(instance: &Instance, target: &str, session: &str, node: &Value) -> Result<Value> {
+    let role = ax_text(node, "role").unwrap_or_default();
+    let backend = node["backendDOMNodeId"].as_u64();
+    let reference = backend
+        .map(|id| instance.dom_ref(target, &json!({"backendNodeId":id}), session))
+        .transpose()?;
+    let mut states = serde_json::Map::new();
+    for key in [
+        "disabled",
+        "focused",
+        "selected",
+        "checked",
+        "expanded",
+        "required",
+        "readonly",
+        "editable",
+        "multiselectable",
+        "orientation",
+        "haspopup",
+        "invalid",
+        "valuemin",
+        "valuemax",
+        "autocomplete",
+        "level",
+    ] {
+        if let Some(value) = ax_property(node, key) {
+            states.insert(key.into(), value);
+        }
+    }
+    let mut actions = Vec::new();
+    if reference.is_some() {
+        actions.extend(["focus", "scroll"]);
+        if matches!(
+            role.as_str(),
+            "button"
+                | "link"
+                | "menuitem"
+                | "checkbox"
+                | "radio"
+                | "switch"
+                | "tab"
+                | "treeitem"
+                | "option"
+        ) {
+            actions.push("click");
+        }
+        if matches!(
+            role.as_str(),
+            "textbox" | "searchbox" | "combobox" | "spinbutton"
+        ) {
+            actions.push("fill");
+        }
+        if matches!(role.as_str(), "checkbox" | "radio" | "switch") {
+            actions.push("check");
+        }
+    }
+    Ok(json!({
+        "ax_id": node["nodeId"].as_str().unwrap_or(""),
+        "ignored": node["ignored"].as_bool().unwrap_or(false),
+        "role": role,
+        "name": ax_text(node, "name"),
+        "description": ax_text(node, "description"),
+        "value": ax_text(node, "value"),
+        "states": states,
+        "actions": actions,
+        "ref": reference,
+        "frame_id": node["frameId"].as_str(),
+        "parent_ax_id": node["parentId"].as_str(),
+        "child_ax_ids": node["childIds"].as_array().map(|items| items.iter().take(64).cloned().collect::<Vec<_>>()).unwrap_or_default()
+    }))
+}
+
+fn semantic_query_matches(row: &Value, args: &Value) -> bool {
+    if let Some(role) = args["role"].as_str()
+        && !row["role"]
+            .as_str()
+            .is_some_and(|value| value.eq_ignore_ascii_case(role))
+    {
+        return false;
+    }
+    if let Some(name) = args["name"].as_str() {
+        let Some(actual) = row["name"].as_str() else {
+            return false;
+        };
+        if args["exact_name"].as_bool().unwrap_or(false) {
+            if actual != name {
+                return false;
+            }
+        } else if !actual
+            .to_ascii_lowercase()
+            .contains(&name.to_ascii_lowercase())
+        {
+            return false;
+        }
+    }
+    if let Some(action) = args["action"].as_str()
+        && !row["actions"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(action)))
+    {
+        return false;
+    }
+    true
+}
+
 fn compact_dom(
     instance: &Instance,
     target: &str,
@@ -1064,15 +1280,24 @@ fn compact_dom(
     }
     row["attributes"] = Value::Object(attrs);
     let mut children = vec![];
-    if let Some(nodes) = node["children"].as_array() {
-        for child in nodes {
-            if let Some(v) = compact_dom(instance, target, session, child, remaining)? {
-                children.push(v);
-            }
-            if *remaining == 0 {
-                break;
+    for key in ["children", "shadowRoots"] {
+        if let Some(nodes) = node[key].as_array() {
+            for child in nodes {
+                if let Some(v) = compact_dom(instance, target, session, child, remaining)? {
+                    children.push(v);
+                }
+                if *remaining == 0 {
+                    break;
+                }
             }
         }
+    }
+    if *remaining > 0
+        && let Some(document) = node.get("contentDocument")
+        && document.is_object()
+        && let Some(v) = compact_dom(instance, target, session, document, remaining)?
+    {
+        children.push(v);
     }
     row["children"] = json!(children);
     Ok(Some(row))
@@ -1238,11 +1463,11 @@ impl Backend for Chromium {
             return Ok(json!({"ref":instance.tab_ref(&tab),"changed":true}));
         }
         let target = native_target(args)?;
-        let (tab, node, session) = self.validate_in(instance, &target).await?;
+        let (tab, node, frame, session) = self.validate_in(instance, &target).await?;
         let cdp = instance.cdp.clone();
         match command {
             "browser.tab.close" => {
-                if node.is_some() {
+                if node.is_some() || frame.is_some() {
                     return Err(Error::invalid("Tab reference required"));
                 }
                 let result = cdp
@@ -1258,12 +1483,15 @@ impl Backend for Chromium {
                 Ok(json!({"changed":result["success"]==true}))
             }
             "browser.tab.focus" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
                 cdp.call("Target.activateTarget", json!({"targetId":tab}), None)
                     .await?;
                 Ok(json!({"accepted":true}))
             }
             "browser.navigate" => {
-                if node.is_some() {
+                if node.is_some() || frame.is_some() {
                     return Err(Error::invalid("Tab reference required"));
                 }
                 let url = arg_str(args, "url")?;
@@ -1281,8 +1509,207 @@ impl Backend for Chromium {
                 }
                 Ok(json!({"changed":true}))
             }
-            "browser.dom.snapshot" => {
+            "browser.page.reload" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                cdp.invalidate_session(&session)?;
+                cdp.call(
+                    "Page.reload",
+                    json!({"ignoreCache":args["ignore_cache"].as_bool().unwrap_or(false)}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({"changed":true}))
+            }
+            "browser.page.stop" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                cdp.call("Page.stopLoading", json!({}), Some(&session))
+                    .await?;
+                Ok(json!({"accepted":true}))
+            }
+            "browser.page.back" | "browser.page.forward" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let history = cdp
+                    .call("Page.getNavigationHistory", json!({}), Some(&session))
+                    .await?;
+                let current = history["currentIndex"].as_i64().ok_or_else(|| {
+                    Error::new(ErrorCode::BackendFailed, "Browser history index is missing")
+                })?;
+                let next = if command == "browser.page.back" {
+                    current.saturating_sub(1)
+                } else {
+                    current.saturating_add(1)
+                };
+                let Some(entry) = history["entries"].as_array().and_then(|entries| {
+                    usize::try_from(next)
+                        .ok()
+                        .and_then(|index| entries.get(index))
+                }) else {
+                    return Ok(json!({"changed":false}));
+                };
+                let entry_id = entry["id"].as_i64().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Browser history entry is malformed",
+                    )
+                })?;
+                cdp.invalidate_session(&session)?;
+                cdp.call(
+                    "Page.navigateToHistoryEntry",
+                    json!({"entryId":entry_id}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({"changed":true}))
+            }
+            "browser.frame.list" => {
                 if node.is_some() {
+                    return Err(Error::invalid("Tab or frame reference required"));
+                }
+                let generation = cdp.generation(&session)?;
+                let tree = cdp
+                    .call("Page.getFrameTree", json!({}), Some(&session))
+                    .await?;
+                let root = if let Some(frame_id) = frame.as_deref() {
+                    frame_tree_find(&tree["frameTree"], frame_id).ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Browser frame no longer exists")
+                    })?
+                } else {
+                    &tree["frameTree"]
+                };
+                let mut rows = Vec::new();
+                collect_frame_rows(instance, &tab, &session, root, None, &mut rows)?;
+                if cdp.generation(&session)? != generation {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Frame tree changed while observing; repeat discovery",
+                    ));
+                }
+                let count = rows.len();
+                Ok(json!({"frames":rows,"count":count,"truncated":count==256}))
+            }
+            "browser.semantic.snapshot" | "browser.semantic.query" => {
+                if node.is_some() {
+                    return Err(Error::invalid("Tab or frame reference required"));
+                }
+                let generation = cdp.generation(&session)?;
+                let mut params = json!({
+                    "depth": args["depth"].as_u64().unwrap_or(8).min(32)
+                });
+                if let Some(frame_id) = frame.as_deref() {
+                    params["frameId"] = json!(frame_id);
+                }
+                let result = cdp
+                    .call("Accessibility.getFullAXTree", params, Some(&session))
+                    .await?;
+                let nodes = result["nodes"].as_array().ok_or_else(|| {
+                    Error::new(ErrorCode::BackendFailed, "Accessibility tree is malformed")
+                })?;
+                let include_ignored = args["include_ignored"].as_bool().unwrap_or(false);
+                let limit = if command == "browser.semantic.query" {
+                    args["max_results"].as_u64().unwrap_or(50).clamp(1, 200) as usize
+                } else {
+                    args["max_nodes"].as_u64().unwrap_or(500).clamp(1, 1000) as usize
+                };
+                let mut rows = Vec::new();
+                let mut matched = 0usize;
+                for ax in nodes {
+                    if !include_ignored && ax["ignored"].as_bool().unwrap_or(false) {
+                        continue;
+                    }
+                    let row = compact_ax(instance, &tab, &session, ax)?;
+                    if command == "browser.semantic.query" && !semantic_query_matches(&row, args) {
+                        continue;
+                    }
+                    matched = matched.saturating_add(1);
+                    if rows.len() < limit {
+                        rows.push(row);
+                    }
+                }
+                if cdp.generation(&session)? != generation {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Accessibility tree changed while observing; repeat discovery",
+                    ));
+                }
+                if command == "browser.semantic.query" {
+                    let single = if matched == 1 {
+                        rows.first().cloned()
+                    } else {
+                        None
+                    };
+                    return Ok(json!({
+                        "matches": rows,
+                        "single": single,
+                        "count": matched,
+                        "truncated": matched > limit,
+                        "source": "cdp_accessibility_tree"
+                    }));
+                }
+                Ok(json!({
+                    "nodes": rows,
+                    "count": matched,
+                    "truncated": matched > limit,
+                    "source": "cdp_accessibility_tree",
+                    "generation": generation,
+                    "arbitrary_javascript": false
+                }))
+            }
+            "browser.semantic.inspect" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                if frame.is_some() {
+                    return Err(Error::invalid("DOM reference required"));
+                }
+                let generation = cdp.generation(&session)?;
+                let result = cdp
+                    .call(
+                        "Accessibility.getPartialAXTree",
+                        json!({"backendNodeId":node,"fetchRelatives":true}),
+                        Some(&session),
+                    )
+                    .await?;
+                let nodes = result["nodes"].as_array().ok_or_else(|| {
+                    Error::new(ErrorCode::BackendFailed, "Accessibility node is malformed")
+                })?;
+                let ax = nodes
+                    .iter()
+                    .find(|candidate| candidate["backendDOMNodeId"].as_u64() == Some(node))
+                    .or_else(|| nodes.first())
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::NotFound, "No accessibility node found")
+                    })?;
+                let semantic = compact_ax(instance, &tab, &session, ax)?;
+                let dom = cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":0}),
+                        Some(&session),
+                    )
+                    .await?;
+                if cdp.generation(&session)? != generation {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Element changed while inspecting; repeat discovery",
+                    ));
+                }
+                Ok(json!({
+                    "semantic": semantic,
+                    "dom": {
+                        "node_name": dom["node"]["nodeName"],
+                        "local_name": dom["node"]["localName"],
+                        "input_type": attribute(&dom["node"], "type"),
+                        "id": attribute(&dom["node"], "id"),
+                        "class": attribute(&dom["node"], "class")
+                    }
+                }))
+            }
+            "browser.dom.snapshot" => {
+                if node.is_some() || frame.is_some() {
                     return Err(Error::invalid(
                         "Tab reference required for a document snapshot",
                     ));
@@ -1291,7 +1718,7 @@ impl Backend for Chromium {
                 let result = cdp
                     .call(
                         "DOM.getDocument",
-                        json!({"depth":args["depth"].as_u64().unwrap_or(4),"pierce":false}),
+                        json!({"depth":args["depth"].as_u64().unwrap_or(4),"pierce":true}),
                         Some(&session),
                     )
                     .await?;
@@ -1310,11 +1737,11 @@ impl Backend for Chromium {
                     ));
                 }
                 Ok(
-                    json!({"root":root,"node_budget":500,"truncated":budget==0,"sensitive_attributes_omitted":true,"semantic_coverage":"partial; shadow DOM, cross-origin frames and script/style bodies excluded"}),
+                    json!({"root":root,"node_budget":500,"truncated":budget==0,"sensitive_attributes_omitted":true,"semantic_coverage":"bounded DOM including open shadow roots and frame documents exposed by CDP; script/style bodies excluded"}),
                 )
             }
             "browser.dom.query" => {
-                if node.is_some() {
+                if node.is_some() || frame.is_some() {
                     return Err(Error::invalid("Tab reference required for a CSS query"));
                 }
                 let doc = cdp
@@ -1355,7 +1782,50 @@ impl Backend for Chromium {
                 };
                 Ok(json!({"matches":rows,"single":single,"count":ids.len()}))
             }
-            "browser.dom.click" => {
+            "browser.element.focus" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                if frame.is_some() {
+                    return Err(Error::invalid("DOM reference required"));
+                }
+                cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(&session))
+                    .await?;
+                let doc = cdp
+                    .call("DOM.getDocument", json!({"depth":0}), Some(&session))
+                    .await?;
+                let focused = cdp
+                    .call(
+                        "DOM.querySelector",
+                        json!({"nodeId":doc["root"]["nodeId"],"selector":":focus"}),
+                        Some(&session),
+                    )
+                    .await?;
+                let focused = cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"nodeId":focused["nodeId"],"depth":0}),
+                        Some(&session),
+                    )
+                    .await?;
+                if focused["node"]["backendNodeId"].as_u64() != Some(node) {
+                    return Err(Error::new(ErrorCode::Conflict, "DOM focus changed"));
+                }
+                Ok(json!({"accepted":true,"focused":true}))
+            }
+            "browser.element.scroll" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                if frame.is_some() {
+                    return Err(Error::invalid("DOM reference required"));
+                }
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":node}),
+                    Some(&session),
+                )
+                .await?;
+                self.validate_in(instance, &target).await?;
+                Ok(json!({"accepted":true,"method":"DOM.scrollIntoViewIfNeeded"}))
+            }
+            "browser.dom.click" | "browser.element.click" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
                 cdp.call(
                     "DOM.scrollIntoViewIfNeeded",
@@ -1421,7 +1891,7 @@ impl Backend for Chromium {
                     json!({"accepted":true,"method":"DOM hit-test + CDP Input","coordinate_space":"viewport_css_pixels"}),
                 )
             }
-            "browser.dom.fill" => {
+            "browser.dom.fill" | "browser.element.fill" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
                 let description = cdp
                     .call(
@@ -1435,22 +1905,25 @@ impl Backend for Chromium {
                 let input_type = attribute(info, "type")
                     .unwrap_or_else(|| "text".into())
                     .to_ascii_lowercase();
-                if !matches!(kind, "INPUT" | "TEXTAREA")
-                    || matches!(
-                        input_type.as_str(),
-                        "file"
-                            | "hidden"
-                            | "button"
-                            | "submit"
-                            | "checkbox"
-                            | "radio"
-                            | "range"
-                            | "color"
-                    )
+                let contenteditable = attribute(info, "contenteditable")
+                    .is_some_and(|value| matches!(value.as_str(), "" | "true" | "plaintext-only"));
+                if (!matches!(kind, "INPUT" | "TEXTAREA") && !contenteditable)
+                    || (kind == "INPUT"
+                        && matches!(
+                            input_type.as_str(),
+                            "file"
+                                | "hidden"
+                                | "button"
+                                | "submit"
+                                | "checkbox"
+                                | "radio"
+                                | "range"
+                                | "color"
+                        ))
                 {
                     return Err(Error::new(
                         ErrorCode::Unsupported,
-                        "Fill requires a text-like input or textarea, never a file picker",
+                        "Fill requires a text-like input, textarea or contenteditable element",
                     ));
                 }
                 cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(&session))
@@ -1619,6 +2092,61 @@ mod tests {
         assert_eq!(attribute(&n, "id").as_deref(), Some("a"));
         assert_eq!(attribute(&n, "role"), None);
     }
+    #[test]
+    fn frame_tree_lookup_is_recursive_and_exact() {
+        let tree = json!({
+            "frame":{"id":"root"},
+            "childFrames":[{
+                "frame":{"id":"child"},
+                "childFrames":[{"frame":{"id":"grandchild"}}]
+            }]
+        });
+        assert!(frame_tree_contains(&tree, "root"));
+        assert!(frame_tree_contains(&tree, "child"));
+        assert!(frame_tree_contains(&tree, "grandchild"));
+        assert!(!frame_tree_contains(&tree, "missing"));
+    }
+
+    #[test]
+    fn semantic_query_filters_role_name_and_action() {
+        let row = json!({
+            "role":"button",
+            "name":"Save changes",
+            "actions":["focus","scroll","click"]
+        });
+        assert!(semantic_query_matches(&row, &json!({"role":"BUTTON"})));
+        assert!(semantic_query_matches(&row, &json!({"name":"save"})));
+        assert!(semantic_query_matches(
+            &row,
+            &json!({"name":"Save changes","exact_name":true})
+        ));
+        assert!(semantic_query_matches(&row, &json!({"action":"click"})));
+        assert!(!semantic_query_matches(&row, &json!({"role":"textbox"})));
+        assert!(!semantic_query_matches(
+            &row,
+            &json!({"name":"Save","exact_name":true})
+        ));
+        assert!(!semantic_query_matches(&row, &json!({"action":"fill"})));
+    }
+
+    #[test]
+    fn accessibility_scalars_are_bounded_and_typed() {
+        let node = json!({
+            "role":{"value":"textbox"},
+            "name":{"value":"n".repeat(700)},
+            "properties":[
+                {"name":"disabled","value":{"value":false}},
+                {"name":"checked","value":{"value":"mixed"}},
+                {"name":"ignored-object","value":{"value":{"nested":true}}}
+            ]
+        });
+        assert_eq!(ax_text(&node, "role").as_deref(), Some("textbox"));
+        assert_eq!(ax_text(&node, "name").unwrap().chars().count(), 512);
+        assert_eq!(ax_property(&node, "disabled"), Some(json!(false)));
+        assert_eq!(ax_property(&node, "checked"), Some(json!("mixed")));
+        assert_eq!(ax_property(&node, "ignored-object"), None);
+    }
+
     #[test]
     fn download_quota_configuration_is_bounded() {
         let mut config = BrowserConfig::default();
