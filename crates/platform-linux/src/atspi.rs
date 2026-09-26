@@ -148,6 +148,7 @@ pub struct Atspi {
     events_live: Arc<AtomicBool>,
     object_generations: Arc<ObjectGenerations>,
     snapshots: StdMutex<BTreeMap<SnapshotKey, CachedSnapshot>>,
+    snapshot_guard: AsyncMutex<()>,
     noble_legacy_guard: bool,
 }
 impl Default for Atspi {
@@ -161,6 +162,7 @@ impl Default for Atspi {
             events_live: Arc::new(AtomicBool::new(false)),
             object_generations: Arc::new(ObjectGenerations::default()),
             snapshots: StdMutex::new(BTreeMap::new()),
+            snapshot_guard: AsyncMutex::new(()),
             noble_legacy_guard: detect_noble_legacy_atspi(),
         }
     }
@@ -470,6 +472,11 @@ impl Atspi {
         names
     }
     async fn snapshot(&self, ctx: &Context, args: &Value) -> Result<Value> {
+        let _legacy_serial = if self.noble_legacy_guard {
+            Some(self.snapshot_guard.lock().await)
+        } else {
+            None
+        };
         let c = self.connect().await?;
         let revision = self.revision.load(Ordering::SeqCst);
         let since_revision = args.get("since_revision").and_then(Value::as_u64);
@@ -625,7 +632,7 @@ impl Atspi {
             partial = true;
         }
         let events_live = self.events_live.load(Ordering::SeqCst);
-        let complete = !partial && ending == revision && events_live;
+        let complete = !partial && ending == revision && events_live && !self.noble_legacy_guard;
         let barrier_revision = self.barrier_revision.load(Ordering::SeqCst);
         let mut mode = "full";
         let mut resync_required = since_revision.is_some();
@@ -678,7 +685,7 @@ impl Atspi {
             "resync_required": resync_required,
             "changed_during_snapshot": ending != revision,
             "semantic_coverage": if partial {"partial"} else {"reported_tree"},
-            "event_invalidation": events_live,
+            "event_invalidation": events_live && !self.noble_legacy_guard,
             "visited": visited,
             "compatibility_guard": self.noble_legacy_guard.then_some("ubuntu-noble-atspi-legacy"),
             "effective_limits": {
