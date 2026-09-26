@@ -605,6 +605,80 @@ impl Atspi {
         out
     }
 
+    async fn minimal_table_cell_facet(
+        &self,
+        c: &Connection,
+        object: &Object,
+    ) -> Option<UiTableFacet> {
+        let direct = async {
+            let proxy = self
+                .proxy(c, object, "org.a11y.atspi.TableCell")
+                .await
+                .ok()?;
+            let (position, row_span, column_span) = tokio::join!(
+                bounded(proxy.get_property::<(i32, i32)>("Position")),
+                bounded(proxy.get_property::<i32>("RowSpan")),
+                bounded(proxy.get_property::<i32>("ColumnSpan"))
+            );
+            let (row, column) = position.ok()?;
+            Some(UiTableFacet {
+                row: usize::try_from(row.max(0)).ok(),
+                column: usize::try_from(column.max(0)).ok(),
+                row_span: row_span
+                    .ok()
+                    .and_then(|value| usize::try_from(value.max(0)).ok()),
+                column_span: column_span
+                    .ok()
+                    .and_then(|value| usize::try_from(value.max(0)).ok()),
+                ..UiTableFacet::default()
+            })
+        };
+        if let Ok(Some(table)) = tokio::time::timeout(Duration::from_millis(200), direct).await {
+            return Some(table);
+        }
+
+        // Some toolkits expose table cells as accessible children but omit a usable
+        // TableCell interface. Recover row/column from the parent Table contract.
+        let parent_table = async {
+            let accessible = self.proxy(c, object, ACCESSIBLE).await.ok()?;
+            let parent: Object = bounded(accessible.get_property("Parent")).await.ok()?;
+            let parent_accessible = self.proxy(c, &parent, ACCESSIBLE).await.ok()?;
+            let children: Vec<Object> = bounded(parent_accessible.call("GetChildren", &()))
+                .await
+                .ok()?;
+            if children.len() > MAX_CHILDREN_PER_NODE {
+                return None;
+            }
+            let identity = object_id(object);
+            let index = children
+                .iter()
+                .position(|candidate| object_id(candidate) == identity)?;
+            let index = i32::try_from(index).ok()?;
+            let table = self.proxy(c, &parent, "org.a11y.atspi.Table").await.ok()?;
+            let (row, column) = tokio::join!(
+                bounded(table.call::<_, _, i32>("GetRowAtIndex", &(index,))),
+                bounded(table.call::<_, _, i32>("GetColumnAtIndex", &(index,)))
+            );
+            let row = row
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok())?;
+            let column = column
+                .ok()
+                .and_then(|value| usize::try_from(value.max(0)).ok())?;
+            Some(UiTableFacet {
+                row: Some(row),
+                column: Some(column),
+                row_span: Some(1),
+                column_span: Some(1),
+                ..UiTableFacet::default()
+            })
+        };
+        tokio::time::timeout(Duration::from_millis(250), parent_table)
+            .await
+            .ok()
+            .flatten()
+    }
+
     async fn facets(
         &self,
         c: &Connection,
@@ -917,6 +991,7 @@ impl Atspi {
     async fn snapshot(&self, ctx: &Context, args: &Value) -> Result<Value> {
         let c = self.connect().await?;
         let revision = self.revision.load(Ordering::SeqCst);
+        let structural_revision = self.barrier_revision.load(Ordering::SeqCst);
         let since_revision = args.get("since_revision").and_then(Value::as_u64);
         if since_revision.is_some_and(|since| since > revision) {
             return Err(Error::new(
@@ -1166,6 +1241,27 @@ impl Atspi {
                     ..UiDocumentFacet::default()
                 });
             }
+            if role == "table_cell"
+                && facets
+                    .table
+                    .as_ref()
+                    .is_none_or(|table| table.row.is_none() || table.column.is_none())
+                && let Some(minimal) = self.minimal_table_cell_facet(&c, &object).await
+            {
+                let table = facets.table.get_or_insert_with(UiTableFacet::default);
+                if table.row.is_none() {
+                    table.row = minimal.row;
+                }
+                if table.column.is_none() {
+                    table.column = minimal.column;
+                }
+                if table.row_span.is_none() {
+                    table.row_span = minimal.row_span;
+                }
+                if table.column_span.is_none() {
+                    table.column_span = minimal.column_span;
+                }
+            }
             if role == "password-entry" {
                 // Protected text semantics are security-critical, not optional rich metadata.
                 // Preserve this facet even after the snapshot-wide metadata deadline expires.
@@ -1211,12 +1307,15 @@ impl Atspi {
             nodes.push(row);
         }
         let ending = self.revision.load(Ordering::SeqCst);
-        if ending != revision {
+        let barrier_revision = self.barrier_revision.load(Ordering::SeqCst);
+        // Property/text/focus events may arrive while a tree is observed. They advance the
+        // semantic revision and invalidate affected refs, but do not make the tree structurally
+        // incomplete. Structural/window/event-loss barriers still force a resync.
+        if barrier_revision != structural_revision {
             partial = true;
         }
         let events_live = self.events_live.load(Ordering::SeqCst);
-        let complete = !partial && ending == revision && events_live;
-        let barrier_revision = self.barrier_revision.load(Ordering::SeqCst);
+        let complete = !partial && events_live;
         let mut mode = "full";
         let mut resync_required = since_revision.is_some();
         let mut removed_node_ids = Vec::new();
@@ -1247,7 +1346,7 @@ impl Atspi {
             snapshots.insert(
                 key,
                 CachedSnapshot {
-                    revision,
+                    revision: ending,
                     nodes: nodes_by_identity,
                 },
             );
@@ -1260,7 +1359,7 @@ impl Atspi {
         }
         Ok(json!({
             "nodes": returned_nodes,
-            "revision": revision,
+            "revision": ending,
             "partial": partial,
             "mode": mode,
             "base_revision": since_revision,

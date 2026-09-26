@@ -58,7 +58,7 @@ async fn exercise_fixture(mut child: tokio::process::Child, needle: &str, expect
                 .execute(
                     &ctx,
                     "ui.snapshot",
-                    &json!({"app":app,"max_nodes":512,"max_depth":8}),
+                    &json!({"app":app,"max_nodes":512,"max_depth":32}),
                 )
                 .await
                 .expect("snapshot");
