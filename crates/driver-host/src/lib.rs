@@ -83,6 +83,48 @@ fn one_process_cpu_ticks(pid: u32) -> Result<u64> {
 }
 
 #[cfg(target_os = "linux")]
+fn process_children(pid: u32) -> Result<Vec<u32>> {
+    let task_dir = match std::fs::read_dir(format!("/proc/{pid}/task")) {
+        Ok(task_dir) => task_dir,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut tids = 0usize;
+    let mut children = std::collections::BTreeSet::new();
+    for entry in task_dir {
+        let entry = entry?;
+        let Some(tid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|value| value.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        tids += 1;
+        if tids > 256 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Driver thread count exceeded CPU accounting bounds",
+            ));
+        }
+        let path = format!("/proc/{pid}/task/{tid}/children");
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        for child in text.split_whitespace() {
+            if let Ok(child) = child.parse::<u32>() {
+                children.insert(child);
+                if children.len() > 256 {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Driver child count exceeded CPU accounting bounds",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(children.into_iter().collect())
+}
+
+#[cfg(target_os = "linux")]
 fn process_tree_cpu_ticks(root: u32) -> Result<u64> {
     let mut pending = vec![root];
     let mut seen = std::collections::BTreeSet::new();
@@ -105,13 +147,7 @@ fn process_tree_cpu_ticks(root: u32) -> Result<u64> {
         total = total
             .checked_add(ticks)
             .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Process CPU tick overflow"))?;
-        let children =
-            std::fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")).unwrap_or_default();
-        for child in children.split_whitespace() {
-            if let Ok(child) = child.parse::<u32>() {
-                pending.push(child);
-            }
-        }
+        pending.extend(process_children(pid)?);
     }
     Ok(total)
 }
@@ -1367,27 +1403,40 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[tokio::test]
-    async fn operation_cpu_watchdog_counts_busy_descendants() {
-        let mut child = tokio::process::Command::new("/bin/sh")
-            .args(["-c", "/usr/bin/yes >/dev/null & wait"])
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .kill_on_drop(true)
-            .spawn()
-            .unwrap();
-        let pid = child.id().expect("busy fixture must have PID");
+    async fn operation_cpu_watchdog_counts_busy_descendants_from_worker_threads() {
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+        let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let mut child = std::process::Command::new("/usr/bin/yes")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap();
+            ready_tx.send(child.id()).unwrap();
+            let _ = stop_rx.recv_timeout(Duration::from_secs(5));
+            let _ = child.kill();
+            let _ = child.wait();
+        });
+
+        let child_pid = ready_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("worker-thread child did not start");
+        let root = std::process::id();
+        assert!(
+            process_children(root).unwrap().contains(&child_pid),
+            "child spawned by a secondary thread must remain visible to CPU accounting"
+        );
 
         tokio::time::timeout(
             Duration::from_secs(5),
-            wait_for_operation_cpu_budget(pid, 1),
+            wait_for_operation_cpu_budget(root, 1),
         )
         .await
         .expect("CPU watchdog did not fire")
         .expect("CPU accounting failed");
 
-        let _ = child.kill().await;
-        let _ = child.wait().await;
+        let _ = stop_tx.send(());
+        worker.join().unwrap();
     }
 
     #[test]
