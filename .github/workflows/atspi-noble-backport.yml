@@ -90,13 +90,17 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: atspi-noble-pressure
-      - name: Install patched bridge and disposable UI dependencies
+      - name: Install patched AT-SPI runtime and disposable UI dependencies
         run: |
-          bridge=$(find verification/atspi-noble-backport -name 'libatk-bridge2.0-0t64_*_amd64.deb' | head -1)
-          sudo dpkg -i "$bridge"
+          dir=verification/atspi-noble-backport
+          common=$(find "$dir" -name 'at-spi2-common_*_all.deb' | head -1)
+          atspi=$(find "$dir" -name 'libatspi2.0-0t64_*_amd64.deb' | head -1)
+          atk=$(find "$dir" -name 'libatk1.0-0t64_*_amd64.deb' | head -1)
+          bridge=$(find "$dir" -name 'libatk-bridge2.0-0t64_*_amd64.deb' | head -1)
+          core=$(find "$dir" -name 'at-spi2-core_*_amd64.deb' | head -1)
           sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev xvfb zenity
-          dpkg-query -W -f='${Package} ${Version}\n' libatk-bridge2.0-0t64
+          sudo apt-get install -y             "$common" "$atspi" "$atk" "$bridge" "$core"             libpipewire-0.3-dev xvfb zenity
+          dpkg-query -W -f='${Package} ${Version}\n'             at-spi2-common at-spi2-core libatspi2.0-0t64             libatk1.0-0t64 libatk-bridge2.0-0t64
       - name: Repeated AT-SPI lifecycle pressure smoke
         env:
           SEMWRIGHT_ATSPI_PRESSURE_ITERATIONS: 12
