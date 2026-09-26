@@ -1,8 +1,9 @@
 #![cfg(unix)]
 
 use semwright_driver_registry::{
-    Index, IndexEntry, InstallRoots, create_package, inspect_package, install_from_index,
-    package_digest, remove_installed,
+    CompanionInput, Index, IndexEntry, InstallRoots, PackageMetadata, create_package,
+    create_package_with_companions, inspect_package, install_from_index, package_digest,
+    remove_installed,
 };
 use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverResources, Manifest, Transport,
@@ -87,6 +88,8 @@ fn package_roundtrip_and_install_do_not_execute_payload() {
     let package = repo.join(&entries[0].package);
     let (metadata, executable, digest) = inspect_package(&package).unwrap();
     assert_eq!(metadata.manifest.id, "fixture");
+    assert_eq!(metadata.package_version, 2);
+    assert!(metadata.companions.is_empty());
     assert_eq!(digest, entries[0].package_sha256);
     assert_eq!(executable, b"ELFnot-runnable-by-design");
 
@@ -283,4 +286,217 @@ fn installing_newer_version_switches_stable_manifest_without_deleting_old_versio
         serde_json::from_slice(&std::fs::read(roots.config.join("fixture.json")).unwrap()).unwrap();
     assert_eq!(active.version, "2.0.0");
     assert_eq!(active.executable, roots.data.join("fixture/2.0.0/driver"));
+}
+
+#[test]
+fn package_v2_companions_install_privately_without_activation() {
+    let d = tempfile::tempdir().unwrap();
+    let repo = d.path().join("repo");
+    let source = d.path().join("source");
+    std::fs::create_dir(&repo).unwrap();
+    std::fs::create_dir(&source).unwrap();
+
+    let manifest = fake_manifest(&source, "3.0.0", vec![]);
+    let plugin_cfg = source.join("plugin.cfg");
+    let plugin_gd = source.join("plugin.gd");
+    std::fs::write(&plugin_cfg, b"[plugin]\nname=Semwright\n").unwrap();
+    std::fs::write(&plugin_gd, b"@tool\nextends EditorPlugin\n").unwrap();
+
+    let package = repo.join("fixture-3.0.0.swdp");
+    let requirement = format!("={}", env!("CARGO_PKG_VERSION"));
+    create_package_with_companions(
+        &manifest,
+        &requirement,
+        &[
+            CompanionInput {
+                destination: "addons/semwright/plugin.cfg".into(),
+                source: plugin_cfg.clone(),
+            },
+            CompanionInput {
+                destination: "addons/semwright/plugin.gd".into(),
+                source: plugin_gd.clone(),
+            },
+        ],
+        &package,
+    )
+    .unwrap();
+
+    let (metadata, _, digest) = inspect_package(&package).unwrap();
+    assert_eq!(metadata.package_version, 2);
+    assert_eq!(metadata.companions.len(), 2);
+    assert_eq!(
+        metadata.companions[0].path,
+        PathBuf::from("addons/semwright/plugin.cfg")
+    );
+
+    let entry = IndexEntry {
+        id: "fixture".into(),
+        version: "3.0.0".into(),
+        publisher: "semwright-tests".into(),
+        package: "fixture-3.0.0.swdp".into(),
+        package_sha256: digest,
+        package_bytes: std::fs::metadata(&package).unwrap().len(),
+        semwright: requirement,
+        application_versions: vec![],
+    };
+    let index = Index {
+        index_version: 1,
+        drivers: vec![entry.clone()],
+    };
+    let index_path = repo.join("index.json");
+    std::fs::write(&index_path, serde_json::to_vec_pretty(&index).unwrap()).unwrap();
+
+    let roots = InstallRoots {
+        data: d.path().join("data"),
+        config: d.path().join("config"),
+    };
+    let receipt = install_from_index(&index_path, &entry, None, &roots).unwrap();
+    assert_eq!(receipt.receipt_version, 2);
+    assert_eq!(receipt.companion_files.len(), 2);
+
+    let companion_root = roots.data.join("fixture/3.0.0/companions");
+    let installed_cfg = companion_root.join("addons/semwright/plugin.cfg");
+    let installed_gd = companion_root.join("addons/semwright/plugin.gd");
+    assert_eq!(
+        std::fs::read(&installed_cfg).unwrap(),
+        std::fs::read(plugin_cfg).unwrap()
+    );
+    assert_eq!(
+        std::fs::read(&installed_gd).unwrap(),
+        std::fs::read(plugin_gd).unwrap()
+    );
+    assert_eq!(
+        std::fs::metadata(&installed_cfg)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+    assert!(!roots.data.join("fixture/3.0.0/addons").exists());
+
+    remove_installed("fixture", "3.0.0", &roots).unwrap();
+    assert!(!companion_root.exists());
+}
+
+#[test]
+fn package_v2_rejects_companion_traversal_duplicates_and_tampering() {
+    let d = tempfile::tempdir().unwrap();
+    let manifest = fake_manifest(d.path(), "4.0.0", vec![]);
+    let source = d.path().join("plugin.gd");
+    std::fs::write(&source, b"extends EditorPlugin\n").unwrap();
+    let requirement = format!("={}", env!("CARGO_PKG_VERSION"));
+
+    let traversal = d.path().join("traversal.swdp");
+    assert!(
+        create_package_with_companions(
+            &manifest,
+            &requirement,
+            &[CompanionInput {
+                destination: "../escape.gd".into(),
+                source: source.clone(),
+            }],
+            &traversal,
+        )
+        .is_err()
+    );
+
+    let duplicate = d.path().join("duplicate.swdp");
+    assert!(
+        create_package_with_companions(
+            &manifest,
+            &requirement,
+            &[
+                CompanionInput {
+                    destination: "addons/semwright/plugin.gd".into(),
+                    source: source.clone(),
+                },
+                CompanionInput {
+                    destination: "addons/semwright/plugin.gd".into(),
+                    source: source.clone(),
+                },
+            ],
+            &duplicate,
+        )
+        .is_err()
+    );
+
+    let symlink_source = d.path().join("plugin-link.gd");
+    symlink(&source, &symlink_source).unwrap();
+    let symlink_package = d.path().join("symlink.swdp");
+    assert!(
+        create_package_with_companions(
+            &manifest,
+            &requirement,
+            &[CompanionInput {
+                destination: "addons/semwright/plugin.gd".into(),
+                source: symlink_source,
+            }],
+            &symlink_package,
+        )
+        .is_err()
+    );
+
+    let valid = d.path().join("valid.swdp");
+    create_package_with_companions(
+        &manifest,
+        &requirement,
+        &[CompanionInput {
+            destination: "addons/semwright/plugin.gd".into(),
+            source,
+        }],
+        &valid,
+    )
+    .unwrap();
+
+    let mut trailing_bytes = std::fs::read(&valid).unwrap();
+    trailing_bytes.push(0x7f);
+    let trailing = d.path().join("trailing.swdp");
+    std::fs::write(&trailing, trailing_bytes).unwrap();
+    assert_eq!(
+        inspect_package(&trailing).unwrap_err().code,
+        ErrorCode::InvalidArgument
+    );
+
+    let mut bytes = std::fs::read(&valid).unwrap();
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0x01;
+    let tampered = d.path().join("tampered.swdp");
+    std::fs::write(&tampered, bytes).unwrap();
+    assert_eq!(
+        inspect_package(&tampered).unwrap_err().code,
+        ErrorCode::PermissionDenied
+    );
+}
+
+#[test]
+fn package_v1_remains_readable_after_v2_upgrade() {
+    let d = tempfile::tempdir().unwrap();
+    let manifest = fake_manifest(d.path(), "5.0.0", vec![]);
+    let executable = std::fs::read(&manifest.executable).unwrap();
+    let mut portable = manifest.clone();
+    portable.executable = "/package/driver".into();
+
+    let metadata = PackageMetadata {
+        package_version: 1,
+        semwright: format!("={}", env!("CARGO_PKG_VERSION")),
+        manifest: portable,
+        executable_bytes: 0,
+        companions: vec![],
+    };
+    let mut metadata = serde_json::to_value(&metadata).unwrap();
+    metadata.as_object_mut().unwrap().remove("executable_bytes");
+    metadata.as_object_mut().unwrap().remove("companions");
+    let metadata = serde_json::to_vec(&metadata).unwrap();
+    let mut package = b"SEMWRIGHT-DRIVER-PACKAGE-V1\n".to_vec();
+    package.extend_from_slice(&(metadata.len() as u32).to_be_bytes());
+    package.extend_from_slice(&metadata);
+    package.extend_from_slice(&executable);
+    let path = d.path().join("legacy.swdp");
+    std::fs::write(&path, package).unwrap();
+
+    let (metadata, recovered, _) = inspect_package(&path).unwrap();
+    assert_eq!(metadata.package_version, 1);
+    assert!(metadata.companions.is_empty());
+    assert_eq!(recovered, executable);
 }

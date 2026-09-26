@@ -1,8 +1,9 @@
 //! Static/local driver distribution.
 //!
-//! The package format intentionally has no arbitrary archive entries: one bounded metadata
-//! document followed by one pinned ELF payload. Installation therefore never interprets paths
-//! supplied by a package and never executes package content.
+//! Driver packages are deterministic bounded containers, not general archives. Package v2 keeps
+//! one pinned ELF driver payload plus an explicit list of companion files whose relative paths,
+//! byte lengths and SHA-256 digests are declared in metadata. Installation never interprets
+//! symlinks, post-install scripts or executable bits from package content.
 use semver::{Version, VersionReq};
 use semwright_driver_sdk::Manifest;
 #[cfg(unix)]
@@ -26,12 +27,16 @@ use std::{
 };
 
 pub const INDEX_VERSION: u32 = 1;
-pub const PACKAGE_VERSION: u32 = 1;
-const MAGIC: &[u8] = b"SEMWRIGHT-DRIVER-PACKAGE-V1\n";
+pub const PACKAGE_VERSION: u32 = 2;
+const MAGIC_V1: &[u8] = b"SEMWRIGHT-DRIVER-PACKAGE-V1\n";
+const MAGIC_V2: &[u8] = b"SEMWRIGHT-DRIVER-PACKAGE-V2\n";
 const MAX_INDEX: usize = 2 * 1024 * 1024;
 const MAX_METADATA: usize = 1024 * 1024;
 const MAX_EXECUTABLE: usize = 64 * 1024 * 1024;
-const MAX_PACKAGE: usize = MAX_METADATA + MAX_EXECUTABLE + 64;
+const MAX_COMPANIONS: usize = 512;
+const MAX_COMPANION_FILE: usize = 8 * 1024 * 1024;
+const MAX_COMPANION_BYTES: usize = 32 * 1024 * 1024;
+const MAX_PACKAGE: usize = MAX_METADATA + MAX_EXECUTABLE + MAX_COMPANION_BYTES + 64;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -39,6 +44,36 @@ pub struct PackageMetadata {
     pub package_version: u32,
     pub semwright: String,
     pub manifest: Manifest,
+    #[serde(default)]
+    pub executable_bytes: u64,
+    #[serde(default)]
+    pub companions: Vec<CompanionMetadata>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompanionInput {
+    pub destination: PathBuf,
+    pub source: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct CompanionMetadata {
+    pub path: PathBuf,
+    pub sha256: String,
+    pub bytes: u64,
+}
+impl CompanionMetadata {
+    fn validate(&self) -> Result<()> {
+        if !valid_relative_package(&self.path)
+            || !validate_digest(&self.sha256)
+            || self.bytes == 0
+            || self.bytes > MAX_COMPANION_FILE as u64
+        {
+            return Err(Error::invalid("Driver companion metadata exceeds bounds"));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +108,8 @@ pub struct Receipt {
     pub executable_sha256: String,
     pub manifest_path: PathBuf,
     pub executable_path: PathBuf,
+    #[serde(default)]
+    pub companion_files: Vec<CompanionMetadata>,
     pub source_index: PathBuf,
 }
 
@@ -320,8 +357,24 @@ fn read_executable(path: &Path) -> Result<Vec<u8>> {
 
 #[cfg(unix)]
 pub fn create_package(manifest: &Manifest, semwright: &str, output: &Path) -> Result<String> {
+    create_package_with_companions(manifest, semwright, &[], output)
+}
+
+#[cfg(unix)]
+pub fn create_package_with_companions(
+    manifest: &Manifest,
+    semwright: &str,
+    companions: &[CompanionInput],
+    output: &Path,
+) -> Result<String> {
     manifest.validate()?;
     parse_requirement(semwright)?;
+    if companions.len() > MAX_COMPANIONS {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Driver package has too many companion files",
+        ));
+    }
     let executable = read_executable(&manifest.executable)?;
     let executable_sha256 = hex_digest(&executable);
     if executable_sha256 != manifest.sha256.to_ascii_lowercase() {
@@ -330,6 +383,40 @@ pub fn create_package(manifest: &Manifest, semwright: &str, output: &Path) -> Re
             "Manifest executable digest does not match the bytes being packaged",
         ));
     }
+
+    let mut seen = BTreeSet::new();
+    let mut descriptors = Vec::with_capacity(companions.len());
+    let mut payloads = Vec::with_capacity(companions.len());
+    let mut total = 0usize;
+    for companion in companions {
+        if !valid_relative_package(&companion.destination)
+            || !seen.insert(companion.destination.clone())
+        {
+            return Err(Error::invalid(
+                "Driver companion destinations must be unique bounded relative paths",
+            ));
+        }
+        let bytes = strict_file(&companion.source, MAX_COMPANION_FILE)?;
+        if bytes.is_empty() {
+            return Err(Error::invalid("Driver companion files cannot be empty"));
+        }
+        total = total
+            .checked_add(bytes.len())
+            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Companion size overflow"))?;
+        if total > MAX_COMPANION_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Driver companion payload exceeded its aggregate size budget",
+            ));
+        }
+        descriptors.push(CompanionMetadata {
+            path: companion.destination.clone(),
+            sha256: hex_digest(&bytes),
+            bytes: bytes.len() as u64,
+        });
+        payloads.push(bytes);
+    }
+
     let mut portable = manifest.clone();
     portable.executable = PathBuf::from("/package/driver");
     portable.sha256 = executable_sha256;
@@ -337,6 +424,8 @@ pub fn create_package(manifest: &Manifest, semwright: &str, output: &Path) -> Re
         package_version: PACKAGE_VERSION,
         semwright: semwright.to_owned(),
         manifest: portable,
+        executable_bytes: executable.len() as u64,
+        companions: descriptors,
     };
     let metadata = serde_json::to_vec(&metadata)?;
     if metadata.len() > MAX_METADATA {
@@ -352,10 +441,13 @@ pub fn create_package(manifest: &Manifest, semwright: &str, output: &Path) -> Re
         .create_new(true)
         .mode(0o600)
         .open(output)?;
-    file.write_all(MAGIC)?;
+    file.write_all(MAGIC_V2)?;
     file.write_all(&length.to_be_bytes())?;
     file.write_all(&metadata)?;
     file.write_all(&executable)?;
+    for payload in payloads {
+        file.write_all(&payload)?;
+    }
     file.sync_all()?;
     package_digest(output)
 }
@@ -364,33 +456,64 @@ pub fn create_package(manifest: &Manifest, semwright: &str, output: &Path) -> Re
 pub fn create_package(_manifest: &Manifest, _semwright: &str, _output: &Path) -> Result<String> {
     Err(Error::new(
         ErrorCode::Unsupported,
-        "Driver Package v1 contains a pinned ELF payload; Windows packaging requires a future multi-platform package format",
+        "Driver Package v2 still carries a platform-specific executable; Windows package creation remains fail-closed",
     ))
 }
 
-pub fn inspect_package(path: &Path) -> Result<(PackageMetadata, Vec<u8>, String)> {
+#[cfg(target_os = "windows")]
+pub fn create_package_with_companions(
+    _manifest: &Manifest,
+    _semwright: &str,
+    _companions: &[CompanionInput],
+    _output: &Path,
+) -> Result<String> {
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "Driver Package v2 companion creation is unavailable until Windows driver execution is securely contained",
+    ))
+}
+
+struct InspectedPackage {
+    metadata: PackageMetadata,
+    executable: Vec<u8>,
+    companions: Vec<(CompanionMetadata, Vec<u8>)>,
+    digest: String,
+}
+
+fn inspect_package_full(path: &Path) -> Result<InspectedPackage> {
     let package = strict_file(path, MAX_PACKAGE)?;
-    if package.len() < MAGIC.len() + 4 || &package[..MAGIC.len()] != MAGIC {
+    let (magic, expected_version) = if package.starts_with(MAGIC_V2) {
+        (MAGIC_V2, 2)
+    } else if package.starts_with(MAGIC_V1) {
+        (MAGIC_V1, 1)
+    } else {
         return Err(Error::invalid("Not a Semwright driver package"));
+    };
+    if package.len() < magic.len() + 4 {
+        return Err(Error::invalid("Malformed driver package header"));
     }
-    let length_at = MAGIC.len();
+    let length_at = magic.len();
     let metadata_len = u32::from_be_bytes(
         package[length_at..length_at + 4]
             .try_into()
             .map_err(|_| Error::invalid("Malformed driver package header"))?,
     ) as usize;
-    if metadata_len > MAX_METADATA || package.len() < MAGIC.len() + 4 + metadata_len {
+    let payload_at = magic
+        .len()
+        .checked_add(4)
+        .and_then(|offset| offset.checked_add(metadata_len))
+        .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Metadata offset overflow"))?;
+    if metadata_len > MAX_METADATA || package.len() < payload_at {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
             "Driver package metadata length is invalid",
         ));
     }
-    let payload_at = MAGIC.len() + 4 + metadata_len;
-    let metadata: PackageMetadata = serde_json::from_slice(&package[MAGIC.len() + 4..payload_at])?;
-    if metadata.package_version != PACKAGE_VERSION {
+    let metadata: PackageMetadata = serde_json::from_slice(&package[magic.len() + 4..payload_at])?;
+    if metadata.package_version != expected_version {
         return Err(Error::new(
             ErrorCode::ProtocolMismatch,
-            "Unsupported driver package version",
+            "Driver package magic/version mismatch",
         ));
     }
     parse_requirement(&metadata.semwright)?;
@@ -400,10 +523,29 @@ pub fn inspect_package(path: &Path) -> Result<(PackageMetadata, Vec<u8>, String)
             "Packaged manifest executable location is not canonical",
         ));
     }
-    let executable = package[payload_at..].to_vec();
-    if executable.is_empty()
-        || executable.len() > MAX_EXECUTABLE
-        || !executable.starts_with(b"\x7fELF")
+
+    let executable_len = if expected_version == 1 {
+        if metadata.executable_bytes != 0 || !metadata.companions.is_empty() {
+            return Err(Error::invalid(
+                "Driver Package v1 cannot declare extra payloads",
+            ));
+        }
+        package.len() - payload_at
+    } else {
+        usize::try_from(metadata.executable_bytes)
+            .map_err(|_| Error::new(ErrorCode::ResourceExhausted, "Executable size overflow"))?
+    };
+    if executable_len == 0
+        || executable_len > MAX_EXECUTABLE
+        || payload_at + executable_len > package.len()
+    {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Driver package executable length is invalid",
+        ));
+    }
+    let executable = package[payload_at..payload_at + executable_len].to_vec();
+    if !executable.starts_with(b"\x7fELF")
         || hex_digest(&executable) != metadata.manifest.sha256.to_ascii_lowercase()
     {
         return Err(Error::new(
@@ -411,7 +553,72 @@ pub fn inspect_package(path: &Path) -> Result<(PackageMetadata, Vec<u8>, String)
             "Driver package executable is invalid or its digest does not match",
         ));
     }
-    Ok((metadata, executable, hex_digest(&package)))
+
+    let mut cursor = payload_at + executable_len;
+    let mut seen = BTreeSet::new();
+    let mut companion_total = 0usize;
+    let mut companions = Vec::new();
+    if metadata.companions.len() > MAX_COMPANIONS {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Driver package has too many companion files",
+        ));
+    }
+    for descriptor in &metadata.companions {
+        descriptor.validate()?;
+        if !seen.insert(descriptor.path.clone()) {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Driver package repeats a companion destination",
+            ));
+        }
+        let len = usize::try_from(descriptor.bytes)
+            .map_err(|_| Error::new(ErrorCode::ResourceExhausted, "Companion size overflow"))?;
+        companion_total = companion_total
+            .checked_add(len)
+            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Companion size overflow"))?;
+        let end = cursor
+            .checked_add(len)
+            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Companion offset overflow"))?;
+        if companion_total > MAX_COMPANION_BYTES || end > package.len() {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Driver companion payload length is invalid",
+            ));
+        }
+        let bytes = package[cursor..end].to_vec();
+        if hex_digest(&bytes) != descriptor.sha256 {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Driver companion digest does not match package bytes",
+            ));
+        }
+        cursor += len;
+        companions.push((descriptor.clone(), bytes));
+    }
+    if cursor != package.len() {
+        return Err(Error::invalid(
+            "Driver package has unaccounted trailing bytes",
+        ));
+    }
+
+    Ok(InspectedPackage {
+        metadata,
+        executable,
+        companions,
+        digest: hex_digest(&package),
+    })
+}
+
+pub fn inspect_package(path: &Path) -> Result<(PackageMetadata, Vec<u8>, String)> {
+    let inspected = inspect_package_full(path)?;
+    if inspected.companions.len() != inspected.metadata.companions.len() {
+        return Err(Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Decoded companion payload count does not match package metadata",
+        ));
+    }
+    Ok((inspected.metadata, inspected.executable, inspected.digest))
 }
 
 #[cfg(unix)]
@@ -486,7 +693,11 @@ pub fn install_from_index(
             "Driver package escaped the selected static index directory",
         ));
     }
-    let (mut metadata, executable, digest) = inspect_package(&package_path)?;
+    let inspected = inspect_package_full(&package_path)?;
+    let mut metadata = inspected.metadata;
+    let executable = inspected.executable;
+    let companions = inspected.companions;
+    let digest = inspected.digest;
     if digest != entry.package_sha256
         || std::fs::metadata(&package_path)?.len() != entry.package_bytes
         || metadata.manifest.id != entry.id
@@ -516,11 +727,28 @@ pub fn install_from_index(
     ensure_private(&staging)?;
     let executable_path = staging.join("driver");
     write_new(&executable_path, &executable, 0o700)?;
+    if !companions.is_empty() {
+        let companion_root = staging.join("companions");
+        ensure_private(&companion_root)?;
+        for (descriptor, bytes) in &companions {
+            let mut parent = companion_root.clone();
+            if let Some(relative_parent) = descriptor.path.parent() {
+                for component in relative_parent.components() {
+                    let Component::Normal(component) = component else {
+                        return Err(Error::invalid("Invalid companion install path"));
+                    };
+                    parent.push(component);
+                    ensure_private(&parent)?;
+                }
+            }
+            write_new(&companion_root.join(&descriptor.path), bytes, 0o600)?;
+        }
+    }
     metadata.manifest.executable = target.join("driver");
     let receipt_path = target.join("receipt.json");
     let manifest_bytes = serde_json::to_vec_pretty(&metadata.manifest)?;
     let receipt = Receipt {
-        receipt_version: 1,
+        receipt_version: 2,
         id: entry.id.clone(),
         version: entry.version.clone(),
         publisher: entry.publisher.clone(),
@@ -528,6 +756,7 @@ pub fn install_from_index(
         executable_sha256: metadata.manifest.sha256.clone(),
         manifest_path: roots.config.join(format!("{}.json", entry.id)),
         executable_path: target.join("driver"),
+        companion_files: metadata.companions.clone(),
         source_index: index_path.canonicalize()?,
     };
     write_new(&staging.join("manifest.json"), &manifest_bytes, 0o600)?;
@@ -573,7 +802,7 @@ pub fn remove_installed(id: &str, version: &str, roots: &InstallRoots) -> Result
     }
     let receipt_bytes = strict_file(&target.join("receipt.json"), MAX_METADATA)?;
     let receipt: Receipt = serde_json::from_slice(&receipt_bytes)?;
-    if receipt.receipt_version != 1
+    if !matches!(receipt.receipt_version, 1 | 2)
         || receipt.id != id
         || receipt.version != version
         || receipt.executable_path != target.join("driver")
@@ -582,6 +811,16 @@ pub fn remove_installed(id: &str, version: &str, roots: &InstallRoots) -> Result
             ErrorCode::Conflict,
             "Installed driver receipt does not match the removal target",
         ));
+    }
+    let mut companion_paths = BTreeSet::new();
+    for companion in &receipt.companion_files {
+        companion.validate()?;
+        if !companion_paths.insert(&companion.path) {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Installed driver receipt repeats a companion path",
+            ));
+        }
     }
     let active = roots.config.join(format!("{id}.json"));
     if active.is_file() {
@@ -599,6 +838,6 @@ pub fn remove_installed(id: &str, version: &str, roots: &InstallRoots) -> Result
 pub fn remove_installed(_id: &str, _version: &str, _roots: &InstallRoots) -> Result<()> {
     Err(Error::new(
         ErrorCode::SandboxDenied,
-        "Windows driver removal is unavailable because Driver Package v1 is not installable on Windows",
+        "Windows driver removal is unavailable until secure Windows Driver Host installation is implemented",
     ))
 }

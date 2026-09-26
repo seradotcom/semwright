@@ -693,6 +693,12 @@ pub enum DriverPackageCommand {
         /// SemVer requirement for compatible Semwright versions. Defaults to this build exactly.
         #[arg(long)]
         semwright: Option<String>,
+        /// Explicit companion file mapping DEST=SOURCE. Repeat for each packaged file.
+        #[arg(long = "companion", value_name = "DEST=SOURCE")]
+        companion: Vec<String>,
+        /// File containing one explicit DEST=SOURCE companion mapping per line.
+        #[arg(long = "companion-list", value_name = "FILE")]
+        companion_list: Vec<PathBuf>,
     },
     Inspect {
         package: PathBuf,
