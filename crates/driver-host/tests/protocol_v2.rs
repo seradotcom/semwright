@@ -43,6 +43,7 @@ fn manifest(executable: PathBuf) -> Manifest {
         mounts: vec![],
         system_config: vec![],
         secrets: vec![],
+        tools: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources {

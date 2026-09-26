@@ -39,6 +39,7 @@ fn driver_view(manifest: &DriverManifest) -> Result<serde_json::Value> {
         "mounts": manifest.mounts,
         "system_config": manifest.system_config,
         "secrets": manifest.secrets,
+        "tools": manifest.tools,
         "resources": manifest.resources,
         "interfaces": manifest.interfaces,
         "request_timeout_ms": manifest.request_timeout_ms,
@@ -166,6 +167,7 @@ async fn main() {{
                 "mounts":[],
                 "system_config":[],
                 "secrets":[],
+                "tools":[],
                 "network":false,
                 "loopback_port":null,
                 "resources":{

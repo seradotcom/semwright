@@ -190,6 +190,7 @@ mod linux {
             mounts,
             system_config: vec![],
             secrets: vec![],
+            tools: vec![],
             network: false,
             loopback_port: None,
             resources: DriverResources {
