@@ -10,7 +10,10 @@ use std::{
     ffi::{CStr, CString},
     fs::File,
     io::{Seek, SeekFrom, Write},
-    os::{fd::AsFd, unix::net::UnixStream},
+    os::{
+        fd::{AsFd, AsRawFd},
+        unix::net::UnixStream,
+    },
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -19,6 +22,21 @@ use xkbcommon_dl::{
     xkb_context_flags, xkb_keymap_compile_flags, xkb_keymap_format, xkb_rule_names,
     xkbcommon_handle,
 };
+
+fn set_send_buffer(stream: &UnixStream, bytes: libc::c_int) {
+    let value = bytes;
+    // SAFETY: stream owns a valid Unix socket fd and value points to a live c_int.
+    let rc = unsafe {
+        libc::setsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_SNDBUF,
+            (&value as *const libc::c_int).cast(),
+            std::mem::size_of_val(&value) as libc::socklen_t,
+        )
+    };
+    assert_eq!(rc, 0, "setsockopt(SO_SNDBUF) failed");
+}
 
 fn record(seen: &Arc<Mutex<Vec<String>>>, value: impl Into<String>) {
     seen.lock().unwrap().push(value.into());
@@ -112,7 +130,12 @@ fn add_keyboard_device(
     device
 }
 
-fn server(stream: UnixStream, seen: Arc<Mutex<Vec<String>>>, keyboard_mode: KeyboardMode) {
+fn server(
+    stream: UnixStream,
+    seen: Arc<Mutex<Vec<String>>>,
+    keyboard_mode: KeyboardMode,
+    mut pause_after_bind: Option<Duration>,
+) {
     let context = eis::Context::new(stream).unwrap();
     let mut handshaker = reis::handshake::EisHandshaker::new(&context, 1);
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -183,6 +206,10 @@ fn server(stream: UnixStream, seen: Arc<Mutex<Vec<String>>>, keyboard_mode: Keyb
                         });
                     }
                     record(&seen, "bind");
+                    if let Some(delay) = pause_after_bind.take() {
+                        connection.flush().unwrap();
+                        std::thread::sleep(delay);
+                    }
                 }
                 EisRequest::DeviceStartEmulating(_) => record(&seen, "start"),
                 EisRequest::TextKeysym(event) => {
@@ -218,7 +245,8 @@ async fn real_eis_protocol_negotiates_and_sends_input() {
     let (server_stream, client_stream) = UnixStream::pair().unwrap();
     let seen = Arc::new(Mutex::new(Vec::new()));
     let server_seen = seen.clone();
-    let thread = std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Text));
+    let thread =
+        std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Text, None));
 
     let client = EisClient::connect(
         client_stream,
@@ -271,7 +299,7 @@ async fn keycode_only_keyboard_negotiates_without_claiming_text_support() {
     let seen = Arc::new(Mutex::new(Vec::new()));
     let server_seen = seen.clone();
     let thread =
-        std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Keycode));
+        std::thread::spawn(move || server(server_stream, server_seen, KeyboardMode::Keycode, None));
 
     let client = EisClient::connect(
         client_stream,
@@ -306,7 +334,12 @@ async fn keycode_keyboard_uses_announced_xkb_keymap_for_text_and_keysym() {
     let seen = Arc::new(Mutex::new(Vec::new()));
     let server_seen = seen.clone();
     let thread = std::thread::spawn(move || {
-        server(server_stream, server_seen, KeyboardMode::KeycodeWithKeymap)
+        server(
+            server_stream,
+            server_seen,
+            KeyboardMode::KeycodeWithKeymap,
+            None,
+        )
     });
 
     let client = EisClient::connect(
@@ -370,7 +403,12 @@ async fn keycode_text_cancellation_stops_after_partial_dispatch() {
     let seen = Arc::new(Mutex::new(Vec::new()));
     let server_seen = seen.clone();
     let thread = std::thread::spawn(move || {
-        server(server_stream, server_seen, KeyboardMode::KeycodeWithKeymap)
+        server(
+            server_stream,
+            server_seen,
+            KeyboardMode::KeycodeWithKeymap,
+            None,
+        )
     });
 
     let client = EisClient::connect(
@@ -461,6 +499,70 @@ async fn keycode_text_cancellation_stops_after_partial_dispatch() {
         settled_events, later_events,
         "cancelled EIS input must not keep dispatching after the call returns"
     );
+
+    client.stop().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(1), client.wait_closed())
+        .await
+        .expect("EIS client should observe transport shutdown");
+    thread.join().unwrap();
+}
+
+#[tokio::test]
+async fn keycode_text_waits_for_writable_socket_under_backpressure() {
+    let (server_stream, client_stream) = UnixStream::pair().unwrap();
+    set_send_buffer(&client_stream, 4096);
+
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let server_seen = seen.clone();
+    let thread = std::thread::spawn(move || {
+        server(
+            server_stream,
+            server_seen,
+            KeyboardMode::KeycodeWithKeymap,
+            Some(Duration::from_millis(150)),
+        )
+    });
+
+    let client = EisClient::connect(
+        client_stream,
+        Requested {
+            keyboard: true,
+            pointer: false,
+        },
+    )
+    .await
+    .unwrap();
+
+    let text = "A".repeat(1_024);
+    let started = Instant::now();
+    tokio::time::timeout(Duration::from_secs(3), client.type_text(&text))
+        .await
+        .expect("backpressured EIS input should become writable")
+        .expect("backpressure should not be reported as BackendFailed");
+    assert!(
+        started.elapsed() >= Duration::from_millis(50),
+        "fixture must actually exercise a blocked writer"
+    );
+
+    let expected = text.len() * 4;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
+    loop {
+        let count = seen
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|row| row.starts_with("key:"))
+            .count();
+        if count >= expected {
+            assert_eq!(count, expected);
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "backpressured EIS key events stalled at {count}/{expected}"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
 
     client.stop().await.unwrap();
     tokio::time::timeout(Duration::from_secs(1), client.wait_closed())
