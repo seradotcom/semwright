@@ -19,6 +19,9 @@
     {"root": "godot-runtime", "read_only": true}
   ],
   "system_config": [],
+  "secrets": [
+    {"root": "godot-pairing", "name": "godot-pairing"}
+  ],
   "network": false,
   "loopback_port": 9877,
   "resources": {

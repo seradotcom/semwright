@@ -35,6 +35,7 @@ fn fake_manifest(root: &Path, version: &str, supported: Vec<String>) -> Manifest
         transport: Transport::StdioV1,
         mounts: vec![],
         system_config: vec![],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources: DriverResources::default(),

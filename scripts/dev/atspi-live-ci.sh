@@ -8,6 +8,11 @@ case "$PHASE" in
   *) echo "usage: $0 <gtk|qt>" >&2; exit 2 ;;
 esac
 
+# This harness runs under disposable Xvfb + dbus-run-session, not GNOME Shell.
+# Exercise the full AT-SPI event/delta contract here; the Noble compatibility
+# guard is tested separately and is intended for affected real GNOME sessions.
+export SEMWRIGHT_ATSPI_NOBLE_GUARD=off
+
 if [[ ${SEMWRIGHT_ATSPI_INNER:-0} != 1 ]]; then
   runtime=${XDG_RUNTIME_DIR:-}
   [[ -n "$runtime" ]]

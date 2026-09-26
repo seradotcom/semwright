@@ -121,6 +121,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             },
         ],
         system_config: vec![],
+        secrets: vec![],
         network: false,
         loopback_port: None,
         resources,

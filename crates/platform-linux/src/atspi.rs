@@ -7,6 +7,7 @@ use semwright_types::*;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::fs;
 use std::sync::{
     Arc, Mutex as StdMutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
@@ -24,6 +25,67 @@ const ROOT: &str = "/org/a11y/atspi/accessible/root";
 const ATSPI_ROLE_PASSWORD_TEXT: u32 = 40;
 const MAX_CHILDREN_PER_NODE: usize = 2_000;
 const SNAPSHOT_OPTIONAL_BUDGET: Duration = Duration::from_millis(250);
+const NOBLE_LEGACY_MAX_NODES: usize = 256;
+const NOBLE_LEGACY_MAX_DEPTH: usize = 8;
+const NOBLE_LEGACY_CHILDREN_PER_NODE: usize = 128;
+
+fn os_release_value(input: &str, key: &str) -> Option<String> {
+    input.lines().find_map(|line| {
+        let (name, value) = line.split_once('=')?;
+        (name == key).then(|| value.trim_matches('"').to_owned())
+    })
+}
+
+fn dpkg_package_version(input: &str, wanted: &str) -> Option<String> {
+    input.split("\n\n").find_map(|paragraph| {
+        let mut package = None;
+        let mut version = None;
+        for line in paragraph.lines() {
+            if let Some(value) = line.strip_prefix("Package: ") {
+                package = Some(value.trim());
+            } else if let Some(value) = line.strip_prefix("Version: ") {
+                version = Some(value.trim());
+            }
+        }
+        (package == Some(wanted))
+            .then(|| version.map(str::to_owned))
+            .flatten()
+    })
+}
+
+fn parse_upstream_version(version: &str) -> Option<(u64, u64, u64)> {
+    let raw = version.split('-').next()?.split(':').next_back()?;
+    let mut parts = raw.split('.');
+    Some((
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+    ))
+}
+
+fn noble_atspi_version_is_fixed(version: &str) -> bool {
+    version.contains("+semwright")
+        || parse_upstream_version(version).is_some_and(|value| value >= (2, 55, 2))
+}
+
+fn detect_noble_legacy_atspi() -> bool {
+    match std::env::var("SEMWRIGHT_ATSPI_NOBLE_GUARD").as_deref() {
+        Ok("on" | "1" | "true") => return true,
+        Ok("off" | "0" | "false") => return false,
+        _ => {}
+    }
+    let os = fs::read_to_string("/etc/os-release").unwrap_or_default();
+    if os_release_value(&os, "ID").as_deref() != Some("ubuntu")
+        || os_release_value(&os, "VERSION_ID").as_deref() != Some("24.04")
+    {
+        return false;
+    }
+    let status = fs::read_to_string("/var/lib/dpkg/status").unwrap_or_default();
+    let Some(version) = dpkg_package_version(&status, "libatk-bridge2.0-0t64") else {
+        return false;
+    };
+    !noble_atspi_version_is_fixed(&version)
+}
 #[derive(Default)]
 struct ObjectGenerations {
     next: AtomicU64,
@@ -85,6 +147,8 @@ pub struct Atspi {
     events_live: Arc<AtomicBool>,
     object_generations: Arc<ObjectGenerations>,
     snapshots: StdMutex<BTreeMap<SnapshotKey, CachedSnapshot>>,
+    legacy_operation_guard: AsyncMutex<()>,
+    noble_legacy_guard: bool,
     signals: broadcast::Sender<ProviderSignal>,
 }
 impl Default for Atspi {
@@ -99,6 +163,8 @@ impl Default for Atspi {
             events_live: Arc::new(AtomicBool::new(false)),
             object_generations: Arc::new(ObjectGenerations::default()),
             snapshots: StdMutex::new(BTreeMap::new()),
+            legacy_operation_guard: AsyncMutex::new(()),
+            noble_legacy_guard: detect_noble_legacy_atspi(),
             signals,
         }
     }
@@ -432,11 +498,16 @@ impl Atspi {
             .await,
         )?;
         let mut streams = vec![];
-        for interface in [
-            "org.a11y.atspi.Event.Object",
-            "org.a11y.atspi.Event.Window",
-            "org.freedesktop.DBus",
-        ] {
+        let interfaces: &[&str] = if self.noble_legacy_guard {
+            &["org.a11y.atspi.Event.Window", "org.freedesktop.DBus"]
+        } else {
+            &[
+                "org.a11y.atspi.Event.Object",
+                "org.a11y.atspi.Event.Window",
+                "org.freedesktop.DBus",
+            ]
+        };
+        for &interface in interfaces {
             let rule = dbus(
                 zbus::MatchRule::builder()
                     .msg_type(zbus::message::Type::Signal)
@@ -447,7 +518,12 @@ impl Atspi {
                 zbus::MessageStream::for_match_rule(rule, connection, Some(1024)).await,
             )?);
         }
-        for category in ["object:", "window:"] {
+        let categories: &[&str] = if self.noble_legacy_guard {
+            &["window:"]
+        } else {
+            &["object:", "window:"]
+        };
+        for &category in categories {
             let _: () =
                 bounded(registry.call("RegisterEvent", &(category, Vec::<String>::new(), "")))
                     .await?;
@@ -1037,8 +1113,23 @@ impl Atspi {
                 "Snapshot base revision is newer than the accessibility state",
             ));
         }
-        let budget = args["max_nodes"].as_u64().unwrap_or(200).min(2000) as usize;
-        let max_depth = args["max_depth"].as_u64().unwrap_or(5).min(32) as usize;
+        let requested_budget = args["max_nodes"].as_u64().unwrap_or(200).min(2000) as usize;
+        let requested_depth = args["max_depth"].as_u64().unwrap_or(5).min(32) as usize;
+        let budget = if self.noble_legacy_guard {
+            requested_budget.min(NOBLE_LEGACY_MAX_NODES)
+        } else {
+            requested_budget
+        };
+        let max_depth = if self.noble_legacy_guard {
+            requested_depth.min(NOBLE_LEGACY_MAX_DEPTH)
+        } else {
+            requested_depth
+        };
+        let child_limit = if self.noble_legacy_guard {
+            NOBLE_LEGACY_CHILDREN_PER_NODE
+        } else {
+            MAX_CHILDREN_PER_NODE
+        };
         let actionable = args["actionable"].as_bool().unwrap_or(false);
         // Rich metadata is opportunistic in a full-tree snapshot. One absolute deadline
         // prevents per-node optional reads from multiplying into multi-second stalls.
@@ -1073,7 +1164,8 @@ impl Atspi {
         let mut visited = 0;
         while let Some((object, depth, app, framework, parent)) = queue.pop_front() {
             ctx.check_cancelled()?;
-            if nodes.len() >= budget || visited >= budget.saturating_mul(4) {
+            let visit_multiplier = if self.noble_legacy_guard { 2 } else { 4 };
+            if nodes.len() >= budget || visited >= budget.saturating_mul(visit_multiplier) {
                 partial = true;
                 break;
             }
@@ -1115,7 +1207,7 @@ impl Atspi {
             known.insert(identity.clone(), target.clone());
             let mut children: Vec<Object> = if reported_child_count
                 .and_then(|count| usize::try_from(count).ok())
-                .is_some_and(|count| count > MAX_CHILDREN_PER_NODE)
+                .is_some_and(|count| count > child_limit)
             {
                 // Do not request a potentially enormous GetChildren payload. Large/virtualized
                 // containers are explicitly partial and can be searched through bounded native
@@ -1130,8 +1222,8 @@ impl Atspi {
                         vec![]
                     })
             };
-            if children.len() > MAX_CHILDREN_PER_NODE {
-                children.truncate(MAX_CHILDREN_PER_NODE);
+            if children.len() > child_limit {
+                children.truncate(child_limit);
                 partial = true;
             }
             let (count, child_count_truncated) =
@@ -1507,7 +1599,7 @@ impl Atspi {
             partial = true;
         }
         let events_live = self.events_live.load(Ordering::SeqCst);
-        let complete = !partial && events_live;
+        let complete = !partial && events_live && !self.noble_legacy_guard;
         let mut mode = "full";
         let mut resync_required = since_revision.is_some();
         let mut removed_node_ids = Vec::new();
@@ -1559,7 +1651,7 @@ impl Atspi {
             "resync_required": resync_required,
             "changed_during_snapshot": ending != revision,
             "semantic_coverage": if partial {"partial"} else {"reported_tree"},
-            "event_invalidation": events_live,
+            "event_invalidation": events_live && !self.noble_legacy_guard,
             "visited": visited
         }))
     }
@@ -2035,11 +2127,20 @@ impl Backend for Atspi {
             self.name(),
             "ui.observe",
             ready,
-            "AT-SPI bus, registry and object-event subscription",
+            if self.noble_legacy_guard {
+                "AT-SPI bus with Ubuntu Noble legacy compatibility guard"
+            } else {
+                "AT-SPI bus, registry and object-event subscription"
+            },
             "Enable accessibility and run within the application user's D-Bus session",
         )]
     }
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
+        let _legacy_serial = if self.noble_legacy_guard {
+            Some(self.legacy_operation_guard.lock().await)
+        } else {
+            None
+        };
         ctx.check_cancelled()?;
         if command == "ui.snapshot" {
             return self.snapshot(ctx, args).await;
@@ -2256,6 +2357,32 @@ mod tests {
     fn machine_button_role() {
         assert_eq!(normalize_role("push button"), "button");
     }
+    #[test]
+    fn noble_guard_version_detection() {
+        assert!(!noble_atspi_version_is_fixed("2.52.0-1build1"));
+        assert!(noble_atspi_version_is_fixed("2.52.0-1build1+semwright1"));
+        assert!(noble_atspi_version_is_fixed("2.55.2-1"));
+    }
+
+    #[test]
+    fn parse_noble_package_status() {
+        let status = "Package: other\nVersion: 1\n\nPackage: libatk-bridge2.0-0t64\nVersion: 2.52.0-1build1\n\n";
+        assert_eq!(
+            dpkg_package_version(status, "libatk-bridge2.0-0t64").as_deref(),
+            Some("2.52.0-1build1")
+        );
+    }
+
+    #[test]
+    fn parse_os_release_quotes() {
+        let release = "ID=ubuntu\nVERSION_ID=\"24.04\"\n";
+        assert_eq!(os_release_value(release, "ID").as_deref(), Some("ubuntu"));
+        assert_eq!(
+            os_release_value(release, "VERSION_ID").as_deref(),
+            Some("24.04")
+        );
+    }
+
     #[test]
     fn rich_roles_normalize_to_portable_semantics() {
         for (native, semantic) in [

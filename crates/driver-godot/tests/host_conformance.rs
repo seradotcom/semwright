@@ -5,7 +5,7 @@ use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DRIVER_MANIFEST_VERSION, DRIVER_PROTOCOL_VERSION, DriverInterfaces,
-    DriverMount, DriverResources, Manifest, Transport,
+    DriverMount, DriverResources, DriverSecretMount, Manifest, Transport,
 };
 use semwright_godot_driver::bridge::{proof, transcript};
 use semwright_policy::FilesystemGrant;
@@ -68,6 +68,10 @@ fn manifest(executable: PathBuf, network: bool, loopback_port: Option<u16>) -> M
             },
         ],
         system_config: vec![],
+        secrets: vec![DriverSecretMount {
+            root: "godot-pairing".into(),
+            name: "godot-pairing".into(),
+        }],
         network,
         loopback_port,
         resources: DriverResources {
@@ -95,6 +99,7 @@ async fn staged_driver() -> (tempfile::TempDir, PathBuf) {
 struct Fixture {
     _config: tempfile::TempDir,
     _project: tempfile::TempDir,
+    _secret: tempfile::TempDir,
     roots: Vec<FilesystemGrant>,
     port: u16,
     project_id: String,
@@ -104,23 +109,29 @@ struct Fixture {
 fn fixture() -> Fixture {
     let config = tempfile::tempdir().unwrap();
     let project = tempfile::tempdir().unwrap();
+    let secret_dir = tempfile::tempdir().unwrap();
     std::fs::set_permissions(config.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     std::fs::set_permissions(project.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::set_permissions(secret_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     std::fs::write(project.path().join("project.godot"), "config_version=5\n").unwrap();
 
     let port = free_port();
     let project_id = "a".repeat(64);
     let secret = "b".repeat(64);
+    let secret_path = secret_dir.path().join("pairing");
+    std::fs::write(&secret_path, format!("{secret}\n")).unwrap();
+    std::fs::set_permissions(&secret_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let secret_path = secret_path.canonicalize().unwrap();
     let config_path = config.path().join("config.json");
     std::fs::write(
         &config_path,
         serde_json::to_vec(&json!({
             "port": port,
-            "development_mode": true,
+            "development_mode": false,
             "projects": [{
                 "project": project_id,
                 "root": "/workspace/godot-project",
-                "secret": secret
+                "secret_file": "/run/secrets/godot-pairing"
             }],
             "runner": null
         }))
@@ -142,10 +153,17 @@ fn fixture() -> Fixture {
             read: true,
             write: true,
         },
+        FilesystemGrant {
+            name: "godot-pairing".into(),
+            path: secret_path,
+            read: true,
+            write: false,
+        },
     ];
     Fixture {
         _config: config,
         _project: project,
+        _secret: secret_dir,
         roots,
         port,
         project_id,
