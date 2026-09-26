@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 import select
@@ -41,6 +42,30 @@ def read_frame(stream,timeout=20.0):
         raise RuntimeError(f"response frame out of bounds: {size}")
     body=read_exact(stream,size,timeout)
     return size,json.loads(body)
+
+
+def descriptor_digest(descriptor):
+    body=json.dumps(descriptor,separators=(",",":"),ensure_ascii=False).encode()
+    return hashlib.sha256(body).hexdigest()
+
+
+def execute(proc, catalog_by_name, command, args, request_id):
+    capability=catalog_by_name[command]
+    request={
+        "type":"execute",
+        "id":request_id,
+        "command":command,
+        "descriptor_sha256":descriptor_digest(capability["descriptor"]),
+        "args":args,
+    }
+    write_frame(proc.stdin,request)
+    size,response=read_frame(proc.stdout,30.0)
+    print("execute",command,size,response.get("type"),response.get("error",{}).get("code",""),flush=True)
+    if response.get("type")!="result":
+        raise RuntimeError(f"{command} failed: {response}")
+    return response["value"]
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--driver",required=True)
@@ -96,6 +121,31 @@ def main():
             print("capabilities",size,catalog.get("type"),len(catalog.get("capabilities",[])),flush=True)
             if catalog.get("type")!="capabilities":
                 raise RuntimeError(f"unexpected capabilities response: {catalog}")
+            catalog_by_name={item["descriptor"]["name"]:item for item in catalog.get("capabilities",[])}
+            execute(
+                proc,
+                catalog_by_name,
+                "driver.blender.object.create",
+                {"name":"ProtocolProbeCube","primitive":"cube","location":[1.0,2.0,3.0]},
+                "probe-create",
+            )
+            objects=execute(
+                proc,
+                catalog_by_name,
+                "driver.blender.semantic.objects",
+                {"root":"objects","query":"ProtocolProbeCube","limit":8},
+                "probe-objects",
+            )
+            reference=objects["items"][0]["ref"]
+            relation=execute(
+                proc,
+                catalog_by_name,
+                "driver.blender.semantic.relations",
+                {"ref":reference,"property":"data","limit":8},
+                "probe-relations",
+            )
+            if relation["items"][0]["rna_type"]!="Mesh":
+                raise RuntimeError(f"unexpected Object.data relation: {relation}")
 
             write_frame(proc.stdin,{"type":"health","id":"probe-health"})
             size,health=read_frame(proc.stdout,30.0)
