@@ -1749,6 +1749,44 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .unwrap();
     assert_eq!(cleared_camera["target_ref"], Value::Null);
 
+    // Restore a real camera before later render acceptance. relation.set(null)
+    // is still exercised above, but the render smoke must retain Blender's
+    // documented active-camera precondition.
+    let scenes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","limit":8}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = scenes["items"][0]["ref"].as_str().unwrap().to_owned();
+    let camera_candidates = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.query",
+        json!({"root":"objects","property":"type","operator":"eq","value":"CAMERA","limit":16}),
+    )
+    .await
+    .unwrap();
+    let fallback_camera_ref = camera_candidates["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"].as_str() != Some("SemwrightCameraObject"))
+        .and_then(|item| item["ref"].as_str())
+        .expect("factory scene should retain a fallback camera")
+        .to_owned();
+    let restored_camera = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relation.set",
+        json!({"ref":scene_ref,"property":"camera","target_ref":fallback_camera_ref}),
+    )
+    .await
+    .unwrap();
+    assert!(restored_camera["target_ref"].as_str().is_some());
+
     let scenes = call(
         provider.as_ref(),
         &capabilities,
