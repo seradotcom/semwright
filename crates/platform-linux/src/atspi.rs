@@ -148,7 +148,7 @@ pub struct Atspi {
     events_live: Arc<AtomicBool>,
     object_generations: Arc<ObjectGenerations>,
     snapshots: StdMutex<BTreeMap<SnapshotKey, CachedSnapshot>>,
-    snapshot_guard: AsyncMutex<()>,
+    legacy_operation_guard: AsyncMutex<()>,
     noble_legacy_guard: bool,
 }
 impl Default for Atspi {
@@ -162,7 +162,7 @@ impl Default for Atspi {
             events_live: Arc::new(AtomicBool::new(false)),
             object_generations: Arc::new(ObjectGenerations::default()),
             snapshots: StdMutex::new(BTreeMap::new()),
-            snapshot_guard: AsyncMutex::new(()),
+            legacy_operation_guard: AsyncMutex::new(()),
             noble_legacy_guard: detect_noble_legacy_atspi(),
         }
     }
@@ -472,11 +472,6 @@ impl Atspi {
         names
     }
     async fn snapshot(&self, ctx: &Context, args: &Value) -> Result<Value> {
-        let _legacy_serial = if self.noble_legacy_guard {
-            Some(self.snapshot_guard.lock().await)
-        } else {
-            None
-        };
         let c = self.connect().await?;
         let revision = self.revision.load(Ordering::SeqCst);
         let since_revision = args.get("since_revision").and_then(Value::as_u64);
@@ -736,6 +731,11 @@ impl Backend for Atspi {
         )]
     }
     async fn execute(&self, ctx: &Context, command: &str, args: &Value) -> Result<Value> {
+        let _legacy_serial = if self.noble_legacy_guard {
+            Some(self.legacy_operation_guard.lock().await)
+        } else {
+            None
+        };
         ctx.check_cancelled()?;
         if command == "ui.snapshot" {
             return self.snapshot(ctx, args).await;
