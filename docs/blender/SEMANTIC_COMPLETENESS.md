@@ -26,21 +26,21 @@ node sockets, pose bones, modifier settings, render settings and nested scene da
 
 | Domain | Status | Primary semantic surface |
 | --- | --- | --- |
-| Scenes / objects / collections | Managed | RNA roots, relations, rename, create/remove, curated object/collection commands |
+| Scenes / objects / collections | Managed | RNA roots, relations, rename, typed Object+data lifecycle, create/remove, curated object/collection commands |
 | Transforms and ordinary RNA state | Managed | `semantic.property.*` |
 | Materials | Managed | material commands + RNA + node-tree traversal |
 | Cameras / lights / worlds | Managed | datablock lifecycle + RNA properties/relations |
 | Modifiers | Managed | `modifier.add/remove` + RNA properties |
-| Constraints | Managed | `constraint.add/remove` + RNA properties |
-| Animation keyframes | Managed | `animation.keyframe.insert/delete` + Action/FCurve RNA inspection |
-| Node graphs | Managed | node type discovery, add/remove/link/unlink + socket/property refs |
+| Constraints | Managed | Object and PoseBone constraint lifecycle + RNA properties |
+| Animation / NLA | Managed | keyframe insert/delete, NLA track/strip lifecycle + Action/FCurve RNA inspection |
+| Node graphs | Managed | node type discovery, add/remove/link/unlink, NodeTree interface lifecycle + socket/property refs |
 | Mesh topology | Managed | `mesh.geometry.replace` + vertex/edge/polygon refs |
 | Mesh attributes / color attributes | Managed | `mesh.attribute.add/remove` + attribute-data refs |
 | UV maps | Managed | `mesh.uv_layer.add/remove` + UV data refs |
 | Shape keys | Managed | `shape_key.add/remove` + KeyBlock refs |
 | Vertex groups / weights | Managed | vertex-group lifecycle and bounded weight mutation |
 | Curves / splines | Managed | spline lifecycle + point refs/properties |
-| Armatures / bones | Managed | bounded Edit Mode transaction for bone lifecycle/parenting + bone/pose RNA |
+| Armatures / bones | Managed | bounded Edit Mode bone lifecycle/parenting, Bone Collections, Pose constraints + bone/pose RNA |
 | Geometry Nodes | Managed | Nodes modifier + node-group datablock + generic node graph semantics |
 | Compositor / shader nodes | Managed | node-tree traversal and generic node graph semantics |
 | Scoped file-backed assets | Managed | allowlisted image/sound/font/movie/cache/volume loading from workspace |

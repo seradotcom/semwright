@@ -518,6 +518,46 @@ def dispatch(command, args):
         if not set(args).issubset({"ref", "parent_ref", "connected"}) or not {"ref", "parent_ref"}.issubset(args):
             raise CommandError("InvalidArgument", "Bone parent set requires ref and parent_ref")
         return semantic.armature_bone_parent_set(args["ref"], args["parent_ref"], args.get("connected", False))
+    if command == "driver.blender.pose_constraint.add":
+        if set(args) != {"pose_bone_ref", "name", "type"}:
+            raise CommandError("InvalidArgument", "Pose constraint add requires pose_bone_ref, name and type")
+        return semantic.pose_constraint_add(args["pose_bone_ref"], args["name"], args["type"])
+    if command == "driver.blender.pose_constraint.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Pose constraint remove requires ref")
+        return semantic.pose_constraint_remove(args["ref"])
+    if command == "driver.blender.bone_collection.add":
+        if not set(args).issubset({"armature_ref", "name", "parent_ref"}) or not {"armature_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "Bone collection add requires armature_ref and name")
+        return semantic.bone_collection_add(args["armature_ref"], args["name"], args.get("parent_ref"))
+    if command == "driver.blender.bone_collection.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "Bone collection remove requires ref")
+        return semantic.bone_collection_remove(args["ref"])
+    if command == "driver.blender.bone_collection.assign":
+        if set(args) != {"collection_ref", "bone_ref"}:
+            raise CommandError("InvalidArgument", "Bone collection assign requires collection_ref and bone_ref")
+        return semantic.bone_collection_assign(args["collection_ref"], args["bone_ref"], True)
+    if command == "driver.blender.bone_collection.unassign":
+        if set(args) != {"collection_ref", "bone_ref"}:
+            raise CommandError("InvalidArgument", "Bone collection unassign requires collection_ref and bone_ref")
+        return semantic.bone_collection_assign(args["collection_ref"], args["bone_ref"], False)
+    if command == "driver.blender.nla.track.add":
+        if not set(args).issubset({"owner_ref", "name", "previous_ref"}) or not {"owner_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "NLA track add requires owner_ref and name")
+        return semantic.nla_track_add(args["owner_ref"], args["name"], args.get("previous_ref"))
+    if command == "driver.blender.nla.track.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "NLA track remove requires ref")
+        return semantic.nla_track_remove(args["ref"])
+    if command == "driver.blender.nla.strip.add":
+        if set(args) != {"track_ref", "name", "start", "action_ref"}:
+            raise CommandError("InvalidArgument", "NLA strip add requires track_ref, name, start and action_ref")
+        return semantic.nla_strip_add(args["track_ref"], args["name"], args["start"], args["action_ref"])
+    if command == "driver.blender.nla.strip.remove":
+        if set(args) != {"ref"}:
+            raise CommandError("InvalidArgument", "NLA strip remove requires ref")
+        return semantic.nla_strip_remove(args["ref"])
     if command == "driver.blender.modifier.add":
         if set(args) != {"object_ref", "name", "type"}:
             raise CommandError("InvalidArgument", "Modifier add requires object_ref, name and type")
@@ -544,6 +584,26 @@ def dispatch(command, args):
         return semantic.keyframe_delete(args["ref"], args["property"], args["frame"], args.get("index", -1))
     if command == "driver.blender.node.types":
         return semantic.node_types(args.get("query", ""), limit_arg(args))
+    if command == "driver.blender.node.interface.socket.add":
+        if not set(args).issubset({"interface_ref", "name", "in_out", "socket_type", "description", "parent_ref"}) or not {"interface_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "Interface socket add requires interface_ref and name")
+        return semantic.node_interface_socket_add(args["interface_ref"], args["name"], args.get("in_out", "INPUT"), args.get("socket_type", "DEFAULT"), args.get("description", ""), args.get("parent_ref"))
+    if command == "driver.blender.node.interface.panel.add":
+        if not set(args).issubset({"interface_ref", "name", "description", "default_closed"}) or not {"interface_ref", "name"}.issubset(args):
+            raise CommandError("InvalidArgument", "Interface panel add requires interface_ref and name")
+        return semantic.node_interface_panel_add(args["interface_ref"], args["name"], args.get("description", ""), args.get("default_closed", False))
+    if command == "driver.blender.node.interface.item.remove":
+        if not set(args).issubset({"ref", "move_content_to_parent"}) or "ref" not in args:
+            raise CommandError("InvalidArgument", "Interface item remove requires ref")
+        return semantic.node_interface_item_remove(args["ref"], args.get("move_content_to_parent", True))
+    if command == "driver.blender.node.interface.item.move":
+        if set(args) != {"ref", "to_position"}:
+            raise CommandError("InvalidArgument", "Interface item move requires ref and to_position")
+        return semantic.node_interface_item_move(args["ref"], args["to_position"])
+    if command == "driver.blender.node.interface.item.move_to_parent":
+        if set(args) != {"ref", "parent_ref", "to_position"}:
+            raise CommandError("InvalidArgument", "Interface item reparent requires ref, parent_ref and to_position")
+        return semantic.node_interface_item_move_to_parent(args["ref"], args["parent_ref"], args["to_position"])
     if command == "driver.blender.node.add":
         if not set(args).issubset({"tree_ref", "type", "name"}) or not {"tree_ref", "type"}.issubset(args):
             raise CommandError("InvalidArgument", "Node add requires tree_ref and type")

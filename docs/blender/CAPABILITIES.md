@@ -17,18 +17,19 @@ instead of generating one tool per Blender property.
 - `driver.blender.semantic.relation.set/link/unlink`
 - `driver.blender.semantic.rename`
 - `driver.blender.semantic.custom.list/get/set/remove`
+- `driver.blender.semantic.object.create`
 - `driver.blender.semantic.datablock.create/remove`
 - `driver.blender.asset.load`
 ## Authoring overlays
 
-- modifiers and constraints: add/remove;
-- animation: keyframe insert/delete;
-- node graphs: type discovery, node add/remove, link/unlink;
+- modifiers and Object/PoseBone constraints: add/remove;
+- armatures: bones plus Bone Collection lifecycle/membership;
+- animation: keyframe insert/delete plus NLA track/strip lifecycle;
+- node graphs: type discovery, node add/remove, link/unlink, and NodeTree interface sockets/panels/reparenting;
 - mesh: summary, bounded topology replace, attributes and UV layers;
 - vertex groups: lifecycle and bounded weight set/remove;
 - shape keys: add/remove;
-- curves: spline add/remove;
-- armatures: bone add/remove/parent set.
+- curves: spline add/remove.
 
 The original curated scene/object/material/render/file capabilities remain for ergonomic common
 operations. Bounded RNA/operator/add-on introspection remains read-only and does not grant generic

@@ -128,7 +128,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         .await
         .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert!(capabilities.len() >= 65);
+    assert!(capabilities.len() >= 80);
     assert!(
         capabilities
             .iter()
@@ -455,6 +455,62 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     authored_object_ref = keyed["ref"].as_str().unwrap().to_owned();
+
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","limit":16}),
+    )
+    .await
+    .unwrap();
+    assert!(!actions["items"].as_array().unwrap().is_empty());
+    let nla_track = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.nla.track.add",
+        json!({"owner_ref":authored_object_ref,"name":"SemwrightTrack"}),
+    )
+    .await
+    .unwrap();
+    let track_ref = nla_track["ref"].as_str().unwrap().to_owned();
+    let actions = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"actions","limit":16}),
+    )
+    .await
+    .unwrap();
+    let action_ref = actions["items"][0]["ref"].as_str().unwrap().to_owned();
+    let nla_strip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.nla.strip.add",
+        json!({"track_ref":track_ref,"name":"SemwrightStrip","start":1,"action_ref":action_ref}),
+    )
+    .await
+    .unwrap();
+    let strip_ref = nla_strip["ref"].as_str().unwrap().to_owned();
+    let removed_strip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.nla.strip.remove",
+        json!({"ref":strip_ref}),
+    )
+    .await
+    .unwrap();
+    let track_ref = removed_strip["track_ref"].as_str().unwrap().to_owned();
+    let removed_track = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.nla.track.remove",
+        json!({"ref":track_ref}),
+    )
+    .await
+    .unwrap();
+    authored_object_ref = removed_track["owner_ref"].as_str().unwrap().to_owned();
+
     let unkeyed = call(
         provider.as_ref(),
         &capabilities,
@@ -868,6 +924,170 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
             .iter()
             .any(|item| item["name"] == "Root")
     );
+    let bone_collection = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.bone_collection.add",
+        json!({"armature_ref":rig_data_ref,"name":"SemwrightControls"}),
+    )
+    .await
+    .unwrap();
+    let collection_ref = bone_collection["ref"].as_str().unwrap().to_owned();
+
+    let rigs = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"objects","query":"SemwrightRig","limit":8}),
+    )
+    .await
+    .unwrap();
+    rig_ref = rigs["items"][0]["ref"].as_str().unwrap().to_owned();
+    let rig_data = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":rig_ref,"property":"data","limit":8}),
+    )
+    .await
+    .unwrap();
+    let rig_data_ref = rig_data["items"][0]["ref"].as_str().unwrap().to_owned();
+    let bones = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":rig_data_ref,"property":"bones","limit":16}),
+    )
+    .await
+    .unwrap();
+    let root_ref = bones["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "Root")
+        .unwrap()["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let assigned = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.bone_collection.assign",
+        json!({"collection_ref":collection_ref,"bone_ref":root_ref}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(assigned["assigned"], true);
+    assert_eq!(assigned["changed"], true);
+    let collection_ref = assigned["collection_ref"].as_str().unwrap().to_owned();
+    let root_ref = assigned["bone_ref"].as_str().unwrap().to_owned();
+    let unassigned = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.bone_collection.unassign",
+        json!({"collection_ref":collection_ref,"bone_ref":root_ref}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(unassigned["assigned"], false);
+    let collection_ref = unassigned["collection_ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.bone_collection.remove",
+        json!({"ref":collection_ref}),
+    )
+    .await
+    .unwrap();
+
+    let rigs = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"objects","query":"SemwrightRig","limit":8}),
+    )
+    .await
+    .unwrap();
+    rig_ref = rigs["items"][0]["ref"].as_str().unwrap().to_owned();
+    let pose = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":rig_ref,"property":"pose","limit":8}),
+    )
+    .await
+    .unwrap();
+    let pose_ref = pose["items"][0]["ref"].as_str().unwrap().to_owned();
+    let pose_bones = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":pose_ref,"property":"bones","limit":16}),
+    )
+    .await
+    .unwrap();
+    let child_pose_ref = pose_bones["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "Child")
+        .unwrap()["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let pose_constraint = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.pose_constraint.add",
+        json!({"pose_bone_ref":child_pose_ref,"name":"SemwrightPoseLimit","type":"LIMIT_LOCATION"}),
+    )
+    .await
+    .unwrap();
+    let constraint_ref = pose_constraint["ref"].as_str().unwrap().to_owned();
+    let constraint_value = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.set",
+        json!({"ref":constraint_ref,"property":"influence","value":0.5}),
+    )
+    .await
+    .unwrap();
+    let constraint_ref = constraint_value["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.pose_constraint.remove",
+        json!({"ref":constraint_ref}),
+    )
+    .await
+    .unwrap();
+
+    let rigs = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"objects","query":"SemwrightRig","limit":8}),
+    )
+    .await
+    .unwrap();
+    rig_ref = rigs["items"][0]["ref"].as_str().unwrap().to_owned();
+    let rig_data = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":rig_ref,"property":"data","limit":8}),
+    )
+    .await
+    .unwrap();
+    let rig_data_ref = rig_data["items"][0]["ref"].as_str().unwrap().to_owned();
+    let bones = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":rig_data_ref,"property":"bones","limit":16}),
+    )
+    .await
+    .unwrap();
     let child_ref = bones["items"]
         .as_array()
         .unwrap()
@@ -1209,6 +1429,220 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         &capabilities,
         "driver.blender.semantic.datablock.remove",
         json!({"ref":collection_ref}),
+    )
+    .await
+    .unwrap();
+
+    let node_group = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.create",
+        json!({"root":"node_groups","name":"SemwrightInterfaceGroup","kind":"ShaderNodeTree"}),
+    )
+    .await
+    .unwrap();
+    let tree_ref = node_group["ref"].as_str().unwrap().to_owned();
+    let interface = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":tree_ref,"property":"interface","limit":8}),
+    )
+    .await
+    .unwrap();
+    let interface_ref = interface["items"][0]["ref"].as_str().unwrap().to_owned();
+    let panel = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.node.interface.panel.add",
+        json!({"interface_ref":interface_ref,"name":"SemwrightPanel","default_closed":false}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(panel["item_type"], "PANEL");
+
+    let groups = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"node_groups","query":"SemwrightInterfaceGroup","limit":8}),
+    )
+    .await
+    .unwrap();
+    let tree_ref = groups["items"][0]["ref"].as_str().unwrap().to_owned();
+    let interface = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":tree_ref,"property":"interface","limit":8}),
+    )
+    .await
+    .unwrap();
+    let interface_ref = interface["items"][0]["ref"].as_str().unwrap().to_owned();
+    let socket = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.node.interface.socket.add",
+        json!({"interface_ref":interface_ref,"name":"SemwrightValue","in_out":"INPUT","socket_type":"NodeSocketFloat"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(socket["item_type"], "SOCKET");
+
+    let groups = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"node_groups","query":"SemwrightInterfaceGroup","limit":8}),
+    )
+    .await
+    .unwrap();
+    let tree_ref = groups["items"][0]["ref"].as_str().unwrap().to_owned();
+    let interface = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":tree_ref,"property":"interface","limit":8}),
+    )
+    .await
+    .unwrap();
+    let interface_ref = interface["items"][0]["ref"].as_str().unwrap().to_owned();
+    let items = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":interface_ref,"property":"items_tree","limit":16}),
+    )
+    .await
+    .unwrap();
+    let panel_ref = items["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "SemwrightPanel")
+        .unwrap()["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let socket_ref = items["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "SemwrightValue")
+        .unwrap()["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.node.interface.item.move_to_parent",
+        json!({"ref":socket_ref,"parent_ref":panel_ref,"to_position":0}),
+    )
+    .await
+    .unwrap();
+
+    let groups = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"node_groups","query":"SemwrightInterfaceGroup","limit":8}),
+    )
+    .await
+    .unwrap();
+    let tree_ref = groups["items"][0]["ref"].as_str().unwrap().to_owned();
+    let interface = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":tree_ref,"property":"interface","limit":8}),
+    )
+    .await
+    .unwrap();
+    let interface_ref = interface["items"][0]["ref"].as_str().unwrap().to_owned();
+    let items = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":interface_ref,"property":"items_tree","limit":16}),
+    )
+    .await
+    .unwrap();
+    let socket_ref = items["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "SemwrightValue")
+        .unwrap()["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.node.interface.item.remove",
+        json!({"ref":socket_ref}),
+    )
+    .await
+    .unwrap();
+
+    let groups = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"node_groups","query":"SemwrightInterfaceGroup","limit":8}),
+    )
+    .await
+    .unwrap();
+    let tree_ref = groups["items"][0]["ref"].as_str().unwrap().to_owned();
+    let interface = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":tree_ref,"property":"interface","limit":8}),
+    )
+    .await
+    .unwrap();
+    let interface_ref = interface["items"][0]["ref"].as_str().unwrap().to_owned();
+    let items = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":interface_ref,"property":"items_tree","limit":16}),
+    )
+    .await
+    .unwrap();
+    let panel_ref = items["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "SemwrightPanel")
+        .unwrap()["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.node.interface.item.remove",
+        json!({"ref":panel_ref}),
+    )
+    .await
+    .unwrap();
+    let groups = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"node_groups","query":"SemwrightInterfaceGroup","limit":8}),
+    )
+    .await
+    .unwrap();
+    let tree_ref = groups["items"][0]["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":tree_ref}),
     )
     .await
     .unwrap();

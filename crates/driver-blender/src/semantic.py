@@ -1129,6 +1129,292 @@ class SemanticStore:
             "generation": self.generation,
         }
 
+    def _require_pose_bone(self, reference):
+        root, name, path, bone = self._resolve(reference)
+        if _text(getattr(getattr(bone, "bl_rna", None), "identifier", ""), 256) != "PoseBone":
+            raise SemanticError("InvalidArgument", "Operation requires a PoseBone RNA reference")
+        return root, name, path, bone
+
+    def pose_constraint_add(self, pose_bone_ref, name, constraint_type):
+        root, anchor_name, path, bone = self._require_pose_bone(pose_bone_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Pose constraint name is invalid")
+        if bone.constraints.get(name) is not None:
+            raise SemanticError("Conflict", "Pose constraint name already exists")
+        if not isinstance(constraint_type, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", constraint_type):
+            raise SemanticError("InvalidArgument", "Pose constraint type is invalid")
+        try:
+            constraint = bone.constraints.new(type=constraint_type)
+            constraint.name = name
+            if constraint.name != name:
+                bone.constraints.remove(constraint)
+                raise SemanticError("Conflict", "Blender rewrote the requested pose constraint name")
+            index = list(bone.constraints).index(constraint)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("Unsupported", "Pose constraint type is unavailable in this Blender build") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, anchor_name, path + [["c", "constraints", index]]),
+            "name": constraint.name,
+            "type": constraint.type,
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def pose_constraint_remove(self, constraint_ref):
+        root, anchor_name, parent_path, bone, constraint = self._collection_parent(constraint_ref, "constraints")
+        if _text(getattr(getattr(bone, "bl_rna", None), "identifier", ""), 256) != "PoseBone":
+            raise SemanticError("InvalidArgument", "Pose constraint parent is not a PoseBone")
+        try:
+            bone.constraints.remove(constraint)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected pose constraint removal") from error
+        self.changed()
+        return {"pose_bone_ref": self._ref(root, anchor_name, parent_path), "changed": True, "generation": self.generation}
+
+    def _require_armature_data(self, reference):
+        root, name, path, armature = self._resolve(reference)
+        if _text(getattr(getattr(armature, "bl_rna", None), "identifier", ""), 256) != "Armature":
+            raise SemanticError("InvalidArgument", "Operation requires an Armature RNA reference")
+        return root, name, path, armature
+
+    def bone_collection_add(self, armature_ref, name, parent_ref=None):
+        root, anchor_name, path, armature = self._require_armature_data(armature_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Bone collection name is invalid")
+        if any(collection.name == name for collection in armature.collections_all):
+            raise SemanticError("Conflict", "Bone collection name already exists")
+        parent = None
+        if parent_ref is not None:
+            parent_parts = self._resolve(parent_ref)
+            parent = parent_parts[3]
+            if _text(getattr(getattr(parent, "bl_rna", None), "identifier", ""), 256) != "BoneCollection" or getattr(parent, "id_data", None) is not armature:
+                raise SemanticError("InvalidArgument", "Parent bone collection must belong to the same Armature")
+        try:
+            collection = armature.collections.new(name, parent=parent)
+            if collection.name != name:
+                armature.collections.remove(collection)
+                raise SemanticError("Conflict", "Blender rewrote the requested bone collection name")
+            index = list(armature.collections_all).index(collection)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected bone collection creation") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, path + [["c", "collections_all", index]]), "name": name, "changed": True, "generation": self.generation}
+
+    def bone_collection_remove(self, collection_ref):
+        root, anchor_name, parent_path, armature, collection = self._collection_parent(collection_ref, "collections_all")
+        if _text(getattr(getattr(armature, "bl_rna", None), "identifier", ""), 256) != "Armature":
+            raise SemanticError("InvalidArgument", "Bone collection parent is not an Armature")
+        try:
+            armature.collections.remove(collection)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected bone collection removal") from error
+        self.changed()
+        return {"armature_ref": self._ref(root, anchor_name, parent_path), "changed": True, "generation": self.generation}
+
+    def bone_collection_assign(self, collection_ref, bone_ref, assign=True):
+        c_root, c_name, c_path, collection = self._resolve(collection_ref)
+        b_root, b_name, b_path, bone = self._resolve(bone_ref)
+        if _text(getattr(getattr(collection, "bl_rna", None), "identifier", ""), 256) != "BoneCollection":
+            raise SemanticError("InvalidArgument", "collection_ref is not a BoneCollection")
+        if _text(getattr(getattr(bone, "bl_rna", None), "identifier", ""), 256) not in {"Bone", "EditBone", "PoseBone"}:
+            raise SemanticError("InvalidArgument", "bone_ref is not a Blender bone")
+        armature = getattr(collection, "id_data", None)
+        bone_owner = getattr(bone, "id_data", None)
+        if _text(getattr(getattr(bone, "bl_rna", None), "identifier", ""), 256) == "PoseBone":
+            bone_owner = getattr(bone_owner, "data", None)
+        if armature is None or bone_owner is not armature:
+            raise SemanticError("InvalidArgument", "Bone and BoneCollection must belong to the same Armature")
+        try:
+            changed = bool(collection.assign(bone) if assign else collection.unassign(bone))
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected bone collection membership mutation") from error
+        if changed:
+            self.changed()
+        return {
+            "collection_ref": self._ref(c_root, c_name, c_path),
+            "bone_ref": self._ref(b_root, b_name, b_path),
+            "assigned": assign,
+            "changed": changed,
+            "generation": self.generation,
+        }
+
+    def _require_node_interface(self, interface_ref):
+        root, name, path, interface = self._resolve(interface_ref)
+        if _text(getattr(getattr(interface, "bl_rna", None), "identifier", ""), 256) != "NodeTreeInterface":
+            raise SemanticError("InvalidArgument", "Operation requires a NodeTreeInterface RNA reference")
+        return root, name, path, interface
+
+    def _interface_parent(self, root, name, interface, parent_ref):
+        if parent_ref is None:
+            return None
+        p_root, p_name, _p_path, parent = self._resolve(parent_ref)
+        if (p_root, p_name) != (root, name) or _text(getattr(getattr(parent, "bl_rna", None), "identifier", ""), 256) != "NodeTreeInterfacePanel":
+            raise SemanticError("InvalidArgument", "Interface parent must be a panel in the same NodeTree")
+        if parent not in list(interface.items_tree):
+            raise SemanticError("StaleReference", "Interface parent no longer belongs to this NodeTree")
+        return parent
+
+    def node_interface_socket_add(self, interface_ref, name, in_out="INPUT", socket_type="DEFAULT", description="", parent_ref=None):
+        root, anchor_name, path, interface = self._require_node_interface(interface_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Interface socket name is invalid")
+        if in_out not in {"INPUT", "OUTPUT"}:
+            raise SemanticError("InvalidArgument", "Interface socket direction is invalid")
+        if not isinstance(socket_type, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,127}", socket_type):
+            raise SemanticError("InvalidArgument", "Interface socket type is invalid")
+        if not isinstance(description, str) or len(description) > MAX_TEXT or "\x00" in description:
+            raise SemanticError("InvalidArgument", "Interface socket description is invalid")
+        parent = self._interface_parent(root, anchor_name, interface, parent_ref)
+        try:
+            socket = interface.new_socket(name=name, description=description, in_out=in_out, socket_type=socket_type, parent=parent)
+            index = list(interface.items_tree).index(socket)
+        except Exception as error:
+            raise SemanticError("Unsupported", "Blender rejected NodeTree interface socket creation") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, path + [["c", "items_tree", index]]), "name": socket.name, "item_type": "SOCKET", "changed": True, "generation": self.generation}
+
+    def node_interface_panel_add(self, interface_ref, name, description="", default_closed=False):
+        root, anchor_name, path, interface = self._require_node_interface(interface_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "Interface panel name is invalid")
+        if not isinstance(description, str) or len(description) > MAX_TEXT or "\x00" in description or not isinstance(default_closed, bool):
+            raise SemanticError("InvalidArgument", "Interface panel arguments are invalid")
+        try:
+            panel = interface.new_panel(name=name, description=description, default_closed=default_closed)
+            index = list(interface.items_tree).index(panel)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected NodeTree interface panel creation") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, path + [["c", "items_tree", index]]), "name": panel.name, "item_type": "PANEL", "changed": True, "generation": self.generation}
+
+    def node_interface_item_remove(self, item_ref, move_content_to_parent=True):
+        root, anchor_name, parent_path, interface, item = self._collection_parent(item_ref, "items_tree")
+        if _text(getattr(getattr(interface, "bl_rna", None), "identifier", ""), 256) != "NodeTreeInterface" or not isinstance(move_content_to_parent, bool):
+            raise SemanticError("InvalidArgument", "Interface item reference or options are invalid")
+        try:
+            interface.remove(item, move_content_to_parent=move_content_to_parent)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected NodeTree interface item removal") from error
+        self.changed()
+        return {"interface_ref": self._ref(root, anchor_name, parent_path), "changed": True, "generation": self.generation}
+
+    def node_interface_item_move(self, item_ref, to_position):
+        root, anchor_name, parent_path, interface, item = self._collection_parent(item_ref, "items_tree")
+        if _text(getattr(getattr(interface, "bl_rna", None), "identifier", ""), 256) != "NodeTreeInterface" or isinstance(to_position, bool) or not isinstance(to_position, int) or not 0 <= to_position <= 4096:
+            raise SemanticError("InvalidArgument", "Interface item move arguments are invalid")
+        try:
+            interface.move(item, to_position)
+            index = list(interface.items_tree).index(item)
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected NodeTree interface item move") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, parent_path + [["c", "items_tree", index]]), "position": to_position, "changed": True, "generation": self.generation}
+
+    def node_interface_item_move_to_parent(self, item_ref, parent_ref, to_position):
+        root, anchor_name, parent_path, interface, item = self._collection_parent(item_ref, "items_tree")
+        parent = self._interface_parent(root, anchor_name, interface, parent_ref)
+        if parent is None or isinstance(to_position, bool) or not isinstance(to_position, int) or not 0 <= to_position <= 4096:
+            raise SemanticError("InvalidArgument", "Interface reparent arguments are invalid")
+        try:
+            interface.move_to_parent(item, parent, to_position)
+            index = list(interface.items_tree).index(item)
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected NodeTree interface reparent") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, parent_path + [["c", "items_tree", index]]), "position": to_position, "changed": True, "generation": self.generation}
+
+    def _animation_owner(self, owner_ref):
+        root, name, path, owner = self._resolve(owner_ref)
+        creator = getattr(owner, "animation_data_create", None)
+        if not callable(creator):
+            raise SemanticError("Unsupported", "RNA object cannot own animation data")
+        return root, name, path, owner
+
+    def nla_track_add(self, owner_ref, name, previous_ref=None):
+        root, anchor_name, path, owner = self._animation_owner(owner_ref)
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "NLA track name is invalid")
+        try:
+            animation = owner.animation_data_create()
+            tracks = animation.nla_tracks
+        except Exception as error:
+            raise SemanticError("Unsupported", "Blender could not create animation data for this owner") from error
+        if any(track.name == name for track in tracks):
+            raise SemanticError("Conflict", "NLA track name already exists")
+        previous = None
+        if previous_ref is not None:
+            previous = self._resolve(previous_ref)[3]
+            if previous not in list(tracks):
+                raise SemanticError("InvalidArgument", "Previous NLA track must belong to the same animation owner")
+        try:
+            track = tracks.new(prev=previous)
+            track.name = name
+            if track.name != name:
+                tracks.remove(track)
+                raise SemanticError("Conflict", "Blender rewrote the requested NLA track name")
+            index = list(tracks).index(track)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected NLA track creation") from error
+        self.changed()
+        track_path = path + [["p", "animation_data"], ["c", "nla_tracks", index]]
+        return {"ref": self._ref(root, anchor_name, track_path), "name": track.name, "changed": True, "generation": self.generation}
+
+    def nla_track_remove(self, track_ref):
+        root, anchor_name, parent_path, animation, track = self._collection_parent(track_ref, "nla_tracks")
+        if _text(getattr(getattr(animation, "bl_rna", None), "identifier", ""), 256) != "AnimData":
+            raise SemanticError("InvalidArgument", "NLA track parent is not AnimData")
+        try:
+            animation.nla_tracks.remove(track)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected NLA track removal") from error
+        owner_path = parent_path[:-1] if parent_path and parent_path[-1] == ["p", "animation_data"] else parent_path
+        self.changed()
+        return {"owner_ref": self._ref(root, anchor_name, owner_path), "changed": True, "generation": self.generation}
+
+    def nla_strip_add(self, track_ref, name, start, action_ref):
+        root, anchor_name, path, track = self._resolve(track_ref)
+        if _text(getattr(getattr(track, "bl_rna", None), "identifier", ""), 256) != "NlaTrack":
+            raise SemanticError("InvalidArgument", "Operation requires an NlaTrack ref")
+        if not isinstance(name, str) or not name.strip() or len(name) > 128 or "\x00" in name:
+            raise SemanticError("InvalidArgument", "NLA strip name is invalid")
+        if isinstance(start, bool) or not isinstance(start, int) or not -1_000_000 <= start <= 1_000_000:
+            raise SemanticError("InvalidArgument", "NLA strip start frame is invalid")
+        action_parts = self._resolve(action_ref)
+        if action_parts[0] != "actions" or action_parts[2] or _text(getattr(getattr(action_parts[3], "bl_rna", None), "identifier", ""), 256) != "Action":
+            raise SemanticError("InvalidArgument", "action_ref must be a root Action datablock")
+        if any(strip.name == name for strip in track.strips):
+            raise SemanticError("Conflict", "NLA strip name already exists")
+        try:
+            strip = track.strips.new(name, start, action_parts[3])
+            if strip.name != name:
+                track.strips.remove(strip)
+                raise SemanticError("Conflict", "Blender rewrote the requested NLA strip name")
+            index = list(track.strips).index(strip)
+        except SemanticError:
+            raise
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected NLA strip creation") from error
+        self.changed()
+        return {"ref": self._ref(root, anchor_name, path + [["c", "strips", index]]), "name": strip.name, "start": int(strip.frame_start), "changed": True, "generation": self.generation}
+
+    def nla_strip_remove(self, strip_ref):
+        root, anchor_name, parent_path, track, strip = self._collection_parent(strip_ref, "strips")
+        if _text(getattr(getattr(track, "bl_rna", None), "identifier", ""), 256) != "NlaTrack":
+            raise SemanticError("InvalidArgument", "NLA strip parent is not an NlaTrack")
+        try:
+            track.strips.remove(strip)
+        except Exception as error:
+            raise SemanticError("BackendFailed", "Blender rejected NLA strip removal") from error
+        self.changed()
+        return {"track_ref": self._ref(root, anchor_name, parent_path), "changed": True, "generation": self.generation}
+
     def _require_mesh(self, reference):
         root, name, path, item = self._resolve(reference)
         if _text(getattr(getattr(item, "bl_rna", None), "identifier", ""), 256) != "Mesh":
@@ -1489,27 +1775,66 @@ class SemanticStore:
     def node_types(self, query="", limit=50):
         query = str(query or "").casefold()
         base = getattr(self.bpy.types, "Node", None)
-        pending = list(base.__subclasses__()) if base is not None else []
-        seen = set()
-        items = []
-        while pending and len(seen) < 10000:
+        if base is None:
+            return {"items": [], "truncated": False}
+
+        candidates = []
+        pending = list(base.__subclasses__())
+        seen_classes = set()
+        while pending and len(seen_classes) < 10000:
             candidate = pending.pop()
-            if candidate in seen:
+            if candidate in seen_classes:
                 continue
-            seen.add(candidate)
+            seen_classes.add(candidate)
+            candidates.append(candidate)
             try:
                 pending.extend(candidate.__subclasses__())
             except Exception:
                 pass
-            identifier = _text(getattr(candidate, "bl_idname", ""), 256)
+
+        # Blender's generated RNA classes are not guaranteed to all appear in
+        # Python __subclasses__() in background mode. Supplement with bpy.types
+        # and still require a real Node subclass.
+        for attr in dir(self.bpy.types):
+            if attr.startswith("_"):
+                continue
+            candidate = getattr(self.bpy.types, attr, None)
+            if candidate in seen_classes:
+                continue
+            try:
+                if not isinstance(candidate, type) or not issubclass(candidate, base):
+                    continue
+            except TypeError:
+                continue
+            seen_classes.add(candidate)
+            candidates.append(candidate)
+
+        by_identifier = {}
+        for candidate in candidates:
+            rna = getattr(candidate, "bl_rna", None)
+            identifier = _text(
+                getattr(candidate, "bl_idname", "")
+                or getattr(rna, "identifier", ""),
+                256,
+            )
             if not identifier:
                 continue
-            label = _text(getattr(candidate, "bl_label", identifier), 512)
+            label = _text(
+                getattr(candidate, "bl_label", "")
+                or getattr(rna, "name", "")
+                or identifier,
+                512,
+            )
             if query and query not in f"{identifier} {label}".casefold():
                 continue
             safe = "script" not in identifier.casefold()
-            items.append({"id": identifier, "name": label, "status": "managed" if safe else "unsupported_by_design", "reason": None if safe else "script nodes cross the executable-code boundary"})
-        items.sort(key=lambda item: item["id"])
+            by_identifier[identifier] = {
+                "id": identifier,
+                "name": label,
+                "status": "managed" if safe else "unsupported_by_design",
+                "reason": None if safe else "script nodes cross the executable-code boundary",
+            }
+        items = [by_identifier[key] for key in sorted(by_identifier)]
         return {"items": items[:limit], "truncated": len(items) > limit}
 
     def _require_node_tree(self, reference):
