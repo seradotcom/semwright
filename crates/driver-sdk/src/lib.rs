@@ -45,6 +45,7 @@ fn runtime_mount(class: MountClass, logical_name: &str) -> Result<PathBuf> {
                 let prefix = match class {
                     MountClass::Workspace => "/workspace",
                     MountClass::SystemConfig => "/etc",
+                    MountClass::Secret => "/run/secrets",
                 };
                 Ok(Path::new(prefix).join(logical_name))
             }
