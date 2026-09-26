@@ -31,7 +31,24 @@ A successful result is `PASS_PREFLIGHT_ONLY` and always reports
 `certification_complete=false`. The preflight deliberately rejects bare-metal `seat0`, which
 also rejects a nested compositor that still shares the owner-active graphical login.
 
-Only after this preflight passes may a future certification run request portal consent and use
-keyboard input, and then only with disposable accounts/fixtures owned by the reviewer. Record exact
+Only after this preflight passes may a certification run request portal consent and use keyboard
+input, and then only with disposable accounts/fixtures owned by the reviewer. Record exact
 source/binary hashes, target-observed effects, cancellation timing, explicit portal stop, and
-post-stop inactivity. R02 remains open until that isolated end-to-end evidence exists.
+post-stop inactivity.
+
+## Isolated GNOME VM keyboard certification — 2026-09-26
+
+`gnome-vm-keyboard-2026-09-26.json` records the first keyboard-targeting run accepted by this
+methodology. The authority boundary was an independent KVM guest running Ubuntu 24.04.5, GNOME
+Shell 46 and a real Wayland login session. VNC and SSH were bound to host loopback; the guest could
+not enumerate or target owner-host windows.
+
+With the candidate sustained pacing of four keycode-backed characters per 9 ms batch, a single
+`input.type` call delivered **4096/4096** uppercase `A` characters to the disposable GTK target in
+9.422 s and remained stable. A second run cancelled 4096 uppercase characters after about 20 ms;
+GTK settled at four characters for about 1.46 s, a follow-up lowercase `z` succeeded, and Shift was
+not left pressed. Explicit `portal.stop` then left EIS inactive with no input route.
+
+Earlier owner-active and same-login nested-shell keyboard runs remain invalidated and are not
+rehabilitated by this evidence. R02 remains open for portal-granted keyboard evidence on additional
+supported Wayland desktops.
