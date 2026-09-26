@@ -19,8 +19,9 @@ use std::{
 use tokio::{fs::File as TokioFile, process::Command};
 use windows::Win32::{
     Foundation::{
-        BOOL, CloseHandle, GENERIC_ALL, GENERIC_WRITE, HANDLE, HANDLE_FLAG_INHERIT, HANDLE_FLAGS,
-        HLOCAL, HWND, LocalFree, TRUST_E_EXPLICIT_DISTRUST, TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
+        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_WRITE, HANDLE,
+        HANDLE_FLAG_INHERIT, HANDLE_FLAGS, HLOCAL, HWND, LocalFree, TRUST_E_EXPLICIT_DISTRUST,
+        TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
     },
     Security::{
         ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
@@ -55,8 +56,8 @@ use windows::Win32::{
         },
         Threading::{
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
-            DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, INFINITE,
-            InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
+            DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
+            INFINITE, InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
             PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
             TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
@@ -802,10 +803,31 @@ impl SandboxChildControl for NativeSandboxChild {
         if self.observed_exit() {
             return Ok(());
         }
-        let raw = self.process.raw().0 as usize;
+        let current = unsafe { GetCurrentProcess() };
+        let mut duplicate = HANDLE::default();
+        // SAFETY: source/target are the current process; the duplicated process handle is
+        // independently owned by the blocking waiter and survives cancellation of this future.
+        unsafe {
+            DuplicateHandle(
+                current,
+                self.process.raw(),
+                current,
+                &mut duplicate,
+                0,
+                false,
+                DUPLICATE_SAME_ACCESS,
+            )
+        }
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows sandbox process handle duplication failed",
+            )
+        })?;
+        let wait_handle = NativeHandle(duplicate);
         let wait = tokio::task::spawn_blocking(move || {
-            // SAFETY: the owner keeps the process HANDLE live while this wait executes.
-            unsafe { WaitForSingleObject(HANDLE(raw as *mut core::ffi::c_void), INFINITE) }
+            // SAFETY: wait_handle exclusively owns a duplicate process HANDLE.
+            unsafe { WaitForSingleObject(wait_handle.raw(), INFINITE) }
         })
         .await
         .map_err(|_| Error::new(ErrorCode::Internal, "Windows sandbox wait task failed"))?;
