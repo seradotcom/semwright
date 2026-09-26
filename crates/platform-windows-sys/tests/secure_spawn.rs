@@ -12,6 +12,7 @@ fn spec() -> SandboxSpec {
         mounts: vec![],
         args: vec![],
         environment: vec![("SEMWRIGHT_FIXTURE".into(), "native".into())],
+        sealed_tools: vec![],
         network: false,
         limits: Some(ResourceLimits {
             open_files: 32,
