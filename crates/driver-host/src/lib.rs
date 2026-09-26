@@ -56,12 +56,13 @@ impl Drop for StagedFile {
 struct SealedTool {
     name: String,
     file: std::fs::File,
+    path_file: std::fs::File,
 }
 #[cfg(unix)]
 impl SealedTool {
     fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
         semwright_platform_api::launch::SealedToolMount {
-            fd: self.file.as_raw_fd(),
+            fd: self.path_file.as_raw_fd(),
             name: self.name.clone(),
         }
     }
@@ -99,9 +100,27 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
         ));
     }
     file.seek(SeekFrom::Start(0))?;
+    let proc_path = CString::new(format!("/proc/self/fd/{fd}"))
+        .map_err(|_| Error::invalid("Invalid sealed tool descriptor path"))?;
+    // SAFETY: proc_path is a live NUL-terminated path to the sealed memfd.
+    let path_fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_PATH) };
+    if path_fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: open returned a new owned O_PATH descriptor on success.
+    let path_file = unsafe { std::fs::File::from_raw_fd(path_fd) };
+    // ro-bind-fd needs this descriptor to survive the exec into bubblewrap.
+    // SAFETY: F_GETFD/F_SETFD operate only on the live descriptor and scalar flags.
+    let fd_flags = unsafe { libc::fcntl(path_fd, libc::F_GETFD) };
+    if fd_flags < 0
+        || unsafe { libc::fcntl(path_fd, libc::F_SETFD, fd_flags & !libc::FD_CLOEXEC) } != 0
+    {
+        return Err(std::io::Error::last_os_error().into());
+    }
     Ok(SealedTool {
         name: name.to_owned(),
         file,
+        path_file,
     })
 }
 
@@ -1277,7 +1296,7 @@ pub async fn conformance(
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
     fn manifest() -> Manifest {
         Manifest {
@@ -1330,6 +1349,16 @@ mod tests {
         let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
         let tool = seal_verified_tool(source, &digest, "probe").unwrap();
         let fd = tool.file.as_raw_fd();
+        let path_fd = tool.path_file.as_raw_fd();
+        let data_metadata = tool.file.metadata().unwrap();
+        let path_metadata = tool.path_file.metadata().unwrap();
+        assert_eq!(data_metadata.dev(), path_metadata.dev());
+        assert_eq!(data_metadata.ino(), path_metadata.ino());
+        assert_eq!(path_metadata.permissions().mode() & 0o777, 0o500);
+        // SAFETY: F_GETFD reads scalar flags from the live O_PATH descriptor.
+        let path_flags = unsafe { libc::fcntl(path_fd, libc::F_GETFD) };
+        assert!(path_flags >= 0);
+        assert_eq!(path_flags & libc::FD_CLOEXEC, 0);
         let required =
             libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
         // SAFETY: fd is a live memfd retained by tool.
