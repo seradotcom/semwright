@@ -1,4 +1,4 @@
-//! Driver-local Motion Canvas render jobs for Driver Protocol v1.
+//! Motion Canvas render jobs shared by legacy async capabilities and Protocol v3 render.execute.
 use crate::{
     Error, ErrorCode, Result,
     model::{ColorSpace, Project, RenderProfile},

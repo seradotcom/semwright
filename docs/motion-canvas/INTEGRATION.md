@@ -6,11 +6,13 @@ That baseline remains the historical snapshot recorded in `SEMWRIGHT_SNAPSHOT.md
 During PR integration the branch incorporated already-merged shared work without changing the frozen implementation baseline. The final reconciliation before closeout is merge commit `f25bd3db67c488cf76419927e2aa5977df1abaca` with `origin/main` parent `f2f3ec470f95c2010df89a61d4835afe5c4926a1`. The only merge conflict was additive in `fuzz/Cargo.toml`: the resolution retains all six Motion Canvas fuzz targets and also keeps main's `godot_substrate_schema` target. This is an integration merge, not a moving-baseline change.
 
 The integrated Driver SDK keeps manifest version 1 and accepts Driver Protocol
-versions 1 through 2. The Motion Canvas manifest deliberately requests protocol 1
-for this PR. Its `render.start/status/cancel/result` surface remains driver-local,
-and the driver does not advertise v2 child events, progress, artifacts or
-request cancellation that it does not yet emit truthfully. A later migration can
-adopt those generic interfaces without changing the managed project format.
+versions 1 through 3. Motion Canvas now requests protocol 3. The synchronous
+`render.execute` capability maps the existing renderer/job registry onto one
+protocol-owned request lifecycle with cooperative cancellation, observed progress
+and validated artifact reporting. The legacy `render.start/status/cancel/result`
+surface remains available for asynchronous polling. Dynamic capabilities, child
+events and broker-native refs remain disabled because Motion Canvas does not emit
+or require those interfaces.
 
 The driver adds no broker-specific authority path. Existing driver package/index
 machinery remains the distribution mechanism; filesystem and policy grants remain
@@ -24,5 +26,8 @@ are source-controlled. Generated browser profiles, node_modules, PNG sequences,
 intermediates and final binary media remain outside Git and are produced on
 ephemeral GitHub Actions runners.
 
-The integration is maintained in PR #49. This mission may push and iterate that
-branch but does not merge the PR.
+The original semantic driver and launch film merged through PR #49. The managed
+semantic-completeness pass merged through PR #109 as `132355b5a182349eb165460307cc8ed0ddcef940`.
+That pass adds version-pinned upstream coverage matrices, typed semantic property
+introspection/mutation, managed islands for compatible external projects and the
+Protocol v3 render path without changing the frozen historical baseline above.
