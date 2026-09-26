@@ -1,11 +1,16 @@
 //! Sandboxed persistent application-driver host. Drivers are mounted into the broker as Providers.
+#[cfg(unix)]
+mod loopback;
+
 use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
 #[cfg(unix)]
 use semwright_driver_sdk::DriverInterfaces;
-use semwright_driver_sdk::{Manifest, Request, Response, capabilities_digest, descriptor_digest};
+use semwright_driver_sdk::{
+    DriverRequestContext, Manifest, Request, Response, capabilities_digest, descriptor_digest,
+};
 use semwright_platform_api::launch::{SandboxStdin, SandboxStdout};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
@@ -178,6 +183,7 @@ fn provider_interfaces(interfaces: DriverInterfaces) -> ProviderInterfaces {
         progress: interfaces.progress,
         artifacts: interfaces.artifacts,
         health: interfaces.health,
+        native_refs: interfaces.native_refs,
     }
 }
 
@@ -189,6 +195,7 @@ fn response_id(response: &Response) -> Option<&str> {
         | Response::Result { id, .. }
         | Response::Failure { id, .. }
         | Response::Cancelled { id, .. }
+        | Response::Validated { id }
         | Response::Healthy { id, .. }
         | Response::Shutdown { id } => Some(id),
         Response::Ready { .. }
@@ -292,6 +299,7 @@ fn sandbox_spec(
     staged: &Path,
     helper: &Path,
     roots: &[FilesystemGrant],
+    loopback_directory: Option<&Path>,
 ) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
@@ -311,6 +319,7 @@ fn sandbox_spec(
                 class: MountClass::Workspace,
                 logical_name: m.root.clone(),
                 read_only: m.read_only,
+                execute: m.execute,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -337,16 +346,32 @@ fn sandbox_spec(
                     class: MountClass::SystemConfig,
                     logical_name,
                     read_only: true,
+                    execute: false,
                 })
             })
             .collect::<Result<Vec<_>>>()?,
     );
+    let mut environment = Vec::new();
+    if let Some(directory) = loopback_directory {
+        mounts.push(Mount {
+            source: directory.to_path_buf(),
+            class: MountClass::Workspace,
+            logical_name: loopback::MOUNT_NAME.into(),
+            read_only: false,
+            execute: false,
+        });
+        environment.push((
+            "SEMWRIGHT_DRIVER_LOOPBACK_SOCKET".into(),
+            loopback::SANDBOX_SOCKET.into(),
+        ));
+    }
     Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
         helper: helper.into(),
         mounts,
         args: vec![],
+        environment,
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
@@ -365,7 +390,9 @@ fn sandbox_command(
     helper: &Path,
     roots: &[FilesystemGrant],
 ) -> Result<Command> {
-    semwright_platform_services::sandbox_command(&sandbox_spec(manifest, staged, helper, roots)?)
+    semwright_platform_services::sandbox_command(&sandbox_spec(
+        manifest, staged, helper, roots, None,
+    )?)
 }
 
 pub struct DriverProvider {
@@ -379,6 +406,8 @@ pub struct DriverProvider {
     closed: CancellationToken,
     terminate: CancellationToken,
     _staged: Arc<StagedFile>,
+    #[cfg(unix)]
+    _loopback: Option<Arc<loopback::LoopbackProxy>>,
 }
 
 impl DriverProvider {
@@ -415,7 +444,17 @@ impl DriverProvider {
             file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
             drop(file);
 
-            let spec = sandbox_spec(&manifest, &staged_path, helper, roots)?;
+            let loopback = match manifest.loopback_port {
+                Some(port) => Some(loopback::start(state, port).await?),
+                None => None,
+            };
+            let spec = sandbox_spec(
+                &manifest,
+                &staged_path,
+                helper,
+                roots,
+                loopback.as_deref().map(loopback::LoopbackProxy::directory),
+            )?;
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let input = child.take_stdin()?;
             let output = child.take_stdout()?;
@@ -596,6 +635,7 @@ impl DriverProvider {
                 closed,
                 terminate,
                 _staged: staged,
+                _loopback: loopback,
             }))
         }
     }
@@ -815,11 +855,26 @@ impl Provider for DriverProvider {
         };
         let timeout =
             Duration::from_millis(descriptor.timeout_ms.min(self.manifest.request_timeout_ms));
+        let mut child_args = args.clone();
+        let native_target = if self.interfaces.native_refs {
+            child_args
+                .as_object_mut()
+                .and_then(|object| object.remove("_target"))
+                .map(serde_json::from_value::<NativeTarget>)
+                .transpose()?
+        } else {
+            None
+        };
+        let request_context = (self.manifest.protocol >= 3).then(|| DriverRequestContext {
+            session: context.session.clone(),
+            native_target,
+        });
         let execute = Request::Execute {
             id: id.clone(),
             command: descriptor.name.clone(),
             descriptor_sha256: actual,
-            args: args.clone(),
+            args: child_args,
+            context: request_context,
         };
 
         let response = match &self.io {
@@ -909,11 +964,45 @@ impl Provider for DriverProvider {
             }
         }
     }
-    async fn validate(&self, _target: &NativeTarget) -> Result<()> {
-        Err(Error::new(
-            ErrorCode::Unsupported,
-            "Driver protocol does not expose native reference validation",
-        ))
+    fn emits_native_refs(&self) -> bool {
+        self.interfaces.native_refs
+    }
+    async fn validate(&self, target: &NativeTarget) -> Result<()> {
+        if !self.interfaces.native_refs || self.manifest.protocol < 3 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver did not negotiate native reference validation",
+            ));
+        }
+        let id = unique_id();
+        let timeout = Duration::from_millis(self.manifest.request_timeout_ms.min(5_000));
+        let request = Request::Validate {
+            id: id.clone(),
+            target: target.clone(),
+        };
+        let response = match &self.io {
+            ProtocolIo::V1(_) => {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Driver protocol v1 cannot validate native references",
+                ));
+            }
+            ProtocolIo::V2(io) => io.request(&request, &id, timeout).await?,
+        };
+        match response {
+            Response::Validated { id: response_id } if response_id == id => Ok(()),
+            Response::Failure {
+                id: response_id,
+                error,
+            } if response_id == id => Err(Error::new(
+                error.code,
+                "Driver rejected native reference; child details were redacted",
+            )),
+            _ => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Driver native-reference validation response mismatch",
+            )),
+        }
     }
     async fn shutdown(&self) -> Result<()> {
         if self.closed.is_cancelled() {
@@ -1050,6 +1139,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             network: false,
+            loopback_port: None,
             resources: semwright_driver_sdk::DriverResources::default(),
             request_timeout_ms: 1000,
             interfaces: semwright_driver_sdk::DriverInterfaces::default(),
@@ -1120,7 +1210,7 @@ mod tests {
         std::fs::write(&staged, b"driver").unwrap();
         std::fs::write(&helper, b"helper").unwrap();
 
-        let command = sandbox_command(&manifest(), &staged, &helper, &[]).unwrap();
+        let command = sandbox_command(&manifest(), &staged, &helper, &[], None).unwrap();
         let args: Vec<_> = command
             .as_std()
             .get_args()

@@ -347,6 +347,9 @@ fn sandbox_spec(
             class: MountClass::Workspace,
             logical_name: mount.name.clone(),
             read_only: mount.read_only,
+            // External MCP filesystem grants are data-only. Executable authority
+            // stays explicit and is never inherited from a generic mount.
+            execute: false,
         })
         .collect();
     Ok(SandboxSpec {
@@ -355,6 +358,7 @@ fn sandbox_spec(
         helper: helper.to_path_buf(),
         mounts,
         args: config.args.clone(),
+        environment: vec![],
         network: config.network,
         limits: Some(ResourceLimits {
             open_files: config.resources.open_files,
@@ -720,6 +724,7 @@ impl Provider for ExternalMcpProvider {
             progress: false,
             artifacts: false,
             health: true,
+            native_refs: false,
         }
     }
 

@@ -33,6 +33,7 @@ pub struct Mount {
     pub class: MountClass,
     pub logical_name: String,
     pub read_only: bool,
+    pub execute: bool,
 }
 impl Mount {
     pub fn validate(&self) -> Result<()> {
@@ -44,10 +45,12 @@ impl Mount {
         if self.logical_name.len() > 255 {
             return Err(Error::invalid("Logical mount name exceeds budget"));
         }
-        if self.class == MountClass::SystemConfig && !self.read_only {
+        if (self.class == MountClass::SystemConfig && (!self.read_only || self.execute))
+            || (self.execute && !self.read_only)
+        {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
-                "System-config mounts must be read-only",
+                "Executable mounts must be read-only workspace mounts",
             ));
         }
         Ok(())
@@ -146,6 +149,8 @@ pub struct SandboxSpec {
     pub mounts: Vec<Mount>,
     /// Arguments are passed directly to the staged executable; no shell is involved.
     pub args: Vec<String>,
+    /// Host-controlled environment only. Manifests cannot populate this directly.
+    pub environment: Vec<(String, String)>,
     pub network: bool,
     pub limits: Option<ResourceLimits>,
 }
@@ -170,6 +175,23 @@ impl SandboxSpec {
                 .any(|arg| arg.len() > 4096 || arg.contains('\0'))
         {
             return Err(Error::invalid("Sandbox executable arguments exceed bounds"));
+        }
+        if self.environment.len() > 16 {
+            return Err(Error::invalid("Sandbox environment exceeds bounds"));
+        }
+        let mut environment_names = std::collections::BTreeSet::new();
+        for (name, value) in &self.environment {
+            if !name.starts_with("SEMWRIGHT_")
+                || name.len() > 64
+                || !name
+                    .bytes()
+                    .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+                || value.len() > 4096
+                || value.contains('\0')
+                || !environment_names.insert(name)
+            {
+                return Err(Error::invalid("Sandbox environment entry is invalid"));
+            }
         }
         if matches!(self.kind, SandboxKind::Driver | SandboxKind::ExternalMcp)
             && self.limits.is_none()

@@ -61,14 +61,18 @@ def request(proc, value, terminal_type=None):
 def digest(desc):
     return hashlib.sha256(json.dumps(desc, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
-def execute(proc, caps, name, args, rid):
+def execute(proc, caps, name, args, rid, native_target=None):
     cap = caps[name]
+    context = {"session": "godot-real-e2e"}
+    if native_target is not None:
+        context["native_target"] = native_target
     out, progress = request(proc, {
         "type": "execute",
         "id": rid,
         "command": name,
         "descriptor_sha256": digest(cap["descriptor"]),
         "args": args,
+        "context": context,
     })
     if out.get("type") == "failure":
         raise AssertionError(f"{name} failed: {out}")
@@ -77,14 +81,18 @@ def execute(proc, caps, name, args, rid):
     return out["value"], progress
 
 
-def execute_failure(proc, caps, name, args, rid):
+def execute_failure(proc, caps, name, args, rid, native_target=None):
     cap = caps[name]
+    context = {"session": "godot-real-e2e"}
+    if native_target is not None:
+        context["native_target"] = native_target
     out, progress = request(proc, {
         "type": "execute",
         "id": rid,
         "command": name,
         "descriptor_sha256": digest(cap["descriptor"]),
         "args": args,
+        "context": context,
     })
     if out.get("type") != "failure":
         raise AssertionError(f"{name} unexpectedly succeeded: {out}")
@@ -113,6 +121,13 @@ def V2(x, y):
 def V3(x, y, z):
     return {"$type": "Vector3", "value": [x, y, z]}
 
+def Quaternion(x, y, z, w):
+    return {"$type": "Quaternion", "value": [x, y, z, w]}
+
+def Transform3D(values):
+    assert len(values) == 12
+    return {"$type": "Transform3D", "value": list(values)}
+
 def Color(r, g, b, a=1):
     return {"$type": "Color", "value": [r, g, b, a]}
 
@@ -132,6 +147,22 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
     (project / "assets" / "semantic_icon.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">'
         '<rect width="16" height="16" fill="#5b7cfa"/></svg>'
+    )
+    # A script-defined global class exercises ProjectSettings global class discovery
+    # and Script metadata without invoking any discovered method.
+    (project / "scripts" / "semantic_node.gd").write_text(
+        "class_name SemwrightSemanticNode\n"
+        "extends Node3D\n"
+        "signal semantic_changed(value: int)\n"
+        "@export var semantic_value: int = 7\n"
+        "@export var semantic_transform: Transform3D = Transform3D.IDENTITY\n"
+        "@export var semantic_vectors: PackedVector3Array = PackedVector3Array()\n"
+        "@export var semantic_array: Array = []\n"
+        "@export var semantic_dictionary: Dictionary = {}\n"
+        "@export var semantic_node: Node\n"
+        "const SEMANTIC_CONSTANT := 11\n"
+        "func semantic_method(delta: float = 1.0) -> float:\n"
+        "    return float(semantic_value) * delta\n"
     )
     output = td / "artifacts"
     output.mkdir()
@@ -165,21 +196,22 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
     trace_target = os.environ.get("SEMWRIGHT_GODOT_TRACE")
     try:
         ready, _ = request(driver, {
-            "type": "hello", "protocol": 2,
+            "type": "hello", "protocol": 3,
             "provider": {
                 "id": "driver:godot", "kind": "driver", "version": VERSION,
                 "namespace": "driver.godot.", "application": None, "origin": "godot-real-acceptance",
             },
             "executable_sha256": "0" * 64,
         }, "ready")
-        assert ready["protocol"] == 2
+        assert ready["protocol"] == 3
         interfaces, _ = request(driver, {"type": "interfaces", "id": "interfaces"}, "interfaces")
         assert interfaces["interfaces"]["cooperative_cancellation"] is True
         assert interfaces["interfaces"]["progress"] is True
         assert interfaces["interfaces"]["artifacts"] is True
+        assert interfaces["interfaces"]["native_refs"] is True
         catalog, _ = request(driver, {"type": "capabilities", "id": "caps"}, "capabilities")
         caps = {x["descriptor"]["name"]: x for x in catalog["capabilities"]}
-        assert len(caps) == 180, len(caps)
+        assert len(caps) == 188, len(caps)
 
         env = os.environ.copy()
         env.update({
@@ -223,9 +255,9 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             )
         sid = matching[0]["session"]
 
-        def call(name, args):
+        def call(name, args, native_target=None):
             rid = f"op-{len(trace):03d}"
-            value, progress = execute(driver, caps, name, args, rid)
+            value, progress = execute(driver, caps, name, args, rid, native_target=native_target)
             trace.append({"id": rid, "command": name, "args": args, "result": value, "progress": progress})
             return value
 
@@ -239,6 +271,40 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             value = call(name, payload)
             st = stamp(value)
             return value
+
+        # Versioned introspection is descriptive only. It can search and describe
+        # metadata but cannot invoke discovered methods.
+        api_matches = call("driver.godot.api.search", {
+            "session": sid, "query": "Camera3D", "base": "Node", "limit": 32,
+        })
+        assert any(row["name"] == "Camera3D" for row in api_matches["data"]["classes"])
+        api_node3d = call("driver.godot.api.describe", {
+            "session": sid, "class": "Node3D", "include_inherited": True,
+            "properties": True, "methods": True, "signals": True, "enums": True,
+        })
+        assert api_node3d["data"]["engine_version"].startswith("4.7.2")
+        assert any(row["name"] == "transform" for row in api_node3d["data"]["properties"])
+        assert any(row["name"] == "translate" for row in api_node3d["data"]["methods"])
+
+        project_classes = None
+        for _ in range(100):
+            project_classes = call("driver.godot.project.class.list", {
+                "session": sid, "query": "SemwrightSemanticNode", "limit": 32,
+            })
+            if any(row["name"] == "SemwrightSemanticNode" for row in project_classes["data"]["classes"]):
+                break
+            time.sleep(0.05)
+        assert project_classes is not None
+        assert any(row["name"] == "SemwrightSemanticNode" for row in project_classes["data"]["classes"])
+        project_class = call("driver.godot.project.class.describe", {
+            "session": sid, "name": "SemwrightSemanticNode",
+        })
+        assert project_class["data"]["base"] == "Node3D"
+        assert project_class["data"]["metadata_available"] is True
+        assert project_class["data"]["tool"] is False
+        assert any(row["name"] == "semantic_value" for row in project_class["data"]["properties"])
+        assert any(row["name"] == "semantic_method" for row in project_class["data"]["methods"])
+        assert any(row["name"] == "semantic_changed" for row in project_class["data"]["signals"])
 
         resources = [
             ("res://assets/floor_mesh.tres", "BoxMesh", [("size", V3(12, 0.2, 12))]),
@@ -330,6 +396,10 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
         node("Rig", "BoneAttachment3D", "Attachment")
         node(".", "CanvasLayer", "HUD")
         node("HUD", "Label", "Status", [("text", "Find the key")])
+        node(".", "Node3D", "SemanticNode")
+        mutate("driver.godot.script.attach", {
+            "target": "SemanticNode", "path": "res://scripts/semantic_node.gd",
+        })
         value = call("driver.godot.ui.layout", {
             "session": sid, "target": "HUD/Status",
             "anchor_left": 0.0, "anchor_top": 0.0, "anchor_right": 0.0, "anchor_bottom": 0.0,
@@ -338,6 +408,149 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
             "minimum_size": V2(240, 40), "expect": st, "dry_run": False,
         })
         st = stamp(value)
+
+        # Generic semantic substrate: structured Variant values round-trip through
+        # type-aware property writes. Wrong Variant types fail without changing state.
+        transform_values = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 4]
+        mutate("driver.godot.node.patch", {
+            "target": "Player",
+            "properties": [{"name": "transform", "value": Transform3D(transform_values)}],
+        })
+        player_state = call("driver.godot.node.inspect", {"session": sid, "path": "Player"})
+        encoded_transform = player_state["data"]["properties"]["transform"]
+        assert encoded_transform["$type"] == "Transform3D"
+        assert len(encoded_transform["value"]) == 12
+
+        semantic_transform = [1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 3, 4]
+        semantic_array = {
+            "$type": "Array",
+            "value": [
+                1,
+                {"$type": "Vector3", "value": [7.0, 8.0, 9.0]},
+                {"$type": "StringName", "value": "semantic"},
+            ],
+        }
+        semantic_dictionary = {
+            "$type": "Dictionary",
+            "entries": [
+                {"key": "mode", "value": 2},
+                {
+                    "key": {"$type": "StringName", "value": "target"},
+                    "value": {"$type": "Vector2", "value": [2.5, 4.5]},
+                },
+            ],
+        }
+        mutate("driver.godot.node.patch", {
+            "target": "SemanticNode",
+            "properties": [
+                {"name": "semantic_value", "value": 23},
+                {"name": "semantic_transform", "value": Transform3D(semantic_transform)},
+                {
+                    "name": "semantic_vectors",
+                    "value": {
+                        "$type": "PackedVector3Array",
+                        "value": [[1.0, 2.0, 3.0], [-4.0, 5.0, 6.0]],
+                    },
+                },
+                {"name": "semantic_array", "value": semantic_array},
+                {"name": "semantic_dictionary", "value": semantic_dictionary},
+                {"name": "semantic_node", "value": {"$type": "NodeRef", "path": "Player/Camera"}},
+            ],
+        })
+        semantic_state = call("driver.godot.node.inspect", {
+            "session": sid, "path": "SemanticNode",
+        })
+        semantic_props = semantic_state["data"]["properties"]
+        assert semantic_props["semantic_value"] == 23
+        assert semantic_props["semantic_transform"] == {
+            "$type": "Transform3D", "value": semantic_transform,
+        }
+        assert semantic_props["semantic_vectors"] == {
+            "$type": "PackedVector3Array",
+            "value": [[1.0, 2.0, 3.0], [-4.0, 5.0, 6.0]],
+        }
+        assert semantic_props["semantic_array"] == semantic_array
+        assert semantic_props["semantic_dictionary"] == semantic_dictionary
+        assert semantic_props["semantic_node"]["$type"] == "NodeRef"
+        assert semantic_props["semantic_node"]["path"] == "Player/Camera"
+        assert semantic_props["semantic_node"]["class"] == "Camera3D"
+
+        # Provider-owned refs are promoted by the Rust driver into internal NativeTarget
+        # markers. A Broker materializes those markers into opaque native:<uuid> IDs.
+        def native_target_of(value):
+            assert isinstance(value, dict) and set(value) == {"$ref"}, value
+            return value["$ref"]
+
+        def raw_godot_ref(value):
+            return json.loads(native_target_of(value)["identity"])
+
+        scene_state = call("driver.godot.scene.inspect", {"session": sid})
+        assert raw_godot_ref(scene_state["data"]["scene_ref"])["kind"] == "scene"
+        camera_state = call("driver.godot.node.inspect", {"session": sid, "path": "Player/Camera"})
+        assert raw_godot_ref(camera_state["data"]["ref"])["kind"] == "node"
+        material_state = call("driver.godot.resource.inspect", {
+            "session": sid, "path": "res://assets/semantic_mat.tres",
+        })
+        assert raw_godot_ref(material_state["data"]["ref"])["kind"] == "resource"
+
+        camera_ref = call("driver.godot.ref.node", {
+            "session": sid, "path": "Player/Camera",
+        })["data"]["ref"]
+        resource_ref = call("driver.godot.ref.resource", {
+            "session": sid, "path": "res://assets/semantic_mat.tres",
+        })["data"]["ref"]
+        scene_ref = call("driver.godot.ref.scene", {"session": sid})["data"]["ref"]
+        assert raw_godot_ref(camera_ref)["provider"] == "godot"
+        assert raw_godot_ref(resource_ref)["kind"] == "resource"
+        assert raw_godot_ref(scene_ref)["kind"] == "scene"
+
+        mutate("driver.godot.node.patch", {
+            "target": "Player/Camera",
+            "properties": [{"name": "fov", "value": 68.0}],
+        })
+        stale_ref = call("driver.godot.ref.resolve", {
+            "session": sid, "ref": "native:" + "1" * 32, "require_current": False,
+        }, native_target=native_target_of(camera_ref))
+        assert stale_ref["data"]["stale"] is True
+        fresh_ref = call("driver.godot.ref.node", {
+            "session": sid, "path": "Player/Camera",
+        })["data"]["ref"]
+        resolved_fresh = call("driver.godot.ref.resolve", {
+            "session": sid, "ref": "native:" + "2" * 32, "require_current": True,
+        }, native_target=native_target_of(fresh_ref))
+        assert resolved_fresh["data"]["stale"] is False
+
+        # Recursive decoding is authoritative even where JSON Schema intentionally
+        # stays bounded rather than recursively self-referential.
+        before_nested_bad_write = st.copy()
+        nested_bad, _ = execute_failure(driver, caps, "driver.godot.node.patch", {
+            "session": sid,
+            "target": "SemanticNode",
+            "properties": [{
+                "name": "semantic_array",
+                "value": {
+                    "$type": "Array",
+                    "value": [{"$type": "ArbitraryObject", "value": []}],
+                },
+            }],
+            "expect": st,
+            "dry_run": False,
+        }, "nested-variant-reject")
+        assert nested_bad["code"] == "InvalidArgument", nested_bad
+        after_nested_bad_write = call("driver.godot.project.inspect", {"session": sid})
+        assert stamp(after_nested_bad_write) == before_nested_bad_write
+
+        before_bad_write = st.copy()
+        bad_write, _ = execute_failure(driver, caps, "driver.godot.node.patch", {
+            "session": sid,
+            "target": "Player/Camera",
+            "properties": [{"name": "fov", "value": V3(1, 2, 3)}],
+            "expect": st,
+            "dry_run": False,
+        }, "typed-write-reject")
+        assert bad_write["code"] == "InvalidArgument", bad_write
+        after_bad_write = call("driver.godot.project.inspect", {"session": sid})
+        assert stamp(after_bad_write) == before_bad_write
 
         # Semantic-domain acceptance: the generic Node/Resource substrate is not enough.
         # Exercise typed domain operations through the production bridge before save/reload.
@@ -1217,6 +1430,7 @@ func _physics_process(_delta: float) -> void:
             "command": "driver.godot.project.run_test",
             "descriptor_sha256": digest(cap["descriptor"]),
             "args": {"project": project_id, "scene": "res://scenes/lab_room.tscn", "frames": 3600},
+            "context": {"session": "godot-real-e2e"},
         })
         first_progress = recv(driver)
         assert first_progress["type"] == "progress" and first_progress["id"] == cancel_id

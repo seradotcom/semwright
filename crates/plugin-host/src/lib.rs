@@ -186,6 +186,7 @@ impl Host {
                         class: semwright_platform_api::launch::MountClass::Workspace,
                         logical_name: m.root.clone(),
                         read_only: m.read_only,
+                        execute: false,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -195,6 +196,7 @@ impl Host {
                 helper: self.helper.clone(),
                 mounts,
                 args: vec![],
+                environment: vec![],
                 network: manifest.network,
                 limits: None,
             };

@@ -12,7 +12,7 @@ use runner::Runner;
 use semwright_driver_sdk::{
     Capability, Driver, DriverChildEvent, DriverExecutionContext, DriverInterfaces,
 };
-use semwright_types::{Error, ErrorCode, Result};
+use semwright_types::{Error, ErrorCode, NativeTarget, Result, target_marker};
 use serde_json::{Value, json};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -65,6 +65,7 @@ impl Driver for GodotDriver {
             progress: true,
             artifacts: true,
             health: true,
+            native_refs: true,
             ..DriverInterfaces::default()
         }
     }
@@ -83,6 +84,27 @@ impl Driver for GodotDriver {
             "bridge_protocol": 1,
             "connected_sessions": self.bridge.list().await.len()
         }))
+    }
+
+    async fn validate_native_ref(&mut self, target: &NativeTarget) -> Result<()> {
+        let reference = native_target_to_godot_ref(target)?;
+        let session = reference
+            .get("session")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::invalid("Godot native reference session is missing"))?;
+        self.bridge
+            .call(
+                session,
+                "ref.resolve",
+                json!({
+                    "session": session,
+                    "ref": reference,
+                    "require_current": true
+                }),
+                Duration::from_secs(5),
+            )
+            .await?;
+        Ok(())
     }
 
     async fn execute(
@@ -108,14 +130,112 @@ impl Driver for GodotDriver {
     }
 }
 
+fn godot_ref_native_target(reference: &Value) -> Result<NativeTarget> {
+    let object = reference
+        .as_object()
+        .ok_or_else(|| Error::invalid("Godot reference must be an object"))?;
+    if object.get("provider").and_then(Value::as_str) != Some("godot") {
+        return Err(Error::invalid("Godot reference provider mismatch"));
+    }
+    let kind = object
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| Error::invalid("Godot reference kind is missing"))?;
+    if !matches!(kind, "node" | "resource" | "scene") {
+        return Err(Error::invalid("Godot reference kind is unsupported"));
+    }
+    let revision = object
+        .get("revision")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| Error::invalid("Godot reference revision is missing"))?;
+    let fingerprint = object
+        .get("fingerprint")
+        .and_then(Value::as_str)
+        .ok_or_else(|| Error::invalid("Godot reference fingerprint is missing"))?;
+    let identity = serde_json::to_string(reference)?;
+    if identity.len() > 8192 || fingerprint.len() != 64 {
+        return Err(Error::invalid("Godot native reference exceeds bounds"));
+    }
+    Ok(NativeTarget {
+        kind: "native".into(),
+        identity,
+        revision,
+        fingerprint: fingerprint.into(),
+        app: "org.godotengine.Godot".into(),
+    })
+}
+
+fn native_target_to_godot_ref(target: &NativeTarget) -> Result<Value> {
+    if target.kind != "native" || target.app != "org.godotengine.Godot" {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "Native reference does not belong to Godot",
+        ));
+    }
+    let reference: Value = serde_json::from_str(&target.identity).map_err(|_| {
+        Error::new(
+            ErrorCode::StaleReference,
+            "Godot native reference is malformed",
+        )
+    })?;
+    let rebuilt = godot_ref_native_target(&reference)?;
+    if rebuilt.revision != target.revision || rebuilt.fingerprint != target.fingerprint {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "Godot native reference identity changed",
+        ));
+    }
+    Ok(reference)
+}
+
+fn promote_godot_refs(value: &mut Value) -> Result<()> {
+    match value {
+        Value::Object(object)
+            if object.get("provider").and_then(Value::as_str) == Some("godot")
+                && object
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .is_some_and(|kind| matches!(kind, "node" | "resource" | "scene")) =>
+        {
+            let target = godot_ref_native_target(&Value::Object(object.clone()))?;
+            *value = target_marker(target);
+        }
+        Value::Object(object) => {
+            for child in object.values_mut() {
+                promote_godot_refs(child)?;
+            }
+        }
+        Value::Array(values) => {
+            for child in values {
+                promote_godot_refs(child)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 impl GodotDriver {
     async fn execute_command(
         &mut self,
         command: &str,
         descriptor_sha256: &str,
-        args: Value,
+        mut args: Value,
         context: Option<&DriverExecutionContext>,
     ) -> Result<Value> {
+        if command == "driver.godot.ref.resolve"
+            && args.get("ref").and_then(Value::as_str).is_some()
+        {
+            let target = context
+                .and_then(DriverExecutionContext::native_target)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::StaleReference,
+                        "Broker-native Godot reference target is missing",
+                    )
+                })?;
+            args["ref"] = native_target_to_godot_ref(target)?;
+        }
         let entry = self.catalog.get(command)?;
         if descriptor_sha256 != entry.digest {
             return Err(Error::new(
@@ -189,7 +309,9 @@ impl GodotDriver {
             other => other?,
         };
         entry.validate_output(&value)?;
-        Ok(value)
+        let mut promoted = value;
+        promote_godot_refs(&mut promoted)?;
+        Ok(promoted)
     }
 
     async fn execute_local(&self, command: &str, args: &Value) -> Result<Value> {

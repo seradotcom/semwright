@@ -8,6 +8,11 @@ case "$PHASE" in
   *) echo "usage: $0 <gtk|qt>" >&2; exit 2 ;;
 esac
 
+# This harness runs under disposable Xvfb + dbus-run-session, not GNOME Shell.
+# Exercise the full AT-SPI event/delta contract here; the Noble compatibility
+# guard is tested separately and is intended for affected real GNOME sessions.
+export SEMWRIGHT_ATSPI_NOBLE_GUARD=off
+
 if [[ ${SEMWRIGHT_ATSPI_INNER:-0} != 1 ]]; then
   runtime=${XDG_RUNTIME_DIR:-}
   [[ -n "$runtime" ]]
@@ -69,6 +74,13 @@ case "$PHASE" in
     ;;
 esac
 
+echo "phase=${PHASE}_compile_start" | tee -a verification/native-ci/atspi-phases.log
+cargo test --locked -p semwright-platform-linux "$test_name" --no-run \
+  > "verification/native-ci/atspi-${PHASE}-compile.log" 2>&1
+cat "verification/native-ci/atspi-${PHASE}-compile.log"
+echo "phase=${PHASE}_compile_done" | tee -a verification/native-ci/atspi-phases.log
+
+# Bound the live accessibility exercise, not cold-cache Rust compilation.
 echo "phase=${PHASE}_start" | tee -a verification/native-ci/atspi-phases.log
 rc=0
 timeout --signal=TERM --kill-after=5s 90s \

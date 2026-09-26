@@ -90,12 +90,14 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         mounts: vec![DriverMount {
             root: "workspace".into(),
             read_only: false,
+            execute: false,
         }],
         system_config: vec![SystemConfigMount {
             root: "font-config".into(),
             destination: "/etc/fonts".into(),
         }],
         network: false,
+        loopback_port: None,
         resources: DriverResources {
             open_files: 256,
             processes: 64,

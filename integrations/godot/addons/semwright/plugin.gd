@@ -29,6 +29,9 @@ const AnimationTreeOps = preload("res://addons/semwright/ops/animation_tree_ops.
 const AnimationGraphOps = preload("res://addons/semwright/ops/animation_graph_ops.gd")
 const MultiplayerOps = preload("res://addons/semwright/ops/multiplayer_ops.gd")
 const EditorOps = preload("res://addons/semwright/ops/editor_ops.gd")
+const ApiOps = preload("res://addons/semwright/ops/api_ops.gd")
+const RefOps = preload("res://addons/semwright/ops/ref_ops.gd")
+const VariantCodec = preload("res://addons/semwright/ops/variant_codec.gd")
 
 var _ws: WebSocketPeer
 var _phase := "disconnected"
@@ -413,6 +416,14 @@ func _dispatch(op: String, args: Dictionary) -> Dictionary:
         "editor.selection.set": return EditorOps.selection_set(self, args)
         "editor.run.start": return EditorOps.run_start(self, args)
         "editor.run.stop": return EditorOps.run_stop(self, args)
+        "api.search": return ApiOps.search(self, args)
+        "api.describe": return ApiOps.describe(self, args)
+        "project.class.list": return ApiOps.project_class_list(self, args)
+        "project.class.describe": return ApiOps.project_class_describe(self, args)
+        "ref.node": return RefOps.issue_node(self, args)
+        "ref.resource": return RefOps.issue_resource(self, args)
+        "ref.scene": return RefOps.issue_scene(self, args)
+        "ref.resolve": return RefOps.resolve(self, args)
         _: return _error("unsupported", "unsupported Godot operation")
 
 func _stamp() -> Dictionary:
@@ -421,8 +432,9 @@ func _stamp() -> Dictionary:
 func _fingerprint() -> String:
     var root := EditorInterface.get_edited_scene_root()
     var rows: Array = []
+    var fingerprint_budget := {"remaining": 8192}
     if root != null:
-        _collect_nodes(root, root, rows)
+        _collect_nodes(root, root, rows, fingerprint_budget)
     var input_rows: Array = []
     for action in _project_input_actions():
         var events: Array = []
@@ -453,18 +465,23 @@ func _fingerprint() -> String:
     ctx.update(JSON.stringify(state).to_utf8_buffer())
     return ctx.finish().hex_encode()
 
-func _collect_nodes(root: Node, node: Node, rows: Array) -> void:
-    if rows.size() >= MAX_NODES:
+func _collect_nodes(root: Node, node: Node, rows: Array, budget: Dictionary = {}) -> void:
+    if budget.is_empty():
+        budget["remaining"] = 8192
+    if rows.size() >= MAX_NODES or int(budget.get("remaining", 0)) <= 0:
         return
     var stored := {}
     for p in node.get_property_list():
+        if int(budget.get("remaining", 0)) <= 0:
+            break
         if int(p.get("usage", 0)) & PROPERTY_USAGE_STORAGE == 0:
             continue
         var property_name := str(p.get("name", ""))
         if property_name in ["owner"]:
             continue
+        budget["remaining"] = int(budget["remaining"]) - 1
         var value = node.get(property_name)
-        var normalized = _fingerprint_value(value)
+        var normalized = _fingerprint_value(value, budget)
         if normalized != null:
             stored[property_name] = normalized
     var groups: Array = node.get_groups()
@@ -477,19 +494,12 @@ func _collect_nodes(root: Node, node: Node, rows: Array) -> void:
         "stored": stored,
     })
     for child in node.get_children():
-        _collect_nodes(root, child, rows)
+        _collect_nodes(root, child, rows, budget)
 
-func _fingerprint_value(value):
-    var type := typeof(value)
-    if type in [TYPE_NIL,TYPE_BOOL,TYPE_INT,TYPE_FLOAT,TYPE_STRING]:
-        return value
-    if type in [TYPE_VECTOR2,TYPE_VECTOR3,TYPE_VECTOR4,TYPE_COLOR,TYPE_RECT2,TYPE_QUATERNION,TYPE_TRANSFORM2D,TYPE_TRANSFORM3D]:
-        return str(value)
-    if value is Resource:
-        return {"resource": value.resource_path, "class": value.get_class()}
-    if type in [TYPE_ARRAY,TYPE_DICTIONARY] and _json_safe(value):
-        return value
-    return null
+func _fingerprint_value(value, budget: Dictionary = {}):
+    if budget.is_empty():
+        budget["remaining"] = 4096
+    return VariantCodec.encode(self, value, 0, budget)
 
 func _check_expect(args: Dictionary) -> Dictionary:
     var expect = args.get("expect", {})
@@ -536,7 +546,15 @@ func _scene_inspect() -> Dictionary:
     var nodes: Array = []
     if root != null:
         _collect_nodes(root, root, nodes)
-    return {"stamp":_stamp(),"data":{"scene":"" if root == null else str(root.scene_file_path),"nodes":nodes}}
+    var current_stamp := _stamp()
+    var scene_ref = null
+    if root != null:
+        scene_ref = _make_ref("scene", str(root.scene_file_path), root.get_class(), current_stamp)
+    return {"stamp":current_stamp,"data":{
+        "scene":"" if root == null else str(root.scene_file_path),
+        "scene_ref":scene_ref,
+        "nodes":nodes
+    }}
 
 func _scene_create(args: Dictionary) -> Dictionary:
     var conflict := _check_expect(args)
@@ -604,11 +622,17 @@ func _node_inspect(args: Dictionary) -> Dictionary:
             var name := str(p.get("name", ""))
             if name in ["script", "owner"]:
                 continue
-            var value = node.get(name)
-            if _json_safe(value):
-                props[name] = value
+            props[name] = _encode_value(node.get(name))
     var root := EditorInterface.get_edited_scene_root()
-    return {"stamp":_stamp(),"data":{"path":str(root.get_path_to(node)),"name":str(node.name),"class":node.get_class(),"properties":props}}
+    var path := str(root.get_path_to(node))
+    var current_stamp := _stamp()
+    return {"stamp":current_stamp,"data":{
+        "path":path,
+        "name":str(node.name),
+        "class":node.get_class(),
+        "ref":_make_ref("node", path, node.get_class(), current_stamp),
+        "properties":props
+    }}
 
 func _node_create(args: Dictionary) -> Dictionary:
     var conflict := _check_expect(args)
@@ -676,36 +700,23 @@ func _apply_property(node: Node, patch: Dictionary) -> Dictionary:
     var name := str(patch.get("name", ""))
     if name in ["script", "owner", "scene_file_path"] or name.is_empty():
         return _error("permission_denied", "property is not writable through node.patch")
-    var exists := false
-    for p in node.get_property_list():
-        if str(p.get("name", "")) == name and int(p.get("usage", 0)) & PROPERTY_USAGE_READ_ONLY == 0:
-            exists = true
-            break
-    if not exists:
-        return _error("invalid_argument", "unknown or read-only property")
-    var encoded = patch.get("value")
-    var value = _decode_value(encoded)
-    if _is_resource_ref(encoded) and value == null:
-        return _error("not_found", "referenced resource does not exist")
-    node.set(name, value)
+    var decoded = VariantCodec.decode_for_property(self, node, name, patch.get("value"))
+    if not bool(decoded.get("ok", false)):
+        return _error(str(decoded.get("code", "invalid_argument")), str(decoded.get("message", "invalid property value")))
+    node.set(name, decoded.get("value"))
     return {}
 
+func _encode_value(value):
+    return VariantCodec.encode(self, value)
+
 func _decode_value(value):
-    if typeof(value) == TYPE_DICTIONARY and value.has("$type"):
-        var kind := str(value["$type"])
-        var data = value.get("value", [])
-        if kind == "Vector2" and data is Array and data.size() == 2:
-            return Vector2(float(data[0]), float(data[1]))
-        if kind == "Vector3" and data is Array and data.size() == 3:
-            return Vector3(float(data[0]), float(data[1]), float(data[2]))
-        if kind == "Color" and data is Array and data.size() in [3,4]:
-            return Color(float(data[0]),float(data[1]),float(data[2]),1.0 if data.size()==3 else float(data[3]))
-        if kind == "Resource":
-            var path := str(value.get("path", ""))
-            if _safe_res(path) and ResourceLoader.exists(path):
-                return ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_REUSE)
-            return null
-    return value
+    return VariantCodec.decode(self, value)
+
+func _decode_value_checked(value) -> Dictionary:
+    return VariantCodec.decode_checked(self, value)
+
+func _decode_for_property(object: Object, name: String, encoded) -> Dictionary:
+    return VariantCodec.decode_for_property(self, object, name, encoded)
 
 func _is_resource_ref(value) -> bool:
     return typeof(value) == TYPE_DICTIONARY and str(value.get("$type", "")) == "Resource"
@@ -716,6 +727,8 @@ func _project_input_actions() -> Array:
     # every binding into keyboard/mouse-shaped data.
     var actions: Array = []
     for property in ProjectSettings.get_property_list():
+        if actions.size() >= 512:
+            break
         var setting_name := str(property.get("name", ""))
         if not setting_name.begins_with("input/"):
             continue
@@ -727,6 +740,8 @@ func _project_input_actions() -> Array:
             continue
         var events: Array = []
         for event in setting.get("events", []):
+            if events.size() >= 32:
+                break
             if event is InputEventKey:
                 events.append({"type":"key","code":event.physical_keycode,"device":event.device})
             elif event is InputEventMouseButton:
@@ -799,6 +814,24 @@ func _resolve_node(path: String) -> Node:
     if path.begins_with("/") or path.contains(".."):
         return null
     return root.get_node_or_null(NodePath(path))
+
+func _make_ref(kind: String, path: String, klass: String, current_stamp: Dictionary = {}) -> Dictionary:
+    var root := EditorInterface.get_edited_scene_root()
+    var stamp := current_stamp
+    if stamp.is_empty():
+        stamp = _stamp()
+    return {
+        "provider": "godot",
+        "project": _project,
+        "session": _session,
+        "generation": _generation,
+        "revision": int(stamp["revision"]),
+        "fingerprint": str(stamp["fingerprint"]),
+        "kind": kind,
+        "path": path,
+        "class": klass,
+        "scene": "" if root == null else str(root.scene_file_path),
+    }
 
 func _safe_res(path: String) -> bool:
     if not path.begins_with("res://") or path.contains("..") or path.contains("\\"):
