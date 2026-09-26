@@ -254,11 +254,11 @@ fn introspection_capabilities() -> Vec<Capability> {
 }
 
 fn semantic_ref_schema() -> Value {
-    json!({"type":"string","minLength":16,"maxLength":1024,"pattern":"^blender-rna/v1/"})
+    json!({"type":"string","minLength":16,"maxLength":1536,"pattern":"^blender-rna/v1/"})
 }
 
 fn semantic_root_schema() -> Value {
-    json!({"type":"string","enum":["actions","armatures","cameras","collections","curves","lights","materials","meshes","node_groups","objects","scenes","worlds"]})
+    json!({"type":"string","enum":["actions","armatures","brushes","cache_files","cameras","collections","curves","fonts","grease_pencils","hair_curves","images","lattices","lights","linestyles","masks","materials","meshes","metaballs","movieclips","node_groups","objects","paint_curves","palettes","particles","pointclouds","scenes","shape_keys","sounds","speakers","textures","volumes","worlds"]})
 }
 
 fn semantic_value_schema() -> Value {
@@ -323,7 +323,7 @@ fn semantic_capabilities() -> Vec<Capability> {
                 "schema":{"const":"blender-rna-semantic/v1"},
                 "blender_version":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"integer","minimum":0,"maximum":99}},
                 "generation":{"type":"integer","minimum":1},
-                "roots":{"type":"array","maxItems":32,"items":{"type":"object","properties":{"root":semantic_root_schema(),"rna_type":{"type":"string","maxLength":256}},"required":["root","rna_type"],"additionalProperties":false}},
+                "roots":{"type":"array","maxItems":64,"items":{"type":"object","properties":{"root":semantic_root_schema(),"rna_type":{"type":"string","maxLength":256}},"required":["root","rna_type"],"additionalProperties":false}},
                 "generic_mutation":{"type":"array","maxItems":16,"items":{"type":"string","maxLength":128}},
                 "arbitrary_python":{"const":false},
                 "generic_operator_invoke":{"const":false}
@@ -356,11 +356,11 @@ fn semantic_capabilities() -> Vec<Capability> {
         semantic_descriptor(
             "driver.blender.semantic.objects",
             "List revision-bound refs for persistent Blender datablocks in an allowlisted RNA root",
-            json!({"type":"object","properties":{"root":semantic_root_schema(),"query":{"type":"string","maxLength":256},"limit":{"type":"integer","minimum":1,"maximum":256,"default":50}},"required":["root"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"root":semantic_root_schema(),"query":{"type":"string","maxLength":256},"limit":{"type":"integer","minimum":1,"maximum":256,"default":50},"offset":{"type":"integer","minimum":0,"maximum":1000000,"default":0}},"required":["root"],"additionalProperties":false}),
             json!({"type":"object","properties":{
                 "items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":256},"rna_type":{"type":"string","maxLength":256}},"required":["ref","name","rna_type"],"additionalProperties":false}},
-                "truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1}
-            },"required":["items","truncated","generation"],"additionalProperties":false}),
+                "truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1},"offset":{"type":"integer","minimum":0,"maximum":1000000}
+            },"required":["items","truncated","generation","offset"],"additionalProperties":false}),
             Risk::ReadOnly,
             Idempotency::ReadOnly,
         ),
@@ -369,6 +369,17 @@ fn semantic_capabilities() -> Vec<Capability> {
             "Describe one revision-bound Blender RNA datablock and classify its properties",
             json!({"type":"object","properties":{"ref":semantic_ref_schema()},"required":["ref"],"additionalProperties":false}),
             json!({"type":"object","properties":{"ref":semantic_ref_schema(),"root":semantic_root_schema(),"name":{"type":"string","maxLength":256},"rna_type":{"type":"string","maxLength":256},"properties":{"type":"array","maxItems":1024,"items":property.clone()},"truncated":{"type":"boolean"}},"required":["ref","root","name","rna_type","properties","truncated"],"additionalProperties":false}),
+            Risk::ReadOnly,
+            Idempotency::ReadOnly,
+        ),
+        semantic_descriptor(
+            "driver.blender.semantic.relations",
+            "Traverse one RNA pointer/collection relation and return revision-bound child refs",
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"property":property_id.clone(),"limit":{"type":"integer","minimum":1,"maximum":256,"default":50},"offset":{"type":"integer","minimum":0,"maximum":1000000,"default":0}},"required":["ref","property"],"additionalProperties":false}),
+            json!({"type":"object","properties":{
+                "items":{"type":"array","maxItems":256,"items":{"type":"object","properties":{"ref":semantic_ref_schema(),"name":{"type":"string","maxLength":256},"rna_type":{"type":"string","maxLength":256},"index":{"type":"integer","minimum":0,"maximum":1000000}},"required":["ref","name","rna_type","index"],"additionalProperties":false}},
+                "truncated":{"type":"boolean"},"generation":{"type":"integer","minimum":1},"offset":{"type":"integer","minimum":0,"maximum":1000000},"relation":property_id.clone()
+            },"required":["items","truncated","generation","offset","relation"],"additionalProperties":false}),
             Risk::ReadOnly,
             Idempotency::ReadOnly,
         ),

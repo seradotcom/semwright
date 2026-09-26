@@ -371,13 +371,23 @@ def dispatch(command, args):
             raise CommandError("InvalidArgument", "Semantic type description requires root")
         return semantic.type_describe(args["root"])
     if command == "driver.blender.semantic.objects":
-        if not set(args).issubset({"root", "query", "limit"}) or "root" not in args:
+        if not set(args).issubset({"root", "query", "limit", "offset"}) or "root" not in args:
             raise CommandError("InvalidArgument", "Semantic object listing requires root")
-        return semantic.objects(args["root"], args.get("query", ""), limit_arg(args))
+        offset = args.get("offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= 1_000_000:
+            raise CommandError("InvalidArgument", "Semantic object offset is invalid")
+        return semantic.objects(args["root"], args.get("query", ""), limit_arg(args), offset)
     if command == "driver.blender.semantic.object.describe":
         if set(args) != {"ref"}:
             raise CommandError("InvalidArgument", "Semantic object description requires ref")
         return semantic.object_describe(args["ref"])
+    if command == "driver.blender.semantic.relations":
+        if not set(args).issubset({"ref", "property", "limit", "offset"}) or not {"ref", "property"}.issubset(args):
+            raise CommandError("InvalidArgument", "Semantic relation traversal requires ref and property")
+        offset = args.get("offset", 0)
+        if isinstance(offset, bool) or not isinstance(offset, int) or not 0 <= offset <= 1_000_000:
+            raise CommandError("InvalidArgument", "Semantic relation offset is invalid")
+        return semantic.relations(args["ref"], args["property"], limit_arg(args), offset)
     if command == "driver.blender.semantic.property.get":
         if set(args) != {"ref", "property"}:
             raise CommandError("InvalidArgument", "Semantic property read requires ref and property")

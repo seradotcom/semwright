@@ -283,6 +283,17 @@ jobs:
           /usr/local/bin/blender --version | head -5 | tee verification/native-ci/blender-version.log
           test "$(/usr/local/bin/blender --version | head -1)" = "Blender 4.5.14 LTS"
           bwrap --version | tee verification/native-ci/blender-bwrap-version.log
+      - name: Generate pinned Blender RNA coverage inventory
+        run: |
+          /usr/local/bin/blender --background --factory-startup --disable-autoexec \
+            --python "$GITHUB_WORKSPACE/crates/driver-blender/tools/rna_coverage.py" -- \
+            "$GITHUB_WORKSPACE/verification/native-ci/blender-rna-coverage.json"
+          python3 - <<'PY2'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('verification/native-ci/blender-rna-coverage.json').read_text())
+          print(json.dumps(data['summary'], sort_keys=True))
+          PY2
       - name: Preflight unprivileged Bubblewrap
         run: |
           current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)

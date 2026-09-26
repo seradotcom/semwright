@@ -7,7 +7,9 @@ collections or executable text. Richer domains are layered on top with dedicated
 from __future__ import annotations
 
 import base64
+import json
 import math
+import re
 
 
 MAX_NAME = 256
@@ -19,18 +21,38 @@ REF_PREFIX = "blender-rna/v1"
 # Owner-visible persistent authoring roots. Runtime/window-manager/preferences/text/script data are
 # intentionally absent because they cross ambient UI/configuration or executable-code boundaries.
 ROOTS = {
-    "objects": "Object",
-    "meshes": "Mesh",
-    "curves": "Curve",
-    "materials": "Material",
-    "cameras": "Camera",
-    "lights": "Light",
-    "worlds": "World",
-    "collections": "Collection",
-    "scenes": "Scene",
-    "armatures": "Armature",
     "actions": "Action",
+    "armatures": "Armature",
+    "brushes": "Brush",
+    "cache_files": "CacheFile",
+    "cameras": "Camera",
+    "collections": "Collection",
+    "curves": "Curve",
+    "fonts": "VectorFont",
+    "grease_pencils": "GreasePencil",
+    "hair_curves": "Curves",
+    "images": "Image",
+    "lattices": "Lattice",
+    "lights": "Light",
+    "linestyles": "FreestyleLineStyle",
+    "masks": "Mask",
+    "materials": "Material",
+    "meshes": "Mesh",
+    "metaballs": "MetaBall",
+    "movieclips": "MovieClip",
     "node_groups": "NodeTree",
+    "objects": "Object",
+    "paint_curves": "PaintCurve",
+    "palettes": "Palette",
+    "particles": "ParticleSettings",
+    "pointclouds": "PointCloud",
+    "scenes": "Scene",
+    "shape_keys": "Key",
+    "sounds": "Sound",
+    "speakers": "Speaker",
+    "textures": "Texture",
+    "volumes": "Volume",
+    "worlds": "World",
 }
 
 PATH_SUBTYPES = {"FILE_PATH", "DIR_PATH"}
@@ -62,6 +84,34 @@ def _untoken(value):
     if not decoded or len(decoded) > MAX_NAME or "\x00" in decoded:
         raise ValueError("invalid ref name")
     return decoded
+
+
+def _path_token(path):
+    raw = json.dumps(path, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    if len(raw) > 512:
+        raise ValueError("RNA relation path is too large")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _path_from_token(value):
+    padding = "=" * ((4 - len(value) % 4) % 4)
+    raw = base64.urlsafe_b64decode((value + padding).encode("ascii"))
+    if len(raw) > 512:
+        raise ValueError("RNA relation path is too large")
+    path = json.loads(raw.decode("utf-8"))
+    if not isinstance(path, list) or len(path) > 8:
+        raise ValueError("RNA relation path is invalid")
+    for step in path:
+        if not isinstance(step, list) or len(step) not in (2, 3):
+            raise ValueError("RNA relation step is invalid")
+        if step[0] not in ("p", "c") or not isinstance(step[1], str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", step[1]):
+            raise ValueError("RNA relation step is invalid")
+        if step[0] == "p" and len(step) != 2:
+            raise ValueError("RNA pointer step is invalid")
+        if step[0] == "c":
+            if len(step) != 3 or isinstance(step[2], bool) or not isinstance(step[2], int) or not 0 <= step[2] <= 1_000_000:
+                raise ValueError("RNA collection step is invalid")
+    return path
 
 
 def _property_status(prop):
@@ -153,6 +203,18 @@ def _serialize_scalar(value, ptype):
     raise ValueError("unsupported RNA value kind")
 
 
+def _default_value(prop):
+    length = int(getattr(prop, "array_length", 0) or 0)
+    if length:
+        raw = list(getattr(prop, "default_array", ()))
+        if len(raw) != length:
+            raise ValueError("RNA array default is unavailable")
+        return _coerce(raw, prop)
+    if not hasattr(prop, "default"):
+        raise ValueError("RNA default is unavailable")
+    return _coerce(getattr(prop, "default"), prop)
+
+
 def _coerce(value, prop):
     status, _ = _property_status(prop)
     if status != "managed":
@@ -220,41 +282,66 @@ class SemanticStore:
             raise SemanticError("Unavailable", "RNA root is unavailable in this Blender build")
         return value
 
-    def _ref(self, root, name):
-        return f"{REF_PREFIX}/{root}/{_token(name)}@{self.generation}"
+    def _ref(self, root, name, path=None):
+        suffix = "" if not path else "/" + _path_token(path)
+        return f"{REF_PREFIX}/{root}/{_token(name)}{suffix}@{self.generation}"
 
     def _parse_ref(self, reference):
-        if not isinstance(reference, str) or len(reference) > 1024:
+        if not isinstance(reference, str) or len(reference) > 1536:
             raise SemanticError("InvalidArgument", "RNA reference is malformed")
         prefix = REF_PREFIX + "/"
         if not reference.startswith(prefix) or "@" not in reference:
             raise SemanticError("InvalidArgument", "RNA reference is malformed")
         body, raw_generation = reference[len(prefix):].rsplit("@", 1)
-        if "/" not in body:
+        parts = body.split("/")
+        if len(parts) not in (2, 3):
             raise SemanticError("InvalidArgument", "RNA reference is malformed")
-        root, token = body.split("/", 1)
+        root, token = parts[0], parts[1]
         try:
             generation = int(raw_generation)
             name = _untoken(token)
+            path = _path_from_token(parts[2]) if len(parts) == 3 else []
         except Exception as error:
             raise SemanticError("InvalidArgument", "RNA reference is malformed") from error
         if generation != self.generation:
             raise SemanticError("StaleReference", "Blender RNA state changed; refresh semantic references")
-        return root, name
+        return root, name, path
 
     def _resolve(self, reference):
-        root, name = self._parse_ref(reference)
+        root, name, path = self._parse_ref(reference)
         item = self._root(root).get(name)
         if item is None:
             raise SemanticError("StaleReference", "Referenced Blender datablock no longer exists")
-        return root, name, item
+        current = item
+        for step in path:
+            rna = getattr(current, "bl_rna", None)
+            prop = rna.properties.get(step[1]) if rna is not None else None
+            if prop is None or str(getattr(prop, "type", "")) not in {"POINTER", "COLLECTION"}:
+                raise SemanticError("StaleReference", "RNA relation no longer resolves")
+            try:
+                relation = getattr(current, step[1])
+                if step[0] == "p":
+                    if str(getattr(prop, "type", "")) != "POINTER" or relation is None:
+                        raise LookupError
+                    current = relation
+                else:
+                    if str(getattr(prop, "type", "")) != "COLLECTION":
+                        raise LookupError
+                    current = relation[step[2]]
+            except Exception as error:
+                raise SemanticError("StaleReference", "RNA relation no longer resolves") from error
+        return root, name, path, current
 
     def summary(self):
         return {
             "schema": "blender-rna-semantic/v1",
             "blender_version": list(self.bpy.app.version[:3]),
             "generation": self.generation,
-            "roots": [{"root": root, "rna_type": rna} for root, rna in sorted(ROOTS.items())],
+            "roots": [
+                {"root": root, "rna_type": rna}
+                for root, rna in sorted(ROOTS.items())
+                if getattr(self.bpy.data, root, None) is not None
+            ],
             "generic_mutation": ["BOOLEAN", "INT", "FLOAT", "ENUM", "bounded_numeric_arrays"],
             "arbitrary_python": False,
             "generic_operator_invoke": False,
@@ -299,7 +386,7 @@ class SemanticStore:
             "truncated": len(list(rna.properties)) > 1024,
         }
 
-    def objects(self, root, query="", limit=50):
+    def objects(self, root, query="", limit=50, offset=0):
         query = str(query or "").casefold()
         source = self._root(root)
         matched = []
@@ -312,17 +399,18 @@ class SemanticStore:
                 "name": name,
                 "rna_type": _text(getattr(getattr(item, "bl_rna", None), "identifier", ""), 256),
             })
-        return {"items": matched[:limit], "truncated": len(matched) > limit, "generation": self.generation}
+        page = matched[offset:offset + limit]
+        return {"items": page, "truncated": len(matched) > offset + len(page), "generation": self.generation, "offset": offset}
 
     def object_describe(self, reference):
-        root, name, item = self._resolve(reference)
+        root, name, path, item = self._resolve(reference)
         rna = getattr(item, "bl_rna", None)
         properties = []
         if rna is not None:
             for prop in list(rna.properties)[:1024]:
                 properties.append(_property_descriptor(prop))
         return {
-            "ref": self._ref(root, name),
+            "ref": self._ref(root, name, path),
             "root": root,
             "name": name,
             "rna_type": _text(getattr(rna, "identifier", ""), 256),
@@ -330,8 +418,60 @@ class SemanticStore:
             "truncated": bool(rna is not None and len(list(rna.properties)) > 1024),
         }
 
+    def relations(self, reference, property_id, limit=50, offset=0):
+        root, name, path, item = self._resolve(reference)
+        rna = getattr(item, "bl_rna", None)
+        prop = rna.properties.get(property_id) if rna is not None else None
+        if prop is None or property_id == "rna_type":
+            raise SemanticError("NotFound", "RNA relation property does not exist")
+        ptype = str(getattr(prop, "type", ""))
+        if ptype not in {"POINTER", "COLLECTION"}:
+            raise SemanticError("InvalidArgument", "RNA property is not a relation")
+        try:
+            relation = getattr(item, property_id)
+        except Exception as error:
+            raise SemanticError("Unsupported", "RNA relation cannot be inspected safely") from error
+        items = []
+        if ptype == "POINTER":
+            if relation is not None and offset == 0:
+                child_path = path + [["p", property_id]]
+                child_rna = getattr(relation, "bl_rna", None)
+                items.append({
+                    "ref": self._ref(root, name, child_path),
+                    "name": _text(getattr(relation, "name", property_id), MAX_NAME),
+                    "rna_type": _text(getattr(child_rna, "identifier", ""), 256),
+                    "index": 0,
+                })
+            total = 1 if relation is not None else 0
+        else:
+            try:
+                total = len(relation)
+            except Exception as error:
+                raise SemanticError("Unsupported", "RNA collection length is unavailable") from error
+            end = min(total, offset + limit)
+            for index in range(offset, end):
+                try:
+                    child = relation[index]
+                except Exception as error:
+                    raise SemanticError("StaleReference", "RNA collection changed during traversal") from error
+                child_path = path + [["c", property_id, index]]
+                child_rna = getattr(child, "bl_rna", None)
+                items.append({
+                    "ref": self._ref(root, name, child_path),
+                    "name": _text(getattr(child, "name", f"#{index}"), MAX_NAME),
+                    "rna_type": _text(getattr(child_rna, "identifier", ""), 256),
+                    "index": index,
+                })
+        return {
+            "items": items,
+            "truncated": total > offset + len(items),
+            "generation": self.generation,
+            "offset": offset,
+            "relation": property_id,
+        }
+
     def property_get(self, reference, property_id):
-        root, name, item = self._resolve(reference)
+        root, name, path, item = self._resolve(reference)
         rna = getattr(item, "bl_rna", None)
         prop = rna.properties.get(property_id) if rna is not None else None
         if prop is None or property_id == "rna_type":
@@ -343,10 +483,10 @@ class SemanticStore:
             value = _serialize(getattr(item, property_id), prop)
         except Exception as error:
             raise SemanticError("Unsupported", "RNA value cannot be represented safely") from error
-        return {"ref": self._ref(root, name), "property": property_id, "value": value, "descriptor": _property_descriptor(prop)}
+        return {"ref": self._ref(root, name, path), "property": property_id, "value": value, "descriptor": _property_descriptor(prop)}
 
     def property_set(self, reference, property_id, value):
-        root, name, item = self._resolve(reference)
+        root, name, path, item = self._resolve(reference)
         rna = getattr(item, "bl_rna", None)
         prop = rna.properties.get(property_id) if rna is not None else None
         if prop is None or property_id == "rna_type":
@@ -362,10 +502,10 @@ class SemanticStore:
                 raise SemanticError("Unsupported", reason or "RNA property is not generically mutable") from error
             raise SemanticError("InvalidArgument", "RNA rejected the typed property value") from error
         self.changed()
-        return {"ref": self._ref(root, name), "property": property_id, "value": _serialize(getattr(item, property_id), prop), "changed": True, "generation": self.generation}
+        return {"ref": self._ref(root, name, path), "property": property_id, "value": _serialize(getattr(item, property_id), prop), "changed": True, "generation": self.generation}
 
     def property_reset(self, reference, property_id):
-        root, name, item = self._resolve(reference)
+        root, name, path, item = self._resolve(reference)
         rna = getattr(item, "bl_rna", None)
         prop = rna.properties.get(property_id) if rna is not None else None
         if prop is None or property_id == "rna_type":
@@ -374,8 +514,8 @@ class SemanticStore:
         if status != "managed":
             raise SemanticError("Unsupported", reason or "RNA property is not generically mutable")
         try:
-            item.property_unset(property_id)
+            setattr(item, property_id, _default_value(prop))
         except Exception as error:
-            raise SemanticError("Unsupported", "RNA property does not support reset") from error
+            raise SemanticError("Unsupported", "RNA property does not expose a bounded reset default") from error
         self.changed()
-        return {"ref": self._ref(root, name), "property": property_id, "value": _serialize(getattr(item, property_id), prop), "changed": True, "generation": self.generation}
+        return {"ref": self._ref(root, name, path), "property": property_id, "value": _serialize(getattr(item, property_id), prop), "changed": True, "generation": self.generation}

@@ -128,7 +128,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         .await
         .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert!(capabilities.len() >= 30);
+    assert!(capabilities.len() >= 31);
     assert!(
         capabilities
             .iter()
@@ -282,6 +282,36 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     assert_eq!(location["value"], json!([1.0, 2.0, 3.0]));
+
+    let object_data = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":semantic_ref,"property":"data","limit":8}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(object_data["items"][0]["rna_type"], "Mesh");
+    let mesh_ref = object_data["items"][0]["ref"].as_str().unwrap().to_owned();
+    let vertices = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.relations",
+        json!({"ref":mesh_ref,"property":"vertices","limit":8,"offset":0}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(vertices["items"].as_array().unwrap().len(), 8);
+    let vertex_ref = vertices["items"][0]["ref"].as_str().unwrap().to_owned();
+    let vertex = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.property.get",
+        json!({"ref":vertex_ref,"property":"co"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(vertex["descriptor"]["status"], "managed");
 
     let hide = call(
         provider.as_ref(),
