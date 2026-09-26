@@ -298,6 +298,43 @@ fn semantic_event_kind(interface: Option<&str>, member: Option<&str>) -> &'stati
 fn stable_node_id(identity: &str) -> String {
     format!("ui-node:{:x}", Sha256::digest(identity.as_bytes()))
 }
+
+fn annotate_table_cell(node: &mut Value, row: usize, column: usize, parent_ref: Value) {
+    node["role"] = Value::String("table_cell".into());
+    if !node["facets"].is_object() {
+        node["facets"] = json!({});
+    }
+    let facets = node["facets"]
+        .as_object_mut()
+        .expect("semantic facets were normalized to an object");
+    let table = facets.entry("table").or_insert_with(|| {
+        json!({
+            "rows": null,
+            "columns": null,
+            "row": row,
+            "column": column,
+            "row_span": 1,
+            "column_span": 1,
+            "selected_rows": null,
+            "selected_columns": null,
+            "row_headers": [],
+            "column_headers": []
+        })
+    });
+    if let Some(table) = table.as_object_mut() {
+        table.insert("row".into(), json!(row));
+        table.insert("column".into(), json!(column));
+        if table.get("row_span").is_none_or(Value::is_null) {
+            table.insert("row_span".into(), json!(1));
+        }
+        if table.get("column_span").is_none_or(Value::is_null) {
+            table.insert("column_span".into(), json!(1));
+        }
+    }
+    if node["parent_ref"].is_null() {
+        node["parent_ref"] = parent_ref;
+    }
+}
 fn delta_from_cache(
     previous: &CachedSnapshot,
     since_revision: u64,
@@ -1307,6 +1344,160 @@ impl Atspi {
             nodes_by_identity.insert(identity, row.clone());
             nodes.push(row);
         }
+        // Small tables are cheap enough to materialize through the stable AT-SPI Table
+        // contract. This recovers semantic cells from toolkits that expose an irregular
+        // accessible child tree while still providing GetAccessibleAt(row,column).
+        let table_specs = nodes
+            .iter()
+            .filter_map(|node| {
+                if node["role"] != "table" {
+                    return None;
+                }
+                let rows = node["facets"]["table"]["rows"].as_u64()? as usize;
+                let columns = node["facets"]["table"]["columns"].as_u64()? as usize;
+                let cells = rows.checked_mul(columns)?;
+                if cells == 0 || cells > 64 {
+                    return None;
+                }
+                let target: NativeTarget =
+                    serde_json::from_value(node["ref"]["$ref"].clone()).ok()?;
+                let framework = node["framework"].as_str().unwrap_or_default().to_owned();
+                Some((target, framework, rows, columns))
+            })
+            .collect::<Vec<_>>();
+        let table_deadline = tokio::time::Instant::now() + Duration::from_millis(700);
+        for (table_target, framework, rows, columns) in table_specs {
+            if tokio::time::Instant::now() >= table_deadline {
+                break;
+            }
+            let Ok(table_object) = object_from_id(&table_target.identity) else {
+                continue;
+            };
+            let Ok(table_proxy) = self.proxy(&c, &table_object, "org.a11y.atspi.Table").await
+            else {
+                continue;
+            };
+            let parent_ref = target_marker(table_target.clone());
+            for row_index in 0..rows {
+                for column_index in 0..columns {
+                    ctx.check_cancelled()?;
+                    if nodes.len() >= budget || tokio::time::Instant::now() >= table_deadline {
+                        partial |= nodes.len() >= budget;
+                        break;
+                    }
+                    let Ok(row_arg) = i32::try_from(row_index) else {
+                        continue;
+                    };
+                    let Ok(column_arg) = i32::try_from(column_index) else {
+                        continue;
+                    };
+                    let cell_args = (row_arg, column_arg);
+                    let Some(cell) = snapshot_optional_until(
+                        table_deadline,
+                        table_proxy.call::<_, _, Object>("GetAccessibleAt", &cell_args),
+                    )
+                    .await
+                    else {
+                        continue;
+                    };
+                    if cell.0.is_empty() || cell.1.as_str() == "/org/a11y/atspi/null" {
+                        continue;
+                    }
+                    let cell_identity = object_id(&cell);
+                    let node_id = stable_node_id(&cell_identity);
+                    if let Some(existing) = nodes_by_identity.get_mut(&cell_identity) {
+                        annotate_table_cell(existing, row_index, column_index, parent_ref.clone());
+                        if let Some(row) = nodes
+                            .iter_mut()
+                            .find(|node| node["node_id"].as_str() == Some(node_id.as_str()))
+                        {
+                            annotate_table_cell(row, row_index, column_index, parent_ref.clone());
+                        }
+                        continue;
+                    }
+
+                    let Ok(Ok((_, mut name, fingerprint))) =
+                        tokio::time::timeout(Duration::from_millis(150), self.identity(&c, &cell))
+                            .await
+                    else {
+                        continue;
+                    };
+                    let Ok(accessible) = self.proxy(&c, &cell, ACCESSIBLE).await else {
+                        continue;
+                    };
+                    let state_bits = snapshot_optional_until(
+                        table_deadline,
+                        accessible.call::<_, _, Vec<u32>>("GetState", &()),
+                    )
+                    .await
+                    .unwrap_or_default();
+                    let states = decode_states(&state_bits);
+                    if states.contains(&"defunct") || states.contains(&"stale") {
+                        continue;
+                    }
+                    name = name.chars().take(1024).collect();
+                    let child_count = snapshot_optional_until(
+                        table_deadline,
+                        accessible.get_property::<i32>("ChildCount"),
+                    )
+                    .await
+                    .and_then(|value| usize::try_from(value.max(0)).ok())
+                    .unwrap_or(0);
+                    let bounds = match self.proxy(&c, &cell, "org.a11y.atspi.Component").await {
+                        Ok(component) => snapshot_optional_until(
+                            table_deadline,
+                            component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)),
+                        )
+                        .await
+                        .map(|(left, top, width, height)| {
+                            json!({
+                                "x": left,
+                                "y": top,
+                                "width": width,
+                                "height": height,
+                                "coordinate_space": "atspi_screen_reported"
+                            })
+                        }),
+                        Err(_) => None,
+                    };
+                    let target = NativeTarget {
+                        kind: "ui".into(),
+                        identity: cell_identity.clone(),
+                        revision: self.object_generations.get_or_assign(&cell_identity)?,
+                        fingerprint,
+                        app: table_target.app.clone(),
+                    };
+                    let mut cell_node = json!({
+                        "node_id": node_id,
+                        "ref": target_marker(target),
+                        "role": "table_cell",
+                        "name": name,
+                        "description": "",
+                        "help": "",
+                        "accessibility_id": "",
+                        "framework": framework.clone(),
+                        "attributes": {},
+                        "relations": [],
+                        "facets": {},
+                        "states": states,
+                        "actions": [],
+                        "app": table_target.app.clone(),
+                        "parent_ref": parent_ref.clone(),
+                        "bounds": bounds,
+                        "children_count": child_count
+                    });
+                    annotate_table_cell(
+                        &mut cell_node,
+                        row_index,
+                        column_index,
+                        parent_ref.clone(),
+                    );
+                    nodes_by_identity.insert(cell_identity, cell_node.clone());
+                    nodes.push(cell_node);
+                }
+            }
+        }
+
         let ending = self.revision.load(Ordering::SeqCst);
         let barrier_revision = self.barrier_revision.load(Ordering::SeqCst);
         // Property/text/focus events may arrive while a tree is observed. They advance the
@@ -1503,6 +1694,99 @@ impl Atspi {
         }))
     }
 
+    async fn native_hit_at_point(
+        &self,
+        c: &Connection,
+        root: &Object,
+        x: i32,
+        y: i32,
+    ) -> Option<Object> {
+        const HIT_MAX_NODES: usize = 512;
+        const HIT_MAX_DEPTH: usize = 32;
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(900);
+        let mut queue = VecDeque::from([(root.clone(), 0usize)]);
+        let mut seen = BTreeSet::new();
+        let mut best: Option<(usize, Object)> = None;
+
+        while let Some((object, depth)) = queue.pop_front() {
+            if seen.len() >= HIT_MAX_NODES || tokio::time::Instant::now() >= deadline {
+                break;
+            }
+            let identity = object_id(&object);
+            if !seen.insert(identity) {
+                continue;
+            }
+
+            let mut component_known = false;
+            let mut contains = false;
+            if let Ok(component) = self.proxy(c, &object, "org.a11y.atspi.Component").await {
+                component_known = true;
+                let point_args = (x, y, 0u32);
+                contains = snapshot_optional_until(
+                    deadline,
+                    component.call::<_, _, bool>("Contains", &point_args),
+                )
+                .await
+                .unwrap_or(false);
+                if !contains {
+                    contains = snapshot_optional_until(
+                        deadline,
+                        component.call::<_, _, (i32, i32, i32, i32)>("GetExtents", &(0u32,)),
+                    )
+                    .await
+                    .is_some_and(|(left, top, width, height)| {
+                        width > 0
+                            && height > 0
+                            && x >= left
+                            && y >= top
+                            && x < left.saturating_add(width)
+                            && y < top.saturating_add(height)
+                    });
+                }
+                if contains {
+                    best = Some((depth, object.clone()));
+                    if let Some(hit) = snapshot_optional_until(
+                        deadline,
+                        component.call::<_, _, Object>("GetAccessibleAtPoint", &point_args),
+                    )
+                    .await
+                        && !hit.0.is_empty()
+                        && hit.1.as_str() != "/org/a11y/atspi/null"
+                        && object_id(&hit) != object_id(&object)
+                    {
+                        best = Some((depth.saturating_add(1), hit.clone()));
+                        if depth < HIT_MAX_DEPTH {
+                            queue.push_front((hit, depth + 1));
+                        }
+                    }
+                }
+            }
+
+            if depth >= HIT_MAX_DEPTH || (component_known && !contains) {
+                continue;
+            }
+            let Ok(accessible) = self.proxy(c, &object, ACCESSIBLE).await else {
+                continue;
+            };
+            let Some(mut children) = snapshot_optional_until(
+                deadline,
+                accessible.call::<_, _, Vec<Object>>("GetChildren", &()),
+            )
+            .await
+            else {
+                continue;
+            };
+            if children.len() > MAX_CHILDREN_PER_NODE {
+                children.truncate(MAX_CHILDREN_PER_NODE);
+            }
+            for child in children {
+                queue.push_back((child, depth + 1));
+            }
+        }
+
+        best.map(|(_, object)| object)
+    }
+
     async fn hit_test(&self, ctx: &Context, args: &Value) -> Result<Value> {
         let x = args["x"]
             .as_i64()
@@ -1523,20 +1807,9 @@ impl Atspi {
                 Err(_) => continue,
             };
             let framework = self.app_framework(&c, &app_object).await;
-            let Ok(component) = self
-                .proxy(&c, &app_object, "org.a11y.atspi.Component")
-                .await
-            else {
+            let Some(hit) = self.native_hit_at_point(&c, &app_object, x, y).await else {
                 continue;
             };
-            let hit: Object =
-                match bounded(component.call("GetAccessibleAtPoint", &(x, y, 0u32))).await {
-                    Ok(hit) => hit,
-                    Err(_) => continue,
-                };
-            if hit.0.is_empty() || hit.1.as_str() == "/org/a11y/atspi/null" {
-                continue;
-            }
             let identity = object_id(&hit);
             let (role, mut name, fingerprint) = self.identity(&c, &hit).await?;
             let proxy = self.proxy(&c, &hit, ACCESSIBLE).await?;
