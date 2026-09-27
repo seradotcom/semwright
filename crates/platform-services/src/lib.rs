@@ -40,6 +40,42 @@ pub fn windows_pipe_client(
     semwright_platform_windows_sys::pipe::open_tokio_client(path)
 }
 #[cfg(target_os = "windows")]
+pub fn windows_reserve_appcontainer_loopback_server(
+    path: &Path,
+) -> Result<tokio::net::windows::named_pipe::NamedPipeServer> {
+    semwright_platform_windows_sys::pipe::reserve_appcontainer_loopback_server(path)
+}
+
+#[cfg(target_os = "windows")]
+pub fn windows_authorize_appcontainer_loopback_server(
+    pipe: &tokio::net::windows::named_pipe::NamedPipeServer,
+    expected_pid: u32,
+) -> Result<()> {
+    semwright_platform_windows_sys::pipe::authorize_appcontainer_loopback_server(pipe, expected_pid)
+}
+
+#[cfg(target_os = "windows")]
+pub fn windows_appcontainer_loopback_server(
+    path: &Path,
+    expected_pid: u32,
+    first: bool,
+) -> Result<tokio::net::windows::named_pipe::NamedPipeServer> {
+    semwright_platform_windows_sys::pipe::create_appcontainer_loopback_server(
+        path,
+        expected_pid,
+        first,
+    )
+}
+
+#[cfg(target_os = "windows")]
+pub fn validate_windows_appcontainer_loopback_peer(
+    pipe: &tokio::net::windows::named_pipe::NamedPipeServer,
+    expected_pid: u32,
+) -> Result<()> {
+    semwright_platform_windows_sys::pipe::validate_appcontainer_loopback_peer(pipe, expected_pid)
+}
+
+#[cfg(target_os = "windows")]
 pub fn validate_windows_server_peer(
     pipe: &tokio::net::windows::named_pipe::NamedPipeServer,
 ) -> Result<u32> {
