@@ -706,20 +706,111 @@ def main():
             f"artifact:figma:{semantic_verified['value']['token']}"
         )
 
-        stale_plan = execute(
+        semantic_heading = semantic_apply["value"]["logicalToNode"]["heading"]
+        semantic_update_spec = {
+            "version": 1,
+            "target": {"page_id": None, "parent_node_id": None},
+            "nodes": [
+                {
+                    "id": "hero",
+                    "kind": "stack",
+                    "name": "Semantic Hero",
+                    "parent": None,
+                    "existing_node_id": semantic_root,
+                    "order": 0,
+                    "role": "hero",
+                    "layout": {"direction": "vertical", "gap": 32},
+                },
+                {
+                    "id": "heading",
+                    "kind": "text",
+                    "name": "Heading",
+                    "parent": "hero",
+                    "existing_node_id": semantic_heading,
+                    "order": 0,
+                    "role": "heading",
+                    "text": {
+                        "characters": "Native edits preserve semantic object identity.",
+                        "fit": "grow_height",
+                    },
+                },
+            ],
+            "relationships": [],
+            "profiles": [],
+            "validators": [{"kind": "native_text", "severity": "error"}],
+            "budgets": {
+                "max_nodes": 16,
+                "max_depth": 4,
+                "max_relationships": 16,
+                "max_findings_per_round": 16,
+                "max_repair_operations": 4,
+                "max_iterations": 2,
+                "max_mutations": 8,
+            },
+        }
+        update_plan = execute(
+            driver, caps, "driver.figma.composition.plan",
+            {
+                "session_id": session_id,
+                "expected_revision": 15,
+                "spec": semantic_update_spec,
+            },
+            "semantic-update-plan",
+        )
+        assert update_plan["type"] == "result", update_plan
+        assert update_plan["value"]["changeset"]["creates"] == []
+        assert len(update_plan["value"]["changeset"]["modifies"]) == 2
+
+        updated = execute(
             driver, caps, "driver.figma.composition.apply",
             {
                 "session_id": session_id,
                 "expected_revision": 15,
+                "plan": update_plan["value"],
+            },
+            "semantic-update-apply",
+        )
+        assert updated["type"] == "result", updated
+        assert updated["value"]["observedRevision"] == 16
+        assert updated["value"]["created"] == []
+        assert len(updated["value"]["modified"]) == 2
+        assert updated["value"]["logicalToNode"]["hero"] == semantic_root
+        assert updated["value"]["logicalToNode"]["heading"] == semantic_heading
+
+        updated_measurement = execute(
+            driver, caps, "driver.figma.composition.measure",
+            {
+                "session_id": session_id,
+                "expected_revision": 16,
+                "root_node_id": semantic_root,
+                "max_nodes": 16,
+            },
+            "semantic-update-measure",
+        )
+        updated_heading = next(
+            node for node in updated_measurement["value"]["nodes"]
+            if node["logicalId"] == "heading"
+        )
+        assert updated_heading["nodeId"] == semantic_heading
+        assert updated_heading["text"]["characters"] == (
+            "Native edits preserve semantic object identity."
+        )
+
+        stale_plan = execute(
+            driver, caps, "driver.figma.composition.apply",
+            {
+                "session_id": session_id,
+                "expected_revision": 16,
                 "plan": plan,
-            }, "semantic-stale-plan",
+            },
+            "semantic-stale-plan",
         )
         assert stale_plan["type"] == "failure", stale_plan
         assert stale_plan["error"]["code"] == "StaleReference", stale_plan
 
         sessions = execute(driver, caps, "driver.figma.session.list", {}, "sessions-final")
         revision = sessions["value"][0]["revision"]
-        assert revision == 15, sessions
+        assert revision == 16, sessions
 
         shutdown = request(driver, {"type": "shutdown", "id": "bye"}, "shutdown")
         assert shutdown["id"] == "bye"

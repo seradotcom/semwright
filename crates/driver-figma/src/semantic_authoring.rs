@@ -63,6 +63,7 @@ pub struct CompositionNodeV1 {
     pub kind: CompositionNodeKindV1,
     pub name: String,
     pub parent: Option<String>,
+    pub existing_node_id: Option<String>,
     #[serde(default)]
     pub order: u32,
     pub role: Option<String>,
@@ -352,6 +353,7 @@ pub struct CreateChangeV1 {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RepairActionV1 {
+    ApplyIntent,
     GrowTextHeight,
     SetAutoLayoutGap { gap: f64 },
     RestoreAspectRatio { ratio: f64 },
@@ -363,6 +365,8 @@ pub enum RepairActionV1 {
 pub struct ModifyChangeV1 {
     pub node_id: String,
     pub logical_id: Option<String>,
+    #[serde(default)]
+    pub resolved: ResolvedBindingsV1,
     pub action: RepairActionV1,
 }
 
@@ -427,16 +431,19 @@ impl FigmaCompositionSpecV1 {
         let mut asset_refs = 0usize;
         for node in &self.nodes {
             validate_id(&node.id)?;
+            if let Some(existing_node_id) = &node.existing_node_id {
+                validate_id(existing_node_id)?;
+            }
             if !ids.insert(node.id.as_str()) {
                 return Err(format!("duplicate composition node id: {}", node.id));
             }
             if node.name.is_empty() || node.name.len() > 256 {
                 return Err(format!("invalid node name for {}", node.id));
             }
-            if let Some(role) = &node.role {
-                if role.len() > 128 {
-                    return Err(format!("role too large for {}", node.id));
-                }
+            if let Some(role) = &node.role
+                && role.len() > 128
+            {
+                return Err(format!("role too large for {}", node.id));
             }
             validate_node_numbers(node)?;
             if matches!(node.kind, CompositionNodeKindV1::Text) != node.text.is_some() {
@@ -495,15 +502,15 @@ impl FigmaCompositionSpecV1 {
         }
 
         for node in &self.nodes {
-            if let Some(parent) = &node.parent {
-                if !ids.contains(parent.as_str()) {
-                    return Err(format!("unknown parent {parent} for {}", node.id));
-                }
+            if let Some(parent) = &node.parent
+                && !ids.contains(parent.as_str())
+            {
+                return Err(format!("unknown parent {parent} for {}", node.id));
             }
-            if let Some(profile) = &node.profile {
-                if !self.profiles.iter().any(|p| p.name == *profile) {
-                    return Err(format!("unknown profile {profile} for {}", node.id));
-                }
+            if let Some(profile) = &node.profile
+                && !self.profiles.iter().any(|p| p.name == *profile)
+            {
+                return Err(format!("unknown profile {profile} for {}", node.id));
             }
         }
         for relation in &self.relationships {
@@ -531,10 +538,10 @@ impl FigmaCompositionSpecV1 {
                         return Err("gap relationship requires a non-negative value".into());
                     }
                 }
-                RelationshipKindV1::AspectRatio => {
-                    if relation.value.is_none_or(|value| value <= 0.0) {
-                        return Err("aspect ratio relationship requires a positive value".into());
-                    }
+                RelationshipKindV1::AspectRatio
+                    if relation.value.is_none_or(|value| value <= 0.0) =>
+                {
+                    return Err("aspect ratio relationship requires a positive value".into());
                 }
                 _ => {}
             }
@@ -556,10 +563,10 @@ impl FigmaCompositionSpecV1 {
             }
         }
         for validator in &self.validators {
-            if let Some(severity) = &validator.severity {
-                if !matches!(severity.as_str(), "error" | "warning" | "info") {
-                    return Err("invalid validator severity".into());
-                }
+            if let Some(severity) = &validator.severity
+                && !matches!(severity.as_str(), "error" | "warning" | "info")
+            {
+                return Err("invalid validator severity".into());
             }
         }
         self.validate_depth(&ids)
@@ -620,7 +627,7 @@ impl FigmaChangeSetV1 {
             return Err("semantic authoring changesets do not embed destructive deletes".into());
         }
         if self.creates.len() > MAX_COMPOSITION_NODES
-            || self.modifies.len() > MAX_REPAIR_OPERATIONS
+            || self.modifies.len() > MAX_COMPOSITION_NODES
             || self.expected_effects.len() > MAX_RELATIONSHIPS
             || self.postconditions.len() > MAX_RELATIONSHIPS
         {
@@ -656,10 +663,10 @@ impl FigmaChangeSetV1 {
             }
         }
         for change in &self.creates {
-            if let Some(parent) = &change.parent_logical_id {
-                if !create_ids.contains(parent.as_str()) {
-                    return Err(format!("unknown changeset parent {parent}"));
-                }
+            if let Some(parent) = &change.parent_logical_id
+                && !create_ids.contains(parent.as_str())
+            {
+                return Err(format!("unknown changeset parent {parent}"));
             }
         }
         for change in &self.modifies {
@@ -711,6 +718,7 @@ impl FigmaPlanV1 {
             digest: String::new(),
         };
         plan.digest = plan.compute_digest()?;
+        plan.verify()?;
         Ok(plan)
     }
 
@@ -722,6 +730,75 @@ impl FigmaPlanV1 {
         self.changeset.validate()?;
         validate_id(&self.base.document_id)?;
         validate_id(&self.base.session_id)?;
+        match &self.purpose {
+            PlanPurposeV1::Composition => {
+                let expected_creates: BTreeMap<&str, Option<&str>> = self
+                    .spec
+                    .nodes
+                    .iter()
+                    .filter(|node| node.existing_node_id.is_none())
+                    .map(|node| (node.id.as_str(), node.parent.as_deref()))
+                    .collect();
+                let expected_modifies: BTreeMap<&str, &str> = self
+                    .spec
+                    .nodes
+                    .iter()
+                    .filter_map(|node| {
+                        node.existing_node_id
+                            .as_deref()
+                            .map(|node_id| (node.id.as_str(), node_id))
+                    })
+                    .collect();
+                if self.changeset.creates.len() != expected_creates.len()
+                    || self.changeset.modifies.len() != expected_modifies.len()
+                {
+                    return Err(
+                        "composition changeset does not match declared create/modify intent".into(),
+                    );
+                }
+                let mut seen_creates = BTreeSet::new();
+                for change in &self.changeset.creates {
+                    let Some(expected_parent) = expected_creates.get(change.logical_id.as_str())
+                    else {
+                        return Err("composition changeset contains undeclared create".into());
+                    };
+                    if change.parent_logical_id.as_deref() != *expected_parent
+                        || !seen_creates.insert(change.logical_id.as_str())
+                    {
+                        return Err("composition create binding mismatch".into());
+                    }
+                }
+                let mut seen_modifies = BTreeSet::new();
+                for change in &self.changeset.modifies {
+                    let Some(expected_node_id) = change
+                        .logical_id
+                        .as_deref()
+                        .and_then(|logical_id| expected_modifies.get(logical_id))
+                    else {
+                        return Err("composition changeset contains undeclared modify".into());
+                    };
+                    if change.node_id.as_str() != *expected_node_id
+                        || !matches!(&change.action, RepairActionV1::ApplyIntent)
+                        || !seen_modifies.insert(change.logical_id.as_deref().unwrap_or_default())
+                    {
+                        return Err("composition modify binding mismatch".into());
+                    }
+                }
+            }
+            PlanPurposeV1::Repair => {
+                if !self.changeset.creates.is_empty()
+                    || self.changeset.modifies.len()
+                        > self.spec.budgets.max_repair_operations as usize
+                    || self
+                        .changeset
+                        .modifies
+                        .iter()
+                        .any(|change| matches!(&change.action, RepairActionV1::ApplyIntent))
+                {
+                    return Err("repair changeset exceeds repair-only authority".into());
+                }
+            }
+        }
         let expected = self.compute_digest()?;
         if self.digest != expected {
             return Err("plan digest mismatch".into());
@@ -844,6 +921,7 @@ mod tests {
             kind: CompositionNodeKindV1::Frame,
             name: id.into(),
             parent: parent.map(str::to_owned),
+            existing_node_id: None,
             order: 0,
             role: None,
             profile: None,
@@ -888,11 +966,18 @@ mod tests {
     fn plan_digest_detects_tampering() {
         let changeset = FigmaChangeSetV1 {
             version: 1,
-            creates: vec![CreateChangeV1 {
-                logical_id: "root".into(),
-                parent_logical_id: None,
-                resolved: ResolvedBindingsV1::default(),
-            }],
+            creates: vec![
+                CreateChangeV1 {
+                    logical_id: "root".into(),
+                    parent_logical_id: None,
+                    resolved: ResolvedBindingsV1::default(),
+                },
+                CreateChangeV1 {
+                    logical_id: "child".into(),
+                    parent_logical_id: Some("root".into()),
+                    resolved: ResolvedBindingsV1::default(),
+                },
+            ],
             modifies: vec![],
             deletes: vec![],
             expected_effects: vec![],
@@ -960,7 +1045,18 @@ mod tests {
     fn plan_digest_is_deterministic_for_identical_inputs() {
         let changeset = FigmaChangeSetV1 {
             version: 1,
-            creates: vec![],
+            creates: vec![
+                CreateChangeV1 {
+                    logical_id: "root".into(),
+                    parent_logical_id: None,
+                    resolved: ResolvedBindingsV1::default(),
+                },
+                CreateChangeV1 {
+                    logical_id: "child".into(),
+                    parent_logical_id: Some("root".into()),
+                    resolved: ResolvedBindingsV1::default(),
+                },
+            ],
             modifies: vec![],
             deletes: vec![],
             expected_effects: vec!["native".into()],
@@ -983,6 +1079,41 @@ mod tests {
         .unwrap();
         let second = FigmaPlanV1::new(PlanPurposeV1::Composition, base, spec(), changeset).unwrap();
         assert_eq!(first.digest, second.digest);
+    }
+
+    #[test]
+    fn existing_node_modify_is_bound_to_declared_target() {
+        let mut value = spec();
+        value.nodes.truncate(1);
+        value.nodes[0].existing_node_id = Some("1:2".into());
+        let changeset = FigmaChangeSetV1 {
+            version: 1,
+            creates: vec![],
+            modifies: vec![ModifyChangeV1 {
+                node_id: "1:999".into(),
+                logical_id: Some("root".into()),
+                resolved: ResolvedBindingsV1::default(),
+                action: RepairActionV1::ApplyIntent,
+            }],
+            deletes: vec![],
+            expected_effects: vec![],
+            postconditions: vec![],
+            required_scopes: vec!["driver:figma".into()],
+            risk: "mutating_reversible".into(),
+        };
+        let error = FigmaPlanV1::new(
+            PlanPurposeV1::Composition,
+            PlanBaseV1 {
+                document_id: "doc".into(),
+                session_id: "session".into(),
+                generation: 1,
+                revision: 1,
+            },
+            value,
+            changeset,
+        )
+        .unwrap_err();
+        assert!(error.contains("modify binding mismatch"));
     }
 
     #[test]

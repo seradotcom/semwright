@@ -245,6 +245,72 @@ impl Fake {
         }))
     }
 
+    fn semantic_apply_declared(node: &mut Node, declared: &Value) -> Result<()> {
+        let logical_id = declared
+            .get("id")
+            .and_then(Value::as_str)
+            .context("logical id")?;
+        if let Some(name) = declared.get("name").and_then(Value::as_str) {
+            node.name = name.to_owned();
+        }
+        if let Some(sizing) = declared.get("sizing") {
+            if let Some(width) = sizing
+                .get("width")
+                .filter(|axis| axis.get("mode").and_then(Value::as_str) == Some("fixed"))
+                .and_then(|axis| axis.get("value"))
+                .and_then(Value::as_f64)
+            {
+                node.w = width;
+            }
+            if let Some(height) = sizing
+                .get("height")
+                .filter(|axis| axis.get("mode").and_then(Value::as_str) == Some("fixed"))
+                .and_then(|axis| axis.get("value"))
+                .and_then(Value::as_f64)
+            {
+                node.h = height;
+            }
+        }
+        node.props.insert("logicalId".into(), json!(logical_id));
+        if let Some(text) = declared.get("text") {
+            node.props.insert(
+                "characters".into(),
+                text.get("characters").cloned().unwrap_or(json!("")),
+            );
+        }
+        let declared_kind = declared
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or("frame");
+        let layout_mode = match declared_kind {
+            "stack" => "VERTICAL",
+            "row" | "split" => "HORIZONTAL",
+            "grid" => "GRID",
+            "overlay" => "NONE",
+            _ => declared
+                .get("layout")
+                .and_then(|layout| layout.get("direction"))
+                .and_then(Value::as_str)
+                .map(|value| match value {
+                    "vertical" => "VERTICAL",
+                    "horizontal" => "HORIZONTAL",
+                    "grid" => "GRID",
+                    _ => "NONE",
+                })
+                .unwrap_or("NONE"),
+        };
+        node.props.insert("layoutMode".into(), json!(layout_mode));
+        node.props.insert(
+            "itemSpacing".into(),
+            declared
+                .get("layout")
+                .and_then(|layout| layout.get("gap"))
+                .cloned()
+                .unwrap_or(json!(0)),
+        );
+        Ok(())
+    }
+
     fn execute(&mut self, op: &str, args: &Value) -> Result<Value> {
         match op {
             "document.status" => Ok(json!({
@@ -271,24 +337,49 @@ impl Fake {
                     .get("nodes")
                     .and_then(Value::as_array)
                     .context("composition nodes")?;
-                let creates = nodes
-                    .iter()
-                    .map(|node| {
-                        json!({
-                            "logical_id":node.get("id").and_then(Value::as_str).unwrap_or(""),
+                let mut creates = Vec::new();
+                let mut modifies = Vec::new();
+                for node in nodes {
+                    let logical_id = node.get("id").and_then(Value::as_str).unwrap_or("");
+                    let resolved = json!({
+                        "component_id":null,
+                        "text_style_id":null,
+                        "fill_variable_id":null
+                    });
+                    if let Some(existing) = node.get("existing_node_id").and_then(Value::as_str) {
+                        let target = self
+                            .nodes
+                            .get(existing)
+                            .context("existing semantic node missing")?;
+                        let expected =
+                            match node.get("kind").and_then(Value::as_str).unwrap_or("frame") {
+                                "text" => "TEXT",
+                                "section" => "SECTION",
+                                "component_instance" => "INSTANCE",
+                                "shape" | "media" => "RECTANGLE",
+                                _ => "FRAME",
+                            };
+                        if target.kind != expected {
+                            bail!("existing semantic node kind mismatch");
+                        }
+                        modifies.push(json!({
+                            "node_id":existing,
+                            "logical_id":logical_id,
+                            "resolved":resolved,
+                            "action":{"kind":"apply_intent"}
+                        }));
+                    } else {
+                        creates.push(json!({
+                            "logical_id":logical_id,
                             "parent_logical_id":node.get("parent").cloned().unwrap_or(Value::Null),
-                            "resolved":{
-                                "component_id":null,
-                                "text_style_id":null,
-                                "fill_variable_id":null
-                            }
-                        })
-                    })
-                    .collect::<Vec<_>>();
+                            "resolved":resolved
+                        }));
+                    }
+                }
                 Ok(json!({
                     "version":1,
                     "creates":creates,
-                    "modifies":[],
+                    "modifies":modifies,
                     "deletes":[],
                     "expected_effects":[
                         "native_figma_nodes",
@@ -317,12 +408,29 @@ impl Fake {
                     .clone();
                 let mut logical = BTreeMap::<String, String>::new();
                 let mut created = Vec::<Value>::new();
+                let mut modified = Vec::<Value>::new();
                 for declared in nodes {
                     let logical_id = declared
                         .get("id")
                         .and_then(Value::as_str)
                         .context("logical id")?
                         .to_owned();
+                    if let Some(existing) = declared.get("existing_node_id").and_then(Value::as_str)
+                    {
+                        let node = self
+                            .nodes
+                            .get_mut(existing)
+                            .context("existing semantic node missing")?;
+                        Self::semantic_apply_declared(node, &declared)?;
+                        logical.insert(logical_id.clone(), existing.to_owned());
+                        modified.push(json!({
+                            "logicalId":logical_id,
+                            "nodeId":existing,
+                            "type":node.kind,
+                            "name":node.name
+                        }));
+                        continue;
+                    }
                     let parent_id = match declared.get("parent").and_then(Value::as_str) {
                         Some(parent) => logical
                             .get(parent)
@@ -437,6 +545,7 @@ impl Fake {
                     "applied":true,
                     "rootNodeIds":root_ids,
                     "created":created,
+                    "modified":modified,
                     "logicalToNode":logical,
                     "observedRevision":self.revision,
                     "effects":[
@@ -665,6 +774,13 @@ impl Fake {
             | "component.create" => {
                 let id = format!("1:{}", self.nodes.len() + 1);
                 let kind = op.split('.').next().unwrap_or("node").to_uppercase();
+                let mut props = BTreeMap::new();
+                if kind == "TEXT" {
+                    props.insert(
+                        "characters".into(),
+                        args.get("characters").cloned().unwrap_or(json!("")),
+                    );
+                }
                 let node = Node {
                     id: id.clone(),
                     kind,
@@ -674,7 +790,77 @@ impl Fake {
                     w: args.get("width").and_then(Value::as_f64).unwrap_or(100.0),
                     h: args.get("height").and_then(Value::as_f64).unwrap_or(100.0),
                     children: vec![],
-                    props: BTreeMap::new(),
+                    props,
+                };
+                self.nodes.insert(id.clone(), node.clone());
+                self.nodes
+                    .get_mut(&self.page)
+                    .expect("page fixture")
+                    .children
+                    .push(id);
+                self.revision += 1;
+                Ok(summary(&node))
+            }
+            "text.patch" => {
+                let id = args["nodeId"].as_str().context("nodeId")?;
+                let node = self.nodes.get_mut(id).context("not found")?;
+                if node.kind != "TEXT" {
+                    bail!("not text");
+                }
+                if let Some(name) = args.get("name").and_then(Value::as_str) {
+                    node.name = name.to_owned();
+                }
+                if let Some(characters) = args.get("characters").and_then(Value::as_str) {
+                    node.props.insert("characters".into(), json!(characters));
+                }
+                self.revision += 1;
+                Ok(summary(node))
+            }
+            "node.reparent" => {
+                let id = args["nodeId"].as_str().context("nodeId")?.to_owned();
+                let parent_id = args["parentId"].as_str().context("parentId")?.to_owned();
+                if !self.nodes.contains_key(&id) || !self.nodes.contains_key(&parent_id) {
+                    bail!("not found");
+                }
+                let old_parent = self
+                    .nodes
+                    .iter()
+                    .find(|(_, node)| node.children.iter().any(|child| child == &id))
+                    .map(|(parent, _)| parent.clone());
+                if let Some(old_parent) = old_parent {
+                    self.nodes
+                        .get_mut(&old_parent)
+                        .expect("old parent exists")
+                        .children
+                        .retain(|child| child != &id);
+                }
+                self.nodes
+                    .get_mut(&parent_id)
+                    .expect("new parent exists")
+                    .children
+                    .push(id.clone());
+                self.revision += 1;
+                Ok(json!({"nodeId":id,"parentId":parent_id}))
+            }
+            "svg.import" => {
+                let svg = args["svg"].as_str().context("svg")?;
+                if svg.len() > 1_048_576 {
+                    bail!("svg too large");
+                }
+                let id = format!("1:{}", self.nodes.len() + 1);
+                let mut props = BTreeMap::new();
+                props.insert("sourceKind".into(), json!("svg_import"));
+                props.insert("sourceBytes".into(), json!(svg.len()));
+                let node = Node {
+                    id: id.clone(),
+                    kind: "FRAME".into(),
+                    name: "Code-first SVG import".into(),
+                    x: 0.0,
+                    y: 0.0,
+                    w: 1440.0,
+                    h: 4100.0,
+                    children: vec![],
+                    props,
                 };
                 self.nodes.insert(id.clone(), node.clone());
                 self.nodes

@@ -468,13 +468,103 @@ async fn figma_driver_runs_through_real_driver_host() {
     assert_eq!(verified["mediaType"], "image/png");
     assert_eq!(verified["validation"]["status"], "PASS");
 
-    let stale = call(
+    let semantic_heading = semantic_apply["logicalToNode"]["heading"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let update_spec = json!({
+        "version":1,
+        "target":{"page_id":null,"parent_node_id":null},
+        "nodes":[
+            {
+                "id":"hero",
+                "kind":"stack",
+                "name":"Semantic Hero",
+                "parent":null,
+                "existing_node_id":semantic_root,
+                "order":0,
+                "role":"hero",
+                "layout":{"direction":"vertical","gap":32}
+            },
+            {
+                "id":"heading",
+                "kind":"text",
+                "name":"Heading",
+                "parent":"hero",
+                "existing_node_id":semantic_heading,
+                "order":0,
+                "role":"heading",
+                "text":{
+                    "characters":"Native edits preserve semantic object identity.",
+                    "fit":"grow_height"
+                }
+            }
+        ],
+        "relationships":[],
+        "profiles":[],
+        "validators":[{"kind":"native_text","severity":"error"}],
+        "budgets":{
+            "max_nodes":16,
+            "max_depth":4,
+            "max_relationships":16,
+            "max_findings_per_round":16,
+            "max_repair_operations":4,
+            "max_iterations":2,
+            "max_mutations":8
+        }
+    });
+    let update_plan = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.plan",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":4,
+            "spec":update_spec
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        update_plan["changeset"]["creates"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+    assert_eq!(
+        update_plan["changeset"]["modifies"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    let updated = call(
         provider.as_ref(),
         &capabilities,
         "driver.figma.composition.apply",
         json!({
             "session_id":sessions[0]["session_id"],
             "expected_revision":4,
+            "plan":update_plan
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(updated["observedRevision"], 5);
+    assert_eq!(updated["created"].as_array().unwrap().len(), 0);
+    assert_eq!(updated["modified"].as_array().unwrap().len(), 2);
+    assert_eq!(updated["logicalToNode"]["hero"], semantic_root);
+    assert_eq!(updated["logicalToNode"]["heading"], semantic_heading);
+
+    let stale = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.apply",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":5,
             "plan":semantic_plan
         }),
     )

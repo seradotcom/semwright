@@ -55,11 +55,13 @@ struct RepairFindingInput {
     confidence_class: String,
     subject_node_id: Option<String>,
     subject_logical_id: Option<String>,
-    related_node_ids: Option<Vec<String>>,
+    #[serde(default)]
+    related_node_ids: Vec<String>,
     expected: Option<Value>,
     actual: Option<Value>,
     evidence: Option<Value>,
-    suggested_repairs: Option<Vec<Value>>,
+    #[serde(default)]
+    suggested_repairs: Vec<Value>,
 }
 
 #[derive(JsonSchema, Serialize, Deserialize)]
@@ -132,11 +134,12 @@ pub fn output_schema(name: &str) -> Option<Value> {
                 "applied":{"type":"boolean"},
                 "rootNodeIds":arr(32,s(256)),
                 "created":arr(512,loose(16)),
+                "modified":arr(512,loose(16)),
                 "logicalToNode":loose(512),
                 "observedRevision":u(u64::MAX),
                 "effects":arr(1024,s(512))
             },
-            "required":["applied","rootNodeIds","created","logicalToNode","observedRevision","effects"],
+            "required":["applied","rootNodeIds","created","modified","logicalToNode","observedRevision","effects"],
             "additionalProperties":false
         }),
         "composition.repair.apply" => json!({

@@ -440,6 +440,15 @@ jobs:
         run: |
           BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
             python3 crates/driver-figma/tools/e2e_driver.py | tee verification/native-ci/figma-e2e.log
+      - name: Semantic authoring convergence demo and structural benchmark
+        run: |
+          python3 demos/figma-semantic-authoring/build_demo_spec.py
+          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
+            python3 demos/figma-semantic-authoring/convergence_demo.py \
+            | tee verification/native-ci/figma-semantic-demo.log
+          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
+            python3 demos/figma-semantic-authoring/benchmark.py \
+            | tee verification/native-ci/figma-semantic-benchmark.log
       - name: Build and test the Figma Plugin API bridge
         working-directory: crates/driver-figma/plugin
         run: |
