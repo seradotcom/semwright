@@ -37,12 +37,11 @@ use std::{
 };
 #[cfg(target_os = "linux")]
 use std::{ffi::CString, os::fd::FromRawFd};
+#[cfg(target_os = "windows")]
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[cfg(all(test, unix))]
 use tokio::process::Command;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::{Mutex, broadcast, oneshot},
-};
+use tokio::sync::{Mutex, broadcast, oneshot};
 use tokio_util::sync::CancellationToken;
 
 struct StagedFile(PathBuf);
@@ -82,19 +81,6 @@ struct SealedTool {
     staged: Arc<StagedFile>,
     sha256: String,
 }
-#[cfg(target_os = "windows")]
-impl SealedTool {
-    fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
-        semwright_platform_api::launch::SealedToolMount {
-            source: semwright_platform_api::launch::SealedToolSource::VerifiedFile {
-                path: self.staged.0.clone(),
-                sha256: self.sha256.clone(),
-            },
-            name: self.name.clone(),
-        }
-    }
-}
-
 #[async_trait]
 trait HostToolExecutor: Send + Sync {
     async fn execute(
