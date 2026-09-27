@@ -58,7 +58,20 @@ pub fn validate_archive_path(value: &str) -> Result<PathBuf> {
             "Archive path is empty or exceeds its bounds",
         ));
     }
-    let path = Path::new(value);
+    // ZIP paths always use '/'. Normalize the alternate separator before checking so a
+    // legal Unix filename such as "..\\secret" cannot become "../secret" when bundled.
+    let portable = value.replace('\\', "/");
+    if portable.as_bytes().get(1).is_some_and(|byte| *byte == b':')
+        && portable
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphabetic)
+    {
+        return Err(Error::invalid(
+            "Skill resource paths may not contain Windows drive prefixes",
+        ));
+    }
+    let path = Path::new(&portable);
     if path.is_absolute()
         || path.components().any(|part| {
             matches!(

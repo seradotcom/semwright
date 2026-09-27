@@ -130,11 +130,24 @@ fn rejects_yaml_aliases_invalid_utf8_and_oversized_frontmatter() {
 
 #[test]
 fn archive_paths_reject_traversal_and_absolute_paths() {
-    for value in ["../secret", "refs/../../secret", "/etc/passwd"] {
+    for value in [
+        "../secret",
+        "refs/../../secret",
+        "/etc/passwd",
+        r"..\secret",
+        r"refs\..\secret",
+        r"C:\secret",
+        "C:/secret",
+        r"\\server\share",
+    ] {
         assert!(validate_archive_path(value).is_err(), "{value}");
     }
     assert_eq!(
         validate_archive_path("./references/a.md").unwrap(),
+        std::path::PathBuf::from("references/a.md")
+    );
+    assert_eq!(
+        validate_archive_path(r"references\a.md").unwrap(),
         std::path::PathBuf::from("references/a.md")
     );
 }
