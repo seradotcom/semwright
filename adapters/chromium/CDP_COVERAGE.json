@@ -24,18 +24,17 @@
         "focus",
         "scrollIntoViewIfNeeded",
         "getBoxModel",
-        "getNodeForLocation",
         "setFileInputFiles"
       ],
       "purpose": "identity, structure and exact action grounding"
     },
     {
       "name": "DOMSnapshot",
-      "status": "optional_evidence",
+      "status": "implemented_bounded",
       "methods": [
         "captureSnapshot"
       ],
-      "purpose": "optional computed structure/layout evidence; AX + DOM identity remain semantic authority"
+      "purpose": "bounded layout and paint-order evidence for fail-closed pointer hit-testing; AX + DOM identity remain semantic authority"
     },
     {
       "name": "Page",

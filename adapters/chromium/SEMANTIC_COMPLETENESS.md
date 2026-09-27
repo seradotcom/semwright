@@ -75,7 +75,7 @@ These surfaces are classified, not forgotten:
 - closed/opaque shadow DOM not exposed through Chromium semantics — outside the provider's observable authority;
 - bypassing browser origin policy or sandboxing — never permitted.
 
-`DOMSnapshot.captureSnapshot` is classified as **optional evidence**, not a completeness requirement. AX + DOM identity are the semantic authority; DOMSnapshot could add computed layout/style evidence later without changing the user-facing action model.
+`DOMSnapshot.captureSnapshot` is used as bounded layout/paint-order evidence for fail-closed pointer hit-testing. AX + DOM identity remain the semantic authority for object identity and intent; DOMSnapshot answers only whether the painted element at the derived action point belongs to the exact target subtree.
 
 ## Security invariants
 

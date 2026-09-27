@@ -649,6 +649,7 @@ impl Cdp {
         }
         for domain in [
             "DOM.enable",
+            "DOMSnapshot.enable",
             "Page.enable",
             "Accessibility.enable",
             "Log.enable",
@@ -1383,25 +1384,36 @@ impl Chromium {
         }
 
         if let Some(node) = node {
-            instance
-                .cdp
-                .call(
-                    "DOM.describeNode",
-                    json!({"backendNodeId":node,"depth":0}),
-                    Some(&session),
-                )
-                .await
-                .map_err(|_| {
-                    Error::new(
-                        ErrorCode::StaleReference,
-                        "DOM node is no longer addressable in its frame context",
+            if frame.is_some() {
+                ax_node_for_backend(&instance.cdp, &session, node)
+                    .await
+                    .map_err(|_| {
+                        Error::new(
+                            ErrorCode::StaleReference,
+                            "Semantic DOM node is no longer addressable in its frame context",
+                        )
+                    })?;
+            } else {
+                instance
+                    .cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":0}),
+                        Some(&session),
                     )
-                })?;
-            if frame.is_none() && instance.cdp.generation(&session)? != target.revision {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "DOM changed during validation",
-                ));
+                    .await
+                    .map_err(|_| {
+                        Error::new(
+                            ErrorCode::StaleReference,
+                            "DOM node is no longer addressable in its document context",
+                        )
+                    })?;
+                if instance.cdp.generation(&session)? != target.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "DOM changed during validation",
+                    ));
+                }
             }
         }
         Ok((tab, node, frame, session))
@@ -1743,27 +1755,119 @@ async fn dispatch_key(cdp: &Cdp, session: &str, name: &str, modifiers: u64) -> R
 async fn focus_backend_node(cdp: &Cdp, session: &str, node: u64) -> Result<()> {
     cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(session))
         .await?;
-    let doc = cdp
-        .call("DOM.getDocument", json!({"depth":0}), Some(session))
-        .await?;
-    let focused = cdp
-        .call(
-            "DOM.querySelector",
-            json!({"nodeId":doc["root"]["nodeId"],"selector":":focus"}),
-            Some(session),
-        )
-        .await?;
-    let focused = cdp
-        .call(
-            "DOM.describeNode",
-            json!({"nodeId":focused["nodeId"],"depth":0}),
-            Some(session),
-        )
-        .await?;
-    if focused["node"]["backendNodeId"].as_u64() != Some(node) {
-        return Err(Error::new(ErrorCode::Conflict, "DOM focus changed"));
+    let focused = ax_node_for_backend(cdp, session, node).await?;
+    if ax_property(&focused, "focused") != Some(json!(true)) {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Accessibility focus did not remain on the semantic target",
+        ));
     }
     Ok(())
+}
+
+fn snapshot_node_is_target_or_descendant(nodes: &Value, mut index: usize, target: u64) -> bool {
+    let Some(backends) = nodes["backendNodeId"].as_array() else {
+        return false;
+    };
+    let parents = nodes["parentIndex"].as_array();
+    for _ in 0..512 {
+        if backends.get(index).and_then(Value::as_u64) == Some(target) {
+            return true;
+        }
+        let Some(parent) = parents
+            .and_then(|values| values.get(index))
+            .and_then(Value::as_i64)
+        else {
+            return false;
+        };
+        if parent < 0 {
+            return false;
+        }
+        let Ok(next) = usize::try_from(parent) else {
+            return false;
+        };
+        if next == index || next >= backends.len() {
+            return false;
+        }
+        index = next;
+    }
+    false
+}
+
+fn snapshot_hit_matches_target(snapshot: &Value, x: f64, y: f64, target: u64) -> Result<bool> {
+    let documents = snapshot["documents"].as_array().ok_or_else(|| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "DOMSnapshot documents are malformed",
+        )
+    })?;
+    let mut best: Option<(i64, usize, bool)> = None;
+    for document in documents {
+        let Some(backends) = document["nodes"]["backendNodeId"].as_array() else {
+            continue;
+        };
+        if !backends.iter().any(|value| value.as_u64() == Some(target)) {
+            continue;
+        }
+        let node_indexes = document["layout"]["nodeIndex"].as_array().ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "DOMSnapshot layout node indexes are malformed",
+            )
+        })?;
+        let bounds = document["layout"]["bounds"].as_array().ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "DOMSnapshot layout bounds are malformed",
+            )
+        })?;
+        let paint_orders = document["layout"]["paintOrders"].as_array();
+        for (layout_index, raw_node_index) in node_indexes.iter().enumerate() {
+            let Some(bound) = bounds.get(layout_index).and_then(Value::as_array) else {
+                continue;
+            };
+            if bound.len() != 4 {
+                continue;
+            }
+            let bx = bound[0].as_f64().unwrap_or(f64::NAN);
+            let by = bound[1].as_f64().unwrap_or(f64::NAN);
+            let bw = bound[2].as_f64().unwrap_or(f64::NAN);
+            let bh = bound[3].as_f64().unwrap_or(f64::NAN);
+            if !bx.is_finite()
+                || !by.is_finite()
+                || !bw.is_finite()
+                || !bh.is_finite()
+                || bw <= 0.0
+                || bh <= 0.0
+                || x < bx
+                || y < by
+                || x > bx + bw
+                || y > by + bh
+            {
+                continue;
+            }
+            let Some(node_index) = raw_node_index
+                .as_i64()
+                .and_then(|value| usize::try_from(value).ok())
+            else {
+                continue;
+            };
+            let paint = paint_orders
+                .and_then(|orders| orders.get(layout_index))
+                .and_then(Value::as_i64)
+                .unwrap_or(layout_index as i64);
+            let matches =
+                snapshot_node_is_target_or_descendant(&document["nodes"], node_index, target);
+            let candidate = (paint, layout_index, matches);
+            if best
+                .as_ref()
+                .is_none_or(|current| (candidate.0, candidate.1) >= (current.0, current.1))
+            {
+                best = Some(candidate);
+            }
+        }
+    }
+    Ok(best.is_some_and(|candidate| candidate.2))
 }
 
 async fn actionable_point(cdp: &Cdp, session: &str, node: u64) -> Result<(f64, f64)> {
@@ -1795,17 +1899,17 @@ async fn actionable_point(cdp: &Cdp, session: &str, node: u64) -> Result<(f64, f
             "DOM action coordinate is outside the bounded viewport",
         ));
     }
-    let hit = cdp
+    let snapshot = cdp
         .call(
-            "DOM.getNodeForLocation",
-            json!({"x":x.round() as i32,"y":y.round() as i32}),
+            "DOMSnapshot.captureSnapshot",
+            json!({"computedStyles":[],"includePaintOrder":true,"includeDOMRects":false}),
             Some(session),
         )
         .await?;
-    if hit["backendNodeId"].as_u64() != Some(node) {
+    if !snapshot_hit_matches_target(&snapshot, x, y, node)? {
         return Err(Error::new(
             ErrorCode::Conflict,
-            "Another DOM element covers the target; choose the precise hit element explicitly",
+            "Another painted DOM element covers the target; choose the precise semantic element explicitly",
         ));
     }
     Ok((x, y))
@@ -2635,28 +2739,7 @@ impl Backend for Chromium {
             }
             "browser.element.focus" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
-                cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(&session))
-                    .await?;
-                let doc = cdp
-                    .call("DOM.getDocument", json!({"depth":0}), Some(&session))
-                    .await?;
-                let focused = cdp
-                    .call(
-                        "DOM.querySelector",
-                        json!({"nodeId":doc["root"]["nodeId"],"selector":":focus"}),
-                        Some(&session),
-                    )
-                    .await?;
-                let focused = cdp
-                    .call(
-                        "DOM.describeNode",
-                        json!({"nodeId":focused["nodeId"],"depth":0}),
-                        Some(&session),
-                    )
-                    .await?;
-                if focused["node"]["backendNodeId"].as_u64() != Some(node) {
-                    return Err(Error::new(ErrorCode::Conflict, "DOM focus changed"));
-                }
+                focus_backend_node(&cdp, &session, node).await?;
                 Ok(json!({"accepted":true,"focused":true}))
             }
             "browser.element.scroll" => {
@@ -3291,6 +3374,30 @@ mod tests {
         assert_eq!(ax_property(&node, "disabled"), Some(json!(false)));
         assert_eq!(ax_property(&node, "checked"), Some(json!("mixed")));
         assert_eq!(ax_property(&node, "ignored-object"), None);
+    }
+
+    #[test]
+    fn domsnapshot_hit_test_respects_paint_order_and_target_ancestry() {
+        let covered = json!({"documents":[{
+            "nodes":{"backendNodeId":[1,2,3],"parentIndex":[-1,0,0]},
+            "layout":{
+                "nodeIndex":[1,2],
+                "bounds":[[0,0,100,100],[0,0,100,100]],
+                "paintOrders":[1,2]
+            }
+        }]});
+        assert!(!snapshot_hit_matches_target(&covered, 50.0, 50.0, 2).unwrap());
+
+        let descendant = json!({"documents":[{
+            "nodes":{"backendNodeId":[1,2,3],"parentIndex":[-1,0,1]},
+            "layout":{
+                "nodeIndex":[1,2],
+                "bounds":[[0,0,100,100],[10,10,80,80]],
+                "paintOrders":[1,2]
+            }
+        }]});
+        assert!(snapshot_hit_matches_target(&descendant, 50.0, 50.0, 2).unwrap());
+        assert!(!snapshot_hit_matches_target(&descendant, 150.0, 150.0, 2).unwrap());
     }
 
     #[test]

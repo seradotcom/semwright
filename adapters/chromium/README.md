@@ -40,7 +40,7 @@ Legacy `browser.dom.*` operations remain for compatibility. CSS query is not req
 
 Opaque refs are tied to the owned browser instance and the relevant CDP document/session generation. OOPIF frames use their attached CDP session when Chromium site isolation creates one. Navigation and observed document mutation retire affected refs rather than silently retargeting a replacement node.
 
-Clicks, hovers and drags derive coordinates internally from a verified DOM box model and hit-test; the agent never supplies pixel coordinates. `browser.element.drag_to` requires two independent broker-resolved refs in the same frame context. `browser.page.scroll` uses visual viewport metrics plus a semantic direction/amount, which keeps lazy/infinite-page discovery above raw wheel coordinates.
+Clicks, hovers and drags derive coordinates internally from a verified DOM box model and confirm the painted target subtree with bounded DOMSnapshot layout/paint-order evidence; the agent never supplies pixel coordinates. `browser.element.drag_to` requires two independent broker-resolved refs in the same frame context. `browser.page.scroll` uses visual viewport metrics plus a semantic direction/amount, which keeps lazy/infinite-page discovery above raw wheel coordinates.
 
 ## File upload
 
