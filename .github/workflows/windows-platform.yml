@@ -194,7 +194,7 @@ jobs:
       - name: Install diagnostic Rust toolchain
         run: |
           set -euo pipefail
-          rustup toolchain install "${{ matrix.toolchain }}" --profile minimal
+          rustup toolchain install "${{ matrix.toolchain }}" --profile minimal --force-non-host
       - name: Record compatibility environment
         run: |
           set -euo pipefail

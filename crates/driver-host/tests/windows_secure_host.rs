@@ -194,7 +194,10 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         output["exit_code"], 0,
         "sealed tool exit diagnostics: {output}"
     );
-    assert_eq!(output["stdout"], "tool-ok", "sealed tool output: {output}");
+    assert_eq!(
+        output["stdout"], "tool-ok|appcontainer=1",
+        "sealed tool must execute without breaking out of AppContainer: {output}"
+    );
     assert_eq!(
         output["read_ok"], true,
         "sealed tool must remain readable: {output}"

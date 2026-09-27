@@ -76,15 +76,14 @@ use windows::Win32::{
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
             GetProcessMitigationPolicy, INFINITE, InitializeProcThreadAttributeList,
             LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-            PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, PROC_THREAD_ATTRIBUTE_DESKTOP_APP_POLICY,
-            PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
-            PROCESS_INFORMATION, ProcessChildProcessPolicy, ResumeThread, STARTF_USESTDHANDLES,
-            STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+            PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+            PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION,
+            ProcessChildProcessPolicy, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+            TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
         },
         WindowsProgramming::{
             PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
             PROCESS_CREATION_CHILD_PROCESS_OVERRIDE,
-            PROCESS_CREATION_DESKTOP_APP_BREAKAWAY_DISABLE_PROCESS_TREE,
         },
     },
 };
@@ -2224,13 +2223,11 @@ impl SandboxLauncher for WindowsSandbox {
 
         let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
         let child_process_override = !spec.sealed_tools.is_empty();
-        let mut attributes = ProcAttributes::new(if child_process_override { 5 } else { 3 })?;
+        let mut attributes = ProcAttributes::new(if child_process_override { 4 } else { 3 })?;
         attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
         if child_process_override {
             let child_policy = PROCESS_CREATION_CHILD_PROCESS_OVERRIDE;
             attributes.set_value(PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, &child_policy)?;
-            let desktop_policy = PROCESS_CREATION_DESKTOP_APP_BREAKAWAY_DISABLE_PROCESS_TREE;
-            attributes.set_value(PROC_THREAD_ATTRIBUTE_DESKTOP_APP_POLICY, &desktop_policy)?;
         }
         let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
         attributes.set_value(
