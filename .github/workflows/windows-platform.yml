@@ -179,9 +179,11 @@ jobs:
           - name: server2022-x64
             runs_on: windows-2022
             toolchain: "1.98.1"
+            address_space_bytes: "536870912"
           - name: win11-arm-x64emu
             runs_on: windows-11-arm
             toolchain: "1.98.1-x86_64-pc-windows-msvc"
+            address_space_bytes: "2147483648"
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 30
     defaults:
@@ -202,6 +204,8 @@ jobs:
           echo "PROCESSOR_ARCHITECTURE=${PROCESSOR_ARCHITECTURE:-unknown}"
           rustc +${{ matrix.toolchain }} -vV
       - name: Sealed tool nested execution probe
+        env:
+          SEMWRIGHT_TEST_ADDRESS_SPACE_BYTES: ${{ matrix.address_space_bytes }}
         run: >-
           cargo +${{ matrix.toolchain }} test --locked
           -p semwright-driver-host

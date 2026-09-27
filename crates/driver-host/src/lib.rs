@@ -1454,16 +1454,27 @@ impl DriverProvider {
                                 None
                             }
                         };
-                    let message = match exit_code {
-                        Some(code) => format!(
-                            "Driver exited before protocol Hello completed (exit={:#010x})",
-                            code as u32
+                    let (error_code, message) = match exit_code {
+                        Some(code) if code as u32 == 0xC000_0017 => (
+                            ErrorCode::ResourceExhausted,
+                            format!(
+                                "Driver exhausted Windows process memory before protocol Hello completed (exit=0xc0000017, address_space_bytes={}); x64 emulation on ARM64 may require a larger declared budget",
+                                manifest.resources.address_space_bytes
+                            ),
                         ),
-                        None => {
-                            "Driver transport failed before protocol Hello completed".to_owned()
-                        }
+                        Some(code) => (
+                            error.code,
+                            format!(
+                                "Driver exited before protocol Hello completed (exit={:#010x})",
+                                code as u32
+                            ),
+                        ),
+                        None => (
+                            error.code,
+                            "Driver transport failed before protocol Hello completed".to_owned(),
+                        ),
                     };
-                    return Err(Error::new(error.code, message));
+                    return Err(Error::new(error_code, message));
                 }
             };
             match hello {
