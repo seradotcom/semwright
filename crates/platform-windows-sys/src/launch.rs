@@ -11,7 +11,7 @@ use std::{
     collections::BTreeSet,
     ffi::OsStr,
     fs::File,
-    io::{Read, Write},
+    io::Read,
     os::windows::{
         ffi::OsStrExt,
         fs::OpenOptionsExt,
@@ -1529,7 +1529,7 @@ fn prepare_windows_tools(
                     "Windows sealed-tool profile copy could not be created",
                 )
             })?;
-        output.write_all(&bytes)?;
+        std::io::Write::write_all(&mut output, &bytes)?;
         output.sync_all()?;
         drop(output);
         verify_materialized_sealed_tool(&materialized_path, sha256)?;
