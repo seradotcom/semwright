@@ -79,10 +79,8 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: crates/driver-figma/plugin
-    defaults:
-      run:
         shell: bash
+        working-directory: crates/driver-figma/plugin
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
