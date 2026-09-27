@@ -84,15 +84,13 @@ pub fn system_config_mount(logical_name: &str) -> Result<PathBuf> {
     runtime_mount(MountClass::SystemConfig, logical_name)
 }
 
+fn valid_tool_name(name: &str) -> bool {
+    canonical_slug(name) && name.len() <= 64 && !name.starts_with("semwright-internal-")
+}
+
 /// Resolve one Host-verified executable tool as materialized by the current platform sandbox.
 pub fn tool_path(name: &str) -> Result<PathBuf> {
-    if name.is_empty()
-        || name.len() > 64
-        || name.starts_with("semwright-internal-")
-        || !name
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-    {
+    if !valid_tool_name(name) {
         return Err(Error::invalid("Invalid sandbox tool name"));
     }
     match std::env::var(SANDBOX_TOOLS_ENV) {
@@ -242,9 +240,7 @@ impl DriverToolMount {
     fn validate(&self) -> Result<()> {
         if !canonical_slug(&self.root)
             || self.root.starts_with("semwright-internal-")
-            || !canonical_slug(&self.name)
-            || self.name.len() > 64
-            || self.name.starts_with("semwright-internal-")
+            || !valid_tool_name(&self.name)
             || self.sha256.len() != 64
             || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
         {
