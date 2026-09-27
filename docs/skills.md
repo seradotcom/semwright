@@ -283,7 +283,7 @@ The repository ships a small curated set under `skills/`:
 - `semwright-cross-app-artifacts`: producer/consumer tags, broker-mediated handoff and destination verification.
 - `semwright-workflow-distillation`: record/compile/verify/replay/promote.
 - `semwright-driver-authoring`: semantic first-party driver design, security and conformance.
-- `semwright-figma-production`: current first-party Figma driver workflow, artifact tokens and limitations.
+- `semwright-figma-production`: first-party Figma semantic authoring loop (inspect/plan/apply/measure/validate/bounded repair/reverify), artifact tokens and limitations.
 
 Each Skill keeps `SKILL.md` small and moves detail to `references/`.
 
@@ -293,9 +293,10 @@ The Figma Skill is derived from the current first-party driver, whose production
 Broker/policy -> sandboxed driver -> authenticated loopback bridge -> official Figma Plugin
 API, with a separate protected official REST route.
 
-Its requirements reference real current `driver.figma.*` capabilities. Exported Figma
-artifact tokens remain provider-owned handles; the Skill explicitly does not relabel them
-as filesystem paths.
+Its requirements reference the semantic composition, validation, repair and verification
+`driver.figma.*` capabilities rather than copying their schemas into Markdown. Exported
+Figma artifact tokens remain provider-owned handles; the Skill explicitly does not relabel
+them as filesystem paths.
 
 Repository fake-host/sandbox tests are not described as real-Figma certification.
 
