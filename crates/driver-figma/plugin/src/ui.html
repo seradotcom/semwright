@@ -222,7 +222,7 @@ function openSocket(){
    }
    else if(m.type==="request"){
     if(m.session_id!==sid||m.generation!==gen){socket.close();return}
-    parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision,operation:m.operation,args:m.args}}},"*");
+    parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision??undefined,operation:m.operation,args:m.args}}},"*");
    }
    else if(m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}));
    else if(m.type==="close"){
