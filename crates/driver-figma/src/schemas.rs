@@ -590,13 +590,20 @@ fn doctor_output() -> Value {
             "healthy":{"type":"boolean"},
             "bridge_protocol":{"type":"integer"},
             "listen_host":{"type":"string"},
+            "listen_hosts":{
+                "type":"array",
+                "items":{"type":"string","enum":["127.0.0.1","::1"]},
+                "minItems":1,
+                "maxItems":2,
+                "uniqueItems":true
+            },
             "listen_port":{"type":"integer"},
             "pairing_required":{"type":"boolean"},
             "connected_sessions":{"type":"integer","minimum":0,"maximum":64},
             "motion":{"type":"string"},
             "plugin_api":{"type":"string"}
         },
-        "required":["healthy","bridge_protocol","listen_host","listen_port","pairing_required","connected_sessions","motion","plugin_api"],
+        "required":["healthy","bridge_protocol","listen_host","listen_hosts","listen_port","pairing_required","connected_sessions","motion","plugin_api"],
         "additionalProperties":false
     })
 }
@@ -606,12 +613,19 @@ fn pairing_output() -> Value {
         "type":"object",
         "properties":{
             "listen_host":{"type":"string","const":"127.0.0.1"},
+            "listen_hosts":{
+                "type":"array",
+                "items":{"type":"string","enum":["127.0.0.1","::1"]},
+                "minItems":1,
+                "maxItems":2,
+                "uniqueItems":true
+            },
             "listen_port":{"type":"integer","minimum":1,"maximum":65535},
             "pairing_code":{"type":"string","pattern":"^[0-9a-f]{64}$"},
             "pairing_code_ephemeral":{"type":"boolean"},
             "sessions":bounded_array(64, bounded_object(16))
         },
-        "required":["listen_host","listen_port","pairing_code","pairing_code_ephemeral","sessions"],
+        "required":["listen_host","listen_hosts","listen_port","pairing_code","pairing_code_ephemeral","sessions"],
         "additionalProperties":false
     })
 }

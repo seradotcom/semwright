@@ -1,0 +1,69 @@
+{
+  "status": "PASS",
+  "scope": "kwin5_bridge_compatibility_in_isolated_plasma_wayland_vm",
+  "date_utc": "2026-09-26",
+  "environment": {
+    "isolation": "kvm",
+    "session_id": "1",
+    "seat": "seat0",
+    "session_type": "wayland",
+    "desktop": "KDE",
+    "session_desktop": "plasmawayland",
+    "kwin_version": "5.27.11",
+    "plasma_workspace_wayland": "5.27.12",
+    "xdg_desktop_portal": "1.18.4-1ubuntu2.24.04.3",
+    "xdg_desktop_portal_kde": "5.27.11-0ubuntu3"
+  },
+  "bridge": {
+    "script_loaded": true,
+    "backend_reported_supported": true,
+    "compatibility_mode": "KWin 5 client API",
+    "kwin5_api_observed": {
+      "windows": "workspace.clientList()",
+      "active": "workspace.activeClient",
+      "added": "workspace.clientAdded",
+      "removed": "workspace.clientRemoved",
+      "activated": "workspace.clientActivated",
+      "frame_geometry": true,
+      "frame_geometry_changed": true,
+      "caption_changed": true,
+      "close_window": true
+    }
+  },
+  "live_operations": {
+    "wayland_focus_pair": {
+      "primary_to_secondary": true,
+      "secondary_to_primary": true,
+      "primary_refocus": true,
+      "result": "PASS"
+    },
+    "move": {
+      "requested_x": 120,
+      "requested_y": 140,
+      "observed_x": 120,
+      "observed_y": 140,
+      "backend": "kwin",
+      "result": "PASS"
+    },
+    "resize": {
+      "requested_width": 700,
+      "requested_height": 260,
+      "observed_width": 700,
+      "observed_height": 260,
+      "backend": "kwin",
+      "result": "PASS"
+    }
+  },
+  "deterministic_tests": {
+    "shared_bridge_contract_and_kwin_compat": "22/22 PASS",
+    "verify_source": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "excluded_from_pass_claims": [
+    "An exploratory focus attempt from a Wayland GTK fixture to an XWayland xterm returned accepted=true but neither tracked window was focused afterward. It is not counted as focus certification."
+  ],
+  "limitations": [
+    "This evidence certifies the KWin 5 bridge compatibility layer and semantic window operations inside the isolated VM.",
+    "It is not RemoteDesktop/EIS keyboard certification; portal input evidence is recorded separately."
+  ]
+}

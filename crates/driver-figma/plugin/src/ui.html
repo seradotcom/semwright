@@ -14,9 +14,18 @@ button{margin:12px 8px 0 0;padding:8px 12px}
 <div id="state">Disconnected</div>
 <script>
 const $=id=>document.getElementById(id);
-let ws=null,session=null,generation=1,context=null;
+let ws=null,session=null,generation=0,activeGeneration=0,context=null;
+let pairingSecret=null,manualDisconnect=true,reconnectTimer=null,reconnectAttempt=0,connecting=false,authenticatedOnce=false,preReadyFailures=0;
+let awaitingPairContext=false;
 function state(s){$("state").textContent=s}
 function hex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
+function randomSessionId(){
+ if(typeof crypto.randomUUID==="function")return crypto.randomUUID();
+ const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);
+ bytes[6]=(bytes[6]&0x0f)|0x40;bytes[8]=(bytes[8]&0x3f)|0x80;
+ const h=hex(bytes);
+ return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
+}
 function unhex(s){
  if(!/^[0-9a-f]{64}$/i.test(s))throw new Error("pairing code must be 64 hex characters");
  const out=new Uint8Array(s.length/2);
@@ -28,52 +37,191 @@ function generationBytes(n){
  for(let i=7;i>=0;i--){out[i]=Number(v&255n);v>>=8n}
  return out;
 }
+const SHA256_K=[
+ 0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+ 0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+ 0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+ 0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+ 0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+ 0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+ 0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+ 0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+];
+function joinBytes(a,b){
+ const out=new Uint8Array(a.length+b.length);out.set(a);out.set(b,a.length);return out;
+}
+function rotateRight(x,n){return (x>>>n)|(x<<(32-n))}
+function sha256(data){
+ const size=Math.ceil((data.length+9)/64)*64;
+ const padded=new Uint8Array(size);padded.set(data);padded[data.length]=0x80;
+ const view=new DataView(padded.buffer),bits=BigInt(data.length)*8n;
+ view.setUint32(size-8,Number(bits>>32n));view.setUint32(size-4,Number(bits&0xffffffffn));
+ const h=new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);
+ const w=new Uint32Array(64);
+ for(let offset=0;offset<size;offset+=64){
+  for(let i=0;i<16;i++)w[i]=view.getUint32(offset+i*4);
+  for(let i=16;i<64;i++){
+   const a=w[i-15],b=w[i-2];
+   const s0=rotateRight(a,7)^rotateRight(a,18)^(a>>>3);
+   const s1=rotateRight(b,17)^rotateRight(b,19)^(b>>>10);
+   w[i]=(w[i-16]+s0+w[i-7]+s1)>>>0;
+  }
+  let [a,b,c,d,e,f,g,j]=h;
+  for(let i=0;i<64;i++){
+   const s1=rotateRight(e,6)^rotateRight(e,11)^rotateRight(e,25);
+   const ch=(e&f)^(~e&g);
+   const t1=(j+s1+ch+SHA256_K[i]+w[i])>>>0;
+   const s0=rotateRight(a,2)^rotateRight(a,13)^rotateRight(a,22);
+   const maj=(a&b)^(a&c)^(b&c);
+   const t2=(s0+maj)>>>0;
+   j=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+  }
+  const values=[a,b,c,d,e,f,g,j];
+  for(let i=0;i<8;i++)h[i]=(h[i]+values[i])>>>0;
+ }
+ const out=new Uint8Array(32),result=new DataView(out.buffer);
+ for(let i=0;i<8;i++)result.setUint32(i*4,h[i]);
+ return out;
+}
+function hmacSha256(key,data){
+ const inner=new Uint8Array(64),outer=new Uint8Array(64);
+ for(let i=0;i<64;i++){const b=key[i]||0;inner[i]=b^0x36;outer[i]=b^0x5c}
+ return sha256(joinBytes(outer,sha256(joinBytes(inner,data))));
+}
 async function proof(secretHex,nonce,sessionId,gen){
- const key=await crypto.subtle.importKey("raw",unhex(secretHex),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
  const enc=new TextEncoder(),zero=new Uint8Array([0]);
- const n=enc.encode(nonce),s=enc.encode(sessionId),g=generationBytes(gen);
- const data=new Uint8Array(n.length+1+s.length+1+g.length);
- let o=0;data.set(n,o);o+=n.length;data.set(zero,o++);data.set(s,o);o+=s.length;data.set(zero,o++);data.set(g,o);
- return hex(new Uint8Array(await crypto.subtle.sign("HMAC",key,data)));
+ const n=enc.encode(nonce),sid=enc.encode(sessionId),g=generationBytes(gen),secret=unhex(secretHex);
+ const data=new Uint8Array(n.length+1+sid.length+1+g.length);
+ let o=0;data.set(n,o);o+=n.length;data.set(zero,o++);data.set(sid,o);o+=sid.length;data.set(zero,o++);data.set(g,o);
+ const subtle=globalThis.crypto?.subtle;
+ if(subtle){
+  try{
+   const key=await subtle.importKey("raw",secret,{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+   return hex(new Uint8Array(await subtle.sign("HMAC",key,data)));
+  }catch(_){}
+ }
+ return hex(hmacSha256(secret,data));
+}
+async function websocketText(data){
+ if(typeof data==="string")return data;
+ if(typeof Blob!=="undefined"&&data instanceof Blob)return await data.text();
+ if(data instanceof ArrayBuffer)return new TextDecoder().decode(new Uint8Array(data));
+ if(ArrayBuffer.isView(data))return new TextDecoder().decode(new Uint8Array(data.buffer,data.byteOffset,data.byteLength));
+ throw new Error("unsupported WebSocket message type");
+}
+function clearReconnect(){
+ if(reconnectTimer!==null){clearTimeout(reconnectTimer);reconnectTimer=null}
+}
+function stopPreAuthRetry(reason){
+ manualDisconnect=true;
+ pairingSecret=null;
+ activeGeneration=0;
+ connecting=false;
+ reconnectAttempt=0;
+ preReadyFailures=0;
+ clearReconnect();
+ awaitingPairContext=false;
+ state(reason+"\nEnter a fresh pairing code and press Connect.");
+}
+function scheduleReconnect(reason){
+ if(manualDisconnect||!pairingSecret||!session)return;
+ if(!authenticatedOnce){
+  preReadyFailures++;
+  if(preReadyFailures>=3){
+   stopPreAuthRetry(reason+" before authentication");
+   return;
+  }
+ }
+ clearReconnect();
+ const delay=Math.min(4000,250*(2**Math.min(reconnectAttempt,4)));
+ reconnectAttempt++;
+ state(reason+"\nReconnecting in "+delay+" ms…");
+ reconnectTimer=setTimeout(()=>{reconnectTimer=null;openSocket()},delay);
+}
+function openSocket(){
+ if(manualDisconnect||!pairingSecret||!session||connecting)return;
+ if(ws&&(ws.readyState===WebSocket.CONNECTING||ws.readyState===WebSocket.OPEN))return;
+ const port=Number($("port").value);
+ if(!Number.isInteger(port)||port<1024||port>65535){state("Invalid loopback port");return}
+ const sid=session,gen=++generation,secret=pairingSecret;
+ const socket=new WebSocket("ws://localhost:"+port);
+ ws=socket;connecting=true;activeGeneration=0;
+ socket.onopen=()=>{
+  if(ws!==socket)return;
+  socket.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.3.0",figma_api:"1.139.0",editor_type:context?.editorType??"unknown",session_id:sid,document_id:context?.documentId??"unknown",generation:gen,revision:context?.revision??0,capabilities:["design","prototype","motion_beta","figjam","slides","buzz","teamlibrary","shaders","semantic_complete"]}));
+  state("Awaiting server challenge…\nGeneration "+gen);
+ };
+ socket.onmessage=async e=>{
+  if(ws!==socket)return;
+  try{
+   const m=JSON.parse(await websocketText(e.data));
+   if(m.type==="challenge"){
+    if(m.session_id!==sid||m.generation!==gen||typeof m.nonce!=="string"||!/^[0-9a-f]{32}$/i.test(m.nonce)){state("Invalid server challenge");socket.close();return}
+    const authProof=await proof(secret,m.nonce,sid,gen);
+    socket.send(JSON.stringify({type:"authenticate",session_id:sid,generation:gen,proof:authProof}));
+    state("Authenticating…\nGeneration "+gen);
+   }
+   else if(m.type==="ready"){
+    activeGeneration=gen;connecting=false;authenticatedOnce=true;preReadyFailures=0;reconnectAttempt=0;clearReconnect();$("secret").value="";
+    state("Connected\nSession "+sid+"\nGeneration "+gen);
+   }
+   else if(m.type==="request"){
+    if(m.session_id!==sid||m.generation!==gen){socket.close();return}
+    parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision,operation:m.operation,args:m.args}}},"*");
+   }
+   else if(m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}));
+   else if(m.type==="close"){
+    const reason=String(m.reason??"session closed");
+    if(!authenticatedOnce&&(reason.includes("authentication")||reason.includes("protocol"))){
+     stopPreAuthRetry("Pairing rejected: "+reason);
+     socket.close();
+     return;
+    }
+    state("Server requested reconnect: "+reason);
+    socket.close();
+   }
+  }catch(err){
+   state("Bridge message failed: "+(err instanceof Error?err.message:"invalid server message"));
+   socket.close();
+  }
+ };
+ socket.onclose=()=>{
+  if(ws!==socket)return;
+  ws=null;connecting=false;activeGeneration=0;
+  scheduleReconnect("Disconnected");
+ };
+ socket.onerror=()=>{
+  if(ws===socket)state("Connection interrupted…");
+ };
 }
 parent.postMessage({pluginMessage:{type:"bridge-status"}},"*");
 onmessage=e=>{
  const m=e.data.pluginMessage;if(!m)return;
- if(m.type==="document-context"){context=m;state("Disconnected\n"+m.editorType)}
- if(m.type==="bridge-response"&&ws?.readyState===1){
-  ws.send(JSON.stringify({type:"response",session_id:session,generation,revision:m.response.revision,id:m.response.id,ok:m.response.ok,value:m.response.value,error:m.response.error}));
+ if(m.type==="document-context"){
+  context=m;
+  if(awaitingPairContext){awaitingPairContext=false;openSocket();return}
+  if(activeGeneration===0&&!connecting&&!reconnectTimer)state("Disconnected\n"+m.editorType);
  }
- if(m.type==="event"&&ws?.readyState===1){
-  ws.send(JSON.stringify({type:"event",session_id:session,generation,revision:m.revision,kind:m.kind,payload:m.payload??{}}));
+ if(m.type==="bridge-response"&&ws?.readyState===WebSocket.OPEN&&activeGeneration>0){
+  ws.send(JSON.stringify({type:"response",session_id:session,generation:activeGeneration,revision:m.response.revision,id:m.response.id,ok:m.response.ok,value:m.response.value,error:m.response.error}));
+ }
+ if(m.type==="event"){
+  if(context&&Number.isFinite(Number(m.revision)))context={...context,revision:Math.max(Number(context.revision??0),Number(m.revision))};
+  if(ws?.readyState===WebSocket.OPEN&&activeGeneration>0)ws.send(JSON.stringify({type:"event",session_id:session,generation:activeGeneration,revision:m.revision,kind:m.kind,payload:m.payload??{}}));
  }
 };
-$("connect").onclick=async()=>{
+$("connect").onclick=()=>{
  try{
   const port=Number($("port").value),secret=$("secret").value.trim().toLowerCase();
   if(!Number.isInteger(port)||port<1024||port>65535||!/^[0-9a-f]{64}$/.test(secret)){state("Invalid pairing data");return}
-  session=crypto.randomUUID();generation++;
-  ws=new WebSocket("ws://127.0.0.1:"+port);
-  ws.onopen=()=>{
-   ws.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.3.0",figma_api:"1.139.0",editor_type:context?.editorType??"unknown",session_id:session,document_id:context?.documentId??"unknown",generation,capabilities:["design","prototype","motion_beta","figjam","slides","buzz","teamlibrary","shaders","semantic_complete"]}));
-   state("Awaiting server challenge…");
-  };
-  ws.onmessage=async e=>{
-   if(typeof e.data!=="string")return;
-   const m=JSON.parse(e.data);
-   if(m.type==="challenge"){
-    if(m.session_id!==session||m.generation!==generation||typeof m.nonce!=="string"||!/^[0-9a-f]{32}$/i.test(m.nonce)){state("Invalid server challenge");ws.close();return}
-    const authProof=await proof(secret,m.nonce,session,generation);
-    ws.send(JSON.stringify({type:"authenticate",session_id:session,generation,proof:authProof}));
-    state("Authenticating…");
-   }
-   else if(m.type==="ready"){$("secret").value="";state("Connected\nSession "+session+"\nGeneration "+generation)}
-   else if(m.type==="request")parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision,operation:m.operation,args:m.args}}},"*");
-   else if(m.type==="ping")ws.send(JSON.stringify({type:"pong",nonce:m.nonce}));
-   else if(m.type==="close"){state("Closed: "+String(m.reason??"server closed"));ws.close()}
-  };
-  ws.onclose=()=>state("Disconnected");
-  ws.onerror=()=>state("Connection failed");
- }catch(err){state("Pairing failed")}
+  manualDisconnect=true;clearReconnect();
+  const old=ws;ws=null;old?.close();
+  pairingSecret=secret;session=randomSessionId();generation=0;activeGeneration=0;reconnectAttempt=0;connecting=false;authenticatedOnce=false;preReadyFailures=0;
+  manualDisconnect=false;awaitingPairContext=true;state("Refreshing document context…");parent.postMessage({pluginMessage:{type:"bridge-status"}},"*");
+ }catch(err){state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))}
 };
-$("disconnect").onclick=()=>{ws?.close();ws=null;$("secret").value="";state("Disconnected")};
+$("disconnect").onclick=()=>{
+ manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect();awaitingPairContext=false;
+ const old=ws;ws=null;old?.close();$("secret").value="";state("Disconnected");
+};
 </script>

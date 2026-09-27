@@ -279,17 +279,21 @@ impl ServerHandler for Fixture {
                 .all(|name| std::env::var_os(name).is_none());
                 let sandbox_marker =
                     std::env::var("SEMWRIGHT_MCP_SANDBOX").as_deref() == Ok("landlock-bwrap-v1");
-                let mut limit = libc::rlimit {
-                    rlim_cur: 0,
-                    rlim_max: 0,
-                };
-                // SAFETY: getrlimit synchronously writes to a live repr(C) rlimit pointer.
-                let nofile_soft =
+                #[cfg(unix)]
+                let nofile_soft = {
+                    let mut limit = libc::rlimit {
+                        rlim_cur: 0,
+                        rlim_max: 0,
+                    };
+                    // SAFETY: getrlimit synchronously writes to a live repr(C) rlimit pointer.
                     if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) } == 0 {
                         limit.rlim_cur
                     } else {
                         0
-                    };
+                    }
+                };
+                #[cfg(not(unix))]
+                let nofile_soft = 0u64;
                 Ok(CallToolResult::structured(json!({
                     "seed":seed.trim_end(),
                     "write_ok":write_ok,

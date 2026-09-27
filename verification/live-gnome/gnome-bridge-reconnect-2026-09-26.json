@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-09-26",
+  "status": "PASS_PARTIAL_R06",
+  "scope": "Real-login GNOME bridge disable/enable reconnect without desktop input",
+  "baseline": {
+    "main_commit": "e1760981b6b1eac4ba04396ae9727ca947b46cc9",
+    "tested_binary_commit": "6e9fb1b158d7d59be391f6d5f931c9d761862e6b",
+    "exact_component_match": {
+      "gnome_extension_blob": "13fd01ffb0a4c914c1ed9ba0da158d9edf333356",
+      "gnome_contract_blob": "226b145ea6d33f6a2413d335f6f17e60c1fa3a5f",
+      "linux_bridge_rs_blob": "03d8fe96ad7929268593d7e5bf3984718a19d3ba"
+    }
+  },
+  "environment": {
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.8.0-142-generic",
+    "desktop": "GNOME Shell 46.0",
+    "session_type": "wayland",
+    "seat": "seat0",
+    "remote": false,
+    "gpus": [
+      {
+        "vendor": "AMD",
+        "pci_vendor": "0x1002",
+        "device": "0x1636"
+      },
+      {
+        "vendor": "NVIDIA",
+        "pci_vendor": "0x10de",
+        "device": "0x1f99"
+      }
+    ],
+    "displays": {
+      "connected": [
+        {
+          "connector": "eDP-1",
+          "mode": "1920x1080"
+        }
+      ],
+      "disconnected": [
+        "HDMI-A-1",
+        "DP-1"
+      ]
+    }
+  },
+  "before": {
+    "extension_enabled": true,
+    "bridge_owner_present": true,
+    "gnome_window_manage": "SUPPORTED",
+    "window_list_backend": "gnome",
+    "window_count": 12
+  },
+  "disable": {
+    "extension_disable_returned": true,
+    "bridge_owner_present": false,
+    "window_list_ok": false,
+    "window_list_error": "Unavailable",
+    "gnome_window_manage": "UNAVAILABLE"
+  },
+  "reenable": {
+    "extension_enable_returned": true,
+    "bridge_owner_present": true,
+    "reconnect_ms": 62,
+    "gnome_window_manage": "SUPPORTED",
+    "window_list_backend": "gnome",
+    "recovered_window_count": 12,
+    "status": "PASS"
+  },
+  "safety": {
+    "portal_started": false,
+    "keyboard_input_sent": false,
+    "pointer_input_sent": false,
+    "shell_or_compositor_restarted": false,
+    "extension_final_state": "enabled",
+    "temporary_broker_stopped": true
+  },
+  "limitations": [
+    "This certifies Semwright GNOME bridge disable/enable reconnect, not a GNOME Shell compositor restart.",
+    "Only one physical display connector was connected, so physical multi-monitor or mixed-scale evidence could not be produced honestly.",
+    "No physical Hyprland login was performed; R06 remains open for those real-login and hardware cases.",
+    "No desktop input was injected into the owner-active login."
+  ]
+}

@@ -6,11 +6,11 @@ use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
-#[cfg(unix)]
-use semwright_driver_sdk::DriverInterfaces;
 use semwright_driver_sdk::{
-    DriverRequestContext, Manifest, Request, Response, capabilities_digest, descriptor_digest,
+    DriverInterfaces, DriverRequestContext, Manifest, Request, Response, capabilities_digest,
+    descriptor_digest,
 };
+use semwright_platform_api::launch::{SandboxStdin, SandboxStdout};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::{
@@ -21,23 +21,23 @@ use serde::Serialize;
 use serde_json::{Value, json};
 #[cfg(all(test, unix))]
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::{
+    fd::AsRawFd,
+    unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
+};
 use std::{
     collections::BTreeMap,
+    io::Write,
     path::{Path, PathBuf},
     sync::{Arc, RwLock as StdRwLock},
     time::Duration,
 };
-#[cfg(unix)]
-use std::{
-    io::Write,
-    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
-};
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
+use std::{ffi::CString, os::fd::FromRawFd};
+#[cfg(all(test, unix))]
 use tokio::process::Command;
-use tokio::{
-    process::{ChildStdin, ChildStdout},
-    sync::{Mutex, broadcast, oneshot},
-};
+use tokio::sync::{Mutex, broadcast, oneshot};
 use tokio_util::sync::CancellationToken;
 
 struct StagedFile(PathBuf);
@@ -48,8 +48,241 @@ impl Drop for StagedFile {
 }
 
 #[cfg(unix)]
-fn verify_owned_elf(path: &Path, digest: &str) -> Result<Vec<u8>> {
+struct SealedTool {
+    name: String,
+    // Own the immutable sealed memfd for the full provider lifetime.
+    _file: std::fs::File,
+    // Read-only descriptor inherited only by Bubblewrap so --file can
+    // materialize the verified bytes at a fixed executable path inside the
+    // private mount namespace.
+    data_file: std::fs::File,
+}
+#[cfg(unix)]
+impl SealedTool {
+    fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
+        let _sealed_owner_fd = self._file.as_raw_fd();
+        semwright_platform_api::launch::SealedToolMount {
+            fd: self.data_file.as_raw_fd(),
+            name: self.name.clone(),
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedTool> {
+    let bytes = semwright_platform_services::verify_executable(path, digest)?;
+    let label = CString::new(format!("semwright-tool-{name}"))
+        .map_err(|_| Error::invalid("Invalid tool name"))?;
+    // SAFETY: label is a live NUL-terminated CString and flags contain no pointers.
+    let fd =
+        unsafe { libc::memfd_create(label.as_ptr(), libc::MFD_ALLOW_SEALING | libc::MFD_CLOEXEC) };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: memfd_create returned a new owned descriptor on success.
+    let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    // SAFETY: fd is live and fchmod only reads scalar arguments.
+    if unsafe { libc::fchmod(fd, 0o500) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    let seals = libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
+    // SAFETY: fd is a live memfd created with MFD_ALLOW_SEALING.
+    if unsafe { libc::fcntl(fd, libc::F_ADD_SEALS, seals) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: F_GET_SEALS returns scalar seal bits for a live memfd.
+    let actual = unsafe { libc::fcntl(fd, libc::F_GET_SEALS) };
+    if actual < 0 || actual & seals != seals {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Driver tool memfd could not be sealed",
+        ));
+    }
+    let proc_path = CString::new(format!("/proc/self/fd/{fd}"))
+        .map_err(|_| Error::invalid("Invalid sealed tool descriptor path"))?;
+    // Re-open the sealed inode read-only. This descriptor deliberately omits
+    // O_CLOEXEC so Bubblewrap can consume it with --file; the original
+    // read-write memfd stays CLOEXEC and sealed.
+    // SAFETY: proc_path is a live NUL-terminated path to the sealed memfd.
+    let data_fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_RDONLY) };
+    if data_fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: open returned a new owned read-only descriptor on success.
+    let data_file = unsafe { std::fs::File::from_raw_fd(data_fd) };
+    // SAFETY: F_GETFD reads scalar descriptor flags only.
+    let fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+    // SAFETY: F_GETFL reads scalar file status flags only.
+    let status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
+    if fd_flags < 0
+        || status_flags < 0
+        || fd_flags & libc::FD_CLOEXEC != 0
+        || status_flags & libc::O_ACCMODE != libc::O_RDONLY
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Driver tool materialization descriptor is not read-only/inheritable",
+        ));
+    }
+    Ok(SealedTool {
+        name: name.to_owned(),
+        _file: file,
+        data_file,
+    })
+}
+
+#[cfg(all(unix, not(target_os = "linux")))]
+fn seal_verified_tool(_path: &Path, _digest: &str, _name: &str) -> Result<SealedTool> {
+    Err(Error::new(
+        ErrorCode::Unsupported,
+        "Sealed Driver Host tools are not implemented on this platform",
+    ))
+}
+
+fn verify_owned_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
     semwright_platform_services::verify_executable(path, digest)
+}
+
+#[cfg(target_os = "linux")]
+fn one_process_cpu_ticks(pid: u32) -> Result<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .map_err(|_| Error::unavailable("Driver process CPU accounting disappeared"))?;
+    let end = stat
+        .rfind(')')
+        .ok_or_else(|| Error::new(ErrorCode::Internal, "Malformed /proc process stat"))?;
+    let fields = stat[end + 1..].split_whitespace().collect::<Vec<_>>();
+    if fields.len() <= 14 {
+        return Err(Error::new(
+            ErrorCode::Internal,
+            "Malformed /proc process CPU fields",
+        ));
+    }
+    let mut total = 0u64;
+    // After the command name, indexes 11..=14 are utime, stime, cutime and cstime.
+    // Including waited-for children plus live descendants prevents secondary runners from
+    // escaping a per-operation CPU budget.
+    for field in &fields[11..=14] {
+        total = total
+            .checked_add(
+                field
+                    .parse::<u64>()
+                    .map_err(|_| Error::new(ErrorCode::Internal, "Malformed process CPU ticks"))?,
+            )
+            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Process CPU tick overflow"))?;
+    }
+    Ok(total)
+}
+
+#[cfg(target_os = "linux")]
+fn process_children(pid: u32) -> Result<Vec<u32>> {
+    let task_dir = match std::fs::read_dir(format!("/proc/{pid}/task")) {
+        Ok(task_dir) => task_dir,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut tids = 0usize;
+    let mut children = std::collections::BTreeSet::new();
+    for entry in task_dir {
+        let entry = entry?;
+        let Some(tid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|value| value.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        tids += 1;
+        if tids > 256 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Driver thread count exceeded CPU accounting bounds",
+            ));
+        }
+        let path = format!("/proc/{pid}/task/{tid}/children");
+        let text = std::fs::read_to_string(path).unwrap_or_default();
+        for child in text.split_whitespace() {
+            if let Ok(child) = child.parse::<u32>() {
+                children.insert(child);
+                if children.len() > 256 {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Driver child count exceeded CPU accounting bounds",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(children.into_iter().collect())
+}
+
+#[cfg(target_os = "linux")]
+fn process_tree_cpu_ticks(root: u32) -> Result<u64> {
+    let mut pending = vec![root];
+    let mut seen = std::collections::BTreeSet::new();
+    let mut total = 0u64;
+    while let Some(pid) = pending.pop() {
+        if !seen.insert(pid) {
+            continue;
+        }
+        if seen.len() > 256 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Driver process tree exceeded CPU accounting bounds",
+            ));
+        }
+        let ticks = match one_process_cpu_ticks(pid) {
+            Ok(ticks) => ticks,
+            Err(error) if pid != root && error.code == ErrorCode::Unavailable => continue,
+            Err(error) => return Err(error),
+        };
+        total = total
+            .checked_add(ticks)
+            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Process CPU tick overflow"))?;
+        pending.extend(process_children(pid)?);
+    }
+    Ok(total)
+}
+
+#[cfg(target_os = "linux")]
+fn cpu_ticks_per_second() -> Result<u64> {
+    // SAFETY: sysconf with _SC_CLK_TCK has no pointer arguments or memory-safety preconditions.
+    let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
+    u64::try_from(ticks)
+        .ok()
+        .filter(|ticks| *ticks > 0)
+        .ok_or_else(|| Error::new(ErrorCode::Unavailable, "CPU clock tick rate is unavailable"))
+}
+
+#[cfg(target_os = "linux")]
+async fn wait_for_operation_cpu_budget(pid: u32, seconds: u64) -> Result<()> {
+    if seconds == 0 {
+        return std::future::pending::<Result<()>>().await;
+    }
+    let start = process_tree_cpu_ticks(pid)?;
+    let limit = seconds
+        .checked_mul(cpu_ticks_per_second()?)
+        .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "CPU budget overflow"))?;
+    loop {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let current = process_tree_cpu_ticks(pid)?;
+        if current.saturating_sub(start) >= limit {
+            return Ok(());
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn wait_for_operation_cpu_budget(_pid: u32, seconds: u64) -> Result<()> {
+    if seconds == 0 {
+        std::future::pending::<Result<()>>().await
+    } else {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Per-operation driver CPU accounting is Linux-only",
+        ))
+    }
 }
 
 fn validate_secret_source(path: &Path) -> Result<()> {
@@ -87,6 +320,13 @@ fn validate_owner_permissions(
     allow_network: bool,
 ) -> Result<()> {
     manifest.validate()?;
+    #[cfg(not(target_os = "linux"))]
+    if manifest.resources.operation_cpu_seconds != 0 {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Per-operation driver CPU accounting is Linux-only",
+        ));
+    }
     if manifest.network && !allow_network {
         return Err(Error::new(
             ErrorCode::PolicyDenied,
@@ -106,10 +346,18 @@ fn validate_owner_permissions(
                 "Driver mount exceeds its filesystem grant",
             ));
         }
+        #[cfg(unix)]
         if std::fs::canonicalize(&grant.path)? != grant.path {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
                 "Driver filesystem grants must be canonical paths",
+            ));
+        }
+        #[cfg(target_os = "windows")]
+        if !grant.path.is_absolute() {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows driver filesystem grants must use absolute paths",
             ));
         }
     }
@@ -148,6 +396,18 @@ fn validate_owner_permissions(
         }
         validate_secret_source(&grant.path)?;
     }
+    for tool in &manifest.tools {
+        let grant = roots
+            .iter()
+            .find(|grant| grant.name == tool.root)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver tool has no owner grant"))?;
+        if !grant.read || std::fs::canonicalize(&grant.path)? != grant.path {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver tool requires canonical readable owner grant",
+            ));
+        }
+    }
     if manifest.protocol == 1
         && (manifest.interfaces.dynamic_capabilities
             || manifest.interfaces.cooperative_cancellation
@@ -169,12 +429,12 @@ fn validate_owner_permissions(
 }
 
 struct Io {
-    input: ChildStdin,
-    output: ChildStdout,
+    input: SandboxStdin,
+    output: SandboxStdout,
 }
 
 struct V2Io {
-    input: Mutex<ChildStdin>,
+    input: Mutex<SandboxStdin>,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
 }
 
@@ -223,7 +483,6 @@ impl V2Io {
     }
 }
 
-#[cfg(unix)]
 fn provider_interfaces(interfaces: DriverInterfaces) -> ProviderInterfaces {
     ProviderInterfaces {
         dynamic_capabilities: interfaces.dynamic_capabilities,
@@ -236,7 +495,6 @@ fn provider_interfaces(interfaces: DriverInterfaces) -> ProviderInterfaces {
     }
 }
 
-#[cfg(unix)]
 fn response_id(response: &Response) -> Option<&str> {
     match response {
         Response::Interfaces { id, .. }
@@ -254,9 +512,8 @@ fn response_id(response: &Response) -> Option<&str> {
     }
 }
 
-#[cfg(unix)]
 fn spawn_v2_reader(
-    mut output: ChildStdout,
+    mut output: SandboxStdout,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
     signals: broadcast::Sender<ProviderSignal>,
     interfaces: DriverInterfaces,
@@ -343,13 +600,14 @@ async fn request<T: Serialize>(io: &mut Io, request: &T, timeout: Duration) -> R
 }
 
 #[cfg(unix)]
-fn sandbox_command(
+fn sandbox_spec(
     manifest: &Manifest,
     staged: &Path,
     helper: &Path,
     roots: &[FilesystemGrant],
     loopback_directory: Option<&Path>,
-) -> Result<Command> {
+    sealed_tools: &[SealedTool],
+) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
@@ -429,13 +687,98 @@ fn sandbox_command(
             loopback::SANDBOX_SOCKET.into(),
         ));
     }
-    semwright_platform_services::sandbox_command(&SandboxSpec {
+    Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
         helper: helper.into(),
         mounts,
         args: vec![],
         environment,
+        sealed_tools: sealed_tools.iter().map(SealedTool::sandbox_mount).collect(),
+        network: manifest.network,
+        limits: Some(ResourceLimits {
+            open_files: manifest.resources.open_files,
+            processes: manifest.resources.processes,
+            cpu_seconds: manifest.resources.cpu_seconds,
+            address_space_bytes: manifest.resources.address_space_bytes,
+            file_size_bytes: manifest.resources.file_size_bytes,
+        }),
+    })
+}
+
+#[cfg(all(test, unix))]
+fn sandbox_command(
+    manifest: &Manifest,
+    staged: &Path,
+    helper: &Path,
+    roots: &[FilesystemGrant],
+    loopback_directory: Option<&Path>,
+    sealed_tools: &[SealedTool],
+) -> Result<Command> {
+    semwright_platform_services::sandbox_command(&sandbox_spec(
+        manifest,
+        staged,
+        helper,
+        roots,
+        loopback_directory,
+        sealed_tools,
+    )?)
+}
+
+#[cfg(target_os = "windows")]
+fn sandbox_spec_windows(
+    manifest: &Manifest,
+    staged: &Path,
+    helper: &Path,
+    roots: &[FilesystemGrant],
+) -> Result<semwright_platform_api::launch::SandboxSpec> {
+    use semwright_platform_api::launch::{
+        Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
+    };
+
+    if !manifest.system_config.is_empty()
+        || !manifest.secrets.is_empty()
+        || !manifest.tools.is_empty()
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows system-config, secret and tool grants remain fail-closed until their AppContainer contracts are proven",
+        ));
+    }
+    if manifest.loopback_port.is_some() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows driver loopback remains fail-closed until a non-Unix bridge is implemented",
+        ));
+    }
+    let lookup = |name: &str| -> Result<&FilesystemGrant> {
+        roots
+            .iter()
+            .find(|grant| grant.name == name)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver grant disappeared"))
+    };
+    let mounts = manifest
+        .mounts
+        .iter()
+        .map(|mount| {
+            let grant = lookup(&mount.root)?;
+            Ok(Mount {
+                source: grant.path.clone(),
+                class: MountClass::Workspace,
+                logical_name: mount.root.clone(),
+                read_only: mount.read_only,
+                execute: mount.execute,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(SandboxSpec {
+        kind: SandboxKind::Driver,
+        staged_executable: staged.into(),
+        helper: helper.into(),
+        mounts,
+        args: vec![],
+        environment: vec![],
+        sealed_tools: vec![],
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
@@ -457,9 +800,12 @@ pub struct DriverProvider {
     interfaces: ProviderInterfaces,
     closed: CancellationToken,
     terminate: CancellationToken,
+    process_id: u32,
     _staged: Arc<StagedFile>,
     #[cfg(unix)]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
+    #[cfg(unix)]
+    _tools: Vec<SealedTool>,
 }
 
 impl DriverProvider {
@@ -473,17 +819,214 @@ impl DriverProvider {
         validate_owner_permissions(&manifest, roots, allow_network)?;
         #[cfg(target_os = "windows")]
         {
-            let _ = (state, helper, roots);
-            Err(Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows arbitrary driver execution is fail-closed until secure pre-exec containment is implemented",
-            ))
+            semwright_protocol::private_directory(state)?;
+            let identity = manifest.identity()?;
+            let bytes = verify_owned_executable(&manifest.executable, &manifest.sha256)?;
+            let staged_path = state.join(format!("driver-{}.exe", unique_id()));
+            let staged = Arc::new(StagedFile(staged_path.clone()));
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&staged_path)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            drop(file);
+
+            // Bind trust checks to the exact staged file that will execute.
+            let _ = verify_owned_executable(&staged_path, &manifest.sha256)?;
+            let spec = sandbox_spec_windows(&manifest, &staged_path, helper, roots)?;
+            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let process_id = child
+                .id()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
+            let input = child.take_stdin()?;
+            let output = child.take_stdout()?;
+            let mut io = Io { input, output };
+            let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
+
+            let hello = request(
+                &mut io,
+                &Request::Hello {
+                    protocol: manifest.protocol,
+                    provider: identity.clone(),
+                    executable_sha256: manifest.sha256.to_ascii_lowercase(),
+                },
+                timeout,
+            )
+            .await?;
+            match hello {
+                Response::Ready {
+                    protocol,
+                    id,
+                    version,
+                } if protocol == manifest.protocol
+                    && id == manifest.id
+                    && version == manifest.version => {}
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver handshake did not attest the expected identity/version",
+                    ));
+                }
+            }
+
+            if manifest.protocol >= 2 {
+                let interfaces_id = unique_id();
+                match request(
+                    &mut io,
+                    &Request::Interfaces {
+                        id: interfaces_id.clone(),
+                    },
+                    timeout,
+                )
+                .await?
+                {
+                    Response::Interfaces { id, interfaces }
+                        if id == interfaces_id && interfaces == manifest.interfaces => {}
+                    _ => {
+                        let _ = child.kill().await;
+                        return Err(Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            "Driver interface negotiation did not match the owner manifest",
+                        ));
+                    }
+                }
+            }
+
+            let id = unique_id();
+            let response =
+                request(&mut io, &Request::Capabilities { id: id.clone() }, timeout).await?;
+            let capabilities = match response {
+                Response::Capabilities {
+                    id: response_id,
+                    capabilities,
+                    digest,
+                } if response_id == id && digest == capabilities_digest(&capabilities)? => {
+                    capabilities
+                }
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver capability attestation mismatch",
+                    ));
+                }
+            };
+            if capabilities.is_empty() || capabilities.len() > 2048 {
+                let _ = child.kill().await;
+                return Err(Error::invalid(
+                    "Driver returned an invalid capability count",
+                ));
+            }
+            let mut provided = Vec::with_capacity(capabilities.len());
+            let mut digests = BTreeMap::new();
+            for capability in capabilities {
+                capability.validate_for(&identity)?;
+                let digest = descriptor_digest(&capability.descriptor)?;
+                if digests
+                    .insert(capability.descriptor.name.clone(), digest)
+                    .is_some()
+                {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Driver returned duplicate capability names",
+                    ));
+                }
+                provided.push(ProvidedCapability {
+                    descriptor: capability.descriptor,
+                    aliases: capability.aliases,
+                    tags: capability.tags,
+                    object_types: capability.object_types,
+                });
+            }
+
+            let health_id = unique_id();
+            match request(
+                &mut io,
+                &Request::Health {
+                    id: health_id.clone(),
+                },
+                timeout,
+            )
+            .await?
+            {
+                Response::Healthy { id, .. } if id == health_id => {}
+                _ => {
+                    let _ = child.kill().await;
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver health handshake failed",
+                    ));
+                }
+            }
+
+            let closed = CancellationToken::new();
+            let terminate = CancellationToken::new();
+            let interfaces = if manifest.protocol >= 2 {
+                provider_interfaces(manifest.interfaces)
+            } else {
+                ProviderInterfaces {
+                    health: manifest.interfaces.health,
+                    ..Default::default()
+                }
+            };
+            let (protocol_io, signals) = if manifest.protocol >= 2 {
+                let (signals, _) = broadcast::channel(128);
+                let pending = Arc::new(Mutex::new(BTreeMap::new()));
+                let Io { input, output } = io;
+                spawn_v2_reader(
+                    output,
+                    pending.clone(),
+                    signals.clone(),
+                    manifest.interfaces,
+                    closed.clone(),
+                    terminate.clone(),
+                );
+                (
+                    ProtocolIo::V2(V2Io {
+                        input: Mutex::new(input),
+                        pending,
+                    }),
+                    Some(signals),
+                )
+            } else {
+                (ProtocolIo::V1(Mutex::new(io)), None)
+            };
+            let monitor_closed = closed.clone();
+            let monitor_terminate = terminate.clone();
+            let monitor_staged = staged.clone();
+            tokio::spawn(async move {
+                tokio::select! {
+                    _ = monitor_terminate.cancelled() => {
+                        let _ = child.kill().await;
+                    }
+                    _ = child.wait() => {}
+                }
+                monitor_closed.cancel();
+                drop(monitor_staged);
+            });
+
+            Ok(Arc::new(Self {
+                identity,
+                manifest,
+                capabilities: StdRwLock::new(provided),
+                descriptor_digests: StdRwLock::new(digests),
+                io: protocol_io,
+                signals,
+                interfaces,
+                closed,
+                terminate,
+                process_id,
+                _staged: staged,
+            }))
         }
         #[cfg(unix)]
         {
             semwright_protocol::private_directory(state)?;
             let identity = manifest.identity()?;
-            let bytes = verify_owned_elf(&manifest.executable, &manifest.sha256)?;
+            let bytes = verify_owned_executable(&manifest.executable, &manifest.sha256)?;
             let staged_path = state.join(format!("driver-{}", unique_id()));
             let staged = Arc::new(StagedFile(staged_path.clone()));
             let mut file = std::fs::OpenOptions::new()
@@ -496,28 +1039,37 @@ impl DriverProvider {
             file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
             drop(file);
 
+            let sealed_tools = manifest
+                .tools
+                .iter()
+                .map(|tool| {
+                    let grant = roots
+                        .iter()
+                        .find(|grant| grant.name == tool.root)
+                        .ok_or_else(|| {
+                            Error::new(ErrorCode::PolicyDenied, "Driver tool grant disappeared")
+                        })?;
+                    seal_verified_tool(&grant.path, &tool.sha256, &tool.name)
+                })
+                .collect::<Result<Vec<_>>>()?;
             let loopback = match manifest.loopback_port {
                 Some(port) => Some(loopback::start(state, port).await?),
                 None => None,
             };
-            let mut command = sandbox_command(
+            let spec = sandbox_spec(
                 &manifest,
                 &staged_path,
                 helper,
                 roots,
                 loopback.as_deref().map(loopback::LoopbackProxy::directory),
+                &sealed_tools,
             )?;
-            let mut child = command.spawn().map_err(|_| {
-                Error::new(ErrorCode::SandboxDenied, "Driver sandbox failed to start")
-            })?;
-            let input = child
-                .stdin
-                .take()
-                .ok_or_else(|| Error::new(ErrorCode::ProtocolMismatch, "Driver stdin missing"))?;
-            let output = child
-                .stdout
-                .take()
-                .ok_or_else(|| Error::new(ErrorCode::ProtocolMismatch, "Driver stdout missing"))?;
+            let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+            let process_id = child
+                .id()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
+            let input = child.take_stdin()?;
+            let output = child.take_stdout()?;
             let mut io = Io { input, output };
             let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
             let hello = request(
@@ -694,8 +1246,10 @@ impl DriverProvider {
                 interfaces,
                 closed,
                 terminate,
+                process_id,
                 _staged: staged,
                 _loopback: loopback,
+                _tools: sealed_tools,
             }))
         }
     }
@@ -937,81 +1491,120 @@ impl Provider for DriverProvider {
             context: request_context,
         };
 
-        let response = match &self.io {
-            ProtocolIo::V1(io) => {
-                let mut io = io.lock().await;
-                tokio::select! {
-                    biased;
-                    _ = context.cancellation.cancelled() => {
-                        self.terminate.cancel();
-                        return Err(Error::new(
-                            ErrorCode::Cancelled,
-                            "Driver v1 execution cancelled by terminating its isolated process",
-                        ).uncertain());
-                    }
-                    response = request(&mut io, &execute, timeout) => response
-                }
-            }
-            ProtocolIo::V2(io) => {
-                let receiver = io.begin(&execute, &id).await?;
-                let response_future = async {
-                    match tokio::time::timeout(timeout, receiver).await {
-                        Ok(Ok(response)) => Ok(response),
-                        Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
-                        Err(_) => {
-                            io.pending.lock().await.remove(&id);
-                            Err(Error::new(ErrorCode::Timeout, "Driver execution timed out"))
-                        }
-                    }
-                };
-                tokio::pin!(response_future);
-                if self.interfaces.cooperative_cancellation {
+        let response_future = async {
+            match &self.io {
+                ProtocolIo::V1(io) => {
+                    let mut io = io.lock().await;
                     tokio::select! {
-                        response = &mut response_future => response,
-                        _ = context.cancellation.cancelled() => {
-                            let cancel_id = unique_id();
-                            let ack = io.request(
-                                &Request::Cancel {
-                                    id: cancel_id.clone(),
-                                    target: id.clone(),
-                                },
-                                &cancel_id,
-                                Duration::from_secs(2),
-                            ).await?;
-                            match ack {
-                                Response::Cancelled { id: response_id, target, .. }
-                                    if response_id == cancel_id && target == id => {}
-                                _ => {
-                                    self.terminate.cancel();
-                                    return Err(Error::new(
-                                        ErrorCode::ProtocolMismatch,
-                                        "Driver cancellation acknowledgement mismatch",
-                                    ).uncertain());
-                                }
-                            }
-                            match tokio::time::timeout(Duration::from_secs(3), &mut response_future).await {
-                                Ok(response) => response,
-                                Err(_) => {
-                                    self.terminate.cancel();
-                                    return Err(Error::new(
-                                        ErrorCode::Cancelled,
-                                        "Driver accepted cancellation but did not terminate the request",
-                                    ).uncertain());
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    tokio::select! {
-                        response = &mut response_future => response,
+                        biased;
                         _ = context.cancellation.cancelled() => {
                             self.terminate.cancel();
-                            return Err(Error::new(
+                            Err(Error::new(
                                 ErrorCode::Cancelled,
-                                "Driver execution cancelled; child has no cooperative cancellation contract",
-                            ).uncertain());
+                                "Driver v1 execution cancelled by terminating its isolated process",
+                            ).uncertain())
+                        }
+                        response = request(&mut io, &execute, timeout) => response
+                    }
+                }
+                ProtocolIo::V2(io) => {
+                    let receiver = io.begin(&execute, &id).await?;
+                    let response_future = async {
+                        match tokio::time::timeout(timeout, receiver).await {
+                            Ok(Ok(response)) => Ok(response),
+                            Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
+                            Err(_) => {
+                                io.pending.lock().await.remove(&id);
+                                Err(Error::new(ErrorCode::Timeout, "Driver execution timed out"))
+                            }
+                        }
+                    };
+                    tokio::pin!(response_future);
+                    if self.interfaces.cooperative_cancellation {
+                        tokio::select! {
+                            response = &mut response_future => response,
+                            _ = context.cancellation.cancelled() => {
+                                let cancel_id = unique_id();
+                                let ack = io.request(
+                                    &Request::Cancel {
+                                        id: cancel_id.clone(),
+                                        target: id.clone(),
+                                    },
+                                    &cancel_id,
+                                    Duration::from_secs(2),
+                                ).await?;
+                                match ack {
+                                    Response::Cancelled { id: response_id, target, .. }
+                                        if response_id == cancel_id && target == id => {}
+                                    _ => {
+                                        self.terminate.cancel();
+                                        return Err(Error::new(
+                                            ErrorCode::ProtocolMismatch,
+                                            "Driver cancellation acknowledgement mismatch",
+                                        ).uncertain());
+                                    }
+                                }
+                                match tokio::time::timeout(Duration::from_secs(3), &mut response_future).await {
+                                    Ok(response) => response,
+                                    Err(_) => {
+                                        self.terminate.cancel();
+                                        Err(Error::new(
+                                            ErrorCode::Cancelled,
+                                            "Driver accepted cancellation but did not terminate the request",
+                                        ).uncertain())
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        tokio::select! {
+                            response = &mut response_future => response,
+                            _ = context.cancellation.cancelled() => {
+                                self.terminate.cancel();
+                                Err(Error::new(
+                                    ErrorCode::Cancelled,
+                                    "Driver execution cancelled; child has no cooperative cancellation contract",
+                                ).uncertain())
+                            }
                         }
                     }
+                }
+            }
+        };
+        tokio::pin!(response_future);
+        let cpu_watch = wait_for_operation_cpu_budget(
+            self.process_id,
+            self.manifest.resources.operation_cpu_seconds,
+        );
+        tokio::pin!(cpu_watch);
+        let response = tokio::select! {
+            biased;
+            response = &mut response_future => response,
+            budget = &mut cpu_watch => {
+                if let ProtocolIo::V2(io) = &self.io {
+                    io.pending.lock().await.remove(&id);
+                }
+                self.terminate.cancel();
+                let terminated = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    self.closed.cancelled(),
+                )
+                .await
+                .is_ok();
+                match budget {
+                    Ok(()) if terminated => {
+                        return Err(Error::new(
+                            ErrorCode::ResourceExhausted,
+                            "Driver exceeded its per-operation CPU budget",
+                        ).uncertain());
+                    }
+                    Ok(()) => {
+                        return Err(Error::new(
+                            ErrorCode::ResourceExhausted,
+                            "Driver exceeded its per-operation CPU budget and termination did not complete",
+                        ).uncertain());
+                    }
+                    Err(error) => return Err(error.uncertain()),
                 }
             }
         };
@@ -1180,7 +1773,7 @@ pub async fn conformance(
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
     fn manifest() -> Manifest {
         Manifest {
@@ -1199,6 +1792,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             secrets: vec![],
+            tools: vec![],
             network: false,
             loopback_port: None,
             resources: semwright_driver_sdk::DriverResources::default(),
@@ -1223,6 +1817,85 @@ mod tests {
             validate_owner_permissions(&dynamic, &[], false),
             Err(error) if error.code == ErrorCode::Unsupported
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn sealed_tool_memfd_is_write_sealed() {
+        let source = Path::new("/usr/bin/true");
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let tool = seal_verified_tool(source, &digest, "probe").unwrap();
+        let fd = tool._file.as_raw_fd();
+        let data_fd = tool.data_file.as_raw_fd();
+        // SAFETY: F_GETFD reads scalar flags from the live sealed memfd descriptor.
+        let owner_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        assert!(owner_flags >= 0);
+        assert_ne!(owner_flags & libc::FD_CLOEXEC, 0);
+        let owner_metadata = tool._file.metadata().unwrap();
+        let data_metadata = tool.data_file.metadata().unwrap();
+        assert_eq!(owner_metadata.dev(), data_metadata.dev());
+        assert_eq!(owner_metadata.ino(), data_metadata.ino());
+        assert_eq!(data_metadata.permissions().mode() & 0o777, 0o500);
+        // SAFETY: F_GETFD reads scalar descriptor flags from the live read-only descriptor.
+        let data_fd_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFD) };
+        // SAFETY: F_GETFL reads scalar file status flags from the live read-only descriptor.
+        let data_status_flags = unsafe { libc::fcntl(data_fd, libc::F_GETFL) };
+        assert!(data_fd_flags >= 0);
+        assert!(data_status_flags >= 0);
+        assert_eq!(data_fd_flags & libc::FD_CLOEXEC, 0);
+        assert_eq!(data_status_flags & libc::O_ACCMODE, libc::O_RDONLY);
+        let required =
+            libc::F_SEAL_WRITE | libc::F_SEAL_GROW | libc::F_SEAL_SHRINK | libc::F_SEAL_SEAL;
+        // SAFETY: fd is a live memfd retained by tool.
+        let actual = unsafe { libc::fcntl(fd, libc::F_GET_SEALS) };
+        assert_eq!(actual & required, required);
+
+        let byte = b"x";
+        // SAFETY: pwrite reads one byte from a live static buffer and targets the live memfd.
+        let written = unsafe { libc::pwrite(fd, byte.as_ptr().cast(), 1, 0) };
+        assert_eq!(written, -1);
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::EPERM)
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn operation_cpu_watchdog_counts_busy_descendants_from_worker_threads() {
+        let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+        let (stop_tx, stop_rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let mut child = std::process::Command::new("/usr/bin/yes")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap();
+            ready_tx.send(child.id()).unwrap();
+            let _ = stop_rx.recv_timeout(Duration::from_secs(5));
+            let _ = child.kill();
+            let _ = child.wait();
+        });
+
+        let child_pid = ready_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("worker-thread child did not start");
+        let root = std::process::id();
+        assert!(
+            process_children(root).unwrap().contains(&child_pid),
+            "child spawned by a secondary thread must remain visible to CPU accounting"
+        );
+
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            wait_for_operation_cpu_budget(root, 1),
+        )
+        .await
+        .expect("CPU watchdog did not fire")
+        .expect("CPU accounting failed");
+
+        let _ = stop_tx.send(());
+        worker.join().unwrap();
     }
 
     #[test]
@@ -1317,7 +1990,7 @@ mod tests {
         std::fs::write(&staged, b"driver").unwrap();
         std::fs::write(&helper, b"helper").unwrap();
 
-        let command = sandbox_command(&manifest(), &staged, &helper, &[], None).unwrap();
+        let command = sandbox_command(&manifest(), &staged, &helper, &[], None, &[]).unwrap();
         let args: Vec<_> = command
             .as_std()
             .get_args()
@@ -1336,6 +2009,43 @@ mod tests {
         );
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn sealed_tools_are_materialized_as_private_files_not_deleted_bind_data() {
+        if !Path::new("/usr/bin/bwrap").is_file() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let staged = dir.path().join("driver");
+        let helper = dir.path().join("sandbox");
+        std::fs::write(&staged, b"driver").unwrap();
+        std::fs::write(&helper, b"helper").unwrap();
+
+        let source = Path::new("/usr/bin/true");
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let tool = seal_verified_tool(source, &digest, "probe").unwrap();
+        let command = sandbox_command(&manifest(), &staged, &helper, &[], None, &[tool]).unwrap();
+        let args = command
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert!(
+            args.windows(5).any(|window| {
+                window[0] == "--perms"
+                    && window[1] == "0500"
+                    && window[2] == "--file"
+                    && window[4] == "/plugin/tools/probe"
+            }),
+            "sealed tool must be copied from the sealed Host fd into the private sandbox root"
+        );
+        assert!(
+            !args.iter().any(|arg| arg == "--ro-bind-data"),
+            "deleted backing bind-data must not be used for executable sealed tools"
+        );
+    }
+
     #[test]
     fn writable_or_wrong_digest_executable_is_rejected() {
         let dir = tempfile::tempdir().unwrap();
@@ -1343,8 +2053,8 @@ mod tests {
         let body = b"ELFfixture";
         std::fs::write(&path, body).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
-        assert!(verify_owned_elf(&path, &format!("{:x}", Sha256::digest(body))).is_err());
+        assert!(verify_owned_executable(&path, &format!("{:x}", Sha256::digest(body))).is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(verify_owned_elf(&path, &"0".repeat(64)).is_err());
+        assert!(verify_owned_executable(&path, &"0".repeat(64)).is_err());
     }
 }

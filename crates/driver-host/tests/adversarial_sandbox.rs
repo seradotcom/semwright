@@ -3,9 +3,11 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
+    Transport,
 };
 use semwright_policy::FilesystemGrant;
+use semwright_types::ErrorCode;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -65,12 +67,14 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     let rw = tempfile::tempdir().unwrap();
     let secret = tempfile::tempdir().unwrap();
     let binary = tempfile::tempdir().unwrap();
+    let tool = tempfile::tempdir().unwrap();
     for directory in [
         state.path(),
         ro.path(),
         rw.path(),
         secret.path(),
         binary.path(),
+        tool.path(),
     ] {
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
@@ -87,10 +91,17 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     std::fs::copy(fixture_binary(), &executable).unwrap();
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500)).unwrap();
 
+    let tool_source = tool.path().join("probe");
+    std::fs::copy("/usr/bin/true", &tool_source).unwrap();
+    std::fs::set_permissions(&tool_source, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let tool_source = tool_source.canonicalize().unwrap();
+    let tool_digest = digest(&tool_source);
+
     let resources = DriverResources {
         open_files: 64,
         processes: 16,
         cpu_seconds: 20,
+        operation_cpu_seconds: 1,
         address_space_bytes: 536_870_912,
         file_size_bytes: 16_777_216,
     };
@@ -122,6 +133,11 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
         ],
         system_config: vec![],
         secrets: vec![],
+        tools: vec![DriverToolMount {
+            root: "probe-tool".into(),
+            name: "probe".into(),
+            sha256: tool_digest,
+        }],
         network: false,
         loopback_port: None,
         resources,
@@ -144,6 +160,12 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             read: true,
             write: true,
         },
+        FilesystemGrant {
+            name: "probe-tool".into(),
+            path: tool_source.clone(),
+            read: true,
+            write: false,
+        },
     ];
 
     let provider =
@@ -151,6 +173,22 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             .await
             .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
+
+    // The source disappears after the Host has verified/sealed it. The driver must
+    // execute only the immutable /plugin/tools/probe mount retained by the provider.
+    std::fs::remove_file(&tool_source).unwrap();
+    let tool_result = execute(
+        provider.as_ref(),
+        &capabilities,
+        "driver.adversarial.tool_probe",
+        json!({}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        tool_result["tool_executed"], true,
+        "sealed tool diagnostic: {tool_result}"
+    );
 
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -193,6 +231,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             "PATH",
             "PWD",
             "SEMWRIGHT_DRIVER_SANDBOX",
+            "SEMWRIGHT_SANDBOX_MOUNTS_V1",
             "XDG_CACHE_HOME",
             "XDG_CONFIG_HOME",
             "XDG_DATA_HOME",
@@ -207,11 +246,29 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
     )
     .await
     .unwrap();
-    Provider::shutdown(provider.as_ref()).await.unwrap();
+
+    let budget_error = execute(
+        provider.as_ref(),
+        &capabilities,
+        "driver.adversarial.cpu_burn",
+        json!({}),
+    )
+    .await
+    .expect_err("CPU-bound request must exceed the per-operation budget");
+    assert_eq!(budget_error.code, ErrorCode::ResourceExhausted);
+    assert!(!budget_error.outcome_known);
+
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        Provider::shutdown(provider.as_ref()),
+    )
+    .await
+    .expect("budget termination did not close the provider")
+    .unwrap();
     tokio::time::sleep(Duration::from_millis(1400)).await;
 
     assert!(
         !rw_path.join("driver-descendant.txt").exists(),
-        "a driver descendant survived provider shutdown"
+        "a driver descendant survived per-operation CPU budget termination"
     );
 }

@@ -1,5 +1,6 @@
 //! Versioned application-driver contract. Drivers are providers; this crate has no broker or MCP authority.
 use async_trait::async_trait;
+use semwright_platform_api::launch::{MountClass, SANDBOX_MOUNTS_ENV, decode_materialized_mounts};
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::provider::canonical_slug;
 use semwright_types::{
@@ -20,6 +21,57 @@ use tokio_util::sync::CancellationToken;
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_VERSION: u32 = 3;
+
+fn runtime_mount(class: MountClass, logical_name: &str) -> Result<PathBuf> {
+    if logical_name.is_empty()
+        || logical_name.len() > 255
+        || logical_name.chars().any(char::is_control)
+    {
+        return Err(Error::invalid("Invalid sandbox mount name"));
+    }
+
+    match std::env::var(SANDBOX_MOUNTS_ENV) {
+        Ok(encoded) => {
+            let mounts = decode_materialized_mounts(&encoded)?;
+            mounts
+                .into_iter()
+                .find(|mount| mount.class == class && mount.logical_name == logical_name)
+                .map(|mount| PathBuf::from(mount.path))
+                .ok_or_else(|| Error::unavailable("Requested sandbox mount was not materialized"))
+        }
+        Err(std::env::VarError::NotPresent) => {
+            #[cfg(unix)]
+            {
+                let prefix = match class {
+                    MountClass::Workspace => "/workspace",
+                    MountClass::SystemConfig => "/etc",
+                    MountClass::Secret => "/run/secrets",
+                };
+                Ok(Path::new(prefix).join(logical_name))
+            }
+            #[cfg(not(unix))]
+            {
+                let _ = class;
+                Err(Error::unavailable(
+                    "Sandbox mount table is required on this platform",
+                ))
+            }
+        }
+        Err(std::env::VarError::NotUnicode(_)) => Err(Error::invalid(
+            "Sandbox mount table must be valid UTF-8 JSON",
+        )),
+    }
+}
+
+/// Resolve an owner-granted workspace root as materialized by the current platform sandbox.
+pub fn workspace_mount(logical_name: &str) -> Result<PathBuf> {
+    runtime_mount(MountClass::Workspace, logical_name)
+}
+
+/// Resolve a read-only system-configuration root as materialized by the current platform sandbox.
+pub fn system_config_mount(logical_name: &str) -> Result<PathBuf> {
+    runtime_mount(MountClass::SystemConfig, logical_name)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -124,6 +176,32 @@ impl SystemConfigMount {
     }
 }
 
+/// Owner-granted executable verified and staged immutably by Driver Host.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DriverToolMount {
+    pub root: String,
+    pub name: String,
+    pub sha256: String,
+}
+impl DriverToolMount {
+    fn validate(&self) -> Result<()> {
+        if !canonical_slug(&self.root)
+            || self.root.starts_with("semwright-internal-")
+            || !canonical_slug(&self.name)
+            || self.name.len() > 64
+            || self.name.starts_with("semwright-internal-")
+            || self.sha256.len() != 64
+            || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(Error::invalid(
+                "Driver tools require canonical grant/name and SHA-256 digest",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Owner-granted secret file exposed read-only under `/run/secrets/<name>`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -154,8 +232,12 @@ pub struct DriverResources {
     pub open_files: u64,
     #[serde(default = "default_processes")]
     pub processes: u64,
+    /// Hard cumulative CPU lifetime cap enforced by the sandbox.
     #[serde(default = "default_cpu_seconds")]
     pub cpu_seconds: u64,
+    /// Optional Linux per-operation CPU budget. Zero preserves the lifetime-only contract.
+    #[serde(default)]
+    pub operation_cpu_seconds: u64,
     #[serde(default = "default_address_space_bytes")]
     pub address_space_bytes: u64,
     #[serde(default = "default_file_size_bytes")]
@@ -182,6 +264,7 @@ impl Default for DriverResources {
             open_files: default_open_files(),
             processes: default_processes(),
             cpu_seconds: default_cpu_seconds(),
+            operation_cpu_seconds: 0,
             address_space_bytes: default_address_space_bytes(),
             file_size_bytes: default_file_size_bytes(),
         }
@@ -191,7 +274,11 @@ impl DriverResources {
     fn validate(&self) -> Result<()> {
         if !(32..=1024).contains(&self.open_files)
             || !(8..=256).contains(&self.processes)
-            || !(5..=300).contains(&self.cpu_seconds)
+            || !(5..=86_400).contains(&self.cpu_seconds)
+            || (self.operation_cpu_seconds != 0
+                && (!(1..=300).contains(&self.operation_cpu_seconds)
+                    || self.operation_cpu_seconds > self.cpu_seconds))
+            || (self.cpu_seconds > 300 && self.operation_cpu_seconds == 0)
             || !(134_217_728..=4_294_967_296).contains(&self.address_space_bytes)
             || !(1_048_576..=1_073_741_824).contains(&self.file_size_bytes)
         {
@@ -221,6 +308,8 @@ pub struct Manifest {
     pub system_config: Vec<SystemConfigMount>,
     #[serde(default)]
     pub secrets: Vec<DriverSecretMount>,
+    #[serde(default)]
+    pub tools: Vec<DriverToolMount>,
     #[serde(default)]
     pub network: bool,
     /// Optional owner-selected TCP port exposed through a Host-managed loopback proxy.
@@ -298,6 +387,7 @@ impl Manifest {
             || self.mounts.len() > 16
             || self.system_config.len() > 8
             || self.secrets.len() > 8
+            || self.tools.len() > 8
             || self.request_timeout_ms == 0
             || self.request_timeout_ms > 300_000
         {
@@ -335,6 +425,15 @@ impl Manifest {
             if !roots.insert(&secret.root) || !secret_names.insert(&secret.name) {
                 return Err(Error::invalid(
                     "Driver secret roots and names must be unique and non-overlapping",
+                ));
+            }
+        }
+        let mut tool_names = BTreeSet::new();
+        for tool in &self.tools {
+            tool.validate()?;
+            if !roots.insert(&tool.root) || !tool_names.insert(&tool.name) {
+                return Err(Error::invalid(
+                    "Driver tool roots and names must be unique and non-overlapping",
                 ));
             }
         }
@@ -1134,6 +1233,7 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             secrets: vec![],
+            tools: vec![],
             network: false,
             loopback_port: None,
             resources: DriverResources::default(),
@@ -1174,6 +1274,7 @@ mod tests {
     fn resource_requests_are_bounded_and_default_to_existing_sandbox_limits() {
         let resources = DriverResources::default();
         assert_eq!(resources.address_space_bytes, 536_870_912);
+        assert_eq!(resources.operation_cpu_seconds, 0);
         assert!(resources.validate().is_ok());
 
         let mut manifest = manifest();
@@ -1181,6 +1282,19 @@ mod tests {
         manifest.resources.cpu_seconds = 120;
         manifest.validate().unwrap();
 
+        manifest.resources.cpu_seconds = 3_600;
+        assert!(manifest.validate().is_err());
+        manifest.resources.operation_cpu_seconds = 60;
+        manifest.validate().unwrap();
+
+        manifest.resources.operation_cpu_seconds = 301;
+        assert!(manifest.validate().is_err());
+        manifest.resources.operation_cpu_seconds = 60;
+        manifest.resources.cpu_seconds = 30;
+        assert!(manifest.validate().is_err());
+
+        manifest.resources.cpu_seconds = 3_600;
+        manifest.resources.operation_cpu_seconds = 60;
         manifest.resources.address_space_bytes = 4_294_967_297;
         assert!(manifest.validate().is_err());
         manifest.resources.address_space_bytes = 2_147_483_648;
@@ -1257,6 +1371,48 @@ mod tests {
             }];
             assert!(candidate.validate().is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn tool_mounts_are_digest_pinned_unique_and_separate_from_other_grants() {
+        let mut valid = manifest();
+        valid.tools = vec![DriverToolMount {
+            root: "godot-runtime".into(),
+            name: "godot".into(),
+            sha256: "a".repeat(64),
+        }];
+        valid.validate().unwrap();
+
+        let mut duplicate_root = valid.clone();
+        duplicate_root.mounts.push(DriverMount {
+            root: "godot-runtime".into(),
+            read_only: true,
+            execute: false,
+        });
+        assert!(duplicate_root.validate().is_err());
+
+        let mut duplicate_name = manifest();
+        duplicate_name.tools = vec![
+            DriverToolMount {
+                root: "tool-a".into(),
+                name: "godot".into(),
+                sha256: "a".repeat(64),
+            },
+            DriverToolMount {
+                root: "tool-b".into(),
+                name: "godot".into(),
+                sha256: "b".repeat(64),
+            },
+        ];
+        assert!(duplicate_name.validate().is_err());
+
+        let mut bad_digest = manifest();
+        bad_digest.tools = vec![DriverToolMount {
+            root: "tool".into(),
+            name: "godot".into(),
+            sha256: "not-a-digest".into(),
+        }];
+        assert!(bad_digest.validate().is_err());
     }
 
     #[test]

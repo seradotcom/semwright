@@ -91,10 +91,12 @@ fn manifest(executable: PathBuf) -> Manifest {
         mounts: vec![],
         system_config: vec![],
         secrets: vec![],
+        tools: vec![],
         network: true,
         loopback_port: None,
         resources: DriverResources {
             cpu_seconds: 60,
+            operation_cpu_seconds: 0,
             ..DriverResources::default()
         },
         request_timeout_ms: 5_000,

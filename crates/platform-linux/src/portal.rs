@@ -28,6 +28,8 @@ const PATH: &str = "/org/freedesktop/portal/desktop";
 const REMOTE: &str = "org.freedesktop.portal.RemoteDesktop";
 const CLIPBOARD: &str = "org.freedesktop.portal.Clipboard";
 const SCREENCAST: &str = "org.freedesktop.portal.ScreenCast";
+const PORTAL_NOTIFY_TEXT_BATCH_SIZE: usize = 4;
+const PORTAL_NOTIFY_TEXT_BATCH_INTERVAL: Duration = Duration::from_millis(8);
 type Options = HashMap<String, OwnedValue>;
 fn error<T>(r: zbus::Result<T>) -> Result<T> {
     r.map_err(|_| Error::new(ErrorCode::BackendFailed, "Portal D-Bus operation failed"))
@@ -1514,7 +1516,8 @@ impl Portal {
                 .map_err(Error::uncertain)?;
             }
             "input.type" => {
-                for character in arg_str(args, "text")?.chars() {
+                let mut batch_started = std::time::Instant::now();
+                for (index, character) in arg_str(args, "text")?.chars().enumerate() {
                     ctx.check_cancelled()?;
                     let code = character as u32;
                     let keysym = match character {
@@ -1533,6 +1536,15 @@ impl Portal {
                             .await,
                     )
                     .map_err(Error::uncertain)?;
+                    if (index + 1) % PORTAL_NOTIFY_TEXT_BATCH_SIZE == 0 {
+                        ctx.check_cancelled()?;
+                        let elapsed = batch_started.elapsed();
+                        if elapsed < PORTAL_NOTIFY_TEXT_BATCH_INTERVAL {
+                            tokio::time::sleep(PORTAL_NOTIFY_TEXT_BATCH_INTERVAL - elapsed).await;
+                        }
+                        ctx.check_cancelled()?;
+                        batch_started = std::time::Instant::now();
+                    }
                 }
             }
             "pointer.move" => error(

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
     Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, serve,
+    workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -34,6 +35,40 @@ fn capability() -> Capability {
         },
         aliases: vec!["ping".into()],
         tags: vec!["fixture".into(), "conformance".into()],
+        object_types: vec![],
+    }
+}
+
+fn mount_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.mount_probe".into(),
+            version: "1".into(),
+            description: "Read the owner-granted fixture workspace and probe write authority"
+                .into(),
+            input_schema: json!({
+                "type":"object",
+                "additionalProperties":false
+            }),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "read":{"type":"string"},
+                    "write_ok":{"type":"boolean"}
+                },
+                "required":["read","write_ok"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::MutatingReversible,
+            idempotency: Idempotency::Idempotent,
+            timeout_ms: 2_000,
+            dry_run: false,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["mount_probe".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "filesystem".into()],
         object_types: vec![],
     }
 }
@@ -91,20 +126,33 @@ impl Driver for Fixture {
         }
     }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
-        Ok(vec![capability(), long_capability()])
+        Ok(vec![capability(), mount_capability(), long_capability()])
     }
     async fn execute(&mut self, command: &str, pinned_digest: &str, args: Value) -> Result<Value> {
-        let capability = capability();
-        if command != capability.descriptor.name
-            || descriptor_digest(&capability.descriptor)? != pinned_digest
-        {
+        let capability = match command {
+            "driver.fixture.ping" => capability(),
+            "driver.fixture.mount_probe" => mount_capability(),
+            _ => {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Driver descriptor is not the pinned capability",
+                ));
+            }
+        };
+        if descriptor_digest(&capability.descriptor)? != pinned_digest {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Driver descriptor is not the pinned capability",
             ));
         }
         if args.as_object().is_none_or(|args| !args.is_empty()) {
-            return Err(Error::invalid("fixture ping accepts an empty object"));
+            return Err(Error::invalid("fixture command accepts an empty object"));
+        }
+        if command == "driver.fixture.mount_probe" {
+            let root = workspace_mount("fixture-data")?;
+            let read = std::fs::read_to_string(root.join("input.txt"))?;
+            let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
+            return Ok(json!({"read":read,"write_ok":write_ok}));
         }
         Ok(json!({"ok":true}))
     }
