@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use semwright_platform_api::launch::MountClass;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, Mount, SANDBOX_MOUNTS_ENV, SandboxChildControl,
-    SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
+    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -19,6 +19,7 @@ use std::{
         io::{AsRawHandle, FromRawHandle},
     },
     path::{Component, Path},
+    sync::Arc,
 };
 use tokio::{fs::File as TokioFile, process::Command};
 use windows::Win32::{
@@ -42,8 +43,9 @@ use windows::Win32::{
             CreateAppContainerProfile, DeleteAppContainerProfile, GetAppContainerFolderPath,
         },
         NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
-        SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE,
-        SUB_CONTAINERS_AND_OBJECTS_INHERIT, WinBuiltinAdministratorsSid, WinLocalSystemSid,
+        SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE, SID_AND_ATTRIBUTES,
+        SUB_CONTAINERS_AND_OBJECTS_INHERIT, WinBuiltinAdministratorsSid,
+        WinCapabilityInternetClientSid, WinLocalSystemSid,
         WinTrust::{
             WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
             WTD_CACHE_ONLY_URL_RETRIEVAL, WTD_CHOICE_FILE, WTD_REVOCATION_CHECK_NONE,
@@ -68,6 +70,7 @@ use windows::Win32::{
             ACCESS_ALLOWED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_ALLOWED_OBJECT_ACE_TYPE,
             ACCESS_DENIED_ACE_TYPE, ACCESS_DENIED_CALLBACK_ACE_TYPE,
             ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_DENIED_OBJECT_ACE_TYPE,
+            SE_GROUP_ENABLED,
         },
         Threading::{
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
@@ -1547,7 +1550,7 @@ fn inherited_null() -> Result<NativeHandle> {
 
 struct NativeSandboxChild {
     process: NativeHandle,
-    _job: ProcessJob,
+    _job: Arc<ProcessJob>,
     pid: u32,
     mount_grants: Vec<WindowsMountGrant>,
     profile_name: Option<Vec<u16>>,
@@ -1575,6 +1578,7 @@ impl NativeSandboxChild {
         // SAFETY: process is a live owned process HANDLE.
         let wait = unsafe { WaitForSingleObject(self.process.raw(), 0) };
         if wait == WAIT_OBJECT_0 {
+            self._job.terminate(0)?;
             self.exited = true;
             self.cleanup_authority()?;
             Ok(true)
@@ -1594,13 +1598,7 @@ impl SandboxChildControl for NativeSandboxChild {
         if self.observed_exit()? {
             return Ok(());
         }
-        // SAFETY: process is a live child owned by this controller.
-        unsafe { TerminateProcess(self.process.raw(), 1) }.map_err(|_| {
-            Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows sandbox child termination failed",
-            )
-        })?;
+        self._job.terminate(1)?;
         self.wait().await
     }
 
@@ -1621,6 +1619,7 @@ impl SandboxChildControl for NativeSandboxChild {
                 "Windows sandbox wait returned an unexpected status",
             ));
         }
+        self._job.terminate(0)?;
         self.exited = true;
         self.cleanup_authority()
     }
@@ -1629,9 +1628,9 @@ impl SandboxChildControl for NativeSandboxChild {
 impl Drop for NativeSandboxChild {
     fn drop(&mut self) {
         if !self.exited {
-            // SAFETY: best-effort containment cleanup for the owned child.
+            let _ = self._job.terminate(1);
+            // SAFETY: best-effort wait on the owned root process after terminating the Job.
             unsafe {
-                let _ = TerminateProcess(self.process.raw(), 1);
                 if WaitForSingleObject(self.process.raw(), 5_000) == WAIT_OBJECT_0 {
                     self.exited = true;
                 }
@@ -1664,13 +1663,6 @@ impl SandboxLauncher for WindowsSandbox {
                 "Windows sealed-tool mounts remain fail-closed until immutable executable grants are transactional",
             ));
         }
-        if spec.network {
-            return Err(Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows sandbox network remains fail-closed until capability grants are explicit",
-            ));
-        }
-
         let profile = AppContainerProfile::create()?;
         let (mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
         let (child_stdin, parent_stdin) = inheritable_pipe()?;
@@ -1687,8 +1679,21 @@ impl SandboxLauncher for WindowsSandbox {
             PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
             &all_application_packages_policy,
         )?;
+
+        let network_sid = spec
+            .network
+            .then(|| well_known_sid(WinCapabilityInternetClientSid))
+            .transpose()?;
+        let mut network_capability = network_sid.as_ref().map(|sid| SID_AND_ATTRIBUTES {
+            Sid: PSID(sid.as_ptr().cast_mut().cast()),
+            Attributes: SE_GROUP_ENABLED as u32,
+        });
         let capabilities = SECURITY_CAPABILITIES {
             AppContainerSid: profile.sid,
+            Capabilities: network_capability
+                .as_mut()
+                .map_or(std::ptr::null_mut(), |capability| capability),
+            CapabilityCount: u32::from(network_capability.is_some()),
             ..Default::default()
         };
         attributes.set_value(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, &capabilities)?;
@@ -1721,7 +1726,7 @@ impl SandboxLauncher for WindowsSandbox {
                 )
             })?;
         let cpu_seconds = limits.map(|limit| limit.cpu_seconds);
-        let job = ProcessJob::new(process_limit, memory_limit, cpu_seconds)?;
+        let job = Arc::new(ProcessJob::new(process_limit, memory_limit, cpu_seconds)?);
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
         let mut command = command_line(spec)?;
@@ -1786,7 +1791,8 @@ impl SandboxLauncher for WindowsSandbox {
         let stdin = Box::new(TokioFile::from_std(parent_stdin.into_file()));
         let stdout = Box::new(TokioFile::from_std(parent_stdout.into_file()));
         let profile_name = profile.transfer_name();
-        Ok(SandboxProcess::from_parts(
+        let cpu_accounting: Arc<dyn SandboxCpuAccounting> = job.clone();
+        Ok(SandboxProcess::from_parts_with_cpu_accounting(
             stdin,
             stdout,
             Box::new(NativeSandboxChild {
@@ -1797,6 +1803,7 @@ impl SandboxLauncher for WindowsSandbox {
                 profile_name: Some(profile_name),
                 exited: false,
             }),
+            cpu_accounting,
         ))
     }
 
@@ -1815,7 +1822,7 @@ impl SandboxLauncher for WindowsSandbox {
             "pre_first_instruction_containment": true,
             "filesystem_mounts": "driver_appcontainer_sid_acl_v1",
             "plugin_mcp_mounts": "fail_closed_pending_portable_mount_lookup",
-            "network": "fail_closed_pending_explicit_capabilities",
+            "network": "internetClient_capability_only_when_requested",
             "resource_limits": ["processes", "cpu_seconds", "process_memory"],
         })
     }

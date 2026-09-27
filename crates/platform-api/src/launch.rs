@@ -2,7 +2,11 @@
 use async_trait::async_trait;
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     process::{Child, Command},
@@ -257,6 +261,14 @@ impl SandboxSpec {
 pub type SandboxStdin = Box<dyn AsyncWrite + Send + Unpin>;
 pub type SandboxStdout = Box<dyn AsyncRead + Send + Unpin>;
 
+/// Monotonic cumulative CPU accounting for every process inside one sandbox authority boundary.
+///
+/// Implementations must include CPU consumed by descendants that have already exited so a child
+/// cannot evade an operation budget by rapidly spawning and reaping workers.
+pub trait SandboxCpuAccounting: Send + Sync {
+    fn total_cpu_time(&self) -> Result<Duration>;
+}
+
 #[async_trait]
 pub trait SandboxChildControl: Send {
     fn id(&self) -> Option<u32>;
@@ -291,6 +303,7 @@ pub struct SandboxProcess {
     stdin: Option<SandboxStdin>,
     stdout: Option<SandboxStdout>,
     control: Box<dyn SandboxChildControl>,
+    cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
 }
 
 impl SandboxProcess {
@@ -307,6 +320,21 @@ impl SandboxProcess {
             stdin: Some(stdin),
             stdout: Some(stdout),
             control,
+            cpu_accounting: None,
+        }
+    }
+
+    pub fn from_parts_with_cpu_accounting(
+        stdin: SandboxStdin,
+        stdout: SandboxStdout,
+        control: Box<dyn SandboxChildControl>,
+        cpu_accounting: Arc<dyn SandboxCpuAccounting>,
+    ) -> Self {
+        Self {
+            stdin: Some(stdin),
+            stdout: Some(stdout),
+            control,
+            cpu_accounting: Some(cpu_accounting),
         }
     }
 
@@ -330,7 +358,12 @@ impl SandboxProcess {
             stdin: Some(stdin),
             stdout: Some(stdout),
             control: Box::new(TokioSandboxChild { child }),
+            cpu_accounting: None,
         })
+    }
+
+    pub fn cpu_accounting(&self) -> Option<Arc<dyn SandboxCpuAccounting>> {
+        self.cpu_accounting.clone()
     }
 
     pub fn take_stdin(&mut self) -> Result<SandboxStdin> {
