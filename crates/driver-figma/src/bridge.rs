@@ -105,6 +105,8 @@ pub enum Message {
         session_id: String,
         document_id: String,
         generation: u64,
+        #[serde(default)]
+        revision: u64,
         capabilities: Vec<String>,
     },
     Challenge {
@@ -589,7 +591,7 @@ async fn serve_connection(
         "hello_received",
         serde_json::Map::from_iter([("peer_addr".into(), json!(peer_addr))]),
     );
-    let (session_id, document_id, generation, editor_type, capabilities) = match hello {
+    let (session_id, document_id, generation, revision, editor_type, capabilities) = match hello {
         Message::Hello {
             protocol,
             plugin_build,
@@ -598,6 +600,7 @@ async fn serve_connection(
             session_id,
             document_id,
             generation,
+            revision,
             capabilities,
         } if protocol == BRIDGE_PROTOCOL_VERSION
             && !plugin_build.is_empty()
@@ -615,6 +618,7 @@ async fn serve_connection(
                 session_id,
                 document_id,
                 generation,
+                revision,
                 editor_type,
                 capabilities,
             )
@@ -683,7 +687,7 @@ async fn serve_connection(
                     session_id: session_id.clone(),
                     document_id,
                     generation,
-                    revision: 0,
+                    revision,
                     editor_type,
                     capabilities: capabilities
                         .into_iter()
@@ -724,7 +728,7 @@ async fn serve_connection(
             &Message::Ready {
                 session_id: session_id.clone(),
                 generation,
-                revision: 0,
+                revision,
             },
         )
         .await?;
@@ -978,6 +982,7 @@ mod tests {
                 session_id: session.into(),
                 document_id: "test-document".into(),
                 generation,
+                revision: 0,
                 capabilities: vec!["design".into()],
             },
         )
@@ -1134,6 +1139,50 @@ mod tests {
             }
             other => panic!("expected failure response, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn hello_revision_seeds_session_and_ready_revision() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let (mut ws, _) = connect_async(url).await.expect("connect loopback bridge");
+        send_client(
+            &mut ws,
+            &Message::Hello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "revision-test".into(),
+                figma_api: "1.139.0".into(),
+                editor_type: "figma".into(),
+                session_id: "revision-session".into(),
+                document_id: "test-document".into(),
+                generation: 1,
+                revision: 37,
+                capabilities: vec!["design".into()],
+            },
+        )
+        .await;
+        let nonce = match recv_client(&mut ws).await {
+            Message::Challenge { nonce, .. } => nonce,
+            other => panic!("expected challenge, got {other:?}"),
+        };
+        send_client(
+            &mut ws,
+            &Message::Authenticate {
+                session_id: "revision-session".into(),
+                generation: 1,
+                proof: hub.secret.proof(&nonce, "revision-session", 1),
+            },
+        )
+        .await;
+        match recv_client(&mut ws).await {
+            Message::Ready { revision, .. } => assert_eq!(revision, 37),
+            other => panic!("expected ready, got {other:?}"),
+        }
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].revision, 37);
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
     }
 
     #[tokio::test]

@@ -5,7 +5,7 @@ Transport is WebSocket bound only to loopback. The bridge always binds `127.0.0.
 Handshake:
 
 ```text
-Hello(session/document/generation/plugin metadata)
+Hello(session/document/generation/revision/plugin metadata)
   <- Challenge(nonce)
 Authenticate(HMAC-SHA256 proof)
   <- Ready(revision)
