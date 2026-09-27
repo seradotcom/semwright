@@ -36,6 +36,10 @@ fn normalized_skill_name(value: &str) -> String {
     value.trim().nfkc().collect()
 }
 
+fn normalized_directory_name(value: &str) -> String {
+    value.nfkc().collect()
+}
+
 pub fn valid_skill_name(value: &str) -> bool {
     let normalized = normalized_skill_name(value);
     let mut chars = normalized.chars();
@@ -59,11 +63,15 @@ pub fn validate_archive_path(value: &str) -> Result<PathBuf> {
             "Archive path is empty or exceeds its bounds",
         ));
     }
-    // ZIP paths always use '/'. Normalize the alternate separator before checking so a
-    // legal Unix filename such as "..\\secret" cannot become "../secret" when bundled.
-    let portable = value.replace('\\', "/");
-    if portable.as_bytes().get(1).is_some_and(|byte| *byte == b':')
-        && portable
+    // Backslashes are valid filename bytes on Unix but path separators on Windows and
+    // are rewritten by ZIP consumers. Reject them instead of changing path identity.
+    if value.contains('\\') {
+        return Err(Error::invalid(
+            "Skill resource paths must use portable forward-slash separators",
+        ));
+    }
+    if value.as_bytes().get(1).is_some_and(|byte| *byte == b':')
+        && value
             .as_bytes()
             .first()
             .is_some_and(u8::is_ascii_alphabetic)
@@ -72,7 +80,7 @@ pub fn validate_archive_path(value: &str) -> Result<PathBuf> {
             "Skill resource paths may not contain Windows drive prefixes",
         ));
     }
-    let path = Path::new(&portable);
+    let path = Path::new(value);
     if path.is_absolute()
         || path.components().any(|part| {
             matches!(
@@ -279,7 +287,7 @@ fn validate_manifest_name(manifest: &SkillManifest, directory: &str) -> Result<(
             "SKILL.md manifest fields exceed Agent Skills bounds",
         ));
     }
-    if normalized_skill_name(directory) != normalized_skill_name(&manifest.name) {
+    if normalized_directory_name(directory) != normalized_skill_name(&manifest.name) {
         return Err(Error::invalid(
             "Skill name must match its parent directory name after NFKC normalization",
         ));
@@ -335,6 +343,7 @@ fn walk(
     directory: &Path,
     depth: usize,
     resources: &mut Vec<SkillResource>,
+    entries_seen: &mut usize,
     total: &mut u64,
 ) -> Result<()> {
     if depth > MAX_DIRECTORY_DEPTH {
@@ -346,6 +355,26 @@ fn walk(
     for entry in fs::read_dir(directory)? {
         let entry = entry?;
         let path = entry.path();
+        if path == root.join("SKILL.md") {
+            continue;
+        }
+        *entries_seen = entries_seen.checked_add(1).ok_or_else(|| {
+            Error::new(ErrorCode::ResourceExhausted, "Skill entry count overflow")
+        })?;
+        if *entries_seen > MAX_RESOURCE_COUNT {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Skill package entry count exceeds its budget",
+            ));
+        }
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|_| Error::invalid("Skill resource escaped its package root"))?;
+        let normalized = validate_archive_path(
+            relative
+                .to_str()
+                .ok_or_else(|| Error::invalid("Skill resource path must be valid UTF-8"))?,
+        )?;
         let meta = fs::symlink_metadata(&path)?;
         if meta.file_type().is_symlink() {
             return Err(Error::invalid(
@@ -353,7 +382,7 @@ fn walk(
             ));
         }
         if meta.file_type().is_dir() {
-            walk(root, &path, depth + 1, resources, total)?;
+            walk(root, &path, depth + 1, resources, entries_seen, total)?;
             continue;
         }
         if !meta.file_type().is_file() || multiple_links(&meta) {
@@ -361,13 +390,10 @@ fn walk(
                 "Skill packages may contain only unlinked regular files and directories",
             ));
         }
-        if path == root.join("SKILL.md") {
-            continue;
-        }
-        if resources.len() >= MAX_RESOURCE_COUNT || meta.len() > MAX_RESOURCE_BYTES {
+        if meta.len() > MAX_RESOURCE_BYTES {
             return Err(Error::new(
                 ErrorCode::ResourceExhausted,
-                "Skill resource count or individual file size exceeds its budget",
+                "Skill resource file size exceeds its budget",
             ));
         }
         *total = total
@@ -379,14 +405,6 @@ fn walk(
                 "Skill package exceeds 50 MiB",
             ));
         }
-        let relative = path
-            .strip_prefix(root)
-            .map_err(|_| Error::invalid("Skill resource escaped its package root"))?;
-        let normalized = validate_archive_path(
-            relative
-                .to_str()
-                .ok_or_else(|| Error::invalid("Skill resource path must be valid UTF-8"))?,
-        )?;
         resources.push(SkillResource {
             kind: resource_kind(&normalized),
             path: normalized,
@@ -409,7 +427,15 @@ pub fn load(path: &Path) -> Result<SkillPackage> {
     let skill_size = fs::symlink_metadata(&skill_path)?.len();
     let mut total = skill_size;
     let mut resources = Vec::new();
-    walk(&root, &root, 0, &mut resources, &mut total)?;
+    let mut entries_seen = 0usize;
+    walk(
+        &root,
+        &root,
+        0,
+        &mut resources,
+        &mut entries_seen,
+        &mut total,
+    )?;
     resources.sort_by(|left, right| left.path.cmp(&right.path));
 
     let requirements = load_requirements(&root)?;

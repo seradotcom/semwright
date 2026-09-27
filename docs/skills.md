@@ -174,15 +174,15 @@ Semwright treats third-party Skills as untrusted user-level instructions.
 
 - **Malicious instructions:** Broker policy still wins.
 - **Malicious scripts:** Semwright never auto-executes `scripts/`.
-- **Traversal/absolute paths:** rejected by the package/archive path validator.
+- **Traversal/absolute paths:** rejected by the package/archive path validator; backslashes and Windows drive prefixes are rejected rather than rewritten into a different archive identity.
 - **Symlinks/hardlinks:** symlinks are rejected; on Unix, multiply-linked package files are also rejected. Lock updates replace the package entry instead of truncating an externally linked inode.
 - **Resource bombs:** file count, size, depth and total-package budgets are enforced.
-- **YAML bombs/extensions:** frontmatter is bounded; YAML anchors, aliases and custom tags are rejected.
+- **YAML/JSON ambiguity:** frontmatter is bounded; YAML anchors, aliases, custom tags and duplicate top-level fields are rejected. Semwright requirements/lock JSON rejects duplicate object keys recursively.
 - **Secrets:** bundle excludes common secret/key filenames without reading or logging their contents.
 - **Prompt injection:** Skill/application text never changes message priority or Broker policy.
 
 Current budgets are deliberately conservative: 1 MiB `SKILL.md`, 64 KiB frontmatter,
-500 supporting files, 25 MiB per resource, 50 MiB total package size and directory depth 16.
+500 supporting package entries (files/directories), 25 MiB per resource file, 50 MiB total package size and directory depth 16.
 They are Semwright safety budgets, not new requirements of the open standard.
 ## MCP, CLI and clients
 

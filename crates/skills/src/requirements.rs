@@ -3,8 +3,10 @@ use crate::{
     SkillLock,
 };
 use semwright_types::{Error, ErrorCode, Result};
+use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{fs, io::Write, path::Path};
+use std::{fmt, fs, io::Write, path::Path};
 
 fn parse_schema(schema: &str) -> Result<jsonschema::Validator> {
     let value: serde_json::Value = serde_json::from_str(schema)?;
@@ -12,12 +14,135 @@ fn parse_schema(schema: &str) -> Result<jsonschema::Validator> {
         .map_err(|_| Error::new(ErrorCode::Internal, "Embedded Skill JSON Schema is invalid"))
 }
 
+struct UniqueJson(Value);
+
+impl<'de> serde::Deserialize<'de> for UniqueJson {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct UniqueVisitor;
+
+        impl<'de> Visitor<'de> for UniqueVisitor {
+            type Value = UniqueJson;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("JSON without duplicate object keys")
+            }
+
+            fn visit_bool<E>(self, value: bool) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(UniqueJson(Value::Bool(value)))
+            }
+
+            fn visit_i64<E>(self, value: i64) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(UniqueJson(Value::Number(value.into())))
+            }
+
+            fn visit_u64<E>(self, value: u64) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(UniqueJson(Value::Number(value.into())))
+            }
+
+            fn visit_f64<E>(self, value: f64) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                serde_json::Number::from_f64(value)
+                    .map(Value::Number)
+                    .map(UniqueJson)
+                    .ok_or_else(|| E::custom("non-finite JSON number"))
+            }
+
+            fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(UniqueJson(Value::String(value.to_owned())))
+            }
+
+            fn visit_string<E>(self, value: String) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(UniqueJson(Value::String(value)))
+            }
+
+            fn visit_none<E>(self) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(UniqueJson(Value::Null))
+            }
+
+            fn visit_unit<E>(self) -> std::result::Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                Ok(UniqueJson(Value::Null))
+            }
+
+            fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                <UniqueJson as serde::Deserialize>::deserialize(deserializer)
+            }
+
+            fn visit_seq<A>(self, mut sequence: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut values = Vec::new();
+                while let Some(UniqueJson(value)) = sequence.next_element()? {
+                    values.push(value);
+                }
+                Ok(UniqueJson(Value::Array(values)))
+            }
+
+            fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut values = serde_json::Map::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if values.contains_key(&key) {
+                        return Err(de::Error::custom("duplicate JSON object key"));
+                    }
+                    let UniqueJson(value) = map.next_value()?;
+                    values.insert(key, value);
+                }
+                Ok(UniqueJson(Value::Object(values)))
+            }
+        }
+
+        deserializer.deserialize_any(UniqueVisitor)
+    }
+}
+
+fn parse_unique_json(bytes: &[u8], label: &str) -> Result<Value> {
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    let value = <UniqueJson as serde::Deserialize>::deserialize(&mut deserializer)
+        .map_err(|_| Error::invalid(format!("{label} contains malformed or duplicate-key JSON")))?;
+    deserializer
+        .end()
+        .map_err(|_| Error::invalid(format!("{label} contains trailing JSON data")))?;
+    Ok(value.0)
+}
+
 fn parse_typed_bytes<T: serde::de::DeserializeOwned>(
     bytes: &[u8],
     schema: &str,
     label: &str,
 ) -> Result<T> {
-    let value: serde_json::Value = serde_json::from_slice(bytes)?;
+    let value = parse_unique_json(bytes, label)?;
     if !parse_schema(schema)?.is_valid(&value) {
         return Err(Error::invalid(format!(
             "{label} does not match its v1 JSON Schema"

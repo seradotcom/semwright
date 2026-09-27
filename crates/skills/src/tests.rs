@@ -136,6 +136,7 @@ fn archive_paths_reject_traversal_and_absolute_paths() {
         "/etc/passwd",
         r"..\secret",
         r"refs\..\secret",
+        r"references\a.md",
         r"C:\secret",
         "C:/secret",
         r"\\server\share",
@@ -144,10 +145,6 @@ fn archive_paths_reject_traversal_and_absolute_paths() {
     }
     assert_eq!(
         validate_archive_path("./references/a.md").unwrap(),
-        std::path::PathBuf::from("references/a.md")
-    );
-    assert_eq!(
-        validate_archive_path(r"references\a.md").unwrap(),
         std::path::PathBuf::from("references/a.md")
     );
 }
@@ -210,6 +207,13 @@ fn enforces_resource_count_and_size_budgets_without_allocating_large_files() {
     }
     assert!(load(&count).is_err());
 
+    let directories = temp.path().join("too-many-directories");
+    write_skill(&directories, "too-many-directories", "");
+    for index in 0..=MAX_RESOURCE_COUNT {
+        fs::create_dir(directories.join(format!("dir-{index}"))).unwrap();
+    }
+    assert!(load(&directories).is_err());
+
     let large = temp.path().join("large-file");
     write_skill(&large, "large-file", "");
     let file = fs::File::create(large.join("large.bin")).unwrap();
@@ -219,6 +223,17 @@ fn enforces_resource_count_and_size_budgets_without_allocating_large_files() {
 
 #[test]
 fn requirements_reject_authority_fields_and_resolve_exact_query_optional_routes() {
+    assert!(
+        parse_requirements_bytes(br#"{"version":1,"version":1,"semwright":{"capabilities":[]}}"#)
+            .is_err()
+    );
+    assert!(
+        parse_requirements_bytes(
+            br#"{"version":1,"semwright":{"capabilities":[],"capabilities":[]}}"#
+        )
+        .is_err()
+    );
+
     let (_temp, root) = temp_skill("requires");
     write_requirements(
         &root,
@@ -431,6 +446,15 @@ fn unicode_skill_names_follow_reference_normalization_rules() {
     )
     .unwrap();
     assert!(load(&root).is_ok());
+
+    let spaced = temp.path().join(" spaced");
+    fs::create_dir(&spaced).unwrap();
+    fs::write(
+        spaced.join("SKILL.md"),
+        "---\nname: ' spaced'\ndescription: Whitespace is trimmed from the field but not from directory identity.\n---\n",
+    )
+    .unwrap();
+    assert!(load(&spaced).is_err());
 }
 
 proptest! {
