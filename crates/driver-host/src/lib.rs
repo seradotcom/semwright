@@ -579,9 +579,6 @@ fn spawn_v2_reader(
             let response = match read_frame::<_, Response>(&mut output).await {
                 Ok(response) => response,
                 Err(_) => {
-                    terminate.cancel();
-                    closed.cancel();
-                    let _ = signals.send(ProviderSignal::Disconnected);
                     break;
                 }
             };
@@ -641,6 +638,10 @@ fn spawn_v2_reader(
                 }
             }
         }
+        terminate.cancel();
+        closed.cancel();
+        pending.lock().await.clear();
+        let _ = signals.send(ProviderSignal::Disconnected);
     });
 }
 

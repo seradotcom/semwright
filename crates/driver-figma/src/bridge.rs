@@ -35,6 +35,8 @@ const RECONNECT_GRACE: Duration = Duration::from_secs(2);
 const RECONNECT_POLL: Duration = Duration::from_millis(25);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 const HEARTBEAT_DEADLINE: Duration = Duration::from_secs(35);
+const MAX_RESUME_CREDENTIALS: usize = 16;
+const RESUME_CREDENTIAL_TTL: Duration = Duration::from_secs(12 * 60 * 60);
 
 #[derive(Debug, Error)]
 pub enum BridgeError {
@@ -94,6 +96,57 @@ impl PairingSecret {
     }
 }
 
+#[derive(Clone)]
+struct ResumeCredential {
+    token: [u8; 32],
+    session_id: String,
+    document_id: String,
+    generation: u64,
+    expires_at: Instant,
+}
+
+#[cfg(test)]
+fn resume_proof_bytes(token: &[u8; 32], nonce: &str, session: &str, generation: u64) -> String {
+    let mut mac = HmacSha256::new_from_slice(token).expect("HMAC accepts any key length");
+    mac.update(b"figma-resume-v1");
+    mac.update(b"\0");
+    mac.update(nonce.as_bytes());
+    mac.update(b"\0");
+    mac.update(session.as_bytes());
+    mac.update(b"\0");
+    mac.update(&generation.to_be_bytes());
+    hex::encode(mac.finalize().into_bytes())
+}
+
+fn verify_resume_proof(
+    token: &[u8; 32],
+    nonce: &str,
+    session: &str,
+    generation: u64,
+    proof: &str,
+) -> bool {
+    let Ok(bytes) = hex::decode(proof) else {
+        return false;
+    };
+    let Ok(mut mac) = HmacSha256::new_from_slice(token) else {
+        return false;
+    };
+    mac.update(b"figma-resume-v1");
+    mac.update(b"\0");
+    mac.update(nonce.as_bytes());
+    mac.update(b"\0");
+    mac.update(session.as_bytes());
+    mac.update(b"\0");
+    mac.update(&generation.to_be_bytes());
+    mac.verify_slice(&bytes).is_ok()
+}
+
+fn random_hex<const N: usize>() -> (String, [u8; N]) {
+    let mut bytes = [0u8; N];
+    rand::rng().fill_bytes(&mut bytes);
+    (hex::encode(bytes), bytes)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Message {
@@ -109,20 +162,47 @@ pub enum Message {
         revision: u64,
         capabilities: Vec<String>,
     },
+    ResumeHello {
+        protocol: u32,
+        plugin_build: String,
+        figma_api: String,
+        editor_type: String,
+        document_id: String,
+        #[serde(default)]
+        revision: u64,
+        capabilities: Vec<String>,
+        resume_id: String,
+    },
     Challenge {
         session_id: String,
         generation: u64,
         nonce: String,
+    },
+    ResumeChallenge {
+        session_id: String,
+        generation: u64,
+        nonce: String,
+        resume_id: String,
     },
     Authenticate {
         session_id: String,
         generation: u64,
         proof: String,
     },
+    ResumeAuthenticate {
+        session_id: String,
+        generation: u64,
+        resume_id: String,
+        proof: String,
+    },
     Ready {
         session_id: String,
         generation: u64,
         revision: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resume_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resume_token: Option<String>,
     },
     Request {
         id: String,
@@ -153,6 +233,9 @@ pub enum Message {
     },
     Pong {
         nonce: String,
+    },
+    RevokeResume {
+        resume_id: String,
     },
     Close {
         reason: String,
@@ -188,6 +271,47 @@ struct SessionHandle {
 #[derive(Default)]
 struct HubState {
     sessions: BTreeMap<String, SessionHandle>,
+    resume: BTreeMap<String, ResumeCredential>,
+}
+
+fn issue_resume_credential(
+    state: &mut HubState,
+    session_id: &str,
+    document_id: &str,
+    generation: u64,
+) -> (String, String) {
+    let now = Instant::now();
+    state.resume.retain(|_, record| record.expires_at > now);
+    let expiring_first = (state.resume.len() >= MAX_RESUME_CREDENTIALS)
+        .then(|| {
+            state
+                .resume
+                .iter()
+                .min_by_key(|(_, record)| record.expires_at)
+                .map(|(id, _)| id.clone())
+        })
+        .flatten();
+    if let Some(expiring_first) = expiring_first {
+        state.resume.remove(&expiring_first);
+    }
+    loop {
+        let (resume_id, _) = random_hex::<16>();
+        if state.resume.contains_key(&resume_id) {
+            continue;
+        }
+        let (resume_token, token) = random_hex::<32>();
+        state.resume.insert(
+            resume_id.clone(),
+            ResumeCredential {
+                token,
+                session_id: session_id.to_owned(),
+                document_id: document_id.to_owned(),
+                generation,
+                expires_at: now + RESUME_CREDENTIAL_TTL,
+            },
+        );
+        return (resume_id, resume_token);
+    }
 }
 
 async fn take_session_generation(
@@ -565,6 +689,11 @@ impl Drop for BridgeHub {
     }
 }
 
+enum AuthMode {
+    Pairing,
+    Resume { resume_id: String, token: [u8; 32] },
+}
+
 async fn serve_connection(
     stream: TcpStream,
     state: Arc<RwLock<HubState>>,
@@ -596,81 +725,211 @@ async fn serve_connection(
         "hello_received",
         serde_json::Map::from_iter([("peer_addr".into(), json!(peer_addr))]),
     );
-    let (session_id, document_id, generation, revision, editor_type, capabilities) = match hello {
-        Message::Hello {
-            protocol,
-            plugin_build,
-            figma_api,
-            editor_type,
-            session_id,
-            document_id,
-            generation,
-            revision,
-            capabilities,
-        } if protocol == BRIDGE_PROTOCOL_VERSION
-            && !plugin_build.is_empty()
-            && plugin_build.len() <= 128
-            && !figma_api.is_empty()
-            && figma_api.len() <= 64
-            && !session_id.is_empty()
-            && session_id.len() <= 128
-            && !document_id.is_empty()
-            && document_id.len() <= 256
-            && generation > 0
-            && capabilities.len() <= 256 =>
-        {
-            (
+    let (session_id, document_id, generation, revision, editor_type, capabilities, auth_mode) =
+        match hello {
+            Message::Hello {
+                protocol,
+                plugin_build,
+                figma_api,
+                editor_type,
                 session_id,
                 document_id,
                 generation,
                 revision,
-                editor_type,
                 capabilities,
-            )
-        }
-        _ => return Err(BridgeError::Protocol),
-    };
+            } if protocol == BRIDGE_PROTOCOL_VERSION
+                && !plugin_build.is_empty()
+                && plugin_build.len() <= 128
+                && !figma_api.is_empty()
+                && figma_api.len() <= 64
+                && !session_id.is_empty()
+                && session_id.len() <= 128
+                && !document_id.is_empty()
+                && document_id.len() <= 256
+                && generation > 0
+                && capabilities.len() <= 256 =>
+            {
+                (
+                    session_id,
+                    document_id,
+                    generation,
+                    revision,
+                    editor_type,
+                    capabilities,
+                    AuthMode::Pairing,
+                )
+            }
+            Message::ResumeHello {
+                protocol,
+                plugin_build,
+                figma_api,
+                editor_type,
+                document_id,
+                revision,
+                capabilities,
+                resume_id,
+            } if protocol == BRIDGE_PROTOCOL_VERSION
+                && !plugin_build.is_empty()
+                && plugin_build.len() <= 128
+                && !figma_api.is_empty()
+                && figma_api.len() <= 64
+                && !document_id.is_empty()
+                && document_id.len() <= 256
+                && resume_id.len() == 32
+                && resume_id.bytes().all(|b| b.is_ascii_hexdigit())
+                && capabilities.len() <= 256 =>
+            {
+                let record = {
+                    let mut guard = state.write().await;
+                    let expired = guard
+                        .resume
+                        .get(&resume_id)
+                        .is_some_and(|record| record.expires_at <= Instant::now());
+                    if expired {
+                        guard.resume.remove(&resume_id);
+                        None
+                    } else {
+                        guard
+                            .resume
+                            .get(&resume_id)
+                            .cloned()
+                            .filter(|record| record.document_id == document_id)
+                    }
+                };
+                let Some(record) = record else {
+                    let _ = send_ws(
+                        &mut sink,
+                        &Message::Close {
+                            reason: "resume_unavailable".into(),
+                        },
+                    )
+                    .await;
+                    return Err(BridgeError::Auth);
+                };
+                let Some(generation) = record.generation.checked_add(1) else {
+                    return Err(BridgeError::Limit);
+                };
+                (
+                    record.session_id,
+                    document_id,
+                    generation,
+                    revision,
+                    editor_type,
+                    capabilities,
+                    AuthMode::Resume {
+                        resume_id,
+                        token: record.token,
+                    },
+                )
+            }
+            _ => return Err(BridgeError::Protocol),
+        };
 
     let mut nonce_bytes = [0u8; 16];
     rand::rng().fill_bytes(&mut nonce_bytes);
     let nonce = hex::encode(nonce_bytes);
-    send_ws(
-        &mut sink,
-        &Message::Challenge {
-            session_id: session_id.clone(),
-            generation,
-            nonce: nonce.clone(),
-        },
-    )
-    .await?;
+    match &auth_mode {
+        AuthMode::Pairing => {
+            send_ws(
+                &mut sink,
+                &Message::Challenge {
+                    session_id: session_id.clone(),
+                    generation,
+                    nonce: nonce.clone(),
+                },
+            )
+            .await?;
+        }
+        AuthMode::Resume { resume_id, .. } => {
+            send_ws(
+                &mut sink,
+                &Message::ResumeChallenge {
+                    session_id: session_id.clone(),
+                    generation,
+                    nonce: nonce.clone(),
+                    resume_id: resume_id.clone(),
+                },
+            )
+            .await?;
+        }
+    }
 
     let auth = read_message(&mut source).await?;
-    match auth {
-        Message::Authenticate {
-            session_id: auth_session,
-            generation: auth_generation,
-            proof,
-        } if auth_session == session_id
-            && auth_generation == generation
-            && secret.verify(&nonce, &session_id, generation, &proof) => {}
-        _ => {
-            bridge_log(
-                "authentication_failed",
-                serde_json::Map::from_iter([
-                    ("session_id".into(), json!(session_id)),
-                    ("generation".into(), json!(generation)),
-                    ("peer_addr".into(), json!(peer_addr)),
-                ]),
-            );
+    let authenticated = match (&auth_mode, auth) {
+        (
+            AuthMode::Pairing,
+            Message::Authenticate {
+                session_id: auth_session,
+                generation: auth_generation,
+                proof,
+            },
+        ) => {
+            auth_session == session_id
+                && auth_generation == generation
+                && secret.verify(&nonce, &session_id, generation, &proof)
+        }
+        (
+            AuthMode::Resume { resume_id, token },
+            Message::ResumeAuthenticate {
+                session_id: auth_session,
+                generation: auth_generation,
+                resume_id: auth_resume_id,
+                proof,
+            },
+        ) => {
+            auth_session == session_id
+                && auth_generation == generation
+                && auth_resume_id == *resume_id
+                && verify_resume_proof(token, &nonce, &session_id, generation, &proof)
+        }
+        _ => false,
+    };
+    if !authenticated {
+        bridge_log(
+            "authentication_failed",
+            serde_json::Map::from_iter([
+                ("session_id".into(), json!(session_id)),
+                ("generation".into(), json!(generation)),
+                ("peer_addr".into(), json!(peer_addr)),
+            ]),
+        );
+        let _ = send_ws(
+            &mut sink,
+            &Message::Close {
+                reason: "authentication_failed".into(),
+            },
+        )
+        .await;
+        return Err(BridgeError::Auth);
+    }
+
+    if let AuthMode::Resume { resume_id, token } = &auth_mode {
+        let mut guard = state.write().await;
+        let now = Instant::now();
+        let still_current = guard.resume.get(resume_id).is_some_and(|record| {
+            record.token == *token
+                && record.session_id == session_id
+                && record.document_id == document_id
+                && record.expires_at > now
+                && record.generation.checked_add(1) == Some(generation)
+        });
+        if !still_current {
+            drop(guard);
             let _ = send_ws(
                 &mut sink,
                 &Message::Close {
-                    reason: "authentication_failed".into(),
+                    reason: "resume_replayed".into(),
                 },
             )
             .await;
             return Err(BridgeError::Auth);
         }
+        let record = guard
+            .resume
+            .get_mut(resume_id)
+            .expect("validated resume credential");
+        record.generation = generation;
+        record.expires_at = now + RESUME_CREDENTIAL_TTL;
     }
 
     let (outbound_tx, mut outbound_rx) = mpsc::channel::<Message>(MAX_PENDING);
@@ -690,7 +949,7 @@ async fn serve_connection(
             SessionHandle {
                 info: SessionInfo {
                     session_id: session_id.clone(),
-                    document_id,
+                    document_id: document_id.clone(),
                     generation,
                     revision,
                     editor_type,
@@ -718,6 +977,14 @@ async fn serve_connection(
         retire_session(old, Some("Superseded by a newer Figma plugin generation")).await;
     }
 
+    let (next_resume_id, next_resume_token) = match &auth_mode {
+        AuthMode::Pairing => {
+            let mut guard = state.write().await;
+            issue_resume_credential(&mut guard, &session_id, &document_id, generation)
+        }
+        AuthMode::Resume { resume_id, token } => (resume_id.clone(), hex::encode(token)),
+    };
+
     bridge_log(
         "authenticated",
         serde_json::Map::from_iter([
@@ -734,6 +1001,8 @@ async fn serve_connection(
                 session_id: session_id.clone(),
                 generation,
                 revision,
+                resume_id: Some(next_resume_id.clone()),
+                resume_token: Some(next_resume_token.clone()),
             },
         )
         .await?;
@@ -846,7 +1115,22 @@ async fn serve_connection(
                             }
                         }
                         Message::Pong { .. } => {}
-                        Message::Close { .. } => break,
+                        Message::RevokeResume { resume_id } => {
+                            let mut guard = state.write().await;
+                            if let Some(record) = guard.resume.get(resume_id) {
+                                if record.session_id != session_id {
+                                    return Err(BridgeError::Protocol);
+                                }
+                                guard.resume.remove(resume_id);
+                            }
+                        }
+                        Message::Close { reason } => {
+                            if reason == "manual_disconnect" {
+                                let mut guard = state.write().await;
+                                guard.resume.retain(|_, record| record.session_id != session_id);
+                            }
+                            break;
+                        }
                         _ => return Err(BridgeError::Protocol),
                     }
                 }
@@ -1031,6 +1315,7 @@ mod tests {
                 session_id,
                 generation: ready_generation,
                 revision,
+                ..
             } => {
                 assert_eq!(session_id, session);
                 assert_eq!(ready_generation, generation);
@@ -1294,6 +1579,464 @@ mod tests {
         ws.close(None).await.expect("close websocket");
     }
 
+    async fn initial_resume_credential(
+        hub: &BridgeHub,
+        session: &str,
+        generation: u64,
+    ) -> (Client, String, String) {
+        let (mut ws, nonce) = hello(hub, session, generation).await;
+        let proof = hub.secret.proof(&nonce, session, generation);
+        send_client(
+            &mut ws,
+            &Message::Authenticate {
+                session_id: session.into(),
+                generation,
+                proof,
+            },
+        )
+        .await;
+        match recv_client(&mut ws).await {
+            Message::Ready {
+                session_id,
+                generation: ready_generation,
+                resume_id: Some(resume_id),
+                resume_token: Some(resume_token),
+                ..
+            } => {
+                assert_eq!(session_id, session);
+                assert_eq!(ready_generation, generation);
+                assert_eq!(resume_id.len(), 32);
+                assert_eq!(resume_token.len(), 64);
+                (ws, resume_id, resume_token)
+            }
+            other => panic!("expected Ready with resume credential, got {other:?}"),
+        }
+    }
+
+    async fn resume_with_credential(
+        hub: &BridgeHub,
+        resume_id: &str,
+        resume_token: &str,
+    ) -> (Client, String, u64, String, String) {
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let (mut ws, _) = connect_async(url).await.expect("connect loopback bridge");
+        send_client(
+            &mut ws,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-resume".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.into(),
+            },
+        )
+        .await;
+        let (session_id, generation, nonce) = match recv_client(&mut ws).await {
+            Message::ResumeChallenge {
+                session_id,
+                generation,
+                nonce,
+                resume_id: challenged_id,
+            } => {
+                assert_eq!(challenged_id, resume_id);
+                (session_id, generation, nonce)
+            }
+            other => panic!("expected ResumeChallenge, got {other:?}"),
+        };
+        let token_vec = hex::decode(resume_token).expect("hex resume token");
+        let token: [u8; 32] = token_vec.try_into().expect("32-byte resume token");
+        let proof = resume_proof_bytes(&token, &nonce, &session_id, generation);
+        send_client(
+            &mut ws,
+            &Message::ResumeAuthenticate {
+                session_id: session_id.clone(),
+                generation,
+                resume_id: resume_id.into(),
+                proof,
+            },
+        )
+        .await;
+        match recv_client(&mut ws).await {
+            Message::Ready {
+                session_id: ready_session,
+                generation: ready_generation,
+                resume_id: Some(next_id),
+                resume_token: Some(next_token),
+                ..
+            } => {
+                assert_eq!(ready_session, session_id);
+                assert_eq!(ready_generation, generation);
+                (ws, session_id, generation, next_id, next_token)
+            }
+            other => panic!("expected resumed Ready, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn trusted_resume_survives_multiple_plugin_restarts_without_storage_handoff() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut first, resume_id, resume_token) =
+            initial_resume_credential(&hub, "trusted-resume", 1).await;
+        first.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let (mut resumed, session_id, generation, next_id, next_token) =
+            resume_with_credential(&hub, &resume_id, &resume_token).await;
+        assert_eq!(session_id, "trusted-resume");
+        assert_eq!(generation, 2);
+        assert_eq!(next_id, resume_id);
+        assert_eq!(next_token, resume_token);
+        assert_eq!(hub.sessions().await[0].generation, 2);
+
+        resumed
+            .close(None)
+            .await
+            .expect("close first resumed plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let (mut resumed_again, session_id, generation, next_id, next_token) =
+            resume_with_credential(&hub, &resume_id, &resume_token).await;
+        assert_eq!(session_id, "trusted-resume");
+        assert_eq!(generation, 3);
+        assert_eq!(next_id, resume_id);
+        assert_eq!(next_token, resume_token);
+
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].session_id, "trusted-resume");
+        assert_eq!(sessions[0].generation, 3);
+
+        resumed_again
+            .close(None)
+            .await
+            .expect("close second resumed plugin");
+    }
+
+    #[tokio::test]
+    async fn concurrent_resume_attempts_serialize_on_generation() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut first, resume_id, resume_token) =
+            initial_resume_credential(&hub, "resume-concurrent", 1).await;
+        first.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let token_vec = hex::decode(&resume_token).expect("hex resume token");
+        let token: [u8; 32] = token_vec.try_into().expect("32-byte resume token");
+
+        let (mut a, _) = connect_async(&url).await.expect("connect resume a");
+        let (mut b, _) = connect_async(&url).await.expect("connect resume b");
+        for client in [&mut a, &mut b] {
+            send_client(
+                client,
+                &Message::ResumeHello {
+                    protocol: BRIDGE_PROTOCOL_VERSION,
+                    plugin_build: "test-plugin-concurrent".into(),
+                    figma_api: "1.138.0".into(),
+                    editor_type: "figma".into(),
+                    document_id: "test-document".into(),
+                    revision: 0,
+                    capabilities: vec!["design".into()],
+                    resume_id: resume_id.clone(),
+                },
+            )
+            .await;
+        }
+
+        let parse_challenge = |message: Message| match message {
+            Message::ResumeChallenge {
+                session_id,
+                generation,
+                nonce,
+                resume_id: challenged_id,
+            } => {
+                assert_eq!(challenged_id, resume_id);
+                (session_id, generation, nonce)
+            }
+            other => panic!("expected ResumeChallenge, got {other:?}"),
+        };
+        let ca = parse_challenge(recv_client(&mut a).await);
+        let cb = parse_challenge(recv_client(&mut b).await);
+        assert_eq!(ca.0, cb.0);
+        assert_eq!(ca.1, 2);
+        assert_eq!(cb.1, 2);
+        assert_ne!(ca.2, cb.2, "concurrent resume nonces must be fresh");
+
+        let proof_a = resume_proof_bytes(&token, &ca.2, &ca.0, ca.1);
+        send_client(
+            &mut a,
+            &Message::ResumeAuthenticate {
+                session_id: ca.0.clone(),
+                generation: ca.1,
+                resume_id: resume_id.clone(),
+                proof: proof_a,
+            },
+        )
+        .await;
+        assert!(matches!(
+            recv_client(&mut a).await,
+            Message::Ready { generation: 2, .. }
+        ));
+
+        let proof_b = resume_proof_bytes(&token, &cb.2, &cb.0, cb.1);
+        send_client(
+            &mut b,
+            &Message::ResumeAuthenticate {
+                session_id: cb.0,
+                generation: cb.1,
+                resume_id,
+                proof: proof_b,
+            },
+        )
+        .await;
+        match recv_client(&mut b).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_replayed"),
+            other => panic!("second concurrent resume must be rejected, got {other:?}"),
+        }
+
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].session_id, "resume-concurrent");
+        assert_eq!(sessions[0].generation, 2);
+        a.close(None).await.expect("close winning resume");
+    }
+
+    #[tokio::test]
+    async fn captured_resume_proof_cannot_authenticate_a_fresh_challenge() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut first, resume_id, resume_token) =
+            initial_resume_credential(&hub, "resume-replay", 1).await;
+        first.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let token_vec = hex::decode(&resume_token).expect("hex resume token");
+        let token: [u8; 32] = token_vec.try_into().expect("32-byte resume token");
+
+        let (mut captured, _) = connect_async(&url).await.expect("connect captured resume");
+        send_client(
+            &mut captured,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-capture".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        let (session_id, generation, nonce_one) = match recv_client(&mut captured).await {
+            Message::ResumeChallenge {
+                session_id,
+                generation,
+                nonce,
+                ..
+            } => (session_id, generation, nonce),
+            other => panic!("expected first ResumeChallenge, got {other:?}"),
+        };
+        let captured_proof = resume_proof_bytes(&token, &nonce_one, &session_id, generation);
+        drop(captured);
+
+        let (mut replay, _) = connect_async(&url).await.expect("connect replay resume");
+        send_client(
+            &mut replay,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-replay".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        let (replay_session, replay_generation, nonce_two) = match recv_client(&mut replay).await {
+            Message::ResumeChallenge {
+                session_id,
+                generation,
+                nonce,
+                ..
+            } => (session_id, generation, nonce),
+            other => panic!("expected second ResumeChallenge, got {other:?}"),
+        };
+        assert_eq!(replay_session, session_id);
+        assert_eq!(replay_generation, generation);
+        assert_ne!(nonce_two, nonce_one, "resume challenge nonce must be fresh");
+
+        send_client(
+            &mut replay,
+            &Message::ResumeAuthenticate {
+                session_id: replay_session,
+                generation: replay_generation,
+                resume_id,
+                proof: captured_proof,
+            },
+        )
+        .await;
+        match recv_client(&mut replay).await {
+            Message::Close { reason } => assert_eq!(reason, "authentication_failed"),
+            other => panic!("captured resume proof must be rejected, got {other:?}"),
+        }
+        assert!(hub.sessions().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn expired_resume_is_removed_without_cross_document_revocation() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut ws, resume_id, _resume_token) = initial_resume_credential(&hub, "expiry", 1).await;
+        ws.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let (mut wrong_document, _) = connect_async(&url)
+            .await
+            .expect("connect wrong-document resume");
+        send_client(
+            &mut wrong_document,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-wrong-document".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "other-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        match recv_client(&mut wrong_document).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_unavailable"),
+            other => panic!("wrong-document resume must be unavailable, got {other:?}"),
+        }
+        assert!(
+            hub.state.read().await.resume.contains_key(&resume_id),
+            "wrong-document attempt must not revoke a valid credential"
+        );
+
+        hub.state
+            .write()
+            .await
+            .resume
+            .get_mut(&resume_id)
+            .expect("resume credential")
+            .expires_at = Instant::now() - Duration::from_secs(1);
+
+        let (mut expired, _) = connect_async(url).await.expect("connect expired resume");
+        send_client(
+            &mut expired,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-expired".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        match recv_client(&mut expired).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_unavailable"),
+            other => panic!("expired resume must be unavailable, got {other:?}"),
+        }
+        assert!(
+            !hub.state.read().await.resume.contains_key(&resume_id),
+            "expired credential should be pruned when observed"
+        );
+    }
+
+    #[tokio::test]
+    async fn driver_restart_invalidates_trusted_resume_credential() {
+        let hub = BridgeHub::start_on(0, None)
+            .await
+            .expect("start first bridge");
+        let (mut ws, resume_id, _resume_token) =
+            initial_resume_credential(&hub, "driver-restart", 1).await;
+        ws.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
+        drop(hub);
+
+        let restarted = BridgeHub::start_on(0, None)
+            .await
+            .expect("start restarted bridge");
+        let url = format!("ws://127.0.0.1:{}", restarted.port());
+        let (mut client, _) = connect_async(url).await.expect("connect restarted bridge");
+        send_client(
+            &mut client,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-restart".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id,
+            },
+        )
+        .await;
+        match recv_client(&mut client).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_unavailable"),
+            other => panic!("driver restart must invalidate resume credential, got {other:?}"),
+        }
+        assert!(restarted.sessions().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn manual_disconnect_revokes_trusted_resume_credential() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut ws, resume_id, _) = initial_resume_credential(&hub, "trusted-revoke", 1).await;
+        send_client(
+            &mut ws,
+            &Message::RevokeResume {
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        timeout(Duration::from_secs(2), async {
+            loop {
+                if !hub.state.read().await.resume.contains_key(&resume_id) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("resume credential revocation timed out");
+
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let (mut rejected, _) = connect_async(url).await.expect("connect revoked resume");
+        send_client(
+            &mut rejected,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-revoked".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id,
+            },
+        )
+        .await;
+        match recv_client(&mut rejected).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_unavailable"),
+            other => panic!("revoked credential must be unavailable, got {other:?}"),
+        }
+        ws.close(None).await.expect("close original session");
+    }
+
     #[tokio::test]
     async fn wrong_hmac_never_registers_a_session() {
         let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
@@ -1340,6 +2083,7 @@ mod tests {
                 session_id,
                 generation,
                 revision,
+                ..
             } => {
                 assert_eq!(session_id, "valid-auth");
                 assert_eq!(generation, 4);

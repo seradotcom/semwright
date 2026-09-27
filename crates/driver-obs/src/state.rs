@@ -116,3 +116,29 @@ impl ReconnectBudget {
         self.attempts.len()
     }
 }
+
+impl From<ConnectionState> for semwright_driver_sdk::continuity::ConnectionState {
+    fn from(value: ConnectionState) -> Self {
+        use semwright_driver_sdk::continuity::ConnectionState as Common;
+        match value {
+            ConnectionState::Disconnected => Common::Disconnected,
+            ConnectionState::Connecting => Common::Connecting,
+            ConnectionState::Authenticating => Common::Authenticating,
+            ConnectionState::Identified => Common::Identified,
+            ConnectionState::Ready => Common::Ready,
+            ConnectionState::Reconnecting => Common::Reconnecting,
+            ConnectionState::Closing => Common::Closing,
+            ConnectionState::Closed => Common::Closed,
+            ConnectionState::Failed => Common::Failed,
+        }
+    }
+}
+
+impl From<Stamp> for semwright_driver_sdk::continuity::ContinuityStamp {
+    fn from(value: Stamp) -> Self {
+        Self {
+            generation: value.generation,
+            revision: value.graph_revision,
+        }
+    }
+}

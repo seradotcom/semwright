@@ -79,10 +79,14 @@ impl Driver for GodotDriver {
     }
 
     async fn health(&mut self) -> Result<Value> {
+        let continuity = self.bridge.continuity().await;
         Ok(json!({
             "healthy": true,
             "bridge_protocol": 1,
-            "connected_sessions": self.bridge.list().await.len()
+            "connected_sessions": continuity.connected_sessions,
+            "reconnecting_sessions": continuity.reconnecting_sessions,
+            "reconnects": continuity.reconnects,
+            "reconnect_grace_ms": continuity.reconnect_grace_ms
         }))
     }
 
@@ -316,12 +320,18 @@ impl GodotDriver {
 
     async fn execute_local(&self, command: &str, args: &Value) -> Result<Value> {
         match command {
-            "driver.godot.doctor" => Ok(json!({
-                "driver": env!("CARGO_PKG_VERSION"),
-                "bridge": 1,
-                "connected_sessions": self.bridge.list().await.len(),
-                "certification": "integration-under-test"
-            })),
+            "driver.godot.doctor" => {
+                let continuity = self.bridge.continuity().await;
+                Ok(json!({
+                    "driver": env!("CARGO_PKG_VERSION"),
+                    "bridge": 1,
+                    "connected_sessions": continuity.connected_sessions,
+                    "reconnecting_sessions": continuity.reconnecting_sessions,
+                    "reconnects": continuity.reconnects,
+                    "reconnect_grace_ms": continuity.reconnect_grace_ms,
+                    "certification": "integration-under-test"
+                }))
+            }
             "driver.godot.session.list" => Ok(json!({"sessions": self.bridge.list().await})),
             "driver.godot.snapshot.diff" => {
                 Ok(model::semantic_diff(&args["before"], &args["after"]))

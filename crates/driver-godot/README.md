@@ -39,6 +39,10 @@ Hosted native integration additionally downloads the pinned official Godot 4.7.2
 
 Owner configuration assigns each project a 256-bit project identifier and a secret-file reference. In production the pairing material is delivered read-only under `/run/secrets`; inline secrets are accepted only in explicit development mode. The plugin sends a random nonce, the bridge returns a server challenge, and both sides authenticate the same bounded transcript with HMAC-SHA256 before a session is usable. Under Driver Host the driver listens on a private Unix socket and the Host exposes only the configured 127.0.0.1 port; direct acceptance mode retains a loopback TCP listener.
 
+Short bridge losses enter a bounded reconnect grace period. The EditorPlugin keeps its logical session ID in process memory, reconnects with bounded exponential backoff, performs a fresh HMAC challenge and receives a fresh generation. During that grace window the driver does not report the session as active, but a bounded pending call may continue once the same logical session resumes. Cleanup is generation-scoped so an older socket cannot remove its replacement. Heartbeats retire half-open connections.
+
+A full Godot Editor restart naturally loses the in-process session ID. No interactive re-pair is required because the owner-provided project credential is independent of the plugin process: the restarted plugin authenticates a fresh logical session automatically. The pinned real-Godot acceptance closes and relaunches Godot while keeping the driver alive, then executes the remaining semantic suite through the recovered session.
+
 Opening/importing arbitrary Godot projects is a code-execution boundary: projects can contain `@tool` scripts, EditorPlugins, GDExtensions, custom importers and other executable content. Configure only owner-approved project roots and use disposable fixtures for untrusted projects.
 
 Managed script writing rejects `@tool` and is path-confined to the configured project, but scripts remain project source code and execute when the owner later runs the project. Policy must continue to classify those capabilities accordingly.
