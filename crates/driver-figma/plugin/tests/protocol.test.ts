@@ -76,6 +76,8 @@ describe("authenticated loopback bridge",()=>{
  it("keeps the pairing secret in memory only",()=>{expect(ui).toContain("let pairingSecret=null");expect(ui).not.toContain("localStorage");expect(ui).not.toContain("sessionStorage");});
  it("automatically reconnects with bounded exponential backoff",()=>{expect(ui).toContain("function scheduleReconnect(reason)");expect(ui).toContain("Math.min(4000,250*(2**Math.min(reconnectAttempt,4)))");expect(ui).toContain("setTimeout(()=>{reconnectTimer=null;openSocket()},delay)");});
  it("reuses the session identity and advances generation on reconnect",()=>{expect(ui).toContain("const sid=session,gen=++generation,secret=pairingSecret");expect(ui).toContain("generation:gen");});
- it("manual disconnect cancels reconnect state",()=>{expect(ui).toContain("manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;clearReconnect()");});
+ it("manual disconnect cancels reconnect state",()=>{expect(ui).toContain("manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect()");});
  it("answers server heartbeats",()=>expect(ui).toContain('m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}))'));
+ it("stops retrying before first authentication instead of looping forever",()=>{expect(ui).toContain("authenticatedOnce=false,preReadyFailures=0");expect(ui).toContain("if(preReadyFailures>=3)");expect(ui).toContain("Enter a fresh pairing code and press Connect.");});
+ it("keeps transient reconnect automatic only after a successful ready",()=>{expect(ui).toContain("authenticatedOnce=true;preReadyFailures=0");expect(ui).toContain("if(!authenticatedOnce)");});
 });
