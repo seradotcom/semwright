@@ -36,6 +36,10 @@ pub(crate) struct LoopbackProxy {
 }
 
 impl LoopbackProxy {
+    pub(crate) fn shutdown(&self) {
+        self.stop.cancel();
+    }
+
     #[cfg(unix)]
     pub(crate) fn directory(&self) -> &Path {
         &self.directory

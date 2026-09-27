@@ -1108,12 +1108,16 @@ impl DriverProvider {
             let monitor_closed = closed.clone();
             let monitor_terminate = terminate.clone();
             let monitor_staged = staged.clone();
+            let monitor_loopback = loopback.clone();
             tokio::spawn(async move {
                 tokio::select! {
                     _ = monitor_terminate.cancelled() => {
                         let _ = child.kill().await;
                     }
                     _ = child.wait() => {}
+                }
+                if let Some(proxy) = monitor_loopback {
+                    proxy.shutdown();
                 }
                 monitor_closed.cancel();
                 drop(monitor_staged);
@@ -1348,12 +1352,16 @@ impl DriverProvider {
             let monitor_closed = closed.clone();
             let monitor_terminate = terminate.clone();
             let monitor_staged = staged.clone();
+            let monitor_loopback = loopback.clone();
             tokio::spawn(async move {
                 tokio::select! {
                     _ = monitor_terminate.cancelled() => {
                         let _ = child.kill().await;
                     }
                     _ = child.wait() => {}
+                }
+                if let Some(proxy) = monitor_loopback {
+                    proxy.shutdown();
                 }
                 monitor_closed.cancel();
                 drop(monitor_staged);
