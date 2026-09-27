@@ -4,7 +4,7 @@ use semwright_backend_api::{
     Backend, Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal, feature,
 };
 use semwright_core::{Broker, NoApprover, audit::Audit};
-use semwright_policy::{Policy, PolicyConfig};
+use semwright_policy::{Policy, PolicyConfig, Profile};
 use semwright_registry::{CatalogQuery, catalog::descriptor_digest};
 use semwright_types::*;
 use serde_json::{Value, json};
@@ -104,6 +104,30 @@ impl FixtureProvider {
             identity,
             commands: Mutex::new(commands),
             signal: broadcast::channel(32).0,
+            closed: CancellationToken::new(),
+            calls: AtomicUsize::new(0),
+            shutdowns: AtomicUsize::new(0),
+            blocked: AtomicBool::new(false),
+            cancelled: AtomicBool::new(false),
+            malformed: AtomicBool::new(false),
+            native_refs: AtomicBool::new(false),
+            validated: AtomicUsize::new(0),
+            entered: Notify::new(),
+            release: Notify::new(),
+        })
+    }
+
+    fn figma_semantic_policy() -> Arc<Self> {
+        let identity = ProviderIdentity::external(SourceKind::Driver, "figma", "1").unwrap();
+        let plan = command(&identity, "composition.plan");
+        let mut apply = command(&identity, "composition.apply");
+        apply.risk = Risk::MutatingReversible;
+        apply.idempotency = Idempotency::NonIdempotent;
+        apply.dry_run = false;
+        Arc::new(Self {
+            identity,
+            commands: Mutex::new(vec![plan, apply]),
+            signal: broadcast::channel(8).0,
             closed: CancellationToken::new(),
             calls: AtomicUsize::new(0),
             shutdowns: AtomicUsize::new(0),
@@ -463,6 +487,56 @@ async fn imported_metadata_does_not_grant_permission_or_approve_confirmation() {
     assert_eq!(confirmation.provider.calls.load(Ordering::SeqCst), 0);
     confirmation.broker.shutdown().await;
 }
+#[tokio::test]
+async fn figma_semantic_plan_does_not_grant_apply_authority() {
+    let dir = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&dir.path().join("audit"), 65536, 2).unwrap();
+    let provider = FixtureProvider::figma_semantic_policy();
+    let config = PolicyConfig {
+        profile: Profile::Observe,
+        allow: [provider.identity.id.clone()].into(),
+        ..Default::default()
+    };
+    let broker = Broker::new(
+        Policy::new(config).unwrap(),
+        vec![],
+        audit.clone(),
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+
+    let planned = call(
+        broker.clone(),
+        "driver.figma.composition.plan".into(),
+        json!({}),
+        CancellationToken::new(),
+    )
+    .await;
+    assert!(planned.ok, "{planned:?}");
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+
+    let denied = call(
+        broker.clone(),
+        "driver.figma.composition.apply".into(),
+        json!({}),
+        CancellationToken::new(),
+    )
+    .await;
+    assert_eq!(denied.error.unwrap().code, ErrorCode::PolicyDenied);
+    assert_eq!(denied.execution.policy_decision, "deny");
+    assert_eq!(
+        provider.calls.load(Ordering::SeqCst),
+        1,
+        "Broker policy must deny semantic mutation before provider execution"
+    );
+    assert_eq!(audit.tail(1).unwrap()[0].decision, "deny");
+    broker.shutdown().await;
+}
+
 #[tokio::test]
 async fn one_available_operation_does_not_enable_an_unavailable_operation() {
     let fixture = Fixture::new(true);
