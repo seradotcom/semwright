@@ -182,7 +182,15 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
     .await
     .expect("sealed tool probe through LPAC");
 
-    assert_eq!(output["stdout"], "tool-ok");
+    assert_eq!(
+        output["spawn_error_kind"], "",
+        "sealed tool spawn diagnostics: {output}"
+    );
+    assert_eq!(
+        output["exit_code"], 0,
+        "sealed tool exit diagnostics: {output}"
+    );
+    assert_eq!(output["stdout"], "tool-ok", "sealed tool output: {output}");
     assert_eq!(output["write_ok"], false);
 
     Provider::shutdown(provider.as_ref())

@@ -87,9 +87,12 @@ fn tool_capability() -> Capability {
                 "type":"object",
                 "properties":{
                     "stdout":{"type":"string"},
-                    "write_ok":{"type":"boolean"}
+                    "write_ok":{"type":"boolean"},
+                    "spawn_error_kind":{"type":"string"},
+                    "spawn_errno":{"type":"integer"},
+                    "exit_code":{"type":"integer"}
                 },
-                "required":["stdout","write_ok"],
+                "required":["stdout","write_ok","spawn_error_kind","spawn_errno","exit_code"],
                 "additionalProperties":false
             }),
             requires: vec!["driver:fixture".into()],
@@ -260,12 +263,27 @@ impl Driver for Fixture {
             }
             let tool = tool_path("probe")?;
             let write_ok = std::fs::OpenOptions::new().write(true).open(&tool).is_ok();
-            let output = std::process::Command::new(&tool).output()?;
+            let output = match std::process::Command::new(&tool).output() {
+                Ok(output) => output,
+                Err(error) => {
+                    return Ok(json!({
+                        "stdout":"",
+                        "write_ok":write_ok,
+                        "spawn_error_kind":format!("{:?}", error.kind()),
+                        "spawn_errno":error.raw_os_error().unwrap_or(-1),
+                        "exit_code":-1
+                    }));
+                }
+            };
+            let exit_code = output.status.code().unwrap_or(-1);
             if !output.status.success() {
-                return Err(Error::new(
-                    ErrorCode::BackendFailed,
-                    "fixture sealed tool execution failed",
-                ));
+                return Ok(json!({
+                    "stdout":"",
+                    "write_ok":write_ok,
+                    "spawn_error_kind":"",
+                    "spawn_errno":-1,
+                    "exit_code":exit_code
+                }));
             }
             let stdout = String::from_utf8(output.stdout).map_err(|_| {
                 Error::new(
@@ -273,7 +291,13 @@ impl Driver for Fixture {
                     "fixture tool output was not UTF-8",
                 )
             })?;
-            return Ok(json!({"stdout":stdout,"write_ok":write_ok}));
+            return Ok(json!({
+                "stdout":stdout,
+                "write_ok":write_ok,
+                "spawn_error_kind":"",
+                "spawn_errno":-1,
+                "exit_code":exit_code
+            }));
         }
         if command == "driver.fixture.config_probe" {
             if args.as_object().is_none_or(|args| !args.is_empty()) {
