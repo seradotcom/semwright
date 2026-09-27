@@ -65,6 +65,13 @@ function extraBase64(bytes: Uint8Array): string {
   }
   return btoa(text);
 }
+function extraRandomToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (const byte of bytes) out += byte.toString(16).padStart(2, "0");
+  return out;
+}
 function extraStoreArtifact(bytes: Uint8Array, mediaType: string, name: string) {
   if (bytes.byteLength > EXTRA_MAX_ARTIFACT_BYTES) throw new Error("artifact_too_large");
   while (extraArtifacts.size >= EXTRA_MAX_ARTIFACTS) {
@@ -72,7 +79,7 @@ function extraStoreArtifact(bytes: Uint8Array, mediaType: string, name: string) 
     if (!first) break;
     extraArtifacts.delete(first);
   }
-  const token = crypto.randomUUID();
+  const token = extraRandomToken();
   extraArtifacts.set(token, bytes);
   return {token, bytes: bytes.byteLength, mediaType, name};
 }

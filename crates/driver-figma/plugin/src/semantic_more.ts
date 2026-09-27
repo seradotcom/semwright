@@ -72,7 +72,7 @@ async function handleSemanticMore(request: BridgeRequest, a: any): Promise<Bridg
     }
     case "artifact.upload.begin": {
       while(extraArtifacts.size>=EXTRA_MAX_ARTIFACTS){const first=extraArtifacts.keys().next().value as string|undefined;if(!first)break;extraArtifacts.delete(first);}
-      const token=crypto.randomUUID(); extraArtifacts.set(token,new Uint8Array());
+      const token=extraRandomToken(); extraArtifacts.set(token,new Uint8Array());
       return ok(request.id,{token,bytes:0,mediaType:String(a.mediaType??"application/octet-stream"),name:String(a.name??"upload.bin").slice(0,256)});
     }
     case "artifact.upload.append": {

@@ -12,7 +12,7 @@ type BridgeResponse = {
   ok: boolean;
   revision: number;
   value?: unknown;
-  error?: {code: string; message: string; outcomeKnown: boolean};
+  error?: {code: string; message: string; outcome_known: boolean};
 };
 
 let revision = 0;
@@ -22,7 +22,7 @@ const MAX_DEPTH = 32;
 const MAX_KEYFRAMES = 1024;
 
 function fail(id: string, code: string, message: string, outcomeKnown = true): BridgeResponse {
-  return {id, ok: false, revision, error: {code, message, outcomeKnown}};
+  return {id, ok: false, revision, error: {code, message, outcome_known: outcomeKnown}};
 }
 
 function ok(id: string, value: unknown, mutated = false): BridgeResponse {

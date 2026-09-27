@@ -162,6 +162,7 @@ pub enum Message {
 pub struct BridgeFailure {
     pub code: String,
     pub message: String,
+    #[serde(alias = "outcomeKnown")]
     pub outcome_known: bool,
 }
 
@@ -1118,6 +1119,21 @@ mod tests {
             .await
             .expect("close reconnected websocket");
         wait_for_no_sessions(&hub).await;
+    }
+
+    #[test]
+    fn legacy_camel_case_failure_envelope_is_accepted() {
+        let raw = br#"{"type":"response","id":"req","session_id":"session","generation":1,"revision":0,"ok":false,"value":null,"error":{"code":"plugin_error","message":"boom","outcomeKnown":true}}"#;
+        match parse_message(raw).expect("legacy failure envelope") {
+            Message::Response {
+                error: Some(error), ..
+            } => {
+                assert_eq!(error.code, "plugin_error");
+                assert_eq!(error.message, "boom");
+                assert!(error.outcome_known);
+            }
+            other => panic!("expected failure response, got {other:?}"),
+        }
     }
 
     #[tokio::test]
