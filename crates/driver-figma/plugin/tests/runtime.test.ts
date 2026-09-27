@@ -1157,6 +1157,117 @@ describe("semantic authoring, validation and bounded repair",()=>{
     expect(verified.value.mediaType).toBe("image/png");
     expect(verified.value.validation.status).toBe("PASS");
     expect(verified.value.measurement.nodes.some((x:any)=>x.type==="TEXT")).toBe(true);
+    expect(
+      verified.value.validation.findings.some(
+        (x:any)=>x.confidence_class==="AESTHETIC_ASSIST"&&
+          x.category==="visual_judgment_required",
+      ),
+    ).toBe(true);
+
+    const updateSpec:any=landingSpec();
+    updateSpec.nodes=updateSpec.nodes.filter(
+      (node:any)=>node.id==="hero"||node.id==="heading",
+    );
+    updateSpec.relationships=[];
+    updateSpec.nodes.find((node:any)=>node.id==="hero").existing_node_id=rootId;
+    updateSpec.nodes.find((node:any)=>node.id==="hero").layout.gap=32;
+    updateSpec.nodes.find((node:any)=>node.id==="heading").existing_node_id=headingId;
+    updateSpec.nodes.find((node:any)=>node.id==="heading").text.characters=
+      "Semantic execution should preserve object identity.";
+    const updateDraft=await h.call("composition.plan",{spec:updateSpec},2);
+    expect(updateDraft.ok).toBe(true);
+    expect(updateDraft.value.creates).toHaveLength(0);
+    expect(updateDraft.value.modifies).toHaveLength(2);
+    const updatePlan={
+      version:1,purpose:"composition",
+      base:{document_id:"doc",session_id:"s",generation:1,revision:2},
+      spec:updateSpec,changeset:updateDraft.value,
+      validators:updateSpec.validators,digest:"test-only-update",
+    };
+    const updated=await h.call("composition.apply",{plan:updatePlan},2);
+    expect(updated.ok).toBe(true);
+    expect(updated.revision).toBe(3);
+    expect(updated.value.created).toHaveLength(0);
+    expect(updated.value.modified).toHaveLength(2);
+    expect(updated.value.logicalToNode.hero).toBe(rootId);
+    expect(updated.value.logicalToNode.heading).toBe(headingId);
+    expect(h.nodes.get(rootId)!.itemSpacing).toBe(32);
+    expect(h.nodes.get(headingId)!.characters)
+      .toBe("Semantic execution should preserve object identity.");
+  });
+
+  it("keeps heuristics non-certifying while deterministic contrast findings can fail",async()=>{
+    const h=harness();
+    const frame=h.figma.createFrame();
+    frame.name="Type scale fixture";
+    frame.fills=[{type:"SOLID",color:{r:1,g:1,b:1},opacity:1}];
+    for(let i=0;i<7;i++){
+      const text=h.figma.createText();
+      text.name="Type "+i;
+      text.fontSize=12+i;
+      text.fills=[{type:"SOLID",color:{r:0.92,g:0.92,b:0.92},opacity:1}];
+      text.characters="Semantic text "+i;
+      frame.appendChild(text);
+    }
+    const result=await h.call("composition.validate",{
+      root_node_id:frame.id,max_findings:64,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.value.status).toBe("FAIL");
+    expect(
+      result.value.findings.some(
+        (x:any)=>x.category==="contrast"&&x.confidence_class==="DETERMINISTIC",
+      ),
+    ).toBe(true);
+    expect(
+      result.value.findings.some(
+        (x:any)=>x.category==="type_scale_complexity"&&x.confidence_class==="HEURISTIC",
+      ),
+    ).toBe(true);
+  });
+
+  it("reports uncertain partial effects instead of pretending failed apply was atomic",async()=>{
+    const h=harness();
+    const text=h.figma.createText();
+    text.name="Existing heading";
+    text.characters="Before";
+    const media=h.figma.createRectangle();
+    media.name="Existing media";
+    const spec:any={
+      version:1,
+      target:{page_id:null,parent_node_id:null},
+      nodes:[
+        {
+          id:"heading",kind:"text",name:"Existing heading",parent:null,
+          existing_node_id:text.id,order:0,role:"heading",
+          text:{characters:"After",fit:"grow_height"},
+        },
+        {
+          id:"media",kind:"media",name:"Existing media",parent:null,
+          existing_node_id:media.id,order:1,role:"evidence",
+          media:{image_hash:"missing-image-hash",scale_mode:"fill"},
+        },
+      ],
+      relationships:[],profiles:[],validators:[],
+      budgets:{
+        max_nodes:8,max_depth:4,max_relationships:8,
+        max_findings_per_round:8,max_repair_operations:4,
+        max_iterations:2,max_mutations:8,
+      },
+    };
+    const draft=await h.call("composition.plan",{spec});
+    expect(draft.ok).toBe(true);
+    const plan={
+      version:1,purpose:"composition",
+      base:{document_id:"doc",session_id:"s",generation:1,revision:0},
+      spec,changeset:draft.value,validators:[],digest:"test-only",
+    };
+    const result=await h.call("composition.apply",{plan},0);
+    expect(result.ok).toBe(false);
+    expect(result.revision).toBe(1);
+    expect(result.error.code).toBe("semantic_apply_partial_or_unknown");
+    expect(result.error.outcome_known).toBe(false);
+    expect(text.characters).toBe("After");
   });
 
   it("applies fill and hug sizing only after a node is inside its Auto Layout parent",async()=>{

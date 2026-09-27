@@ -137,6 +137,16 @@ async function authoringResolveNodeBindings(
   }
   return resolved;
 }
+function authoringKindCompatible(kind:string,node:BaseNode):boolean {
+  if(kind==="text") return node.type==="TEXT";
+  if(kind==="component_instance") return node.type==="INSTANCE";
+  if(kind==="section") return node.type==="SECTION";
+  if(kind==="media") return ["RECTANGLE","FRAME","COMPONENT","INSTANCE"].includes(node.type);
+  if(kind==="shape") {
+    return ["RECTANGLE","ELLIPSE","LINE","POLYGON","STAR","VECTOR","BOOLEAN_OPERATION"].includes(node.type);
+  }
+  return ["FRAME","COMPONENT","SECTION","INSTANCE"].includes(node.type);
+}
 function authoringDepth(id:string, byId:Map<string,any>):number {
   let depth=0, current=byId.get(id), seen=new Set<string>();
   while(current?.parent) {
@@ -158,17 +168,41 @@ async function authoringDraftChangeSet(spec:any) {
   });
   const candidates=await authoringDesignSnapshot();
   const creates:any[]=[];
+  const modifies:any[]=[];
   for(const node of ordered){
-    creates.push({
-      logical_id:String(node.id),
-      parent_logical_id:node.parent==null?null:String(node.parent),
-      resolved:await authoringResolveNodeBindings(node,candidates),
-    });
+    const resolved=await authoringResolveNodeBindings(node,candidates);
+    if(node.existing_node_id!=null){
+      const existing=asScene(await nodeById(String(node.existing_node_id)));
+      if(!authoringKindCompatible(String(node.kind),existing)){
+        throw new Error("existing_node_kind_mismatch");
+      }
+      if(node.parent!=null){
+        const parentSpec=byId.get(String(node.parent));
+        if(!parentSpec?.existing_node_id){
+          throw new Error("existing_reparent_not_supported");
+        }
+        if(existing.parent?.id!==String(parentSpec.existing_node_id)){
+          throw new Error("existing_parent_mismatch");
+        }
+      }
+      modifies.push({
+        node_id:existing.id,
+        logical_id:String(node.id),
+        resolved,
+        action:{kind:"apply_intent"},
+      });
+    } else {
+      creates.push({
+        logical_id:String(node.id),
+        parent_logical_id:node.parent==null?null:String(node.parent),
+        resolved,
+      });
+    }
   }
   return {
     version:1,
     creates,
-    modifies:[],
+    modifies,
     deletes:[],
     expected_effects:[
       "native_figma_nodes",
@@ -275,6 +309,51 @@ async function authoringApplyVisual(target:any, spec:any, resolved:any){
     target.fills=[figma.variables.setBoundVariableForPaint(base,"color",variable)];
   }
 }
+async function authoringApplyDeclaredIntent(
+  node:SceneNode,
+  spec:any,
+  resolved:any,
+){
+  const target:any=node;
+  target.name=String(spec.name??spec.id).slice(0,256);
+  if(String(spec.kind)==="media"){
+    const media=authoringObject(spec.media,"media_intent_required");
+    const image=figma.getImageByHash(String(media.image_hash));
+    if(!image) throw new Error("image_hash_not_found");
+    target.fills=[{
+      type:"IMAGE",
+      imageHash:String(media.image_hash),
+      scaleMode:String(media.scale_mode??"FILL").toUpperCase(),
+    }];
+  }
+  authoringApplyLayout(target,spec);
+  authoringApplySizing(target,spec.sizing);
+  if(target.type==="TEXT") await authoringApplyText(target,spec,resolved);
+  await authoringApplyVisual(target,spec,resolved);
+  if(target.type==="INSTANCE"){
+    if(resolved.component_id){
+      const component=await nodeById(String(resolved.component_id));
+      if(component.type!=="COMPONENT") throw new Error("resolved_component_invalid");
+      if(target.mainComponent?.id!==component.id){
+        if(typeof target.swapComponent!=="function") throw new Error("instance_swap_unavailable");
+        target.swapComponent(component);
+      }
+    }
+    if(spec.component?.variant_properties && typeof target.setProperties==="function"){
+      target.setProperties(spec.component.variant_properties);
+    }
+  }
+  authoringSetMeta(target,{
+    version:1,
+    logicalId:String(spec.id),
+    kind:String(spec.kind),
+    role:spec.role??null,
+    profile:spec.profile??null,
+    aspectRatio:spec.sizing?.aspect_ratio??null,
+    maxLines:spec.text?.max_lines??null,
+    textFit:spec.text?.fit??null,
+  });
+}
 async function authoringCreateNode(spec:any,resolved:any):Promise<SceneNode>{
   let node:any;
   switch(String(spec.kind)){
@@ -290,33 +369,7 @@ async function authoringCreateNode(spec:any,resolved:any):Promise<SceneNode>{
     }
     default: node=figma.createFrame(); break;
   }
-  node.name=String(spec.name??spec.id).slice(0,256);
-  if(String(spec.kind)==="media"){
-    const media=authoringObject(spec.media,"media_intent_required");
-    const image=figma.getImageByHash(String(media.image_hash));
-    if(!image) throw new Error("image_hash_not_found");
-    node.fills=[{
-      type:"IMAGE",
-      imageHash:String(media.image_hash),
-      scaleMode:String(media.scale_mode??"FILL").toUpperCase(),
-    }];
-  }
-  authoringApplyLayout(node,spec);
-  if(node.type==="TEXT") await authoringApplyText(node,spec,resolved);
-  await authoringApplyVisual(node,spec,resolved);
-  if(node.type==="INSTANCE" && spec.component?.variant_properties && typeof node.setProperties==="function"){
-    node.setProperties(spec.component.variant_properties);
-  }
-  authoringSetMeta(node,{
-    version:1,
-    logicalId:String(spec.id),
-    kind:String(spec.kind),
-    role:spec.role??null,
-    profile:spec.profile??null,
-    aspectRatio:spec.sizing?.aspect_ratio??null,
-    maxLines:spec.text?.max_lines??null,
-    textFit:spec.text?.fit??null,
-  });
+  await authoringApplyDeclaredIntent(node as SceneNode,spec,resolved);
   return node as SceneNode;
 }
 async function authoringTargetParent(spec:any):Promise<BaseNode & ChildrenMixin>{
@@ -336,20 +389,61 @@ async function authoringApplyComposition(plan:any){
   }
   const nodes=authoringArray(spec.nodes,AUTHORING_MAX_NODES,"composition_node_limit");
   const byId=new Map(nodes.map((node:any)=>[String(node.id),node]));
-  const resolution=new Map(
-    authoringArray(changeSet.creates,AUTHORING_MAX_NODES,"create_limit")
-      .map((c:any)=>[String(c.logical_id),c.resolved??{}])
+  const createChanges=authoringArray(
+    changeSet.creates??[],
+    AUTHORING_MAX_NODES,
+    "create_limit",
+  );
+  const modifyChanges=authoringArray(
+    changeSet.modifies??[],
+    AUTHORING_MAX_NODES,
+    "modify_limit",
+  );
+  const createByLogical=new Map(
+    createChanges.map((change:any)=>[String(change.logical_id),change])
+  );
+  const modifyByLogical=new Map(
+    modifyChanges.map((change:any)=>[String(change.logical_id),change])
   );
   const ordered=[...nodes].sort((a:any,b:any)=>{
     const delta=authoringDepth(String(a.id),byId)-authoringDepth(String(b.id),byId);
     return delta || Number(a.order??0)-Number(b.order??0);
   });
-  const target=await authoringTargetParent(spec);
+  const needsTarget=ordered.some(
+    (entry:any)=>entry.existing_node_id==null&&entry.parent==null,
+  );
+  const target=needsTarget?await authoringTargetParent(spec):null;
   const made=new Map<string,SceneNode>();
   const created:any[]=[];
+  const modified:any[]=[];
   for(const entry of ordered){
     const logicalId=String(entry.id);
-    const node=await authoringCreateNode(entry,resolution.get(logicalId)??{});
+    if(entry.existing_node_id!=null){
+      const change=authoringObject(
+        modifyByLogical.get(logicalId),
+        "missing_declared_modify",
+      );
+      if(
+        String(change.node_id)!==String(entry.existing_node_id) ||
+        String(change.action?.kind)!=="apply_intent"
+      ){
+        throw new Error("semantic_modify_binding_mismatch");
+      }
+      const node=asScene(await nodeById(String(entry.existing_node_id)));
+      if(!authoringKindCompatible(String(entry.kind),node)){
+        throw new Error("existing_node_kind_mismatch");
+      }
+      await authoringApplyDeclaredIntent(node,entry,change.resolved??{});
+      made.set(logicalId,node);
+      modified.push({logicalId,nodeId:node.id,type:node.type,name:node.name});
+      continue;
+    }
+
+    const change=authoringObject(
+      createByLogical.get(logicalId),
+      "missing_declared_create",
+    );
+    const node=await authoringCreateNode(entry,change.resolved??{});
     const parentId=entry.parent==null?null:String(entry.parent);
     const parent=parentId?made.get(parentId):target;
     if(!parent || !("appendChild" in parent)) throw new Error("resolved_parent_unavailable");
@@ -366,6 +460,7 @@ async function authoringApplyComposition(plan:any){
     applied:true,
     rootNodeIds,
     created,
+    modified,
     logicalToNode,
     effects:changeSet.expected_effects??[],
   };
@@ -423,11 +518,12 @@ function authoringFinding(
   evidence:any,
   severity:"error"|"warning"|"info"="warning",
   repairs:any[]=[],
+  confidenceClass:"DETERMINISTIC"|"HEURISTIC"|"AESTHETIC_ASSIST"="DETERMINISTIC",
 ):AuthoringFinding{
   return {
     severity,
     category,
-    confidence_class:"DETERMINISTIC",
+    confidence_class:confidenceClass,
     subject_node_id:node?.id,
     subject_logical_id:logicalId,
     related_node_ids:[],
@@ -508,6 +604,27 @@ async function authoringValidate(
           unknown++;
         }
       }
+      const foreground=extraSolidColor(n.fills);
+      const parent=n.parent as any;
+      const background=parent&&"fills" in parent
+        ? extraSolidColor(parent.fills)
+        : null;
+      if(foreground&&background){
+        const ratio=extraContrast(foreground,background);
+        const size=n.fontSize===figma.mixed?null:Number(n.fontSize);
+        const threshold=size!==null&&size>=24?3:4.5;
+        if(ratio+0.001<threshold){
+          add(authoringFinding(
+            "contrast",
+            node,
+            meta?.logicalId,
+            {minimumRatio:threshold},
+            {ratio},
+            {method:"solid-text-on-solid-parent",fontSize:size},
+            "warning",
+          ));
+        }
+      }
     }
     if(
       meta?.role &&
@@ -556,6 +673,17 @@ async function authoringValidate(
           },
           "error",
         ));
+        if(parent.clipsContent===true){
+          add(authoringFinding(
+            "hidden_overflow_state",
+            node,
+            meta?.logicalId,
+            {clipped:false},
+            {clipped:true},
+            {parentNodeId:parent.id,clipsContent:true},
+            "warning",
+          ));
+        }
       }
     }
   }
@@ -619,6 +747,26 @@ async function authoringValidate(
           "error",
         ));
       }
+      if(expectedMode!=="NONE"&&declaredNode.layout?.align){
+        const expectedAlign=String(declaredNode.layout.align)==="center"
+          ?"CENTER"
+          :String(declaredNode.layout.align)==="end"
+            ?"MAX"
+            :String(declaredNode.layout.align)==="baseline"
+              ?"BASELINE"
+              :"MIN";
+        if(n.counterAxisAlignItems!==expectedAlign){
+          add(authoringFinding(
+            "alignment",
+            actual,
+            logicalId,
+            expectedAlign,
+            n.counterAxisAlignItems??null,
+            {source:"native-auto-layout-counter-axis"},
+            "warning",
+          ));
+        }
+      }
       if(String(declaredNode.kind)==="text" && actual.type!=="TEXT"){
         add(authoringFinding(
           "native_text_violation",
@@ -661,6 +809,24 @@ async function authoringValidate(
           {},
           "error",
         ));
+      }
+      const declaredRatio=declaredNode.sizing?.aspect_ratio;
+      const actualBox=authoringBox(actual);
+      if(declaredRatio!=null&&actualBox){
+        const expected=Number(declaredRatio);
+        const observed=actualBox.height===0?Infinity:actualBox.width/actualBox.height;
+        if(!Number.isFinite(observed)||Math.abs(observed-expected)>0.01){
+          add(authoringFinding(
+            String(declaredNode.kind)==="media"?"media_deformation":"aspect_ratio",
+            actual,
+            logicalId,
+            expected,
+            observed,
+            {source:"declared_node_sizing",tolerance:0.01},
+            "warning",
+            [{kind:"restore_aspect_ratio",ratio:expected}],
+          ));
+        }
       }
     }
 
@@ -839,6 +1005,47 @@ async function authoringValidate(
         ));
       }
     }
+  }
+
+  const prototypeScope=new Set(all.map(node=>node.id));
+  const prototypeValidation=await extraValidatePrototype();
+  for(const finding of prototypeValidation.findings??[]){
+    if(!prototypeScope.has(String(finding.nodeId))) continue;
+    const subject=all.find(node=>node.id===String(finding.nodeId));
+    add(authoringFinding(
+      "invalid_prototype_reference",
+      subject,
+      subject?authoringMeta(subject)?.logicalId:undefined,
+      {destinationExists:true},
+      {destinationId:finding.destinationId},
+      {
+        sourceRule:finding.rule,
+        reactionIndex:finding.reactionIndex,
+      },
+      "error",
+    ));
+  }
+  if(prototypeValidation.truncated===true) unknown++;
+
+  const fontSizes=[...new Set(
+    all
+      .filter(node=>node.type==="TEXT")
+      .map(node=>(node as any).fontSize)
+      .filter(value=>value!==figma.mixed&&Number.isFinite(Number(value)))
+      .map(value=>Math.round(Number(value)*100)/100)
+  )].sort((a,b)=>a-b);
+  if(fontSizes.length>6){
+    add(authoringFinding(
+      "type_scale_complexity",
+      root,
+      authoringMeta(root)?.logicalId,
+      {distinctFontSizesAtMost:6},
+      {distinctFontSizes:fontSizes.length,values:fontSizes.slice(0,32)},
+      {method:"observed-distinct-font-sizes"},
+      "info",
+      [],
+      "HEURISTIC",
+    ));
   }
   const deterministicFailures=findings.filter(f =>
     f.confidence_class==="DETERMINISTIC" &&
@@ -1108,14 +1315,24 @@ async function handleSemanticAuthoring(
         ),
       );
     case "composition.apply": {
-      const result=await authoringApplyComposition(
-        authoringObject(a.plan,"plan_required"),
-      );
-      return ok(
-        request.id,
-        {...result,observedRevision:revision+1},
-        true,
-      );
+      try {
+        const result=await authoringApplyComposition(
+          authoringObject(a.plan,"plan_required"),
+        );
+        return ok(
+          request.id,
+          {...result,observedRevision:revision+1},
+          true,
+        );
+      } catch(error) {
+        revision++;
+        return fail(
+          request.id,
+          "semantic_apply_partial_or_unknown",
+          error instanceof Error?error.message:"semantic apply failed",
+          false,
+        );
+      }
     }
     case "composition.measure": {
       const root=await nodeById(String(a.root_node_id));
@@ -1153,14 +1370,24 @@ async function handleSemanticAuthoring(
         ),
       );
     case "composition.repair.apply": {
-      const result=await authoringApplyRepairs(
-        authoringObject(a.plan,"plan_required"),
-      );
-      return ok(
-        request.id,
-        {...result,observedRevision:revision+1},
-        true,
-      );
+      try {
+        const result=await authoringApplyRepairs(
+          authoringObject(a.plan,"plan_required"),
+        );
+        return ok(
+          request.id,
+          {...result,observedRevision:revision+1},
+          true,
+        );
+      } catch(error) {
+        revision++;
+        return fail(
+          request.id,
+          "semantic_repair_partial_or_unknown",
+          error instanceof Error?error.message:"semantic repair failed",
+          false,
+        );
+      }
     }
     case "composition.verify": {
       const root=await nodeById(String(a.root_node_id));
@@ -1181,6 +1408,23 @@ async function handleSemanticAuthoring(
         },
         request.id,
       );
+      if(validation.findings.length<Number(a.max_findings??AUTHORING_MAX_FINDINGS)){
+        validation.findings.push(authoringFinding(
+          "visual_judgment_required",
+          root,
+          authoringMeta(root)?.logicalId,
+          "model-or-human visual review",
+          "verification artifact available",
+          {
+            artifactToken:artifact.token,
+            mediaType:artifact.mediaType,
+            source:"artifact-backed-png",
+          },
+          "info",
+          [],
+          "AESTHETIC_ASSIST",
+        ));
+      }
       return ok(request.id,{
         token:artifact.token,
         bytes:artifact.bytes,

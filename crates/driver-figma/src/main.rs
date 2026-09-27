@@ -2257,6 +2257,40 @@ mod catalog_tests {
     }
 
     #[test]
+    fn semantic_authoring_preserves_existing_broker_authority() {
+        let by_name = advertised_operations()
+            .into_iter()
+            .map(|operation| {
+                let capability = capability(operation);
+                (capability.descriptor.name.clone(), capability)
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        for name in [
+            "driver.figma.composition.inspect",
+            "driver.figma.composition.plan",
+            "driver.figma.composition.measure",
+            "driver.figma.composition.validate",
+            "driver.figma.composition.repair.plan",
+            "driver.figma.composition.verify",
+        ] {
+            let descriptor = &by_name[name].descriptor;
+            assert_eq!(descriptor.requires, vec![DRIVER_SCOPE.to_owned()]);
+            assert_eq!(descriptor.risk, Risk::ReadOnly);
+            assert_eq!(descriptor.idempotency, Idempotency::ReadOnly);
+        }
+        for name in [
+            "driver.figma.composition.apply",
+            "driver.figma.composition.repair.apply",
+        ] {
+            let descriptor = &by_name[name].descriptor;
+            assert_eq!(descriptor.requires, vec![DRIVER_SCOPE.to_owned()]);
+            assert_eq!(descriptor.risk, Risk::MutatingReversible);
+            assert!(!descriptor.dry_run);
+        }
+    }
+
+    #[test]
     fn artifact_metadata_falls_back_from_oversized_names() {
         let value = json!({
             "token":"artifact-token",
