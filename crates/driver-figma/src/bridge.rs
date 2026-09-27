@@ -282,15 +282,17 @@ fn issue_resume_credential(
 ) -> (String, String) {
     let now = Instant::now();
     state.resume.retain(|_, record| record.expires_at > now);
-    if state.resume.len() >= MAX_RESUME_CREDENTIALS {
-        if let Some(expiring_first) = state
-            .resume
-            .iter()
-            .min_by_key(|(_, record)| record.expires_at)
-            .map(|(id, _)| id.clone())
-        {
-            state.resume.remove(&expiring_first);
-        }
+    let expiring_first = (state.resume.len() >= MAX_RESUME_CREDENTIALS)
+        .then(|| {
+            state
+                .resume
+                .iter()
+                .min_by_key(|(_, record)| record.expires_at)
+                .map(|(id, _)| id.clone())
+        })
+        .flatten();
+    if let Some(expiring_first) = expiring_first {
+        state.resume.remove(&expiring_first);
     }
     loop {
         let (resume_id, _) = random_hex::<16>();

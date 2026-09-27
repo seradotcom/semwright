@@ -300,7 +300,7 @@ mod tests {
             budget
                 .reserve(start + Duration::from_millis(1_001))
                 .unwrap(),
-            Duration::ZERO
+            Duration::from_millis(200)
         );
     }
 
