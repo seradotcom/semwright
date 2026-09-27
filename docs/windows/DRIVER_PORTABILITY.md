@@ -9,4 +9,4 @@
 | MLT video | high portability | binaries vary | melt/Kdenlive/Shotcut binary discovery and codecs are packaging concerns; timeline semantics portable |
 | OBS | high portability | yes | websocket protocol portable; AppContainer loopback/network grants must never be globally relaxed |
 
-This source drop does not claim live Windows portability for any application integration. Recommended cheap proofs after platform CI: Chromium compile/noninteractive profile fixture and OBS driver compile with network policy still denied unless explicitly granted.
+Live Windows portability for each application integration requires separate native evidence. Recommended proofs after platform CI include the Chromium noninteractive profile fixture and OBS driver verification with network policy denied unless explicitly granted.

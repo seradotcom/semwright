@@ -16,6 +16,6 @@ capability probes or platform existence. Protocol version changes require migrat
 and regression tests. Removing a safety boundary is a breaking design decision, not a
 routine compatibility fix.
 
-All source in this handoff is available for review under the stated licenses. No CLA,
+All source is available for review under the stated licenses. No CLA,
 centralized plugin marketplace, usage telemetry or paid hosted backend is required by
 this design. A future change to any of those terms must be explicit and documented.
