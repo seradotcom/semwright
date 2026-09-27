@@ -126,7 +126,38 @@ run() {
   "$CTL" --socket "$SOCKET" --session-file "$SESSION" --json "$@"
 }
 
-search=$(run capabilities search "" --provider driver:blender --limit 256)
+search_pages="$TMP/blender-capabilities.jsonl"
+: > "$search_pages"
+offset=0
+while true; do
+  page=$(run capabilities search "" --provider driver:blender --limit 100 --offset "$offset")
+  printf '%s\n' "$page" >> "$search_pages"
+  next_offset=$(python3 - "$page" <<'PY_PAGE'
+import json, sys
+value = json.loads(sys.argv[1])["data"]["next_offset"]
+print("" if value is None else value)
+PY_PAGE
+  )
+  [[ -n "$next_offset" ]] || break
+  offset=$next_offset
+done
+search=$(python3 - "$search_pages" <<'PY_SEARCH'
+import json, pathlib, sys
+pages = [json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text().splitlines() if line]
+assert pages
+revisions = {page["data"]["revision"] for page in pages}
+assert len(revisions) == 1, "catalog revision changed during paginated discovery"
+merged = pages[0]
+merged["data"]["capabilities"] = [
+    capability
+    for page in pages
+    for capability in page["data"]["capabilities"]
+]
+merged["data"]["offset"] = 0
+merged["data"]["next_offset"] = None
+print(json.dumps(merged, separators=(",", ":")))
+PY_SEARCH
+)
 status=$(run execute driver.blender.status)
 summary=$(run execute driver.blender.introspect.summary)
 operators=$(run execute driver.blender.introspect.operators --args-json '{"query":"primitive_cube_add","limit":32}')
