@@ -1431,7 +1431,7 @@ impl DriverProvider {
             let mut io = Io { input, output };
             let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
 
-            let hello = request(
+            let hello = match request(
                 &mut io,
                 &Request::Hello {
                     protocol: manifest.protocol,
@@ -1440,7 +1440,32 @@ impl DriverProvider {
                 },
                 timeout,
             )
-            .await?;
+            .await
+            {
+                Ok(response) => response,
+                Err(error) => {
+                    let exit_code =
+                        match tokio::time::timeout(Duration::from_secs(2), child.wait_exit_code())
+                            .await
+                        {
+                            Ok(Ok(code)) => code,
+                            _ => {
+                                let _ = child.kill().await;
+                                None
+                            }
+                        };
+                    let message = match exit_code {
+                        Some(code) => format!(
+                            "Driver exited before protocol Hello completed (exit={:#010x})",
+                            code as u32
+                        ),
+                        None => {
+                            "Driver transport failed before protocol Hello completed".to_owned()
+                        }
+                    };
+                    return Err(Error::new(error.code, message));
+                }
+            };
             match hello {
                 Response::Ready {
                     protocol,
@@ -1675,7 +1700,7 @@ impl DriverProvider {
             let output = child.take_stdout()?;
             let mut io = Io { input, output };
             let timeout = Duration::from_millis(manifest.request_timeout_ms.min(30_000));
-            let hello = request(
+            let hello = match request(
                 &mut io,
                 &Request::Hello {
                     protocol: manifest.protocol,
@@ -1684,7 +1709,32 @@ impl DriverProvider {
                 },
                 timeout,
             )
-            .await?;
+            .await
+            {
+                Ok(response) => response,
+                Err(error) => {
+                    let exit_code =
+                        match tokio::time::timeout(Duration::from_secs(2), child.wait_exit_code())
+                            .await
+                        {
+                            Ok(Ok(code)) => code,
+                            _ => {
+                                let _ = child.kill().await;
+                                None
+                            }
+                        };
+                    let message = match exit_code {
+                        Some(code) => format!(
+                            "Driver exited before protocol Hello completed (exit={:#010x})",
+                            code as u32
+                        ),
+                        None => {
+                            "Driver transport failed before protocol Hello completed".to_owned()
+                        }
+                    };
+                    return Err(Error::new(error.code, message));
+                }
+            };
             match hello {
                 Response::Ready {
                     protocol,
