@@ -713,11 +713,31 @@ async function authoringValidate(
   }
 
   if(spec){
-    const declared=authoringArray(
+    const declaredAll=authoringArray(
       spec.nodes??[],
       AUTHORING_MAX_NODES,
       "composition_node_limit",
     );
+    const rootLogical=authoringMeta(root)?.logicalId;
+    let declaredIds:Set<string>|null=null;
+    if(rootLogical&&declaredAll.some((node:any)=>String(node.id)===String(rootLogical))){
+      declaredIds=new Set<string>([String(rootLogical)]);
+      let changed=true;
+      while(changed){
+        changed=false;
+        for(const node of declaredAll){
+          const parent=node.parent==null?null:String(node.parent);
+          const id=String(node.id);
+          if(parent&&declaredIds.has(parent)&&!declaredIds.has(id)){
+            declaredIds.add(id);
+            changed=true;
+          }
+        }
+      }
+    }
+    const declared=declaredIds
+      ?declaredAll.filter((node:any)=>declaredIds!.has(String(node.id)))
+      :declaredAll;
     for(const declaredNode of declared){
       const logicalId=String(declaredNode.id);
       const actual=byLogical.get(logicalId);
@@ -834,6 +854,12 @@ async function authoringValidate(
       1024,
       "relationship_limit",
     )){
+      if(
+        declaredIds && (
+          !declaredIds.has(String(relation.subject)) ||
+          (relation.object!=null&&!declaredIds.has(String(relation.object)))
+        )
+      ) continue;
       const subject=byLogical.get(String(relation.subject));
       if(!subject){
         unknown++;
@@ -986,6 +1012,7 @@ async function authoringValidate(
       8,
       "profile_limit",
     )){
+      if(declaredIds&&!declaredIds.has(String(profile.root_id))) continue;
       const profileRoot=byLogical.get(String(profile.root_id));
       const box=profileRoot?authoringBox(profileRoot):null;
       if(!profileRoot||!box){

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "brief": "Semwright launch landing desktop + mobile",
+  "fixture": "semwright-landing.composition.json",
+  "fairness": {
+    "same_copy": true,
+    "same_declared_structure": true,
+    "same_desktop_mobile_profiles": true,
+    "normalize_intentional_demo_spacing_failure": true,
+    "no_manual_post_hoc_repairs": true,
+    "visual_quality_requires_live_figma": true
+  },
+  "arms": {
+    "A": {
+      "name": "code-first SVG import",
+      "route": "driver.figma.svg.import",
+      "purpose": "fast pixels / imported structure baseline"
+    },
+    "B": {
+      "name": "existing low-level Figma path",
+      "route": "typed frame/text/layout/reparent capabilities",
+      "purpose": "native primitives with manual orchestration"
+    },
+    "C": {
+      "name": "semantic authoring",
+      "route": "composition.plan/apply/measure/validate",
+      "purpose": "high-level native composition"
+    }
+  },
+  "metrics": [
+    "authoring_calls",
+    "observed_nodes",
+    "native_text_nodes",
+    "native_text_percentage_of_expected_copy",
+    "auto_layout_nodes",
+    "auto_layout_percentage_of_expected_containers",
+    "giant_imported_svg_structures",
+    "semantic_contract_validation",
+    "follow_up_identity_preserved",
+    "visual_quality"
+  ],
+  "limits": {
+    "visual_quality": "UNEXECUTED in fake runtime",
+    "model_comparison": "UNEXECUTED unless comparable model runs are available"
+  }
+}
+

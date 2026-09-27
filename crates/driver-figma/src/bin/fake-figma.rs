@@ -774,6 +774,13 @@ impl Fake {
             | "component.create" => {
                 let id = format!("1:{}", self.nodes.len() + 1);
                 let kind = op.split('.').next().unwrap_or("node").to_uppercase();
+                let mut props = BTreeMap::new();
+                if kind == "TEXT" {
+                    props.insert(
+                        "characters".into(),
+                        args.get("characters").cloned().unwrap_or(json!("")),
+                    );
+                }
                 let node = Node {
                     id: id.clone(),
                     kind,
@@ -783,7 +790,77 @@ impl Fake {
                     w: args.get("width").and_then(Value::as_f64).unwrap_or(100.0),
                     h: args.get("height").and_then(Value::as_f64).unwrap_or(100.0),
                     children: vec![],
-                    props: BTreeMap::new(),
+                    props,
+                };
+                self.nodes.insert(id.clone(), node.clone());
+                self.nodes
+                    .get_mut(&self.page)
+                    .expect("page fixture")
+                    .children
+                    .push(id);
+                self.revision += 1;
+                Ok(summary(&node))
+            }
+            "text.patch" => {
+                let id = args["nodeId"].as_str().context("nodeId")?;
+                let node = self.nodes.get_mut(id).context("not found")?;
+                if node.kind != "TEXT" {
+                    bail!("not text");
+                }
+                if let Some(name) = args.get("name").and_then(Value::as_str) {
+                    node.name = name.to_owned();
+                }
+                if let Some(characters) = args.get("characters").and_then(Value::as_str) {
+                    node.props.insert("characters".into(), json!(characters));
+                }
+                self.revision += 1;
+                Ok(summary(node))
+            }
+            "node.reparent" => {
+                let id = args["nodeId"].as_str().context("nodeId")?.to_owned();
+                let parent_id = args["parentId"].as_str().context("parentId")?.to_owned();
+                if !self.nodes.contains_key(&id) || !self.nodes.contains_key(&parent_id) {
+                    bail!("not found");
+                }
+                let old_parent = self
+                    .nodes
+                    .iter()
+                    .find(|(_, node)| node.children.iter().any(|child| child == &id))
+                    .map(|(parent, _)| parent.clone());
+                if let Some(old_parent) = old_parent {
+                    self.nodes
+                        .get_mut(&old_parent)
+                        .expect("old parent exists")
+                        .children
+                        .retain(|child| child != &id);
+                }
+                self.nodes
+                    .get_mut(&parent_id)
+                    .expect("new parent exists")
+                    .children
+                    .push(id.clone());
+                self.revision += 1;
+                Ok(json!({"nodeId":id,"parentId":parent_id}))
+            }
+            "svg.import" => {
+                let svg = args["svg"].as_str().context("svg")?;
+                if svg.len() > 1_048_576 {
+                    bail!("svg too large");
+                }
+                let id = format!("1:{}", self.nodes.len() + 1);
+                let mut props = BTreeMap::new();
+                props.insert("sourceKind".into(), json!("svg_import"));
+                props.insert("sourceBytes".into(), json!(svg.len()));
+                let node = Node {
+                    id: id.clone(),
+                    kind: "FRAME".into(),
+                    name: "Code-first SVG import".into(),
+                    x: 0.0,
+                    y: 0.0,
+                    w: 1440.0,
+                    h: 4100.0,
+                    children: vec![],
+                    props,
                 };
                 self.nodes.insert(id.clone(), node.clone());
                 self.nodes

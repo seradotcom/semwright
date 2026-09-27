@@ -1226,6 +1226,69 @@ describe("semantic authoring, validation and bounded repair",()=>{
     ).toBe(true);
   });
 
+  it("scopes a multi-profile validation contract to the requested semantic root",async()=>{
+    const h=harness();
+    const spec:any={
+      version:1,target:{page_id:null,parent_node_id:null},
+      nodes:[
+        {
+          id:"desktop",kind:"stack",name:"Desktop",parent:null,order:0,
+          layout:{direction:"vertical",gap:24},
+          sizing:{
+            width:{mode:"fixed",value:400,min:null,max:null},
+            height:{mode:"fixed",value:400,min:null,max:null},
+            aspect_ratio:null,
+          },
+        },
+        {
+          id:"desktop-copy",kind:"text",name:"Desktop copy",parent:"desktop",order:0,
+          text:{characters:"Desktop",fit:"grow_height"},
+        },
+        {
+          id:"mobile",kind:"stack",name:"Mobile",parent:null,order:1,
+          layout:{direction:"vertical",gap:24},
+          sizing:{
+            width:{mode:"fixed",value:390,min:null,max:null},
+            height:{mode:"fixed",value:400,min:null,max:null},
+            aspect_ratio:null,
+          },
+        },
+        {
+          id:"mobile-copy",kind:"text",name:"Mobile copy",parent:"mobile",order:0,
+          text:{characters:"Mobile",fit:"grow_height"},
+        },
+      ],
+      relationships:[],
+      profiles:[
+        {name:"desktop",width:400,root_id:"desktop"},
+        {name:"mobile",width:390,root_id:"mobile"},
+      ],
+      validators:[{kind:"responsive_profile",severity:"error"}],
+      budgets:{
+        max_nodes:16,max_depth:4,max_relationships:16,
+        max_findings_per_round:16,max_repair_operations:4,
+        max_iterations:2,max_mutations:8,
+      },
+    };
+    const draft=await h.call("composition.plan",{spec});
+    expect(draft.ok).toBe(true);
+    const plan={
+      version:1,purpose:"composition",
+      base:{document_id:"doc",session_id:"s",generation:1,revision:0},
+      spec,changeset:draft.value,validators:spec.validators,digest:"test-only",
+    };
+    const applied=await h.call("composition.apply",{plan},0);
+    expect(applied.ok).toBe(true);
+    const result=await h.call("composition.validate",{
+      root_node_id:applied.value.logicalToNode.desktop,spec,max_findings:16,
+    },1);
+    expect(result.ok).toBe(true);
+    expect(
+      result.value.findings.filter((x:any)=>x.category==="missing_declared_node"),
+    ).toHaveLength(0);
+    expect(result.value.status).toBe("PASS");
+  });
+
   it("reports uncertain partial effects instead of pretending failed apply was atomic",async()=>{
     const h=harness();
     const text=h.figma.createText();
