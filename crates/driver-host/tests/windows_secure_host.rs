@@ -454,9 +454,11 @@ async fn secure_windows_driver_rejects_nonprivate_secret_source_before_spawn() {
     }];
     let state = tempfile::tempdir().expect("driver state");
     let helper = std::env::current_exe().expect("current test executable");
-    let error = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
-        .await
-        .expect_err("non-private secret source must be rejected before spawn");
+    let error = match DriverProvider::connect(candidate, state.path(), &helper, &roots, false).await
+    {
+        Ok(_) => panic!("non-private secret source must be rejected before spawn"),
+        Err(error) => error,
+    };
     assert_eq!(error.code, semwright_types::ErrorCode::PermissionDenied);
 }
 
