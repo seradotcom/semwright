@@ -7,16 +7,19 @@ scoped Blender runtime for agents and CI.
 
 ## Control surface
 
-The driver reuses the existing curated Blender operations under the `driver.blender.*` namespace:
+The driver keeps the original curated scene/object/material/render/file operations for ergonomic
+common tasks, and adds a version-pinned semantic RNA substrate for deep authoring:
 
-- scene inspection;
-- object list/get/create/delete/transform;
-- collection list/create/link;
-- material list/create/assign;
-- render settings and PNG render;
-- scoped `.blend` open/save.
+- persistent datablock refs with generation-based stale-reference protection;
+- root/concrete RNA type discovery and property classification;
+- bounded property get/set/reset, query pushdown and custom properties;
+- pointer/collection traversal plus safe relation set/link/unlink;
+- datablock lifecycle and scoped file-backed asset loading;
+- modifiers, constraints, keyframes and node graphs;
+- mesh topology, attributes, UVs, shape keys and vertex groups;
+- curve splines and armature bone lifecycle/parenting.
 
-It also exposes bounded read-only introspection:
+It also retains bounded read-only introspection:
 
 - `driver.blender.introspect.summary`
 - `driver.blender.introspect.operators`
@@ -24,8 +27,7 @@ It also exposes bounded read-only introspection:
 - `driver.blender.introspect.types`
 - `driver.blender.introspect.addons`
 
-RNA and operator metadata are data for discovery. **There is no generic operator invoke, Python
-`exec`/`eval`, shell command, or user-site import surface.**
+RNA metadata drives typed semantic discovery; operator metadata remains discovery-only. **There is no generic operator invoke, Python `exec`/`eval`, shell command, animation-driver expression surface, or user-site import surface.** See `../../docs/blender/SEMANTIC_COMPLETENESS.md` for the exact managed boundary.
 
 ## Isolation
 
@@ -40,15 +42,11 @@ Blender or third-party add-ons are memory-safe.
 
 ## Verification
 
-The native GitHub Actions job downloads Blender 4.5.14 LTS from blender.org, verifies the published
-SHA-256, and runs:
-
-1. a real DriverProvider integration inside the production sandbox;
-2. RNA/operator/add-on introspection;
-3. object/material mutation;
-4. a 64x64 CPU Cycles render;
-5. a real `.blend` save;
-6. a full CLI -> daemon -> broker -> DriverProvider -> Blender smoke path.
+The native and dedicated Blender semantic GitHub Actions jobs download Blender 4.5.14 LTS from
+blender.org, verify the pinned SHA-256, generate the reachable RNA coverage matrix, run adversarial
+ref/security tests, and exercise the semantic driver inside the production sandbox. Acceptance
+includes deep RNA traversal/mutation, stale refs, topology, rigging, node graphs, asset loading,
+a 64x64 CPU Cycles render, a real `.blend` save and the broker/CLI path.
 
 Mocked add-on tests remain useful regression coverage but are not used as evidence for this live
 driver.

@@ -1,0 +1,118 @@
+name: Blender semantic driver
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "crates/driver-blender/**"
+      - ".github/workflows/blender-semantic.yml"
+      - "scripts/dev/ci-driver-bwrap-profile.sh"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  blender-semantic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: blender-semantic
+      - name: Install verified Blender and sandbox dependencies
+        env:
+          BLENDER_URL: https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
+          BLENDER_SHA256: 9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap fontconfig xz-utils libpipewire-0.3-dev
+          curl --fail --location --retry 3 --output /tmp/blender.tar.xz "$BLENDER_URL"
+          echo "$BLENDER_SHA256  /tmp/blender.tar.xz" | sha256sum --check -
+          sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
+          sudo ln -sf /usr/local/blender-4.5.14-linux-x64/blender /usr/local/bin/blender
+          mkdir -p verification/blender-semantic
+          /usr/local/bin/blender --version | head -5 | tee verification/blender-semantic/version.log
+          test "$(/usr/local/bin/blender --version | head -1)" = "Blender 4.5.14 LTS"
+          bwrap --version | tee verification/blender-semantic/bwrap-version.log
+      - name: Preflight scoped Driver Host Bubblewrap
+        run: |
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/blender-semantic/sandbox-setup.log
+          test -d /etc/fonts
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          for runtime in /usr /lib /lib64; do
+            if [ -e "$runtime" ]; then bwrap_args+=(--ro-bind "$runtime" "$runtime"); fi
+          done
+          bwrap_args+=(--dir /etc)
+          if [ -e /etc/ld.so.cache ]; then bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache); fi
+          bwrap_args+=(--ro-bind /etc/fonts /etc/fonts)
+          bwrap "${bwrap_args[@]}" -- /usr/local/bin/blender --version
+      - name: Generate pinned RNA coverage
+        run: |
+          /usr/local/bin/blender --background --factory-startup --disable-autoexec \
+            --python "$GITHUB_WORKSPACE/crates/driver-blender/tools/rna_coverage.py" -- \
+            "$GITHUB_WORKSPACE/verification/blender-semantic/RNA_COVERAGE.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("verification/blender-semantic/RNA_COVERAGE.json").read_text())
+          summary=data["summary"]
+          print(json.dumps(summary, sort_keys=True))
+          assert summary["unmapped_persistent_ids"] == 0, summary["unmapped_persistent_id_names"]
+          assert summary["missing_relation_targets"] == [], summary["missing_relation_targets"]
+          assert summary["unavailable_roots"] == 0, summary["unavailable_roots"]
+          assert summary["reachable_rna_types"] >= 1000, summary["reachable_rna_types"]
+          reachable=set(data["reachable_rna_types"])
+          roots=data["roots"]
+          assert roots["grease_pencils"]["status"] == "managed_root", roots["grease_pencils"]
+          assert roots["grease_pencils_v3"]["status"] == "managed_root", roots["grease_pencils_v3"]
+          assert roots["grease_pencils"]["rna_type"] == "GreasePencil", roots["grease_pencils"]
+          assert roots["grease_pencils_v3"]["rna_type"] == "GreasePencilv3", roots["grease_pencils_v3"]
+          for identifier in ("GreasePencilLayer","GreasePencilFrame","GreasePencilDrawing"):
+              assert identifier in reachable, f"modern Grease Pencil RNA type missing: {identifier}"
+          assert not any("_OT_" in identifier for identifier in reachable), "operator classes escaped semantic boundary"
+          forbidden={"WindowManager","Window","Screen","Area","Region","Space","Operator","OperatorProperties","UILayout"}
+          assert not (reachable & forbidden), sorted(reachable & forbidden)
+          PY
+      - name: Bounded semantic security and adversarial refs
+        run: |
+          python3 -m py_compile crates/driver-blender/src/semantic.py crates/driver-blender/src/bridge.py crates/driver-blender/tests/protocol_probe.py
+          python3 crates/driver-blender/tests/semantic_security.py
+      - name: Build semantic driver and sandbox
+        run: |
+          cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
+            -p semwright-plugin-host --bin semwright-sandbox
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver -- --nocapture
+      - name: Direct framed protocol probe
+        run: |
+          VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="semwright-driver-blender") | .version')
+          python3 crates/driver-blender/tests/protocol_probe.py \
+            --driver "$GITHUB_WORKSPACE/target/debug/semwright-blender-driver" \
+            --version "$VERSION"
+      - name: Real semantic DriverProvider against Blender 4.5.14
+        env:
+          SEMWRIGHT_TEST_BLENDER: "1"
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -o pipefail
+          cargo test --locked -p semwright-driver-blender \
+            real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox \
+            -- --ignored --nocapture 2>&1 | tee verification/blender-semantic/live.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: blender-semantic-evidence-${{ github.sha }}
+          path: verification/blender-semantic
+          retention-days: 14
