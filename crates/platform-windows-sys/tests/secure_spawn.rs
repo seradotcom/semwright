@@ -68,7 +68,7 @@ async fn network_authority_materializes_only_internet_client_capability() {
 
 #[tokio::test]
 async fn job_cpu_accounting_retains_cpu_after_child_exit() {
-    let mut candidate = spec();
+    let mut candidate = spec(false);
     candidate
         .environment
         .push(("SEMWRIGHT_CPU_MS".into(), "750".into()));
