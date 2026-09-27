@@ -100,10 +100,18 @@ impl MaterializedMount {
         {
             return Err(Error::invalid("Invalid materialized sandbox mount"));
         }
-        if self.class == MountClass::SystemConfig && !self.read_only {
+        if matches!(self.class, MountClass::SystemConfig | MountClass::Secret) && !self.read_only {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
-                "Materialized system-config mounts must be read-only",
+                "Materialized system-config and secret mounts must be read-only",
+            ));
+        }
+        if self.class == MountClass::Secret
+            && (Path::new(&self.logical_name).components().count() != 1
+                || self.logical_name.len() > 64)
+        {
+            return Err(Error::invalid(
+                "Materialized secret names must be one bounded path component",
             ));
         }
         Ok(())

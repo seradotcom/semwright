@@ -75,6 +75,11 @@ pub fn system_config_mount(logical_name: &str) -> Result<PathBuf> {
     runtime_mount(MountClass::SystemConfig, logical_name)
 }
 
+/// Resolve an owner-granted secret file as materialized by the current platform sandbox.
+pub fn secret_mount(logical_name: &str) -> Result<PathBuf> {
+    runtime_mount(MountClass::Secret, logical_name)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Transport {
