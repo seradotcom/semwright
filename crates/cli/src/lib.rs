@@ -106,6 +106,11 @@ pub enum Command {
         #[command(subcommand)]
         command: Recipe,
     },
+    /// Validate and package Agent Skills without treating their prose as execution authority.
+    Skill {
+        #[command(subcommand)]
+        command: Skill,
+    },
     /// Record, compile, verify and promote reusable operational workflows.
     Workflow {
         #[command(subcommand)]
@@ -482,6 +487,30 @@ pub enum Recipe {
         output: PathBuf,
     },
 }
+#[derive(Subcommand, Debug)]
+pub enum Skill {
+    /// Pure static validation; never contacts the broker.
+    Validate { path: PathBuf },
+    /// Inspect manifest, resources and non-authoritative Semwright requirements.
+    Inspect { path: PathBuf },
+    /// Resolve declared requirements against the live capability catalog.
+    Doctor { path: PathBuf },
+    /// Create a minimal standard Skill plus optional Semwright requirements metadata.
+    Scaffold { name: String, output: PathBuf },
+    /// Generate a starter Skill around one existing capability or promoted Recipe.
+    Export {
+        capability: String,
+        #[arg(long)]
+        output: PathBuf,
+    },
+    /// Run objective static/catalog/schema conformance checks; never executes the Skill.
+    Test { path: PathBuf },
+    /// Pin current descriptor/provider/schema digests for reproducibility review.
+    Lock { path: PathBuf },
+    /// Produce a deterministic portable ZIP with one top-level Skill directory.
+    Bundle { path: PathBuf, output: PathBuf },
+}
+
 #[derive(Subcommand, Debug)]
 pub enum Workflow {
     Record {
@@ -1072,6 +1101,7 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
             ),
             Recipe::Scaffold { .. } => return Ok(None),
         },
+        Command::Skill { .. } => return Ok(None),
         Command::Workflow { command } => match command {
             Workflow::Record {
                 command:
@@ -1455,6 +1485,37 @@ mod tests {
                 .unwrap()
                 .validate_input(&r.command, &r.args)
                 .unwrap();
+        }
+    }
+
+    #[test]
+    fn skill_commands_are_tooling_not_direct_broker_capabilities() {
+        for args in [
+            vec!["semwright", "skill", "validate", "/tmp/skill"],
+            vec!["semwright", "skill", "inspect", "/tmp/skill"],
+            vec!["semwright", "skill", "doctor", "/tmp/skill"],
+            vec!["semwright", "skill", "scaffold", "fixture", "/tmp/fixture"],
+            vec![
+                "semwright",
+                "skill",
+                "export",
+                "capabilities.describe",
+                "--output",
+                "/tmp/exported",
+            ],
+            vec!["semwright", "skill", "test", "/tmp/skill"],
+            vec!["semwright", "skill", "lock", "/tmp/skill"],
+            vec![
+                "semwright",
+                "skill",
+                "bundle",
+                "/tmp/skill",
+                "/tmp/skill.zip",
+            ],
+        ] {
+            let parsed = Cli::try_parse_from(args).unwrap();
+            assert!(request(&parsed).unwrap().is_none());
+            assert!(matches!(parsed.command, Command::Skill { .. }));
         }
     }
 }

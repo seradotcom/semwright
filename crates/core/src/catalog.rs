@@ -1,6 +1,8 @@
 //! Catalog projection over the same registry and operation probes used by execution.
 use super::*;
-use semwright_registry::CatalogQuery;
+use semwright_policy::Decision;
+use semwright_registry::{CatalogQuery, Metadata};
+
 impl Broker {
     fn catalog_routes(&self, descriptor: &CommandDescriptor, features: &[Feature]) -> Vec<Value> {
         let command = if descriptor.name == "ui.find" {
@@ -34,6 +36,93 @@ impl Broker {
             }
         }).collect()
     }
+    fn catalog_policy_preview(&self, descriptor: &CommandDescriptor, metadata: &Metadata) -> Value {
+        let config = self.policy.config();
+        let mut filesystem_depends_on_arguments = false;
+        for scope in &descriptor.requires {
+            if let Some(filesystem) = scope.strip_prefix("filesystem.") {
+                let (operation, _) = filesystem.split_once(':').unwrap_or((filesystem, "root"));
+                let base = format!("filesystem.{operation}");
+                if config.deny.contains(scope) || config.deny.contains(&base) {
+                    return json!({
+                        "state":"deny",
+                        "preview_only":true,
+                        "execution_rechecks":true,
+                        "reason":"Current Broker policy statically denies a required filesystem operation"
+                    });
+                }
+                let any_grant = config.filesystem.iter().any(|grant| match operation {
+                    "read" => grant.read,
+                    "write" => grant.write,
+                    _ => false,
+                });
+                if !any_grant {
+                    return json!({
+                        "state":"deny",
+                        "preview_only":true,
+                        "execution_rechecks":true,
+                        "reason":"No configured filesystem grant can satisfy a required operation"
+                    });
+                }
+                filesystem_depends_on_arguments = true;
+            } else if !self.policy.capabilities().contains(scope) {
+                return json!({
+                    "state":"deny",
+                    "preview_only":true,
+                    "execution_rechecks":true,
+                    "reason":"A required Broker capability is not granted in the current policy"
+                });
+            }
+        }
+        if !config.apps.is_empty()
+            && metadata
+                .app
+                .as_ref()
+                .is_some_and(|app| !config.apps.contains(app))
+        {
+            return json!({
+                "state":"deny",
+                "preview_only":true,
+                "execution_rechecks":true,
+                "reason":"The capability application is outside the configured application scope"
+            });
+        }
+        if !config.apps.is_empty()
+            && descriptor.risk.mutates()
+            && descriptor.name.starts_with("ui.")
+            && metadata.app.is_none()
+        {
+            return json!({
+                "state":"requires_target",
+                "preview_only":true,
+                "execution_rechecks":true,
+                "reason":"Application-scoped UI mutation depends on the resolved execution target"
+            });
+        }
+        if filesystem_depends_on_arguments {
+            return json!({
+                "state":"requires_arguments",
+                "preview_only":true,
+                "execution_rechecks":true,
+                "reason":"Filesystem policy depends on named roots supplied at execution"
+            });
+        }
+        let state = match self
+            .policy
+            .check(descriptor, &json!({}), metadata.app.as_deref())
+        {
+            Decision::Allow => "allow",
+            Decision::Deny(_) => "deny",
+            Decision::RequireConfirmation => "require_confirmation",
+        };
+        json!({
+            "state":state,
+            "preview_only":true,
+            "execution_rechecks":true,
+            "reason":"Static preview from current Broker policy; execution is authorized again with real arguments and target identity"
+        })
+    }
+
     pub async fn catalog_search(&self, query: CatalogQuery) -> Result<Value> {
         let (revision, candidates) = {
             let registry = self
@@ -61,7 +150,8 @@ impl Broker {
             if query.available.is_some_and(|wanted| wanted != available) {
                 continue;
             }
-            rows.push(json!({"id":command.name,"summary":command.description,"version":command.version,"provenance":metadata,"risk":command.risk,"required_scopes":command.requires,"idempotency":command.idempotency,"dry_run":command.dry_run,"timeout_ms":command.timeout_ms,"available":available,"routes":routes,"score":score}));
+            let policy_preview = self.catalog_policy_preview(&command, &metadata);
+            rows.push(json!({"id":command.name,"summary":command.description,"version":command.version,"provenance":metadata,"risk":command.risk,"required_scopes":command.requires,"idempotency":command.idempotency,"dry_run":command.dry_run,"timeout_ms":command.timeout_ms,"available":available,"routes":routes,"policy_preview":policy_preview,"score":score}));
         }
         if self.catalog_revision()? != revision {
             return Err(Error::new(
@@ -95,8 +185,9 @@ impl Broker {
                 "Catalog changed while describing the capability",
             ));
         }
+        let policy_preview = self.catalog_policy_preview(&command, &metadata);
         Ok(
-            json!({"schema_version":1,"revision":revision,"capability":command,"provenance":metadata,"routes":routes,"availability_is_authorization":false,"transactions":"No generic rollback promise; only explicitly documented provider operations have undo support"}),
+            json!({"schema_version":1,"revision":revision,"capability":command,"provenance":metadata,"routes":routes,"policy_preview":policy_preview,"availability_is_authorization":false,"transactions":"No generic rollback promise; only explicitly documented provider operations have undo support"}),
         )
     }
 }
