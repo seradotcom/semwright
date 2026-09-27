@@ -16,6 +16,7 @@ button{margin:12px 8px 0 0;padding:8px 12px}
 const $=id=>document.getElementById(id);
 let ws=null,session=null,generation=0,activeGeneration=0,context=null;
 let pairingSecret=null,manualDisconnect=true,reconnectTimer=null,reconnectAttempt=0,connecting=false,authenticatedOnce=false,preReadyFailures=0;
+let awaitingPairContext=false;
 function state(s){$("state").textContent=s}
 function hex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
 function randomSessionId(){
@@ -119,6 +120,7 @@ function stopPreAuthRetry(reason){
  reconnectAttempt=0;
  preReadyFailures=0;
  clearReconnect();
+ awaitingPairContext=false;
  state(reason+"\nEnter a fresh pairing code and press Connect.");
 }
 function scheduleReconnect(reason){
@@ -197,13 +199,15 @@ onmessage=e=>{
  const m=e.data.pluginMessage;if(!m)return;
  if(m.type==="document-context"){
   context=m;
+  if(awaitingPairContext){awaitingPairContext=false;openSocket();return}
   if(activeGeneration===0&&!connecting&&!reconnectTimer)state("Disconnected\n"+m.editorType);
  }
  if(m.type==="bridge-response"&&ws?.readyState===WebSocket.OPEN&&activeGeneration>0){
   ws.send(JSON.stringify({type:"response",session_id:session,generation:activeGeneration,revision:m.response.revision,id:m.response.id,ok:m.response.ok,value:m.response.value,error:m.response.error}));
  }
- if(m.type==="event"&&ws?.readyState===WebSocket.OPEN&&activeGeneration>0){
-  ws.send(JSON.stringify({type:"event",session_id:session,generation:activeGeneration,revision:m.revision,kind:m.kind,payload:m.payload??{}}));
+ if(m.type==="event"){
+  if(context&&Number.isFinite(Number(m.revision)))context={...context,revision:Math.max(Number(context.revision??0),Number(m.revision))};
+  if(ws?.readyState===WebSocket.OPEN&&activeGeneration>0)ws.send(JSON.stringify({type:"event",session_id:session,generation:activeGeneration,revision:m.revision,kind:m.kind,payload:m.payload??{}}));
  }
 };
 $("connect").onclick=()=>{
@@ -213,11 +217,11 @@ $("connect").onclick=()=>{
   manualDisconnect=true;clearReconnect();
   const old=ws;ws=null;old?.close();
   pairingSecret=secret;session=randomSessionId();generation=0;activeGeneration=0;reconnectAttempt=0;connecting=false;authenticatedOnce=false;preReadyFailures=0;
-  manualDisconnect=false;openSocket();
+  manualDisconnect=false;awaitingPairContext=true;state("Refreshing document context…");parent.postMessage({pluginMessage:{type:"bridge-status"}},"*");
  }catch(err){state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))}
 };
 $("disconnect").onclick=()=>{
- manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect();
+ manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect();awaitingPairContext=false;
  const old=ws;ws=null;old?.close();$("secret").value="";state("Disconnected");
 };
 </script>
