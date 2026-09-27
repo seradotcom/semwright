@@ -427,6 +427,39 @@ async fn windows_driver_rejects_secret_source_with_broad_mutation_acl() {
 }
 
 #[tokio::test]
+async fn secure_windows_driver_rejects_nonprivate_secret_source_before_spawn() {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let directory = tempfile::tempdir().expect("secret directory");
+    let secret = directory.path().join("secret.txt");
+    std::fs::write(&secret, b"sensitive-secret").expect("write secret");
+    harden_fixture(&secret);
+    grant_all_application_packages_file_read(&secret);
+
+    let mut candidate = manifest(executable);
+    candidate.secrets = vec![DriverSecretMount {
+        root: "fixture-secret-root".into(),
+        name: "fixture-secret".into(),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-secret-root".into(),
+        path: secret,
+        read: true,
+        write: false,
+    }];
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let error = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect_err("non-private secret source must be rejected before spawn");
+    assert_eq!(error.code, semwright_types::ErrorCode::PermissionDenied);
+}
+
+#[tokio::test]
 async fn secure_windows_driver_operation_cpu_budget_terminates_job() {
     let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
     let binary_dir = tempfile::tempdir().expect("fixture directory");

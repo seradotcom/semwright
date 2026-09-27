@@ -22,9 +22,9 @@ use std::{
 use tokio::{fs::File as TokioFile, process::Command};
 use windows::Win32::{
     Foundation::{
-        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_WRITE, HANDLE,
-        HANDLE_FLAG_INHERIT, HANDLE_FLAGS, HLOCAL, HWND, LocalFree, TRUST_E_EXPLICIT_DISTRUST,
-        TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
+        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_READ,
+        GENERIC_WRITE, HANDLE, HANDLE_FLAG_INHERIT, HANDLE_FLAGS, HLOCAL, HWND, LocalFree,
+        TRUST_E_EXPLICIT_DISTRUST, TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
     },
     Security::{
         ACCESS_ALLOWED_ACE, ACCESS_DENIED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION,
@@ -56,9 +56,9 @@ use windows::Win32::{
         FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
         FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
         FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES,
-        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES,
-        FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC,
-        WRITE_OWNER,
+        FILE_READ_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
+        OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
     },
     System::{
         Com::CoTaskMemFree,
@@ -257,7 +257,7 @@ fn sid_matches(sid: PSID, expected: &[u8]) -> bool {
     unsafe { EqualSid(sid, PSID(expected.as_ptr().cast_mut().cast())).is_ok() }
 }
 
-fn verify_trusted_file_acl(file: &File, kind: &str) -> Result<()> {
+fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Result<()> {
     let mut owner = PSID::default();
     let mut dacl: *mut ACL = std::ptr::null_mut();
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
@@ -325,7 +325,7 @@ fn verify_trusted_file_acl(file: &File, kind: &str) -> Result<()> {
         ));
     }
 
-    let dangerous = FILE_WRITE_DATA.0
+    let mutation = FILE_WRITE_DATA.0
         | FILE_APPEND_DATA.0
         | FILE_WRITE_EA.0
         | FILE_WRITE_ATTRIBUTES.0
@@ -335,6 +335,12 @@ fn verify_trusted_file_acl(file: &File, kind: &str) -> Result<()> {
         | FILE_GENERIC_WRITE.0
         | GENERIC_WRITE.0
         | GENERIC_ALL.0;
+    let confidential = FILE_READ_DATA.0 | FILE_GENERIC_READ.0 | GENERIC_READ.0 | GENERIC_ALL.0;
+    let restricted = if private_data {
+        mutation | confidential
+    } else {
+        mutation
+    };
 
     for index in 0..acl_info.AceCount {
         let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
@@ -371,20 +377,22 @@ fn verify_trusted_file_acl(file: &File, kind: &str) -> Result<()> {
             // Every allow ACE layout starts with ACE_HEADER followed by the access mask.
             // SAFETY: the common prefix size was checked above.
             let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
-            if ace.Mask & dangerous == 0 {
+            if ace.Mask & restricted == 0 {
                 continue;
             }
             if ace_type != ACCESS_ALLOWED_ACE_TYPE {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    format!("Complex Windows {kind} mutation ACEs are fail-closed"),
+                    format!("Complex Windows {kind} restricted ACEs are fail-closed"),
                 ));
             }
             let sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
             if !trusted.iter().any(|expected| sid_matches(sid, expected)) {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    format!("Windows {kind} DACL grants mutation rights to an untrusted principal"),
+                    format!(
+                        "Windows {kind} DACL grants restricted rights to an untrusted principal"
+                    ),
                 ));
             }
             continue;
@@ -432,7 +440,7 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
     let mut file = options.open(path)?;
     let before = info(&file)?;
-    verify_trusted_file_acl(&file, "private data file")?;
+    verify_trusted_file_acl(&file, "private data file", true)?;
     let size = (u64::from(before.nFileSizeHigh) << 32) | u64::from(before.nFileSizeLow);
     if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
         || before.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0
@@ -493,7 +501,7 @@ impl ExecutableVerifier for WindowsVerifier {
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
         let mut file = options.open(path)?;
         let before = info(&file)?;
-        verify_trusted_file_acl(&file, "executable")?;
+        verify_trusted_file_acl(&file, "executable", false)?;
         if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
             || before.nNumberOfLinks != 1
             || before.nFileSizeHigh != 0
