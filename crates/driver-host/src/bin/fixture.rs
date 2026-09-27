@@ -87,12 +87,13 @@ fn tool_capability() -> Capability {
                 "type":"object",
                 "properties":{
                     "stdout":{"type":"string"},
+                    "read_ok":{"type":"boolean"},
                     "write_ok":{"type":"boolean"},
                     "spawn_error_kind":{"type":"string"},
                     "spawn_errno":{"type":"integer"},
                     "exit_code":{"type":"integer"}
                 },
-                "required":["stdout","write_ok","spawn_error_kind","spawn_errno","exit_code"],
+                "required":["stdout","read_ok","write_ok","spawn_error_kind","spawn_errno","exit_code"],
                 "additionalProperties":false
             }),
             requires: vec!["driver:fixture".into()],
@@ -294,12 +295,14 @@ impl Driver for Fixture {
                 return Err(Error::invalid("fixture tool probe accepts an empty object"));
             }
             let tool = tool_path("probe")?;
+            let read_ok = std::fs::File::open(&tool).is_ok();
             let write_ok = std::fs::OpenOptions::new().write(true).open(&tool).is_ok();
             let output = match std::process::Command::new(&tool).output() {
                 Ok(output) => output,
                 Err(error) => {
                     return Ok(json!({
                         "stdout":"",
+                        "read_ok":read_ok,
                         "write_ok":write_ok,
                         "spawn_error_kind":format!("{:?}", error.kind()),
                         "spawn_errno":error.raw_os_error().unwrap_or(-1),
@@ -311,6 +314,7 @@ impl Driver for Fixture {
             if !output.status.success() {
                 return Ok(json!({
                     "stdout":"",
+                    "read_ok":read_ok,
                     "write_ok":write_ok,
                     "spawn_error_kind":"",
                     "spawn_errno":-1,
@@ -325,6 +329,7 @@ impl Driver for Fixture {
             })?;
             return Ok(json!({
                 "stdout":stdout,
+                "read_ok":read_ok,
                 "write_ok":write_ok,
                 "spawn_error_kind":"",
                 "spawn_errno":-1,

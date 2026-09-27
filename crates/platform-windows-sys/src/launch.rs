@@ -1477,11 +1477,11 @@ fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGra
             path: materialized_path,
             read_only: true,
         },
-        // The child needs path traversal to open a specifically granted tool, but must not
-        // gain directory listing or mutation authority over the private Driver staging root.
-        permissions: FILE_GENERIC_EXECUTE.0,
-        denied_permissions: FILE_LIST_DIRECTORY.0
-            | FILE_WRITE_DATA.0
+        // This is a dedicated per-profile directory containing only tools already named in
+        // the host-controlled tool table. Windows image resolution may read/list this directory
+        // on some hosts, so grant read + traverse while continuing to deny all mutation.
+        permissions: FILE_GENERIC_READ.0 | FILE_GENERIC_EXECUTE.0,
+        denied_permissions: FILE_WRITE_DATA.0
             | FILE_APPEND_DATA.0
             | FILE_WRITE_EA.0
             | FILE_WRITE_ATTRIBUTES.0

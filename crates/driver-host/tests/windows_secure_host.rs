@@ -191,6 +191,10 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         "sealed tool exit diagnostics: {output}"
     );
     assert_eq!(output["stdout"], "tool-ok", "sealed tool output: {output}");
+    assert_eq!(
+        output["read_ok"], true,
+        "sealed tool must remain readable: {output}"
+    );
     assert_eq!(output["write_ok"], false);
 
     Provider::shutdown(provider.as_ref())
