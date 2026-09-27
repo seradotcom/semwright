@@ -126,8 +126,42 @@ run() {
   "$CTL" --socket "$SOCKET" --session-file "$SESSION" --json "$@"
 }
 
-search=$(run capabilities search "" --provider driver:blender --limit 100)
-status=$(run execute driver.blender.status)
+READINESS_LOG="$ROOT/verification/native-ci/blender-broker-readiness.log"
+: > "$READINESS_LOG"
+fail_with_diagnostics() {
+  local rc=$?
+  trap - ERR
+  echo "Blender broker smoke failed: rc=$rc command=$BASH_COMMAND" >&2
+  cat "$READINESS_LOG" >&2 2>/dev/null || true
+  cat "$LOG" >&2 2>/dev/null || true
+  exit "$rc"
+}
+trap fail_with_diagnostics ERR
+
+retry_read_only() {
+  local output=""
+  local attempt
+  for attempt in $(seq 1 80); do
+    if output=$(run "$@" 2>>"$READINESS_LOG"); then
+      printf '%s' "$output"
+      return 0
+    fi
+    if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
+      echo "daemon exited while waiting for Blender broker readiness" >>"$READINESS_LOG"
+      cat "$LOG" >>"$READINESS_LOG" 2>/dev/null || true
+      return 1
+    fi
+    sleep 0.1
+  done
+  echo "timed out waiting for Blender broker readiness: $*" >>"$READINESS_LOG"
+  cat "$LOG" >>"$READINESS_LOG" 2>/dev/null || true
+  return 1
+}
+
+# Socket creation precedes full driver/provider readiness on loaded hosted runners.
+# Retry only read-only discovery/health calls; mutations below remain single-shot.
+search=$(retry_read_only capabilities search "" --provider driver:blender --limit 100)
+status=$(retry_read_only execute driver.blender.status)
 summary=$(run execute driver.blender.introspect.summary)
 operators=$(run execute driver.blender.introspect.operators --args-json '{"query":"primitive_cube_add","limit":32}')
 types=$(run execute driver.blender.introspect.types --args-json '{"query":"Mesh","limit":32}')
