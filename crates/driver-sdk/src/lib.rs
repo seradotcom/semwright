@@ -1,4 +1,6 @@
 //! Versioned application-driver contract. Drivers are providers; this crate has no broker or MCP authority.
+
+pub mod continuity;
 use async_trait::async_trait;
 use semwright_platform_api::launch::{MountClass, SANDBOX_MOUNTS_ENV, decode_materialized_mounts};
 use semwright_protocol::{read_frame, write_frame};

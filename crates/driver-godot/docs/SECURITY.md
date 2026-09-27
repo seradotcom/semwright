@@ -52,3 +52,9 @@ explicit owner action.
 The certified security path for this closeout is Linux x86_64. A successful source build on
 another operating system is not treated as evidence of equivalent Driver Host confinement or
 real Godot acceptance.
+
+## Session continuity
+
+Transient editor-bridge loss uses authenticated logical-session resume. The plugin retains the session ID only in process memory and presents it as `resume_session` on reconnect. The driver preserves the logical session only for a short reconnect grace, authenticates a fresh HMAC transcript, creates a new generation, and prevents cleanup from an old connection from removing the new generation.
+
+The companion uses bounded exponential reconnect and answers application-level heartbeat pings. Protocol/authentication failures fail closed instead of becoming infinite reconnect loops.

@@ -534,3 +534,23 @@ fn companion_list_exactly_tracks_the_editor_plugin_tree() {
     }
     assert_eq!(declared, actual);
 }
+
+#[test]
+fn companion_declares_bounded_session_resume_contract() {
+    const PLUGIN: &str = include_str!("../../../integrations/godot/addons/semwright/plugin.gd");
+    for required in [
+        "RECONNECT_BASE_MS := 250",
+        "RECONNECT_MAX_MS := 4000",
+        "PRE_READY_FAILURE_LIMIT := 8",
+        "hello[\"resume_session\"] = _session",
+        "_authenticated_once = true",
+        "_schedule_reconnect(\"socket closed\")",
+        "kind == \"ping\"",
+        "\"type\":\"pong\"",
+    ] {
+        assert!(
+            PLUGIN.contains(required),
+            "Godot companion lost continuity invariant: {required}"
+        );
+    }
+}

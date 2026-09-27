@@ -189,6 +189,182 @@ async fn fake_editor(port: u16, project: String, secret_hex: String) {
     .await;
 }
 
+#[tokio::test]
+async fn logical_session_resumes_and_waiting_call_crosses_reconnect_gap() {
+    let dir = tempfile::tempdir().unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    std::fs::write(
+        dir.path().join("project.godot"),
+        "config_version=5
+",
+    )
+    .unwrap();
+
+    let socket = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = socket.local_addr().unwrap().port();
+    drop(socket);
+
+    let project = "1".repeat(64);
+    let secret_hex = "2".repeat(64);
+    let config = Config {
+        port,
+        development_mode: true,
+        projects: vec![ProjectConfig {
+            project: project.clone(),
+            root: dir.path().canonicalize().unwrap(),
+            secret: secret_hex.clone(),
+        }],
+        runner: None,
+    };
+    let driver = GodotDriver::new(config).await.unwrap();
+
+    let (mut first, session, generation_one) =
+        authenticate_editor(port, &project, &secret_hex, None).await;
+    let active = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            let sessions = driver.bridge.list().await;
+            if sessions.len() == 1 {
+                break sessions;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(active[0].session, session);
+
+    first.close(None).await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        loop {
+            let continuity = driver.bridge.continuity().await;
+            if continuity.connected_sessions == 0 && continuity.reconnecting_sessions == 1 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+
+    let bridge = driver.bridge.clone();
+    let waiting_session = session.clone();
+    let waiting = tokio::spawn(async move {
+        bridge
+            .call(
+                &waiting_session,
+                "project.inspect",
+                json!({}),
+                std::time::Duration::from_secs(3),
+            )
+            .await
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+    let (mut resumed, resumed_session, generation_two) =
+        authenticate_editor(port, &project, &secret_hex, Some(&session)).await;
+    assert_eq!(resumed_session, session);
+    assert_ne!(generation_two, generation_one);
+
+    let request = recv(&mut resumed).await;
+    assert_eq!(request["type"], "request");
+    assert_eq!(request["op"], "project.inspect");
+    send(
+        &mut resumed,
+        json!({
+            "type":"response",
+            "id":request["id"],
+            "ok":true,
+            "value":{"resumed":true}
+        }),
+    )
+    .await;
+
+    let result = tokio::time::timeout(std::time::Duration::from_secs(2), waiting)
+        .await
+        .expect("waiting Godot request did not wake after reconnect")
+        .unwrap()
+        .unwrap();
+    assert_eq!(result["resumed"], true);
+
+    let continuity = driver.bridge.continuity().await;
+    assert_eq!(continuity.connected_sessions, 1);
+    assert_eq!(continuity.reconnecting_sessions, 0);
+    assert_eq!(continuity.reconnects, 1);
+
+    tokio::time::sleep(
+        semwright_godot_driver::bridge::RECONNECT_GRACE + std::time::Duration::from_millis(150),
+    )
+    .await;
+    let sessions = driver.bridge.list().await;
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].session, session);
+    assert_eq!(sessions[0].generation, generation_two);
+
+    resumed.close(None).await.unwrap();
+}
+
+async fn authenticate_editor(
+    port: u16,
+    project: &str,
+    secret_hex: &str,
+    resume_session: Option<&str>,
+) -> (
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    String,
+    String,
+) {
+    let (mut ws, _) = connect_async(format!("ws://127.0.0.1:{port}"))
+        .await
+        .unwrap();
+    let client_nonce = "3".repeat(32);
+    let mut hello = json!({
+        "type":"hello",
+        "project":project,
+        "nonce":client_nonce,
+        "plugin_version":"0.2.0",
+        "engine_version":"4.7.2"
+    });
+    if let Some(session) = resume_session {
+        hello["resume_session"] = Value::String(session.to_owned());
+    }
+    send(&mut ws, hello).await;
+    let challenge = recv(&mut ws).await;
+    assert_eq!(challenge["type"], "challenge");
+    let server_nonce = challenge["nonce"].as_str().unwrap();
+    let generation = challenge["generation"].as_str().unwrap().to_owned();
+    let session = challenge["session"].as_str().unwrap().to_owned();
+    let secret = hex::decode(secret_hex).unwrap();
+    let server = transcript(
+        "server",
+        project,
+        &client_nonce,
+        server_nonce,
+        &generation,
+        &session,
+    );
+    assert_eq!(challenge["proof"], proof(&secret, &server).unwrap());
+    let client = transcript(
+        "client",
+        project,
+        &client_nonce,
+        server_nonce,
+        &generation,
+        &session,
+    );
+    send(
+        &mut ws,
+        json!({"type":"authenticate","proof":proof(&secret,&client).unwrap()}),
+    )
+    .await;
+    let ready = recv(&mut ws).await;
+    assert_eq!(ready["type"], "ready");
+    (ws, session, generation)
+}
+
 async fn send(
     ws: &mut tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
