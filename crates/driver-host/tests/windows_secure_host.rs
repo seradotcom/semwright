@@ -389,7 +389,7 @@ async fn secure_windows_driver_secret_is_private_and_read_only() {
 }
 
 #[tokio::test]
-async fn windows_driver_rejects_secret_source_with_broad_mutation_acl() {
+async fn secure_windows_driver_secret_rejects_source_with_broad_mutation_acl() {
     let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
     let binary_dir = tempfile::tempdir().expect("fixture directory");
     let executable = binary_dir.path().join("driver.exe");
@@ -416,7 +416,8 @@ async fn windows_driver_rejects_secret_source_with_broad_mutation_acl() {
     let state = tempfile::tempdir().expect("driver state");
     let helper = std::env::current_exe().expect("current test executable");
 
-    let error = match DriverProvider::connect(candidate, state.path(), &helper, &roots, false).await {
+    let error = match DriverProvider::connect(candidate, state.path(), &helper, &roots, false).await
+    {
         Ok(provider) => {
             let _ = Provider::shutdown(provider.as_ref()).await;
             panic!("mutable secret source must be rejected before child launch");

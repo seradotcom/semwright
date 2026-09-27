@@ -1,8 +1,9 @@
 use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, Mount, MountClass, SANDBOX_MOUNTS_ENV, SandboxChildControl,
-    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
+    ExecutableVerifier, MaterializedMount, Mount, MountClass, SANDBOX_MOUNTS_ENV,
+    SandboxChildControl, SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec,
+    encode_materialized_mounts,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
