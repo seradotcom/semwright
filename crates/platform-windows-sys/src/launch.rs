@@ -69,17 +69,17 @@ use windows::Win32::{
             ACCESS_ALLOWED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_ALLOWED_OBJECT_ACE_TYPE,
             ACCESS_DENIED_ACE_TYPE, ACCESS_DENIED_CALLBACK_ACE_TYPE,
             ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_DENIED_OBJECT_ACE_TYPE,
-            SE_GROUP_ENABLED,
+            PROCESS_MITIGATION_CHILD_PROCESS_POLICY, SE_GROUP_ENABLED,
         },
         Threading::{
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
-            INFINITE, InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
-            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+            GetProcessMitigationPolicy, INFINITE, InitializeProcThreadAttributeList,
+            LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
             PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, PROC_THREAD_ATTRIBUTE_DESKTOP_APP_POLICY,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
-            PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
-            TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+            PROCESS_INFORMATION, ProcessChildProcessPolicy, ResumeThread, STARTF_USESTDHANDLES,
+            STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
         },
         WindowsProgramming::{
             PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
@@ -2073,6 +2073,36 @@ fn inherited_null() -> Result<NativeHandle> {
     Ok(NativeHandle(handle))
 }
 
+fn verify_child_process_creation_allowed(process: HANDLE) -> Result<()> {
+    let mut policy = PROCESS_MITIGATION_CHILD_PROCESS_POLICY::default();
+    // SAFETY: process is a live suspended child HANDLE and policy is a correctly-sized output.
+    unsafe {
+        GetProcessMitigationPolicy(
+            process,
+            ProcessChildProcessPolicy,
+            (&mut policy as *mut PROCESS_MITIGATION_CHILD_PROCESS_POLICY).cast(),
+            std::mem::size_of::<PROCESS_MITIGATION_CHILD_PROCESS_POLICY>(),
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool child-process mitigation policy could not be queried",
+        )
+    })?;
+    // SAFETY: Flags is the active union member for PROCESS_MITIGATION_CHILD_PROCESS_POLICY.
+    let flags = unsafe { policy.Anonymous.Flags };
+    if flags & 0x1 != 0 {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            format!(
+                "Windows sealed-tool child-process policy remained restricted after override (flags={flags:#x})"
+            ),
+        ));
+    }
+    Ok(())
+}
+
 struct NativeSandboxChild {
     process: NativeHandle,
     _job: Arc<ProcessJob>,
@@ -2298,6 +2328,15 @@ impl SandboxLauncher for WindowsSandbox {
 
         let process = NativeHandle(process_info.hProcess);
         let thread = NativeHandle(process_info.hThread);
+        if child_process_override
+            && let Err(error) = verify_child_process_creation_allowed(process.raw())
+        {
+            // SAFETY: the child is still suspended and no untrusted instruction has run.
+            unsafe {
+                let _ = TerminateProcess(process.raw(), 1);
+            }
+            return Err(error);
+        }
         if let Err(error) = job.assign_suspended_process(process.raw()) {
             // SAFETY: child is still suspended and must not survive a failed containment step.
             unsafe {
