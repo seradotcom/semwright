@@ -96,12 +96,14 @@ fn tool_capability() -> Capability {
                     "execute_open_ok":{"type":"boolean"},
                     "self_spawn_ok":{"type":"boolean"},
                     "self_spawn_errno":{"type":"integer"},
+                    "null_spawn_ok":{"type":"boolean"},
+                    "null_spawn_errno":{"type":"integer"},
                     "write_ok":{"type":"boolean"},
                     "spawn_error_kind":{"type":"string"},
                     "spawn_errno":{"type":"integer"},
                     "exit_code":{"type":"integer"}
                 },
-                "required":["stdout","read_ok","execute_open_ok","self_spawn_ok","self_spawn_errno","write_ok","spawn_error_kind","spawn_errno","exit_code"],
+                "required":["stdout","read_ok","execute_open_ok","self_spawn_ok","self_spawn_errno","null_spawn_ok","null_spawn_errno","write_ok","spawn_error_kind","spawn_errno","exit_code"],
                 "additionalProperties":false
             }),
             requires: vec!["driver:fixture".into()],
@@ -331,6 +333,21 @@ impl Driver for Fixture {
             };
             #[cfg(not(windows))]
             let (self_spawn_ok, self_spawn_errno) = (true, -1);
+            #[cfg(windows)]
+            let (null_spawn_ok, null_spawn_errno) = {
+                use std::process::Stdio;
+                match std::process::Command::new(&tool)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status()
+                {
+                    Ok(status) => (status.success(), -1),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                }
+            };
+            #[cfg(not(windows))]
+            let (null_spawn_ok, null_spawn_errno) = (true, -1);
             let write_ok = std::fs::OpenOptions::new().write(true).open(&tool).is_ok();
             let output = match std::process::Command::new(&tool).output() {
                 Ok(output) => output,
@@ -341,6 +358,8 @@ impl Driver for Fixture {
                         "execute_open_ok":execute_open_ok,
                         "self_spawn_ok":self_spawn_ok,
                         "self_spawn_errno":self_spawn_errno,
+                        "null_spawn_ok":null_spawn_ok,
+                        "null_spawn_errno":null_spawn_errno,
                         "write_ok":write_ok,
                         "spawn_error_kind":format!("{:?}", error.kind()),
                         "spawn_errno":error.raw_os_error().unwrap_or(-1),
@@ -356,6 +375,8 @@ impl Driver for Fixture {
                     "execute_open_ok":execute_open_ok,
                     "self_spawn_ok":self_spawn_ok,
                     "self_spawn_errno":self_spawn_errno,
+                    "null_spawn_ok":null_spawn_ok,
+                    "null_spawn_errno":null_spawn_errno,
                     "write_ok":write_ok,
                     "spawn_error_kind":"",
                     "spawn_errno":-1,
@@ -374,6 +395,8 @@ impl Driver for Fixture {
                 "execute_open_ok":execute_open_ok,
                 "self_spawn_ok":self_spawn_ok,
                 "self_spawn_errno":self_spawn_errno,
+                "null_spawn_ok":null_spawn_ok,
+                "null_spawn_errno":null_spawn_errno,
                 "write_ok":write_ok,
                 "spawn_error_kind":"",
                 "spawn_errno":-1,
