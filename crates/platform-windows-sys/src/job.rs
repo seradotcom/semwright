@@ -3,15 +3,63 @@ use semwright_types::{Error, ErrorCode, Result};
 use std::time::Duration;
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE},
-    System::JobObjects::{
-        AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_ACTIVE_PROCESS,
-        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
-        JOB_OBJECT_LIMIT_PROCESS_TIME, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION,
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectBasicAccountingInformation,
-        JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
-        TerminateJobObject,
+    System::{
+        JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_ACTIVE_PROCESS,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
+            JOB_OBJECT_LIMIT_PROCESS_TIME, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectBasicAccountingInformation,
+            JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
+            TerminateJobObject,
+        },
+        SystemInformation::{IMAGE_FILE_MACHINE_ARM64, IMAGE_FILE_MACHINE_UNKNOWN},
+        Threading::{GetCurrentProcess, IsWow64Process2},
     },
 };
+
+const X64_ON_ARM64_EMULATION_MEMORY_HEADROOM: usize = 512 * 1024 * 1024;
+
+fn memory_limit_with_platform_headroom(limit: usize, x64_on_arm64: bool) -> Result<usize> {
+    if !x64_on_arm64 {
+        return Ok(limit);
+    }
+    limit
+        .checked_add(X64_ON_ARM64_EMULATION_MEMORY_HEADROOM)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Windows x64-on-ARM64 memory headroom overflowed the Job limit",
+            )
+        })
+}
+
+fn current_process_is_x64_on_arm64() -> Result<bool> {
+    if std::env::consts::ARCH != "x86_64" {
+        return Ok(false);
+    }
+    let mut process_machine = IMAGE_FILE_MACHINE_UNKNOWN;
+    let mut native_machine = IMAGE_FILE_MACHINE_UNKNOWN;
+    // SAFETY: GetCurrentProcess returns a pseudo-handle valid in this process and both outputs
+    // are writable IMAGE_FILE_MACHINE values.
+    unsafe {
+        IsWow64Process2(
+            GetCurrentProcess(),
+            &mut process_machine,
+            Some(&mut native_machine),
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Windows native architecture detection failed",
+        )
+    })?;
+    Ok(native_machine == IMAGE_FILE_MACHINE_ARM64)
+}
+
+fn effective_process_memory_limit(limit: usize) -> Result<usize> {
+    memory_limit_with_platform_headroom(limit, current_process_is_x64_on_arm64()?)
+}
 
 /// OS Job Object used for child-process containment. This is unrelated to Semwright protocol Jobs.
 pub struct ProcessJob(HANDLE);
@@ -52,7 +100,7 @@ impl ProcessJob {
         }
         if let Some(limit) = memory_limit {
             info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PROCESS_MEMORY;
-            info.ProcessMemoryLimit = limit;
+            info.ProcessMemoryLimit = effective_process_memory_limit(limit)?;
         }
         if let Some(seconds) = cpu_seconds {
             let ticks = seconds.checked_mul(10_000_000).ok_or_else(|| {
@@ -149,5 +197,31 @@ impl SandboxCpuAccounting for ProcessJob {
             )
         })?;
         Ok(Duration::from_nanos(nanos))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_process_memory_limit_is_exact() {
+        assert_eq!(
+            memory_limit_with_platform_headroom(512 * 1024 * 1024, false).unwrap(),
+            512 * 1024 * 1024
+        );
+    }
+
+    #[test]
+    fn x64_on_arm64_gets_bounded_emulation_headroom() {
+        assert_eq!(
+            memory_limit_with_platform_headroom(512 * 1024 * 1024, true).unwrap(),
+            1024 * 1024 * 1024
+        );
+    }
+
+    #[test]
+    fn emulation_headroom_overflow_fails_closed() {
+        assert!(memory_limit_with_platform_headroom(usize::MAX, true).is_err());
     }
 }
