@@ -454,10 +454,24 @@ fn validate_owner_permissions(
                     "Driver system config mount has no owner grant",
                 )
             })?;
-        if !grant.read || std::fs::canonicalize(&grant.path)? != grant.path {
+        if !grant.read {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
-                "Driver system config mount requires a canonical readable owner grant",
+                "Driver system config mount requires a readable owner grant",
+            ));
+        }
+        #[cfg(unix)]
+        if std::fs::canonicalize(&grant.path)? != grant.path {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver system config mount requires a canonical owner grant",
+            ));
+        }
+        #[cfg(target_os = "windows")]
+        if !grant.path.is_absolute() {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows driver system config grant must use an absolute path",
             ));
         }
     }
@@ -835,10 +849,10 @@ fn sandbox_spec_windows(
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
 
-    if !manifest.system_config.is_empty() || !manifest.secrets.is_empty() {
+    if !manifest.secrets.is_empty() {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows system-config and secret grants remain fail-closed until their AppContainer contracts are proven",
+            "Windows secret grants remain fail-closed until their AppContainer delivery contract is proven",
         ));
     }
     if manifest.loopback_port.is_some() {
@@ -853,7 +867,7 @@ fn sandbox_spec_windows(
             .find(|grant| grant.name == name)
             .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver grant disappeared"))
     };
-    let mounts = manifest
+    let mut mounts = manifest
         .mounts
         .iter()
         .map(|mount| {
@@ -867,6 +881,35 @@ fn sandbox_spec_windows(
             })
         })
         .collect::<Result<Vec<_>>>()?;
+    mounts.extend(
+        manifest
+            .system_config
+            .iter()
+            .map(|mount| {
+                let relative = mount.destination.strip_prefix("/etc").map_err(|_| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Driver system config destination must remain under /etc",
+                    )
+                })?;
+                let logical_name = relative
+                    .to_str()
+                    .ok_or_else(|| {
+                        Error::invalid("Driver system config destination must be UTF-8")
+                    })?
+                    .trim_start_matches('/')
+                    .to_owned();
+                let grant = lookup(&mount.root)?;
+                Ok(Mount {
+                    source: grant.path.clone(),
+                    class: MountClass::SystemConfig,
+                    logical_name,
+                    read_only: true,
+                    execute: false,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
+    );
     Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
