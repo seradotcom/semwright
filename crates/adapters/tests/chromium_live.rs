@@ -443,9 +443,7 @@ async fn exercise(
                 .as_array()
                 .and_then(|rows| rows.iter().find(|row| row["title"] == "Semwright Popup"))
             {
-                return Ok::<NativeTarget, semwright_types::Error>(serde_json::from_value(
-                    row["ref"].clone(),
-                )?);
+                return target(&row["ref"]);
             }
             tokio::time::sleep(Duration::from_millis(40)).await;
         }
