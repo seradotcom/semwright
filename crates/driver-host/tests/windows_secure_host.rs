@@ -222,3 +222,46 @@ async fn secure_windows_driver_workspace_read_write_is_enforced() {
         b"written"
     );
 }
+
+#[tokio::test]
+async fn secure_windows_driver_operation_cpu_budget_terminates_job() {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let mut candidate = manifest(executable);
+    candidate.resources.operation_cpu_seconds = 1;
+    let provider = DriverProvider::connect(candidate, state.path(), &helper, &[], false)
+        .await
+        .expect("Windows Driver Host with Job CPU accounting");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let ping = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.ping")
+        .expect("fixture ping capability")
+        .descriptor
+        .clone();
+
+    let error = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "windows-operation-cpu".into(),
+            request_id: "windows-operation-cpu-spin".into(),
+            cancellation: CancellationToken::new(),
+        },
+        &ping,
+        &serde_json::json!({"cpu_ms":3000}),
+    )
+    .await
+    .expect_err("CPU-heavy operation must exceed the one-second Job budget");
+    assert_eq!(error.code, semwright_types::ErrorCode::ResourceExhausted);
+
+    let _ = Provider::shutdown(provider.as_ref()).await;
+}

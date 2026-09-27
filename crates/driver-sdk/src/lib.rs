@@ -235,7 +235,8 @@ pub struct DriverResources {
     /// Hard cumulative CPU lifetime cap enforced by the sandbox.
     #[serde(default = "default_cpu_seconds")]
     pub cpu_seconds: u64,
-    /// Optional Linux per-operation CPU budget. Zero preserves the lifetime-only contract.
+    /// Optional per-operation CPU budget on hosts with bounded process-tree accounting.
+    /// Zero preserves the lifetime-only contract.
     #[serde(default)]
     pub operation_cpu_seconds: u64,
     #[serde(default = "default_address_space_bytes")]

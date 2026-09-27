@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use semwright_platform_api::launch::MountClass;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, Mount, SANDBOX_MOUNTS_ENV, SandboxChildControl,
-    SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
+    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -19,6 +19,7 @@ use std::{
         io::{AsRawHandle, FromRawHandle},
     },
     path::{Component, Path},
+    sync::Arc,
 };
 use tokio::{fs::File as TokioFile, process::Command};
 use windows::Win32::{
@@ -1547,7 +1548,7 @@ fn inherited_null() -> Result<NativeHandle> {
 
 struct NativeSandboxChild {
     process: NativeHandle,
-    _job: ProcessJob,
+    _job: Arc<ProcessJob>,
     pid: u32,
     mount_grants: Vec<WindowsMountGrant>,
     profile_name: Option<Vec<u16>>,
@@ -1575,6 +1576,7 @@ impl NativeSandboxChild {
         // SAFETY: process is a live owned process HANDLE.
         let wait = unsafe { WaitForSingleObject(self.process.raw(), 0) };
         if wait == WAIT_OBJECT_0 {
+            self._job.terminate(0)?;
             self.exited = true;
             self.cleanup_authority()?;
             Ok(true)
@@ -1594,13 +1596,7 @@ impl SandboxChildControl for NativeSandboxChild {
         if self.observed_exit()? {
             return Ok(());
         }
-        // SAFETY: process is a live child owned by this controller.
-        unsafe { TerminateProcess(self.process.raw(), 1) }.map_err(|_| {
-            Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows sandbox child termination failed",
-            )
-        })?;
+        self._job.terminate(1)?;
         self.wait().await
     }
 
@@ -1621,6 +1617,7 @@ impl SandboxChildControl for NativeSandboxChild {
                 "Windows sandbox wait returned an unexpected status",
             ));
         }
+        self._job.terminate(0)?;
         self.exited = true;
         self.cleanup_authority()
     }
@@ -1629,9 +1626,9 @@ impl SandboxChildControl for NativeSandboxChild {
 impl Drop for NativeSandboxChild {
     fn drop(&mut self) {
         if !self.exited {
-            // SAFETY: best-effort containment cleanup for the owned child.
+            let _ = self._job.terminate(1);
+            // SAFETY: best-effort wait on the owned root process after terminating the Job.
             unsafe {
-                let _ = TerminateProcess(self.process.raw(), 1);
                 if WaitForSingleObject(self.process.raw(), 5_000) == WAIT_OBJECT_0 {
                     self.exited = true;
                 }
@@ -1721,7 +1718,7 @@ impl SandboxLauncher for WindowsSandbox {
                 )
             })?;
         let cpu_seconds = limits.map(|limit| limit.cpu_seconds);
-        let job = ProcessJob::new(process_limit, memory_limit, cpu_seconds)?;
+        let job = Arc::new(ProcessJob::new(process_limit, memory_limit, cpu_seconds)?);
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
         let mut command = command_line(spec)?;
@@ -1786,7 +1783,8 @@ impl SandboxLauncher for WindowsSandbox {
         let stdin = Box::new(TokioFile::from_std(parent_stdin.into_file()));
         let stdout = Box::new(TokioFile::from_std(parent_stdout.into_file()));
         let profile_name = profile.transfer_name();
-        Ok(SandboxProcess::from_parts(
+        let cpu_accounting: Arc<dyn SandboxCpuAccounting> = job.clone();
+        Ok(SandboxProcess::from_parts_with_cpu_accounting(
             stdin,
             stdout,
             Box::new(NativeSandboxChild {
@@ -1797,6 +1795,7 @@ impl SandboxLauncher for WindowsSandbox {
                 profile_name: Some(profile_name),
                 exited: false,
             }),
+            cpu_accounting,
         ))
     }
 

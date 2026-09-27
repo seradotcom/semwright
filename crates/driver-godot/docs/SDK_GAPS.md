@@ -51,13 +51,14 @@ and fail closed on stale or changed targets.
 
 The original Linux `RLIMIT_CPU` remains a hard cumulative lifetime cap.
 
-Driver resources additionally support an optional Linux per-operation CPU budget. Driver Host
-accounts CPU for the provider process tree, including descendants, and terminates the provider
-with a resource-exhausted uncertain result when the operation budget is exceeded. Longer
-persistent lifetime caps are permitted only when a bounded per-operation budget is configured.
+Driver resources additionally support an optional per-operation CPU budget on Linux and Windows.
+On Linux, Driver Host accounts the live provider process tree. On Windows, the platform-owned Job
+Object supplies monotonic cumulative user+kernel CPU for the full sandbox authority boundary,
+including terminated descendants. Driver Host terminates the provider with a resource-exhausted
+uncertain result when the operation budget is exceeded. Longer persistent lifetime caps are
+permitted only when a bounded per-operation budget is configured.
 
-Non-Linux hosts reject the opt-in per-operation budget until an equivalent accounting primitive
-exists.
+Hosts without an equivalent bounded accounting primitive reject the opt-in per-operation budget.
 
 ## Resolved — secondary executable authority
 
