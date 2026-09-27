@@ -1811,6 +1811,17 @@ impl FigmaDriver {
                 source
                     .verify()
                     .map_err(|message| Error::new(ErrorCode::Conflict, message))?;
+                let findings_len = findings
+                    .as_array()
+                    .ok_or_else(|| Error::invalid("repair findings must be an array"))?
+                    .len();
+                if findings_len > source.spec.budgets.max_findings_per_round as usize {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "repair findings exceed the source plan budget",
+                    ));
+                }
+                let repair_budget = source.spec.budgets.max_repair_operations as usize;
                 if let Some(explicit) = session_id {
                     if explicit != source.base.session_id {
                         return Err(Error::new(
@@ -1848,6 +1859,12 @@ impl FigmaDriver {
                 changeset
                     .validate()
                     .map_err(|message| Error::new(ErrorCode::ProtocolMismatch, message))?;
+                if changeset.modifies.len() > repair_budget {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Figma plugin repair ChangeSet exceeded the source plan budget",
+                    ));
+                }
                 let plan = FigmaPlanV1::new(
                     PlanPurposeV1::Repair,
                     PlanBaseV1 {
@@ -1872,6 +1889,14 @@ impl FigmaDriver {
                             Error::invalid(format!("invalid composition spec: {error}"))
                         })?;
                     parsed.validate().map_err(Error::invalid)?;
+                    if let Some(requested) = object.get("max_findings").and_then(Value::as_u64) {
+                        if requested > u64::from(parsed.budgets.max_findings_per_round) {
+                            return Err(Error::new(
+                                ErrorCode::ResourceExhausted,
+                                "requested findings exceed the composition budget",
+                            ));
+                        }
+                    }
                 }
                 self.hub
                     .execute(

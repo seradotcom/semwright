@@ -1169,4 +1169,51 @@ describe("semantic authoring, validation and bounded repair",()=>{
     expect(result.ok).toBe(false);
     expect(result.error.message).toContain("ambiguous_component");
   });
+
+  it("requires all supplied design-ref selectors to identify the same object",async()=>{
+    const h=harness();
+    const intended=h.figma.createComponent();
+    intended.name="CTA/Button";
+    const other=h.figma.createComponent();
+    other.name="Other/Button";
+    const spec=landingSpec();
+    spec.nodes=spec.nodes
+      .filter((node:any)=>node.id!=="accent")
+      .map((node:any)=>node.id==="cta"
+        ? {...node,component:{component:{id:other.id,key:null,name:"CTA/Button"},variant_properties:{}}}
+        : node
+      );
+    const result=await h.call("composition.plan",{spec});
+    expect(result.ok).toBe(false);
+    expect(result.error.message).toContain("component_not_found");
+  });
+
+  it("inspects bounded component, variable and style context without dumping the document",async()=>{
+    const h=harness();
+    const component=h.figma.createComponent();
+    component.name="CTA/Button";
+    const variant=component.clone();
+    const set=h.figma.combineAsVariants([component,variant]);
+    set.name="CTA";
+    const collection=h.figma.variables.createVariableCollection("Brand");
+    h.figma.variables.createVariable("Brand/Ink",collection,"COLOR");
+    h.figma.createTextStyle().name="Type/Body";
+    h.figma.createPaintStyle().name="Paint/Primary";
+    h.figma.createEffectStyle().name="Effect/Soft";
+    h.figma.createGridStyle().name="Grid/12";
+
+    const inspected=await h.call("composition.inspect",{
+      include_design_system:true,
+      max_nodes:32,
+    });
+    expect(inspected.ok).toBe(true);
+    expect(inspected.value.designSystem.componentSets.some((x:any)=>x.name==="CTA")).toBe(true);
+    expect(inspected.value.designSystem.variableCollections[0].name).toBe("Brand");
+    expect(inspected.value.designSystem.variables[0].name).toBe("Brand/Ink");
+    expect(inspected.value.designSystem.textStyles[0].name).toBe("Type/Body");
+    expect(inspected.value.designSystem.paintStyles[0].name).toBe("Paint/Primary");
+    expect(inspected.value.designSystem.effectStyles[0].name).toBe("Effect/Soft");
+    expect(inspected.value.designSystem.gridStyles[0].name).toBe("Grid/12");
+    expect(inspected.value.root.nodes.length).toBeLessThanOrEqual(32);
+  });
 });

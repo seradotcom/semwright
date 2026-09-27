@@ -599,6 +599,19 @@ def main():
         assert any(node["type"] == "TEXT" for node in measured)
         assert measured[0]["layoutMode"] == "VERTICAL"
 
+        over_budget_validation = execute(
+            driver, caps, "driver.figma.composition.validate",
+            {
+                "session_id": session_id,
+                "expected_revision": 14,
+                "root_node_id": semantic_root,
+                "spec": semantic_spec,
+                "max_findings": 33,
+            }, "semantic-validate-over-budget",
+        )
+        assert over_budget_validation["type"] == "failure", over_budget_validation
+        assert over_budget_validation["error"]["code"] == "ResourceExhausted"
+
         semantic_validation = execute(
             driver, caps, "driver.figma.composition.validate",
             {
@@ -620,6 +633,18 @@ def main():
         assert spacing[0]["suggested_repairs"] == [
             {"kind": "set_auto_layout_gap", "gap": 24.0}
         ]
+
+        over_budget_repair = execute(
+            driver, caps, "driver.figma.composition.repair.plan",
+            {
+                "session_id": session_id,
+                "expected_revision": 14,
+                "plan": plan,
+                "findings": spacing * 33,
+            }, "semantic-repair-plan-over-budget",
+        )
+        assert over_budget_repair["type"] == "failure", over_budget_repair
+        assert over_budget_repair["error"]["code"] == "ResourceExhausted"
 
         semantic_repair_plan = execute(
             driver, caps, "driver.figma.composition.repair.plan",

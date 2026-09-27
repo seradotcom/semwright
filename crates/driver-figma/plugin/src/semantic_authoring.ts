@@ -78,8 +78,11 @@ async function authoringResolveDesignRef(kind:"component"|"text_style"|"variable
   const id = typeof ref.id === "string" ? ref.id : null;
   const key = typeof ref.key === "string" ? ref.key : null;
   const name = typeof ref.name === "string" ? ref.name : null;
+  if (!id && !key && !name) throw new Error(kind + "_reference_required");
   const matches = candidates.filter((item:any) =>
-    (id && item.id === id) || (key && item.key === key) || (name && item.name === name)
+    (!id || item.id === id) &&
+    (!key || item.key === key) &&
+    (!name || item.name === name)
   );
   if (!matches.length) throw new Error(kind + "_not_found");
   const unique = [...new Map(matches.map((x:any)=>[x.id,x])).values()];
@@ -973,8 +976,13 @@ async function authoringInspect(a:any){
   const measured=await authoringMeasure(root,max);
   const designSystem:any={
     components:[],
+    componentSets:[],
+    variableCollections:[],
     variables:[],
     textStyles:[],
+    paintStyles:[],
+    effectStyles:[],
+    gridStyles:[],
   };
   if(a.include_design_system!==false){
     designSystem.components=authoringWalk(
@@ -988,6 +996,30 @@ async function authoringInspect(a:any){
         key:n.key,
         name:n.name,
       }));
+    designSystem.componentSets=authoringWalk(
+      figma.currentPage,
+      1000,
+    )
+      .filter(n=>n.type==="COMPONENT_SET")
+      .slice(0,100)
+      .map((n:any)=>({
+        id:n.id,
+        key:n.key,
+        name:n.name,
+        componentPropertyDefinitions:n.componentPropertyDefinitions??{},
+      }));
+    designSystem.variableCollections=(
+      await figma.variables.getLocalVariableCollectionsAsync()
+    )
+      .slice(0,100)
+      .map((c:any)=>({
+        id:c.id,
+        key:c.key??null,
+        name:c.name,
+        defaultModeId:c.defaultModeId,
+        modes:(c.modes??[]).slice(0,32),
+        variableCount:Array.isArray(c.variableIds)?c.variableIds.length:0,
+      }));
     designSystem.variables=(
       await figma.variables.getLocalVariablesAsync()
     )
@@ -998,16 +1030,25 @@ async function authoringInspect(a:any){
         name:v.name,
         resolvedType:v.resolvedType,
         collectionId:v.variableCollectionId,
+        scopes:Array.isArray(v.scopes)?v.scopes.slice(0,32):[],
       }));
+    const mapStyle=(s:any)=>({
+      id:s.id,
+      key:s.key??null,
+      name:s.name,
+    });
     designSystem.textStyles=(
       await figma.getLocalTextStylesAsync()
-    )
-      .slice(0,100)
-      .map((s:any)=>({
-        id:s.id,
-        key:s.key,
-        name:s.name,
-      }));
+    ).slice(0,100).map(mapStyle);
+    designSystem.paintStyles=(
+      await figma.getLocalPaintStylesAsync()
+    ).slice(0,100).map(mapStyle);
+    designSystem.effectStyles=(
+      await figma.getLocalEffectStylesAsync()
+    ).slice(0,100).map(mapStyle);
+    designSystem.gridStyles=(
+      await figma.getLocalGridStylesAsync()
+    ).slice(0,100).map(mapStyle);
   }
   return {
     editorType:figma.editorType,

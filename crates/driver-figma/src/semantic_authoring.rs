@@ -416,8 +416,15 @@ impl FigmaCompositionSpecV1 {
         {
             return Err("composition exceeds declared budgets".into());
         }
+        if let Some(page_id) = &self.target.page_id {
+            validate_id(page_id)?;
+        }
+        if let Some(parent_node_id) = &self.target.parent_node_id {
+            validate_id(parent_node_id)?;
+        }
 
         let mut ids = BTreeSet::new();
+        let mut asset_refs = 0usize;
         for node in &self.nodes {
             validate_id(&node.id)?;
             if !ids.insert(node.id.as_str()) {
@@ -439,15 +446,52 @@ impl FigmaCompositionSpecV1 {
                 if text.characters.len() > MAX_TEXT_BYTES {
                     return Err(format!("text too large for {}", node.id));
                 }
+                if let Some(family) = &text.font_family {
+                    validate_bounded_string(family, 256, "font family")?;
+                }
+                if let Some(style) = &text.font_style {
+                    validate_bounded_string(style, 256, "font style")?;
+                }
+            }
+            if let Some(visual) = &node.visual {
+                if let Some(style) = &visual.text_style {
+                    validate_design_ref(style)?;
+                }
+                if let Some(FillIntentV1::Variable { variable }) = &visual.fill {
+                    validate_design_ref(variable)?;
+                }
+            }
+            if let Some(media) = &node.media {
+                asset_refs += 1;
+                validate_bounded_string(&media.image_hash, 256, "image hash")?;
+                if !matches!(
+                    media.scale_mode.to_ascii_uppercase().as_str(),
+                    "FILL" | "FIT" | "CROP" | "TILE"
+                ) {
+                    return Err(format!("invalid media scale mode for {}", node.id));
+                }
             }
             if matches!(node.kind, CompositionNodeKindV1::Media) && node.media.is_none() {
                 return Err(format!("media intent missing for {}", node.id));
+            }
+            if let Some(component) = &node.component {
+                validate_design_ref(&component.component)?;
+                if component.variant_properties.len() > 64 {
+                    return Err(format!("too many component variants for {}", node.id));
+                }
+                for (key, value) in &component.variant_properties {
+                    validate_bounded_string(key, 256, "variant property name")?;
+                    validate_bounded_string(value, 256, "variant property value")?;
+                }
             }
             if matches!(node.kind, CompositionNodeKindV1::ComponentInstance)
                 && node.component.is_none()
             {
                 return Err(format!("component intent missing for {}", node.id));
             }
+        }
+        if asset_refs > MAX_ASSET_REFS {
+            return Err("asset reference count out of bounds".into());
         }
 
         for node in &self.nodes {
@@ -470,10 +514,32 @@ impl FigmaCompositionSpecV1 {
                 if !ids.contains(object.as_str()) {
                     return Err(format!("unknown relationship object {object}"));
                 }
+            } else if !matches!(relation.kind, RelationshipKindV1::AspectRatio) {
+                return Err(format!(
+                    "relationship {:?} requires an object",
+                    relation.kind
+                ));
             }
             validate_optional_finite(relation.value, "relationship value")?;
             validate_optional_finite(relation.tolerance, "relationship tolerance")?;
+            if relation.tolerance.is_some_and(|value| value < 0.0) {
+                return Err("relationship tolerance cannot be negative".into());
+            }
+            match relation.kind {
+                RelationshipKindV1::MinimumGap | RelationshipKindV1::MaximumGap => {
+                    if relation.value.is_none_or(|value| value < 0.0) {
+                        return Err("gap relationship requires a non-negative value".into());
+                    }
+                }
+                RelationshipKindV1::AspectRatio => {
+                    if relation.value.is_none_or(|value| value <= 0.0) {
+                        return Err("aspect ratio relationship requires a positive value".into());
+                    }
+                }
+                _ => {}
+            }
         }
+        let mut profile_names = BTreeSet::new();
         for profile in &self.profiles {
             if profile.name.is_empty()
                 || profile.name.len() > 64
@@ -482,8 +548,18 @@ impl FigmaCompositionSpecV1 {
             {
                 return Err("invalid responsive profile".into());
             }
+            if !profile_names.insert(profile.name.as_str()) {
+                return Err(format!("duplicate responsive profile {}", profile.name));
+            }
             if !ids.contains(profile.root_id.as_str()) {
                 return Err(format!("unknown profile root {}", profile.root_id));
+            }
+        }
+        for validator in &self.validators {
+            if let Some(severity) = &validator.severity {
+                if !matches!(severity.as_str(), "error" | "warning" | "info") {
+                    return Err("invalid validator severity".into());
+                }
             }
         }
         self.validate_depth(&ids)
@@ -553,8 +629,44 @@ impl FigmaChangeSetV1 {
         if self.required_scopes != ["driver:figma"] {
             return Err("changeset must use the existing Figma driver scope".into());
         }
+        if self.risk != "mutating_reversible" {
+            return Err("semantic authoring changeset risk must be mutating_reversible".into());
+        }
+        for effect in self.expected_effects.iter().chain(&self.postconditions) {
+            validate_bounded_string(effect, 512, "changeset effect")?;
+        }
+        let mut create_ids = BTreeSet::new();
+        for change in &self.creates {
+            validate_id(&change.logical_id)?;
+            if !create_ids.insert(change.logical_id.as_str()) {
+                return Err(format!("duplicate changeset create {}", change.logical_id));
+            }
+            if let Some(parent) = &change.parent_logical_id {
+                validate_id(parent)?;
+            }
+            for resolved in [
+                change.resolved.component_id.as_deref(),
+                change.resolved.text_style_id.as_deref(),
+                change.resolved.fill_variable_id.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                validate_id(resolved)?;
+            }
+        }
+        for change in &self.creates {
+            if let Some(parent) = &change.parent_logical_id {
+                if !create_ids.contains(parent.as_str()) {
+                    return Err(format!("unknown changeset parent {parent}"));
+                }
+            }
+        }
         for change in &self.modifies {
             validate_id(&change.node_id)?;
+            if let Some(logical_id) = &change.logical_id {
+                validate_id(logical_id)?;
+            }
             match &change.action {
                 RepairActionV1::SetAutoLayoutGap { gap } if !gap.is_finite() || *gap < 0.0 => {
                     return Err("invalid repair gap".into());
@@ -564,10 +676,11 @@ impl FigmaChangeSetV1 {
                 {
                     return Err("invalid repair aspect ratio".into());
                 }
-                RepairActionV1::BindVariable { field, variable_id }
-                    if field.is_empty() || field.len() > 64 || variable_id.is_empty() =>
-                {
-                    return Err("invalid variable repair".into());
+                RepairActionV1::BindVariable { field, variable_id } => {
+                    if field != "fill_color" {
+                        return Err("unsupported variable repair field".into());
+                    }
+                    validate_id(variable_id)?;
                 }
                 _ => {}
             }
@@ -585,6 +698,8 @@ impl FigmaPlanV1 {
     ) -> Result<Self, String> {
         spec.validate()?;
         changeset.validate()?;
+        validate_id(&base.document_id)?;
+        validate_id(&base.session_id)?;
         let validators = spec.validators.clone();
         let mut plan = Self {
             version: COMPOSITION_VERSION,
@@ -605,6 +720,8 @@ impl FigmaPlanV1 {
         }
         self.spec.validate()?;
         self.changeset.validate()?;
+        validate_id(&self.base.document_id)?;
+        validate_id(&self.base.session_id)?;
         let expected = self.compute_digest()?;
         if self.digest != expected {
             return Err("plan digest mismatch".into());
@@ -621,8 +738,30 @@ impl FigmaPlanV1 {
 }
 
 fn validate_id(value: &str) -> Result<(), String> {
-    if value.is_empty() || value.len() > 256 || value.chars().any(char::is_control) {
-        return Err("invalid bounded identifier".into());
+    validate_bounded_string(value, 256, "identifier")
+}
+
+fn validate_bounded_string(value: &str, max: usize, label: &str) -> Result<(), String> {
+    if value.is_empty() || value.len() > max || value.chars().any(char::is_control) {
+        return Err(format!("invalid bounded {label}"));
+    }
+    Ok(())
+}
+
+fn validate_design_ref(reference: &DesignRefV1) -> Result<(), String> {
+    let mut selectors = 0usize;
+    for (value, label) in [
+        (reference.id.as_deref(), "design ref id"),
+        (reference.key.as_deref(), "design ref key"),
+        (reference.name.as_deref(), "design ref name"),
+    ] {
+        if let Some(value) = value {
+            selectors += 1;
+            validate_bounded_string(value, 256, label)?;
+        }
+    }
+    if selectors == 0 {
+        return Err("design ref requires id, key, or name".into());
     }
     Ok(())
 }
@@ -854,5 +993,85 @@ mod tests {
         let mut value = spec();
         value.budgets.max_iterations = MAX_CONVERGENCE_ITERATIONS + 1;
         assert!(value.validate().unwrap_err().contains("budget"));
+    }
+
+    #[test]
+    fn design_refs_require_bounded_identity_and_profiles_are_unique() {
+        let mut value = spec();
+        value.nodes[0].visual = Some(VisualIntentV1 {
+            fill: Some(FillIntentV1::Variable {
+                variable: DesignRefV1 {
+                    id: None,
+                    key: None,
+                    name: None,
+                },
+            }),
+            radius: None,
+            opacity: None,
+            text_style: None,
+        });
+        assert!(value.validate().unwrap_err().contains("design ref"));
+
+        let mut value = spec();
+        value.profiles = vec![
+            ResponsiveProfileV1 {
+                name: "desktop".into(),
+                width: 1440.0,
+                root_id: "root".into(),
+            },
+            ResponsiveProfileV1 {
+                name: "desktop".into(),
+                width: 1280.0,
+                root_id: "root".into(),
+            },
+        ];
+        assert!(
+            value
+                .validate()
+                .unwrap_err()
+                .contains("duplicate responsive profile")
+        );
+    }
+
+    #[test]
+    fn changeset_cannot_smuggle_scope_risk_or_unknown_parent() {
+        let mut changeset = FigmaChangeSetV1 {
+            version: 1,
+            creates: vec![CreateChangeV1 {
+                logical_id: "child".into(),
+                parent_logical_id: Some("missing".into()),
+                resolved: ResolvedBindingsV1::default(),
+            }],
+            modifies: vec![],
+            deletes: vec![],
+            expected_effects: vec![],
+            postconditions: vec![],
+            required_scopes: vec!["driver:figma".into()],
+            risk: "mutating_reversible".into(),
+        };
+        assert!(
+            changeset
+                .validate()
+                .unwrap_err()
+                .contains("unknown changeset parent")
+        );
+
+        changeset.creates.clear();
+        changeset.required_scopes = vec!["figma.superuser".into()];
+        assert!(
+            changeset
+                .validate()
+                .unwrap_err()
+                .contains("existing Figma driver scope")
+        );
+
+        changeset.required_scopes = vec!["driver:figma".into()];
+        changeset.risk = "destructive".into();
+        assert!(
+            changeset
+                .validate()
+                .unwrap_err()
+                .contains("mutating_reversible")
+        );
     }
 }
