@@ -419,11 +419,16 @@ impl BridgeHub {
             map.insert(id.clone(), reply_tx);
         }
 
+        let implicit_revision_guard = !matches!(
+            operation,
+            "artifact.upload.begin" | "artifact.upload.append" | "artifact.status"
+        );
         let request = Message::Request {
             id: id.clone(),
             session_id: chosen_id.clone(),
             generation,
-            expected_revision: expected_revision.or(Some(revision)),
+            expected_revision: expected_revision
+                .or_else(|| implicit_revision_guard.then_some(revision)),
             operation: operation.to_owned(),
             args,
         };
@@ -1183,6 +1188,110 @@ mod tests {
         assert_eq!(sessions[0].revision, 37);
         ws.close(None).await.expect("close websocket");
         wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn artifact_memory_ops_skip_implicit_revision_guard() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "artifact-revision", 1).await;
+        {
+            let mut state = hub.state.write().await;
+            state
+                .sessions
+                .get_mut("artifact-revision")
+                .unwrap()
+                .info
+                .revision = 7;
+        }
+
+        let execute = hub.execute(
+            Some("artifact-revision"),
+            "artifact.upload.begin",
+            None,
+            json!({"name":"fixture.bin","mediaType":"application/octet-stream"}),
+        );
+        let respond = async {
+            let request = recv_client(&mut ws).await;
+            let (id, session_id, generation, expected_revision) = match request {
+                Message::Request {
+                    id,
+                    session_id,
+                    generation,
+                    expected_revision,
+                    ..
+                } => (id, session_id, generation, expected_revision),
+                other => panic!("expected request, got {other:?}"),
+            };
+            assert_eq!(expected_revision, None);
+            send_client(
+                &mut ws,
+                &Message::Response {
+                    id,
+                    session_id,
+                    generation,
+                    revision: 8,
+                    ok: true,
+                    value: Some(json!({"token":"fixture","bytes":0,"mediaType":"application/octet-stream","name":"fixture.bin"})),
+                    error: None,
+                },
+            )
+            .await;
+        };
+        let (result, ()) = tokio::join!(execute, respond);
+        assert!(result.is_ok());
+        ws.close(None).await.expect("close websocket");
+    }
+
+    #[tokio::test]
+    async fn document_ops_keep_implicit_revision_guard() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "document-revision", 1).await;
+        {
+            let mut state = hub.state.write().await;
+            state
+                .sessions
+                .get_mut("document-revision")
+                .unwrap()
+                .info
+                .revision = 7;
+        }
+
+        let execute = hub.execute(
+            Some("document-revision"),
+            "document.status",
+            None,
+            json!({}),
+        );
+        let respond = async {
+            let request = recv_client(&mut ws).await;
+            let (id, session_id, generation, expected_revision) = match request {
+                Message::Request {
+                    id,
+                    session_id,
+                    generation,
+                    expected_revision,
+                    ..
+                } => (id, session_id, generation, expected_revision),
+                other => panic!("expected request, got {other:?}"),
+            };
+            assert_eq!(expected_revision, Some(7));
+            send_client(
+                &mut ws,
+                &Message::Response {
+                    id,
+                    session_id,
+                    generation,
+                    revision: 7,
+                    ok: true,
+                    value: Some(json!({"revision":7})),
+                    error: None,
+                },
+            )
+            .await;
+        };
+        let (result, ()) = tokio::join!(execute, respond);
+        assert!(result.is_ok());
+        ws.close(None).await.expect("close websocket");
     }
 
     #[tokio::test]
