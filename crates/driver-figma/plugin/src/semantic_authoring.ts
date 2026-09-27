@@ -369,7 +369,6 @@ async function authoringCreateNode(spec:any,resolved:any):Promise<SceneNode>{
     }
     default: node=figma.createFrame(); break;
   }
-  await authoringApplyDeclaredIntent(node as SceneNode,spec,resolved);
   return node as SceneNode;
 }
 async function authoringTargetParent(spec:any):Promise<BaseNode & ChildrenMixin>{
@@ -448,7 +447,7 @@ async function authoringApplyComposition(plan:any){
     const parent=parentId?made.get(parentId):target;
     if(!parent || !("appendChild" in parent)) throw new Error("resolved_parent_unavailable");
     (parent as any).appendChild(node);
-    authoringApplySizing(node,entry.sizing);
+    await authoringApplyDeclaredIntent(node,entry,change.resolved??{});
     made.set(logicalId,node);
     created.push({logicalId,nodeId:node.id,type:node.type,name:node.name});
   }
