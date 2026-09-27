@@ -1,7 +1,7 @@
 //! These are Rust integration test SOURCES; consult VERIFY.md for execution status.
 use semwright_backends::fake::FakeDesktop;
 use semwright_core::{Broker, NoApprover, audit::Audit};
-use semwright_policy::{Policy, PolicyConfig, Profile};
+use semwright_policy::{FilesystemGrant, Policy, PolicyConfig, Profile};
 use semwright_types::{
     Envelope, ErrorCode, ExecuteRequest, NativeTarget, target_marker, unique_id,
 };
@@ -724,6 +724,67 @@ async fn catalog_is_compact_provenanced_and_uses_actual_operation_state() {
             .code,
         ErrorCode::Conflict
     );
+}
+
+#[tokio::test]
+async fn catalog_policy_preview_is_conservative_without_masking_static_denials() {
+    let denied = Fixture::new(Profile::Observe);
+    let no_filesystem = denied
+        .call("capabilities.describe", json!({"name":"artifact.handoff"}))
+        .await;
+    assert!(no_filesystem.ok, "{no_filesystem:?}");
+    assert_eq!(
+        no_filesystem.data.unwrap()["policy_preview"]["state"],
+        "deny"
+    );
+
+    let mut filesystem_config = PolicyConfig::default();
+    filesystem_config.filesystem.push(FilesystemGrant {
+        name: "fixture-root".into(),
+        path: std::env::temp_dir().join("semwright-policy-preview-root"),
+        read: true,
+        write: true,
+    });
+    let argument_dependent = Fixture::with_policy(filesystem_config.clone());
+    let handoff = argument_dependent
+        .call("capabilities.describe", json!({"name":"artifact.handoff"}))
+        .await;
+    assert!(handoff.ok, "{handoff:?}");
+    assert_eq!(
+        handoff.data.unwrap()["policy_preview"]["state"],
+        "requires_arguments"
+    );
+
+    filesystem_config.deny.insert("filesystem.write".into());
+    let statically_denied = Fixture::with_policy(filesystem_config);
+    let handoff = statically_denied
+        .call("capabilities.describe", json!({"name":"artifact.handoff"}))
+        .await;
+    assert!(handoff.ok, "{handoff:?}");
+    assert_eq!(handoff.data.unwrap()["policy_preview"]["state"], "deny");
+
+    let mut app_scoped = PolicyConfig {
+        profile: Profile::Desktop,
+        ..Default::default()
+    };
+    app_scoped.apps.insert("org.example.Allowed".into());
+    app_scoped.allow.insert("clipboard.write".into());
+    let app_scoped = Fixture::with_policy(app_scoped);
+
+    let ui = app_scoped
+        .call("capabilities.describe", json!({"name":"ui.invoke"}))
+        .await;
+    assert!(ui.ok, "{ui:?}");
+    assert_eq!(
+        ui.data.unwrap()["policy_preview"]["state"],
+        "requires_target"
+    );
+
+    let clipboard = app_scoped
+        .call("capabilities.describe", json!({"name":"clipboard.write"}))
+        .await;
+    assert!(clipboard.ok, "{clipboard:?}");
+    assert_eq!(clipboard.data.unwrap()["policy_preview"]["state"], "allow");
 }
 
 #[tokio::test]

@@ -37,27 +37,74 @@ impl Broker {
         }).collect()
     }
     fn catalog_policy_preview(&self, descriptor: &CommandDescriptor, metadata: &Metadata) -> Value {
-        if descriptor
-            .requires
-            .iter()
-            .any(|scope| scope.starts_with("filesystem."))
+        let config = self.policy.config();
+        let mut filesystem_depends_on_arguments = false;
+        for scope in &descriptor.requires {
+            if let Some(filesystem) = scope.strip_prefix("filesystem.") {
+                let (operation, _) = filesystem.split_once(':').unwrap_or((filesystem, "root"));
+                let base = format!("filesystem.{operation}");
+                if config.deny.contains(scope) || config.deny.contains(&base) {
+                    return json!({
+                        "state":"deny",
+                        "preview_only":true,
+                        "execution_rechecks":true,
+                        "reason":"Current Broker policy statically denies a required filesystem operation"
+                    });
+                }
+                let any_grant = config.filesystem.iter().any(|grant| match operation {
+                    "read" => grant.read,
+                    "write" => grant.write,
+                    _ => false,
+                });
+                if !any_grant {
+                    return json!({
+                        "state":"deny",
+                        "preview_only":true,
+                        "execution_rechecks":true,
+                        "reason":"No configured filesystem grant can satisfy a required operation"
+                    });
+                }
+                filesystem_depends_on_arguments = true;
+            } else if !self.policy.capabilities().contains(scope) {
+                return json!({
+                    "state":"deny",
+                    "preview_only":true,
+                    "execution_rechecks":true,
+                    "reason":"A required Broker capability is not granted in the current policy"
+                });
+            }
+        }
+        if !config.apps.is_empty()
+            && metadata
+                .app
+                .as_ref()
+                .is_some_and(|app| !config.apps.contains(app))
         {
             return json!({
-                "state":"requires_arguments",
+                "state":"deny",
                 "preview_only":true,
                 "execution_rechecks":true,
-                "reason":"Filesystem policy depends on named roots supplied at execution"
+                "reason":"The capability application is outside the configured application scope"
             });
         }
-        if !self.policy.config().apps.is_empty()
+        if !config.apps.is_empty()
             && descriptor.risk.mutates()
+            && descriptor.name.starts_with("ui.")
             && metadata.app.is_none()
         {
             return json!({
                 "state":"requires_target",
                 "preview_only":true,
                 "execution_rechecks":true,
-                "reason":"Application-scoped mutation depends on the resolved execution target"
+                "reason":"Application-scoped UI mutation depends on the resolved execution target"
+            });
+        }
+        if filesystem_depends_on_arguments {
+            return json!({
+                "state":"requires_arguments",
+                "preview_only":true,
+                "execution_rechecks":true,
+                "reason":"Filesystem policy depends on named roots supplied at execution"
             });
         }
         let state = match self
