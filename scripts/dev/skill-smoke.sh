@@ -21,7 +21,7 @@ cleanup() {
 trap cleanup EXIT
 chmod 700 "$WORK"
 export XDG_RUNTIME_DIR="$WORK"
-printf '[policy]\nprofile="desktop"\n' > "$WORK/policy.toml"
+printf '[policy]\nprofile="desktop"\nallow=["workflow.record","workflow.manage"]\n' > "$WORK/policy.toml"
 chmod 600 "$WORK/policy.toml"
 
 "$BIN_DIR/semwrightd" --fake --config "$WORK/policy.toml" > "$WORK/daemon.log" 2>&1 &
