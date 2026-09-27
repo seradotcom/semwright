@@ -93,12 +93,15 @@ fn tool_capability() -> Capability {
                 "properties":{
                     "stdout":{"type":"string"},
                     "read_ok":{"type":"boolean"},
+                    "execute_open_ok":{"type":"boolean"},
+                    "self_spawn_ok":{"type":"boolean"},
+                    "self_spawn_errno":{"type":"integer"},
                     "write_ok":{"type":"boolean"},
                     "spawn_error_kind":{"type":"string"},
                     "spawn_errno":{"type":"integer"},
                     "exit_code":{"type":"integer"}
                 },
-                "required":["stdout","read_ok","write_ok","spawn_error_kind","spawn_errno","exit_code"],
+                "required":["stdout","read_ok","execute_open_ok","self_spawn_ok","self_spawn_errno","write_ok","spawn_error_kind","spawn_errno","exit_code"],
                 "additionalProperties":false
             }),
             requires: vec!["driver:fixture".into()],
@@ -301,6 +304,33 @@ impl Driver for Fixture {
             }
             let tool = tool_path("probe")?;
             let read_ok = std::fs::File::open(&tool).is_ok();
+            #[cfg(windows)]
+            let execute_open_ok = {
+                use std::os::windows::fs::OpenOptionsExt;
+                std::fs::OpenOptions::new()
+                    .access_mode(0x0012_00A0)
+                    .share_mode(0x7)
+                    .open(&tool)
+                    .is_ok()
+            };
+            #[cfg(not(windows))]
+            let execute_open_ok = read_ok;
+            #[cfg(windows)]
+            let (self_spawn_ok, self_spawn_errno) = match std::env::current_exe() {
+                Ok(executable) => match std::process::Command::new(executable)
+                    .env("SEMWRIGHT_FIXTURE_SELF_PROBE", "1")
+                    .output()
+                {
+                    Ok(output) => (
+                        output.status.success() && output.stdout.starts_with(b"self-ok"),
+                        -1,
+                    ),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                },
+                Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+            };
+            #[cfg(not(windows))]
+            let (self_spawn_ok, self_spawn_errno) = (true, -1);
             let write_ok = std::fs::OpenOptions::new().write(true).open(&tool).is_ok();
             let output = match std::process::Command::new(&tool).output() {
                 Ok(output) => output,
@@ -308,6 +338,9 @@ impl Driver for Fixture {
                     return Ok(json!({
                         "stdout":"",
                         "read_ok":read_ok,
+                        "execute_open_ok":execute_open_ok,
+                        "self_spawn_ok":self_spawn_ok,
+                        "self_spawn_errno":self_spawn_errno,
                         "write_ok":write_ok,
                         "spawn_error_kind":format!("{:?}", error.kind()),
                         "spawn_errno":error.raw_os_error().unwrap_or(-1),
@@ -320,6 +353,9 @@ impl Driver for Fixture {
                 return Ok(json!({
                     "stdout":"",
                     "read_ok":read_ok,
+                    "execute_open_ok":execute_open_ok,
+                    "self_spawn_ok":self_spawn_ok,
+                    "self_spawn_errno":self_spawn_errno,
                     "write_ok":write_ok,
                     "spawn_error_kind":"",
                     "spawn_errno":-1,
@@ -335,6 +371,9 @@ impl Driver for Fixture {
             return Ok(json!({
                 "stdout":stdout,
                 "read_ok":read_ok,
+                "execute_open_ok":execute_open_ok,
+                "self_spawn_ok":self_spawn_ok,
+                "self_spawn_errno":self_spawn_errno,
                 "write_ok":write_ok,
                 "spawn_error_kind":"",
                 "spawn_errno":-1,
@@ -503,6 +542,10 @@ async fn loopback_echo_task(path: String) {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    if std::env::var_os("SEMWRIGHT_FIXTURE_SELF_PROBE").is_some() {
+        println!("self-ok");
+        return;
+    }
     #[cfg(windows)]
     if let Ok(path) = std::env::var("SEMWRIGHT_DRIVER_LOOPBACK_PIPE") {
         tokio::spawn(loopback_echo_task(path));
