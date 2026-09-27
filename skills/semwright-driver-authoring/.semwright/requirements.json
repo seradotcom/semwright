@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "semwright": {
+    "minimum_version": ">=0.9.0-dev.1",
+    "capabilities": [],
+    "semantic_packages": []
+  }
+}

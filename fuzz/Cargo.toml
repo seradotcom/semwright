@@ -21,6 +21,7 @@ semwright-plugin-sdk = { path = "../crates/plugin-sdk" }
 semwright-policy = { path = "../crates/policy" }
 semwright-recipes = { path = "../crates/recipes" }
 semwright-workflow = { path = "../crates/workflow" }
+semwright-skills = { path = "../crates/skills" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
 semwright-video-domain = { path = "../crates/video-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
@@ -267,6 +268,27 @@ bench = false
 [[bin]]
 name = "motion_semantic"
 path = "fuzz_targets/motion_semantic.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "skill_frontmatter"
+path = "fuzz_targets/skill_frontmatter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "skill_requirements"
+path = "fuzz_targets/skill_requirements.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "skill_archive_path"
+path = "fuzz_targets/skill_archive_path.rs"
 test = false
 doc = false
 bench = false

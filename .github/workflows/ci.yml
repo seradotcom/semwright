@@ -138,6 +138,11 @@ jobs:
       - run: scripts/dev/fake-smoke.sh
         env:
           BIN_DIR: target/release
+      - name: Agent Skills fake-broker acceptance
+        if: matrix.runner == 'ubuntu-24.04'
+        run: scripts/dev/skill-smoke.sh
+        env:
+          BIN_DIR: target/release
       - name: Prepare external MCP sandbox on disposable CI runner
         if: matrix.runner == 'ubuntu-24.04'
         run: scripts/dev/ci-bwrap-preflight.sh

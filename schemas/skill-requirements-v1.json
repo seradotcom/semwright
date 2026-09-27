@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://semwright.dev/schemas/skill-requirements-v1.json",
+  "title": "Semwright Skill requirements v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "semwright"],
+  "properties": {
+    "version": { "const": 1 },
+    "semwright": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minimum_version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 128,
+          "items": { "$ref": "#/$defs/capabilityRequirement" }
+        },
+        "semantic_packages": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "required": { "type": "boolean", "default": true }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "capabilityRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "query": { "$ref": "#/$defs/query" },
+        "minimum_matches": { "type": "integer", "minimum": 1, "maximum": 100, "default": 1 },
+        "required": { "type": "boolean", "default": true }
+      },
+      "oneOf": [
+        { "required": ["id"], "not": { "required": ["query"] } },
+        { "required": ["query"], "not": { "required": ["id"] } }
+      ]
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "maxLength": 256 },
+        "provider": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "source": {
+          "enum": ["builtin", "plugin", "driver", "external_mcp", "recipe"]
+        },
+        "application": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "tags": {
+          "type": "array", "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        },
+        "object_types": {
+          "type": "array", "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+        }
+      }
+    }
+  }
+}
