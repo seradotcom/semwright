@@ -35,6 +35,9 @@ fn internet_client_capability_present() -> bool {
     // SAFETY: token is a live query handle; the null buffer/zero length pair is the documented
     // sizing probe and required is a valid writable output.
     let _ = unsafe { GetTokenInformation(token.0, TokenCapabilities, None, 0, &mut required) };
+    if required == 0 {
+        return false;
+    }
     assert!(required >= std::mem::size_of::<TOKEN_GROUPS>() as u32);
     let mut buffer = vec![0u8; required as usize];
     // SAFETY: buffer is required bytes and remains live while the TOKEN_GROUPS view is used.
