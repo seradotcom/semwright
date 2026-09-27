@@ -2,7 +2,11 @@ use async_trait::async_trait;
 use semwright_driver_sdk::{
     Capability, Driver, DriverChildEvent, DriverExecutionContext, DriverInterfaces,
 };
-use semwright_figma_driver::bridge::{BridgeError, BridgeHub, pairing_status};
+use semwright_figma_driver::bridge::{BridgeError, BridgeHub, SessionInfo, pairing_status};
+use semwright_figma_driver::semantic_authoring::{
+    FigmaChangeSetV1, FigmaCompositionSpecV1, FigmaPlanV1, MAX_COMPOSITION_BYTES, PlanBaseV1,
+    PlanPurposeV1,
+};
 use semwright_figma_driver::{model, rest::RestClient, schemas, snapshot};
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Risk,
@@ -12,6 +16,7 @@ use std::collections::BTreeMap;
 use tokio::sync::mpsc;
 
 mod semantic_admin_ops;
+mod semantic_authoring_ops;
 mod semantic_more_ops;
 mod semantic_rest_ops;
 
@@ -1506,6 +1511,7 @@ fn operations() -> Vec<Op> {
 }
 fn advertised_operations() -> Vec<Op> {
     let mut operations = operations();
+    operations.extend(semantic_authoring_ops::operations());
     operations.extend(semantic_more_ops::operations());
     operations.extend(semantic_admin_ops::operations());
     operations.extend(semantic_rest_ops::operations());
@@ -1522,7 +1528,7 @@ fn capability(o: Op) -> Capability {
             "artifact-out:video/clip".into(),
         ]),
         "motion.export" => tags.push("artifact-out:video/clip".into()),
-        "image.export" => tags.push("artifact-out:image/raster".into()),
+        "image.export" | "composition.verify" => tags.push("artifact-out:image/raster".into()),
         "design_system.export.css"
         | "design_system.export.tailwind"
         | "node.export.jsx"
@@ -1561,6 +1567,7 @@ fn artifact_from_result(command: &str, value: &Value) -> Option<JobArtifact> {
         "export.node"
             | "motion.export"
             | "verify.node"
+            | "composition.verify"
             | "image.export"
             | "design_system.export.css"
             | "design_system.export.tailwind"
@@ -1628,6 +1635,269 @@ impl FigmaDriver {
             rest,
             events: Some(event_rx),
         })
+    }
+
+    async fn semantic_session(
+        &self,
+        requested: Option<&str>,
+    ) -> semwright_types::Result<SessionInfo> {
+        let sessions = self.hub.sessions().await;
+        match requested {
+            Some(id) => sessions
+                .into_iter()
+                .find(|session| session.session_id == id)
+                .ok_or_else(|| Error::unavailable("Requested Figma plugin session is unavailable")),
+            None if sessions.len() == 1 => Ok(sessions.into_iter().next().expect("one session")),
+            None if sessions.is_empty() => Err(Error::unavailable(
+                "No authenticated Figma plugin session is available",
+            )),
+            None => Err(Error::new(
+                ErrorCode::Conflict,
+                "Multiple Figma sessions are available; select one explicitly",
+            )),
+        }
+    }
+
+    fn ensure_authoring_bytes(value: &Value, label: &str) -> semwright_types::Result<()> {
+        let bytes = serde_json::to_vec(value)
+            .map_err(|_| Error::invalid(format!("{label} could not be serialized")))?;
+        if bytes.len() > MAX_COMPOSITION_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                format!("{label} exceeds the semantic authoring byte budget"),
+            ));
+        }
+        Ok(())
+    }
+
+    fn ensure_expected_revision(
+        session: &SessionInfo,
+        expected: Option<u64>,
+    ) -> semwright_types::Result<()> {
+        if expected.is_some_and(|revision| revision != session.revision) {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Figma session revision changed",
+            ));
+        }
+        Ok(())
+    }
+
+    fn ensure_plan_base(
+        session: &SessionInfo,
+        plan: &FigmaPlanV1,
+        require_revision: bool,
+    ) -> semwright_types::Result<()> {
+        if plan.base.session_id != session.session_id
+            || plan.base.document_id != session.document_id
+            || plan.base.generation != session.generation
+            || (require_revision && plan.base.revision != session.revision)
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Figma semantic plan no longer matches document/session state",
+            ));
+        }
+        Ok(())
+    }
+
+    async fn execute_authoring(
+        &self,
+        operation_name: &str,
+        session_id: Option<&str>,
+        expected_revision: Option<u64>,
+        mut object: serde_json::Map<String, Value>,
+    ) -> semwright_types::Result<Value> {
+        match operation_name {
+            "composition.plan" => {
+                let session = self.semantic_session(session_id).await?;
+                Self::ensure_expected_revision(&session, expected_revision)?;
+                let raw = object
+                    .remove("spec")
+                    .ok_or_else(|| Error::invalid("composition.plan requires spec"))?;
+                Self::ensure_authoring_bytes(&raw, "composition spec")?;
+                let spec: FigmaCompositionSpecV1 =
+                    serde_json::from_value(raw).map_err(|error| {
+                        Error::invalid(format!("invalid composition spec: {error}"))
+                    })?;
+                spec.validate().map_err(Error::invalid)?;
+                let draft = self
+                    .hub
+                    .execute(
+                        Some(&session.session_id),
+                        operation_name,
+                        Some(session.revision),
+                        json!({"spec": spec}),
+                    )
+                    .await
+                    .map_err(|error| Self::bridge_error(error, false))?;
+                let changeset: FigmaChangeSetV1 =
+                    serde_json::from_value(draft).map_err(|error| {
+                        Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            format!("Figma plugin returned invalid ChangeSet: {error}"),
+                        )
+                    })?;
+                changeset
+                    .validate()
+                    .map_err(|message| Error::new(ErrorCode::ProtocolMismatch, message))?;
+                let plan = FigmaPlanV1::new(
+                    PlanPurposeV1::Composition,
+                    PlanBaseV1 {
+                        document_id: session.document_id,
+                        session_id: session.session_id,
+                        generation: session.generation,
+                        revision: session.revision,
+                    },
+                    spec,
+                    changeset,
+                )
+                .map_err(Error::invalid)?;
+                serde_json::to_value(plan)
+                    .map_err(|_| Error::new(ErrorCode::Internal, "could not serialize Figma plan"))
+            }
+            "composition.apply" | "composition.repair.apply" => {
+                let raw = object
+                    .remove("plan")
+                    .ok_or_else(|| Error::invalid("semantic apply requires plan"))?;
+                Self::ensure_authoring_bytes(&raw, "semantic plan")?;
+                let plan: FigmaPlanV1 = serde_json::from_value(raw)
+                    .map_err(|error| Error::invalid(format!("invalid semantic plan: {error}")))?;
+                plan.verify()
+                    .map_err(|message| Error::new(ErrorCode::Conflict, message))?;
+                let expected_purpose = if operation_name == "composition.apply" {
+                    PlanPurposeV1::Composition
+                } else {
+                    PlanPurposeV1::Repair
+                };
+                if plan.purpose != expected_purpose {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "semantic plan purpose does not match apply operation",
+                    ));
+                }
+                if let Some(explicit) = session_id {
+                    if explicit != plan.base.session_id {
+                        return Err(Error::new(
+                            ErrorCode::StaleReference,
+                            "explicit session does not match semantic plan",
+                        ));
+                    }
+                }
+                let session = self.semantic_session(Some(&plan.base.session_id)).await?;
+                Self::ensure_expected_revision(&session, expected_revision)?;
+                Self::ensure_plan_base(&session, &plan, true)?;
+                self.hub
+                    .execute(
+                        Some(&session.session_id),
+                        operation_name,
+                        Some(plan.base.revision),
+                        json!({"plan": plan}),
+                    )
+                    .await
+                    .map_err(|error| Self::bridge_error(error, true))
+            }
+            "composition.repair.plan" => {
+                let raw_plan = object
+                    .remove("plan")
+                    .ok_or_else(|| Error::invalid("repair planning requires source plan"))?;
+                let findings = object
+                    .remove("findings")
+                    .ok_or_else(|| Error::invalid("repair planning requires findings"))?;
+                Self::ensure_authoring_bytes(&raw_plan, "source plan")?;
+                Self::ensure_authoring_bytes(&findings, "repair findings")?;
+                let source: FigmaPlanV1 = serde_json::from_value(raw_plan)
+                    .map_err(|error| Error::invalid(format!("invalid source plan: {error}")))?;
+                source
+                    .verify()
+                    .map_err(|message| Error::new(ErrorCode::Conflict, message))?;
+                if let Some(explicit) = session_id {
+                    if explicit != source.base.session_id {
+                        return Err(Error::new(
+                            ErrorCode::StaleReference,
+                            "explicit session does not match source plan",
+                        ));
+                    }
+                }
+                let session = self.semantic_session(Some(&source.base.session_id)).await?;
+                Self::ensure_plan_base(&session, &source, false)?;
+                let observed_revision = expected_revision.ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::Conflict,
+                        "repair planning requires the revision from a fresh validation",
+                    )
+                })?;
+                Self::ensure_expected_revision(&session, Some(observed_revision))?;
+                let draft = self
+                    .hub
+                    .execute(
+                        Some(&session.session_id),
+                        operation_name,
+                        Some(session.revision),
+                        json!({"plan": source, "findings": findings}),
+                    )
+                    .await
+                    .map_err(|error| Self::bridge_error(error, false))?;
+                let changeset: FigmaChangeSetV1 =
+                    serde_json::from_value(draft).map_err(|error| {
+                        Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            format!("Figma plugin returned invalid repair ChangeSet: {error}"),
+                        )
+                    })?;
+                changeset
+                    .validate()
+                    .map_err(|message| Error::new(ErrorCode::ProtocolMismatch, message))?;
+                let plan = FigmaPlanV1::new(
+                    PlanPurposeV1::Repair,
+                    PlanBaseV1 {
+                        document_id: session.document_id,
+                        session_id: session.session_id,
+                        generation: session.generation,
+                        revision: session.revision,
+                    },
+                    source.spec,
+                    changeset,
+                )
+                .map_err(Error::invalid)?;
+                serde_json::to_value(plan).map_err(|_| {
+                    Error::new(ErrorCode::Internal, "could not serialize Figma repair plan")
+                })
+            }
+            "composition.validate" | "composition.verify" => {
+                if let Some(spec) = object.get("spec") {
+                    Self::ensure_authoring_bytes(spec, "composition spec")?;
+                    let parsed: FigmaCompositionSpecV1 = serde_json::from_value(spec.clone())
+                        .map_err(|error| {
+                            Error::invalid(format!("invalid composition spec: {error}"))
+                        })?;
+                    parsed.validate().map_err(Error::invalid)?;
+                }
+                self.hub
+                    .execute(
+                        session_id,
+                        operation_name,
+                        expected_revision,
+                        Value::Object(object),
+                    )
+                    .await
+                    .map_err(|error| Self::bridge_error(error, false))
+            }
+            "composition.inspect" | "composition.measure" => self
+                .hub
+                .execute(
+                    session_id,
+                    operation_name,
+                    expected_revision,
+                    Value::Object(object),
+                )
+                .await
+                .map_err(|error| Self::bridge_error(error, false)),
+            _ => Err(Error::new(
+                ErrorCode::Unsupported,
+                "unsupported Figma semantic authoring operation",
+            )),
+        }
     }
 
     fn bridge_error(error: BridgeError, mutating: bool) -> Error {
@@ -1785,6 +2055,16 @@ impl Driver for FigmaDriver {
             }
             None => None,
         };
+        if operation_name.starts_with("composition.") {
+            return self
+                .execute_authoring(
+                    operation_name,
+                    session_id.as_deref(),
+                    expected_revision,
+                    object,
+                )
+                .await;
+        }
         let snapshot_mode = object
             .get("mode")
             .and_then(Value::as_str)

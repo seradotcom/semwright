@@ -1,8 +1,8 @@
 # Capability catalog
 
-The semantic-completeness branch advertises 393 bounded `driver.figma.*` capabilities:
+The semantic-completeness branch advertises 401 bounded `driver.figma.*` capabilities:
 
-- 334 operations backed by the typed official Plugin API dispatcher;
+- 342 operations backed by the typed official Plugin API dispatcher;
 - 56 cloud operations: 54 pinned official Figma REST endpoints, one documented semantic discovery helper, plus `cloud.status`;
 - 3 local driver/session operations: doctor, pairing and session inspection.
 

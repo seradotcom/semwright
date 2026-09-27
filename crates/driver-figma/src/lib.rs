@@ -7,6 +7,8 @@ pub mod rest;
 pub mod rest_catalog;
 pub mod schemas;
 pub mod semantic_admin_schemas;
+pub mod semantic_authoring;
+pub mod semantic_authoring_schemas;
 pub mod semantic_complete_schemas;
 pub mod semantic_more_schemas;
 pub mod semantic_rest_schemas;

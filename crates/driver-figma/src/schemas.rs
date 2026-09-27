@@ -575,7 +575,8 @@ pub fn input_schema(name: &str) -> Value {
             &[],
         ),
 
-        _ => crate::semantic_complete_schemas::input_schema(name)
+        _ => crate::semantic_authoring_schemas::input_schema(name)
+            .or_else(|| crate::semantic_complete_schemas::input_schema(name))
             .or_else(|| crate::semantic_more_schemas::input_schema(name))
             .or_else(|| crate::semantic_admin_schemas::input_schema(name))
             .or_else(|| crate::semantic_rest_schemas::input_schema(name))
@@ -790,7 +791,8 @@ pub fn output_schema(name: &str) -> Value {
             "additionalProperties":false
         }),
         "dev.css" => bounded_object(256),
-        _ => crate::semantic_complete_schemas::output_schema(name)
+        _ => crate::semantic_authoring_schemas::output_schema(name)
+            .or_else(|| crate::semantic_complete_schemas::output_schema(name))
             .or_else(|| crate::semantic_more_schemas::output_schema(name))
             .or_else(|| crate::semantic_admin_schemas::output_schema(name))
             .or_else(|| crate::semantic_rest_schemas::output_schema(name))

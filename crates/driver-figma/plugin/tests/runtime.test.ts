@@ -15,8 +15,9 @@ function harness(editorType = "figma") {
   const exports = fs.readFileSync(path.join(process.cwd(), "src/semantic_exports.ts"), "utf8");
   const admin = fs.readFileSync(path.join(process.cwd(), "src/semantic_admin.ts"), "utf8");
   const verification = fs.readFileSync(path.join(process.cwd(), "src/semantic_verification.ts"), "utf8");
+  const authoring = fs.readFileSync(path.join(process.cwd(), "src/semantic_authoring.ts"), "utf8");
   const code = fs.readFileSync(path.join(process.cwd(), "src/code.ts"), "utf8");
-  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + product + "\n" + exports + "\n" + admin + "\n" + verification + "\n" + code;
+  const source = generated + "\n" + properties + "\n" + semantic + "\n" + more + "\n" + product + "\n" + exports + "\n" + admin + "\n" + verification + "\n" + authoring + "\n" + code;
   const javascript = ts.transpileModule(source, {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
@@ -134,7 +135,7 @@ function harness(editorType = "figma") {
 
   annotationCategories.set("cat:1",{id:"cat:1",label:"Review",color:"yellow",isPreset:false});
   const figma:any = {
-    root, currentPage: page, editorType, mixed: Symbol("mixed"),
+    root, currentPage: page, editorType, mixed: Symbol("mixed"), hasMissingFont: false,
     ui: {onmessage: undefined, postMessage: (message:any)=>posted.push(message)},
     clientStorage: {
       async getAsync(key:string){return clientStorage.get(key);},
@@ -208,6 +209,8 @@ function harness(editorType = "figma") {
       n.textAlignVertical="TOP";
       n.textAutoResize="WIDTH_AND_HEIGHT";
       n.getRangeAllFontNames=()=>[n.fontName];
+      n.getRangeBoundingBox=async()=>({x:n.x,y:n.y,width:n.width,height:Math.max(16,Math.ceil(n.characters.length/32)*20)});
+      n.setTextStyleIdAsync=async(id:string)=>{n.textStyleId=id;};
       page.appendChild(n);
       return n;
     },
@@ -254,6 +257,7 @@ function harness(editorType = "figma") {
       async getVariableCollectionByIdAsync(id:string){return collections.get(id)??null;},
       async getVariableByIdAsync(id:string){return variables.get(id)??null;},
       createVariableAlias(v:AnyNode){return {type:"VARIABLE_ALIAS",id:v.id};},
+      setBoundVariableForPaint(paint:AnyNode,field:string,v:AnyNode){return {...paint,boundVariables:{...(paint.boundVariables??{}),[field]:{type:"VARIABLE_ALIAS",id:v.id}}};},
     },
     motion: {
       figmaAnimationStyles(){return [{id:"spring",name:"Spring"}];},
@@ -995,5 +999,174 @@ describe("semantic verification and color-vision workflows",()=>{
     expect(chunk.ok).toBe(true);
     const raw=globalThis.atob(String(chunk.value.base64));
     expect([...raw.slice(0,8)].map(x=>x.charCodeAt(0))).toEqual([137,80,78,71,13,10,26,10]);
+  });
+});
+
+describe("semantic authoring, validation and bounded repair",()=>{
+  function landingSpec(){
+    return {
+      version:1,
+      target:{page_id:null,parent_node_id:null},
+      nodes:[
+        {
+          id:"hero",kind:"stack",name:"Hero",parent:null,order:0,role:"hero",
+          layout:{
+            direction:"vertical",gap:8,
+            padding:{top:32,right:32,bottom:32,left:32},
+            align:"start",distribute:"start",wrap:false,absolute_children:false,
+          },
+          sizing:{
+            width:{mode:"fixed",value:400,min:null,max:null},
+            height:{mode:"fixed",value:360,min:null,max:null},
+            aspect_ratio:null,
+          },
+        },
+        {
+          id:"heading",kind:"text",name:"Hero / Heading",parent:"hero",order:0,role:"heading",
+          sizing:{
+            width:{mode:"fixed",value:320,min:null,max:null},
+            height:{mode:"hug",value:null,min:null,max:null},
+            aspect_ratio:null,
+          },
+          text:{
+            characters:"Software should act on meaning.",
+            font_family:"Inter",font_style:"Regular",font_size:40,
+            line_height:44,letter_spacing:0,max_lines:3,fit:"grow_height",
+          },
+        },
+        {
+          id:"body",kind:"text",name:"Hero / Body",parent:"hero",order:1,role:"body",
+          sizing:{
+            width:{mode:"fixed",value:320,min:null,max:null},
+            height:{mode:"hug",value:null,min:null,max:null},
+            aspect_ratio:null,
+          },
+          text:{
+            characters:"Semwright gives agents semantic control with evidence.",
+            font_family:"Inter",font_style:"Regular",font_size:16,
+            line_height:24,letter_spacing:0,max_lines:null,fit:"grow_height",
+          },
+        },
+        {
+          id:"cta",kind:"component_instance",name:"Hero / CTA",parent:"hero",order:2,role:"cta",
+          component:{component:{id:null,key:null,name:"CTA/Button"},variant_properties:{}},
+        },
+        {
+          id:"accent",kind:"shape",name:"Hero / Accent",parent:"hero",order:3,role:"accent",
+          visual:{
+            fill:{kind:"variable",variable:{id:null,key:null,name:"Brand/Ink"}},
+            radius:12,opacity:1,text_style:null,
+          },
+        },
+      ],
+      relationships:[
+        {
+          kind:"minimum_gap",subject:"heading",object:"body",
+          value:24,tolerance:0.5,
+        },
+      ],
+      profiles:[{name:"desktop",width:400,root_id:"hero"}],
+      validators:[
+        {kind:"declared_spacing",severity:"warning"},
+        {kind:"native_text",severity:"error"},
+      ],
+      budgets:{
+        max_nodes:64,max_depth:8,max_relationships:64,
+        max_findings_per_round:64,max_repair_operations:8,
+        max_iterations:3,max_mutations:16,
+      },
+    };
+  }
+
+  it("builds native editable structure, detects a real declared gap failure, repairs it and reverifies",async()=>{
+    const h=harness();
+    const component=h.figma.createComponent();
+    component.name="CTA/Button";
+    const collection=h.figma.variables.createVariableCollection("Brand");
+    const variable=h.figma.variables.createVariable("Brand/Ink",collection,"COLOR");
+    variable.setValueForMode(collection.defaultModeId,{r:0.05,g:0.09,b:0.25,a:1});
+
+    const spec=landingSpec();
+    const drafted=await h.call("composition.plan",{spec});
+    expect(drafted.ok).toBe(true);
+    expect(drafted.revision).toBe(0);
+    expect(drafted.value.creates).toHaveLength(5);
+    expect(drafted.value.creates.find((x:any)=>x.logical_id==="cta").resolved.component_id)
+      .toBe(component.id);
+    expect(drafted.value.creates.find((x:any)=>x.logical_id==="accent").resolved.fill_variable_id)
+      .toBe(variable.id);
+
+    const sourcePlan={
+      version:1,purpose:"composition",
+      base:{document_id:"doc",session_id:"s",generation:1,revision:0},
+      spec,changeset:drafted.value,validators:spec.validators,digest:"test-only",
+    };
+    const applied=await h.call("composition.apply",{plan:sourcePlan},0);
+    expect(applied.ok).toBe(true);
+    expect(applied.revision).toBe(1);
+    const rootId=applied.value.logicalToNode.hero;
+    const headingId=applied.value.logicalToNode.heading;
+    const ctaId=applied.value.logicalToNode.cta;
+    expect(h.nodes.get(rootId)!.layoutMode).toBe("VERTICAL");
+    expect(h.nodes.get(headingId)!.type).toBe("TEXT");
+    expect(h.nodes.get(headingId)!.characters).toBe("Software should act on meaning.");
+    expect(h.nodes.get(ctaId)!.type).toBe("INSTANCE");
+
+    const measured=await h.call("composition.measure",{root_node_id:rootId,max_nodes:64},1);
+    expect(measured.ok).toBe(true);
+    expect(measured.value.nodes.some((x:any)=>x.logicalId==="heading"&&x.type==="TEXT")).toBe(true);
+
+    const validation=await h.call("composition.validate",{
+      root_node_id:rootId,spec,max_findings:64,
+    },1);
+    expect(validation.ok).toBe(true);
+    expect(validation.value.status).toBe("FAIL");
+    const spacing=validation.value.findings.find((x:any)=>x.category==="declared_spacing");
+    expect(spacing).toBeTruthy();
+    expect(spacing.actual).toBe(8);
+    expect(spacing.suggested_repairs).toEqual([{kind:"set_auto_layout_gap",gap:24}]);
+
+    const repairDraft=await h.call("composition.repair.plan",{
+      plan:sourcePlan,findings:validation.value.findings,
+    },1);
+    expect(repairDraft.ok).toBe(true);
+    expect(repairDraft.value.modifies).toHaveLength(1);
+    const repairPlan={
+      ...sourcePlan,
+      purpose:"repair",
+      base:{...sourcePlan.base,revision:1},
+      changeset:repairDraft.value,
+    };
+    const repaired=await h.call("composition.repair.apply",{plan:repairPlan},1);
+    expect(repaired.ok).toBe(true);
+    expect(repaired.revision).toBe(2);
+    expect(h.nodes.get(rootId)!.itemSpacing).toBe(24);
+
+    const revalidated=await h.call("composition.validate",{
+      root_node_id:rootId,spec,max_findings:64,
+    },2);
+    expect(revalidated.ok).toBe(true);
+    expect(revalidated.value.findings.filter((x:any)=>x.category==="declared_spacing")).toHaveLength(0);
+    expect(revalidated.value.status).toBe("PASS");
+
+    const verified=await h.call("composition.verify",{
+      root_node_id:rootId,spec,scale:1,name:"semantic-authoring.png",max_findings:64,
+    },2);
+    expect(verified.ok).toBe(true);
+    expect(verified.revision).toBe(2);
+    expect(verified.value.mediaType).toBe("image/png");
+    expect(verified.value.validation.status).toBe("PASS");
+    expect(verified.value.measurement.nodes.some((x:any)=>x.type==="TEXT")).toBe(true);
+  });
+
+  it("fails closed when semantic component discovery is ambiguous",async()=>{
+    const h=harness();
+    h.figma.createComponent().name="CTA/Button";
+    h.figma.createComponent().name="CTA/Button";
+    const spec=landingSpec();
+    spec.nodes=spec.nodes.filter((node:any)=>node.id!=="accent");
+    const result=await h.call("composition.plan",{spec});
+    expect(result.ok).toBe(false);
+    expect(result.error.message).toContain("ambiguous_component");
   });
 });
