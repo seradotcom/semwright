@@ -3053,26 +3053,17 @@ impl Backend for Chromium {
                 if current == desired {
                     return Ok(json!({"changed":false,"checked":current}));
                 }
-                cdp.call(
-                    "DOM.scrollIntoViewIfNeeded",
-                    json!({"backendNodeId":node}),
-                    Some(&session),
-                )
-                .await?;
+                // Checkbox/radio/switch are keyboard-semantic controls. Prefer the
+                // role-defined Space activation over pointer hit-testing, which can be
+                // obscured by browser-owned UA paint internals even when the exact DOM/AX
+                // target is correct. Focus ownership and post-action AX state are verified.
+                focus_backend_node(&cdp, &session, node).await?;
                 self.validate_in(instance, &target).await?;
-                let (x, y) = actionable_point(&cdp, &session, node).await?;
                 ctx.check_cancelled()?;
                 if frame.is_none() {
                     cdp.invalidate_session(&session)?;
                 }
-                for kind in ["mousePressed", "mouseReleased"] {
-                    cdp.call(
-                        "Input.dispatchMouseEvent",
-                        json!({"type":kind,"x":x,"y":y,"button":"left","clickCount":1}),
-                        Some(&session),
-                    )
-                    .await?;
-                }
+                dispatch_key(&cdp, &session, "Space", 0).await?;
                 let after = ax_node_for_backend(&cdp, &session, node).await?;
                 let checked = checked_state(&after).ok_or_else(|| {
                     Error::new(
