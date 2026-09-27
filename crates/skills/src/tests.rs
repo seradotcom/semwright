@@ -187,6 +187,7 @@ fn rejects_hardlinked_resources_and_lock_write_does_not_truncate_external_inode(
     fs::hard_link(&external, &lock_path).unwrap();
     let lock = SkillLock {
         version: 1,
+        semwright_version: "0.9.0-dev.1".into(),
         requirements_sha256: "0".repeat(64),
         entries: vec![],
     };
@@ -336,12 +337,22 @@ fn lock_detects_descriptor_and_schema_drift() {
     );
     let package = load(&root).unwrap();
     let current = capability("driver.fixture.read", &[], true);
-    let generated = lock(&package, std::slice::from_ref(&current)).unwrap();
+    let generated = lock(&package, std::slice::from_ref(&current), "0.9.0-dev.1").unwrap();
+    assert_eq!(generated.semwright_version, "0.9.0-dev.1");
     write_lock(&root, &generated).unwrap();
 
     let locked = load(&root).unwrap();
     let clean = doctor(&locked, std::slice::from_ref(&current), "0.9.0-dev.1").unwrap();
     assert!(clean.drift.is_empty());
+
+    let version_drift = doctor(&locked, std::slice::from_ref(&current), "0.9.0-dev.2").unwrap();
+    assert!(
+        version_drift
+            .drift
+            .iter()
+            .any(|drift| { drift.capability_id == "<semwright>" && drift.field == "version" })
+    );
+    assert!(!version_drift.semwright_compatible);
 
     let mut changed = current.clone();
     changed.descriptor.input_schema = json!({"type":"object","properties":{"x":{"type":"string"}}});

@@ -743,6 +743,21 @@ async fn skill_broker_call(
         .ok_or_else(|| Error::new(ErrorCode::ProtocolMismatch, "Broker response has no data"))
 }
 
+async fn skill_broker_version(client: &mut ipc::Client) -> Result<String> {
+    let value = skill_broker_call(client, "doctor", json!({})).await?;
+    value
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .filter(|version| !version.is_empty() && version.len() <= 128)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Broker doctor response has no bounded Semwright version",
+            )
+        })
+}
+
 fn catalog_revision(value: &serde_json::Value) -> Result<u64> {
     value
         .get("revision")
@@ -850,16 +865,18 @@ async fn manage_skill_remote(cli: &Cli, command: &Skill, client: &mut ipc::Clien
     match command {
         Skill::Doctor { path } => {
             let package = skills::load(path)?;
+            let broker_version = skill_broker_version(client).await?;
             let catalog = skill_catalog(client, &package).await?;
-            let report = skills::doctor(&package, &catalog, env!("CARGO_PKG_VERSION"))?;
+            let report = skills::doctor(&package, &catalog, &broker_version)?;
             let code = if report.semwright_compatible { 0 } else { 1 };
             print_result(&serde_json::to_value(report)?, cli.json)?;
             Ok(code)
         }
         Skill::Lock { path } => {
             let package = skills::load(path)?;
+            let broker_version = skill_broker_version(client).await?;
             let catalog = skill_catalog(client, &package).await?;
-            let lock = skills::lock(&package, &catalog)?;
+            let lock = skills::lock(&package, &catalog, &broker_version)?;
             if !cli.dry_run {
                 skills::write_lock(&package.root, &lock)?;
             }
@@ -878,8 +895,9 @@ async fn manage_skill_remote(cli: &Cli, command: &Skill, client: &mut ipc::Clien
         }
         Skill::Test { path } => {
             let package = skills::load(path)?;
+            let broker_version = skill_broker_version(client).await?;
             let catalog = skill_catalog(client, &package).await?;
-            let report = skills::conformance_test(&package, &catalog, env!("CARGO_PKG_VERSION"))?;
+            let report = skills::conformance_test(&package, &catalog, &broker_version)?;
             let code = if report.pass { 0 } else { 1 };
             print_result(&serde_json::to_value(report)?, cli.json)?;
             Ok(code)

@@ -4,9 +4,10 @@
   "title": "Semwright Skill lock v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "requirements_sha256", "entries"],
+  "required": ["version", "semwright_version", "requirements_sha256", "entries"],
   "properties": {
     "version": { "const": 1 },
+    "semwright_version": { "type": "string", "minLength": 1, "maxLength": 128 },
     "requirements_sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
     "entries": {
       "type": "array",

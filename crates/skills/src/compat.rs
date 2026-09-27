@@ -241,7 +241,11 @@ pub fn capability_ids_from_search(value: &Value) -> Result<Vec<String>> {
     Ok(ids)
 }
 
-fn drift(package: &SkillPackage, catalog: &[CatalogCapability]) -> Result<Vec<Drift>> {
+fn drift(
+    package: &SkillPackage,
+    catalog: &[CatalogCapability],
+    semwright_version: &str,
+) -> Result<Vec<Drift>> {
     let Some(lock) = &package.lock else {
         return Ok(Vec::new());
     };
@@ -251,6 +255,14 @@ fn drift(package: &SkillPackage, catalog: &[CatalogCapability]) -> Result<Vec<Dr
         .ok_or_else(|| Error::invalid("Skill lock exists without requirements"))?;
     let current_digest = requirements_digest(requirements)?;
     let mut drift = Vec::new();
+    if lock.semwright_version != semwright_version {
+        drift.push(Drift {
+            capability_id: "<semwright>".into(),
+            field: "version".into(),
+            expected: lock.semwright_version.clone(),
+            current: Some(semwright_version.into()),
+        });
+    }
     if lock.requirements_sha256 != current_digest {
         drift.push(Drift {
             capability_id: "<requirements>".into(),
@@ -323,6 +335,8 @@ pub fn doctor(
     catalog: &[CatalogCapability],
     semwright_version: &str,
 ) -> Result<CompatibilityReport> {
+    semver::Version::parse(semwright_version)
+        .map_err(|_| Error::invalid("Current Semwright version is not valid SemVer"))?;
     let mut reports = Vec::new();
     let mut missing = Vec::new();
     let mut unavailable = Vec::new();
@@ -423,7 +437,7 @@ pub fn doctor(
         );
     }
 
-    let drift = drift(package, catalog)?;
+    let drift = drift(package, catalog, semwright_version)?;
     if !drift.is_empty() {
         compatible = false;
     }
@@ -469,7 +483,13 @@ pub fn doctor(
     })
 }
 
-pub fn lock(package: &SkillPackage, catalog: &[CatalogCapability]) -> Result<SkillLock> {
+pub fn lock(
+    package: &SkillPackage,
+    catalog: &[CatalogCapability],
+    semwright_version: &str,
+) -> Result<SkillLock> {
+    semver::Version::parse(semwright_version)
+        .map_err(|_| Error::invalid("Current Semwright version is not valid SemVer"))?;
     let requirements = package
         .requirements
         .as_ref()
@@ -505,6 +525,7 @@ pub fn lock(package: &SkillPackage, catalog: &[CatalogCapability]) -> Result<Ski
     });
     let lock = SkillLock {
         version: 1,
+        semwright_version: semwright_version.into(),
         requirements_sha256: requirements_digest(requirements)?,
         entries,
     };

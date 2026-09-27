@@ -97,7 +97,8 @@ that Semwright does not yet implement.
 ## Descriptor locks and drift
 
 `semwright skill lock PATH` resolves the current catalog and writes
-`.semwright/lock.json`. Each selected capability records:
+`.semwright/lock.json`. The lock records the version reported by the connected
+Semwright Broker, plus for each selected capability:
 
 - capability ID and version;
 - provider identity and provider version;
@@ -105,8 +106,10 @@ that Semwright does not yet implement.
 - input/output schema SHA-256;
 - the digest of the requirements file.
 
-The lock is review/reproducibility evidence, not trust or policy. `doctor` reports drift
-when these values change or a locked capability disappears.
+The lock is review/reproducibility evidence, not trust or policy. `doctor` compares
+`minimum_version` and lock drift against the connected Broker version (not merely the CLI
+build version), and reports drift when the Broker/capability/provider/schema changes or a
+locked capability disappears.
 ## CLI
 
 ```sh

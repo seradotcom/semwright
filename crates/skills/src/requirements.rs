@@ -242,7 +242,13 @@ impl CapabilityRequirement {
 
 impl SkillLock {
     pub fn validate(&self) -> Result<()> {
-        if self.version != 1 || self.entries.len() > 1024 || !is_sha256(&self.requirements_sha256) {
+        if self.version != 1
+            || self.entries.len() > 1024
+            || self.semwright_version.is_empty()
+            || self.semwright_version.len() > 128
+            || semver::Version::parse(&self.semwright_version).is_err()
+            || !is_sha256(&self.requirements_sha256)
+        {
             return Err(Error::invalid("Skill lock version or bounds are invalid"));
         }
         for entry in &self.entries {

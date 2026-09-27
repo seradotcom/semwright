@@ -130,6 +130,7 @@ pub struct SemanticPackageRequirement {
 #[serde(deny_unknown_fields)]
 pub struct SkillLock {
     pub version: u32,
+    pub semwright_version: String,
     pub requirements_sha256: String,
     pub entries: Vec<SkillLockEntry>,
 }
