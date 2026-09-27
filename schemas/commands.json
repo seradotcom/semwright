@@ -8789,16 +8789,9 @@
             "type": "object",
             "properties": {
               "ref": {
-                "type": "object",
-                "propertyNames": {
-                  "const": "$ref"
-                },
-                "additionalProperties": {
-                  "type": "string",
-                  "maxLength": 512
-                },
-                "minProperties": 1,
-                "maxProperties": 1
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^tab:[0-9a-f]{32}$"
               },
               "title": {
                 "type": "string",
@@ -8864,16 +8857,9 @@
       "type": "object",
       "properties": {
         "ref": {
-          "type": "object",
-          "propertyNames": {
-            "const": "$ref"
-          },
-          "additionalProperties": {
-            "type": "string",
-            "maxLength": 512
-          },
-          "minProperties": 1,
-          "maxProperties": 1
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^tab:[0-9a-f]{32}$"
         },
         "changed": {
           "type": "boolean",
@@ -9133,16 +9119,9 @@
             "type": "object",
             "properties": {
               "ref": {
-                "type": "object",
-                "propertyNames": {
-                  "const": "$ref"
-                },
-                "additionalProperties": {
-                  "type": "string",
-                  "maxLength": 512
-                },
-                "minProperties": 1,
-                "maxProperties": 1
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^dom:[0-9a-f]{32}$"
               },
               "node_name": {
                 "type": "string",
@@ -9171,16 +9150,9 @@
               "type": "object",
               "properties": {
                 "ref": {
-                  "type": "object",
-                  "propertyNames": {
-                    "const": "$ref"
-                  },
-                  "additionalProperties": {
-                    "type": "string",
-                    "maxLength": 512
-                  },
-                  "minProperties": 1,
-                  "maxProperties": 1
+                  "type": "string",
+                  "maxLength": 80,
+                  "pattern": "^dom:[0-9a-f]{32}$"
                 },
                 "node_name": {
                   "type": "string",
@@ -16666,6 +16638,2082 @@
     "interactive_consent": false,
     "backends": [
       "core"
+    ]
+  },
+  {
+    "name": "browser.page.reload",
+    "version": "1.0",
+    "description": "Reload a tab through the owned Page domain and retire stale semantic refs.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "ignore_cache": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "changed"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.page.stop",
+    "version": "1.0",
+    "description": "Stop the current page load without evaluating page JavaScript.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "accepted"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.page.back",
+    "version": "1.0",
+    "description": "Navigate one entry backward in the owned tab history when available.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "changed"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.page.forward",
+    "version": "1.0",
+    "description": "Navigate one entry forward in the owned tab history when available.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "changed"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.frame.list",
+    "version": "1.0",
+    "description": "List bounded frame semantics with generation-bound frame refs.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "frames": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "ref": {
+                "type": "string",
+                "maxLength": 80,
+                "pattern": "^frame:[0-9a-f]{32}$"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "url_origin": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 2048
+              },
+              "parent_frame_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "secure_context_type": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              },
+              "mime_type": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              },
+              "allowed_origin": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ref",
+              "name",
+              "url_origin",
+              "parent_frame_id",
+              "secure_context_type",
+              "mime_type",
+              "allowed_origin"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "frames",
+        "count",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.semantic.snapshot",
+    "version": "1.0",
+    "description": "Read a bounded accessibility-semantic tree for a tab or frame without JavaScript evaluation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "max_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "include_ignored": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ax_id": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "ignored": {
+                "type": "boolean"
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "states": {
+                "type": "object",
+                "maxProperties": 16,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  ]
+                }
+              },
+              "actions": {
+                "type": "array",
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "focus",
+                    "scroll",
+                    "hover",
+                    "click",
+                    "press",
+                    "fill",
+                    "select",
+                    "check"
+                  ]
+                }
+              },
+              "ref": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 80,
+                    "pattern": "^dom:[0-9a-f]{32}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "frame_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "parent_ax_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "child_ax_ids": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            },
+            "required": [
+              "ax_id",
+              "ignored",
+              "role",
+              "name",
+              "description",
+              "value",
+              "states",
+              "actions",
+              "ref",
+              "frame_id",
+              "parent_ax_id",
+              "child_ax_ids"
+            ]
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "source": {
+          "const": "cdp_accessibility_tree"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arbitrary_javascript": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "nodes",
+        "count",
+        "truncated",
+        "source",
+        "generation",
+        "arbitrary_javascript"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.semantic.query",
+    "version": "1.0",
+    "description": "Find semantic elements by accessibility role/name/action and return exact DOM refs when backed by DOM.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "exact_name": {
+          "type": "boolean"
+        },
+        "action": {
+          "enum": [
+            "focus",
+            "scroll",
+            "hover",
+            "click",
+            "press",
+            "fill",
+            "select",
+            "check"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "include_ignored": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "matches": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ax_id": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "ignored": {
+                "type": "boolean"
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "states": {
+                "type": "object",
+                "maxProperties": 16,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  ]
+                }
+              },
+              "actions": {
+                "type": "array",
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "focus",
+                    "scroll",
+                    "hover",
+                    "click",
+                    "press",
+                    "fill",
+                    "select",
+                    "check"
+                  ]
+                }
+              },
+              "ref": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 80,
+                    "pattern": "^dom:[0-9a-f]{32}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "frame_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "parent_ax_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "child_ax_ids": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            },
+            "required": [
+              "ax_id",
+              "ignored",
+              "role",
+              "name",
+              "description",
+              "value",
+              "states",
+              "actions",
+              "ref",
+              "frame_id",
+              "parent_ax_id",
+              "child_ax_ids"
+            ]
+          }
+        },
+        "single": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "ax_id": {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                "ignored": {
+                  "type": "boolean"
+                },
+                "role": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 512
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 512
+                },
+                "value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 512
+                },
+                "states": {
+                  "type": "object",
+                  "maxProperties": 16,
+                  "additionalProperties": {
+                    "oneOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 512
+                      }
+                    ]
+                  }
+                },
+                "actions": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "focus",
+                      "scroll",
+                      "hover",
+                      "click",
+                      "press",
+                      "fill",
+                      "select",
+                      "check"
+                    ]
+                  }
+                },
+                "ref": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 80,
+                      "pattern": "^dom:[0-9a-f]{32}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "frame_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 256
+                },
+                "parent_ax_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 256
+                },
+                "child_ax_ids": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                }
+              },
+              "required": [
+                "ax_id",
+                "ignored",
+                "role",
+                "name",
+                "description",
+                "value",
+                "states",
+                "actions",
+                "ref",
+                "frame_id",
+                "parent_ax_id",
+                "child_ax_ids"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "source": {
+          "const": "cdp_accessibility_tree"
+        }
+      },
+      "required": [
+        "matches",
+        "single",
+        "count",
+        "truncated",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.semantic.inspect",
+    "version": "1.0",
+    "description": "Inspect one exact DOM ref through both accessibility semantics and bounded DOM metadata.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "semantic": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ax_id": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "ignored": {
+              "type": "boolean"
+            },
+            "role": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 512
+            },
+            "description": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 512
+            },
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 512
+            },
+            "states": {
+              "type": "object",
+              "maxProperties": 16,
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 512
+                  }
+                ]
+              }
+            },
+            "actions": {
+              "type": "array",
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "focus",
+                  "scroll",
+                  "hover",
+                  "click",
+                  "press",
+                  "fill",
+                  "select",
+                  "check"
+                ]
+              }
+            },
+            "ref": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "maxLength": 80,
+                  "pattern": "^dom:[0-9a-f]{32}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "frame_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            },
+            "parent_ax_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 256
+            },
+            "child_ax_ids": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          },
+          "required": [
+            "ax_id",
+            "ignored",
+            "role",
+            "name",
+            "description",
+            "value",
+            "states",
+            "actions",
+            "ref",
+            "frame_id",
+            "parent_ax_id",
+            "child_ax_ids"
+          ]
+        },
+        "dom": {
+          "type": "object",
+          "properties": {
+            "node_name": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "local_name": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "input_type": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 128
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 512
+            },
+            "class": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "node_name",
+            "local_name",
+            "input_type",
+            "id",
+            "class"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "semantic",
+        "dom"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.focus",
+    "version": "1.0",
+    "description": "Focus one exact DOM-backed semantic element and verify focus ownership.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "focused": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "accepted",
+        "focused"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.scroll",
+    "version": "1.0",
+    "description": "Scroll one exact DOM-backed semantic element into view.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "method": {
+          "const": "DOM.scrollIntoViewIfNeeded"
+        }
+      },
+      "required": [
+        "accepted",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.click",
+    "version": "1.0",
+    "description": "Click one exact semantic DOM ref after generation validation and hit-testing.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "method": {
+          "const": "DOM hit-test + CDP Input"
+        },
+        "coordinate_space": {
+          "const": "viewport_css_pixels"
+        }
+      },
+      "required": [
+        "accepted",
+        "method",
+        "coordinate_space"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.fill",
+    "version": "1.0",
+    "description": "Replace text in a text-like or contenteditable semantic element using DOM focus and CDP input.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      },
+      "required": [
+        "ref",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "replaced_selection": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "accepted",
+        "replaced_selection"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.hover",
+    "version": "1.0",
+    "description": "Hover one exact semantic element after DOM generation validation and hit-testing.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "method": {
+          "const": "DOM hit-test + CDP Input hover"
+        },
+        "coordinate_space": {
+          "const": "viewport_css_pixels"
+        }
+      },
+      "required": [
+        "accepted",
+        "method",
+        "coordinate_space"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.press",
+    "version": "1.0",
+    "description": "Press one allowlisted semantic key on an exact focused element; arbitrary key sequences are not accepted.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "key": {
+          "enum": [
+            "Enter",
+            "Tab",
+            "Escape",
+            "Space",
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown"
+          ]
+        },
+        "modifiers": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "Alt",
+              "Control",
+              "Meta",
+              "Shift"
+            ]
+          }
+        }
+      },
+      "required": [
+        "ref",
+        "key"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "key": {
+          "enum": [
+            "Enter",
+            "Tab",
+            "Escape",
+            "Space",
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown"
+          ]
+        },
+        "modifiers": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "Alt",
+              "Control",
+              "Meta",
+              "Shift"
+            ]
+          }
+        }
+      },
+      "required": [
+        "accepted",
+        "key",
+        "modifiers"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.check",
+    "version": "1.0",
+    "description": "Set an exact checkbox/switch/radio semantic target to the requested checked state and verify it through AX.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "checked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "checked"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean"
+        },
+        "checked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "changed",
+        "checked"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.select",
+    "version": "1.0",
+    "description": "Select one enabled option by exact visible label in a native single-select HTML SELECT and verify the AX value.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "ref",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "changed": {
+          "type": "boolean",
+          "const": true
+        },
+        "selected": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "changed",
+        "selected"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.semantic.wait",
+    "version": "1.0",
+    "description": "Wait for a bounded accessibility-semantic condition without screenshots, polling or JavaScript supplied by the agent.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "exact_name": {
+          "type": "boolean"
+        },
+        "action": {
+          "enum": [
+            "focus",
+            "scroll",
+            "hover",
+            "click",
+            "press",
+            "fill",
+            "select",
+            "check"
+          ]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30000
+        },
+        "poll_ms": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 1000
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "role"
+          ]
+        },
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "required": [
+            "action"
+          ]
+        }
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "satisfied": {
+          "type": "boolean",
+          "const": true
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "matches": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ax_id": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "ignored": {
+                "type": "boolean"
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 512
+              },
+              "states": {
+                "type": "object",
+                "maxProperties": 16,
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  ]
+                }
+              },
+              "actions": {
+                "type": "array",
+                "maxItems": 8,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "focus",
+                    "scroll",
+                    "hover",
+                    "click",
+                    "press",
+                    "fill",
+                    "select",
+                    "check"
+                  ]
+                }
+              },
+              "ref": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 80,
+                    "pattern": "^dom:[0-9a-f]{32}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "frame_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "parent_ax_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 256
+              },
+              "child_ax_ids": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            },
+            "required": [
+              "ax_id",
+              "ignored",
+              "role",
+              "name",
+              "description",
+              "value",
+              "states",
+              "actions",
+              "ref",
+              "frame_id",
+              "parent_ax_id",
+              "child_ax_ids"
+            ]
+          }
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "satisfied",
+        "present",
+        "matches",
+        "generation"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dialog.status",
+    "version": "1.0",
+    "description": "Inspect the latest bounded JavaScript-dialog state for one owned tab without exposing prompt input.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "open": {
+          "type": "boolean"
+        },
+        "dialog_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "prompt_value_redacted": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "open",
+        "dialog_type",
+        "message",
+        "prompt_value_redacted"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.observe"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.dialog.respond",
+    "version": "1.0",
+    "description": "Accept or dismiss the currently open JavaScript dialog for one owned tab using the Page domain.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "accept": {
+          "type": "boolean"
+        },
+        "prompt_text": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "ref",
+        "accept"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        },
+        "handled": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "accepted",
+        "handled"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.drag_to",
+    "version": "1.0",
+    "description": "Drag from one exact DOM-backed semantic ref to another in the same tab/frame after validating both refs and hit points.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "target_ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "ref",
+        "target_ref"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "method": {
+          "const": "two semantic DOM refs + CDP Input drag"
+        },
+        "same_frame": {
+          "type": "boolean",
+          "const": true
+        },
+        "coordinate_space": {
+          "const": "viewport_css_pixels"
+        }
+      },
+      "required": [
+        "accepted",
+        "method",
+        "same_frame",
+        "coordinate_space"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.element.upload",
+    "version": "1.0",
+    "description": "Select owner-granted local files in one exact INPUT type=file without exposing original host paths to Chromium.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "required": [
+        "ref",
+        "root",
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "source_root": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "host_source_paths_exposed_to_browser": {
+          "type": "boolean",
+          "const": false
+        },
+        "staging_lifetime": {
+          "const": "browser_instance"
+        }
+      },
+      "required": [
+        "accepted",
+        "files",
+        "bytes",
+        "source_root",
+        "host_source_paths_exposed_to_browser",
+        "staging_lifetime"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify",
+      "filesystem.read:root"
+    ],
+    "risk": "secret_access",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": true,
+    "backends": [
+      "chromium"
+    ]
+  },
+  {
+    "name": "browser.page.scroll",
+    "version": "1.0",
+    "description": "Scroll the owned page viewport by a semantic direction and bounded viewport-relative amount without agent-provided coordinates.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(ui|win|app|dom|tab|frame|screen|process):[0-9a-f]{32}$"
+        },
+        "direction": {
+          "enum": [
+            "up",
+            "down",
+            "left",
+            "right"
+          ]
+        },
+        "amount": {
+          "enum": [
+            "small",
+            "half_page",
+            "page"
+          ]
+        }
+      },
+      "required": [
+        "ref",
+        "direction"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean",
+          "const": true
+        },
+        "changed": {
+          "type": "boolean"
+        },
+        "direction": {
+          "enum": [
+            "up",
+            "down",
+            "left",
+            "right"
+          ]
+        },
+        "amount": {
+          "enum": [
+            "small",
+            "half_page",
+            "page"
+          ]
+        },
+        "method": {
+          "const": "viewport metrics + bounded CDP wheel"
+        }
+      },
+      "required": [
+        "accepted",
+        "changed",
+        "direction",
+        "amount",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "browser.modify"
+    ],
+    "risk": "mutating_reversible",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 60000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "chromium"
     ]
   }
 ]
