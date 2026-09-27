@@ -200,7 +200,7 @@ async function semanticVisionPreview(a: any) {
   return {sourceNodeId: source.id, previews};
 }
 
-async function semanticVerifyNode(a: any) {
+async function semanticVerifyNode(a: any, tokenSeed: string) {
   const node = asScene(await nodeById(String(a.nodeId)));
   const scale = Math.max(0.1, Math.min(4, Number(a.scale ?? 1)));
   const bytes = await (node as any).exportAsync({
@@ -210,7 +210,7 @@ async function semanticVerifyNode(a: any) {
   const name = String(
     a.name ?? `figma-verify-${node.id.replace(/[^A-Za-z0-9._-]/g, "-")}.png`,
   ).slice(0, 256);
-  const artifact = extraStoreArtifact(bytes, "image/png", name);
+  const artifact = extraStoreArtifact(bytes, "image/png", name, tokenSeed);
   const structure = await tree(node);
   const nodeCount = extraWalk(node).length;
   return {
@@ -232,7 +232,7 @@ async function handleSemanticVerification(
     case "a11y.vision.preview":
       return ok(request.id, await semanticVisionPreview(a), true);
     case "verify.node":
-      return ok(request.id, await semanticVerifyNode(a));
+      return ok(request.id, await semanticVerifyNode(a, request.id));
     default:
       return null;
   }
