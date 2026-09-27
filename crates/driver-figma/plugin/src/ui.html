@@ -14,7 +14,8 @@ button{margin:12px 8px 0 0;padding:8px 12px}
 <div id="state">Disconnected</div>
 <script>
 const $=id=>document.getElementById(id);
-let ws=null,session=null,generation=1,context=null;
+let ws=null,session=null,generation=0,activeGeneration=0,context=null;
+let pairingSecret=null,manualDisconnect=true,reconnectTimer=null,reconnectAttempt=0,connecting=false,authenticatedOnce=false,preReadyFailures=0;
 function state(s){$("state").textContent=s}
 function hex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("")}
 function randomSessionId(){
@@ -38,9 +39,9 @@ function generationBytes(n){
 async function proof(secretHex,nonce,sessionId,gen){
  const key=await crypto.subtle.importKey("raw",unhex(secretHex),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
  const enc=new TextEncoder(),zero=new Uint8Array([0]);
- const n=enc.encode(nonce),s=enc.encode(sessionId),g=generationBytes(gen);
- const data=new Uint8Array(n.length+1+s.length+1+g.length);
- let o=0;data.set(n,o);o+=n.length;data.set(zero,o++);data.set(s,o);o+=s.length;data.set(zero,o++);data.set(g,o);
+ const n=enc.encode(nonce),sid=enc.encode(sessionId),g=generationBytes(gen);
+ const data=new Uint8Array(n.length+1+sid.length+1+g.length);
+ let o=0;data.set(n,o);o+=n.length;data.set(zero,o++);data.set(sid,o);o+=sid.length;data.set(zero,o++);data.set(g,o);
  return hex(new Uint8Array(await crypto.subtle.sign("HMAC",key,data)));
 }
 async function websocketText(data){
@@ -50,45 +51,116 @@ async function websocketText(data){
  if(ArrayBuffer.isView(data))return new TextDecoder().decode(new Uint8Array(data.buffer,data.byteOffset,data.byteLength));
  throw new Error("unsupported WebSocket message type");
 }
+function clearReconnect(){
+ if(reconnectTimer!==null){clearTimeout(reconnectTimer);reconnectTimer=null}
+}
+function stopPreAuthRetry(reason){
+ manualDisconnect=true;
+ pairingSecret=null;
+ activeGeneration=0;
+ connecting=false;
+ reconnectAttempt=0;
+ preReadyFailures=0;
+ clearReconnect();
+ state(reason+"\nEnter a fresh pairing code and press Connect.");
+}
+function scheduleReconnect(reason){
+ if(manualDisconnect||!pairingSecret||!session)return;
+ if(!authenticatedOnce){
+  preReadyFailures++;
+  if(preReadyFailures>=3){
+   stopPreAuthRetry(reason+" before authentication");
+   return;
+  }
+ }
+ clearReconnect();
+ const delay=Math.min(4000,250*(2**Math.min(reconnectAttempt,4)));
+ reconnectAttempt++;
+ state(reason+"\nReconnecting in "+delay+" ms…");
+ reconnectTimer=setTimeout(()=>{reconnectTimer=null;openSocket()},delay);
+}
+function openSocket(){
+ if(manualDisconnect||!pairingSecret||!session||connecting)return;
+ if(ws&&(ws.readyState===WebSocket.CONNECTING||ws.readyState===WebSocket.OPEN))return;
+ const port=Number($("port").value);
+ if(!Number.isInteger(port)||port<1024||port>65535){state("Invalid loopback port");return}
+ const sid=session,gen=++generation,secret=pairingSecret;
+ const socket=new WebSocket("ws://localhost:"+port);
+ ws=socket;connecting=true;activeGeneration=0;
+ socket.onopen=()=>{
+  if(ws!==socket)return;
+  socket.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.3.0",figma_api:"1.139.0",editor_type:context?.editorType??"unknown",session_id:sid,document_id:context?.documentId??"unknown",generation:gen,capabilities:["design","prototype","motion_beta","figjam","slides","buzz","teamlibrary","shaders","semantic_complete"]}));
+  state("Awaiting server challenge…\nGeneration "+gen);
+ };
+ socket.onmessage=async e=>{
+  if(ws!==socket)return;
+  try{
+   const m=JSON.parse(await websocketText(e.data));
+   if(m.type==="challenge"){
+    if(m.session_id!==sid||m.generation!==gen||typeof m.nonce!=="string"||!/^[0-9a-f]{32}$/i.test(m.nonce)){state("Invalid server challenge");socket.close();return}
+    const authProof=await proof(secret,m.nonce,sid,gen);
+    socket.send(JSON.stringify({type:"authenticate",session_id:sid,generation:gen,proof:authProof}));
+    state("Authenticating…\nGeneration "+gen);
+   }
+   else if(m.type==="ready"){
+    activeGeneration=gen;connecting=false;authenticatedOnce=true;preReadyFailures=0;reconnectAttempt=0;clearReconnect();$("secret").value="";
+    state("Connected\nSession "+sid+"\nGeneration "+gen);
+   }
+   else if(m.type==="request"){
+    if(m.session_id!==sid||m.generation!==gen){socket.close();return}
+    parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision,operation:m.operation,args:m.args}}},"*");
+   }
+   else if(m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}));
+   else if(m.type==="close"){
+    const reason=String(m.reason??"session closed");
+    if(!authenticatedOnce&&(reason.includes("authentication")||reason.includes("protocol"))){
+     stopPreAuthRetry("Pairing rejected: "+reason);
+     socket.close();
+     return;
+    }
+    state("Server requested reconnect: "+reason);
+    socket.close();
+   }
+  }catch(err){
+   state("Bridge message failed: "+(err instanceof Error?err.message:"invalid server message"));
+   socket.close();
+  }
+ };
+ socket.onclose=()=>{
+  if(ws!==socket)return;
+  ws=null;connecting=false;activeGeneration=0;
+  scheduleReconnect("Disconnected");
+ };
+ socket.onerror=()=>{
+  if(ws===socket)state("Connection interrupted…");
+ };
+}
 parent.postMessage({pluginMessage:{type:"bridge-status"}},"*");
 onmessage=e=>{
  const m=e.data.pluginMessage;if(!m)return;
- if(m.type==="document-context"){context=m;state("Disconnected\n"+m.editorType)}
- if(m.type==="bridge-response"&&ws?.readyState===1){
-  ws.send(JSON.stringify({type:"response",session_id:session,generation,revision:m.response.revision,id:m.response.id,ok:m.response.ok,value:m.response.value,error:m.response.error}));
+ if(m.type==="document-context"){
+  context=m;
+  if(activeGeneration===0&&!connecting&&!reconnectTimer)state("Disconnected\n"+m.editorType);
  }
- if(m.type==="event"&&ws?.readyState===1){
-  ws.send(JSON.stringify({type:"event",session_id:session,generation,revision:m.revision,kind:m.kind,payload:m.payload??{}}));
+ if(m.type==="bridge-response"&&ws?.readyState===WebSocket.OPEN&&activeGeneration>0){
+  ws.send(JSON.stringify({type:"response",session_id:session,generation:activeGeneration,revision:m.response.revision,id:m.response.id,ok:m.response.ok,value:m.response.value,error:m.response.error}));
+ }
+ if(m.type==="event"&&ws?.readyState===WebSocket.OPEN&&activeGeneration>0){
+  ws.send(JSON.stringify({type:"event",session_id:session,generation:activeGeneration,revision:m.revision,kind:m.kind,payload:m.payload??{}}));
  }
 };
-$("connect").onclick=async()=>{
+$("connect").onclick=()=>{
  try{
   const port=Number($("port").value),secret=$("secret").value.trim().toLowerCase();
   if(!Number.isInteger(port)||port<1024||port>65535||!/^[0-9a-f]{64}$/.test(secret)){state("Invalid pairing data");return}
-  session=randomSessionId();generation++;
-  ws=new WebSocket("ws://localhost:"+port);
-  ws.onopen=()=>{
-   ws.send(JSON.stringify({type:"hello",protocol:2,plugin_build:"0.3.0",figma_api:"1.139.0",editor_type:context?.editorType??"unknown",session_id:session,document_id:context?.documentId??"unknown",generation,capabilities:["design","prototype","motion_beta","figjam","slides","buzz","teamlibrary","shaders","semantic_complete"]}));
-   state("Awaiting server challenge…");
-  };
-  ws.onmessage=async e=>{
-   try{
-    const m=JSON.parse(await websocketText(e.data));
-    if(m.type==="challenge"){
-     if(m.session_id!==session||m.generation!==generation||typeof m.nonce!=="string"||!/^[0-9a-f]{32}$/i.test(m.nonce)){state("Invalid server challenge");ws.close();return}
-     const authProof=await proof(secret,m.nonce,session,generation);
-     ws.send(JSON.stringify({type:"authenticate",session_id:session,generation,proof:authProof}));
-     state("Authenticating…");
-    }
-    else if(m.type==="ready"){$("secret").value="";state("Connected\nSession "+session+"\nGeneration "+generation)}
-    else if(m.type==="request")parent.postMessage({pluginMessage:{type:"bridge-request",request:{id:m.id,sessionId:m.session_id,generation:m.generation,expectedRevision:m.expected_revision,operation:m.operation,args:m.args}}},"*");
-    else if(m.type==="ping")ws.send(JSON.stringify({type:"pong",nonce:m.nonce}));
-    else if(m.type==="close"){state("Closed: "+String(m.reason??"server closed"));ws.close()}
-   }catch(err){state("Pairing failed: "+(err instanceof Error?err.message:"invalid server message"));ws.close()}
-  };
-  ws.onclose=()=>state("Disconnected");
-  ws.onerror=()=>state("Connection failed");
+  manualDisconnect=true;clearReconnect();
+  const old=ws;ws=null;old?.close();
+  pairingSecret=secret;session=randomSessionId();generation=0;activeGeneration=0;reconnectAttempt=0;connecting=false;authenticatedOnce=false;preReadyFailures=0;
+  manualDisconnect=false;openSocket();
  }catch(err){state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))}
 };
-$("disconnect").onclick=()=>{ws?.close();ws=null;$("secret").value="";state("Disconnected")};
+$("disconnect").onclick=()=>{
+ manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect();
+ const old=ws;ws=null;old?.close();$("secret").value="";state("Disconnected");
+};
 </script>
