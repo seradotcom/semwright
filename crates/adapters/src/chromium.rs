@@ -4,15 +4,16 @@ use async_trait::async_trait;
 use base64::Engine;
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use semwright_backend_api::{Backend, Context};
+use semwright_policy::{FilesystemGrant, Root, validate_relative_path};
 use semwright_protocol::{current_uid, private_directory};
 use semwright_types::*;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     io::Write,
     os::unix::fs::{MetadataExt, OpenOptionsExt},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Stdio,
     sync::{
         Arc, Mutex as StdMutex,
@@ -32,7 +33,7 @@ use tokio_util::sync::CancellationToken;
 use url::Url;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
-type Pending = Arc<StdMutex<BTreeMap<u64, oneshot::Sender<Result<Value>>>>>;
+type Pending = Arc<StdMutex<BTreeMap<u64, (String, oneshot::Sender<Result<Value>>)>>>;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrowserConfig {
@@ -49,6 +50,10 @@ pub struct BrowserConfig {
     pub max_downloads: u32,
 }
 const BROWSER_STARTUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+const BROWSER_UPLOAD_MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
+const BROWSER_UPLOAD_MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
+const BROWSER_UPLOAD_MAX_FILES_PER_ACTION: usize = 8;
+const BROWSER_UPLOAD_MAX_STAGED_FILES: u32 = 32;
 
 const fn default_download_bytes() -> u64 {
     32 * 1024 * 1024
@@ -149,7 +154,10 @@ struct Cdp {
     pending: Pending,
     sequence: Arc<AtomicU64>,
     generations: Arc<StdMutex<BTreeMap<String, u64>>>,
+    attached_sessions: Arc<StdMutex<BTreeMap<String, String>>>,
+    enabled_sessions: Arc<StdMutex<BTreeSet<String>>>,
     events: Arc<StdMutex<VecDeque<Value>>>,
+    lifecycle_events: Arc<StdMutex<VecDeque<Value>>>,
     downloads: Arc<StdMutex<DownloadState>>,
     alive: Arc<AtomicBool>,
     stop: CancellationToken,
@@ -292,6 +300,25 @@ impl DownloadState {
         over
     }
 }
+
+fn cdp_event_changes_document_identity(method: &str, event: &Value) -> bool {
+    match method {
+        "Inspector.targetCrashed" => true,
+        // DOM.documentUpdated may be emitted for a subframe inside the parent target.
+        // Backend-node liveness is checked at use time, so it must not retire unrelated
+        // parent refs. Top-level Page.frameNavigated remains the document boundary.
+        "DOM.documentUpdated" => false,
+        // Parent sessions also observe subframe navigation. That does not replace
+        // the parent's document. OOPIF child sessions report their own top-level
+        // frame without parentId and therefore advance only the child document.
+        "Page.frameNavigated" => event
+            .pointer("/params/frame/parentId")
+            .and_then(Value::as_str)
+            .is_none(),
+        _ => false,
+    }
+}
+
 impl Cdp {
     async fn connect(
         endpoint: &str,
@@ -321,7 +348,10 @@ impl Cdp {
             pending: Arc::new(StdMutex::new(BTreeMap::new())),
             sequence: Arc::new(AtomicU64::new(1)),
             generations: Arc::new(StdMutex::new(BTreeMap::new())),
+            attached_sessions: Arc::new(StdMutex::new(BTreeMap::new())),
+            enabled_sessions: Arc::new(StdMutex::new(BTreeSet::new())),
             events: Arc::new(StdMutex::new(VecDeque::new())),
+            lifecycle_events: Arc::new(StdMutex::new(VecDeque::new())),
             downloads: Arc::new(StdMutex::new(DownloadState::default())),
             alive: Arc::new(AtomicBool::new(true)),
             stop: CancellationToken::new(),
@@ -330,7 +360,9 @@ impl Cdp {
         let writer = this.writer.clone();
         let sequence = this.sequence.clone();
         let generations = this.generations.clone();
+        let attached_sessions = this.attached_sessions.clone();
         let events = this.events.clone();
+        let lifecycle_events = this.lifecycle_events.clone();
         let downloads = this.downloads.clone();
         let alive = this.alive.clone();
         let stop = this.stop.clone();
@@ -346,12 +378,12 @@ impl Cdp {
                     break;
                 };
                 if let Some(id) = value.get("id").and_then(Value::as_u64) {
-                    let sender = pending.lock().ok().and_then(|mut map| map.remove(&id));
-                    if let Some(sender) = sender {
+                    let request = pending.lock().ok().and_then(|mut map| map.remove(&id));
+                    if let Some((method, sender)) = request {
                         let result = if value.get("error").is_some() {
                             Err(Error::new(
                                 ErrorCode::BackendFailed,
-                                "CDP method rejected; browser details redacted",
+                                format!("CDP method {method} rejected; browser details redacted"),
                             )
                             .uncertain())
                         } else {
@@ -360,21 +392,61 @@ impl Cdp {
                         let _ = sender.send(result);
                     }
                 } else if let Some(method) = value.get("method").and_then(Value::as_str) {
-                    if matches!(
-                        method,
-                        "DOM.documentUpdated"
-                            | "DOM.childNodeInserted"
-                            | "DOM.childNodeRemoved"
-                            | "DOM.attributeModified"
-                            | "DOM.attributeRemoved"
-                            | "DOM.characterDataModified"
-                            | "Page.frameNavigated"
-                            | "Inspector.targetCrashed"
-                    ) && let Some(session) = value.get("sessionId").and_then(Value::as_str)
+                    if method == "Target.attachedToTarget"
+                        && let Some(target) = value
+                            .pointer("/params/targetInfo/targetId")
+                            .and_then(Value::as_str)
+                        && let Some(child_session) =
+                            value.pointer("/params/sessionId").and_then(Value::as_str)
+                    {
+                        if let Ok(mut map) = attached_sessions.lock() {
+                            map.insert(target.to_owned(), child_session.to_owned());
+                        }
+                        if let Ok(mut map) = generations.lock() {
+                            map.entry(child_session.to_owned()).or_insert(0);
+                        }
+                    } else if method == "Target.detachedFromTarget" {
+                        let target = value.pointer("/params/targetId").and_then(Value::as_str);
+                        let child_session =
+                            value.pointer("/params/sessionId").and_then(Value::as_str);
+                        if let Ok(mut map) = attached_sessions.lock() {
+                            if let Some(target) = target {
+                                map.remove(target);
+                            } else if let Some(child_session) = child_session {
+                                map.retain(|_, session| session != child_session);
+                            }
+                        }
+                    }
+                    // A semantic ref identifies a concrete backend DOM node, not a frozen
+                    // snapshot of all page attributes/children. Invalidate a whole document
+                    // generation only when its document identity can change. Ordinary DOM
+                    // mutations keep existing backendNodeIds usable and are validated again
+                    // with DOM.describeNode/hit-testing immediately before mutation.
+                    if cdp_event_changes_document_identity(method, &value)
+                        && let Some(session) = value.get("sessionId").and_then(Value::as_str)
                         && let Ok(mut map) = generations.lock()
                     {
                         let n = map.entry(session.into()).or_insert(0);
                         *n = n.saturating_add(1);
+                    }
+                    if method == "Page.lifecycleEvent"
+                        && let Some(session) = value.get("sessionId").and_then(Value::as_str)
+                        && let Some(frame_id) =
+                            value.pointer("/params/frameId").and_then(Value::as_str)
+                        && let Some(loader_id) =
+                            value.pointer("/params/loaderId").and_then(Value::as_str)
+                        && let Some(name) = value.pointer("/params/name").and_then(Value::as_str)
+                        && let Ok(mut queue) = lifecycle_events.lock()
+                    {
+                        if queue.len() == 512 {
+                            queue.pop_front();
+                        }
+                        queue.push_back(json!({
+                            "session":session.chars().take(256).collect::<String>(),
+                            "frame_id":frame_id.chars().take(256).collect::<String>(),
+                            "loader_id":loader_id.chars().take(256).collect::<String>(),
+                            "name":name.chars().take(64).collect::<String>()
+                        }));
                     }
 
                     let mut quota_exceeded = false;
@@ -429,7 +501,8 @@ impl Cdp {
                         }
                     }
 
-                    // Metadata only: no console text, headers, URLs, request bodies or download names.
+                    // Bounded metadata only: never console text, headers, URLs, request bodies,
+                    // download names or dialog prompt input. Dialog messages are page-visible data.
                     if matches!(
                         method,
                         "Browser.downloadWillBegin"
@@ -437,13 +510,32 @@ impl Cdp {
                             | "Log.entryAdded"
                             | "Network.loadingFailed"
                             | "Inspector.targetCrashed"
+                            | "Page.javascriptDialogOpening"
+                            | "Page.javascriptDialogClosed"
                     ) {
                         let mut row = json!({"event":method});
+                        if let Some(session) = value.get("sessionId").and_then(Value::as_str) {
+                            row["session"] = json!(session.chars().take(256).collect::<String>());
+                        }
                         if let Some(guid) = download_guid {
                             row["guid"] = json!(guid);
                         }
                         if let Some(state) = download_state {
                             row["state"] = json!(state);
+                        }
+                        if method == "Page.javascriptDialogOpening" {
+                            if let Some(kind) =
+                                value.pointer("/params/type").and_then(Value::as_str)
+                            {
+                                row["dialog_type"] =
+                                    json!(kind.chars().take(32).collect::<String>());
+                            }
+                            if let Some(message) =
+                                value.pointer("/params/message").and_then(Value::as_str)
+                            {
+                                row["message"] =
+                                    json!(message.chars().take(512).collect::<String>());
+                            }
                         }
                         for key in ["receivedBytes", "totalBytes"] {
                             if let Some(count) = value
@@ -467,7 +559,7 @@ impl Cdp {
             }
             alive.store(false, Ordering::SeqCst);
             if let Ok(mut map) = pending.lock() {
-                for (_, sender) in std::mem::take(&mut *map) {
+                for (_, (_, sender)) in std::mem::take(&mut *map) {
                     let _ = sender.send(Err(
                         Error::unavailable("Browser CDP disconnected").uncertain()
                     ));
@@ -493,7 +585,7 @@ impl Cdp {
                     "Too many CDP requests",
                 ));
             }
-            pending.insert(id, sender);
+            pending.insert(id, (method.to_owned(), sender));
         }
         let _guard = PendingGuard {
             pending: self.pending.clone(),
@@ -524,6 +616,108 @@ impl Cdp {
             .get(session)
             .unwrap_or(&0))
     }
+    fn attached_session(&self, target: &str) -> Result<Option<String>> {
+        Ok(self
+            .attached_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP attached-session lock poisoned"))?
+            .get(target)
+            .cloned())
+    }
+    fn attached_session_candidates(&self) -> Result<Vec<String>> {
+        let sessions = self
+            .attached_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP attached-session lock poisoned"))?;
+        let mut rows: Vec<String> = sessions.values().cloned().collect();
+        rows.sort();
+        rows.dedup();
+        rows.truncate(256);
+        Ok(rows)
+    }
+    fn remember_frame_session(&self, frame_id: &str, session: &str) -> Result<()> {
+        self.attached_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP attached-session lock poisoned"))?
+            .insert(frame_id.to_owned(), session.to_owned());
+        Ok(())
+    }
+    async fn ensure_session_domains(&self, session: &str) -> Result<()> {
+        if self
+            .enabled_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP enabled-session lock poisoned"))?
+            .contains(session)
+        {
+            return Ok(());
+        }
+        for domain in [
+            "DOM.enable",
+            "DOMSnapshot.enable",
+            "Page.enable",
+            "Accessibility.enable",
+            "Log.enable",
+            "Network.enable",
+        ] {
+            self.call(domain, json!({}), Some(session)).await?;
+        }
+        self.call(
+            "Page.setLifecycleEventsEnabled",
+            json!({"enabled":true}),
+            Some(session),
+        )
+        .await?;
+        self.call(
+            "Target.setAutoAttach",
+            json!({"autoAttach":true,"waitForDebuggerOnStart":false,"flatten":true}),
+            Some(session),
+        )
+        .await?;
+        self.enabled_sessions
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP enabled-session lock poisoned"))?
+            .insert(session.to_owned());
+        Ok(())
+    }
+    async fn wait_document_ready(
+        &self,
+        session: &str,
+        frame_id: &str,
+        loader_id: &str,
+    ) -> Result<()> {
+        if loader_id.is_empty() {
+            return Ok(());
+        }
+        let started = std::time::Instant::now();
+        loop {
+            if !self.alive.load(Ordering::SeqCst) || self.stop.is_cancelled() {
+                return Err(Error::unavailable(
+                    "Browser closed while waiting for document readiness",
+                ));
+            }
+            let ready = self
+                .lifecycle_events
+                .lock()
+                .map_err(|_| Error::new(ErrorCode::Internal, "CDP lifecycle lock poisoned"))?
+                .iter()
+                .any(|event| {
+                    event["session"].as_str() == Some(session)
+                        && event["frame_id"].as_str() == Some(frame_id)
+                        && event["loader_id"].as_str() == Some(loader_id)
+                        && matches!(event["name"].as_str(), Some("DOMContentLoaded" | "load"))
+                });
+            if ready {
+                return Ok(());
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(10) {
+                return Err(Error::new(
+                    ErrorCode::Timeout,
+                    "Browser document did not reach a semantic-ready lifecycle state",
+                ));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    }
     /// Invalidate semantic DOM references synchronously before a Semwright-initiated
     /// mutation. CDP events may advance the generation again; generation equality, not
     /// adjacency, is the contract.
@@ -545,6 +739,23 @@ impl Cdp {
             .cloned()
             .collect())
     }
+    fn dialog_open(&self, session: &str) -> Result<bool> {
+        let events = self
+            .events
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP event lock poisoned"))?;
+        Ok(events
+            .iter()
+            .rev()
+            .find(|event| {
+                event["session"].as_str() == Some(session)
+                    && matches!(
+                        event["event"].as_str(),
+                        Some("Page.javascriptDialogOpening" | "Page.javascriptDialogClosed")
+                    )
+            })
+            .is_some_and(|event| event["event"] == "Page.javascriptDialogOpening"))
+    }
     fn download_snapshot(&self) -> Result<DownloadState> {
         Ok(self
             .downloads
@@ -565,6 +776,8 @@ struct Instance {
     epoch: String,
     cdp: Arc<Cdp>,
     sessions: BTreeMap<String, String>,
+    staged_upload_bytes: u64,
+    staged_upload_files: u32,
     // A successful close invalidates refs immediately, before asynchronous CDP target events.
     closed_tabs: VecDeque<String>,
 }
@@ -626,11 +839,69 @@ impl Instance {
             )
             .await?;
         let session = arg_str(&result, "sessionId")?.to_owned();
-        for domain in ["DOM.enable", "Page.enable", "Log.enable", "Network.enable"] {
-            self.cdp.call(domain, json!({}), Some(&session)).await?;
+        self.cdp.ensure_session_domains(&session).await?;
+        // Establish a read barrier after enabling domains. CDP may emit the current
+        // document/frame events as a consequence of enable/attach. Require the root
+        // LoaderId to be stable across two ordered reads so all earlier navigation
+        // events have crossed the same websocket before the first semantic ref is made.
+        let mut previous_loader: Option<String> = None;
+        let mut stable = false;
+        for _ in 0..20 {
+            let tree = self
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&session))
+                .await?;
+            let loader = tree["frameTree"]["frame"]["loaderId"]
+                .as_str()
+                .unwrap_or("")
+                .to_owned();
+            if !loader.is_empty() && previous_loader.as_deref() == Some(loader.as_str()) {
+                stable = true;
+                break;
+            }
+            previous_loader = Some(loader);
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         }
+        if !stable {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Browser document identity did not stabilize after attach",
+            ));
+        }
+        self.cdp
+            .call("DOM.getDocument", json!({"depth":0}), Some(&session))
+            .await?;
         self.sessions.insert(target.into(), session.clone());
         Ok(session)
+    }
+    async fn frame_session(&self, frame_id: &str) -> Result<Option<String>> {
+        if let Some(session) = self.cdp.attached_session(frame_id)?
+            && self.cdp.ensure_session_domains(&session).await.is_ok()
+            && let Ok(tree) = self
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&session))
+                .await
+            && tree["frameTree"]["frame"]["id"].as_str() == Some(frame_id)
+        {
+            return Ok(Some(session));
+        }
+        for candidate in self.cdp.attached_session_candidates()? {
+            if self.cdp.ensure_session_domains(&candidate).await.is_err() {
+                continue;
+            }
+            let Ok(tree) = self
+                .cdp
+                .call("Page.getFrameTree", json!({}), Some(&candidate))
+                .await
+            else {
+                continue;
+            };
+            if tree["frameTree"]["frame"]["id"].as_str() == Some(frame_id) {
+                self.cdp.remember_frame_session(frame_id, &candidate)?;
+                return Ok(Some(candidate));
+            }
+        }
+        Ok(None)
     }
     fn tab_ref(&self, target: &str) -> Value {
         target_marker(NativeTarget {
@@ -641,17 +912,38 @@ impl Instance {
             app: "org.semwright.Chromium".into(),
         })
     }
-    fn dom_ref(&self, target: &str, node: &Value, session: &str) -> Result<Value> {
+    fn dom_ref_in_frame(
+        &self,
+        target: &str,
+        node: &Value,
+        session: &str,
+        frame: Option<&str>,
+        frame_revision: Option<u64>,
+    ) -> Result<Value> {
         let id = node["backendNodeId"].as_u64().ok_or_else(|| {
             Error::new(
                 ErrorCode::BackendFailed,
                 "DOM node has no stable backend identity",
             )
         })?;
+        let identity = match frame {
+            Some(frame) => format!("{target}#frame:{frame}#node:{id}"),
+            None => format!("{target}#{id}"),
+        };
         Ok(target_marker(NativeTarget {
             kind: "dom".into(),
-            identity: format!("{target}#{id}"),
-            revision: self.cdp.generation(session)?,
+            identity,
+            revision: frame_revision.unwrap_or(self.cdp.generation(session)?),
+            fingerprint: self.epoch.clone(),
+            app: "org.semwright.Chromium".into(),
+        }))
+    }
+    fn frame_ref(&self, target: &str, frame: &Value) -> Result<Value> {
+        let id = arg_str(frame, "id")?;
+        Ok(target_marker(NativeTarget {
+            kind: "frame".into(),
+            identity: format!("{target}#frame:{id}"),
+            revision: frame_document_revision(frame),
             fingerprint: self.epoch.clone(),
             app: "org.semwright.Chromium".into(),
         }))
@@ -697,19 +989,127 @@ impl Drop for Instance {
 pub struct Chromium {
     config: BrowserConfig,
     directory: PathBuf,
+    filesystem_grants: Vec<FilesystemGrant>,
     instance: Mutex<Option<Instance>>,
     artifacts: Arc<StdMutex<BTreeMap<PathBuf, u64>>>,
 }
 impl Chromium {
     pub fn new(config: BrowserConfig, directory: PathBuf) -> Result<Self> {
+        Self::new_with_grants(config, directory, &[])
+    }
+    pub fn new_with_grants(
+        config: BrowserConfig,
+        directory: PathBuf,
+        filesystem_grants: &[FilesystemGrant],
+    ) -> Result<Self> {
         config.validate()?;
         private_directory(&directory)?;
+        let mut names = std::collections::BTreeSet::new();
+        for grant in filesystem_grants {
+            if !names.insert(grant.name.clone()) {
+                return Err(Error::invalid("Duplicate browser filesystem grant name"));
+            }
+        }
         Ok(Self {
             config,
             directory,
+            filesystem_grants: filesystem_grants.to_vec(),
             instance: Mutex::new(None),
             artifacts: Arc::new(StdMutex::new(BTreeMap::new())),
         })
+    }
+    fn stage_uploads(
+        &self,
+        instance: &Instance,
+        root_name: &str,
+        paths: &[Value],
+    ) -> Result<(PathBuf, Vec<PathBuf>, u64)> {
+        if paths.is_empty() || paths.len() > BROWSER_UPLOAD_MAX_FILES_PER_ACTION {
+            return Err(Error::invalid("Upload requires between 1 and 8 files"));
+        }
+        if instance
+            .staged_upload_files
+            .saturating_add(paths.len() as u32)
+            > BROWSER_UPLOAD_MAX_STAGED_FILES
+        {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Browser upload staging file budget exceeded",
+            ));
+        }
+        // Reject malformed/traversal paths before consulting policy. Policy errors describe
+        // authorization, never basic input syntax, and must not mask an invalid relative path.
+        for value in paths {
+            let text = value
+                .as_str()
+                .ok_or_else(|| Error::invalid("Upload paths must be strings"))?;
+            validate_relative_path(Path::new(text))?;
+        }
+        let grant = self
+            .filesystem_grants
+            .iter()
+            .find(|grant| grant.name == root_name && grant.read)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "No readable owner filesystem grant is available for this upload root",
+                )
+            })?;
+        let root = Root::open(&grant.path, true, false)?;
+        let staging = instance
+            .profile
+            .join("uploads")
+            .join(format!("upload-{}", unique_id()));
+        private_directory(&instance.profile.join("uploads"))?;
+        private_directory(&staging)?;
+        let mut output = Vec::new();
+        let mut total = 0u64;
+        let mut names = std::collections::BTreeSet::new();
+        let result = (|| -> Result<()> {
+            for value in paths {
+                let text = value
+                    .as_str()
+                    .ok_or_else(|| Error::invalid("Upload paths must be strings"))?;
+                let relative = Path::new(text);
+                validate_relative_path(relative)?;
+                let name = relative
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .filter(|value| !value.is_empty())
+                    .ok_or_else(|| Error::invalid("Upload path has no UTF-8 filename"))?;
+                if !names.insert(name.to_owned()) {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Upload paths must have unique filenames",
+                    ));
+                }
+                let bytes = root.read(relative, BROWSER_UPLOAD_MAX_FILE_BYTES)?;
+                total = total.saturating_add(bytes.len() as u64);
+                if instance.staged_upload_bytes.saturating_add(total)
+                    > BROWSER_UPLOAD_MAX_TOTAL_BYTES
+                {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Browser upload staging byte budget exceeded",
+                    ));
+                }
+                let destination = staging.join(name);
+                let mut file = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .open(&destination)?;
+                file.write_all(&bytes)?;
+                file.sync_all()?;
+                output.push(destination);
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            let _ = std::fs::remove_dir_all(&staging);
+            return Err(error);
+        }
+        Ok((staging, output, total))
     }
     fn cleanup_artifacts(&self) {
         let paths = self
@@ -800,6 +1200,7 @@ impl Chromium {
                 "--disable-component-update",
                 "--disable-sync",
                 "--disable-extensions",
+                "--site-per-process",
                 "--password-store=basic",
                 "--disk-cache-size=33554432",
             ]);
@@ -877,29 +1278,65 @@ impl Chromium {
             epoch: unique_id(),
             cdp,
             sessions: BTreeMap::new(),
+            staged_upload_bytes: 0,
+            staged_upload_files: 0,
             closed_tabs: VecDeque::new(),
         });
         Ok(
             json!({"launched":true,"isolated_profile":true,"headless":headless,"browser_sandbox_disabled":false,"downloads_enabled":self.config.allow_downloads}),
         )
     }
-    fn target_parts(target: &NativeTarget) -> Result<(String, Option<u64>)> {
+    fn target_parts(target: &NativeTarget) -> Result<(String, Option<u64>, Option<String>)> {
         match target.kind.as_str() {
-            "tab" => Ok((target.identity.clone(), None)),
+            "tab" => Ok((target.identity.clone(), None, None)),
             "dom" => {
-                let (tab, id) = target.identity.split_once('#').ok_or_else(|| {
+                let (tab, identity) = target.identity.split_once('#').ok_or_else(|| {
                     Error::new(ErrorCode::StaleReference, "Invalid DOM reference")
                 })?;
+                if let Some(context) = identity.strip_prefix("frame:") {
+                    let (frame, id) = context.split_once("#node:").ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::StaleReference,
+                            "Invalid frame-scoped DOM reference",
+                        )
+                    })?;
+                    if frame.is_empty() || frame.len() > 256 {
+                        return Err(Error::new(
+                            ErrorCode::StaleReference,
+                            "Invalid DOM frame identity",
+                        ));
+                    }
+                    return Ok((
+                        tab.into(),
+                        Some(id.parse().map_err(|_| {
+                            Error::new(ErrorCode::StaleReference, "Invalid DOM identity")
+                        })?),
+                        Some(frame.into()),
+                    ));
+                }
                 Ok((
                     tab.into(),
-                    Some(id.parse().map_err(|_| {
+                    Some(identity.parse().map_err(|_| {
                         Error::new(ErrorCode::StaleReference, "Invalid DOM identity")
                     })?),
+                    None,
                 ))
+            }
+            "frame" => {
+                let (tab, frame) = target.identity.split_once("#frame:").ok_or_else(|| {
+                    Error::new(ErrorCode::StaleReference, "Invalid frame reference")
+                })?;
+                if frame.is_empty() || frame.len() > 256 {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Invalid frame identity",
+                    ));
+                }
+                Ok((tab.into(), None, Some(frame.into())))
             }
             _ => Err(Error::new(
                 ErrorCode::InvalidArgument,
-                "A browser tab or DOM reference is required",
+                "A browser tab, frame or DOM reference is required",
             )),
         }
     }
@@ -907,57 +1344,100 @@ impl Chromium {
         &self,
         instance: &mut Instance,
         target: &NativeTarget,
-    ) -> Result<(String, Option<u64>, String)> {
+    ) -> Result<(String, Option<u64>, Option<String>, String)> {
         if target.fingerprint != instance.epoch {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Browser instance has changed",
             ));
         }
-        let (tab, node) = Self::target_parts(target)?;
-        // Navigation invalidates a DOM ref semantically before target metadata necessarily
-        // settles on a parseable URL. Prefer the known generation mismatch over a transient
-        // URL/configuration error so stale identities never degrade into InvalidArgument.
-        if node.is_some()
-            && let Some(session) = instance.sessions.get(&tab)
-            && instance.cdp.generation(session)? != target.revision
-        {
+        let (tab, node, frame) = Self::target_parts(target)?;
+        instance.check_tab(&tab, &self.config).await?;
+        let parent_session = instance.session(&tab).await?;
+        let mut session = parent_session.clone();
+
+        if let Some(frame_id) = frame.as_deref() {
+            if let Some(child_session) = instance.frame_session(frame_id).await? {
+                session = child_session;
+                instance.cdp.ensure_session_domains(&session).await?;
+                let tree = instance
+                    .cdp
+                    .call("Page.getFrameTree", json!({}), Some(&session))
+                    .await?;
+                let child_frame = &tree["frameTree"]["frame"];
+                if child_frame["id"].as_str() != Some(frame_id) {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "OOPIF session no longer represents the requested frame",
+                    ));
+                }
+                self.config
+                    .check_url(child_frame["url"].as_str().unwrap_or(""))?;
+                if frame_document_revision(child_frame) != target.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Frame document changed; obtain a fresh semantic reference",
+                    ));
+                }
+            } else {
+                let tree = instance
+                    .cdp
+                    .call("Page.getFrameTree", json!({}), Some(&parent_session))
+                    .await?;
+                let frame_tree =
+                    frame_tree_find(&tree["frameTree"], frame_id).ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Browser frame no longer exists")
+                    })?;
+                let frame_url = frame_tree["frame"]["url"].as_str().unwrap_or("");
+                self.config.check_url(frame_url)?;
+                if frame_document_revision(&frame_tree["frame"]) != target.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Frame document changed; obtain a fresh semantic reference",
+                    ));
+                }
+            }
+        } else if node.is_some() && instance.cdp.generation(&session)? != target.revision {
             return Err(Error::new(
                 ErrorCode::StaleReference,
-                "DOM changed; obtain a fresh semantic reference",
+                "Browser document context changed; obtain a fresh semantic reference",
             ));
         }
-        instance.check_tab(&tab, &self.config).await?;
-        let session = instance.session(&tab).await?;
+
         if let Some(node) = node {
-            if instance.cdp.generation(&session)? != target.revision {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "DOM changed; obtain a fresh semantic reference",
-                ));
-            }
-            instance
-                .cdp
-                .call(
-                    "DOM.describeNode",
-                    json!({"backendNodeId":node,"depth":0}),
-                    Some(&session),
-                )
-                .await
-                .map_err(|_| {
-                    Error::new(
-                        ErrorCode::StaleReference,
-                        "DOM node is no longer addressable",
+            if frame.is_some() {
+                ax_node_for_backend(&instance.cdp, &session, node)
+                    .await
+                    .map_err(|_| {
+                        Error::new(
+                            ErrorCode::StaleReference,
+                            "Semantic DOM node is no longer addressable in its frame context",
+                        )
+                    })?;
+            } else {
+                instance
+                    .cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":0}),
+                        Some(&session),
                     )
-                })?;
-            if instance.cdp.generation(&session)? != target.revision {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "DOM changed during validation",
-                ));
+                    .await
+                    .map_err(|_| {
+                        Error::new(
+                            ErrorCode::StaleReference,
+                            "DOM node is no longer addressable in its document context",
+                        )
+                    })?;
+                if instance.cdp.generation(&session)? != target.revision {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "DOM changed during validation",
+                    ));
+                }
             }
         }
-        Ok((tab, node, session))
+        Ok((tab, node, frame, session))
     }
     async fn artifact(&self, encoded: &str) -> Result<Value> {
         if encoded.len() > 44 * 1024 * 1024 {
@@ -1018,6 +1498,75 @@ impl Chromium {
         )
     }
 }
+fn frame_document_revision(frame: &Value) -> u64 {
+    // FNV-1a is sufficient here: this is an ephemeral equality token, not a
+    // cryptographic authority. LoaderId changes on cross-document navigation.
+    let mut hash = 0xcbf29ce484222325u64;
+    let identity = frame["loaderId"]
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .or_else(|| frame["id"].as_str())
+        .unwrap_or("");
+    for byte in identity.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+#[cfg(test)]
+fn frame_tree_contains(tree: &Value, frame_id: &str) -> bool {
+    frame_tree_find(tree, frame_id).is_some()
+}
+
+fn frame_tree_find<'a>(tree: &'a Value, frame_id: &str) -> Option<&'a Value> {
+    if tree["frame"]["id"].as_str() == Some(frame_id) {
+        return Some(tree);
+    }
+    tree["childFrames"]
+        .as_array()?
+        .iter()
+        .find_map(|child| frame_tree_find(child, frame_id))
+}
+
+fn collect_frame_rows(
+    instance: &Instance,
+    config: &BrowserConfig,
+    target: &str,
+    tree: &Value,
+    parent: Option<&str>,
+    seen: &mut BTreeSet<String>,
+    rows: &mut Vec<Value>,
+) -> Result<()> {
+    if rows.len() >= 256 {
+        return Ok(());
+    }
+    let frame = &tree["frame"];
+    let id = arg_str(frame, "id")?;
+    if !seen.insert(id.to_owned()) {
+        return Ok(());
+    }
+    let url = frame["url"].as_str().unwrap_or("");
+    rows.push(json!({
+        "ref": instance.frame_ref(target, frame)?,
+        "name": frame["name"].as_str().unwrap_or("").chars().take(256).collect::<String>(),
+        "url_origin": Url::parse(url).ok().map(|value| value.origin().ascii_serialization()),
+        "allowed_origin": config.check_url(url).is_ok(),
+        "parent_frame_id": parent,
+        "secure_context_type": frame["secureContextType"].as_str(),
+        "mime_type": frame["mimeType"].as_str()
+    }));
+    if let Some(children) = tree["childFrames"].as_array() {
+        for child in children {
+            collect_frame_rows(instance, config, target, child, Some(id), seen, rows)?;
+            if rows.len() >= 256 {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn attribute(node: &Value, name: &str) -> Option<String> {
     node["attributes"]
         .as_array()?
@@ -1028,10 +1577,497 @@ fn attribute(node: &Value, name: &str) -> Option<String> {
         .and_then(|pair| pair[1].as_str())
         .map(str::to_owned)
 }
+fn ax_text(node: &Value, key: &str) -> Option<String> {
+    node[key]["value"]
+        .as_str()
+        .map(|value| value.chars().take(512).collect())
+}
+
+fn ax_property(node: &Value, name: &str) -> Option<Value> {
+    let raw = node["properties"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["name"].as_str() == Some(name))?
+        .pointer("/value/value")?;
+    match raw {
+        Value::Bool(_) | Value::Number(_) => Some(raw.clone()),
+        Value::String(value) => Some(json!(value.chars().take(512).collect::<String>())),
+        _ => None,
+    }
+}
+
+fn compact_ax(
+    instance: &Instance,
+    target: &str,
+    session: &str,
+    frame: Option<&str>,
+    frame_revision: Option<u64>,
+    node: &Value,
+) -> Result<Value> {
+    let role = ax_text(node, "role").unwrap_or_default();
+    let backend = node["backendDOMNodeId"].as_u64();
+    let reference = backend
+        .map(|id| {
+            instance.dom_ref_in_frame(
+                target,
+                &json!({"backendNodeId":id}),
+                session,
+                frame,
+                frame_revision,
+            )
+        })
+        .transpose()?;
+    let mut states = serde_json::Map::new();
+    for key in [
+        "disabled",
+        "focused",
+        "selected",
+        "checked",
+        "expanded",
+        "required",
+        "readonly",
+        "editable",
+        "multiselectable",
+        "orientation",
+        "haspopup",
+        "invalid",
+        "valuemin",
+        "valuemax",
+        "autocomplete",
+        "level",
+    ] {
+        if let Some(value) = ax_property(node, key) {
+            states.insert(key.into(), value);
+        }
+    }
+    let mut actions = Vec::new();
+    if reference.is_some() {
+        actions.extend(["focus", "scroll", "hover"]);
+        if matches!(
+            role.as_str(),
+            "button"
+                | "link"
+                | "menuitem"
+                | "checkbox"
+                | "radio"
+                | "switch"
+                | "tab"
+                | "treeitem"
+                | "option"
+        ) {
+            actions.extend(["click", "press"]);
+        }
+        if matches!(role.as_str(), "textbox" | "searchbox" | "spinbutton") {
+            actions.extend(["fill", "press"]);
+        }
+        if matches!(role.as_str(), "combobox" | "listbox") {
+            actions.extend(["select", "press"]);
+        }
+        if matches!(role.as_str(), "checkbox" | "radio" | "switch") {
+            actions.push("check");
+        }
+    }
+    Ok(json!({
+        "ax_id": node["nodeId"].as_str().unwrap_or(""),
+        "ignored": node["ignored"].as_bool().unwrap_or(false),
+        "role": role,
+        "name": ax_text(node, "name"),
+        "description": ax_text(node, "description"),
+        "value": ax_text(node, "value"),
+        "states": states,
+        "actions": actions,
+        "ref": reference,
+        "frame_id": node["frameId"].as_str(),
+        "parent_ax_id": node["parentId"].as_str(),
+        "child_ax_ids": node["childIds"].as_array().map(|items| items.iter().take(64).cloned().collect::<Vec<_>>()).unwrap_or_default()
+    }))
+}
+
+fn semantic_query_matches(row: &Value, args: &Value) -> bool {
+    if let Some(role) = args["role"].as_str()
+        && !row["role"]
+            .as_str()
+            .is_some_and(|value| value.eq_ignore_ascii_case(role))
+    {
+        return false;
+    }
+    if let Some(name) = args["name"].as_str() {
+        let Some(actual) = row["name"].as_str() else {
+            return false;
+        };
+        if args["exact_name"].as_bool().unwrap_or(false) {
+            if actual != name {
+                return false;
+            }
+        } else if !actual
+            .to_ascii_lowercase()
+            .contains(&name.to_ascii_lowercase())
+        {
+            return false;
+        }
+    }
+    if let Some(action) = args["action"].as_str()
+        && !row["actions"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(action)))
+    {
+        return false;
+    }
+    true
+}
+
+fn key_spec(name: &str) -> Option<(&'static str, &'static str, u64)> {
+    Some(match name {
+        "Enter" => ("Enter", "Enter", 13),
+        "Tab" => ("Tab", "Tab", 9),
+        "Escape" => ("Escape", "Escape", 27),
+        "Space" => (" ", "Space", 32),
+        "ArrowUp" => ("ArrowUp", "ArrowUp", 38),
+        "ArrowDown" => ("ArrowDown", "ArrowDown", 40),
+        "ArrowLeft" => ("ArrowLeft", "ArrowLeft", 37),
+        "ArrowRight" => ("ArrowRight", "ArrowRight", 39),
+        "Home" => ("Home", "Home", 36),
+        "End" => ("End", "End", 35),
+        "PageUp" => ("PageUp", "PageUp", 33),
+        "PageDown" => ("PageDown", "PageDown", 34),
+        _ => return None,
+    })
+}
+
+fn modifier_mask(args: &Value) -> Result<u64> {
+    let Some(items) = args["modifiers"].as_array() else {
+        return Ok(0);
+    };
+    if items.len() > 4 {
+        return Err(Error::invalid(
+            "At most four keyboard modifiers are allowed",
+        ));
+    }
+    let mut mask = 0u64;
+    for item in items {
+        mask |= match item.as_str() {
+            Some("Alt") => 1,
+            Some("Control") => 2,
+            Some("Meta") => 4,
+            Some("Shift") => 8,
+            _ => return Err(Error::invalid("Unknown keyboard modifier")),
+        };
+    }
+    Ok(mask)
+}
+
+async fn dispatch_key(cdp: &Cdp, session: &str, name: &str, modifiers: u64) -> Result<()> {
+    let (key, code, virtual_key) =
+        key_spec(name).ok_or_else(|| Error::invalid("Unsupported semantic key"))?;
+    for kind in ["keyDown", "keyUp"] {
+        cdp.call(
+            "Input.dispatchKeyEvent",
+            json!({
+                "type":kind,
+                "key":key,
+                "code":code,
+                "windowsVirtualKeyCode":virtual_key,
+                "nativeVirtualKeyCode":virtual_key,
+                "modifiers":modifiers
+            }),
+            Some(session),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+async fn focus_backend_node(cdp: &Cdp, session: &str, node: u64) -> Result<()> {
+    cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(session))
+        .await?;
+    let focused = ax_node_for_backend(cdp, session, node).await?;
+    if ax_property(&focused, "focused") != Some(json!(true)) {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Accessibility focus did not remain on the semantic target",
+        ));
+    }
+    Ok(())
+}
+
+fn snapshot_node_is_target_or_descendant(nodes: &Value, mut index: usize, target: u64) -> bool {
+    let Some(backends) = nodes["backendNodeId"].as_array() else {
+        return false;
+    };
+    let parents = nodes["parentIndex"].as_array();
+    for _ in 0..512 {
+        if backends.get(index).and_then(Value::as_u64) == Some(target) {
+            return true;
+        }
+        let Some(parent) = parents
+            .and_then(|values| values.get(index))
+            .and_then(Value::as_i64)
+        else {
+            return false;
+        };
+        if parent < 0 {
+            return false;
+        }
+        let Ok(next) = usize::try_from(parent) else {
+            return false;
+        };
+        if next == index || next >= backends.len() {
+            return false;
+        }
+        index = next;
+    }
+    false
+}
+
+fn snapshot_node_is_ancestor_of_target(nodes: &Value, ancestor: usize, target: u64) -> bool {
+    let Some(backends) = nodes["backendNodeId"].as_array() else {
+        return false;
+    };
+    let Some(mut index) = backends
+        .iter()
+        .position(|value| value.as_u64() == Some(target))
+    else {
+        return false;
+    };
+    let parents = nodes["parentIndex"].as_array();
+    for _ in 0..512 {
+        if index == ancestor {
+            return true;
+        }
+        let Some(parent) = parents
+            .and_then(|values| values.get(index))
+            .and_then(Value::as_i64)
+        else {
+            return false;
+        };
+        if parent < 0 {
+            return false;
+        }
+        let Ok(next) = usize::try_from(parent) else {
+            return false;
+        };
+        if next == index || next >= backends.len() {
+            return false;
+        }
+        index = next;
+    }
+    false
+}
+
+fn snapshot_hit_matches_target(snapshot: &Value, x: f64, y: f64, target: u64) -> Result<bool> {
+    let documents = snapshot["documents"].as_array().ok_or_else(|| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "DOMSnapshot documents are malformed",
+        )
+    })?;
+    let mut best: Option<(i64, usize, bool)> = None;
+    for document in documents {
+        let document_x = x + document["scrollOffsetX"].as_f64().unwrap_or(0.0);
+        let document_y = y + document["scrollOffsetY"].as_f64().unwrap_or(0.0);
+        let Some(backends) = document["nodes"]["backendNodeId"].as_array() else {
+            continue;
+        };
+        if !backends.iter().any(|value| value.as_u64() == Some(target)) {
+            continue;
+        }
+        let node_indexes = document["layout"]["nodeIndex"].as_array().ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "DOMSnapshot layout node indexes are malformed",
+            )
+        })?;
+        let bounds = document["layout"]["bounds"].as_array().ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "DOMSnapshot layout bounds are malformed",
+            )
+        })?;
+        let paint_orders = document["layout"]["paintOrders"].as_array();
+        for (layout_index, raw_node_index) in node_indexes.iter().enumerate() {
+            let Some(bound) = bounds.get(layout_index).and_then(Value::as_array) else {
+                continue;
+            };
+            if bound.len() != 4 {
+                continue;
+            }
+            let bx = bound[0].as_f64().unwrap_or(f64::NAN);
+            let by = bound[1].as_f64().unwrap_or(f64::NAN);
+            let bw = bound[2].as_f64().unwrap_or(f64::NAN);
+            let bh = bound[3].as_f64().unwrap_or(f64::NAN);
+            if !bx.is_finite()
+                || !by.is_finite()
+                || !bw.is_finite()
+                || !bh.is_finite()
+                || bw <= 0.0
+                || bh <= 0.0
+                || document_x < bx
+                || document_y < by
+                || document_x > bx + bw
+                || document_y > by + bh
+            {
+                continue;
+            }
+            let Some(node_index) = raw_node_index
+                .as_i64()
+                .and_then(|value| usize::try_from(value).ok())
+            else {
+                continue;
+            };
+            let paint = paint_orders
+                .and_then(|orders| orders.get(layout_index))
+                .and_then(Value::as_i64)
+                .unwrap_or(layout_index as i64);
+            let matches =
+                snapshot_node_is_target_or_descendant(&document["nodes"], node_index, target)
+                    || snapshot_node_is_ancestor_of_target(&document["nodes"], node_index, target);
+            let candidate = (paint, layout_index, matches);
+            if best
+                .as_ref()
+                .is_none_or(|current| (candidate.0, candidate.1) >= (current.0, current.1))
+            {
+                best = Some(candidate);
+            }
+        }
+    }
+    Ok(best.is_some_and(|candidate| candidate.2))
+}
+
+async fn actionable_point(cdp: &Cdp, session: &str, node: u64) -> Result<(f64, f64)> {
+    let model = cdp
+        .call(
+            "DOM.getBoxModel",
+            json!({"backendNodeId":node}),
+            Some(session),
+        )
+        .await?;
+    let quad = model["model"]["content"]
+        .as_array()
+        .filter(|quad| quad.len() == 8)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::NotFound,
+                "DOM node has no actionable content quad",
+            )
+        })?;
+    let coordinates: Vec<f64> = quad
+        .iter()
+        .map(|value| value.as_f64().unwrap_or(f64::NAN))
+        .collect();
+    let x = (coordinates[0] + coordinates[2] + coordinates[4] + coordinates[6]) / 4.0;
+    let y = (coordinates[1] + coordinates[3] + coordinates[5] + coordinates[7]) / 4.0;
+    if !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 || x > 16384.0 || y > 16384.0 {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "DOM action coordinate is outside the bounded viewport",
+        ));
+    }
+    let snapshot = cdp
+        .call(
+            "DOMSnapshot.captureSnapshot",
+            json!({"computedStyles":[],"includePaintOrder":true,"includeDOMRects":false}),
+            Some(session),
+        )
+        .await?;
+    if !snapshot_hit_matches_target(&snapshot, x, y, node)? {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Another painted DOM element covers the target; choose the precise semantic element explicitly",
+        ));
+    }
+    Ok((x, y))
+}
+
+fn checked_state(node: &Value) -> Option<bool> {
+    match ax_property(node, "checked")? {
+        Value::Bool(value) => Some(value),
+        Value::String(value) if value == "true" => Some(true),
+        Value::String(value) if value == "false" => Some(false),
+        _ => None,
+    }
+}
+
+async fn ax_node_for_backend(cdp: &Cdp, session: &str, node: u64) -> Result<Value> {
+    let result = cdp
+        .call(
+            "Accessibility.getPartialAXTree",
+            json!({"backendNodeId":node,"fetchRelatives":false}),
+            Some(session),
+        )
+        .await?;
+    result["nodes"]
+        .as_array()
+        .and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|candidate| candidate["backendDOMNodeId"].as_u64() == Some(node))
+                .or_else(|| nodes.first())
+        })
+        .cloned()
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "No accessibility node found"))
+}
+
+fn dom_node_text(node: &Value, remaining: &mut usize, out: &mut String) {
+    if *remaining == 0 || out.len() >= 512 {
+        return;
+    }
+    *remaining -= 1;
+    let value = node["nodeValue"].as_str().unwrap_or("").trim();
+    if !value.is_empty() {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.extend(value.chars().take(512usize.saturating_sub(out.len())));
+    }
+    if let Some(children) = node["children"].as_array() {
+        for child in children {
+            dom_node_text(child, remaining, out);
+            if *remaining == 0 || out.len() >= 512 {
+                break;
+            }
+        }
+    }
+}
+
+fn collect_select_options(node: &Value, rows: &mut Vec<(usize, String)>) -> Result<()> {
+    if node["nodeName"].as_str() == Some("OPTION") {
+        if rows.len() >= 200 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Select contains more than 200 enabled options",
+            ));
+        }
+        if attribute(node, "disabled").is_some() {
+            return Ok(());
+        }
+        let mut label = attribute(node, "label").unwrap_or_default();
+        if label.is_empty() {
+            let mut budget = 16;
+            dom_node_text(node, &mut budget, &mut label);
+        }
+        let index = rows.len();
+        rows.push((index, label));
+        return Ok(());
+    }
+    if let Some(children) = node["children"].as_array() {
+        for child in children {
+            collect_select_options(child, rows)?;
+        }
+    }
+    Ok(())
+}
+
+fn select_options(node: &Value) -> Result<Vec<(usize, String)>> {
+    let mut rows = Vec::new();
+    collect_select_options(node, &mut rows)?;
+    Ok(rows)
+}
+
 fn compact_dom(
     instance: &Instance,
     target: &str,
     session: &str,
+    revision: u64,
     node: &Value,
     remaining: &mut usize,
 ) -> Result<Option<Value>> {
@@ -1043,7 +2079,7 @@ fn compact_dom(
     if matches!(name, "SCRIPT" | "STYLE" | "NOSCRIPT") {
         return Ok(None);
     }
-    let mut row = json!({"node_name":name,"text":node["nodeValue"].as_str().unwrap_or("").chars().take(512).collect::<String>(),"ref":instance.dom_ref(target,node,session)?});
+    let mut row = json!({"node_name":name,"text":node["nodeValue"].as_str().unwrap_or("").chars().take(512).collect::<String>(),"ref":instance.dom_ref_in_frame(target,node,session,None,Some(revision))?});
     let mut attrs = serde_json::Map::new();
     for key in [
         "id",
@@ -1064,15 +2100,25 @@ fn compact_dom(
     }
     row["attributes"] = Value::Object(attrs);
     let mut children = vec![];
-    if let Some(nodes) = node["children"].as_array() {
-        for child in nodes {
-            if let Some(v) = compact_dom(instance, target, session, child, remaining)? {
-                children.push(v);
-            }
-            if *remaining == 0 {
-                break;
+    for key in ["children", "shadowRoots"] {
+        if let Some(nodes) = node[key].as_array() {
+            for child in nodes {
+                if let Some(v) = compact_dom(instance, target, session, revision, child, remaining)?
+                {
+                    children.push(v);
+                }
+                if *remaining == 0 {
+                    break;
+                }
             }
         }
+    }
+    if *remaining > 0
+        && let Some(document) = node.get("contentDocument")
+        && document.is_object()
+        && let Some(v) = compact_dom(instance, target, session, revision, document, remaining)?
+    {
+        children.push(v);
     }
     row["children"] = json!(children);
     Ok(Some(row))
@@ -1235,14 +2281,23 @@ impl Backend for Chromium {
                     Error::new(ErrorCode::BackendFailed, "Browser navigation failed").uncertain(),
                 );
             }
+            if let (Some(frame_id), Some(loader_id)) = (
+                navigation["frameId"].as_str(),
+                navigation["loaderId"].as_str(),
+            ) {
+                instance
+                    .cdp
+                    .wait_document_ready(&session, frame_id, loader_id)
+                    .await?;
+            }
             return Ok(json!({"ref":instance.tab_ref(&tab),"changed":true}));
         }
         let target = native_target(args)?;
-        let (tab, node, session) = self.validate_in(instance, &target).await?;
+        let (tab, node, frame, session) = self.validate_in(instance, &target).await?;
         let cdp = instance.cdp.clone();
         match command {
             "browser.tab.close" => {
-                if node.is_some() {
+                if node.is_some() || frame.is_some() {
                     return Err(Error::invalid("Tab reference required"));
                 }
                 let result = cdp
@@ -1258,12 +2313,15 @@ impl Backend for Chromium {
                 Ok(json!({"changed":result["success"]==true}))
             }
             "browser.tab.focus" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
                 cdp.call("Target.activateTarget", json!({"targetId":tab}), None)
                     .await?;
                 Ok(json!({"accepted":true}))
             }
             "browser.navigate" => {
-                if node.is_some() {
+                if node.is_some() || frame.is_some() {
                     return Err(Error::invalid("Tab reference required"));
                 }
                 let url = arg_str(args, "url")?;
@@ -1279,42 +2337,469 @@ impl Backend for Chromium {
                         Error::new(ErrorCode::BackendFailed, "Navigation failed").uncertain()
                     );
                 }
+                if let (Some(frame_id), Some(loader_id)) =
+                    (result["frameId"].as_str(), result["loaderId"].as_str())
+                {
+                    cdp.wait_document_ready(&session, frame_id, loader_id)
+                        .await?;
+                }
                 Ok(json!({"changed":true}))
             }
-            "browser.dom.snapshot" => {
-                if node.is_some() {
-                    return Err(Error::invalid(
-                        "Tab reference required for a document snapshot",
+            "browser.page.reload" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                cdp.invalidate_session(&session)?;
+                cdp.call(
+                    "Page.reload",
+                    json!({"ignoreCache":args["ignore_cache"].as_bool().unwrap_or(false)}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({"changed":true}))
+            }
+            "browser.page.stop" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                cdp.call("Page.stopLoading", json!({}), Some(&session))
+                    .await?;
+                Ok(json!({"accepted":true}))
+            }
+            "browser.page.scroll" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let direction = arg_str(args, "direction")?;
+                let amount = args["amount"].as_str().unwrap_or("page");
+                let before = cdp
+                    .call("Page.getLayoutMetrics", json!({}), Some(&session))
+                    .await?;
+                let viewport = &before["visualViewport"];
+                let width = viewport["clientWidth"].as_f64().unwrap_or(0.0);
+                let height = viewport["clientHeight"].as_f64().unwrap_or(0.0);
+                let before_x = viewport["pageX"].as_f64().unwrap_or(0.0);
+                let before_y = viewport["pageY"].as_f64().unwrap_or(0.0);
+                if !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Browser visual viewport is unavailable",
                     ));
                 }
+                let factor = match amount {
+                    "small" => 0.25,
+                    "half_page" => 0.5,
+                    "page" => 0.9,
+                    _ => return Err(Error::invalid("Unknown semantic scroll amount")),
+                };
+                let vertical = (height * factor).clamp(1.0, 4096.0);
+                let horizontal = (width * factor).clamp(1.0, 4096.0);
+                let (delta_x, delta_y) = match direction {
+                    "up" => (0.0, -vertical),
+                    "down" => (0.0, vertical),
+                    "left" => (-horizontal, 0.0),
+                    "right" => (horizontal, 0.0),
+                    _ => return Err(Error::invalid("Unknown semantic scroll direction")),
+                };
+                ctx.check_cancelled()?;
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({
+                        "type":"mouseWheel",
+                        "x":width / 2.0,
+                        "y":height / 2.0,
+                        "deltaX":delta_x,
+                        "deltaY":delta_y,
+                        "button":"none"
+                    }),
+                    Some(&session),
+                )
+                .await?;
+                let mut after_x = before_x;
+                let mut after_y = before_y;
+                for _ in 0..10 {
+                    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                    ctx.check_cancelled()?;
+                    let after = cdp
+                        .call("Page.getLayoutMetrics", json!({}), Some(&session))
+                        .await?;
+                    after_x = after["visualViewport"]["pageX"]
+                        .as_f64()
+                        .unwrap_or(before_x);
+                    after_y = after["visualViewport"]["pageY"]
+                        .as_f64()
+                        .unwrap_or(before_y);
+                    if (after_x - before_x).abs() > 0.5 || (after_y - before_y).abs() > 0.5 {
+                        break;
+                    }
+                }
+                Ok(json!({
+                    "accepted":true,
+                    "changed":(after_x-before_x).abs()>0.5 || (after_y-before_y).abs()>0.5,
+                    "direction":direction,
+                    "amount":amount,
+                    "method":"viewport metrics + bounded CDP wheel"
+                }))
+            }
+            "browser.page.back" | "browser.page.forward" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let history = cdp
+                    .call("Page.getNavigationHistory", json!({}), Some(&session))
+                    .await?;
+                let current = history["currentIndex"].as_i64().ok_or_else(|| {
+                    Error::new(ErrorCode::BackendFailed, "Browser history index is missing")
+                })?;
+                let next = if command == "browser.page.back" {
+                    current.saturating_sub(1)
+                } else {
+                    current.saturating_add(1)
+                };
+                let Some(entry) = history["entries"].as_array().and_then(|entries| {
+                    usize::try_from(next)
+                        .ok()
+                        .and_then(|index| entries.get(index))
+                }) else {
+                    return Ok(json!({"changed":false}));
+                };
+                let entry_id = entry["id"].as_i64().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Browser history entry is malformed",
+                    )
+                })?;
+                cdp.invalidate_session(&session)?;
+                cdp.call(
+                    "Page.navigateToHistoryEntry",
+                    json!({"entryId":entry_id}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({"changed":true}))
+            }
+            "browser.dialog.status" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let mut latest: Option<Value> = None;
+                for event in cdp.metadata()? {
+                    if event["session"].as_str() != Some(session.as_str()) {
+                        continue;
+                    }
+                    if matches!(
+                        event["event"].as_str(),
+                        Some("Page.javascriptDialogOpening" | "Page.javascriptDialogClosed")
+                    ) {
+                        latest = Some(event);
+                    }
+                }
+                let open = latest.as_ref().and_then(|event| event["event"].as_str())
+                    == Some("Page.javascriptDialogOpening");
+                Ok(json!({
+                    "open":open,
+                    "dialog_type":if open { latest.as_ref().and_then(|event|event["dialog_type"].as_str()) } else { None },
+                    "message":if open { latest.as_ref().and_then(|event|event["message"].as_str()) } else { None },
+                    "prompt_value_redacted":true
+                }))
+            }
+            "browser.dialog.respond" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required"));
+                }
+                let accept = args["accept"].as_bool().unwrap_or(false);
+                if !accept && args.get("prompt_text").is_some() {
+                    return Err(Error::invalid(
+                        "prompt_text is only valid when accepting a prompt",
+                    ));
+                }
+                let mut params = json!({"accept":accept});
+                if let Some(prompt) = args["prompt_text"].as_str() {
+                    params["promptText"] = json!(prompt);
+                }
+                ctx.check_cancelled()?;
+                cdp.invalidate_session(&session)?;
+                cdp.call("Page.handleJavaScriptDialog", params, Some(&session))
+                    .await?;
+                Ok(json!({"accepted":accept,"handled":true}))
+            }
+            "browser.frame.list" => {
+                if node.is_some() {
+                    return Err(Error::invalid("Tab or frame reference required"));
+                }
+                let tree = cdp
+                    .call("Page.getFrameTree", json!({}), Some(&session))
+                    .await?;
+                let root = if let Some(frame_id) = frame.as_deref() {
+                    frame_tree_find(&tree["frameTree"], frame_id).ok_or_else(|| {
+                        Error::new(ErrorCode::StaleReference, "Browser frame no longer exists")
+                    })?
+                } else {
+                    &tree["frameTree"]
+                };
+                let mut rows = Vec::new();
+                let mut seen = BTreeSet::new();
+                collect_frame_rows(
+                    instance,
+                    &self.config,
+                    &tab,
+                    root,
+                    None,
+                    &mut seen,
+                    &mut rows,
+                )?;
+                if frame.is_none() && rows.len() < 256 {
+                    for candidate in cdp.attached_session_candidates()? {
+                        if candidate == session || rows.len() >= 256 {
+                            continue;
+                        }
+                        if cdp.ensure_session_domains(&candidate).await.is_err() {
+                            continue;
+                        }
+                        let Ok(child_tree) = cdp
+                            .call("Page.getFrameTree", json!({}), Some(&candidate))
+                            .await
+                        else {
+                            continue;
+                        };
+                        collect_frame_rows(
+                            instance,
+                            &self.config,
+                            &tab,
+                            &child_tree["frameTree"],
+                            None,
+                            &mut seen,
+                            &mut rows,
+                        )?;
+                    }
+                }
+                let count = rows.len();
+                Ok(json!({"frames":rows,"count":count,"truncated":count==256}))
+            }
+            "browser.semantic.snapshot" | "browser.semantic.query" => {
+                if node.is_some() {
+                    return Err(Error::invalid("Tab or frame reference required"));
+                }
+                let mut params = json!({
+                    "depth": args["depth"].as_u64().unwrap_or(8).min(32)
+                });
+                if let Some(frame_id) = frame.as_deref()
+                    && cdp.attached_session(frame_id)?.is_none()
+                {
+                    params["frameId"] = json!(frame_id);
+                }
+                let result = cdp
+                    .call("Accessibility.getFullAXTree", params, Some(&session))
+                    .await?;
+                let nodes = result["nodes"].as_array().ok_or_else(|| {
+                    Error::new(ErrorCode::BackendFailed, "Accessibility tree is malformed")
+                })?;
+                let snapshot_revision = if frame.is_some() {
+                    target.revision
+                } else {
+                    cdp.generation(&session)?
+                };
+                let include_ignored = args["include_ignored"].as_bool().unwrap_or(false);
+                let limit = if command == "browser.semantic.query" {
+                    args["max_results"].as_u64().unwrap_or(50).clamp(1, 200) as usize
+                } else {
+                    args["max_nodes"].as_u64().unwrap_or(500).clamp(1, 1000) as usize
+                };
+                let mut rows = Vec::new();
+                let mut matched = 0usize;
+                for ax in nodes {
+                    if !include_ignored && ax["ignored"].as_bool().unwrap_or(false) {
+                        continue;
+                    }
+                    let row = compact_ax(
+                        instance,
+                        &tab,
+                        &session,
+                        frame.as_deref(),
+                        Some(snapshot_revision),
+                        ax,
+                    )?;
+                    if command == "browser.semantic.query" && !semantic_query_matches(&row, args) {
+                        continue;
+                    }
+                    matched = matched.saturating_add(1);
+                    if rows.len() < limit {
+                        rows.push(row);
+                    }
+                }
+                if command == "browser.semantic.query" {
+                    let single = if matched == 1 {
+                        rows.first().cloned()
+                    } else {
+                        None
+                    };
+                    return Ok(json!({
+                        "matches": rows,
+                        "single": single,
+                        "count": matched,
+                        "truncated": matched > limit,
+                        "source": "cdp_accessibility_tree"
+                    }));
+                }
+                Ok(json!({
+                    "nodes": rows,
+                    "count": matched,
+                    "truncated": matched > limit,
+                    "source": "cdp_accessibility_tree",
+                    "generation": snapshot_revision,
+                    "arbitrary_javascript": false
+                }))
+            }
+            "browser.semantic.wait" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid("Tab reference required for semantic wait"));
+                }
+                let timeout_ms = args["timeout_ms"]
+                    .as_u64()
+                    .unwrap_or(5_000)
+                    .clamp(1, 30_000);
+                let poll_ms = args["poll_ms"].as_u64().unwrap_or(100).clamp(50, 1_000);
+                let present = args["present"].as_bool().unwrap_or(true);
+                let deadline =
+                    std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
+                loop {
+                    ctx.check_cancelled()?;
+                    let generation = cdp.generation(&session)?;
+                    let result = cdp
+                        .call(
+                            "Accessibility.getFullAXTree",
+                            json!({"depth":args["depth"].as_u64().unwrap_or(8).min(32)}),
+                            Some(&session),
+                        )
+                        .await?;
+                    let nodes = result["nodes"].as_array().ok_or_else(|| {
+                        Error::new(ErrorCode::BackendFailed, "Accessibility tree is malformed")
+                    })?;
+                    let mut rows = Vec::new();
+                    for ax in nodes {
+                        if ax["ignored"].as_bool().unwrap_or(false) {
+                            continue;
+                        }
+                        let row = compact_ax(
+                            instance,
+                            &tab,
+                            &session,
+                            frame.as_deref(),
+                            Some(generation),
+                            ax,
+                        )?;
+                        if semantic_query_matches(&row, args) {
+                            rows.push(row);
+                            if rows.len() == 20 {
+                                break;
+                            }
+                        }
+                    }
+                    if cdp.generation(&session)? == generation {
+                        let satisfied = if present {
+                            !rows.is_empty()
+                        } else {
+                            rows.is_empty()
+                        };
+                        if satisfied {
+                            return Ok(json!({
+                                "satisfied":true,
+                                "present":present,
+                                "matches":rows,
+                                "generation":generation
+                            }));
+                        }
+                    }
+                    if std::time::Instant::now() >= deadline {
+                        return Err(Error::new(
+                            ErrorCode::Timeout,
+                            "Semantic wait timed out before the requested condition was satisfied",
+                        ));
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(poll_ms)).await;
+                }
+            }
+            "browser.semantic.inspect" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
                 let generation = cdp.generation(&session)?;
                 let result = cdp
                     .call(
-                        "DOM.getDocument",
-                        json!({"depth":args["depth"].as_u64().unwrap_or(4),"pierce":false}),
+                        "Accessibility.getPartialAXTree",
+                        json!({"backendNodeId":node,"fetchRelatives":true}),
+                        Some(&session),
+                    )
+                    .await?;
+                let nodes = result["nodes"].as_array().ok_or_else(|| {
+                    Error::new(ErrorCode::BackendFailed, "Accessibility node is malformed")
+                })?;
+                let ax = nodes
+                    .iter()
+                    .find(|candidate| candidate["backendDOMNodeId"].as_u64() == Some(node))
+                    .or_else(|| nodes.first())
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::NotFound, "No accessibility node found")
+                    })?;
+                let semantic = compact_ax(
+                    instance,
+                    &tab,
+                    &session,
+                    frame.as_deref(),
+                    frame.as_ref().map(|_| target.revision),
+                    ax,
+                )?;
+                let dom = cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":0}),
                         Some(&session),
                     )
                     .await?;
                 if cdp.generation(&session)? != generation {
                     return Err(Error::new(
                         ErrorCode::StaleReference,
-                        "Document changed while observing; request a fresh snapshot",
+                        "Element changed while inspecting; repeat discovery",
                     ));
                 }
+                Ok(json!({
+                    "semantic": semantic,
+                    "dom": {
+                        "node_name": dom["node"]["nodeName"],
+                        "local_name": dom["node"]["localName"],
+                        "input_type": attribute(&dom["node"], "type"),
+                        "id": attribute(&dom["node"], "id"),
+                        "class": attribute(&dom["node"], "class")
+                    }
+                }))
+            }
+            "browser.dom.snapshot" => {
+                if node.is_some() || frame.is_some() {
+                    return Err(Error::invalid(
+                        "Tab reference required for a document snapshot",
+                    ));
+                }
+                let result = cdp
+                    .call(
+                        "DOM.getDocument",
+                        json!({"depth":args["depth"].as_u64().unwrap_or(4),"pierce":true}),
+                        Some(&session),
+                    )
+                    .await?;
+                let revision = cdp.generation(&session)?;
                 let mut budget = 500;
-                let root = compact_dom(instance, &tab, &session, &result["root"], &mut budget)?;
-                if cdp.generation(&session)? != generation {
-                    return Err(Error::new(
-                        ErrorCode::StaleReference,
-                        "Document changed while creating references",
-                    ));
-                }
+                let root = compact_dom(
+                    instance,
+                    &tab,
+                    &session,
+                    revision,
+                    &result["root"],
+                    &mut budget,
+                )?;
                 Ok(
-                    json!({"root":root,"node_budget":500,"truncated":budget==0,"sensitive_attributes_omitted":true,"semantic_coverage":"partial; shadow DOM, cross-origin frames and script/style bodies excluded"}),
+                    json!({"root":root,"node_budget":500,"truncated":budget==0,"sensitive_attributes_omitted":true,"semantic_coverage":"bounded DOM including open shadow roots and frame documents exposed by CDP; script/style bodies excluded"}),
                 )
             }
             "browser.dom.query" => {
-                if node.is_some() {
+                if node.is_some() || frame.is_some() {
                     return Err(Error::invalid("Tab reference required for a CSS query"));
                 }
                 let doc = cdp
@@ -1340,13 +2825,7 @@ impl Backend for Chromium {
                             Some(&session),
                         )
                         .await?;
-                    rows.push(json!({"ref":instance.dom_ref(&tab,&detail["node"],&session)?,"node_name":detail["node"]["nodeName"],"name":attribute(&detail["node"],"aria-label").or_else(||attribute(&detail["node"],"name"))}));
-                }
-                if cdp.generation(&session)? != revision {
-                    return Err(Error::new(
-                        ErrorCode::StaleReference,
-                        "DOM changed during query; repeat discovery",
-                    ));
+                    rows.push(json!({"ref":instance.dom_ref_in_frame(&tab,&detail["node"],&session,None,Some(revision))?,"node_name":detail["node"]["nodeName"],"name":attribute(&detail["node"],"aria-label").or_else(||attribute(&detail["node"],"name"))}));
                 }
                 let single = if rows.len() == 1 {
                     Some(rows[0].clone())
@@ -1355,7 +2834,12 @@ impl Backend for Chromium {
                 };
                 Ok(json!({"matches":rows,"single":single,"count":ids.len()}))
             }
-            "browser.dom.click" => {
+            "browser.element.focus" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                focus_backend_node(&cdp, &session, node).await?;
+                Ok(json!({"accepted":true,"focused":true}))
+            }
+            "browser.element.scroll" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
                 cdp.call(
                     "DOM.scrollIntoViewIfNeeded",
@@ -1364,64 +2848,365 @@ impl Backend for Chromium {
                 )
                 .await?;
                 self.validate_in(instance, &target).await?;
-                let model = cdp
+                Ok(json!({"accepted":true,"method":"DOM.scrollIntoViewIfNeeded"}))
+            }
+            "browser.element.upload" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                let description = cdp
                     .call(
-                        "DOM.getBoxModel",
-                        json!({"backendNodeId":node}),
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":0}),
                         Some(&session),
                     )
                     .await?;
-                let quad = model["model"]["content"]
-                    .as_array()
-                    .filter(|q| q.len() == 8)
-                    .ok_or_else(|| {
-                        Error::new(
-                            ErrorCode::NotFound,
-                            "DOM node has no actionable content quad",
-                        )
-                    })?;
-                let coordinates: Vec<f64> = quad
-                    .iter()
-                    .map(|v| v.as_f64().unwrap_or(f64::NAN))
-                    .collect();
-                let x = (coordinates[0] + coordinates[2] + coordinates[4] + coordinates[6]) / 4.0;
-                let y = (coordinates[1] + coordinates[3] + coordinates[5] + coordinates[7]) / 4.0;
-                if !x.is_finite()
-                    || !y.is_finite()
-                    || x < 0.0
-                    || y < 0.0
-                    || x > 16384.0
-                    || y > 16384.0
+                let info = &description["node"];
+                if info["nodeName"].as_str() != Some("INPUT")
+                    || attribute(info, "type")
+                        .is_none_or(|value| !value.eq_ignore_ascii_case("file"))
                 {
                     return Err(Error::new(
-                        ErrorCode::Conflict,
-                        "DOM click coordinate is outside the bounded viewport",
+                        ErrorCode::Unsupported,
+                        "Upload requires an exact INPUT type=file semantic target",
                     ));
                 }
-                let hit=cdp.call("DOM.getNodeForLocation",json!({"x":x.round()as i32,"y":y.round()as i32,"includeUserAgentShadowDOM":false,"ignorePointerEventsNone":false}),Some(&session)).await?;
-                if hit["backendNodeId"].as_u64() != Some(node) {
+                let paths = args["paths"]
+                    .as_array()
+                    .ok_or_else(|| Error::invalid("Upload paths array is required"))?;
+                if paths.len() > 1 && attribute(info, "multiple").is_none() {
                     return Err(Error::new(
-                        ErrorCode::Conflict,
-                        "Another DOM element covers the target; choose the precise hit element explicitly",
+                        ErrorCode::Unsupported,
+                        "Multiple files require an INPUT with the multiple attribute",
                     ));
                 }
+                let root_name = arg_str(args, "root")?;
+                let (staging, staged, total_bytes) =
+                    self.stage_uploads(instance, root_name, paths)?;
+                let files: Result<Vec<String>> = staged
+                    .iter()
+                    .map(|path| {
+                        path.to_str()
+                            .map(str::to_owned)
+                            .ok_or_else(|| Error::invalid("Staged upload path is not UTF-8"))
+                    })
+                    .collect();
+                let files = match files {
+                    Ok(files) => files,
+                    Err(error) => {
+                        let _ = std::fs::remove_dir_all(&staging);
+                        return Err(error);
+                    }
+                };
+                let result = async {
+                    ctx.check_cancelled()?;
+                    if frame.is_none() {
+                        cdp.invalidate_session(&session)?;
+                    }
+                    cdp.call(
+                        "DOM.setFileInputFiles",
+                        json!({"files":files,"backendNodeId":node}),
+                        Some(&session),
+                    )
+                    .await?;
+                    Ok::<(), Error>(())
+                }
+                .await;
+                if let Err(error) = result {
+                    let _ = std::fs::remove_dir_all(&staging);
+                    return Err(error);
+                }
+                instance.staged_upload_bytes =
+                    instance.staged_upload_bytes.saturating_add(total_bytes);
+                instance.staged_upload_files = instance
+                    .staged_upload_files
+                    .saturating_add(staged.len() as u32);
+                Ok(json!({
+                    "accepted":true,
+                    "files":staged.len(),
+                    "bytes":total_bytes,
+                    "source_root":root_name,
+                    "host_source_paths_exposed_to_browser":false,
+                    "staging_lifetime":"browser_instance"
+                }))
+            }
+            "browser.element.drag_to" => {
+                let source = node.ok_or_else(|| Error::invalid("Source DOM reference required"))?;
+                let destination_target: NativeTarget = serde_json::from_value(
+                    args.get("_target2")
+                        .cloned()
+                        .ok_or_else(|| Error::invalid("Broker-resolved target_ref required"))?,
+                )?;
+                let (destination_tab, destination_node, destination_frame, destination_session) =
+                    self.validate_in(instance, &destination_target).await?;
+                let destination = destination_node
+                    .ok_or_else(|| Error::invalid("Destination DOM reference required"))?;
+                if destination_tab != tab
+                    || destination_frame != frame
+                    || destination_session != session
+                {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Drag source and destination must be in the same tab and frame context",
+                    ));
+                }
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":source}),
+                    Some(&session),
+                )
+                .await?;
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":destination}),
+                    Some(&session),
+                )
+                .await?;
+                self.validate_in(instance, &target).await?;
+                self.validate_in(instance, &destination_target).await?;
+                let (source_x, source_y) = actionable_point(&cdp, &session, source).await?;
+                let (destination_x, destination_y) =
+                    actionable_point(&cdp, &session, destination).await?;
+                ctx.check_cancelled()?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseMoved","x":source_x,"y":source_y,"button":"none","buttons":0}),
+                    Some(&session),
+                )
+                .await?;
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mousePressed","x":source_x,"y":source_y,"button":"left","buttons":1,"clickCount":1}),
+                    Some(&session),
+                )
+                .await?;
+                for step in 1..=8 {
+                    let ratio = f64::from(step) / 8.0;
+                    let x = source_x + (destination_x - source_x) * ratio;
+                    let y = source_y + (destination_y - source_y) * ratio;
+                    cdp.call(
+                        "Input.dispatchMouseEvent",
+                        json!({"type":"mouseMoved","x":x,"y":y,"button":"left","buttons":1}),
+                        Some(&session),
+                    )
+                    .await?;
+                }
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseReleased","x":destination_x,"y":destination_y,"button":"left","buttons":0,"clickCount":1}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({
+                    "accepted":true,
+                    "method":"two semantic DOM refs + CDP Input drag",
+                    "same_frame":true,
+                    "coordinate_space":"viewport_css_pixels"
+                }))
+            }
+            "browser.element.hover" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":node}),
+                    Some(&session),
+                )
+                .await?;
+                self.validate_in(instance, &target).await?;
+                let (x, y) = actionable_point(&cdp, &session, node).await?;
+                ctx.check_cancelled()?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseMoved","x":x,"y":y,"button":"none"}),
+                    Some(&session),
+                )
+                .await?;
+                Ok(json!({
+                    "accepted":true,
+                    "method":"DOM hit-test + CDP Input hover",
+                    "coordinate_space":"viewport_css_pixels"
+                }))
+            }
+            "browser.element.press" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                let key = arg_str(args, "key")?;
+                let modifiers = modifier_mask(args)?;
+                let reported_modifiers = args["modifiers"].as_array().cloned().unwrap_or_default();
+                focus_backend_node(&cdp, &session, node).await?;
+                ctx.check_cancelled()?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
+                dispatch_key(&cdp, &session, key, modifiers).await?;
+                Ok(json!({"accepted":true,"key":key,"modifiers":reported_modifiers}))
+            }
+            "browser.element.check" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                let desired = args["checked"].as_bool().unwrap_or(true);
+                let before = ax_node_for_backend(&cdp, &session, node).await?;
+                let role = ax_text(&before, "role").unwrap_or_default();
+                if !matches!(role.as_str(), "checkbox" | "radio" | "switch") {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Check requires a checkbox, radio or switch semantic role",
+                    ));
+                }
+                if role == "radio" && !desired {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Radio buttons cannot be unchecked directly; choose another radio option",
+                    ));
+                }
+                let current = checked_state(&before).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Semantic checked state is unavailable",
+                    )
+                })?;
+                if current == desired {
+                    return Ok(json!({"changed":false,"checked":current}));
+                }
+                // Checkbox/radio/switch are keyboard-semantic controls. Prefer the
+                // role-defined Space activation over pointer hit-testing, which can be
+                // obscured by browser-owned UA paint internals even when the exact DOM/AX
+                // target is correct. Focus ownership and post-action AX state are verified.
+                focus_backend_node(&cdp, &session, node).await?;
+                self.validate_in(instance, &target).await?;
+                ctx.check_cancelled()?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
+                dispatch_key(&cdp, &session, "Space", 0).await?;
+                let after = ax_node_for_backend(&cdp, &session, node).await?;
+                let checked = checked_state(&after).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Checked state disappeared after action",
+                    )
+                })?;
+                if checked != desired {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Semantic checked state did not reach the requested value",
+                    ));
+                }
+                Ok(json!({"changed":true,"checked":checked}))
+            }
+            "browser.element.select" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                let label = arg_str(args, "label")?;
+                let description = cdp
+                    .call(
+                        "DOM.describeNode",
+                        json!({"backendNodeId":node,"depth":4,"pierce":false}),
+                        Some(&session),
+                    )
+                    .await?;
+                let select = &description["node"];
+                if select["nodeName"].as_str() != Some("SELECT")
+                    || attribute(select, "multiple").is_some()
+                {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Select currently supports one native single-select HTML SELECT element",
+                    ));
+                }
+                let options = select_options(select)?;
+                let matches: Vec<_> = options
+                    .iter()
+                    .filter(|(_, candidate)| candidate == label)
+                    .collect();
+                if matches.len() != 1 {
+                    return Err(if matches.is_empty() {
+                        Error::new(
+                            ErrorCode::NotFound,
+                            "No enabled option has that exact label",
+                        )
+                    } else {
+                        Error::new(
+                            ErrorCode::Conflict,
+                            "Multiple enabled options share that label",
+                        )
+                    });
+                }
+                let index = matches[0].0;
+                focus_backend_node(&cdp, &session, node).await?;
+                ctx.check_cancelled()?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
+                dispatch_key(&cdp, &session, "Home", 0).await?;
+                for _ in 0..index {
+                    dispatch_key(&cdp, &session, "ArrowDown", 0).await?;
+                }
+                dispatch_key(&cdp, &session, "Enter", 0).await?;
+                let after = ax_node_for_backend(&cdp, &session, node).await?;
+                let value = ax_text(&after, "value").unwrap_or_default();
+                if value != label {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Native select did not expose the requested semantic value after input",
+                    ));
+                }
+                Ok(json!({"changed":true,"selected":value}))
+            }
+            "browser.dom.click" | "browser.element.click" => {
+                let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
+                cdp.call(
+                    "DOM.scrollIntoViewIfNeeded",
+                    json!({"backendNodeId":node}),
+                    Some(&session),
+                )
+                .await?;
+                self.validate_in(instance, &target).await?;
+                let (x, y) = actionable_point(&cdp, &session, node).await?;
                 ctx.check_cancelled()?;
                 // A click may synchronously mutate or navigate before CDP emits its
                 // corresponding event. Conservatively retire all current DOM refs first.
-                cdp.invalidate_session(&session)?;
-                for kind in ["mousePressed", "mouseReleased"] {
-                    cdp.call(
-                        "Input.dispatchMouseEvent",
-                        json!({"type":kind,"x":x,"y":y,"button":"left","clickCount":1}),
-                        Some(&session),
-                    )
-                    .await?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mousePressed","x":x,"y":y,"button":"left","clickCount":1}),
+                    Some(&session),
+                )
+                .await?;
+                if cdp.dialog_open(&session)? {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Browser dialog was already open before click release",
+                    ));
+                }
+                let release = cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseReleased","x":x,"y":y,"button":"left","clickCount":1}),
+                    Some(&session),
+                );
+                tokio::pin!(release);
+                let dialog = async {
+                    loop {
+                        if cdp.dialog_open(&session)? {
+                            return Ok::<(), Error>(());
+                        }
+                        ctx.check_cancelled()?;
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    }
+                };
+                tokio::pin!(dialog);
+                tokio::select! {
+                    response = &mut release => { response?; }
+                    opened = &mut dialog => { opened?; }
                 }
                 Ok(
                     json!({"accepted":true,"method":"DOM hit-test + CDP Input","coordinate_space":"viewport_css_pixels"}),
                 )
             }
-            "browser.dom.fill" => {
+            "browser.dom.fill" | "browser.element.fill" => {
                 let node = node.ok_or_else(|| Error::invalid("DOM reference required"))?;
                 let description = cdp
                     .call(
@@ -1435,22 +3220,25 @@ impl Backend for Chromium {
                 let input_type = attribute(info, "type")
                     .unwrap_or_else(|| "text".into())
                     .to_ascii_lowercase();
-                if !matches!(kind, "INPUT" | "TEXTAREA")
-                    || matches!(
-                        input_type.as_str(),
-                        "file"
-                            | "hidden"
-                            | "button"
-                            | "submit"
-                            | "checkbox"
-                            | "radio"
-                            | "range"
-                            | "color"
-                    )
+                let contenteditable = attribute(info, "contenteditable")
+                    .is_some_and(|value| matches!(value.as_str(), "" | "true" | "plaintext-only"));
+                if (!matches!(kind, "INPUT" | "TEXTAREA") && !contenteditable)
+                    || (kind == "INPUT"
+                        && matches!(
+                            input_type.as_str(),
+                            "file"
+                                | "hidden"
+                                | "button"
+                                | "submit"
+                                | "checkbox"
+                                | "radio"
+                                | "range"
+                                | "color"
+                        ))
                 {
                     return Err(Error::new(
                         ErrorCode::Unsupported,
-                        "Fill requires a text-like input or textarea, never a file picker",
+                        "Fill requires a text-like input, textarea or contenteditable element",
                     ));
                 }
                 cdp.call("DOM.focus", json!({"backendNodeId":node}), Some(&session))
@@ -1481,7 +3269,9 @@ impl Backend for Chromium {
                 ctx.check_cancelled()?;
                 // Input changes application-visible DOM state. Retire the discovery
                 // generation before dispatch instead of depending on event scheduling.
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 for kind in ["keyDown", "keyUp"] {
                     cdp.call("Input.dispatchKeyEvent",json!({"type":kind,"modifiers":2,"key":"a","code":"KeyA","windowsVirtualKeyCode":65,"nativeVirtualKeyCode":65}),Some(&session)).await?;
                 }
@@ -1543,6 +3333,7 @@ impl Backend for Chromium {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     #[test]
     fn browser_startup_timeout_is_bounded_but_ci_tolerant() {
         assert!(BROWSER_STARTUP_TIMEOUT >= std::time::Duration::from_secs(20));
@@ -1620,6 +3411,141 @@ mod tests {
         assert_eq!(attribute(&n, "role"), None);
     }
     #[test]
+    fn frame_tree_lookup_is_recursive_and_exact() {
+        let tree = json!({
+            "frame":{"id":"root"},
+            "childFrames":[{
+                "frame":{"id":"child"},
+                "childFrames":[{"frame":{"id":"grandchild"}}]
+            }]
+        });
+        assert!(frame_tree_contains(&tree, "root"));
+        assert!(frame_tree_contains(&tree, "child"));
+        assert!(frame_tree_contains(&tree, "grandchild"));
+        assert!(!frame_tree_contains(&tree, "missing"));
+    }
+
+    #[test]
+    fn document_identity_events_do_not_confuse_subframe_mutation_with_parent_navigation() {
+        assert!(!cdp_event_changes_document_identity(
+            "DOM.documentUpdated",
+            &json!({})
+        ));
+        assert!(cdp_event_changes_document_identity(
+            "Page.frameNavigated",
+            &json!({"params":{"frame":{"id":"root"}}})
+        ));
+        assert!(!cdp_event_changes_document_identity(
+            "Page.frameNavigated",
+            &json!({"params":{"frame":{"id":"child","parentId":"root"}}})
+        ));
+        for method in [
+            "DOM.childNodeInserted",
+            "DOM.childNodeRemoved",
+            "DOM.attributeModified",
+            "DOM.characterDataModified",
+        ] {
+            assert!(!cdp_event_changes_document_identity(method, &json!({})));
+        }
+    }
+
+    #[test]
+    fn frame_revision_tracks_loader_not_attach_session() {
+        let first = json!({"id":"frame","loaderId":"loader-a","url":"https://example.test/a"});
+        let same = json!({"id":"frame","loaderId":"loader-a","url":"https://example.test/b#same-document"});
+        let next = json!({"id":"frame","loaderId":"loader-b","url":"https://example.test/b"});
+        assert_eq!(
+            frame_document_revision(&first),
+            frame_document_revision(&same)
+        );
+        assert_ne!(
+            frame_document_revision(&first),
+            frame_document_revision(&next)
+        );
+    }
+
+    #[test]
+    fn semantic_query_filters_role_name_and_action() {
+        let row = json!({
+            "role":"button",
+            "name":"Save changes",
+            "actions":["focus","scroll","click"]
+        });
+        assert!(semantic_query_matches(&row, &json!({"role":"BUTTON"})));
+        assert!(semantic_query_matches(&row, &json!({"name":"save"})));
+        assert!(semantic_query_matches(
+            &row,
+            &json!({"name":"Save changes","exact_name":true})
+        ));
+        assert!(semantic_query_matches(&row, &json!({"action":"click"})));
+        assert!(!semantic_query_matches(&row, &json!({"role":"textbox"})));
+        assert!(!semantic_query_matches(
+            &row,
+            &json!({"name":"Save","exact_name":true})
+        ));
+        assert!(!semantic_query_matches(&row, &json!({"action":"fill"})));
+    }
+
+    #[test]
+    fn accessibility_scalars_are_bounded_and_typed() {
+        let node = json!({
+            "role":{"value":"textbox"},
+            "name":{"value":"n".repeat(700)},
+            "properties":[
+                {"name":"disabled","value":{"value":false}},
+                {"name":"checked","value":{"value":"mixed"}},
+                {"name":"ignored-object","value":{"value":{"nested":true}}}
+            ]
+        });
+        assert_eq!(ax_text(&node, "role").as_deref(), Some("textbox"));
+        assert_eq!(ax_text(&node, "name").unwrap().chars().count(), 512);
+        assert_eq!(ax_property(&node, "disabled"), Some(json!(false)));
+        assert_eq!(ax_property(&node, "checked"), Some(json!("mixed")));
+        assert_eq!(ax_property(&node, "ignored-object"), None);
+    }
+
+    #[test]
+    fn domsnapshot_hit_test_respects_paint_order_and_target_ancestry() {
+        let covered = json!({"documents":[{
+            "nodes":{"backendNodeId":[1,2,3],"parentIndex":[-1,0,0]},
+            "layout":{
+                "nodeIndex":[1,2],
+                "bounds":[[0,0,100,100],[0,0,100,100]],
+                "paintOrders":[1,2]
+            }
+        }]});
+        assert!(!snapshot_hit_matches_target(&covered, 50.0, 50.0, 2).unwrap());
+
+        let descendant = json!({"documents":[{
+            "nodes":{"backendNodeId":[1,2,3],"parentIndex":[-1,0,1]},
+            "layout":{
+                "nodeIndex":[1,2],
+                "bounds":[[0,0,100,100],[10,10,80,80]],
+                "paintOrders":[1,2]
+            }
+        }]});
+        assert!(snapshot_hit_matches_target(&descendant, 50.0, 50.0, 2).unwrap());
+        assert!(!snapshot_hit_matches_target(&descendant, 150.0, 150.0, 2).unwrap());
+
+        let ancestor_same_paint = json!({"documents":[{
+            "nodes":{"backendNodeId":[1,2],"parentIndex":[-1,0]},
+            "layout":{
+                "nodeIndex":[1,0],
+                "bounds":[[10,10,80,80],[0,0,100,100]],
+                "paintOrders":[2,2]
+            }
+        }]});
+        assert!(snapshot_hit_matches_target(&ancestor_same_paint, 50.0, 50.0, 2).unwrap());
+
+        let scrolled = json!({"documents":[{
+            "scrollOffsetX":0,"scrollOffsetY":100,
+            "nodes":{"backendNodeId":[1,2],"parentIndex":[-1,0]},
+            "layout":{"nodeIndex":[1],"bounds":[[10,110,80,80]],"paintOrders":[2]}
+        }]});
+        assert!(snapshot_hit_matches_target(&scrolled, 50.0, 50.0, 2).unwrap());
+    }
+
+    #[test]
     fn download_quota_configuration_is_bounded() {
         let mut config = BrowserConfig::default();
         assert!(config.validate().is_ok());
@@ -1664,5 +3590,44 @@ mod tests {
         assert_eq!(bounded_byte_count(&json!(42)), Some(42));
         assert_eq!(bounded_byte_count(&json!(-1)), None);
         assert_eq!(bounded_byte_count(&json!("42")), None);
+    }
+
+    proptest! {
+        #[test]
+        fn frame_scoped_dom_target_parses_without_losing_identity(
+            tab in "[A-Za-z0-9_-]{1,32}",
+            frame in "[A-Za-z0-9_-]{1,64}",
+            node in 1u64..u32::MAX as u64,
+        ) {
+            let target = NativeTarget {
+                kind: "dom".into(),
+                identity: format!("{tab}#frame:{frame}#node:{node}"),
+                revision: 7,
+                fingerprint: "epoch".into(),
+                app: "org.semwright.Chromium".into(),
+            };
+            let (parsed_tab, parsed_node, parsed_frame) = Chromium::target_parts(&target).unwrap();
+            prop_assert_eq!(parsed_tab, tab);
+            prop_assert_eq!(parsed_node, Some(node));
+            prop_assert_eq!(parsed_frame.as_deref(), Some(frame.as_str()));
+        }
+
+        #[test]
+        fn frame_target_identity_is_exact_and_bounded(
+            tab in "[A-Za-z0-9_-]{1,32}",
+            frame in "[A-Za-z0-9_-]{1,128}",
+        ) {
+            let target = NativeTarget {
+                kind: "frame".into(),
+                identity: format!("{tab}#frame:{frame}"),
+                revision: 3,
+                fingerprint: "epoch".into(),
+                app: "org.semwright.Chromium".into(),
+            };
+            let (parsed_tab, node, parsed_frame) = Chromium::target_parts(&target).unwrap();
+            prop_assert_eq!(parsed_tab, tab);
+            prop_assert_eq!(node, None);
+            prop_assert_eq!(parsed_frame.as_deref(), Some(frame.as_str()));
+        }
     }
 }

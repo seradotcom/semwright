@@ -2,6 +2,7 @@
 use futures_util::FutureExt;
 use semwright_adapters::chromium::{BrowserConfig, Chromium};
 use semwright_backend_api::{Backend, Context};
+use semwright_policy::FilesystemGrant;
 use semwright_types::{ErrorCode, NativeTarget};
 use serde_json::{Value, json};
 use std::{
@@ -56,11 +57,12 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
                     "<!doctype html><title>Frames</title><div id='stable'>Stable</div><iframe src='/frame-a'></iframe>"
                 }
                 "/frame-a" => {
-                    "<!doctype html><meta http-equiv='refresh' content='2;url=/frame-b'><p>Frame A</p>"
+                    "<!doctype html><p>Frame A</p><a href='/frame-b' aria-label='Next Frame'>Next Frame</a>"
                 }
                 "/frame-b" => "<!doctype html><p>Frame B</p>",
+                "/popup" => "<!doctype html><title>Semwright Popup</title><p>Popup ready</p>",
                 _ => {
-                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><button id='submit'>Submit</button></form><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
+                    "<!doctype html><title>Semwright fixture</title><form action='/done'><label>Name<input id='name' name='name' aria-label='Name'></label><label><input id='remember' type='checkbox' aria-label='Remember me'>Remember me</label><label>Country<select id='country' aria-label='Country'><option>Mexico</option><option>Canada</option></select></label><label>Upload<input id='upload' type='file' aria-label='Upload'></label><button id='submit'>Submit</button></form><div id='editor' role='textbox' aria-label='Editor' contenteditable='true'>Draft</div><button id='dialog' onclick=\"confirm('Confirm semantic action')\">Open dialog</button><button id='late' hidden>Loaded later</button><script>setTimeout(()=>document.getElementById('late').hidden=false,150)</script><div id='shadow-host'><template shadowrootmode='open'><button id='shadow-save'>Shadow Save</button></template></div><div id='drag-source' draggable='true' aria-label='Drag source' style='width:96px;height:32px'>Drag source</div><div id='drag-target' aria-label='Drag target' style='width:96px;height:32px'>Drag target</div><div aria-hidden='true' style='height:2400px'></div><a id='popup' target='_blank' href='/popup'>Open popup</a><a id='download' href='/file' download='fixture.txt'>Download</a><a id='large-download' href='/large-file' download='large.bin'>Large Download</a>"
                 }
             };
             let response = format!(
@@ -73,6 +75,78 @@ async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> 
     });
     Ok(origin)
 }
+
+async fn cross_origin_frame_fixture(stop: CancellationToken) -> TestResult<(String, String)> {
+    let child_listener = TcpListener::bind("127.0.0.2:0").await?;
+    let child_origin = format!("http://{}", child_listener.local_addr()?);
+    let child_stop = stop.clone();
+    tokio::spawn(async move {
+        loop {
+            let accepted = tokio::select! {
+                _=child_stop.cancelled()=>break,
+                result=child_listener.accept()=>result
+            };
+            let Ok((mut stream, _)) = accepted else { break };
+            let mut bytes = [0u8; 4096];
+            let size =
+                match tokio::time::timeout(Duration::from_secs(2), stream.read(&mut bytes)).await {
+                    Ok(Ok(size)) => size,
+                    _ => continue,
+                };
+            let request = String::from_utf8_lossy(&bytes[..size]);
+            let path = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .unwrap_or("/");
+            let body = if path == "/oopif-b" {
+                "<!doctype html><title>OOPIF B</title><p>Cross Frame B</p><input aria-label='Cross Name B'>"
+            } else {
+                "<!doctype html><title>OOPIF A</title><p>Cross Frame A</p><input aria-label='Cross Name A'><a href='/oopif-b' aria-label='Next Cross Frame'>Next Cross Frame</a>"
+            };
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes()).await;
+        }
+    });
+
+    let parent_listener = TcpListener::bind("127.0.0.1:0").await?;
+    let parent_origin = format!("http://{}", parent_listener.local_addr()?);
+    let child_url = format!("{child_origin}/oopif-a");
+    let parent_stop = stop.clone();
+    tokio::spawn(async move {
+        loop {
+            let accepted = tokio::select! {
+                _=parent_stop.cancelled()=>break,
+                result=parent_listener.accept()=>result
+            };
+            let Ok((mut stream, _)) = accepted else { break };
+            let mut bytes = [0u8; 4096];
+            let size =
+                match tokio::time::timeout(Duration::from_secs(2), stream.read(&mut bytes)).await {
+                    Ok(Ok(size)) => size,
+                    _ => continue,
+                };
+            if size == 0 {
+                continue;
+            }
+            let body = format!(
+                "<!doctype html><title>OOPIF Parent</title><div id='stable-parent'>Parent stable</div><iframe src='{child_url}'></iframe>"
+            );
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes()).await;
+        }
+    });
+    Ok((parent_origin, child_origin))
+}
+
 fn target(value: &Value) -> TestResult<NativeTarget> {
     Ok(serde_json::from_value(value["$ref"].clone())?)
 }
@@ -101,6 +175,67 @@ async fn query(
     })
     .await?
 }
+
+async fn semantic_query(
+    browser: &Chromium,
+    ctx: &Context,
+    target_ref: &NativeTarget,
+    role: &str,
+    name: &str,
+) -> TestResult<NativeTarget> {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let result = browser
+                .execute(
+                    ctx,
+                    "browser.semantic.query",
+                    &json!({
+                        "_target":target_ref,
+                        "role":role,
+                        "name":name,
+                        "exact_name":true,
+                        "max_results":8,
+                        "depth":16
+                    }),
+                )
+                .await;
+            if let Ok(value) = result
+                && value["count"] == 1
+                && !value["matches"][0]["ref"].is_null()
+            {
+                return target(&value["matches"][0]["ref"]);
+            }
+            tokio::time::sleep(Duration::from_millis(30)).await;
+        }
+    })
+    .await?
+}
+
+async fn frame_by_origin(
+    browser: &Chromium,
+    ctx: &Context,
+    tab: &NativeTarget,
+    origin: &str,
+) -> TestResult<NativeTarget> {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if let Ok(value) = browser
+                .execute(ctx, "browser.frame.list", &json!({"_target":tab}))
+                .await
+                && let Some(row) = value["frames"].as_array().and_then(|rows| {
+                    rows.iter()
+                        .find(|row| row["url_origin"].as_str() == Some(origin))
+                })
+                && row["allowed_origin"] == true
+            {
+                return target(&row["ref"]);
+            }
+            tokio::time::sleep(Duration::from_millis(40)).await;
+        }
+    })
+    .await?
+}
+
 async fn exercise(
     browser: &Chromium,
     ctx: &Context,
@@ -132,11 +267,241 @@ async fn exercise(
         )
         .await?;
     let tab = target(&opened["ref"])?;
-    let input = query(browser, ctx, &tab, "#name").await?;
+    let semantic = browser
+        .execute(
+            ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":tab,"depth":16,"max_nodes":256}),
+        )
+        .await?;
+    assert_eq!(semantic["source"], "cdp_accessibility_tree");
+    assert_eq!(semantic["arbitrary_javascript"], false);
+    let semantic_nodes = semantic["nodes"]
+        .as_array()
+        .ok_or("semantic nodes missing")?;
+    assert!(
+        semantic_nodes
+            .iter()
+            .any(|row| row["role"] == "textbox" && row["name"] == "Name")
+    );
+    assert!(
+        semantic_nodes
+            .iter()
+            .any(|row| row["role"] == "button" && row["name"] == "Shadow Save")
+    );
+
+    let scrolled_down = browser
+        .execute(
+            ctx,
+            "browser.page.scroll",
+            &json!({"_target":tab,"direction":"down","amount":"page"}),
+        )
+        .await?;
+    assert_eq!(scrolled_down["accepted"], true);
+    assert_eq!(scrolled_down["changed"], true);
+    assert_eq!(scrolled_down["direction"], "down");
+    let scrolled_up = browser
+        .execute(
+            ctx,
+            "browser.page.scroll",
+            &json!({"_target":tab,"direction":"up","amount":"page"}),
+        )
+        .await?;
+    assert_eq!(scrolled_up["accepted"], true);
+    assert_eq!(scrolled_up["changed"], true);
+
+    let editor = semantic_query(browser, ctx, &tab, "textbox", "Editor").await?;
+    let inspected = browser
+        .execute(ctx, "browser.semantic.inspect", &json!({"_target":editor}))
+        .await?;
+    assert_eq!(inspected["semantic"]["role"], "textbox");
+    assert!(
+        inspected["semantic"]["actions"]
+            .as_array()
+            .is_some_and(|actions| { actions.iter().any(|action| action == "fill") })
+    );
+    browser
+        .execute(ctx, "browser.element.focus", &json!({"_target":editor}))
+        .await?;
+    browser
+        .execute(ctx, "browser.element.scroll", &json!({"_target":editor}))
+        .await?;
     browser
         .execute(
             ctx,
-            "browser.dom.fill",
+            "browser.element.fill",
+            &json!({"_target":editor,"text":"Edited semantically"}),
+        )
+        .await?;
+    assert_eq!(
+        browser.validate(&editor).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let waited = browser
+        .execute(
+            ctx,
+            "browser.semantic.wait",
+            &json!({
+                "_target":tab,
+                "role":"button",
+                "name":"Loaded later",
+                "exact_name":true,
+                "present":true,
+                "timeout_ms":5_000,
+                "poll_ms":50
+            }),
+        )
+        .await?;
+    assert_eq!(waited["satisfied"], true);
+    assert_eq!(waited["present"], true);
+
+    let late = semantic_query(browser, ctx, &tab, "button", "Loaded later").await?;
+    eprintln!("chromium-live step=hover-late");
+    browser
+        .execute(ctx, "browser.element.hover", &json!({"_target":late}))
+        .await?;
+    assert_eq!(
+        browser.validate(&late).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let remember = semantic_query(browser, ctx, &tab, "checkbox", "Remember me").await?;
+    eprintln!("chromium-live step=check-remember");
+    let checked = browser
+        .execute(
+            ctx,
+            "browser.element.check",
+            &json!({"_target":remember,"checked":true}),
+        )
+        .await?;
+    assert_eq!(checked["changed"], true);
+    assert_eq!(checked["checked"], true);
+    assert_eq!(
+        browser.validate(&remember).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let country = semantic_query(browser, ctx, &tab, "combobox", "Country").await?;
+    let selected = browser
+        .execute(
+            ctx,
+            "browser.element.select",
+            &json!({"_target":country,"label":"Canada"}),
+        )
+        .await?;
+    assert_eq!(selected["selected"], "Canada");
+    assert_eq!(
+        browser.validate(&country).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let press_target = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    let pressed = browser
+        .execute(
+            ctx,
+            "browser.element.press",
+            &json!({"_target":press_target,"key":"Tab","modifiers":[]}),
+        )
+        .await?;
+    assert_eq!(pressed["key"], "Tab");
+    assert_eq!(
+        browser.validate(&press_target).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let drag_source = query(browser, ctx, &tab, "#drag-source").await?;
+    let drag_target = query(browser, ctx, &tab, "#drag-target").await?;
+    eprintln!("chromium-live step=drag-source-target");
+    let dragged = browser
+        .execute(
+            ctx,
+            "browser.element.drag_to",
+            &json!({"_target":drag_source.clone(),"_target2":drag_target.clone()}),
+        )
+        .await?;
+    assert_eq!(dragged["accepted"], true);
+    assert_eq!(dragged["same_frame"], true);
+    assert_eq!(
+        browser.validate(&drag_source).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+    assert_eq!(
+        browser.validate(&drag_target).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let popup_link = semantic_query(browser, ctx, &tab, "link", "Open popup").await?;
+    eprintln!("chromium-live step=popup-click");
+    browser
+        .execute(ctx, "browser.element.click", &json!({"_target":popup_link}))
+        .await?;
+    let popup = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let tabs = browser.execute(ctx, "browser.tab.list", &json!({})).await?;
+            if let Some(row) = tabs["tabs"]
+                .as_array()
+                .and_then(|rows| rows.iter().find(|row| row["title"] == "Semwright Popup"))
+            {
+                return target(&row["ref"]);
+            }
+            tokio::time::sleep(Duration::from_millis(40)).await;
+        }
+    })
+    .await??;
+    browser.validate(&popup).await?;
+    browser
+        .execute(ctx, "browser.tab.focus", &json!({"_target":popup.clone()}))
+        .await?;
+    browser
+        .execute(ctx, "browser.tab.close", &json!({"_target":popup.clone()}))
+        .await?;
+    assert_eq!(
+        browser.validate(&popup).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+    browser.validate(&tab).await?;
+
+    let dialog_button = semantic_query(browser, ctx, &tab, "button", "Open dialog").await?;
+    eprintln!("chromium-live step=dialog-click");
+    browser
+        .execute(
+            ctx,
+            "browser.element.click",
+            &json!({"_target":dialog_button}),
+        )
+        .await?;
+    let dialog = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let status = browser
+                .execute(ctx, "browser.dialog.status", &json!({"_target":tab}))
+                .await?;
+            if status["open"] == true {
+                return Ok::<Value, semwright_types::Error>(status);
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await??;
+    assert_eq!(dialog["dialog_type"], "confirm");
+    assert_eq!(dialog["message"], "Confirm semantic action");
+    browser
+        .execute(
+            ctx,
+            "browser.dialog.respond",
+            &json!({"_target":tab,"accept":false}),
+        )
+        .await?;
+    let closed = browser
+        .execute(ctx, "browser.dialog.status", &json!({"_target":tab}))
+        .await?;
+    assert_eq!(closed["open"], false);
+
+    let input = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    browser
+        .execute(
+            ctx,
+            "browser.element.fill",
             &json!({"_target":input,"text":"Semwright integration"}),
         )
         .await?;
@@ -148,9 +513,10 @@ async fn exercise(
         )
         .await?;
     assert_eq!(snapshot["sensitive_attributes_omitted"], true);
-    let submit = query(browser, ctx, &tab, "#submit").await?;
+    let submit = semantic_query(browser, ctx, &tab, "button", "Submit").await?;
+    eprintln!("chromium-live step=submit-click");
     browser
-        .execute(ctx, "browser.dom.click", &json!({"_target":submit}))
+        .execute(ctx, "browser.element.click", &json!({"_target":submit}))
         .await?;
     tokio::time::timeout(Duration::from_secs(10), async {
         while !requests
@@ -167,6 +533,27 @@ async fn exercise(
         browser.validate(&input).await.unwrap_err().code,
         ErrorCode::StaleReference
     );
+    let back = browser
+        .execute(ctx, "browser.page.back", &json!({"_target":tab}))
+        .await?;
+    assert_eq!(back["changed"], true);
+    let _ = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    let forward = browser
+        .execute(ctx, "browser.page.forward", &json!({"_target":tab}))
+        .await?;
+    assert_eq!(forward["changed"], true);
+    let _ = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    browser
+        .execute(
+            ctx,
+            "browser.page.reload",
+            &json!({"_target":tab,"ignore_cache":true}),
+        )
+        .await?;
+    let _ = semantic_query(browser, ctx, &tab, "textbox", "Name").await?;
+    browser
+        .execute(ctx, "browser.page.stop", &json!({"_target":tab}))
+        .await?;
     let screenshot = browser
         .execute(ctx, "browser.screenshot", &json!({"_target":tab}))
         .await?;
@@ -274,6 +661,242 @@ async fn real_chromium_native_input_navigation_download_denial_and_cleanup() -> 
     assert!(
         !screenshot_path.exists(),
         "browser-instance screenshot artifact must be removed on shutdown"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
+async fn real_chromium_cross_origin_oopif_semantics_are_scoped() -> TestResult {
+    let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let directory = tempfile::tempdir()?;
+    let storage = directory.path().join("browser");
+    let stop = CancellationToken::new();
+    let (parent_origin, child_origin) = cross_origin_frame_fixture(stop.clone()).await?;
+    let browser = Chromium::new(
+        BrowserConfig {
+            executable,
+            allowed_origins: vec![parent_origin.clone(), child_origin.clone()],
+            allow_downloads: false,
+            ..Default::default()
+        },
+        storage.clone(),
+    )?;
+    let ctx = Context {
+        session: "oopif-browser-test".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: CancellationToken::new(),
+    };
+    browser
+        .execute(&ctx, "browser.launch", &json!({"headless":true}))
+        .await?;
+    let opened = browser
+        .execute(
+            &ctx,
+            "browser.tab.open",
+            &json!({"url":format!("{parent_origin}/")}),
+        )
+        .await?;
+    let tab = target(&opened["ref"])?;
+    let parent_stable = query(&browser, &ctx, &tab, "#stable-parent").await?;
+    let child_frame = frame_by_origin(&browser, &ctx, &tab, &child_origin).await?;
+    let child_input =
+        semantic_query(&browser, &ctx, &child_frame, "textbox", "Cross Name A").await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.fill",
+            &json!({"_target":child_input.clone(),"text":"OOPIF semantic input"}),
+        )
+        .await?;
+    browser.validate(&child_input).await?;
+    browser.validate(&parent_stable).await?;
+
+    let before_navigation = browser
+        .execute(
+            &ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":child_frame,"depth":8,"max_nodes":64}),
+        )
+        .await?;
+    assert!(
+        before_navigation["nodes"]
+            .as_array()
+            .is_some_and(|nodes| nodes.iter().any(|row| row["name"] == "Cross Frame A"))
+    );
+    let next_link =
+        semantic_query(&browser, &ctx, &child_frame, "link", "Next Cross Frame").await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.focus",
+            &json!({"_target":next_link.clone()}),
+        )
+        .await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.press",
+            &json!({"_target":next_link,"key":"Enter","modifiers":[]}),
+        )
+        .await?;
+
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match browser.validate(&child_frame).await {
+                Err(error) if error.code == ErrorCode::StaleReference => break,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+    })
+    .await?;
+    browser.validate(&parent_stable).await?;
+
+    let refreshed_frame = frame_by_origin(&browser, &ctx, &tab, &child_origin).await?;
+    let refreshed = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if let Ok(value) = browser
+                .execute(
+                    &ctx,
+                    "browser.semantic.snapshot",
+                    &json!({"_target":refreshed_frame,"depth":8,"max_nodes":64}),
+                )
+                .await
+                && value["nodes"]
+                    .as_array()
+                    .is_some_and(|nodes| nodes.iter().any(|row| row["name"] == "Cross Frame B"))
+            {
+                break Ok::<Value, semwright_types::Error>(value);
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await??;
+    assert_eq!(refreshed["source"], "cdp_accessibility_tree");
+    browser.validate(&parent_stable).await?;
+
+    browser.shutdown().await?;
+    stop.cancel();
+    assert!(
+        !std::fs::read_dir(&storage)?
+            .any(|entry| entry
+                .is_ok_and(|e| e.file_name().to_string_lossy().starts_with("profile-")))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
+async fn real_chromium_upload_is_grant_scoped_and_privately_staged() -> TestResult {
+    let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let directory = tempfile::tempdir()?;
+    let storage = directory.path().join("browser");
+    let upload_root = tempfile::tempdir()?;
+    let source = upload_root.path().join("payload.txt");
+    let payload = b"Semwright bounded upload fixture";
+    std::fs::write(&source, payload)?;
+    let grant = FilesystemGrant {
+        name: "uploads".into(),
+        path: std::fs::canonicalize(upload_root.path())?,
+        read: true,
+        write: false,
+    };
+    let stop = CancellationToken::new();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let origin = fixture(stop.clone(), requests).await?;
+    let browser = Chromium::new_with_grants(
+        BrowserConfig {
+            executable,
+            allowed_origins: vec![origin.clone()],
+            allow_downloads: false,
+            ..Default::default()
+        },
+        storage.clone(),
+        &[grant],
+    )?;
+    let ctx = Context {
+        session: "upload-browser-test".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: CancellationToken::new(),
+    };
+    browser
+        .execute(&ctx, "browser.launch", &json!({"headless":true}))
+        .await?;
+    let opened = browser
+        .execute(
+            &ctx,
+            "browser.tab.open",
+            &json!({"url":format!("{origin}/")}),
+        )
+        .await?;
+    let tab = target(&opened["ref"])?;
+    let upload = query(&browser, &ctx, &tab, "#upload").await?;
+
+    let denied = browser
+        .execute(
+            &ctx,
+            "browser.element.upload",
+            &json!({"_target":upload.clone(),"root":"missing","paths":["payload.txt"]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied.code, ErrorCode::PolicyDenied);
+    browser.validate(&upload).await?;
+
+    let traversal = browser
+        .execute(
+            &ctx,
+            "browser.element.upload",
+            &json!({"_target":upload.clone(),"root":"uploads","paths":["../payload.txt"]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(traversal.code, ErrorCode::PolicyDenied);
+    browser.validate(&upload).await?;
+
+    let uploaded = browser
+        .execute(
+            &ctx,
+            "browser.element.upload",
+            &json!({"_target":upload.clone(),"root":"uploads","paths":["payload.txt"]}),
+        )
+        .await?;
+    assert_eq!(uploaded["accepted"], true);
+    assert_eq!(uploaded["files"], 1);
+    assert_eq!(uploaded["bytes"], payload.len());
+    assert_eq!(uploaded["source_root"], "uploads");
+    assert_eq!(uploaded["host_source_paths_exposed_to_browser"], false);
+    assert_eq!(uploaded["staging_lifetime"], "browser_instance");
+    assert!(
+        !serde_json::to_string(&uploaded)?.contains(upload_root.path().to_string_lossy().as_ref())
+    );
+    assert_eq!(std::fs::read(&source)?, payload);
+    assert_eq!(
+        browser.validate(&upload).await.unwrap_err().code,
+        ErrorCode::StaleReference
+    );
+
+    let profile = std::fs::read_dir(&storage)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name.to_string_lossy().starts_with("profile-"))
+        })
+        .ok_or("browser profile missing")?;
+    let staged = std::fs::read_dir(profile.join("uploads"))?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path().join("payload.txt"))
+        .find(|path| path.is_file())
+        .ok_or("staged upload missing")?;
+    assert_eq!(std::fs::read(staged)?, payload);
+
+    browser.shutdown().await?;
+    stop.cancel();
+    assert!(
+        !std::fs::read_dir(&storage)?
+            .any(|entry| entry
+                .is_ok_and(|e| e.file_name().to_string_lossy().starts_with("profile-")))
     );
     Ok(())
 }
@@ -388,15 +1011,75 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
         .await?;
 
     let frames_tab = target(&frames["ref"])?;
-    let stable = stable_main_document_ref(&browser, &ctx, &frames_tab).await?;
-    tokio::time::sleep(Duration::from_millis(2400)).await;
-    assert_eq!(
-        browser.validate(&stable).await.unwrap_err().code,
-        ErrorCode::StaleReference,
-        "subframe navigation must retire DOM references for the attached target"
+    let frame_list = browser
+        .execute(&ctx, "browser.frame.list", &json!({"_target":frames_tab}))
+        .await?;
+    assert!(frame_list["count"].as_u64().is_some_and(|count| count >= 2));
+    let child = frame_list["frames"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|row| !row["parent_frame_id"].is_null()))
+        .ok_or("child frame missing")?;
+    let child_frame = target(&child["ref"])?;
+    let child_semantic = browser
+        .execute(
+            &ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":child_frame,"depth":8,"max_nodes":64}),
+        )
+        .await?;
+    assert!(
+        child_semantic["nodes"]
+            .as_array()
+            .is_some_and(|nodes| { nodes.iter().any(|row| row["name"] == "Frame A") })
     );
+    let stable = stable_main_document_ref(&browser, &ctx, &frames_tab).await?;
+    let next_frame = semantic_query(&browser, &ctx, &child_frame, "link", "Next Frame").await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.focus",
+            &json!({"_target":next_frame.clone()}),
+        )
+        .await?;
+    browser
+        .execute(
+            &ctx,
+            "browser.element.press",
+            &json!({"_target":next_frame,"key":"Enter","modifiers":[]}),
+        )
+        .await?;
+    tokio::time::timeout(Duration::from_secs(8), async {
+        loop {
+            match browser.validate(&child_frame).await {
+                Err(error) if error.code == ErrorCode::StaleReference => break,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+    })
+    .await?;
+    browser.validate(&stable).await?;
     let refreshed = query(&browser, &ctx, &frames_tab, "#stable").await?;
     browser.validate(&refreshed).await?;
+    let refreshed_frames = browser
+        .execute(&ctx, "browser.frame.list", &json!({"_target":frames_tab}))
+        .await?;
+    let refreshed_child = refreshed_frames["frames"]
+        .as_array()
+        .and_then(|rows| rows.iter().find(|row| !row["parent_frame_id"].is_null()))
+        .ok_or("refreshed child frame missing")?;
+    let refreshed_frame = target(&refreshed_child["ref"])?;
+    let refreshed_semantic = browser
+        .execute(
+            &ctx,
+            "browser.semantic.snapshot",
+            &json!({"_target":refreshed_frame,"depth":8,"max_nodes":64}),
+        )
+        .await?;
+    assert!(
+        refreshed_semantic["nodes"]
+            .as_array()
+            .is_some_and(|nodes| { nodes.iter().any(|row| row["name"] == "Frame B") })
+    );
 
     let page = browser
         .execute(

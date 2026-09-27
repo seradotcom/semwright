@@ -14,7 +14,7 @@ REGISTRY = {command["name"]: command for command in COMMANDS}
 
 class ContractTests(unittest.TestCase):
     def test_all_command_schemas_valid(self):
-        self.assertEqual(len(COMMANDS), 120)
+        self.assertEqual(len(COMMANDS), 142)
         for command in COMMANDS:
             for key in ("input_schema", "output_schema"):
                 with self.subTest(command=command["name"], kind=key):
@@ -22,6 +22,50 @@ class ContractTests(unittest.TestCase):
 
     def test_unique_command_names(self):
         self.assertEqual(len(COMMANDS), len(REGISTRY))
+
+    def test_browser_semantic_action_filters_cover_advertised_actions(self):
+        node_actions = set(
+            REGISTRY["browser.semantic.snapshot"]["output_schema"]["properties"]["nodes"]
+            ["items"]["properties"]["actions"]["items"]["enum"]
+        )
+        for command in ("browser.semantic.query", "browser.semantic.wait"):
+            advertised = set(
+                REGISTRY[command]["input_schema"]["properties"]["action"]["enum"]
+            )
+            self.assertEqual(advertised, node_actions, command)
+
+    def test_browser_outputs_never_expose_internal_native_ref_markers(self):
+        def contains_internal_marker(value):
+            if isinstance(value, dict):
+                if value.get("propertyNames") == {"const": "$ref"}:
+                    return True
+                return any(contains_internal_marker(child) for child in value.values())
+            if isinstance(value, list):
+                return any(contains_internal_marker(child) for child in value)
+            return False
+
+        for command in COMMANDS:
+            if command["name"].startswith("browser."):
+                self.assertFalse(
+                    contains_internal_marker(command["output_schema"]),
+                    command["name"],
+                )
+
+    def test_browser_upload_is_grant_scoped_sensitive_and_bounded(self):
+        upload = REGISTRY["browser.element.upload"]
+        self.assertEqual(upload["risk"], "secret_access")
+        self.assertTrue(upload["interactive_consent"])
+        self.assertEqual(
+            set(upload["requires"]),
+            {"browser.modify", "filesystem.read:root"},
+        )
+        paths = upload["input_schema"]["properties"]["paths"]
+        self.assertEqual(paths["minItems"], 1)
+        self.assertEqual(paths["maxItems"], 8)
+        self.assertEqual(
+            upload["output_schema"]["properties"]["host_source_paths_exposed_to_browser"]["const"],
+            False,
+        )
 
     def test_schema_unions_have_unique_branches(self):
         def walk(value, path):
@@ -230,6 +274,21 @@ class ContractTests(unittest.TestCase):
         invalid = dict(sample)
         invalid["native_hwnd"] = "0x1234"
         self.assertFalse(jsonschema.Draft202012Validator(node_schema).is_valid(invalid))
+
+    def test_browser_semantic_completeness_matrix_is_closed(self):
+        coverage = json.loads((ROOT / "adapters" / "chromium" / "CDP_COVERAGE.json").read_text())
+        self.assertEqual(coverage["completeness"]["status"], "complete")
+        self.assertIs(coverage["completeness"]["agent_arbitrary_javascript"], False)
+        self.assertIs(coverage["completeness"]["raw_cdp_exposed"], False)
+        for row in coverage["domains"] + coverage["intents"]:
+            status = row["status"]
+            self.assertFalse(status.startswith("planned"), row)
+            self.assertFalse(status.startswith("blocked"), row)
+        self.assertEqual(coverage["domains"][-3]["name"], "Runtime")
+        self.assertEqual(coverage["domains"][-3]["status"], "unsupported_by_design")
+        self.assertIn("browser.element.upload", REGISTRY)
+        self.assertIn("browser.element.drag_to", REGISTRY)
+        self.assertIn("browser.page.scroll", REGISTRY)
 
     def test_runtime_schema_has_no_remote_refs(self):
         def walk(value):

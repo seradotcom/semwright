@@ -1646,5 +1646,225 @@
     "object_types": ["workflow"],
     "untrusted_metadata": false,
     "tags": ["workflow", "proposal", "dismiss"]
+  },
+  "browser.page.reload": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "page"]
+  },
+  "browser.page.stop": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "page"]
+  },
+  "browser.page.back": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "page"]
+  },
+  "browser.page.forward": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "page"]
+  },
+  "browser.frame.list": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "frame", "semantic"]
+  },
+  "browser.semantic.snapshot": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "semantic"]
+  },
+  "browser.semantic.query": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "semantic"]
+  },
+  "browser.semantic.inspect": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "semantic"]
+  },
+  "browser.element.focus": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.element.scroll": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.element.click": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.element.fill": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.element.hover": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.element.press": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.element.check": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.element.select": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic"]
+  },
+  "browser.semantic.wait": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "semantic", "wait"]
+  },
+  "browser.dialog.status": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "dialog", "semantic"]
+  },
+  "browser.dialog.respond": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "dialog", "semantic"]
+  },
+  "browser.element.drag_to": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic", "drag"]
+  },
+  "browser.element.upload": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "element", "semantic", "upload", "filesystem-grant"]
+  },
+  "browser.page.scroll": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": ["browser", "page", "semantic"]
   }
 }
