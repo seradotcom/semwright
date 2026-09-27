@@ -1,8 +1,8 @@
 use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, Mount, MountClass, SANDBOX_MOUNTS_ENV,
-    SandboxChildControl, SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
+    ExecutableVerifier, MaterializedMount, Mount, SANDBOX_MOUNTS_ENV, SandboxChildControl,
+    SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -48,11 +48,12 @@ use windows::Win32::{
         },
     },
     Storage::FileSystem::{
-        BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_APPEND_DATA, FILE_ATTRIBUTE_NORMAL,
-        FILE_ATTRIBUTE_REPARSE_POINT, FILE_DELETE_CHILD, FILE_FLAG_OPEN_REPARSE_POINT,
-        FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
-        FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA,
-        GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
+        BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_APPEND_DATA,
+        FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
+        FILE_DELETE_CHILD, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_EXECUTE, FILE_GENERIC_READ,
+        FILE_GENERIC_WRITE, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
+        OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
     },
     System::{
         Com::CoTaskMemFree,
@@ -159,6 +160,26 @@ fn info(file: &File) -> Result<BY_HANDLE_FILE_INFORMATION> {
     unsafe { GetFileInformationByHandle(HANDLE(file.as_raw_handle()), &mut out) }
         .map_err(|_| Error::new(ErrorCode::BackendFailed, "PE file identity query failed"))?;
     Ok(out)
+}
+
+fn single_link_regular_file(path: &Path) -> Result<()> {
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+    let file = options.open(path)?;
+    let metadata = info(&file)?;
+    if metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        || metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0
+        || metadata.nNumberOfLinks != 1
+    {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Windows sandbox mount files must be regular, non-reparse and single-linked",
+        ));
+    }
+    Ok(())
 }
 
 fn same_identity(a: &BY_HANDLE_FILE_INFORMATION, b: &BY_HANDLE_FILE_INFORMATION) -> bool {
@@ -897,12 +918,7 @@ fn validate_mount_tree(root: &Path) -> Result<()> {
         ));
     }
     if root_metadata.is_file() {
-        if root_metadata.number_of_links() != Some(1) {
-            return Err(Error::new(
-                ErrorCode::PolicyDenied,
-                "Windows sandbox mount files must be single-linked",
-            ));
-        }
+        single_link_regular_file(root)?;
         return Ok(());
     }
     if !root_metadata.is_dir() {
@@ -941,12 +957,7 @@ fn validate_mount_tree(root: &Path) -> Result<()> {
             if metadata.is_dir() {
                 pending.push((path, depth.saturating_add(1)));
             } else if metadata.is_file() {
-                if metadata.number_of_links() != Some(1) {
-                    return Err(Error::new(
-                        ErrorCode::PolicyDenied,
-                        "Windows sandbox mount trees may not contain hard-linked files",
-                    ));
-                }
+                single_link_regular_file(&path)?;
             } else {
                 return Err(Error::new(
                     ErrorCode::PolicyDenied,
