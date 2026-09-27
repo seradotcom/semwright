@@ -410,6 +410,62 @@ fn verify_executable_acl(file: &File) -> Result<()> {
     Ok(())
 }
 
+fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
+    if !path.is_absolute() {
+        return Err(Error::invalid(
+            "Materialized Windows sealed tool path must be absolute",
+        ));
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+    let mut file = options.open(path)?;
+    let before = info(&file)?;
+    if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        || before.nNumberOfLinks != 1
+        || before.nFileSizeHigh != 0
+        || before.nFileSizeLow as u64 > MAX_EXECUTABLE
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Unsafe materialized Windows sealed tool type, link count or size",
+        ));
+    }
+    let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
+    file.by_ref()
+        .take(MAX_EXECUTABLE + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_EXECUTABLE {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized Windows sealed tool exceeds size budget",
+        ));
+    }
+    let after = info(&file)?;
+    if !same_identity(&before, &after)
+        || before.nFileSizeHigh != after.nFileSizeHigh
+        || before.nFileSizeLow != after.nFileSizeLow
+        || before.ftLastWriteTime != after.ftLastWriteTime
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Materialized Windows sealed tool changed while being verified",
+        ));
+    }
+    let expected = digest.trim().to_ascii_lowercase();
+    if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Materialized Windows sealed tool digest mismatch",
+        ));
+    }
+    require_native_architecture(&bytes)?;
+    require_authenticode_policy(authenticode_status(&file, path)?)?;
+    Ok(())
+}
+
 pub struct WindowsVerifier;
 impl ExecutableVerifier for WindowsVerifier {
     fn verify(&self, path: &Path, digest: &str) -> Result<Vec<u8>> {
@@ -1333,7 +1389,14 @@ fn prepare_windows_tools(
             "Windows Driver staging root is unavailable",
         )
     })?;
-    let staging_traverse = prepare_tool_staging_traverse(staging_root)?;
+    let profile_tool_root = Path::new(&profile.local_app_data).join("SemwrightTools");
+    std::fs::create_dir(&profile_tool_root).map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool profile directory could not be created",
+        )
+    })?;
+    let profile_traverse = prepare_tool_staging_traverse(&profile_tool_root)?;
     let mut identities = BTreeSet::new();
     let mut prepared = Vec::with_capacity(spec.sealed_tools.len());
     let mut materialized = Vec::with_capacity(spec.sealed_tools.len());
@@ -1353,10 +1416,29 @@ fn prepare_windows_tools(
                 "Windows sealed tools must come from the private Driver staging root",
             ));
         }
-        // Re-attest the exact staged PE immediately before granting LPAC authority.
-        let _ = WindowsVerifier.verify(path, sha256)?;
+
+        // Re-attest the Host-staged source, copy only verified bytes into the unique
+        // AppContainer profile, sync them, and then re-attest the exact executable that the
+        // LPAC child will receive. The owner source and Host staging directory stay inaccessible.
+        let bytes = WindowsVerifier.verify(path, sha256)?;
+        let materialized_path = profile_tool_root.join(format!("{}.exe", tool.name));
+        let mut output = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&materialized_path)
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Windows sealed-tool profile copy could not be created",
+                )
+            })?;
+        output.write_all(&bytes)?;
+        output.sync_all()?;
+        drop(output);
+        verify_materialized_sealed_tool(&materialized_path, sha256)?;
+
         let plan = prepare_mount_grant(&Mount {
-            source: path.clone(),
+            source: materialized_path,
             class: MountClass::Workspace,
             logical_name: tool.name.clone(),
             read_only: true,
@@ -1364,7 +1446,7 @@ fn prepare_windows_tools(
         })?;
         if !identities.insert(plan.identity) {
             return Err(Error::invalid(
-                "Windows sealed tools must refer to unique staged executables",
+                "Windows sealed tools must refer to unique materialized executables",
             ));
         }
         materialized.push(MaterializedTool {
@@ -1376,7 +1458,7 @@ fn prepare_windows_tools(
 
     let encoded = encode_materialized_tools(&materialized)?;
     let mut grants = Vec::with_capacity(prepared.len() + 1);
-    grants.push(WindowsMountGrant::grant(&staging_traverse, profile.sid)?);
+    grants.push(WindowsMountGrant::grant(&profile_traverse, profile.sid)?);
     for plan in &prepared {
         match WindowsMountGrant::grant(plan, profile.sid) {
             Ok(grant) => grants.push(grant),
