@@ -346,10 +346,18 @@ fn validate_owner_permissions(
                 "Driver mount exceeds its filesystem grant",
             ));
         }
+        #[cfg(unix)]
         if std::fs::canonicalize(&grant.path)? != grant.path {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
                 "Driver filesystem grants must be canonical paths",
+            ));
+        }
+        #[cfg(target_os = "windows")]
+        if !grant.path.is_absolute() {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows driver filesystem grants must use absolute paths",
             ));
         }
     }
@@ -722,17 +730,19 @@ fn sandbox_spec_windows(
     manifest: &Manifest,
     staged: &Path,
     helper: &Path,
+    roots: &[FilesystemGrant],
 ) -> Result<semwright_platform_api::launch::SandboxSpec> {
-    use semwright_platform_api::launch::{ResourceLimits, SandboxKind, SandboxSpec};
+    use semwright_platform_api::launch::{
+        Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
+    };
 
-    if !manifest.mounts.is_empty()
-        || !manifest.system_config.is_empty()
+    if !manifest.system_config.is_empty()
         || !manifest.secrets.is_empty()
         || !manifest.tools.is_empty()
     {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows driver filesystem, secret and tool grants remain fail-closed until AppContainer grants are transactional",
+            "Windows system-config, secret and tool grants remain fail-closed until their AppContainer contracts are proven",
         ));
     }
     if manifest.loopback_port.is_some() {
@@ -741,11 +751,31 @@ fn sandbox_spec_windows(
             "Windows driver loopback remains fail-closed until a non-Unix bridge is implemented",
         ));
     }
+    let lookup = |name: &str| -> Result<&FilesystemGrant> {
+        roots
+            .iter()
+            .find(|grant| grant.name == name)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver grant disappeared"))
+    };
+    let mounts = manifest
+        .mounts
+        .iter()
+        .map(|mount| {
+            let grant = lookup(&mount.root)?;
+            Ok(Mount {
+                source: grant.path.clone(),
+                class: MountClass::Workspace,
+                logical_name: mount.root.clone(),
+                read_only: mount.read_only,
+                execute: mount.execute,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
     Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
         helper: helper.into(),
-        mounts: vec![],
+        mounts,
         args: vec![],
         environment: vec![],
         sealed_tools: vec![],
@@ -804,7 +834,7 @@ impl DriverProvider {
 
             // Bind trust checks to the exact staged file that will execute.
             let _ = verify_owned_executable(&staged_path, &manifest.sha256)?;
-            let spec = sandbox_spec_windows(&manifest, &staged_path, helper)?;
+            let spec = sandbox_spec_windows(&manifest, &staged_path, helper, roots)?;
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let process_id = child
                 .id()

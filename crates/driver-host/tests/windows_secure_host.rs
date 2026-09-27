@@ -3,8 +3,9 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverResources, Manifest, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
 };
+use semwright_policy::FilesystemGrant;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use tokio_util::sync::CancellationToken;
@@ -120,4 +121,104 @@ async fn secure_windows_driver_host_roundtrips_protocol_v2() {
     Provider::shutdown(provider.as_ref())
         .await
         .expect("secure Windows Driver Host shutdown");
+}
+
+fn grant_all_application_packages_modify(path: &Path) {
+    // S-1-15-2-1 is ALL APPLICATION PACKAGES. Granting Modify here creates the
+    // adversarial broad-group allow that the per-AppContainer deny ACE must override.
+    let status = std::process::Command::new("icacls")
+        .arg(path)
+        .arg("/grant")
+        .arg("*S-1-15-2-1:(OI)(CI)(M)")
+        .status()
+        .expect("grant ALL APPLICATION PACKAGES modify");
+    assert!(
+        status.success(),
+        "broad application-package workspace grant must succeed"
+    );
+}
+
+async fn execute_mount_probe(
+    read_only: bool,
+    owner_write: bool,
+    broad_app_write: bool,
+) -> (serde_json::Value, tempfile::TempDir) {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let workspace = tempfile::tempdir().expect("workspace grant");
+    std::fs::write(workspace.path().join("input.txt"), b"mounted-data")
+        .expect("write workspace fixture");
+    if broad_app_write {
+        grant_all_application_packages_modify(workspace.path());
+    }
+
+    let mut manifest = manifest(executable);
+    manifest.mounts = vec![DriverMount {
+        root: "fixture-data".into(),
+        read_only,
+        execute: false,
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-data".into(),
+        path: workspace.path().to_path_buf(),
+        read: true,
+        write: owner_write,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(manifest, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows Driver Host workspace mount");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.mount_probe")
+        .expect("fixture mount capability")
+        .descriptor
+        .clone();
+    let output = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "windows-workspace-mount".into(),
+            request_id: format!("windows-workspace-mount-{read_only}"),
+            cancellation: CancellationToken::new(),
+        },
+        &probe,
+        &serde_json::json!({}),
+    )
+    .await
+    .expect("workspace probe through AppContainer");
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("workspace Driver Host shutdown");
+    drop(binary_dir);
+    (output, workspace)
+}
+
+#[tokio::test]
+async fn secure_windows_driver_workspace_read_only_is_enforced() {
+    let (output, workspace) = execute_mount_probe(true, false, true).await;
+    assert_eq!(output["read"], "mounted-data");
+    assert_eq!(output["write_ok"], false);
+    assert!(!workspace.path().join("child.txt").exists());
+}
+
+#[tokio::test]
+async fn secure_windows_driver_workspace_read_write_is_enforced() {
+    let (output, workspace) = execute_mount_probe(false, true, false).await;
+    assert_eq!(output["read"], "mounted-data");
+    assert_eq!(output["write_ok"], true);
+    assert_eq!(
+        std::fs::read(workspace.path().join("child.txt")).expect("read driver-created file"),
+        b"written"
+    );
 }
