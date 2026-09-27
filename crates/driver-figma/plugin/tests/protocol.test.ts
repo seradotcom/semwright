@@ -66,7 +66,12 @@ describe("advanced API",()=>{
 });
 describe("authenticated loopback bridge",()=>{
  it("never sends the pairing secret as protocol data",()=>expect(ui).not.toContain("pairing_secret"));
- it("uses WebCrypto HMAC SHA-256",()=>{expect(ui).toContain("crypto.subtle.importKey");expect(ui).toContain('name:"HMAC"');});
+ it("uses WebCrypto HMAC SHA-256 with a sandbox-safe fallback",()=>{
+  expect(ui).toContain("globalThis.crypto?.subtle");
+  expect(ui).toContain('name:"HMAC"');
+  expect(ui).toContain("function hmacSha256(key,data)");
+  expect(ui).toContain("return hex(hmacSha256(secret,data))");
+ });
  it("does not require crypto.randomUUID in the Figma UI sandbox",()=>{expect(ui).toContain("function randomSessionId()");expect(ui).toContain("crypto.getRandomValues(bytes)");expect(ui).toContain("session=randomSessionId()");});
  it("surfaces a safe synchronous pairing failure reason",()=>{expect(ui).toContain('state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))');});
  it("waits for a server-generated challenge",()=>{expect(ui).toContain('type:"hello",protocol:2');expect(ui).toContain('m.type==="challenge"');});
