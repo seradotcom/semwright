@@ -107,6 +107,35 @@ pub fn validate_archive_path(value: &str) -> Result<PathBuf> {
     Ok(normalized)
 }
 
+fn portable_relative_path(path: &Path) -> Result<PathBuf> {
+    let mut portable = String::new();
+    for component in path.components() {
+        let value = match component {
+            Component::Normal(value) => value
+                .to_str()
+                .ok_or_else(|| Error::invalid("Skill resource path must be valid UTF-8"))?,
+            Component::CurDir => continue,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(Error::invalid(
+                    "Skill resource path must remain relative to its package root",
+                ));
+            }
+        };
+        // A backslash inside a Normal component is a real filename character on Unix.
+        // It is ambiguous with a Windows separator once serialized into a ZIP, so reject it.
+        if value.contains('\\') {
+            return Err(Error::invalid(
+                "Skill resource names may not contain backslash characters",
+            ));
+        }
+        if !portable.is_empty() {
+            portable.push('/');
+        }
+        portable.push_str(value);
+    }
+    validate_archive_path(&portable)
+}
+
 fn root_for(path: &Path) -> Result<PathBuf> {
     let candidate = if path.file_name().is_some_and(|value| value == "SKILL.md") {
         path.parent()
@@ -370,11 +399,7 @@ fn walk(
         let relative = path
             .strip_prefix(root)
             .map_err(|_| Error::invalid("Skill resource escaped its package root"))?;
-        let normalized = validate_archive_path(
-            relative
-                .to_str()
-                .ok_or_else(|| Error::invalid("Skill resource path must be valid UTF-8"))?,
-        )?;
+        let normalized = portable_relative_path(relative)?;
         let meta = fs::symlink_metadata(&path)?;
         if meta.file_type().is_symlink() {
             return Err(Error::invalid(
