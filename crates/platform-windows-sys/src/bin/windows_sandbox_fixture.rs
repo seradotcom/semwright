@@ -38,9 +38,12 @@ fn internet_client_capability_present() -> bool {
     if required == 0 {
         return false;
     }
-    assert!(required >= std::mem::size_of::<TOKEN_GROUPS>() as u32);
+    assert!(
+        required >= std::mem::size_of::<u32>() as u32,
+        "TokenCapabilities buffer is too small for GroupCount"
+    );
     let mut buffer = vec![0u8; required as usize];
-    // SAFETY: buffer is required bytes and remains live while the TOKEN_GROUPS view is used.
+    // SAFETY: buffer is required bytes and remains live while the token information is parsed.
     unsafe {
         GetTokenInformation(
             token.0,
@@ -51,6 +54,15 @@ fn internet_client_capability_present() -> bool {
         )
     }
     .expect("fixture token capabilities");
+
+    let count = u32::from_ne_bytes(buffer[..4].try_into().expect("GroupCount bytes")) as usize;
+    if count == 0 {
+        return false;
+    }
+    assert!(
+        required >= std::mem::size_of::<TOKEN_GROUPS>() as u32,
+        "non-empty TokenCapabilities buffer is too small for TOKEN_GROUPS"
+    );
 
     let mut target = vec![0u8; SECURITY_MAX_SID_SIZE as usize];
     let mut target_len = target.len() as u32;
@@ -69,7 +81,10 @@ fn internet_client_capability_present() -> bool {
 
     // SAFETY: GetTokenInformation returned a TOKEN_GROUPS prefix followed by GroupCount entries.
     let groups = unsafe { &*(buffer.as_ptr().cast::<TOKEN_GROUPS>()) };
-    let count = groups.GroupCount as usize;
+    assert_eq!(
+        groups.GroupCount as usize, count,
+        "TOKEN_GROUPS header must match the parsed GroupCount"
+    );
     assert!(
         count <= 128,
         "fixture capability count exceeds sanity bound"
