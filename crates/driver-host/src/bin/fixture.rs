@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
-    Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, serve,
-    system_config_mount, tool_path, workspace_mount,
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, secret_mount,
+    serve, system_config_mount, tool_path, workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -164,6 +164,36 @@ fn disconnect_capability() -> Capability {
     }
 }
 
+fn secret_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.secret_probe".into(),
+            version: "1".into(),
+            description: "Read an owner-granted secret and probe mutation authority".into(),
+            input_schema: json!({"type":"object","additionalProperties":false}),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "read":{"type":"string"},
+                    "write_ok":{"type":"boolean"}
+                },
+                "required":["read","write_ok"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::MutatingReversible,
+            idempotency: Idempotency::Idempotent,
+            timeout_ms: 2_000,
+            dry_run: false,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["secret_probe".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "secret".into()],
+        object_types: vec![],
+    }
+}
+
 fn long_capability() -> Capability {
     Capability {
         descriptor: CommandDescriptor {
@@ -222,6 +252,7 @@ impl Driver for Fixture {
             mount_capability(),
             tool_capability(),
             config_capability(),
+            secret_capability(),
             long_capability(),
             disconnect_capability(),
         ])
@@ -232,6 +263,7 @@ impl Driver for Fixture {
             "driver.fixture.mount_probe" => mount_capability(),
             "driver.fixture.tool_probe" => tool_capability(),
             "driver.fixture.config_probe" => config_capability(),
+            "driver.fixture.secret_probe" => secret_capability(),
             "driver.fixture.disconnect" => disconnect_capability(),
             _ => {
                 return Err(Error::new(
@@ -308,6 +340,17 @@ impl Driver for Fixture {
             let root = system_config_mount("fixture-config")?;
             let read = std::fs::read_to_string(root.join("config.txt"))?;
             let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
+            return Ok(json!({"read":read,"write_ok":write_ok}));
+        }
+        if command == "driver.fixture.secret_probe" {
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid(
+                    "fixture secret probe accepts an empty object",
+                ));
+            }
+            let path = secret_mount("fixture-secret")?;
+            let read = std::fs::read_to_string(&path)?;
+            let write_ok = std::fs::write(&path, b"changed").is_ok();
             return Ok(json!({"read":read,"write_ok":write_ok}));
         }
         if command == "driver.fixture.disconnect" {

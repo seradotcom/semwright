@@ -129,6 +129,8 @@ jobs:
           -p semwright-daemon
       - name: Secure Windows Driver workspace grants
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_workspace --nocapture
+      - name: Secure Windows Driver secret grants
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_secret --nocapture
       - name: Secure Windows Driver sealed tools
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_sealed_tool --nocapture
       - name: Secure Windows Plugin Host round-trip

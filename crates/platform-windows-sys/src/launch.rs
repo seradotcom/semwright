@@ -23,9 +23,9 @@ use std::{
 use tokio::{fs::File as TokioFile, process::Command};
 use windows::Win32::{
     Foundation::{
-        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_WRITE, HANDLE,
-        HANDLE_FLAG_INHERIT, HANDLE_FLAGS, HLOCAL, HWND, LocalFree, TRUST_E_EXPLICIT_DISTRUST,
-        TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
+        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_READ,
+        GENERIC_WRITE, HANDLE, HANDLE_FLAG_INHERIT, HANDLE_FLAGS, HLOCAL, HWND, LocalFree,
+        TRUST_E_EXPLICIT_DISTRUST, TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
     },
     Security::{
         ACCESS_ALLOWED_ACE, ACCESS_DENIED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION,
@@ -57,9 +57,9 @@ use windows::Win32::{
         FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
         FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
         FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_LIST_DIRECTORY,
-        FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE,
-        FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
-        OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
+        FILE_READ_ATTRIBUTES, FILE_READ_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        FILE_TRAVERSE, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA,
+        GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
     },
     System::{
         Com::CoTaskMemFree,
@@ -262,7 +262,7 @@ fn sid_matches(sid: PSID, expected: &[u8]) -> bool {
     unsafe { EqualSid(sid, PSID(expected.as_ptr().cast_mut().cast())).is_ok() }
 }
 
-fn verify_executable_acl(file: &File) -> Result<()> {
+fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Result<()> {
     let mut owner = PSID::default();
     let mut dacl: *mut ACL = std::ptr::null_mut();
     let mut descriptor = PSECURITY_DESCRIPTOR::default();
@@ -284,14 +284,14 @@ fn verify_executable_acl(file: &File) -> Result<()> {
     if status.0 != 0 || descriptor.is_invalid() {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
-            "Windows executable security descriptor could not be verified",
+            format!("Windows {kind} security descriptor could not be verified"),
         ));
     }
     let _descriptor = SecurityDescriptor(descriptor);
     if owner.is_invalid() || dacl.is_null() {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
-            "Windows executable must have an explicit trusted owner and DACL",
+            format!("Windows {kind} must have an explicit trusted owner and DACL"),
         ));
     }
 
@@ -302,7 +302,7 @@ fn verify_executable_acl(file: &File) -> Result<()> {
     if !trusted.iter().any(|expected| sid_matches(owner, expected)) {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
-            "Windows executable owner is not the current user, SYSTEM or Administrators",
+            format!("Windows {kind} owner is not the current user, SYSTEM or Administrators"),
         ));
     }
 
@@ -320,17 +320,17 @@ fn verify_executable_acl(file: &File) -> Result<()> {
     .map_err(|_| {
         Error::new(
             ErrorCode::PermissionDenied,
-            "Windows executable DACL is invalid",
+            format!("Windows {kind} DACL is invalid"),
         )
     })?;
     if acl_info.AceCount > 4_096 {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
-            "Windows executable DACL exceeds verification budget",
+            format!("Windows {kind} DACL exceeds verification budget"),
         ));
     }
 
-    let dangerous = FILE_WRITE_DATA.0
+    let mutation = FILE_WRITE_DATA.0
         | FILE_APPEND_DATA.0
         | FILE_WRITE_EA.0
         | FILE_WRITE_ATTRIBUTES.0
@@ -340,6 +340,12 @@ fn verify_executable_acl(file: &File) -> Result<()> {
         | FILE_GENERIC_WRITE.0
         | GENERIC_WRITE.0
         | GENERIC_ALL.0;
+    let confidential = FILE_READ_DATA.0 | FILE_GENERIC_READ.0 | GENERIC_READ.0 | GENERIC_ALL.0;
+    let restricted = if private_data {
+        mutation | confidential
+    } else {
+        mutation
+    };
 
     for index in 0..acl_info.AceCount {
         let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
@@ -348,13 +354,13 @@ fn verify_executable_acl(file: &File) -> Result<()> {
         unsafe { GetAce(dacl, index, &mut raw) }.map_err(|_| {
             Error::new(
                 ErrorCode::PermissionDenied,
-                "Windows executable DACL entry could not be inspected",
+                format!("Windows {kind} DACL entry could not be inspected"),
             )
         })?;
         if raw.is_null() {
             return Err(Error::new(
                 ErrorCode::PermissionDenied,
-                "Windows executable DACL contains a null ACE",
+                format!("Windows {kind} DACL contains a null ACE"),
             ));
         }
         // SAFETY: GetAce returned storage owned by the live DACL/security descriptor.
@@ -370,26 +376,28 @@ fn verify_executable_acl(file: &File) -> Result<()> {
             if usize::from(header.AceSize) < std::mem::size_of::<ACCESS_ALLOWED_ACE>() {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    "Windows executable DACL contains a malformed allow ACE",
+                    format!("Windows {kind} DACL contains a malformed allow ACE"),
                 ));
             }
             // Every allow ACE layout starts with ACE_HEADER followed by the access mask.
             // SAFETY: the common prefix size was checked above.
             let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
-            if ace.Mask & dangerous == 0 {
+            if ace.Mask & restricted == 0 {
                 continue;
             }
             if ace_type != ACCESS_ALLOWED_ACE_TYPE {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    "Complex Windows executable mutation ACEs are fail-closed",
+                    format!("Complex Windows {kind} restricted ACEs are fail-closed"),
                 ));
             }
             let sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
             if !trusted.iter().any(|expected| sid_matches(sid, expected)) {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    "Windows executable DACL grants mutation rights to an untrusted principal",
+                    format!(
+                        "Windows {kind} DACL grants restricted rights to an untrusted principal"
+                    ),
                 ));
             }
             continue;
@@ -402,7 +410,7 @@ fn verify_executable_acl(file: &File) -> Result<()> {
             _ => {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    "Unknown Windows executable DACL ACE type is fail-closed",
+                    format!("Unknown Windows {kind} DACL ACE type is fail-closed"),
                 ));
             }
         }
@@ -466,6 +474,92 @@ fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
+    if max_bytes == 0 || max_bytes > 16 * 1024 * 1024 {
+        return Err(Error::invalid(
+            "Windows private-file verification budget is invalid",
+        ));
+    }
+    if !path.is_absolute() {
+        return Err(Error::invalid(
+            "Windows private data file path must be absolute",
+        ));
+    }
+    let spelling = path.as_os_str().to_string_lossy().to_ascii_lowercase();
+    if spelling.starts_with(r"\\") || spelling.starts_with(r"\\?\") || spelling.starts_with(r"\\.\")
+    {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "UNC, extended and device private-data paths are not accepted",
+        ));
+    }
+
+    let (validated_identity, is_directory) = match validate_mount_tree(path) {
+        Ok(validated) => validated,
+        Err(error) if error.code == ErrorCode::PolicyDenied => {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Unsafe Windows private data source path, type or link count",
+            ));
+        }
+        Err(error) => return Err(error),
+    };
+    if is_directory {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows private data source must be a regular file",
+        ));
+    }
+
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+    let mut file = options.open(path)?;
+    let before = info(&file)?;
+    if file_identity(&before) != validated_identity {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Windows private data source identity changed during validation",
+        ));
+    }
+    verify_trusted_file_acl(&file, "private data file", true)?;
+    let size = (u64::from(before.nFileSizeHigh) << 32) | u64::from(before.nFileSizeLow);
+    if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        || before.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0
+        || before.nNumberOfLinks != 1
+        || size == 0
+        || size > max_bytes
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Unsafe Windows private data file type, link count or size",
+        ));
+    }
+
+    let mut bytes = Vec::with_capacity(size as usize);
+    file.by_ref().take(max_bytes + 1).read_to_end(&mut bytes)?;
+    if bytes.is_empty() || bytes.len() as u64 > max_bytes {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows private data file exceeds verification budget",
+        ));
+    }
+    let after = info(&file)?;
+    if !same_identity(&before, &after)
+        || before.nFileSizeHigh != after.nFileSizeHigh
+        || before.nFileSizeLow != after.nFileSizeLow
+        || before.ftLastWriteTime != after.ftLastWriteTime
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Windows private data file changed while it was being verified",
+        ));
+    }
+    Ok(())
+}
+
 pub struct WindowsVerifier;
 impl ExecutableVerifier for WindowsVerifier {
     fn verify(&self, path: &Path, digest: &str) -> Result<Vec<u8>> {
@@ -491,7 +585,7 @@ impl ExecutableVerifier for WindowsVerifier {
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
         let mut file = options.open(path)?;
         let before = info(&file)?;
-        verify_executable_acl(&file)?;
+        verify_trusted_file_acl(&file, "executable", false)?;
         if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
             || before.nNumberOfLinks != 1
             || before.nFileSizeHigh != 0
@@ -1110,6 +1204,9 @@ struct PreparedMountGrant {
 
 fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
     mount.validate()?;
+    if mount.class == MountClass::Secret {
+        verify_private_data_file(&mount.source, 4096)?;
+    }
     if !mount.source.is_absolute() {
         return Err(Error::invalid(
             "Windows sandbox mount source must be absolute",
