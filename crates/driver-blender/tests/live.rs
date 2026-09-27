@@ -2739,6 +2739,105 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     )
     .await
     .unwrap();
+
+    let scenes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","limit":8}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = scenes["items"][0]["ref"].as_str().unwrap().to_owned();
+    let media_strip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.media.add",
+        json!({"scene_ref":scene_ref,"kind":"IMAGE","name":"SemwrightPreviewStrip","path":"preview.png","channel":5,"frame_start":1,"fit_method":"ORIGINAL"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(media_strip["kind"], "IMAGE");
+    assert_eq!(media_strip["path"], "preview.png");
+    let media_ref = media_strip["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.strip.remove",
+        json!({"ref":media_ref}),
+    )
+    .await
+    .unwrap();
+
+    let secondary_scene = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.create",
+        json!({"root":"scenes","name":"SemwrightSequenceScene"}),
+    )
+    .await
+    .unwrap();
+    let secondary_scene_ref = secondary_scene["ref"].as_str().unwrap().to_owned();
+    let scenes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","limit":16}),
+    )
+    .await
+    .unwrap();
+    let scene_ref = scenes["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"].as_str() != Some("SemwrightSequenceScene"))
+        .and_then(|item| item["ref"].as_str())
+        .unwrap()
+        .to_owned();
+    let secondary_scene_ref = scenes["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["name"] == "SemwrightSequenceScene")
+        .and_then(|item| item["ref"].as_str())
+        .unwrap_or(&secondary_scene_ref)
+        .to_owned();
+    let scene_strip = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.datablock.add",
+        json!({"scene_ref":scene_ref,"kind":"SCENE","name":"SemwrightSceneStrip","source_ref":secondary_scene_ref,"channel":6,"frame_start":1}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(scene_strip["kind"], "SCENE");
+    let scene_strip_ref = scene_strip["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.sequence.strip.remove",
+        json!({"ref":scene_strip_ref}),
+    )
+    .await
+    .unwrap();
+    let scenes = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.objects",
+        json!({"root":"scenes","query":"SemwrightSequenceScene","limit":8}),
+    )
+    .await
+    .unwrap();
+    let secondary_scene_ref = scenes["items"][0]["ref"].as_str().unwrap().to_owned();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.datablock.remove",
+        json!({"ref":secondary_scene_ref}),
+    )
+    .await
+    .unwrap();
+
     let loaded_image = call(
         provider.as_ref(),
         &capabilities,

@@ -1,6 +1,6 @@
 # Blender semantic capabilities
 
-The catalog deliberately avoids one tool per Blender property. Broad coverage comes from typed RNA refs plus focused lifecycle overlays. The combined semantic branch contains **122 explicit Blender capability descriptors**; most Blender breadth is behind the generic semantic substrate.
+The catalog deliberately avoids one tool per Blender property. Broad coverage comes from typed RNA refs plus focused lifecycle overlays. The combined semantic branch exposes **139 Blender capabilities total**: 122 explicitly wired semantic/introspection/authoring descriptors plus 17 pre-existing curated operations, with no name overlap. Most Blender breadth is still behind the generic semantic substrate rather than one tool per RNA property.
 
 ## Generic semantic substrate
 
