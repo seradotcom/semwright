@@ -80,7 +80,7 @@ fn sensitive(path: &Path) -> bool {
 
 fn read_nofollow(path: &Path, max: u64) -> Result<Vec<u8>> {
     let meta = fs::symlink_metadata(path)?;
-    if !meta.file_type().is_file() || meta.len() > max {
+    if !meta.file_type().is_file() || crate::package::multiple_links(&meta) || meta.len() > max {
         return Err(Error::invalid("Bundle input is not a bounded regular file"));
     }
     let mut options = fs::OpenOptions::new();

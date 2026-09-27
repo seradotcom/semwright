@@ -33,7 +33,11 @@ fn read_typed<T: serde::de::DeserializeOwned>(
     label: &str,
 ) -> Result<T> {
     let meta = fs::symlink_metadata(path)?;
-    if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len() > max {
+    if !meta.file_type().is_file()
+        || meta.file_type().is_symlink()
+        || crate::package::multiple_links(&meta)
+        || meta.len() > max
+    {
         return Err(Error::invalid(format!(
             "{label} is not a bounded regular file"
         )));
@@ -168,20 +172,44 @@ pub fn write_lock(root: &Path, lock: &SkillLock) -> Result<()> {
     lock.validate()?;
     let dir = root.join(".semwright");
     fs::create_dir_all(&dir)?;
+    let dir_meta = fs::symlink_metadata(&dir)?;
+    if !dir_meta.file_type().is_dir() || dir_meta.file_type().is_symlink() {
+        return Err(Error::invalid(
+            "Skill lock directory must be a real non-symlink directory",
+        ));
+    }
     let path = dir.join("lock.json");
+    let temp = dir.join(format!(".lock.json.tmp-{}", semwright_types::unique_id()));
     let mut options = fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
+    options.write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
         options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
     }
-    let mut file = options.open(path)?;
-    let bytes = serde_json::to_vec_pretty(lock)?;
-    file.write_all(&bytes)?;
-    file.write_all(b"\n")?;
-    file.sync_all()?;
-    Ok(())
+    let write_result = (|| -> Result<()> {
+        let mut file = options.open(&temp)?;
+        let bytes = serde_json::to_vec_pretty(lock)?;
+        file.write_all(&bytes)?;
+        file.write_all(b"\n")?;
+        file.sync_all()?;
+        drop(file);
+        #[cfg(unix)]
+        {
+            fs::rename(&temp, &path).map_err(Into::into)
+        }
+        #[cfg(not(unix))]
+        {
+            if path.exists() {
+                fs::remove_file(&path)?;
+            }
+            fs::rename(&temp, &path).map_err(Into::into)
+        }
+    })();
+    if write_result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    write_result
 }
 
 pub fn parse_requirements_bytes(bytes: &[u8]) -> Result<RequirementsFile> {

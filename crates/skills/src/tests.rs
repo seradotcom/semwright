@@ -171,6 +171,33 @@ fn rejects_symlink_escape_and_recursive_symlink() {
     assert!(load(&recursive).is_err());
 }
 
+#[cfg(unix)]
+#[test]
+fn rejects_hardlinked_resources_and_lock_write_does_not_truncate_external_inode() {
+    let temp = TempDir::new().unwrap();
+
+    let root = temp.path().join("hardlink-skill");
+    write_skill(&root, "hardlink-skill", "");
+    fs::create_dir(root.join("references")).unwrap();
+    let external = temp.path().join("external-secret");
+    fs::write(&external, "do-not-touch").unwrap();
+    fs::hard_link(&external, root.join("references/leak.txt")).unwrap();
+    assert!(load(&root).is_err());
+
+    fs::remove_file(root.join("references/leak.txt")).unwrap();
+    fs::create_dir_all(root.join(".semwright")).unwrap();
+    let lock_path = root.join(".semwright/lock.json");
+    fs::hard_link(&external, &lock_path).unwrap();
+    let lock = SkillLock {
+        version: 1,
+        requirements_sha256: "0".repeat(64),
+        entries: vec![],
+    };
+    write_lock(&root, &lock).unwrap();
+    assert_eq!(fs::read_to_string(&external).unwrap(), "do-not-touch");
+    assert_ne!(fs::read_to_string(lock_path).unwrap(), "do-not-touch");
+}
+
 #[test]
 fn enforces_resource_count_and_size_budgets_without_allocating_large_files() {
     let temp = TempDir::new().unwrap();

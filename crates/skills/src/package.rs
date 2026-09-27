@@ -136,9 +136,26 @@ pub fn discover(path: &Path) -> Result<Vec<PathBuf>> {
     Ok(skills)
 }
 
+pub(crate) fn multiple_links(meta: &fs::Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        meta.nlink() != 1
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        false
+    }
+}
+
 fn read_bounded(path: &Path, max: u64) -> Result<Vec<u8>> {
     let meta = fs::symlink_metadata(path)?;
-    if !meta.file_type().is_file() || meta.file_type().is_symlink() || meta.len() > max {
+    if !meta.file_type().is_file()
+        || meta.file_type().is_symlink()
+        || multiple_links(&meta)
+        || meta.len() > max
+    {
         return Err(Error::invalid("Skill file is not a bounded regular file"));
     }
     let mut options = fs::OpenOptions::new();
@@ -338,9 +355,9 @@ fn walk(
             walk(root, &path, depth + 1, resources, total)?;
             continue;
         }
-        if !meta.file_type().is_file() {
+        if !meta.file_type().is_file() || multiple_links(&meta) {
             return Err(Error::invalid(
-                "Skill packages may contain only directories and regular files",
+                "Skill packages may contain only unlinked regular files and directories",
             ));
         }
         if path == root.join("SKILL.md") {

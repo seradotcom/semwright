@@ -175,7 +175,7 @@ Semwright treats third-party Skills as untrusted user-level instructions.
 - **Malicious instructions:** Broker policy still wins.
 - **Malicious scripts:** Semwright never auto-executes `scripts/`.
 - **Traversal/absolute paths:** rejected by the package/archive path validator.
-- **Symlinks:** rejected from packages rather than followed.
+- **Symlinks/hardlinks:** rejected from package resources rather than followed/shared; lock updates replace the package entry instead of truncating an externally linked inode.
 - **Resource bombs:** file count, size, depth and total-package budgets are enforced.
 - **YAML bombs/extensions:** frontmatter is bounded; YAML anchors, aliases and custom tags are rejected.
 - **Secrets:** bundle excludes common secret/key filenames without reading or logging their contents.
