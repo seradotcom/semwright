@@ -74,6 +74,7 @@ fault-injection paths without using the developer workstation as a heavy runner:
 
 - SDK state/backoff/generation contract;
 - Driver Host child transport loss and pending waiter wake-up;
+- process-backed stdio driver regression for Blender, LibreOffice, MLT Video and Motion Canvas;
 - Figma forced disconnect, generation recovery and trusted-resume replay protection/revocation;
 - Figma plugin storage/resume tests and production asset build;
 - Godot short reconnect across a waiting request plus the normal pinned real-Godot acceptance;
