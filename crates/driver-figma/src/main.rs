@@ -1776,13 +1776,13 @@ impl FigmaDriver {
                         "semantic plan purpose does not match apply operation",
                     ));
                 }
-                if let Some(explicit) = session_id {
-                    if explicit != plan.base.session_id {
-                        return Err(Error::new(
-                            ErrorCode::StaleReference,
-                            "explicit session does not match semantic plan",
-                        ));
-                    }
+                if let Some(explicit) = session_id
+                    && explicit != plan.base.session_id
+                {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "explicit session does not match semantic plan",
+                    ));
                 }
                 let session = self.semantic_session(Some(&plan.base.session_id)).await?;
                 Self::ensure_expected_revision(&session, expected_revision)?;
@@ -1822,13 +1822,13 @@ impl FigmaDriver {
                     ));
                 }
                 let repair_budget = source.spec.budgets.max_repair_operations as usize;
-                if let Some(explicit) = session_id {
-                    if explicit != source.base.session_id {
-                        return Err(Error::new(
-                            ErrorCode::StaleReference,
-                            "explicit session does not match source plan",
-                        ));
-                    }
+                if let Some(explicit) = session_id
+                    && explicit != source.base.session_id
+                {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "explicit session does not match source plan",
+                    ));
                 }
                 let session = self.semantic_session(Some(&source.base.session_id)).await?;
                 Self::ensure_plan_base(&session, &source, false)?;
@@ -1889,13 +1889,13 @@ impl FigmaDriver {
                             Error::invalid(format!("invalid composition spec: {error}"))
                         })?;
                     parsed.validate().map_err(Error::invalid)?;
-                    if let Some(requested) = object.get("max_findings").and_then(Value::as_u64) {
-                        if requested > u64::from(parsed.budgets.max_findings_per_round) {
-                            return Err(Error::new(
-                                ErrorCode::ResourceExhausted,
-                                "requested findings exceed the composition budget",
-                            ));
-                        }
+                    if let Some(requested) = object.get("max_findings").and_then(Value::as_u64)
+                        && requested > u64::from(parsed.budgets.max_findings_per_round)
+                    {
+                        return Err(Error::new(
+                            ErrorCode::ResourceExhausted,
+                            "requested findings exceed the composition budget",
+                        ));
                     }
                 }
                 self.hub
