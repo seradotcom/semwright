@@ -216,7 +216,7 @@ function openSocket(){
      clearStoredResume();manualDisconnect=true;state("Server did not issue a valid resume credential.\nEnter a fresh pairing code and press Connect.");socket.close();return;
     }
     resumeCredential={resumeId:String(m.resume_id),resumeToken:String(m.resume_token)};
-    parent.postMessage({pluginMessage:{type:"bridge-resume-store",credential:resumeCredential}},"*");
+    parent.postMessage({pluginMessage:{type:"bridge-resume-store",documentId:context?.documentId,credential:resumeCredential}},"*");
     pairingSecret=null;session=sid;generation=gen;activeGeneration=gen;connecting=false;authenticatedOnce=true;preReadyFailures=0;reconnectAttempt=0;clearReconnect();$("secret").value="";
     state("Connected\nSession "+sid+"\nGeneration "+gen);
    }

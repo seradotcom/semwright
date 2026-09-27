@@ -777,11 +777,24 @@ async fn serve_connection(
                 && resume_id.bytes().all(|b| b.is_ascii_hexdigit())
                 && capabilities.len() <= 256 =>
             {
-                let record = state.read().await.resume.get(&resume_id).cloned();
-                let now = Instant::now();
-                let Some(record) = record
-                    .filter(|record| record.document_id == document_id && record.expires_at > now)
-                else {
+                let record = {
+                    let mut guard = state.write().await;
+                    let expired = guard
+                        .resume
+                        .get(&resume_id)
+                        .is_some_and(|record| record.expires_at <= Instant::now());
+                    if expired {
+                        guard.resume.remove(&resume_id);
+                        None
+                    } else {
+                        guard
+                            .resume
+                            .get(&resume_id)
+                            .cloned()
+                            .filter(|record| record.document_id == document_id)
+                    }
+                };
+                let Some(record) = record else {
                     let _ = send_ws(
                         &mut sink,
                         &Message::Close {
@@ -1693,6 +1706,73 @@ mod tests {
         }
 
         resumed.close(None).await.expect("close resumed plugin");
+    }
+
+    #[tokio::test]
+    async fn expired_resume_is_removed_without_cross_document_revocation() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut ws, resume_id, _resume_token) = initial_resume_credential(&hub, "expiry", 1).await;
+        ws.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let (mut wrong_document, _) = connect_async(&url)
+            .await
+            .expect("connect wrong-document resume");
+        send_client(
+            &mut wrong_document,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-wrong-document".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "other-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        match recv_client(&mut wrong_document).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_unavailable"),
+            other => panic!("wrong-document resume must be unavailable, got {other:?}"),
+        }
+        assert!(
+            hub.state.read().await.resume.contains_key(&resume_id),
+            "wrong-document attempt must not revoke a valid credential"
+        );
+
+        hub.state
+            .write()
+            .await
+            .resume
+            .get_mut(&resume_id)
+            .expect("resume credential")
+            .expires_at = Instant::now() - Duration::from_secs(1);
+
+        let (mut expired, _) = connect_async(url).await.expect("connect expired resume");
+        send_client(
+            &mut expired,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-expired".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        match recv_client(&mut expired).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_unavailable"),
+            other => panic!("expired resume must be unavailable, got {other:?}"),
+        }
+        assert!(
+            !hub.state.read().await.resume.contains_key(&resume_id),
+            "expired credential should be pruned when observed"
+        );
     }
 
     #[tokio::test]

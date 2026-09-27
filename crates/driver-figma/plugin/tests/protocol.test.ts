@@ -109,7 +109,7 @@ describe("authenticated loopback bridge",()=>{
   expect(ui).toContain('type:"resume_authenticate"');
   expect(ui).toContain("async function resumeProof");
   expect(ui).toContain("figma-resume-v1");
-  expect(ui).toContain('type:"bridge-resume-store"');
+  expect(ui).toContain('type:"bridge-resume-store",documentId:context?.documentId');
   expect(ui).toContain("resume_id");
   expect(ui).toContain("resume_token");
  });

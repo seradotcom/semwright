@@ -815,6 +815,7 @@ function documentContinuityId(
   if (validDocumentContinuityId(existing)) return existing;
   if (!ensure || !validDocumentContinuityId(candidate)) return null;
   figma.root.setPluginData(SEMWRIGHT_DOCUMENT_ID_KEY, candidate);
+  revision++;
   return candidate;
 }
 
