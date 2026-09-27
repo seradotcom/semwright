@@ -1,6 +1,8 @@
 #![cfg(target_os = "windows")]
 
-use semwright_platform_api::launch::{ResourceLimits, SandboxKind, SandboxLauncher, SandboxSpec};
+use semwright_platform_api::launch::{
+    ResourceLimits, SandboxKind, SandboxLauncher, SandboxSpec, SealedToolMount, SealedToolSource,
+};
 use semwright_platform_windows_sys::launch::WindowsSandbox;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -23,6 +25,23 @@ fn spec(network: bool) -> SandboxSpec {
             file_size_bytes: 1024 * 1024,
         }),
     }
+}
+
+#[test]
+fn direct_sealed_tool_authority_is_fail_closed_on_windows() {
+    let mut candidate = spec(false);
+    candidate.sealed_tools = vec![SealedToolMount {
+        source: SealedToolSource::VerifiedFile {
+            path: std::env::current_exe().expect("current test executable"),
+            sha256: "a".repeat(64),
+        },
+        name: "probe".into(),
+    }];
+    let error = match WindowsSandbox.spawn(&candidate) {
+        Ok(_) => panic!("direct Windows sealed tools must use Host-mediated protocol v4"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::SandboxDenied);
 }
 
 #[tokio::test]

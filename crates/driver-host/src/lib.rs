@@ -7,9 +7,11 @@ use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
 use semwright_driver_sdk::{
-    DriverInterfaces, DriverRequestContext, Manifest, Request, Response, capabilities_digest,
-    descriptor_digest,
+    DriverInterfaces, DriverRequestContext, Manifest, Request, Response, ToolExecutionOutput,
+    capabilities_digest, descriptor_digest, validate_tool_execute_request,
 };
+#[cfg(target_os = "windows")]
+use semwright_platform_api::launch::{ResourceLimits, SandboxSpec};
 use semwright_platform_api::launch::{SandboxCpuAccounting, SandboxStdin, SandboxStdout};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
@@ -27,7 +29,7 @@ use std::os::{
     unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     io::Write,
     path::{Path, PathBuf},
     sync::{Arc, RwLock as StdRwLock},
@@ -37,7 +39,10 @@ use std::{
 use std::{ffi::CString, os::fd::FromRawFd};
 #[cfg(all(test, unix))]
 use tokio::process::Command;
-use tokio::sync::{Mutex, broadcast, oneshot};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    sync::{Mutex, broadcast, oneshot},
+};
 use tokio_util::sync::CancellationToken;
 
 struct StagedFile(PathBuf);
@@ -71,6 +76,7 @@ impl SealedTool {
 }
 
 #[cfg(target_os = "windows")]
+#[derive(Clone)]
 struct SealedTool {
     name: String,
     staged: Arc<StagedFile>,
@@ -86,6 +92,203 @@ impl SealedTool {
             },
             name: self.name.clone(),
         }
+    }
+}
+
+#[async_trait]
+trait HostToolExecutor: Send + Sync {
+    async fn execute(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout_ms: u64,
+        charged_cpu_seconds: Arc<Mutex<u64>>,
+    ) -> Result<ToolExecutionOutput>;
+}
+
+#[cfg(target_os = "windows")]
+const MAX_HOST_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
+const MAX_HOST_TOOL_CALLS: usize = 8;
+
+#[cfg(target_os = "windows")]
+struct HostToolBroker {
+    tools: BTreeMap<String, SealedTool>,
+    template: SandboxSpec,
+    operation_cpu_seconds: u64,
+}
+
+#[cfg(target_os = "windows")]
+impl HostToolBroker {
+    fn new(
+        root_spec: &SandboxSpec,
+        tools: &[SealedTool],
+        operation_cpu_seconds: u64,
+    ) -> Result<Self> {
+        let mut by_name = BTreeMap::new();
+        for tool in tools {
+            if by_name.insert(tool.name.clone(), tool.clone()).is_some() {
+                return Err(Error::invalid("Duplicate Host-mediated sealed tool"));
+            }
+        }
+        let mut template = root_spec.clone();
+        template.mounts.clear();
+        template.environment.clear();
+        template.sealed_tools.clear();
+        // Tool subprocesses receive no ambient filesystem, secret, system-config, network or
+        // loopback authority. A future per-tool grant contract may opt into narrower authority
+        // explicitly, but the driver root spec is never inherited wholesale.
+        template.network = false;
+        Ok(Self {
+            tools: by_name,
+            template,
+            operation_cpu_seconds,
+        })
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[async_trait]
+impl HostToolExecutor for HostToolBroker {
+    async fn execute(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin_bytes: Vec<u8>,
+        timeout_ms: u64,
+        charged_cpu_seconds: Arc<Mutex<u64>>,
+    ) -> Result<ToolExecutionOutput> {
+        validate_tool_execute_request(name, &args, &stdin_bytes, timeout_ms)?;
+        let tool = self.tools.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested an ungranted sealed tool",
+            )
+        })?;
+        // Bind each invocation to the exact Host-staged immutable bytes.
+        let _ = verify_owned_executable(&tool.staged.0, &tool.sha256)?;
+
+        let remaining_operation_cpu = if self.operation_cpu_seconds == 0 {
+            None
+        } else {
+            let charged = *charged_cpu_seconds.lock().await;
+            Some(
+                self.operation_cpu_seconds
+                    .checked_sub(charged)
+                    .filter(|remaining| *remaining > 0)
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::ResourceExhausted,
+                            "Host-mediated sealed tool exhausted the parent operation CPU budget",
+                        )
+                    })?,
+            )
+        };
+
+        let mut spec = self.template.clone();
+        spec.staged_executable = tool.staged.0.clone();
+        spec.args = args;
+        spec.environment.clear();
+        spec.sealed_tools.clear();
+        let timeout = Duration::from_millis(timeout_ms);
+        let timeout_cpu_seconds = timeout
+            .as_secs()
+            .saturating_add(u64::from(timeout.subsec_nanos() != 0))
+            .max(1);
+        spec.limits = Some(match spec.limits.take() {
+            Some(limit) => ResourceLimits {
+                open_files: limit.open_files,
+                processes: 1,
+                cpu_seconds: limit
+                    .cpu_seconds
+                    .min(timeout_cpu_seconds)
+                    .min(remaining_operation_cpu.unwrap_or(u64::MAX)),
+                address_space_bytes: limit.address_space_bytes,
+                file_size_bytes: limit.file_size_bytes,
+            },
+            None => ResourceLimits {
+                open_files: 64,
+                processes: 1,
+                cpu_seconds: timeout_cpu_seconds.min(remaining_operation_cpu.unwrap_or(u64::MAX)),
+                address_space_bytes: 512 * 1024 * 1024,
+                file_size_bytes: 16 * 1024 * 1024,
+            },
+        });
+
+        let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+        let cpu_accounting = child.cpu_accounting();
+        let mut child_stdin = child.take_stdin()?;
+        let child_stdout = child.take_stdout()?;
+
+        let execution = async {
+            if !stdin_bytes.is_empty() {
+                child_stdin.write_all(&stdin_bytes).await?;
+            }
+            child_stdin.shutdown().await?;
+            drop(child_stdin);
+
+            let mut stdout = Vec::new();
+            let mut bounded = child_stdout.take((MAX_HOST_TOOL_OUTPUT_BYTES + 1) as u64);
+            bounded.read_to_end(&mut stdout).await?;
+            if stdout.len() > MAX_HOST_TOOL_OUTPUT_BYTES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Host-mediated sealed tool output exceeded its bound",
+                ));
+            }
+
+            let exit_code = child.wait_exit_code().await?.ok_or_else(|| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Host-mediated sealed tool did not expose an exit code",
+                )
+            })?;
+            let output = ToolExecutionOutput {
+                exit_code,
+                stdout,
+                stderr: Vec::new(),
+            };
+            output.validate()?;
+            Ok(output)
+        };
+
+        let result = match tokio::time::timeout(timeout, execution).await {
+            Ok(Ok(output)) => Ok(output),
+            Ok(Err(error)) => {
+                let _ = child.kill().await;
+                Err(error)
+            }
+            Err(_) => {
+                let _ = child.kill().await;
+                Err(Error::new(
+                    ErrorCode::Timeout,
+                    "Host-mediated sealed tool timed out",
+                ))
+            }
+        };
+
+        if self.operation_cpu_seconds != 0 {
+            let accounting = cpu_accounting.ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unsupported,
+                    "Host-mediated sealed tool lacks Windows Job CPU accounting",
+                )
+            })?;
+            let consumed = accounting.total_cpu_time()?;
+            let charge = consumed
+                .as_secs()
+                .saturating_add(u64::from(consumed.subsec_nanos() != 0));
+            let mut charged = charged_cpu_seconds.lock().await;
+            *charged = charged.saturating_add(charge);
+            if *charged > self.operation_cpu_seconds {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Host-mediated sealed tools exceeded the parent operation CPU budget",
+                ));
+            }
+        }
+
+        result
     }
 }
 
@@ -501,6 +704,13 @@ fn validate_owner_permissions(
         }
         validate_secret_source(&grant.path)?;
     }
+    #[cfg(target_os = "windows")]
+    if !manifest.tools.is_empty() && (manifest.protocol < 4 || !manifest.interfaces.host_tools) {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows sealed tools require Host-mediated driver protocol v4",
+        ));
+    }
     for tool in &manifest.tools {
         let grant = roots
             .iter()
@@ -552,9 +762,16 @@ struct Io {
     output: SandboxStdout,
 }
 
+struct PendingResponse {
+    sender: oneshot::Sender<Response>,
+    allows_host_tools: bool,
+    cancellation: CancellationToken,
+    charged_tool_cpu_seconds: Arc<Mutex<u64>>,
+}
+
 struct V2Io {
-    input: Mutex<SandboxStdin>,
-    pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
+    input: Arc<Mutex<SandboxStdin>>,
+    pending: Arc<Mutex<BTreeMap<String, PendingResponse>>>,
 }
 
 #[cfg_attr(target_os = "windows", allow(dead_code))]
@@ -566,9 +783,28 @@ enum ProtocolIo {
 impl V2Io {
     async fn begin(&self, request: &Request, id: &str) -> Result<oneshot::Receiver<Response>> {
         let (sender, receiver) = oneshot::channel();
+        let cancellation = CancellationToken::new();
+        let allows_host_tools = matches!(request, Request::Execute { .. });
         {
             let mut pending = self.pending.lock().await;
-            if pending.insert(id.to_owned(), sender).is_some() {
+            if pending.len() >= 256 {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Driver protocol has too many pending requests",
+                ));
+            }
+            if pending
+                .insert(
+                    id.to_owned(),
+                    PendingResponse {
+                        sender,
+                        allows_host_tools,
+                        cancellation,
+                        charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
+                    },
+                )
+                .is_some()
+            {
                 return Err(Error::new(
                     ErrorCode::Conflict,
                     "Driver protocol request ID is already pending",
@@ -580,10 +816,16 @@ impl V2Io {
             write_frame(&mut *input, request).await
         };
         if let Err(error) = result {
-            self.pending.lock().await.remove(id);
+            self.cancel_pending(id).await;
             return Err(error);
         }
         Ok(receiver)
+    }
+
+    async fn cancel_pending(&self, id: &str) {
+        if let Some(pending) = self.pending.lock().await.remove(id) {
+            pending.cancellation.cancel();
+        }
     }
 
     async fn request(&self, request: &Request, id: &str, timeout: Duration) -> Result<Response> {
@@ -592,7 +834,7 @@ impl V2Io {
             Ok(Ok(response)) => Ok(response),
             Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
             Err(_) => {
-                self.pending.lock().await.remove(id);
+                self.cancel_pending(id).await;
                 Err(Error::new(
                     ErrorCode::Timeout,
                     "Driver protocol request timed out",
@@ -627,18 +869,56 @@ fn response_id(response: &Response) -> Option<&str> {
         Response::Ready { .. }
         | Response::Event { .. }
         | Response::CapabilitiesChanged
-        | Response::Progress { .. } => None,
+        | Response::Progress { .. }
+        | Response::ToolExecute { .. } => None,
     }
+}
+
+fn host_tool_parent(
+    pending: &BTreeMap<String, PendingResponse>,
+    tool_id: &str,
+    parent: &str,
+) -> Option<(CancellationToken, Arc<Mutex<u64>>)> {
+    if pending.contains_key(tool_id) {
+        return None;
+    }
+    pending.get(parent).and_then(|entry| {
+        entry.allows_host_tools.then(|| {
+            (
+                entry.cancellation.clone(),
+                entry.charged_tool_cpu_seconds.clone(),
+            )
+        })
+    })
+}
+
+fn register_host_tool_call(
+    calls: &mut BTreeSet<String>,
+    parents: &mut BTreeSet<String>,
+    id: &str,
+    parent: &str,
+) -> bool {
+    if calls.len() >= MAX_HOST_TOOL_CALLS || calls.contains(id) || parents.contains(parent) {
+        return false;
+    }
+    calls.insert(id.to_owned());
+    parents.insert(parent.to_owned());
+    true
 }
 
 fn spawn_v2_reader(
     mut output: SandboxStdout,
-    pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Response>>>>,
+    input: Arc<Mutex<SandboxStdin>>,
+    pending: Arc<Mutex<BTreeMap<String, PendingResponse>>>,
     signals: broadcast::Sender<ProviderSignal>,
     interfaces: DriverInterfaces,
+    protocol: u32,
+    tool_broker: Option<Arc<dyn HostToolExecutor>>,
     closed: CancellationToken,
     terminate: CancellationToken,
 ) {
+    let tool_calls = Arc::new(Mutex::new(BTreeSet::<String>::new()));
+    let tool_parents = Arc::new(Mutex::new(BTreeSet::<String>::new()));
     tokio::spawn(async move {
         loop {
             let response = match read_frame::<_, Response>(&mut output).await {
@@ -687,25 +967,127 @@ fn spawn_v2_reader(
                         artifacts,
                     });
                 }
+                Response::ToolExecute {
+                    id,
+                    parent,
+                    name,
+                    args,
+                    stdin,
+                    timeout_ms,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let valid = protocol >= 4
+                        && interfaces.host_tools
+                        && validate_tool_execute_request(&name, &args, &stdin, timeout_ms).is_ok()
+                        && parent_state.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let (parent_cancellation, charged_cpu_seconds) =
+                        parent_state.expect("validated Host-tool parent");
+                    let input = input.clone();
+                    let pending = pending.clone();
+                    let broker = tool_broker.clone();
+                    let tool_calls = tool_calls.clone();
+                    let tool_parents = tool_parents.clone();
+                    let terminate_call = terminate.clone();
+                    let closed_call = closed.clone();
+                    tokio::spawn(async move {
+                        let execution = async {
+                            match broker {
+                                Some(broker) => {
+                                    broker
+                                        .execute(
+                                            &name,
+                                            args,
+                                            stdin,
+                                            timeout_ms,
+                                            charged_cpu_seconds,
+                                        )
+                                        .await
+                                }
+                                None => Err(Error::new(
+                                    ErrorCode::Unsupported,
+                                    "Host-mediated sealed tools are unavailable on this platform",
+                                )),
+                            }
+                        };
+                        let result = tokio::select! {
+                            _ = parent_cancellation.cancelled() => Err(Error::new(
+                                ErrorCode::Cancelled,
+                                "Host-mediated sealed tool parent request ended",
+                            )),
+                            _ = closed_call.cancelled() => Err(Error::unavailable(
+                                "Driver connection closed during Host-mediated tool execution",
+                            )),
+                            result = execution => result,
+                        };
+                        tool_calls.lock().await.remove(&id);
+                        tool_parents.lock().await.remove(&parent);
+
+                        let parent_active = {
+                            let pending = pending.lock().await;
+                            pending.get(&parent).is_some_and(|entry| {
+                                entry.allows_host_tools && !entry.cancellation.is_cancelled()
+                            })
+                        };
+                        if !parent_active {
+                            return;
+                        }
+
+                        let request = match result {
+                            Ok(output) => Request::ToolResult { id, output },
+                            Err(error) => Request::ToolFailure {
+                                id,
+                                error: Error::new(error.code, "Host-mediated sealed tool failed"),
+                            },
+                        };
+                        let mut input = input.lock().await;
+                        if write_frame(&mut **input, &request).await.is_err() {
+                            terminate_call.cancel();
+                            closed_call.cancel();
+                        }
+                    });
+                }
                 other => {
                     let Some(id) = response_id(&other).map(str::to_owned) else {
                         terminate.cancel();
                         closed.cancel();
                         break;
                     };
-                    let sender = pending.lock().await.remove(&id);
-                    let Some(sender) = sender else {
+                    let pending_response = pending.lock().await.remove(&id);
+                    let Some(pending_response) = pending_response else {
                         terminate.cancel();
                         closed.cancel();
                         break;
                     };
-                    let _ = sender.send(other);
+                    pending_response.cancellation.cancel();
+                    let _ = pending_response.sender.send(other);
                 }
             }
         }
         terminate.cancel();
         closed.cancel();
-        pending.lock().await.clear();
+        let pending_responses = {
+            let mut pending = pending.lock().await;
+            std::mem::take(&mut *pending)
+        };
+        for (_, pending_response) in pending_responses {
+            pending_response.cancellation.cancel();
+        }
         let _ = signals.send(ProviderSignal::Disconnected);
     });
 }
@@ -851,7 +1233,6 @@ fn sandbox_spec_windows(
     staged: &Path,
     helper: &Path,
     roots: &[FilesystemGrant],
-    sealed_tools: &[SealedTool],
     loopback_pipe: Option<&Path>,
 ) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
@@ -923,7 +1304,7 @@ fn sandbox_spec_windows(
             })
             .collect::<Result<Vec<_>>>()?,
     );
-    let environment = loopback_pipe
+    let mut environment = loopback_pipe
         .map(|path| {
             path.to_str()
                 .ok_or_else(|| Error::invalid("Windows loopback pipe path must be Unicode"))
@@ -931,6 +1312,9 @@ fn sandbox_spec_windows(
         })
         .transpose()?
         .unwrap_or_default();
+    if manifest.interfaces.host_tools {
+        environment.push(("SEMWRIGHT_DRIVER_HOST_TOOLS".into(), "1".into()));
+    }
     Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
@@ -938,7 +1322,7 @@ fn sandbox_spec_windows(
         mounts,
         args: vec![],
         environment,
-        sealed_tools: sealed_tools.iter().map(SealedTool::sandbox_mount).collect(),
+        sealed_tools: Vec::new(),
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
@@ -996,6 +1380,14 @@ impl DriverProvider {
 
             // Bind trust checks to the exact staged file that will execute.
             let _ = verify_owned_executable(&staged_path, &manifest.sha256)?;
+            if !manifest.tools.is_empty()
+                && (manifest.protocol < 4 || !manifest.interfaces.host_tools)
+            {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Windows sealed tools require protocol v4 Host-mediated execution",
+                ));
+            }
             let sealed_tools = manifest
                 .tools
                 .iter()
@@ -1018,9 +1410,17 @@ impl DriverProvider {
                 &staged_path,
                 helper,
                 roots,
-                &sealed_tools,
                 loopback.as_deref().map(loopback::LoopbackProxy::pipe_path),
             )?;
+            let tool_broker: Option<Arc<dyn HostToolExecutor>> = if manifest.interfaces.host_tools {
+                Some(Arc::new(HostToolBroker::new(
+                    &spec,
+                    &sealed_tools,
+                    manifest.resources.operation_cpu_seconds,
+                )?))
+            } else {
+                None
+            };
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let process_id = child
                 .id()
@@ -1177,21 +1577,19 @@ impl DriverProvider {
                 let (signals, _) = broadcast::channel(128);
                 let pending = Arc::new(Mutex::new(BTreeMap::new()));
                 let Io { input, output } = io;
+                let input = Arc::new(Mutex::new(input));
                 spawn_v2_reader(
                     output,
+                    input.clone(),
                     pending.clone(),
                     signals.clone(),
                     manifest.interfaces,
+                    manifest.protocol,
+                    tool_broker,
                     closed.clone(),
                     terminate.clone(),
                 );
-                (
-                    ProtocolIo::V2(V2Io {
-                        input: Mutex::new(input),
-                        pending,
-                    }),
-                    Some(signals),
-                )
+                (ProtocolIo::V2(V2Io { input, pending }), Some(signals))
             } else {
                 (ProtocolIo::V1(Mutex::new(io)), None)
             };
@@ -1273,6 +1671,7 @@ impl DriverProvider {
                 loopback.as_deref().map(loopback::LoopbackProxy::directory),
                 &sealed_tools,
             )?;
+            let tool_broker: Option<Arc<dyn HostToolExecutor>> = None;
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let process_id = child
                 .id()
@@ -1422,21 +1821,19 @@ impl DriverProvider {
                 let (signals, _) = broadcast::channel(128);
                 let pending = Arc::new(Mutex::new(BTreeMap::new()));
                 let Io { input, output } = io;
+                let input = Arc::new(Mutex::new(input));
                 spawn_v2_reader(
                     output,
+                    input.clone(),
                     pending.clone(),
                     signals.clone(),
                     manifest.interfaces,
+                    manifest.protocol,
+                    tool_broker,
                     closed.clone(),
                     terminate.clone(),
                 );
-                (
-                    ProtocolIo::V2(V2Io {
-                        input: Mutex::new(input),
-                        pending,
-                    }),
-                    Some(signals),
-                )
+                (ProtocolIo::V2(V2Io { input, pending }), Some(signals))
             } else {
                 (ProtocolIo::V1(Mutex::new(io)), None)
             };
@@ -1754,7 +2151,7 @@ impl Provider for DriverProvider {
                             Ok(Ok(response)) => Ok(response),
                             Ok(Err(_)) => Err(Error::unavailable("Driver response channel closed")),
                             Err(_) => {
-                                io.pending.lock().await.remove(&id);
+                                io.cancel_pending(&id).await;
                                 Err(Error::new(ErrorCode::Timeout, "Driver execution timed out"))
                             }
                         }
@@ -1822,7 +2219,7 @@ impl Provider for DriverProvider {
             biased;
             budget = &mut cpu_watch => {
                 if let ProtocolIo::V2(io) = &self.io {
-                    io.pending.lock().await.remove(&id);
+                    io.cancel_pending(&id).await;
                 }
                 self.terminate.cancel();
                 let terminated = tokio::time::timeout(
@@ -2009,6 +2406,85 @@ pub async fn conformance(
         executed_read_only,
         shutdown: true,
     })
+}
+
+#[cfg(test)]
+mod host_tool_protocol_tests {
+    use super::*;
+
+    fn pending_entry(allows_host_tools: bool) -> PendingResponse {
+        let (sender, _receiver) = oneshot::channel();
+        PendingResponse {
+            sender,
+            allows_host_tools,
+            cancellation: CancellationToken::new(),
+            charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
+        }
+    }
+
+    #[test]
+    fn host_tool_parent_must_be_execute_and_ids_must_not_collide() {
+        let mut pending = BTreeMap::new();
+        pending.insert("execute-parent".into(), pending_entry(true));
+        pending.insert("health-parent".into(), pending_entry(false));
+
+        assert!(
+            host_tool_parent(&pending, "tool-1", "execute-parent").is_some(),
+            "an active Execute request may own a Host-mediated tool call"
+        );
+        assert!(
+            host_tool_parent(&pending, "tool-2", "health-parent").is_none(),
+            "non-Execute requests may not gain Host-tool authority"
+        );
+        assert!(
+            host_tool_parent(&pending, "execute-parent", "execute-parent").is_none(),
+            "tool IDs may not collide with pending protocol request IDs"
+        );
+        assert!(
+            host_tool_parent(&pending, "tool-3", "missing-parent").is_none(),
+            "tool calls may not outlive or invent their parent request"
+        );
+    }
+
+    #[test]
+    fn host_tool_calls_are_unique_parent_scoped_and_bounded() {
+        let mut calls = BTreeSet::new();
+        let mut parents = BTreeSet::new();
+        for index in 0..MAX_HOST_TOOL_CALLS {
+            assert!(register_host_tool_call(
+                &mut calls,
+                &mut parents,
+                &format!("tool-{index}"),
+                &format!("parent-{index}"),
+            ));
+        }
+        assert!(!register_host_tool_call(
+            &mut calls,
+            &mut parents,
+            "tool-overflow",
+            "parent-overflow",
+        ));
+        calls.remove("tool-0");
+        parents.remove("parent-0");
+        assert!(!register_host_tool_call(
+            &mut calls,
+            &mut parents,
+            "tool-1",
+            "parent-replacement",
+        ));
+        assert!(!register_host_tool_call(
+            &mut calls,
+            &mut parents,
+            "tool-replacement",
+            "parent-1",
+        ));
+        assert!(register_host_tool_call(
+            &mut calls,
+            &mut parents,
+            "tool-replacement",
+            "parent-replacement",
+        ));
+    }
 }
 
 #[cfg(all(test, unix))]

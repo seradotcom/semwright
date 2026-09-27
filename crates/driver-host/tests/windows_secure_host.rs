@@ -76,6 +76,7 @@ fn manifest(executable: PathBuf) -> Manifest {
             artifacts: true,
             health: true,
             native_refs: false,
+            host_tools: false,
         },
     }
 }
@@ -142,6 +143,8 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
     harden_fixture(&owner_tool);
 
     let mut candidate = manifest(executable);
+    candidate.protocol = 4;
+    candidate.interfaces.host_tools = true;
     candidate.tools = vec![DriverToolMount {
         root: "fixture-tool-root".into(),
         name: "probe".into(),
@@ -199,9 +202,12 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         "sealed tool must execute without breaking out of AppContainer: {output}"
     );
     assert_eq!(
-        output["read_ok"], true,
-        "sealed tool must remain readable: {output}"
+        output["read_ok"], false,
+        "Host-mediated sealed tools must not expose a direct executable path to the driver: {output}"
     );
+    assert_eq!(output["execute_open_ok"], false);
+    assert_eq!(output["self_spawn_ok"], false);
+    assert_eq!(output["null_spawn_ok"], false);
     assert_eq!(output["write_ok"], false);
 
     Provider::shutdown(provider.as_ref())
@@ -223,6 +229,8 @@ async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
     harden_fixture(&owner_tool);
 
     let mut candidate = manifest(executable);
+    candidate.protocol = 4;
+    candidate.interfaces.host_tools = true;
     candidate.tools = vec![DriverToolMount {
         root: "fixture-tool-root".into(),
         name: "probe".into(),

@@ -30,8 +30,12 @@ provider ID. External metadata is treated as untrusted data by the Provider Runt
 
 Protocol v1 provides the baseline request/response lifecycle. Protocol v2 additionally
 negotiates interfaces for cooperative cancellation, child events, progress, artifacts,
-health and dynamic capability changes. Each interface remains fail-closed unless both the
-child and owner manifest negotiate the same value.
+health and dynamic capability changes. Protocol v3 adds request context plus provider-owned
+native-reference validation. Protocol v4 adds bounded Host-mediated execution of owner-pinned,
+digest-attested sealed tools without granting child-process authority to the driver itself.
+Each interface remains fail-closed unless both the child and owner manifest negotiate the same
+value; drivers may continue to negotiate an older protocol when they do not need newer
+interfaces.
 
 ## Manifest
 
@@ -171,8 +175,12 @@ Current semantic ports include:
 
 Protocol v1 intentionally rejects dynamic-capability changes, child events, progress,
 artifacts and cooperative cancellation. Protocol v2 transports those interfaces explicitly,
-including bounded event/progress frames and cancellation acknowledgements. Drivers that do not
-negotiate an interface remain fail-closed rather than advertising semantics the host cannot enforce.
+including bounded event/progress frames and cancellation acknowledgements. Protocol v3 carries
+bounded request context and native-reference validation. Protocol v4 adds Host-mediated sealed
+tools: the driver names an owner-pinned tool in an active Execute request, while the Host verifies
+the immutable staged bytes and launches a separate bounded sandbox child with no inherited
+filesystem, secret, loopback or network authority. Drivers that do not negotiate an interface
+remain fail-closed rather than advertising semantics the host cannot enforce.
 
 ## Developer workflow
 

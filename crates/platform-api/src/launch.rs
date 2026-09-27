@@ -374,10 +374,14 @@ pub trait SandboxChildControl: Send {
     fn id(&self) -> Option<u32>;
     async fn kill(&mut self) -> Result<()>;
     async fn wait(&mut self) -> Result<()>;
+    fn exit_code(&self) -> Option<i32> {
+        None
+    }
 }
 
 struct TokioSandboxChild {
     child: Child,
+    exit_code: Option<i32>,
 }
 
 #[async_trait]
@@ -391,7 +395,13 @@ impl SandboxChildControl for TokioSandboxChild {
     }
 
     async fn wait(&mut self) -> Result<()> {
-        self.child.wait().await.map(|_| ()).map_err(Into::into)
+        let status = self.child.wait().await?;
+        self.exit_code = status.code();
+        Ok(())
+    }
+
+    fn exit_code(&self) -> Option<i32> {
+        self.exit_code
     }
 }
 
@@ -457,7 +467,10 @@ impl SandboxProcess {
         Ok(Self {
             stdin: Some(stdin),
             stdout: Some(stdout),
-            control: Box::new(TokioSandboxChild { child }),
+            control: Box::new(TokioSandboxChild {
+                child,
+                exit_code: None,
+            }),
             cpu_accounting: None,
         })
     }
@@ -494,6 +507,11 @@ impl SandboxProcess {
 
     pub async fn wait(&mut self) -> Result<()> {
         self.control.wait().await
+    }
+
+    pub async fn wait_exit_code(&mut self) -> Result<Option<i32>> {
+        self.control.wait().await?;
+        Ok(self.control.exit_code())
     }
 }
 

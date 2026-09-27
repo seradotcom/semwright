@@ -6,7 +6,9 @@ That baseline remains the historical snapshot recorded in `SEMWRIGHT_SNAPSHOT.md
 During PR integration the branch incorporated already-merged shared work without changing the frozen implementation baseline. The final reconciliation before closeout is merge commit `f25bd3db67c488cf76419927e2aa5977df1abaca` with `origin/main` parent `f2f3ec470f95c2010df89a61d4835afe5c4926a1`. The only merge conflict was additive in `fuzz/Cargo.toml`: the resolution retains all six Motion Canvas fuzz targets and also keeps main's `godot_substrate_schema` target. This is an integration merge, not a moving-baseline change.
 
 The integrated Driver SDK keeps manifest version 1 and accepts Driver Protocol
-versions 1 through 3. Motion Canvas now requests protocol 3. The synchronous
+versions 1 through 4. Motion Canvas continues to request protocol 3 because it uses
+request context, progress, artifacts and cooperative cancellation but does not need
+Protocol v4 Host-mediated sealed tools. The synchronous
 `render.execute` capability maps the existing renderer/job registry onto one
 protocol-owned request lifecycle with cooperative cancellation, observed progress
 and validated artifact reporting. The legacy `render.start/status/cancel/result`

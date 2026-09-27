@@ -69,22 +69,18 @@ use windows::Win32::{
             ACCESS_ALLOWED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_ALLOWED_OBJECT_ACE_TYPE,
             ACCESS_DENIED_ACE_TYPE, ACCESS_DENIED_CALLBACK_ACE_TYPE,
             ACCESS_DENIED_CALLBACK_OBJECT_ACE_TYPE, ACCESS_DENIED_OBJECT_ACE_TYPE,
-            PROCESS_MITIGATION_CHILD_PROCESS_POLICY, SE_GROUP_ENABLED,
+            SE_GROUP_ENABLED,
         },
         Threading::{
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
-            GetProcessMitigationPolicy, INFINITE, InitializeProcThreadAttributeList,
+            GetExitCodeProcess, INFINITE, InitializeProcThreadAttributeList,
             LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-            PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-            PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION,
-            ProcessChildProcessPolicy, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
+            PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
             TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
         },
-        WindowsProgramming::{
-            PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
-            PROCESS_CREATION_CHILD_PROCESS_OVERRIDE,
-        },
+        WindowsProgramming::PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
     },
 };
 use windows::core::{BOOL, PCWSTR, PWSTR};
@@ -2072,36 +2068,6 @@ fn inherited_null() -> Result<NativeHandle> {
     Ok(NativeHandle(handle))
 }
 
-fn verify_child_process_creation_allowed(process: HANDLE) -> Result<()> {
-    let mut policy = PROCESS_MITIGATION_CHILD_PROCESS_POLICY::default();
-    // SAFETY: process is a live suspended child HANDLE and policy is a correctly-sized output.
-    unsafe {
-        GetProcessMitigationPolicy(
-            process,
-            ProcessChildProcessPolicy,
-            (&mut policy as *mut PROCESS_MITIGATION_CHILD_PROCESS_POLICY).cast(),
-            std::mem::size_of::<PROCESS_MITIGATION_CHILD_PROCESS_POLICY>(),
-        )
-    }
-    .map_err(|_| {
-        Error::new(
-            ErrorCode::SandboxDenied,
-            "Windows sealed-tool child-process mitigation policy could not be queried",
-        )
-    })?;
-    // SAFETY: Flags is the active union member for PROCESS_MITIGATION_CHILD_PROCESS_POLICY.
-    let flags = unsafe { policy.Anonymous.Flags };
-    if flags & 0x1 != 0 {
-        return Err(Error::new(
-            ErrorCode::SandboxDenied,
-            format!(
-                "Windows sealed-tool child-process policy remained restricted after override (flags={flags:#x})"
-            ),
-        ));
-    }
-    Ok(())
-}
-
 struct NativeSandboxChild {
     process: NativeHandle,
     _job: Arc<ProcessJob>,
@@ -2109,6 +2075,7 @@ struct NativeSandboxChild {
     mount_grants: Vec<WindowsMountGrant>,
     profile_name: Option<Vec<u16>>,
     exited: bool,
+    exit_code: Option<i32>,
 }
 
 impl NativeSandboxChild {
@@ -2128,10 +2095,24 @@ impl NativeSandboxChild {
         result
     }
 
+    fn capture_exit_code(&mut self) -> Result<()> {
+        let mut code = 0u32;
+        // SAFETY: process is a live owned process HANDLE and code is a writable DWORD.
+        unsafe { GetExitCodeProcess(self.process.raw(), &mut code) }.map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows sandbox exit code query failed",
+            )
+        })?;
+        self.exit_code = Some(i32::from_ne_bytes(code.to_ne_bytes()));
+        Ok(())
+    }
+
     fn observed_exit(&mut self) -> Result<bool> {
         // SAFETY: process is a live owned process HANDLE.
         let wait = unsafe { WaitForSingleObject(self.process.raw(), 0) };
         if wait == WAIT_OBJECT_0 {
+            self.capture_exit_code()?;
             self._job.terminate(0)?;
             self.exited = true;
             self.cleanup_authority()?;
@@ -2173,9 +2154,14 @@ impl SandboxChildControl for NativeSandboxChild {
                 "Windows sandbox wait returned an unexpected status",
             ));
         }
+        self.capture_exit_code()?;
         self._job.terminate(0)?;
         self.exited = true;
         self.cleanup_authority()
+    }
+
+    fn exit_code(&self) -> Option<i32> {
+        self.exit_code
     }
 }
 
@@ -2211,6 +2197,12 @@ impl SandboxLauncher for WindowsSandbox {
 
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
+        if !spec.sealed_tools.is_empty() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed tools require Host-mediated driver protocol v4 execution",
+            ));
+        }
         let profile = AppContainerProfile::create()?;
         let (mut mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
         let (tool_grants, tool_table) = prepare_windows_tools(spec, &profile)?;
@@ -2222,13 +2214,8 @@ impl SandboxLauncher for WindowsSandbox {
         let child_stderr = inherited_null()?;
 
         let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
-        let child_process_override = !spec.sealed_tools.is_empty();
-        let mut attributes = ProcAttributes::new(if child_process_override { 4 } else { 3 })?;
+        let mut attributes = ProcAttributes::new(3)?;
         attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
-        if child_process_override {
-            let child_policy = PROCESS_CREATION_CHILD_PROCESS_OVERRIDE;
-            attributes.set_value(PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, &child_policy)?;
-        }
         let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
         attributes.set_value(
             PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
@@ -2325,15 +2312,6 @@ impl SandboxLauncher for WindowsSandbox {
 
         let process = NativeHandle(process_info.hProcess);
         let thread = NativeHandle(process_info.hThread);
-        if child_process_override
-            && let Err(error) = verify_child_process_creation_allowed(process.raw())
-        {
-            // SAFETY: the child is still suspended and no untrusted instruction has run.
-            unsafe {
-                let _ = TerminateProcess(process.raw(), 1);
-            }
-            return Err(error);
-        }
         if let Err(error) = job.assign_suspended_process(process.raw()) {
             // SAFETY: child is still suspended and must not survive a failed containment step.
             unsafe {
@@ -2372,6 +2350,7 @@ impl SandboxLauncher for WindowsSandbox {
                 mount_grants,
                 profile_name: Some(profile_name),
                 exited: false,
+                exit_code: None,
             }),
             cpu_accounting,
         ))
@@ -2393,6 +2372,8 @@ impl SandboxLauncher for WindowsSandbox {
             "filesystem_mounts": "driver_appcontainer_sid_acl_v1",
             "plugin_mcp_mounts": "fail_closed_pending_portable_mount_lookup",
             "network": "internetClient_capability_only_when_requested",
+            "sealed_tools": "host_mediated_driver_protocol_v4_only",
+            "driver_child_process_creation": "denied",
             "resource_limits": ["processes", "cpu_seconds", "process_memory"],
         })
     }

@@ -63,6 +63,7 @@ fn manifest(executable: PathBuf) -> Manifest {
             artifacts: true,
             health: true,
             native_refs: false,
+            host_tools: false,
         },
     }
 }

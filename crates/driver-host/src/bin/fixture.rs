@@ -255,6 +255,7 @@ impl Driver for Fixture {
             artifacts: true,
             health: true,
             native_refs: false,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
         }
     }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
@@ -465,6 +466,67 @@ impl Driver for Fixture {
         args: Value,
         context: DriverExecutionContext,
     ) -> Result<Value> {
+        if command == "driver.fixture.tool_probe"
+            && std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some()
+        {
+            let capability = tool_capability();
+            if descriptor_digest(&capability.descriptor)? != pinned_digest {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Driver descriptor is not the pinned capability",
+                ));
+            }
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid("fixture tool probe accepts an empty object"));
+            }
+
+            let direct_path_visible = tool_path("probe").is_ok();
+            #[cfg(windows)]
+            let (self_spawn_ok, self_spawn_errno) = match std::env::current_exe() {
+                Ok(executable) => match std::process::Command::new(executable)
+                    .env("SEMWRIGHT_FIXTURE_SELF_PROBE", "1")
+                    .output()
+                {
+                    Ok(output) => (
+                        output.status.success() && output.stdout.starts_with(b"self-ok"),
+                        -1,
+                    ),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                },
+                Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+            };
+            #[cfg(not(windows))]
+            let (self_spawn_ok, self_spawn_errno) = (false, -1);
+
+            let output = context
+                .execute_tool(
+                    "probe",
+                    Vec::new(),
+                    Vec::new(),
+                    std::time::Duration::from_millis(1_500),
+                )
+                .await?;
+            let stdout = String::from_utf8(output.stdout).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "fixture Host-tool output was not UTF-8",
+                )
+            })?;
+            return Ok(json!({
+                "stdout":stdout,
+                "read_ok":direct_path_visible,
+                "execute_open_ok":false,
+                "self_spawn_ok":self_spawn_ok,
+                "self_spawn_errno":self_spawn_errno,
+                "null_spawn_ok":false,
+                "null_spawn_errno":-1,
+                "write_ok":false,
+                "spawn_error_kind":"",
+                "spawn_errno":-1,
+                "exit_code":output.exit_code
+            }));
+        }
+
         if command != "driver.fixture.long" {
             return self.execute(command, pinned_digest, args).await;
         }

@@ -4,7 +4,7 @@ These are transport/distribution or deliberate authority-boundary gaps; they do 
 
 ## Driver Protocol
 
-The current Blender manifest negotiates Driver Protocol v1. The SDK supports v3, but some Blender native calls execute synchronously on Blender's main thread. Advertising cooperative cancellation for an in-flight native call would be misleading until the owned Blender process can be safely interrupted or recycled with truthful outcome reporting.
+The current Blender manifest negotiates Driver Protocol v1. The SDK supports through v4, but some Blender native calls execute synchronously on Blender's main thread. Advertising cooperative cancellation for an in-flight native call would be misleading until the owned Blender process can be safely interrupted or recycled with truthful outcome reporting.
 
 A future transport pass may add v3 progress/artifact/cancellation semantics behind a supervised process-restart boundary. Do not advertise those interfaces before that behavior exists.
 
