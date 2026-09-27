@@ -1802,6 +1802,41 @@ fn snapshot_node_is_target_or_descendant(nodes: &Value, mut index: usize, target
     false
 }
 
+fn snapshot_node_is_ancestor_of_target(nodes: &Value, ancestor: usize, target: u64) -> bool {
+    let Some(backends) = nodes["backendNodeId"].as_array() else {
+        return false;
+    };
+    let Some(mut index) = backends
+        .iter()
+        .position(|value| value.as_u64() == Some(target))
+    else {
+        return false;
+    };
+    let parents = nodes["parentIndex"].as_array();
+    for _ in 0..512 {
+        if index == ancestor {
+            return true;
+        }
+        let Some(parent) = parents
+            .and_then(|values| values.get(index))
+            .and_then(Value::as_i64)
+        else {
+            return false;
+        };
+        if parent < 0 {
+            return false;
+        }
+        let Ok(next) = usize::try_from(parent) else {
+            return false;
+        };
+        if next == index || next >= backends.len() {
+            return false;
+        }
+        index = next;
+    }
+    false
+}
+
 fn snapshot_hit_matches_target(snapshot: &Value, x: f64, y: f64, target: u64) -> Result<bool> {
     let documents = snapshot["documents"].as_array().ok_or_else(|| {
         Error::new(
@@ -1867,7 +1902,8 @@ fn snapshot_hit_matches_target(snapshot: &Value, x: f64, y: f64, target: u64) ->
                 .and_then(Value::as_i64)
                 .unwrap_or(layout_index as i64);
             let matches =
-                snapshot_node_is_target_or_descendant(&document["nodes"], node_index, target);
+                snapshot_node_is_target_or_descendant(&document["nodes"], node_index, target)
+                    || snapshot_node_is_ancestor_of_target(&document["nodes"], node_index, target);
             let candidate = (paint, layout_index, matches);
             if best
                 .as_ref()
@@ -2845,7 +2881,9 @@ impl Backend for Chromium {
                 };
                 let result = async {
                     ctx.check_cancelled()?;
-                    cdp.invalidate_session(&session)?;
+                    if frame.is_none() {
+                        cdp.invalidate_session(&session)?;
+                    }
                     cdp.call(
                         "DOM.setFileInputFiles",
                         json!({"files":files,"backendNodeId":node}),
@@ -2911,7 +2949,9 @@ impl Backend for Chromium {
                 let (destination_x, destination_y) =
                     actionable_point(&cdp, &session, destination).await?;
                 ctx.check_cancelled()?;
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 cdp.call(
                     "Input.dispatchMouseEvent",
                     json!({"type":"mouseMoved","x":source_x,"y":source_y,"button":"none","buttons":0}),
@@ -2959,7 +2999,9 @@ impl Backend for Chromium {
                 self.validate_in(instance, &target).await?;
                 let (x, y) = actionable_point(&cdp, &session, node).await?;
                 ctx.check_cancelled()?;
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 cdp.call(
                     "Input.dispatchMouseEvent",
                     json!({"type":"mouseMoved","x":x,"y":y,"button":"none"}),
@@ -2979,7 +3021,9 @@ impl Backend for Chromium {
                 let reported_modifiers = args["modifiers"].as_array().cloned().unwrap_or_default();
                 focus_backend_node(&cdp, &session, node).await?;
                 ctx.check_cancelled()?;
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 dispatch_key(&cdp, &session, key, modifiers).await?;
                 Ok(json!({"accepted":true,"key":key,"modifiers":reported_modifiers}))
             }
@@ -3018,7 +3062,9 @@ impl Backend for Chromium {
                 self.validate_in(instance, &target).await?;
                 let (x, y) = actionable_point(&cdp, &session, node).await?;
                 ctx.check_cancelled()?;
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 for kind in ["mousePressed", "mouseReleased"] {
                     cdp.call(
                         "Input.dispatchMouseEvent",
@@ -3082,7 +3128,9 @@ impl Backend for Chromium {
                 let index = matches[0].0;
                 focus_backend_node(&cdp, &session, node).await?;
                 ctx.check_cancelled()?;
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 dispatch_key(&cdp, &session, "Home", 0).await?;
                 for _ in 0..index {
                     dispatch_key(&cdp, &session, "ArrowDown", 0).await?;
@@ -3111,7 +3159,9 @@ impl Backend for Chromium {
                 ctx.check_cancelled()?;
                 // A click may synchronously mutate or navigate before CDP emits its
                 // corresponding event. Conservatively retire all current DOM refs first.
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 for kind in ["mousePressed", "mouseReleased"] {
                     cdp.call(
                         "Input.dispatchMouseEvent",
@@ -3187,7 +3237,9 @@ impl Backend for Chromium {
                 ctx.check_cancelled()?;
                 // Input changes application-visible DOM state. Retire the discovery
                 // generation before dispatch instead of depending on event scheduling.
-                cdp.invalidate_session(&session)?;
+                if frame.is_none() {
+                    cdp.invalidate_session(&session)?;
+                }
                 for kind in ["keyDown", "keyUp"] {
                     cdp.call("Input.dispatchKeyEvent",json!({"type":kind,"modifiers":2,"key":"a","code":"KeyA","windowsVirtualKeyCode":65,"nativeVirtualKeyCode":65}),Some(&session)).await?;
                 }
@@ -3442,6 +3494,16 @@ mod tests {
         }]});
         assert!(snapshot_hit_matches_target(&descendant, 50.0, 50.0, 2).unwrap());
         assert!(!snapshot_hit_matches_target(&descendant, 150.0, 150.0, 2).unwrap());
+
+        let ancestor_same_paint = json!({"documents":[{
+            "nodes":{"backendNodeId":[1,2],"parentIndex":[-1,0]},
+            "layout":{
+                "nodeIndex":[1,0],
+                "bounds":[[10,10,80,80],[0,0,100,100]],
+                "paintOrders":[2,2]
+            }
+        }]});
+        assert!(snapshot_hit_matches_target(&ancestor_same_paint, 50.0, 50.0, 2).unwrap());
 
         let scrolled = json!({"documents":[{
             "scrollOffsetX":0,"scrollOffsetY":100,
