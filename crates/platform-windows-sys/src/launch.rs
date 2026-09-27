@@ -56,10 +56,10 @@ use windows::Win32::{
         BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_APPEND_DATA,
         FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
         FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-        FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES,
-        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES,
-        FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC,
-        WRITE_OWNER,
+        FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_LIST_DIRECTORY,
+        FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE,
+        FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
+        OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
     },
     System::{
         Com::CoTaskMemFree,
@@ -1115,6 +1115,48 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
     })
 }
 
+fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGrant> {
+    if !staging_root.is_absolute() {
+        return Err(Error::invalid(
+            "Windows sealed-tool staging root must be absolute",
+        ));
+    }
+    let (identity, is_directory) = validate_mount_tree(staging_root)?;
+    if !is_directory {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool staging root must be a directory",
+        ));
+    }
+    let materialized_path = staging_root
+        .to_str()
+        .ok_or_else(|| Error::invalid("Windows sealed-tool staging root must be Unicode"))?
+        .to_owned();
+    Ok(PreparedMountGrant {
+        path: wide_null(staging_root.as_os_str())?,
+        identity,
+        materialized: MaterializedMount {
+            class: MountClass::Workspace,
+            logical_name: "__sealed-tool-staging__".into(),
+            path: materialized_path,
+            read_only: true,
+        },
+        // The child needs path traversal to open a specifically granted tool, but must not
+        // gain directory listing or mutation authority over the private Driver staging root.
+        permissions: FILE_TRAVERSE.0,
+        denied_permissions: FILE_LIST_DIRECTORY.0
+            | FILE_WRITE_DATA.0
+            | FILE_APPEND_DATA.0
+            | FILE_WRITE_EA.0
+            | FILE_WRITE_ATTRIBUTES.0
+            | FILE_DELETE_CHILD.0
+            | DELETE.0
+            | WRITE_DAC.0
+            | WRITE_OWNER.0,
+        inheritance: NO_INHERITANCE,
+    })
+}
+
 struct WindowsMountGrant {
     path: Vec<u16>,
     sid: Vec<u8>,
@@ -1287,6 +1329,7 @@ fn prepare_windows_tools(
             "Windows Driver staging root is unavailable",
         )
     })?;
+    let staging_traverse = prepare_tool_staging_traverse(staging_root)?;
     let mut identities = BTreeSet::new();
     let mut prepared = Vec::with_capacity(spec.sealed_tools.len());
     let mut materialized = Vec::with_capacity(spec.sealed_tools.len());
@@ -1328,7 +1371,8 @@ fn prepare_windows_tools(
     }
 
     let encoded = encode_materialized_tools(&materialized)?;
-    let mut grants = Vec::with_capacity(prepared.len());
+    let mut grants = Vec::with_capacity(prepared.len() + 1);
+    grants.push(WindowsMountGrant::grant(&staging_traverse, profile.sid)?);
     for plan in &prepared {
         match WindowsMountGrant::grant(plan, profile.sid) {
             Ok(grant) => grants.push(grant),
