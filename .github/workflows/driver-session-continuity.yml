@@ -204,7 +204,10 @@ jobs:
           libreoffice = Path("crates/driver-libreoffice/src/main.rs").read_text()
           assert "serve(driver).await" in libreoffice
           assert "timeout(deadline, child.wait_with_output())" in libreoffice
-          assert "Command::new(SOFFICE)" in libreoffice
+          assert "Command::new(SYSTEM_SHELL)" in libreoffice
+          assert ".arg(SOFFICE)" in libreoffice
+          assert ".kill_on_drop(true)" in libreoffice
+          assert "for _ in 0..120" in libreoffice
           print("crates/driver-libreoffice: Driver SDK stdio + bounded local UNO process")
           PY
       - name: Type and unit regression
