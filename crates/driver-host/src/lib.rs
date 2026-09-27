@@ -842,6 +842,7 @@ pub struct DriverProvider {
     terminate: CancellationToken,
     process_id: u32,
     cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
+    operation_cpu_gate: Mutex<()>,
     _staged: Arc<StagedFile>,
     #[cfg(unix)]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
@@ -1070,6 +1071,7 @@ impl DriverProvider {
                 terminate,
                 process_id,
                 cpu_accounting,
+                operation_cpu_gate: Mutex::new(()),
                 _staged: staged,
             }))
         }
@@ -1308,6 +1310,7 @@ impl DriverProvider {
                 terminate,
                 process_id,
                 cpu_accounting,
+                operation_cpu_gate: Mutex::new(()),
                 _staged: staged,
                 _loopback: loopback,
                 _tools: sealed_tools,
@@ -1523,6 +1526,22 @@ impl Provider for DriverProvider {
                 "Pinned driver capability descriptor changed",
             ));
         }
+        // CPU accounting is process-boundary-wide (Job Object on Windows and
+        // process-tree accounting on Linux), not request-tagged. Serialize only Drivers that
+        // opt into a per-operation budget so concurrent requests cannot charge each other.
+        let _operation_cpu_guard = if self.manifest.resources.operation_cpu_seconds != 0 {
+            Some(tokio::select! {
+                guard = self.operation_cpu_gate.lock() => guard,
+                _ = context.cancellation.cancelled() => {
+                    return Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "Driver execution cancelled while waiting for its CPU-budget turn",
+                    ));
+                }
+            })
+        } else {
+            None
+        };
         let id = if context.request_id.is_empty() {
             unique_id()
         } else {
