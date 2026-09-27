@@ -157,6 +157,19 @@ pub fn state_directory(fake: bool, runtime: &Path) -> Result<PathBuf> {
     private_directory(&directory)?;
     Ok(directory)
 }
+/// Grants exposed to generic filesystem consumers must be directory-backed.
+pub fn directory_filesystem_grants(
+    config: &Config,
+) -> Result<Vec<semwright_policy::FilesystemGrant>> {
+    let mut grants = Vec::new();
+    for grant in &config.policy.filesystem {
+        if std::fs::metadata(&grant.path)?.is_dir() {
+            grants.push(grant.clone());
+        }
+    }
+    Ok(grants)
+}
+
 pub fn confine_grants(config: &Config, protected: &[PathBuf]) -> Result<()> {
     for grant in &config.policy.filesystem {
         let root = std::fs::canonicalize(&grant.path)?;
@@ -249,6 +262,36 @@ trust_driver_everything = true
             .is_err()
         );
     }
+    #[test]
+    fn driver_file_grants_are_not_exposed_as_directory_filesystem_roots() {
+        let d = tempfile::tempdir().unwrap();
+        let workspace = d.path().join("workspace");
+        std::fs::create_dir(&workspace).unwrap();
+        let secret = d.path().join("pairing");
+        let tool = d.path().join("godot");
+        std::fs::write(&secret, b"secret").unwrap();
+        std::fs::write(&tool, b"tool").unwrap();
+
+        let mut c = Config::default();
+        for (name, path, write) in [
+            ("workspace", workspace, true),
+            ("godot-pairing", secret, false),
+            ("godot-runtime", tool, false),
+        ] {
+            c.policy.filesystem.push(semwright_policy::FilesystemGrant {
+                name: name.into(),
+                path: std::fs::canonicalize(path).unwrap(),
+                read: true,
+                write,
+            });
+        }
+
+        let grants = directory_filesystem_grants(&c).unwrap();
+        assert_eq!(grants.len(), 1);
+        assert_eq!(grants[0].name, "workspace");
+        assert!(grants[0].path.is_dir());
+    }
+
     #[test]
     fn root_scope_must_not_contain_broker_state() {
         let d = tempfile::tempdir().unwrap();
