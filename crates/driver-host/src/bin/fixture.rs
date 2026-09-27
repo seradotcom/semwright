@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
     Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, serve,
-    workspace_mount,
+    system_config_mount, workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -71,6 +71,39 @@ fn mount_capability() -> Capability {
             backends: vec!["driver:fixture".into()],
         },
         aliases: vec!["mount_probe".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "filesystem".into()],
+        object_types: vec![],
+    }
+}
+
+fn config_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.config_probe".into(),
+            version: "1".into(),
+            description: "Read owner-granted system configuration and probe write authority".into(),
+            input_schema: json!({
+                "type":"object",
+                "additionalProperties":false
+            }),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "read":{"type":"string"},
+                    "write_ok":{"type":"boolean"}
+                },
+                "required":["read","write_ok"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::MutatingReversible,
+            idempotency: Idempotency::Idempotent,
+            timeout_ms: 2_000,
+            dry_run: false,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["config_probe".into()],
         tags: vec!["fixture".into(), "conformance".into(), "filesystem".into()],
         object_types: vec![],
     }
@@ -154,6 +187,7 @@ impl Driver for Fixture {
         Ok(vec![
             capability(),
             mount_capability(),
+            config_capability(),
             long_capability(),
             disconnect_capability(),
         ])
@@ -162,6 +196,7 @@ impl Driver for Fixture {
         let capability = match command {
             "driver.fixture.ping" => capability(),
             "driver.fixture.mount_probe" => mount_capability(),
+            "driver.fixture.config_probe" => config_capability(),
             "driver.fixture.disconnect" => disconnect_capability(),
             _ => {
                 return Err(Error::new(
@@ -184,6 +219,17 @@ impl Driver for Fixture {
             }
             let root = workspace_mount("fixture-data")?;
             let read = std::fs::read_to_string(root.join("input.txt"))?;
+            let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
+            return Ok(json!({"read":read,"write_ok":write_ok}));
+        }
+        if command == "driver.fixture.config_probe" {
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid(
+                    "fixture config probe accepts an empty object",
+                ));
+            }
+            let root = system_config_mount("fixture-config")?;
+            let read = std::fs::read_to_string(root.join("config.txt"))?;
             let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
             return Ok(json!({"read":read,"write_ok":write_ok}));
         }
