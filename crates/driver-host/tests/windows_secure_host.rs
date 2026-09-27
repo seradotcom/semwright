@@ -3,7 +3,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverSecretMount, Manifest,
+    Transport,
 };
 use semwright_policy::FilesystemGrant;
 use sha2::{Digest, Sha256};
@@ -138,6 +139,19 @@ fn grant_all_application_packages_modify(path: &Path) {
     );
 }
 
+fn grant_all_application_packages_file_modify(path: &Path) {
+    let status = std::process::Command::new("icacls")
+        .arg(path)
+        .arg("/grant")
+        .arg("*S-1-15-2-1:(M)")
+        .status()
+        .expect("grant ALL APPLICATION PACKAGES file modify");
+    assert!(
+        status.success(),
+        "broad application-package secret mutation grant must succeed"
+    );
+}
+
 async fn execute_mount_probe(
     read_only: bool,
     owner_write: bool,
@@ -221,6 +235,106 @@ async fn secure_windows_driver_workspace_read_write_is_enforced() {
         std::fs::read(workspace.path().join("child.txt")).expect("read driver-created file"),
         b"written"
     );
+}
+
+async fn execute_secret_probe(secret: &Path) -> serde_json::Value {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let mut manifest = manifest(executable);
+    manifest.secrets = vec![DriverSecretMount {
+        root: "fixture-secret-root".into(),
+        name: "fixture-secret".into(),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-secret-root".into(),
+        path: secret.to_path_buf(),
+        read: true,
+        write: false,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(manifest, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows Driver Host secret mount");
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.secret_probe")
+        .expect("fixture secret capability")
+        .descriptor
+        .clone();
+    let output = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "windows-secret-mount".into(),
+            request_id: "windows-secret-read-only".into(),
+            cancellation: CancellationToken::new(),
+        },
+        &probe,
+        &serde_json::json!({}),
+    )
+    .await
+    .expect("secret probe through LPAC");
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("secret Driver Host shutdown");
+    output
+}
+
+#[tokio::test]
+async fn secure_windows_driver_secret_is_private_and_read_only() {
+    let directory = tempfile::tempdir().expect("secret directory");
+    let secret = directory.path().join("secret.txt");
+    std::fs::write(&secret, b"sensitive-secret").expect("write secret");
+    harden_fixture(&secret);
+
+    let output = execute_secret_probe(&secret).await;
+    assert_eq!(output["read"], "sensitive-secret");
+    assert_eq!(output["write_ok"], false);
+    assert_eq!(
+        std::fs::read(&secret).expect("read unchanged secret"),
+        b"sensitive-secret"
+    );
+}
+
+#[tokio::test]
+async fn secure_windows_driver_rejects_mutable_secret_source_before_spawn() {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let directory = tempfile::tempdir().expect("secret directory");
+    let secret = directory.path().join("secret.txt");
+    std::fs::write(&secret, b"sensitive-secret").expect("write secret");
+    harden_fixture(&secret);
+    grant_all_application_packages_file_modify(&secret);
+
+    let mut candidate = manifest(executable);
+    candidate.secrets = vec![DriverSecretMount {
+        root: "fixture-secret-root".into(),
+        name: "fixture-secret".into(),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-secret-root".into(),
+        path: secret,
+        read: true,
+        write: false,
+    }];
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let error = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect_err("mutable secret source must be rejected before spawn");
+    assert_eq!(error.code, semwright_types::ErrorCode::PermissionDenied);
 }
 
 #[tokio::test]
