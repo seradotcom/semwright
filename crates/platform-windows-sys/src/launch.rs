@@ -11,7 +11,7 @@ use std::{
     collections::BTreeSet,
     ffi::OsStr,
     fs::File,
-    io::Read,
+    io::{Read, Write},
     os::windows::{
         ffi::OsStrExt,
         fs::OpenOptionsExt,
