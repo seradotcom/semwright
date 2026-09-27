@@ -47,8 +47,10 @@ secret into an unbounded permanent password.
 
 Figma uses an authenticated localhost WebSocket. After a successful manual pairing the driver
 issues a separate, opaque resume credential. The plugin stores only that credential in
-Figma `clientStorage`, scoped to the current document. Each resume uses a fresh nonce/HMAC,
-consumes the previous credential and receives a replacement. Manual Disconnect revokes the
+Figma `clientStorage`, scoped to the current document. Each resume uses a fresh nonce/HMAC and a
+new generation while refreshing the credential's bounded server-side TTL. Keeping the same opaque
+credential until explicit revocation avoids a failure window where the application could restart
+after authentication but before persisting a rotated replacement. Manual Disconnect revokes the
 current credential. A driver restart clears the server-side credential table, so the stored
 credential fails closed and the user must pair again.
 
