@@ -126,7 +126,7 @@ run() {
   "$CTL" --socket "$SOCKET" --session-file "$SESSION" --json "$@"
 }
 
-search=$(run capabilities search "" --provider driver:blender --limit 100)
+search=$(run capabilities search "" --provider driver:blender --limit 256)
 status=$(run execute driver.blender.status)
 summary=$(run execute driver.blender.introspect.summary)
 operators=$(run execute driver.blender.introspect.operators --args-json '{"query":"primitive_cube_add","limit":32}')
