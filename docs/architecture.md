@@ -2,6 +2,21 @@
 
 Semwright keeps its public capability model independent of the operating-system mechanism that fulfils a request. CLI, MCP, recipes and the inspector converge on the same broker; choosing a frontend never creates a more privileged execution path.
 
+Agent Skills sit above the client/gateway boundary as untrusted procedural knowledge. They are not part of the trusted Broker execution core and do not introduce a second provider/source kind:
+
+```text
+Agent Skill -> agent reasoning -> Semwright MCP / CLI
+                                  |
+                                  v
+                                Broker
+                           schema / policy / audit
+                                  |
+                                  v
+                       capabilities / recipes / providers
+```
+
+Repeated successful Skill-guided executions may be recorded by Workflow Distillation, compiled into a deterministic Recipe, verified, replayed and promoted as a normal Recipe capability. The Skill itself is never parsed into an executable workflow. See [Agent Skills](skills.md).
+
 ```text
 semwright / semwright-mcp / semwright-inspect
                 │ bounded local IPC; session identity

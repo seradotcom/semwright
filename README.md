@@ -66,6 +66,21 @@ reference above literally. A discovery result with two matching buttons remains 
 candidates. The broker does not choose one and click it. Invocation requires a current
 explicit reference and an action the target advertises.
 
+## Agent Skills
+
+Semwright interoperates with the open Agent Skills package shape without turning Skill prose into execution authority. Skills teach an agent when and how to combine Semwright capabilities; the Broker remains the single schema/policy/provenance/audit boundary.
+
+```sh
+semwright skill validate ./skills/semwright-core
+semwright skill inspect ./skills/semwright-core
+semwright skill doctor ./skills/semwright-cross-app-artifacts
+semwright skill test ./skills/semwright-workflow-distillation
+semwright skill lock ./my-skill
+semwright skill bundle ./my-skill ./my-skill.zip
+```
+
+A standard Skill without `.semwright/` metadata remains valid. Optional requirements/locks support deterministic compatibility and descriptor-drift checks but never grant permissions. Semwright never auto-executes a Skill's `scripts/`. Repeated successful Skill-guided execution can instead be distilled through the existing Workflow Distillation path into a verified `recipe.<slug>.run` capability. See [Agent Skills](docs/skills.md).
+
 ## Why not screenshot-first?
 
 Semantic interfaces expose identity, roles, names, actions and state. Semwright starts

@@ -34,6 +34,7 @@ libc.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
 semwright-backends.workspace = true
+semwright-skills.workspace = true
 
 [[bench]]
 name = "core"

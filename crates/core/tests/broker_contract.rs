@@ -1175,6 +1175,87 @@ async fn learned_workflow_infers_input_verifies_replays_promotes_and_executes() 
 }
 
 #[tokio::test]
+async fn official_skill_guided_workflow_distills_into_recipe_capability() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../skills/semwright-workflow-distillation");
+    let skill = semwright_skills::load(&root).expect("official workflow Skill validates");
+    let required = skill
+        .requirements
+        .as_ref()
+        .expect("official Skill declares objective requirements")
+        .semwright
+        .capabilities
+        .iter()
+        .filter_map(|requirement| requirement.id.as_deref())
+        .collect::<std::collections::BTreeSet<_>>();
+    for id in [
+        "workflow.record.start",
+        "workflow.record.stop",
+        "workflow.compile",
+        "workflow.verify",
+        "workflow.replay",
+        "workflow.promote",
+    ] {
+        assert!(required.contains(id), "Skill requirement missing {id}");
+    }
+
+    let fixture = workflow_fixture();
+    let first = record_clipboard_trace(&fixture, "skill-alpha").await;
+    let second = record_clipboard_trace(&fixture, "skill-beta").await;
+    let compiled = fixture
+        .call(
+            "workflow.compile",
+            json!({
+                "trace_ids":[first,second],
+                "name":"skill-guided-clipboard",
+                "description":"Deterministic fixture representing successful Skill-guided execution."
+            }),
+        )
+        .await;
+    assert!(compiled.ok, "{compiled:?}");
+    let candidate_id = compiled.data.unwrap()["candidate"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    assert!(
+        fixture
+            .call("workflow.verify", json!({"candidate_id":candidate_id}))
+            .await
+            .ok
+    );
+    assert!(
+        fixture
+            .call(
+                "workflow.replay",
+                json!({"candidate_id":candidate_id,"inputs":{"step1_text":"skill-gamma"}}),
+            )
+            .await
+            .ok
+    );
+    let promoted = fixture
+        .call(
+            "workflow.promote",
+            json!({"candidate_id":candidate_id,"slug":"skill-guided-clipboard"}),
+        )
+        .await;
+    assert!(promoted.ok, "{promoted:?}");
+    assert_eq!(
+        promoted.data.unwrap()["capability"]["name"],
+        "recipe.skill-guided-clipboard.run"
+    );
+
+    let described = fixture
+        .call(
+            "capabilities.describe",
+            json!({"name":"recipe.skill-guided-clipboard.run"}),
+        )
+        .await;
+    assert!(described.ok, "{described:?}");
+    assert_eq!(described.data.unwrap()["provenance"]["source"], "recipe");
+}
+
+#[tokio::test]
 async fn repeated_workflows_surface_suggestions_compile_and_resurface_after_new_evidence() {
     let fixture = workflow_fixture();
     record_clipboard_trace(&fixture, "alpha").await;

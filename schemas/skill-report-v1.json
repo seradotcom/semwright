@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://semwright.dev/schemas/skill-report-v1.json",
+  "title": "Semwright Skill conformance report v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "skill", "standard_valid", "warnings"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "skill": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "standard_valid": { "type": "boolean" },
+    "semwright_compatible": { "type": ["boolean", "null"] },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "result": {
+      "enum": ["valid", "ready", "degraded", "incompatible", "invalid"]
+    }
+  }
+}
