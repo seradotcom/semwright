@@ -190,6 +190,45 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         .expect("sealed tool Driver Host shutdown");
 }
 
+#[tokio::test]
+async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let owner_tool = binary_dir.path().join("owner-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &owner_tool).expect("copy tool fixture");
+    harden_fixture(&executable);
+    harden_fixture(&owner_tool);
+
+    let mut candidate = manifest(executable);
+    candidate.tools = vec![DriverToolMount {
+        root: "fixture-tool-root".into(),
+        name: "probe".into(),
+        sha256: "0".repeat(64),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-tool-root".into(),
+        path: owner_tool,
+        read: true,
+        write: false,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let error = match DriverProvider::connect(candidate, state.path(), &helper, &roots, false).await
+    {
+        Ok(provider) => {
+            let _ = Provider::shutdown(provider.as_ref()).await;
+            panic!("sealed tool digest mismatch must fail before child launch");
+        }
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::PermissionDenied);
+}
+
 fn grant_all_application_packages_modify(path: &Path) {
     // S-1-15-2-1 is ALL APPLICATION PACKAGES. Granting Modify here creates the
     // adversarial broad-group allow that the per-AppContainer deny ACE must override.
