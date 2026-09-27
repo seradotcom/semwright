@@ -1056,7 +1056,7 @@ fn spawn_v2_reader(
                             },
                         };
                         let mut input = input.lock().await;
-                        if write_frame(&mut **input, &request).await.is_err() {
+                        if write_frame(&mut *input, &request).await.is_err() {
                             terminate_call.cancel();
                             closed_call.cancel();
                         }
