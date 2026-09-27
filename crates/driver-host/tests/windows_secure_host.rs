@@ -123,9 +123,25 @@ async fn secure_windows_driver_host_roundtrips_protocol_v2() {
         .expect("secure Windows Driver Host shutdown");
 }
 
+fn grant_all_application_packages_modify(path: &Path) {
+    // S-1-15-2-1 is ALL APPLICATION PACKAGES. Granting Modify here creates the
+    // adversarial broad-group allow that the per-AppContainer deny ACE must override.
+    let status = std::process::Command::new("icacls")
+        .arg(path)
+        .arg("/grant")
+        .arg("*S-1-15-2-1:(OI)(CI)(M)")
+        .status()
+        .expect("grant ALL APPLICATION PACKAGES modify");
+    assert!(
+        status.success(),
+        "broad application-package workspace grant must succeed"
+    );
+}
+
 async fn execute_mount_probe(
     read_only: bool,
     owner_write: bool,
+    broad_app_write: bool,
 ) -> (serde_json::Value, tempfile::TempDir) {
     let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
     let binary_dir = tempfile::tempdir().expect("fixture directory");
@@ -136,6 +152,9 @@ async fn execute_mount_probe(
     let workspace = tempfile::tempdir().expect("workspace grant");
     std::fs::write(workspace.path().join("input.txt"), b"mounted-data")
         .expect("write workspace fixture");
+    if broad_app_write {
+        grant_all_application_packages_modify(workspace.path());
+    }
 
     let mut manifest = manifest(executable);
     manifest.mounts = vec![DriverMount {
@@ -187,7 +206,7 @@ async fn execute_mount_probe(
 
 #[tokio::test]
 async fn secure_windows_driver_workspace_read_only_is_enforced() {
-    let (output, workspace) = execute_mount_probe(true, false).await;
+    let (output, workspace) = execute_mount_probe(true, false, true).await;
     assert_eq!(output["read"], "mounted-data");
     assert_eq!(output["write_ok"], false);
     assert!(!workspace.path().join("child.txt").exists());
@@ -195,7 +214,7 @@ async fn secure_windows_driver_workspace_read_only_is_enforced() {
 
 #[tokio::test]
 async fn secure_windows_driver_workspace_read_write_is_enforced() {
-    let (output, workspace) = execute_mount_probe(false, true).await;
+    let (output, workspace) = execute_mount_probe(false, true, false).await;
     assert_eq!(output["read"], "mounted-data");
     assert_eq!(output["write_ok"], true);
     assert_eq!(

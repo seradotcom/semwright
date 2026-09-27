@@ -28,11 +28,13 @@ use windows::Win32::{
         TRUST_E_NOSIGNATURE, WAIT_OBJECT_0,
     },
     Security::{
-        ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
+        ACCESS_ALLOWED_ACE, ACCESS_DENIED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION,
+        AclSizeInformation,
         Authorization::{
-            ConvertSidToStringSidW, EXPLICIT_ACCESS_W, GRANT_ACCESS, GetNamedSecurityInfoW,
-            GetSecurityInfo, NO_MULTIPLE_TRUSTEE, REVOKE_ACCESS, SE_FILE_OBJECT, SetEntriesInAclW,
-            SetNamedSecurityInfoW, TRUSTEE_IS_SID, TRUSTEE_IS_USER, TRUSTEE_W,
+            ConvertSidToStringSidW, DENY_ACCESS, EXPLICIT_ACCESS_W, GRANT_ACCESS,
+            GetNamedSecurityInfoW, GetSecurityInfo, NO_MULTIPLE_TRUSTEE, REVOKE_ACCESS,
+            SE_FILE_OBJECT, SetEntriesInAclW, SetNamedSecurityInfoW, TRUSTEE_IS_SID,
+            TRUSTEE_IS_USER, TRUSTEE_W,
         },
         CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
         GetAclInformation, GetLengthSid,
@@ -824,6 +826,83 @@ fn dacl_has_grant(
     Ok(false)
 }
 
+fn dacl_has_deny(
+    path: &[u16],
+    sid: PSID,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<bool> {
+    let (dacl, _descriptor) = named_dacl(path)?;
+    let mut acl_info = ACL_SIZE_INFORMATION::default();
+    // SAFETY: dacl belongs to the live descriptor guard and acl_info is a sized output buffer.
+    unsafe {
+        GetAclInformation(
+            dacl,
+            (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
+            std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+            AclSizeInformation,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox mount DACL is invalid",
+        )
+    })?;
+    if acl_info.AceCount > 4_096 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows sandbox mount DACL exceeds verification budget",
+        ));
+    }
+    let inheritance_mask = SUB_CONTAINERS_AND_OBJECTS_INHERIT.0;
+    for index in 0..acl_info.AceCount {
+        let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
+        // SAFETY: index is bounded by AceCount and raw is a writable ACE out-pointer.
+        unsafe { GetAce(dacl, index, &mut raw) }.map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount DACL entry could not be inspected",
+            )
+        })?;
+        if raw.is_null() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount DACL contains a null ACE",
+            ));
+        }
+        // SAFETY: GetAce returned storage owned by the live DACL/security descriptor.
+        let header = unsafe { &*(raw.cast::<ACE_HEADER>()) };
+        if header.AceType as u32 != ACCESS_DENIED_ACE_TYPE
+            || usize::from(header.AceSize) < std::mem::size_of::<ACCESS_DENIED_ACE>()
+        {
+            continue;
+        }
+        // SAFETY: a simple access-denied ACE is at least ACCESS_DENIED_ACE bytes.
+        let ace = unsafe { &*(raw.cast::<ACCESS_DENIED_ACE>()) };
+        let ace_sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
+        // SAFETY: both SIDs are live for this comparison.
+        if unsafe { EqualSid(ace_sid, sid).is_ok() }
+            && ace.Mask & permissions == permissions
+            && u32::from(header.AceFlags) & inheritance_mask == inheritance.0
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn revoke_mount_sid(path: &[u16], sid: PSID) -> Result<()> {
+    set_mount_ace(path, sid, REVOKE_ACCESS, 0, NO_INHERITANCE)?;
+    if dacl_has_sid(path, sid)? {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox mount SID revocation could not be proven",
+        ));
+    }
+    Ok(())
+}
+
 fn set_mount_ace(
     path: &[u16],
     sid: PSID,
@@ -874,45 +953,6 @@ fn set_mount_ace(
         ));
     }
     Ok(())
-}
-
-fn apply_mount_ace(
-    path: &[u16],
-    sid: PSID,
-    access_mode: windows::Win32::Security::Authorization::ACCESS_MODE,
-    permissions: u32,
-    inheritance: windows::Win32::Security::ACE_FLAGS,
-    expected_present: bool,
-) -> Result<()> {
-    set_mount_ace(path, sid, access_mode, permissions, inheritance)?;
-
-    let verified = if expected_present {
-        dacl_has_grant(path, sid, permissions, inheritance)
-    } else {
-        dacl_has_sid(path, sid).map(|present| !present)
-    };
-    if matches!(verified, Ok(true)) {
-        return Ok(());
-    }
-
-    if expected_present {
-        // A unique AppContainer SID must not survive a failed grant verification. Revoke it
-        // immediately and prove absence before propagating the original verification failure.
-        let rollback = set_mount_ace(path, sid, REVOKE_ACCESS, 0, NO_INHERITANCE)
-            .and_then(|_| dacl_has_sid(path, sid))
-            .map(|present| !present);
-        if !matches!(rollback, Ok(true)) {
-            return Err(Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows sandbox mount grant verification failed and rollback could not be proven",
-            ));
-        }
-    }
-
-    Err(Error::new(
-        ErrorCode::SandboxDenied,
-        "Windows sandbox mount ACE verification failed",
-    ))
 }
 
 const WINDOWS_MOUNT_MAX_ENTRIES: usize = 50_000;
@@ -1000,6 +1040,7 @@ struct PreparedMountGrant {
     identity: FileIdentity,
     materialized: MaterializedMount,
     permissions: u32,
+    denied_permissions: u32,
     inheritance: windows::Win32::Security::ACE_FLAGS,
 }
 
@@ -1034,11 +1075,22 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
     if mount.execute {
         permissions |= FILE_GENERIC_EXECUTE.0;
     }
+    let mut denied_permissions = WRITE_DAC.0 | WRITE_OWNER.0;
     if !mount.read_only {
         permissions |= FILE_GENERIC_WRITE.0;
         if is_directory {
             permissions |= FILE_DELETE_CHILD.0;
         }
+    } else {
+        // A specific deny for the unique AppContainer SID prevents broad group ACEs
+        // (for example an application-package group) from accidentally upgrading a
+        // read-only grant into mutation authority.
+        denied_permissions |= FILE_WRITE_DATA.0
+            | FILE_APPEND_DATA.0
+            | FILE_WRITE_EA.0
+            | FILE_WRITE_ATTRIBUTES.0
+            | FILE_DELETE_CHILD.0
+            | DELETE.0;
     }
     Ok(PreparedMountGrant {
         path: wide_null(mount.source.as_os_str())?,
@@ -1050,6 +1102,7 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
             read_only: mount.read_only,
         },
         permissions,
+        denied_permissions,
         inheritance: if is_directory {
             SUB_CONTAINERS_AND_OBJECTS_INHERIT
         } else {
@@ -1074,14 +1127,59 @@ impl WindowsMountGrant {
                 "Fresh Windows AppContainer SID unexpectedly already has mount authority",
             ));
         }
-        apply_mount_ace(
+        // Deny mutation rights for this exact AppContainer SID before granting the
+        // requested authority. This keeps a broad allow ACE on a package/group from
+        // silently widening a read-only mount. SetEntriesInAcl canonicalizes deny ACEs
+        // ahead of allow ACEs in the DACL.
+        if let Err(error) = set_mount_ace(
             &prepared.path,
-            PSID(sid_bytes.as_ptr().cast_mut().cast()),
+            owned_sid,
+            DENY_ACCESS,
+            prepared.denied_permissions,
+            prepared.inheritance,
+        ) {
+            let _ = revoke_mount_sid(&prepared.path, owned_sid);
+            return Err(error);
+        }
+        if !dacl_has_deny(
+            &prepared.path,
+            owned_sid,
+            prepared.denied_permissions,
+            prepared.inheritance,
+        )? {
+            revoke_mount_sid(&prepared.path, owned_sid)?;
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount deny ACE verification failed",
+            ));
+        }
+        if let Err(error) = set_mount_ace(
+            &prepared.path,
+            owned_sid,
             GRANT_ACCESS,
             prepared.permissions,
             prepared.inheritance,
-            true,
-        )?;
+        ) {
+            let _ = revoke_mount_sid(&prepared.path, owned_sid);
+            return Err(error);
+        }
+        if !dacl_has_grant(
+            &prepared.path,
+            owned_sid,
+            prepared.permissions,
+            prepared.inheritance,
+        )? || !dacl_has_deny(
+            &prepared.path,
+            owned_sid,
+            prepared.denied_permissions,
+            prepared.inheritance,
+        )? {
+            revoke_mount_sid(&prepared.path, owned_sid)?;
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox mount allow/deny ACE verification failed",
+            ));
+        }
         Ok(Self {
             path: prepared.path.clone(),
             sid: sid_bytes,
@@ -1093,14 +1191,7 @@ impl WindowsMountGrant {
         if !self.active {
             return Ok(());
         }
-        apply_mount_ace(
-            &self.path,
-            PSID(self.sid.as_ptr().cast_mut().cast()),
-            REVOKE_ACCESS,
-            0,
-            NO_INHERITANCE,
-            false,
-        )?;
+        revoke_mount_sid(&self.path, PSID(self.sid.as_ptr().cast_mut().cast()))?;
         self.active = false;
         Ok(())
     }
