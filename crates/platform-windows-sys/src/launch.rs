@@ -434,7 +434,16 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
         ));
     }
 
-    let (validated_identity, is_directory) = validate_mount_tree(path)?;
+    let (validated_identity, is_directory) = match validate_mount_tree(path) {
+        Ok(validated) => validated,
+        Err(error) if error.code == ErrorCode::PolicyDenied => {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Unsafe Windows private data source path, type or link count",
+            ));
+        }
+        Err(error) => return Err(error),
+    };
     if is_directory {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
