@@ -552,7 +552,6 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     assert_eq!(unkeyed["changed"], true);
-    authored_object_ref = unkeyed["ref"].as_str().unwrap().to_owned();
 
     // Exercise Blender 4.5's layered/slotted Action API without relying on
     // legacy Action.fcurves.
