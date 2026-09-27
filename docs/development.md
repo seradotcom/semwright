@@ -1,20 +1,20 @@
 # Developer setup and verification discipline
 
 Read [VERIFY.md](../VERIFY.md), [RELEASE_BLOCKERS.md](../RELEASE_BLOCKERS.md) and
-[ACCEPTANCE.md](../ACCEPTANCE.md) before changing status labels. The existing source should
-be repaired, not replaced with another architecture or a second execution engine.
+[ACCEPTANCE.md](../ACCEPTANCE.md) before changing status labels. Existing architecture and
+execution boundaries should be repaired and extended rather than replaced with parallel engines.
 
-An installed current stable Rust toolchain with rustfmt/clippy is needed. This handoff
-uses a floating `stable` channel because no compiler ran; select and record a tested exact
-version once dependency resolution succeeds. Generate Cargo.lock, review it, then use
-`--locked`. Do not invent a lockfile or infer its versions from documentation pages.
+Use the Rust toolchain and components declared by the repository, including rustfmt and Clippy.
+Keep dependency resolution reproducible with the committed lockfile and use `--locked` in
+verification workflows. Do not invent dependency versions or infer lockfile contents from external
+documentation.
 
-Suggested sequence: generate/review lock → cargo fmt → check → unit tests → fake broker
-integration → CLI/MCP/cancellation → Clippy/docs → security checks → live backends in a
-throwaway desktop account. Keep source-level tests that fail and fix their causes. A
-successful Python CDP probe does not close the Rust Chromium adapter gate.
+A typical verification sequence is: source validation → formatting → compile checks → unit/property
+tests → fake broker integration → CLI/MCP/cancellation → Clippy/docs → security checks → isolated
+live backends. Keep failing tests and fix their causes. A successful probe for one adapter does not
+substitute for the corresponding Rust or integration gate.
 
-## Available local checks
+## Source checks
 
 ```sh
 python scripts/verify-source.py
@@ -26,26 +26,25 @@ fixture=$(mktemp -d)
 python tests/python/cdp_live.py
 ```
 
-Prefer `scripts/verify-local.py` for temporary-path cleanup and machine-readable per-gate
-status. It uses bounded timeouts and records absent tools as BLOCKED, never PASS. Python
-requirements for these checks are jsonschema, PyYAML and websocket-client. No real Blender
-is imported by the fake-bpy unit suite. No live desktop is touched by the native filesystem
-harness. The Chromium test launches its own isolated sandboxed browser and removes its
-own profile; it does not connect to an existing browser.
+`scripts/verify-local.py` is a bounded convenience runner for temporary-path cleanup and
+machine-readable per-gate status. It records absent tools as `BLOCKED`, never `PASS`. Python
+requirements for these checks are jsonschema, PyYAML and websocket-client. The fake-bpy suite does
+not import a real Blender runtime. The native filesystem harness does not interact with a desktop.
+The Chromium test launches an isolated sandboxed browser profile and removes it after completion.
 
 ## Rust tests and performance
 
-Unit/property test source lives next to pure types/policy/recipes/registry/protocol and in
-backend modules. `crates/core/tests/broker_contract.rs` exercises the fake broker path.
-Fuzz source/seeds live in `fuzz/`; use bounded smoke budgets from its README, not unattended
-unlimited fuzzers. Benchmark source under `crates/core/benches` covers selectors, policy,
-encoding, registry, compact snapshot construction and a fake end-to-end action. None ran.
+Unit/property tests live next to pure types, policy, recipes, registry, protocol and backend
+modules. `crates/core/tests/broker_contract.rs` exercises the fake broker path. Fuzz targets and
+seeds live in `fuzz/`; use bounded smoke budgets from its README rather than unattended fuzz
+campaigns. Benchmarks under `crates/core/benches` cover selectors, policy, encoding, registry,
+compact snapshot construction and a fake end-to-end action.
 
-Coverage should measure the entire workspace before claiming aggregate quality. Core/pure
-crates should aim for the brief's 90% line target; no coverage value has been obtained.
-Do not exclude difficult live adapters to inflate a badge. Use cargo-llvm-cov with an exact
-recorded toolchain and report both complete scope and any deliberate exclusions.
+Coverage claims must measure the intended workspace scope and name any deliberate exclusions.
+Core and pure crates target the coverage threshold documented by project acceptance criteria.
+Do not exclude difficult live adapters merely to improve an aggregate badge. Use cargo-llvm-cov
+with the repository toolchain and retain scope metadata with published coverage evidence.
 
-Source checks are not Rust parsing, full JS/Python lint, shellcheck, Nix evaluation or
-GitHub Actions validation. The workflow files use readable version refs today; pin reviewed
-immutable revisions before releases. No CI badge is advertised as green.
+Source checks do not replace Rust compilation, JS/Python linting, shell validation, Nix evaluation
+or GitHub Actions. Release evidence is authoritative only when the corresponding workflow,
+environment and exact revision are recorded.

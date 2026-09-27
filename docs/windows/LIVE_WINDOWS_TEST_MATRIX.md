@@ -1,6 +1,6 @@
 # Live Windows 11 acceptance matrix
 
-All rows are `WINDOWS_INTERACTIVE_PENDING` in this source drop because no interactive Windows session was used.
+Rows remain `WINDOWS_INTERACTIVE_PENDING` until the required interactive Windows evidence is attached.
 
 | area | test | required evidence |
 |---|---|---|
