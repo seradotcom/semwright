@@ -8,7 +8,7 @@ This package exercises the production semantic-authoring contract with Semwright
 - `semwright-landing.composition.json` is the generated intent fixture.
 - `convergence_demo.py` exercises plan → apply → validate → repair plan → repair apply → revalidate → verify → semantic edit → stale-plan rejection.
 - `benchmark.py` runs the structural A/B/C benchmark.
-- `structural-benchmark-config.json` records fairness rules and fixed conditions.
+- `structural-structural-benchmark-config.json` records fairness rules and fixed conditions.
 - `expected-semantic-checks.json` lists machine-verifiable acceptance expectations.
 - `DESIGN_BRIEF.md` is the shared creative brief.
 
