@@ -2889,6 +2889,7 @@ dependencies = [
  "semwright-protocol",
  "semwright-recipes",
  "semwright-registry",
+ "semwright-skills",
  "semwright-types",
  "serde",
  "serde_json",
@@ -2914,6 +2915,7 @@ dependencies = [
  "semwright-protocol",
  "semwright-recipes",
  "semwright-registry",
+ "semwright-skills",
  "semwright-types",
  "semwright-workflow",
  "serde",
@@ -2996,6 +2998,7 @@ dependencies = [
  "semwright-backend-api",
  "semwright-driver-host",
  "semwright-driver-sdk",
+ "semwright-skills",
  "semwright-types",
  "serde",
  "serde_json",
@@ -3531,6 +3534,24 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+]
+
+[[package]]
+name = "semwright-skills"
+version = "0.9.0-dev.1"
+dependencies = [
+ "jsonschema",
+ "libc",
+ "proptest",
+ "semver",
+ "semwright-registry",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2",
+ "tempfile",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -4411,6 +4432,15 @@ name = "unicode-ident"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd4f6878c9cb28d874b009da9e8d183b5abc80117c40bbd187a1fde336be6e8"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "unicode-segmentation"

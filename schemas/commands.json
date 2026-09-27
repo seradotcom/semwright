@@ -9918,8 +9918,42 @@
               "required_scopes",
               "routes",
               "available",
+              "policy_preview",
               "score"
-            ]
+            ],
+            "properties": {
+              "policy_preview": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "state",
+                  "preview_only",
+                  "execution_rechecks",
+                  "reason"
+                ],
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "allow",
+                      "deny",
+                      "require_confirmation",
+                      "requires_arguments",
+                      "requires_target"
+                    ]
+                  },
+                  "preview_only": {
+                    "const": true
+                  },
+                  "execution_rechecks": {
+                    "const": true
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 512
+                  }
+                }
+              }
+            }
           }
         },
         "availability_is_authorization": {
@@ -9974,6 +10008,7 @@
         "capability",
         "provenance",
         "routes",
+        "policy_preview",
         "availability_is_authorization",
         "transactions"
       ],
@@ -9998,6 +10033,37 @@
         },
         "routes": {
           "type": "array"
+        },
+        "policy_preview": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "preview_only",
+            "execution_rechecks",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "allow",
+                "deny",
+                "require_confirmation",
+                "requires_arguments",
+                "requires_target"
+              ]
+            },
+            "preview_only": {
+              "const": true
+            },
+            "execution_rechecks": {
+              "const": true
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
         },
         "availability_is_authorization": {
           "const": false
