@@ -72,7 +72,7 @@ async function handleSemanticMore(request: BridgeRequest, a: any): Promise<Bridg
     }
     case "artifact.upload.begin": {
       while(extraArtifacts.size>=EXTRA_MAX_ARTIFACTS){const first=extraArtifacts.keys().next().value as string|undefined;if(!first)break;extraArtifacts.delete(first);}
-      const token=extraRandomToken(); extraArtifacts.set(token,new Uint8Array());
+      const token=extraArtifactToken(request.id); extraArtifacts.set(token,new Uint8Array());
       return ok(request.id,{token,bytes:0,mediaType:String(a.mediaType??"application/octet-stream"),name:String(a.name??"upload.bin").slice(0,256)});
     }
     case "artifact.upload.append": {
@@ -95,7 +95,7 @@ async function handleSemanticMore(request: BridgeRequest, a: any): Promise<Bridg
     }
     case "image.export": {
       const image=figma.getImageByHash(String(a.hash)); if(!image) throw new Error("image_not_found");
-      const bytes=await image.getBytesAsync(); return ok(request.id,extraStoreArtifact(bytes,String(a.mediaType??"application/octet-stream"),String(a.name??"figma-image.bin")));
+      const bytes=await image.getBytesAsync(); return ok(request.id,extraStoreArtifact(bytes,String(a.mediaType??"application/octet-stream"),String(a.name??"figma-image.bin"),request.id));
     }
     case "video.create": {
       const video=await figma.createVideoAsync(moreArtifact(a.token)); return ok(request.id,{hash:video.hash},true);

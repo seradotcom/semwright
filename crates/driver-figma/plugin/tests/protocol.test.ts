@@ -73,7 +73,12 @@ describe("authenticated loopback bridge",()=>{
   expect(ui).toContain("return hex(hmacSha256(secret,data))");
  });
  it("does not require crypto.randomUUID in the Figma UI sandbox",()=>{expect(ui).toContain("function randomSessionId()");expect(ui).toContain("crypto.getRandomValues(bytes)");expect(ui).toContain("session=randomSessionId()");});
- it("does not require crypto.randomUUID in plugin sandbox operations",()=>{expect(allCode).not.toContain("crypto.randomUUID()");expect(allCode).toContain("function extraRandomToken()");});
+ it("does not require WebCrypto in plugin sandbox artifact operations",()=>{
+  expect(allCode).not.toContain("crypto.randomUUID()");
+  expect(allCode).not.toContain("crypto.getRandomValues");
+  expect(allCode).toContain("function extraArtifactToken(seed");
+  expect(allCode).toContain("extraArtifactToken(request.id)");
+ });
  it("emits the Rust-compatible failure envelope",()=>{expect(code).toContain("outcome_known: outcomeKnown");expect(code).not.toContain("error: {code, message, outcomeKnown}");});
  it("surfaces a safe synchronous pairing failure reason",()=>{expect(ui).toContain('state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))');});
  it("waits for a server-generated challenge",()=>{expect(ui).toContain('type:"hello",protocol:2');expect(ui).toContain('m.type==="challenge"');});
