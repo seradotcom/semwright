@@ -506,17 +506,29 @@ async fn upstream_crash_invalidates_the_provider_generation() {
 
     tokio::time::timeout(Duration::from_secs(3), async {
         loop {
-            let page = broker
+            match broker
                 .catalog_search(CatalogQuery {
                     provider: Some("external-mcp:crash".into()),
                     ..Default::default()
                 })
                 .await
-                .unwrap();
-            if page["capabilities"].as_array().is_some_and(|rows| {
-                !rows.is_empty() && rows.iter().all(|row| row["available"] == false)
-            }) {
-                break;
+            {
+                Ok(page)
+                    if page["capabilities"].as_array().is_some_and(|rows| {
+                        !rows.is_empty() && rows.iter().all(|row| row["available"] == false)
+                    }) =>
+                {
+                    break;
+                }
+                Ok(_) => {}
+                Err(error) if error.code == ErrorCode::Conflict => {
+                    // A provider generation can change between catalog snapshot and availability
+                    // probing while this test intentionally crashes the upstream. Conflict is
+                    // the fail-closed retry signal; eventual unavailable state is asserted below.
+                }
+                Err(error) => {
+                    panic!("unexpected catalog error during crash invalidation: {error:?}")
+                }
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
