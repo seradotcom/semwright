@@ -2,9 +2,9 @@
 
 Frozen Semwright baseline: `a14abd8328e092a8227584750e47c38a77449ffa`. See `SEMWRIGHT_SNAPSHOT.md` for the one-time baseline/CI snapshot.
 
-## Lightweight local checks
+## Source checks
 
-The owner workstation is not used for browser installation, fuzz campaigns or the full film. Safe source checks are:
+The following source checks are useful before submission:
 
 ```bash
 cargo fmt --all -- --check
@@ -13,7 +13,7 @@ cargo clippy --locked -p semwright-driver-motion-canvas --all-targets -- -D warn
 git diff --check
 ```
 
-Unit/property/security tests are small enough for CI and may be run locally when diagnosing code, but the authoritative evidence is GitHub Actions.
+Authoritative runtime, browser, fuzz and full-film evidence is produced by GitHub Actions.
 
 ## Pull-request workflow
 
