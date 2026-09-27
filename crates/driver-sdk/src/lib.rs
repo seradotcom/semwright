@@ -2,7 +2,10 @@
 
 pub mod continuity;
 use async_trait::async_trait;
-use semwright_platform_api::launch::{MountClass, SANDBOX_MOUNTS_ENV, decode_materialized_mounts};
+use semwright_platform_api::launch::{
+    MountClass, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, decode_materialized_mounts,
+    decode_materialized_tools,
+};
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::provider::canonical_slug;
 use semwright_types::{
@@ -73,6 +76,41 @@ pub fn workspace_mount(logical_name: &str) -> Result<PathBuf> {
 /// Resolve a read-only system-configuration root as materialized by the current platform sandbox.
 pub fn system_config_mount(logical_name: &str) -> Result<PathBuf> {
     runtime_mount(MountClass::SystemConfig, logical_name)
+}
+
+/// Resolve one Host-verified executable tool as materialized by the current platform sandbox.
+pub fn tool_path(name: &str) -> Result<PathBuf> {
+    if name.is_empty()
+        || name.len() > 64
+        || name.starts_with("semwright-internal-")
+        || !name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(Error::invalid("Invalid sandbox tool name"));
+    }
+    match std::env::var(SANDBOX_TOOLS_ENV) {
+        Ok(encoded) => decode_materialized_tools(&encoded)?
+            .into_iter()
+            .find(|tool| tool.name == name)
+            .map(|tool| PathBuf::from(tool.path))
+            .ok_or_else(|| Error::unavailable("Requested sandbox tool was not materialized")),
+        Err(std::env::VarError::NotPresent) => {
+            #[cfg(unix)]
+            {
+                Ok(Path::new("/plugin/tools").join(name))
+            }
+            #[cfg(not(unix))]
+            {
+                Err(Error::unavailable(
+                    "Sandbox tool table is required on this platform",
+                ))
+            }
+        }
+        Err(std::env::VarError::NotUnicode(_)) => Err(Error::invalid(
+            "Sandbox tool table must be valid UTF-8 JSON",
+        )),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

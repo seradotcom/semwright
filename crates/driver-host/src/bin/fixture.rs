@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
     Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, serve,
-    workspace_mount,
+    tool_path, workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -72,6 +72,36 @@ fn mount_capability() -> Capability {
         },
         aliases: vec!["mount_probe".into()],
         tags: vec!["fixture".into(), "conformance".into(), "filesystem".into()],
+        object_types: vec![],
+    }
+}
+
+fn tool_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.tool_probe".into(),
+            version: "1".into(),
+            description: "Execute one Host-sealed fixture tool and probe mutation authority".into(),
+            input_schema: json!({"type":"object","additionalProperties":false}),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "stdout":{"type":"string"},
+                    "write_ok":{"type":"boolean"}
+                },
+                "required":["stdout","write_ok"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 2_000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["tool_probe".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "tool".into()],
         object_types: vec![],
     }
 }
@@ -154,6 +184,7 @@ impl Driver for Fixture {
         Ok(vec![
             capability(),
             mount_capability(),
+            tool_capability(),
             long_capability(),
             disconnect_capability(),
         ])
@@ -162,6 +193,7 @@ impl Driver for Fixture {
         let capability = match command {
             "driver.fixture.ping" => capability(),
             "driver.fixture.mount_probe" => mount_capability(),
+            "driver.fixture.tool_probe" => tool_capability(),
             "driver.fixture.disconnect" => disconnect_capability(),
             _ => {
                 return Err(Error::new(
@@ -186,6 +218,27 @@ impl Driver for Fixture {
             let read = std::fs::read_to_string(root.join("input.txt"))?;
             let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
             return Ok(json!({"read":read,"write_ok":write_ok}));
+        }
+        if command == "driver.fixture.tool_probe" {
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid("fixture tool probe accepts an empty object"));
+            }
+            let tool = tool_path("probe")?;
+            let write_ok = std::fs::OpenOptions::new().write(true).open(&tool).is_ok();
+            let output = std::process::Command::new(&tool).output()?;
+            if !output.status.success() {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "fixture sealed tool execution failed",
+                ));
+            }
+            let stdout = String::from_utf8(output.stdout).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "fixture tool output was not UTF-8",
+                )
+            })?;
+            return Ok(json!({"stdout":stdout,"write_ok":write_ok}));
         }
         if command == "driver.fixture.disconnect" {
             if args.as_object().is_none_or(|args| !args.is_empty()) {

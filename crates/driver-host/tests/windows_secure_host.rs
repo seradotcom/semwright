@@ -3,7 +3,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
+    Transport,
 };
 use semwright_policy::FilesystemGrant;
 use sha2::{Digest, Sha256};
@@ -121,6 +122,72 @@ async fn secure_windows_driver_host_roundtrips_protocol_v2() {
     Provider::shutdown(provider.as_ref())
         .await
         .expect("secure Windows Driver Host shutdown");
+}
+
+#[tokio::test]
+async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let owner_tool = binary_dir.path().join("owner-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &owner_tool).expect("copy tool fixture");
+    harden_fixture(&executable);
+    harden_fixture(&owner_tool);
+
+    let mut candidate = manifest(executable);
+    candidate.tools = vec![DriverToolMount {
+        root: "fixture-tool-root".into(),
+        name: "probe".into(),
+        sha256: digest(&owner_tool),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-tool-root".into(),
+        path: owner_tool.clone(),
+        read: true,
+        write: false,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows Driver Host sealed tool");
+
+    // The owner source is not the executable granted to the LPAC child. Mutating it after
+    // connect must not change the Host-staged, re-attested tool.
+    std::fs::write(&owner_tool, b"tampered-after-connect").expect("mutate owner tool source");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_probe")
+        .expect("fixture tool capability")
+        .descriptor
+        .clone();
+    let output = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "windows-sealed-tool".into(),
+            request_id: "windows-sealed-tool-probe".into(),
+            cancellation: CancellationToken::new(),
+        },
+        &probe,
+        &serde_json::json!({}),
+    )
+    .await
+    .expect("sealed tool probe through LPAC");
+
+    assert_eq!(output["stdout"], "tool-ok");
+    assert_eq!(output["write_ok"], false);
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("sealed tool Driver Host shutdown");
 }
 
 fn grant_all_application_packages_modify(path: &Path) {

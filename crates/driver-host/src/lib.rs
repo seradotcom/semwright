@@ -62,10 +62,53 @@ impl SealedTool {
     fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
         let _sealed_owner_fd = self._file.as_raw_fd();
         semwright_platform_api::launch::SealedToolMount {
-            fd: self.data_file.as_raw_fd(),
+            source: semwright_platform_api::launch::SealedToolSource::UnixFd(
+                self.data_file.as_raw_fd(),
+            ),
             name: self.name.clone(),
         }
     }
+}
+
+#[cfg(target_os = "windows")]
+struct SealedTool {
+    name: String,
+    staged: Arc<StagedFile>,
+    sha256: String,
+}
+#[cfg(target_os = "windows")]
+impl SealedTool {
+    fn sandbox_mount(&self) -> semwright_platform_api::launch::SealedToolMount {
+        semwright_platform_api::launch::SealedToolMount {
+            source: semwright_platform_api::launch::SealedToolSource::VerifiedFile {
+                path: self.staged.0.clone(),
+                sha256: self.sha256.clone(),
+            },
+            name: self.name.clone(),
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Result<SealedTool> {
+    let bytes = verify_owned_executable(path, digest)?;
+    let staged_path = state.join(format!("driver-tool-{name}-{}.exe", unique_id()));
+    let staged = Arc::new(StagedFile(staged_path.clone()));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&staged_path)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    drop(file);
+
+    // Re-attest the exact private copy that will become visible to the LPAC child.
+    let _ = verify_owned_executable(&staged_path, digest)?;
+    Ok(SealedTool {
+        name: name.to_owned(),
+        staged,
+        sha256: digest.to_ascii_lowercase(),
+    })
 }
 
 #[cfg(target_os = "linux")]
@@ -441,10 +484,24 @@ fn validate_owner_permissions(
             .iter()
             .find(|grant| grant.name == tool.root)
             .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Driver tool has no owner grant"))?;
-        if !grant.read || std::fs::canonicalize(&grant.path)? != grant.path {
+        if !grant.read {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver tool requires readable owner grant",
+            ));
+        }
+        #[cfg(unix)]
+        if std::fs::canonicalize(&grant.path)? != grant.path {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
                 "Driver tool requires canonical readable owner grant",
+            ));
+        }
+        #[cfg(target_os = "windows")]
+        if !grant.path.is_absolute() {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows driver tool grant must use an absolute path",
             ));
         }
     }
@@ -772,18 +829,16 @@ fn sandbox_spec_windows(
     staged: &Path,
     helper: &Path,
     roots: &[FilesystemGrant],
+    sealed_tools: &[SealedTool],
 ) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
 
-    if !manifest.system_config.is_empty()
-        || !manifest.secrets.is_empty()
-        || !manifest.tools.is_empty()
-    {
+    if !manifest.system_config.is_empty() || !manifest.secrets.is_empty() {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows system-config, secret and tool grants remain fail-closed until their AppContainer contracts are proven",
+            "Windows system-config and secret grants remain fail-closed until their AppContainer contracts are proven",
         ));
     }
     if manifest.loopback_port.is_some() {
@@ -819,7 +874,7 @@ fn sandbox_spec_windows(
         mounts,
         args: vec![],
         environment: vec![],
-        sealed_tools: vec![],
+        sealed_tools: sealed_tools.iter().map(SealedTool::sandbox_mount).collect(),
         network: manifest.network,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
@@ -847,7 +902,7 @@ pub struct DriverProvider {
     _staged: Arc<StagedFile>,
     #[cfg(unix)]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
-    #[cfg(unix)]
+    #[cfg(any(unix, target_os = "windows"))]
     _tools: Vec<SealedTool>,
 }
 
@@ -877,7 +932,20 @@ impl DriverProvider {
 
             // Bind trust checks to the exact staged file that will execute.
             let _ = verify_owned_executable(&staged_path, &manifest.sha256)?;
-            let spec = sandbox_spec_windows(&manifest, &staged_path, helper, roots)?;
+            let sealed_tools = manifest
+                .tools
+                .iter()
+                .map(|tool| {
+                    let grant = roots
+                        .iter()
+                        .find(|grant| grant.name == tool.root)
+                        .ok_or_else(|| {
+                            Error::new(ErrorCode::PolicyDenied, "Driver tool grant disappeared")
+                        })?;
+                    seal_verified_tool(&grant.path, &tool.sha256, &tool.name, state)
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let spec = sandbox_spec_windows(&manifest, &staged_path, helper, roots, &sealed_tools)?;
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let process_id = child
                 .id()
@@ -1074,6 +1142,7 @@ impl DriverProvider {
                 cpu_accounting,
                 operation_cpu_gate: Mutex::new(()),
                 _staged: staged,
+                _tools: sealed_tools,
             }))
         }
         #[cfg(unix)]

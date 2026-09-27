@@ -36,6 +36,10 @@ name = "semwright-driver-fixture"
 path = "src/bin/fixture.rs"
 
 [[bin]]
+name = "semwright-tool-fixture"
+path = "src/bin/tool_fixture.rs"
+
+[[bin]]
 name = "semwright-adversarial-driver-fixture"
 path = "src/bin/adversarial_fixture.rs"
 required-features = ["test-tools"]

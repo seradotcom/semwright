@@ -1,10 +1,9 @@
 use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
 use async_trait::async_trait;
-#[cfg(test)]
-use semwright_platform_api::launch::MountClass;
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, Mount, SANDBOX_MOUNTS_ENV, SandboxChildControl,
-    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
+    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass, SANDBOX_MOUNTS_ENV,
+    SANDBOX_TOOLS_ENV, SandboxChildControl, SandboxCpuAccounting, SandboxLauncher, SandboxProcess,
+    SandboxSpec, SealedToolSource, encode_materialized_mounts, encode_materialized_tools,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -1269,6 +1268,84 @@ fn prepare_windows_mounts(
     Ok((grants, Some(encoded)))
 }
 
+fn prepare_windows_tools(
+    spec: &SandboxSpec,
+    profile: &AppContainerProfile,
+) -> Result<(Vec<WindowsMountGrant>, Option<String>)> {
+    if spec.sealed_tools.is_empty() {
+        return Ok((Vec::new(), None));
+    }
+    if spec.kind != semwright_platform_api::launch::SandboxKind::Driver {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed tools are currently limited to Driver children",
+        ));
+    }
+    let staging_root = spec.staged_executable.parent().ok_or_else(|| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows Driver staging root is unavailable",
+        )
+    })?;
+    let mut identities = BTreeSet::new();
+    let mut prepared = Vec::with_capacity(spec.sealed_tools.len());
+    let mut materialized = Vec::with_capacity(spec.sealed_tools.len());
+    for tool in &spec.sealed_tools {
+        let (path, sha256) = match &tool.source {
+            SealedToolSource::VerifiedFile { path, sha256 } => (path, sha256),
+            SealedToolSource::UnixFd(_) => {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Windows sealed tools require Host-staged verified files",
+                ));
+            }
+        };
+        if path.parent() != Some(staging_root) {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed tools must come from the private Driver staging root",
+            ));
+        }
+        // Re-attest the exact staged PE immediately before granting LPAC authority.
+        let _ = WindowsVerifier.verify(path, sha256)?;
+        let plan = prepare_mount_grant(&Mount {
+            source: path.clone(),
+            class: MountClass::Workspace,
+            logical_name: tool.name.clone(),
+            read_only: true,
+            execute: true,
+        })?;
+        if !identities.insert(plan.identity) {
+            return Err(Error::invalid(
+                "Windows sealed tools must refer to unique staged executables",
+            ));
+        }
+        materialized.push(MaterializedTool {
+            name: tool.name.clone(),
+            path: plan.materialized.path.clone(),
+        });
+        prepared.push(plan);
+    }
+
+    let encoded = encode_materialized_tools(&materialized)?;
+    let mut grants = Vec::with_capacity(prepared.len());
+    for plan in &prepared {
+        match WindowsMountGrant::grant(plan, profile.sid) {
+            Ok(grant) => grants.push(grant),
+            Err(error) => {
+                if revoke_mount_grants(&mut grants).is_err() {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Windows sealed-tool transaction failed and prior grants could not be fully revoked",
+                    ));
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok((grants, Some(encoded)))
+}
+
 struct AppContainerProfile {
     name: Vec<u16>,
     sid: PSID,
@@ -1410,15 +1487,22 @@ fn environment_block(
     spec: &SandboxSpec,
     profile: &AppContainerProfile,
     mount_table: Option<&str>,
+    tool_table: Option<&str>,
 ) -> Result<Vec<u16>> {
     let mut entries = spec.environment.clone();
-    if entries.iter().any(|(name, _)| name == SANDBOX_MOUNTS_ENV) {
+    if entries
+        .iter()
+        .any(|(name, _)| name == SANDBOX_MOUNTS_ENV || name == SANDBOX_TOOLS_ENV)
+    {
         return Err(Error::invalid(
-            "Sandbox mount table environment is reserved to the platform host",
+            "Sandbox mount/tool table environment is reserved to the platform host",
         ));
     }
     if let Some(table) = mount_table {
         entries.push((SANDBOX_MOUNTS_ENV.into(), table.to_owned()));
+    }
+    if let Some(table) = tool_table {
+        entries.push((SANDBOX_TOOLS_ENV.into(), table.to_owned()));
     }
     if let Some(system_root) = std::env::var_os("SystemRoot") {
         entries.push((
@@ -1657,14 +1741,10 @@ impl SandboxLauncher for WindowsSandbox {
 
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
-        if !spec.sealed_tools.is_empty() {
-            return Err(Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows sealed-tool mounts remain fail-closed until immutable executable grants are transactional",
-            ));
-        }
         let profile = AppContainerProfile::create()?;
-        let (mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
+        let (mut mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
+        let (tool_grants, tool_table) = prepare_windows_tools(spec, &profile)?;
+        mount_grants.extend(tool_grants);
         let (child_stdin, parent_stdin) = inheritable_pipe()?;
         let (parent_stdout, child_stdout) = inheritable_pipe()?;
         clear_inheritance(parent_stdin.raw())?;
@@ -1730,7 +1810,12 @@ impl SandboxLauncher for WindowsSandbox {
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
         let mut command = command_line(spec)?;
-        let environment = environment_block(spec, &profile, mount_table.as_deref())?;
+        let environment = environment_block(
+            spec,
+            &profile,
+            mount_table.as_deref(),
+            tool_table.as_deref(),
+        )?;
         let mut process_info = PROCESS_INFORMATION::default();
         let flags = CREATE_SUSPENDED
             | EXTENDED_STARTUPINFO_PRESENT
