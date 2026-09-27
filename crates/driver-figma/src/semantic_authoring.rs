@@ -440,10 +440,10 @@ impl FigmaCompositionSpecV1 {
             if node.name.is_empty() || node.name.len() > 256 {
                 return Err(format!("invalid node name for {}", node.id));
             }
-            if let Some(role) = &node.role {
-                if role.len() > 128 {
-                    return Err(format!("role too large for {}", node.id));
-                }
+            if let Some(role) = &node.role
+                && role.len() > 128
+            {
+                return Err(format!("role too large for {}", node.id));
             }
             validate_node_numbers(node)?;
             if matches!(node.kind, CompositionNodeKindV1::Text) != node.text.is_some() {
@@ -502,15 +502,15 @@ impl FigmaCompositionSpecV1 {
         }
 
         for node in &self.nodes {
-            if let Some(parent) = &node.parent {
-                if !ids.contains(parent.as_str()) {
-                    return Err(format!("unknown parent {parent} for {}", node.id));
-                }
+            if let Some(parent) = &node.parent
+                && !ids.contains(parent.as_str())
+            {
+                return Err(format!("unknown parent {parent} for {}", node.id));
             }
-            if let Some(profile) = &node.profile {
-                if !self.profiles.iter().any(|p| p.name == *profile) {
-                    return Err(format!("unknown profile {profile} for {}", node.id));
-                }
+            if let Some(profile) = &node.profile
+                && !self.profiles.iter().any(|p| p.name == *profile)
+            {
+                return Err(format!("unknown profile {profile} for {}", node.id));
             }
         }
         for relation in &self.relationships {
@@ -538,10 +538,10 @@ impl FigmaCompositionSpecV1 {
                         return Err("gap relationship requires a non-negative value".into());
                     }
                 }
-                RelationshipKindV1::AspectRatio => {
-                    if relation.value.is_none_or(|value| value <= 0.0) {
-                        return Err("aspect ratio relationship requires a positive value".into());
-                    }
+                RelationshipKindV1::AspectRatio
+                    if relation.value.is_none_or(|value| value <= 0.0) =>
+                {
+                    return Err("aspect ratio relationship requires a positive value".into());
                 }
                 _ => {}
             }
@@ -563,10 +563,10 @@ impl FigmaCompositionSpecV1 {
             }
         }
         for validator in &self.validators {
-            if let Some(severity) = &validator.severity {
-                if !matches!(severity.as_str(), "error" | "warning" | "info") {
-                    return Err("invalid validator severity".into());
-                }
+            if let Some(severity) = &validator.severity
+                && !matches!(severity.as_str(), "error" | "warning" | "info")
+            {
+                return Err("invalid validator severity".into());
             }
         }
         self.validate_depth(&ids)
@@ -663,10 +663,10 @@ impl FigmaChangeSetV1 {
             }
         }
         for change in &self.creates {
-            if let Some(parent) = &change.parent_logical_id {
-                if !create_ids.contains(parent.as_str()) {
-                    return Err(format!("unknown changeset parent {parent}"));
-                }
+            if let Some(parent) = &change.parent_logical_id
+                && !create_ids.contains(parent.as_str())
+            {
+                return Err(format!("unknown changeset parent {parent}"));
             }
         }
         for change in &self.modifies {
