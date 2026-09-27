@@ -37,14 +37,14 @@ use windows::Win32::{
             TRUSTEE_IS_USER, TRUSTEE_W,
         },
         CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
-        GetAclInformation, GetLengthSid,
+        GetAclInformation, GetLengthSid, GetSecurityDescriptorControl,
         Isolation::{
             CreateAppContainerProfile, DeleteAppContainerProfile, GetAppContainerFolderPath,
         },
-        NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
-        SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE, SID_AND_ATTRIBUTES,
-        SUB_CONTAINERS_AND_OBJECTS_INHERIT, WinBuiltinAdministratorsSid,
-        WinCapabilityInternetClientSid, WinLocalSystemSid,
+        NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+        PSECURITY_DESCRIPTOR, PSID, SE_DACL_PROTECTED, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES,
+        SECURITY_MAX_SID_SIZE, SID_AND_ATTRIBUTES, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+        WinBuiltinAdministratorsSid, WinCapabilityInternetClientSid, WinLocalSystemSid,
         WinTrust::{
             WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
             WTD_CACHE_ONLY_URL_RETRIEVAL, WTD_CHOICE_FILE, WTD_REVOCATION_CHECK_NONE,
@@ -861,6 +861,185 @@ fn named_dacl(path: &[u16]) -> Result<(*mut ACL, SecurityDescriptor)> {
     Ok((dacl, SecurityDescriptor(descriptor)))
 }
 
+fn explicit_sid_grant(
+    sid: PSID,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> EXPLICIT_ACCESS_W {
+    EXPLICIT_ACCESS_W {
+        grfAccessPermissions: permissions,
+        grfAccessMode: GRANT_ACCESS,
+        grfInheritance: inheritance,
+        Trustee: TRUSTEE_W {
+            pMultipleTrustee: std::ptr::null_mut(),
+            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: TRUSTEE_IS_USER,
+            ptstrName: PWSTR(sid.0.cast()),
+        },
+    }
+}
+
+fn protected_profile_acl_matches(
+    path: &[u16],
+    app_sid: PSID,
+    permissions: u32,
+    forbidden_permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<bool> {
+    let (dacl, descriptor) = named_dacl(path)?;
+    let mut control = 0u16;
+    let mut revision = 0u32;
+    // SAFETY: descriptor is live for this call and both outputs are writable locals.
+    unsafe { GetSecurityDescriptorControl(descriptor.0, &mut control, &mut revision) }.map_err(
+        |_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed-tool protected DACL state could not be read",
+            )
+        },
+    )?;
+    if control & SE_DACL_PROTECTED.0 == 0 {
+        return Ok(false);
+    }
+
+    let current = current_user_sid_bytes()?;
+    let system = well_known_sid(WinLocalSystemSid)?;
+    let admins = well_known_sid(WinBuiltinAdministratorsSid)?;
+    let mut acl_info = ACL_SIZE_INFORMATION::default();
+    // SAFETY: dacl belongs to the live descriptor guard and acl_info is a sized output buffer.
+    unsafe {
+        GetAclInformation(
+            dacl,
+            (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
+            std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+            AclSizeInformation,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL is invalid",
+        )
+    })?;
+    if acl_info.AceCount > 16 {
+        return Ok(false);
+    }
+
+    let inheritance_mask = SUB_CONTAINERS_AND_OBJECTS_INHERIT.0;
+    let mut app_seen = false;
+    for index in 0..acl_info.AceCount {
+        let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
+        // SAFETY: index is bounded by AceCount and raw is a writable ACE out-pointer.
+        unsafe { GetAce(dacl, index, &mut raw) }.map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed-tool protected DACL entry could not be inspected",
+            )
+        })?;
+        if raw.is_null() {
+            return Ok(false);
+        }
+        // SAFETY: GetAce returned storage owned by the live DACL/security descriptor.
+        let header = unsafe { &*(raw.cast::<ACE_HEADER>()) };
+        if header.AceType as u32 != ACCESS_ALLOWED_ACE_TYPE
+            || usize::from(header.AceSize) < std::mem::size_of::<ACCESS_ALLOWED_ACE>()
+        {
+            return Ok(false);
+        }
+        // SAFETY: a simple access-allowed ACE is at least ACCESS_ALLOWED_ACE bytes.
+        let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
+        let sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
+        // SAFETY: both SIDs are live for this comparison.
+        if unsafe { EqualSid(sid, app_sid).is_ok() } {
+            if ace.Mask & permissions != permissions
+                || ace.Mask & forbidden_permissions != 0
+                || u32::from(header.AceFlags) & inheritance_mask != inheritance.0
+            {
+                return Ok(false);
+            }
+            app_seen = true;
+            continue;
+        }
+        if sid_matches(sid, &current) || sid_matches(sid, &system) || sid_matches(sid, &admins) {
+            continue;
+        }
+        return Ok(false);
+    }
+    Ok(app_seen)
+}
+
+fn set_protected_profile_acl(
+    path: &[u16],
+    app_sid: PSID,
+    permissions: u32,
+    forbidden_permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<()> {
+    let current = current_user_sid_bytes()?;
+    let system = well_known_sid(WinLocalSystemSid)?;
+    let admins = well_known_sid(WinBuiltinAdministratorsSid)?;
+    let entries = [
+        explicit_sid_grant(
+            PSID(current.as_ptr().cast_mut().cast()),
+            GENERIC_ALL.0,
+            NO_INHERITANCE,
+        ),
+        explicit_sid_grant(
+            PSID(system.as_ptr().cast_mut().cast()),
+            GENERIC_ALL.0,
+            NO_INHERITANCE,
+        ),
+        explicit_sid_grant(
+            PSID(admins.as_ptr().cast_mut().cast()),
+            GENERIC_ALL.0,
+            NO_INHERITANCE,
+        ),
+        explicit_sid_grant(app_sid, permissions, inheritance),
+    ];
+    let mut updated: *mut ACL = std::ptr::null_mut();
+    // SAFETY: all SID buffers and entries remain live through this synchronous call.
+    let status = unsafe { SetEntriesInAclW(Some(&entries), None, &mut updated) };
+    if status.0 != 0 || updated.is_null() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL could not be constructed",
+        ));
+    }
+    let updated = LocalAcl(updated);
+    // SAFETY: path is NUL-terminated and updated contains a valid ACL allocated above.
+    let status = unsafe {
+        SetNamedSecurityInfoW(
+            PCWSTR(path.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(updated.0),
+            None,
+        )
+    };
+    if status.0 != 0 {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL could not be applied",
+        ));
+    }
+    if !protected_profile_acl_matches(
+        path,
+        app_sid,
+        permissions,
+        forbidden_permissions,
+        inheritance,
+    )? {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL verification failed",
+        ));
+    }
+    Ok(())
+}
+
 fn dacl_has_sid(path: &[u16], sid: PSID) -> Result<bool> {
     let (dacl, _descriptor) = named_dacl(path)?;
     let mut acl_info = ACL_SIZE_INFORMATION::default();
@@ -1300,7 +1479,7 @@ fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGra
         },
         // The child needs path traversal to open a specifically granted tool, but must not
         // gain directory listing or mutation authority over the private Driver staging root.
-        permissions: FILE_TRAVERSE.0,
+        permissions: FILE_GENERIC_EXECUTE.0,
         denied_permissions: FILE_LIST_DIRECTORY.0
             | FILE_WRITE_DATA.0
             | FILE_APPEND_DATA.0
@@ -1395,39 +1574,21 @@ impl WindowsMountGrant {
     fn narrow_profile_authority(prepared: &PreparedMountGrant, sid: PSID) -> Result<Self> {
         let sid_bytes = copy_sid_bytes(sid)?;
         let owned_sid = PSID(sid_bytes.as_ptr().cast_mut().cast());
-        if !dacl_has_sid(&prepared.path, owned_sid)? {
-            return Err(Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows LPAC profile object did not inherit its AppContainer SID",
-            ));
-        }
-        if let Err(error) = set_mount_ace(
+        // These objects are created inside the unique, disposable AppContainer profile.
+        // Replace inherited profile ACLs entirely so broad package-group authority cannot
+        // widen a sealed tool beyond the exact read/execute (or traverse) grant.
+        set_protected_profile_acl(
             &prepared.path,
             owned_sid,
-            DENY_ACCESS,
+            prepared.permissions,
             prepared.denied_permissions,
             prepared.inheritance,
-        ) {
-            let _ = set_mount_ace(&prepared.path, owned_sid, REVOKE_ACCESS, 0, NO_INHERITANCE);
-            return Err(error);
-        }
-        if !dacl_has_deny(
-            &prepared.path,
-            owned_sid,
-            prepared.denied_permissions,
-            prepared.inheritance,
-        )? {
-            let _ = set_mount_ace(&prepared.path, owned_sid, REVOKE_ACCESS, 0, NO_INHERITANCE);
-            return Err(Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows sealed-tool profile deny ACE verification failed",
-            ));
-        }
+        )?;
         Ok(Self {
             path: prepared.path.clone(),
             sid: sid_bytes,
             active: true,
-            require_sid_absence_after_revoke: false,
+            require_sid_absence_after_revoke: true,
         })
     }
 
