@@ -95,10 +95,11 @@ impl LoopbackProxy {
             .map_err(|_| Error::new(ErrorCode::Internal, "Reserved loopback pipe lock poisoned"))?
             .take()
             .ok_or_else(|| Error::new(ErrorCode::Conflict, "Loopback pipe already activated"))?;
-        // The first LOCAL pipe instance is created before the LPAC child starts with an
+        // The first Host-owned pipe instance is created before the LPAC child starts with an
         // owner/SYSTEM-only DACL. Once the kernel PID is known, grant only that child package
-        // SID on the existing instance. This removes the create-after-spawn namespace race
-        // while preserving fail-closed authorization before any child traffic can connect.
+        // SID on the existing instance. The unqualified Win32 pipe namespace is intentional:
+        // this LPAC is launched manually rather than from an MSIX package namespace.
+        // Authorization still fails closed before any child traffic can connect.
         semwright_platform_services::windows_authorize_appcontainer_loopback_server(
             &server,
             expected_pid,
@@ -279,13 +280,10 @@ pub(crate) async fn start(_state: &Path, port: u16) -> Result<Arc<LoopbackProxy>
             "Driver loopback port is unavailable",
         )
     })?;
-    let pipe_path = PathBuf::from(format!(
-        r"\\.\pipe\LOCAL\semwright-loopback-{}",
-        unique_id()
-    ));
-    // Reserve the first LOCAL instance before the sandbox process is created. The initial
-    // DACL intentionally excludes AppContainer identities; activate() authorizes exactly the
-    // kernel-observed child SID after spawn.
+    let pipe_path = PathBuf::from(format!(r"\\.\pipe\semwright-loopback-{}", unique_id()));
+    // Reserve the first Host-owned instance before the sandbox process is created. The
+    // initial DACL intentionally excludes AppContainer identities; activate() authorizes exactly
+    // the kernel-observed child SID after spawn.
     let reserved_pipe =
         semwright_platform_services::windows_reserve_appcontainer_loopback_server(&pipe_path)?;
     Ok(Arc::new(LoopbackProxy {

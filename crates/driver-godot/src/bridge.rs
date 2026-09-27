@@ -199,7 +199,7 @@ pub struct Bridge {
 
 #[cfg(windows)]
 async fn connect_loopback_pipe(path: &str, stop: &CancellationToken) -> Result<NamedPipeClient> {
-    if !path.starts_with(r"\\.\pipe\LOCAL\semwright-loopback-") || path.len() > 256 {
+    if !path.starts_with(r"\\.\pipe\semwright-loopback-") || path.len() > 256 {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Godot loopback pipe path is not Host-controlled",
@@ -284,9 +284,7 @@ impl Bridge {
 
         #[cfg(windows)]
         if let Ok(pipe_path) = std::env::var("SEMWRIGHT_DRIVER_LOOPBACK_PIPE") {
-            if !pipe_path.starts_with(r"\\.\pipe\LOCAL\semwright-loopback-")
-                || pipe_path.len() > 256
-            {
+            if !pipe_path.starts_with(r"\\.\pipe\semwright-loopback-") || pipe_path.len() > 256 {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
                     "Godot loopback pipe path is not Host-controlled",

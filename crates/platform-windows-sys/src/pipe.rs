@@ -317,7 +317,7 @@ pub fn create_tokio_server(path: &Path, first_instance: bool) -> Result<NamedPip
 
 pub fn reserve_appcontainer_loopback_server(path: &Path) -> Result<NamedPipeServer> {
     let spelling = path.as_os_str().to_string_lossy();
-    if !spelling.starts_with(r"\\.\pipe\LOCAL\semwright-loopback-") || spelling.len() > 256 {
+    if !spelling.starts_with(r"\\.\pipe\semwright-loopback-") || spelling.len() > 256 {
         return Err(Error::invalid(
             "Invalid Semwright AppContainer loopback pipe path",
         ));
@@ -462,7 +462,7 @@ pub fn create_appcontainer_loopback_server(
     first_instance: bool,
 ) -> Result<NamedPipeServer> {
     let spelling = path.as_os_str().to_string_lossy();
-    if !spelling.starts_with(r"\\.\pipe\LOCAL\semwright-loopback-") || spelling.len() > 256 {
+    if !spelling.starts_with(r"\\.\pipe\semwright-loopback-") || spelling.len() > 256 {
         return Err(Error::invalid(
             "Invalid Semwright AppContainer loopback pipe path",
         ));

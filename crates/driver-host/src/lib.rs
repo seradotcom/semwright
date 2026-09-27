@@ -326,32 +326,40 @@ async fn wait_for_operation_cpu_budget(
 }
 
 fn validate_secret_source(path: &Path) -> Result<()> {
-    if std::fs::canonicalize(path)? != path {
-        return Err(Error::new(
-            ErrorCode::PolicyDenied,
-            "Driver secret source must be canonical",
-        ));
-    }
-    let metadata = std::fs::symlink_metadata(path)?;
-    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 4096 {
-        return Err(Error::new(
-            ErrorCode::PolicyDenied,
-            "Driver secret source must be a small regular file",
-        ));
-    }
-    #[cfg(unix)]
+    #[cfg(target_os = "windows")]
     {
-        if metadata.uid() != semwright_platform_services::current_uid()
-            || metadata.mode() & 0o077 != 0
-            || metadata.nlink() != 1
-        {
+        semwright_platform_services::verify_private_data_file(path, 4096)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if std::fs::canonicalize(path)? != path {
             return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Driver secret source must be owner-only and single-linked",
+                ErrorCode::PolicyDenied,
+                "Driver secret source must be canonical",
             ));
         }
+        let metadata = std::fs::symlink_metadata(path)?;
+        if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 4096 {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver secret source must be a small regular file",
+            ));
+        }
+        #[cfg(unix)]
+        {
+            if metadata.uid() != semwright_platform_services::current_uid()
+                || metadata.mode() & 0o077 != 0
+                || metadata.nlink() != 1
+            {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Driver secret source must be owner-only and single-linked",
+                ));
+            }
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 fn validate_owner_permissions(
@@ -792,10 +800,10 @@ fn sandbox_spec_windows(
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
 
-    if !manifest.secrets.is_empty() || !manifest.tools.is_empty() {
+    if !manifest.tools.is_empty() {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows secret and tool grants remain fail-closed until their source-integrity and immutable-executable contracts are proven",
+            "Windows tool grants remain fail-closed until their immutable-executable contract is proven",
         ));
     }
     let lookup = |name: &str| -> Result<&FilesystemGrant> {
@@ -841,6 +849,22 @@ fn sandbox_spec_windows(
                     source: grant.path.clone(),
                     class: MountClass::SystemConfig,
                     logical_name,
+                    read_only: true,
+                    execute: false,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
+    );
+    mounts.extend(
+        manifest
+            .secrets
+            .iter()
+            .map(|secret| {
+                let grant = lookup(&secret.root)?;
+                Ok(Mount {
+                    source: grant.path.clone(),
+                    class: MountClass::Secret,
+                    logical_name: secret.name.clone(),
                     read_only: true,
                     execute: false,
                 })
