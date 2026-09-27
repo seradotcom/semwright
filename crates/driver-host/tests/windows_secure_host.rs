@@ -328,7 +328,6 @@ async fn execute_secret_probe() -> (serde_json::Value, tempfile::TempDir) {
     let secret_path = secret_dir.path().join("secret.txt");
     std::fs::write(&secret_path, b"owner-secret").expect("write secret fixture");
     harden_fixture(&secret_path);
-    grant_all_application_packages_file_read(&secret_path);
 
     let mut manifest = manifest(executable);
     manifest.secrets = vec![DriverSecretMount {
