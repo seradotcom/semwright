@@ -2142,7 +2142,8 @@ class SemanticStore:
             raise SemanticError("InvalidArgument", "Mask spline point count is outside bounded limits")
         try:
             spline = layer.splines.new()
-            spline.points.add(points)
+            if points > 1:
+                spline.points.add(points - 1)
             index = list(layer.splines).index(spline)
         except Exception as error:
             raise SemanticError("BackendFailed", "Blender rejected Mask spline creation") from error
