@@ -3044,6 +3044,19 @@ fn packed_vector_array(width: usize) -> Value {
     })
 }
 
+fn bounded_one_of(variants: Vec<Value>) -> Value {
+    const MAX_BRANCHES: usize = 16;
+    if variants.len() <= MAX_BRANCHES {
+        return json!({"oneOf": variants});
+    }
+
+    let groups = variants
+        .chunks(MAX_BRANCHES)
+        .map(|chunk| json!({"oneOf": chunk}))
+        .collect();
+    bounded_one_of(groups)
+}
+
 fn godot_value_schema() -> Value {
     let variants = vec![
         json!({"type": "null"}),
@@ -3150,7 +3163,7 @@ fn godot_value_schema() -> Value {
             }
         }),
     ];
-    json!({"oneOf": variants})
+    bounded_one_of(variants)
 }
 
 fn property_patch_schema() -> Value {

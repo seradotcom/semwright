@@ -70,7 +70,7 @@ impl SealedTool {
 
 #[cfg(target_os = "linux")]
 fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedTool> {
-    let bytes = semwright_platform_services::verify_executable(path, digest)?;
+    let bytes = semwright_platform_services::verify_sealed_tool_executable(path, digest)?;
     let label = CString::new(format!("semwright-tool-{name}"))
         .map_err(|_| Error::invalid("Invalid tool name"))?;
     // SAFETY: label is a live NUL-terminated CString and flags contain no pointers.

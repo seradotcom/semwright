@@ -148,6 +148,11 @@ async fn run(args: Args) -> Result<()> {
         protected.push(parent.to_path_buf());
     }
     config::confine_grants(&config, &protected)?;
+    // Owner grants may also name private files used only as driver secrets or sealed tools.
+    // Public filesystem/browser/artifact surfaces operate on directory roots only; passing
+    // file-backed authorities into them would either fail as NotADirectory or expose a secret
+    // through an unrelated capability namespace.
+    let public_filesystem_grants = config::public_filesystem_grants(&config.policy.filesystem);
     let audit_dir = state.join("audit");
     let audit = Audit::open(&audit_dir, config.audit_max_bytes, config.audit_retention)?;
     let policy = Policy::new(config.policy.clone())?;
@@ -158,7 +163,7 @@ async fn run(args: Args) -> Result<()> {
         &state,
         config.applications.clone(),
         config.browser.clone(),
-        config.policy.filesystem.clone(),
+        public_filesystem_grants.clone(),
         config.blender_socket.clone(),
     )
     .await?;
@@ -167,9 +172,9 @@ async fn run(args: Args) -> Result<()> {
     // Holds Linux D-Bus ownership (and any future native connection lifetimes)
     // until after the shared broker has shut down.
     let platform_keepalive = platform.keepalive;
-    if !config.policy.filesystem.is_empty() {
-        backends.push(Arc::new(Filesystem::new(&config.policy.filesystem)?));
-        backends.push(Arc::new(ArtifactHandoff::new(&config.policy.filesystem)?));
+    if !public_filesystem_grants.is_empty() {
+        backends.push(Arc::new(Filesystem::new(&public_filesystem_grants)?));
+        backends.push(Arc::new(ArtifactHandoff::new(&public_filesystem_grants)?));
     }
     let sandbox_helper = std::env::current_exe()?
         .parent()

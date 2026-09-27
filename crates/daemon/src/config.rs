@@ -3,7 +3,7 @@ use semwright_driver_sdk::Manifest as DriverManifest;
 use semwright_federation::StdioUpstreamConfig;
 use semwright_platform_common::Application;
 use semwright_plugin_sdk::Manifest;
-use semwright_policy::PolicyConfig;
+use semwright_policy::{FilesystemGrant, PolicyConfig};
 #[cfg(unix)]
 use semwright_protocol::current_uid;
 use semwright_protocol::private_directory;
@@ -157,6 +157,14 @@ pub fn state_directory(fake: bool, runtime: &Path) -> Result<PathBuf> {
     private_directory(&directory)?;
     Ok(directory)
 }
+pub fn public_filesystem_grants(grants: &[FilesystemGrant]) -> Vec<FilesystemGrant> {
+    grants
+        .iter()
+        .filter(|grant| grant.path.is_dir())
+        .cloned()
+        .collect()
+}
+
 pub fn confine_grants(config: &Config, protected: &[PathBuf]) -> Result<()> {
     for grant in &config.policy.filesystem {
         let root = std::fs::canonicalize(&grant.path)?;
@@ -249,6 +257,34 @@ trust_driver_everything = true
             .is_err()
         );
     }
+    #[test]
+    fn public_filesystem_grants_exclude_file_authorities() {
+        let directory = tempfile::tempdir().unwrap();
+        let secret = directory.path().join("pairing");
+        std::fs::write(&secret, b"secret").unwrap();
+        let project = directory.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+
+        let grants = vec![
+            FilesystemGrant {
+                name: "project".into(),
+                path: std::fs::canonicalize(&project).unwrap(),
+                read: true,
+                write: true,
+            },
+            FilesystemGrant {
+                name: "pairing".into(),
+                path: std::fs::canonicalize(&secret).unwrap(),
+                read: true,
+                write: false,
+            },
+        ];
+
+        let public = public_filesystem_grants(&grants);
+        assert_eq!(public.len(), 1);
+        assert_eq!(public[0].name, "project");
+    }
+
     #[test]
     fn root_scope_must_not_contain_broker_state() {
         let d = tempfile::tempdir().unwrap();
