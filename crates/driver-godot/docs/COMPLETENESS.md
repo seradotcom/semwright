@@ -63,7 +63,7 @@ The certified path includes:
 - loopback-only bridge authority without granting ambient driver network access;
 - owner pairing material delivered through first-class read-only secret mounts;
 - shared Broker RefStore integration for provider-owned Godot refs;
-- lifetime resource limits plus bounded Linux per-operation CPU accounting for persistent drivers;
+- lifetime resource limits plus bounded Linux/Windows per-operation CPU accounting for persistent drivers;
 - digest-pinned secondary tools staged by Driver Host as sealed executable payloads;
 - Driver Package v2 companion artifacts with explicit paths, digests, size budgets and no
   automatic Godot-project activation;

@@ -10,7 +10,7 @@ use semwright_driver_sdk::{
     DriverInterfaces, DriverRequestContext, Manifest, Request, Response, capabilities_digest,
     descriptor_digest,
 };
-use semwright_platform_api::launch::{SandboxStdin, SandboxStdout};
+use semwright_platform_api::launch::{SandboxCpuAccounting, SandboxStdin, SandboxStdout};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::{
@@ -256,7 +256,11 @@ fn cpu_ticks_per_second() -> Result<u64> {
 }
 
 #[cfg(target_os = "linux")]
-async fn wait_for_operation_cpu_budget(pid: u32, seconds: u64) -> Result<()> {
+async fn wait_for_operation_cpu_budget(
+    pid: u32,
+    _cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
+    seconds: u64,
+) -> Result<()> {
     if seconds == 0 {
         return std::future::pending::<Result<()>>().await;
     }
@@ -273,14 +277,50 @@ async fn wait_for_operation_cpu_budget(pid: u32, seconds: u64) -> Result<()> {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-async fn wait_for_operation_cpu_budget(_pid: u32, seconds: u64) -> Result<()> {
+#[cfg(target_os = "windows")]
+async fn wait_for_operation_cpu_budget(
+    _pid: u32,
+    cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
+    seconds: u64,
+) -> Result<()> {
+    if seconds == 0 {
+        return std::future::pending::<Result<()>>().await;
+    }
+    let accounting = cpu_accounting.ok_or_else(|| {
+        Error::new(
+            ErrorCode::Unsupported,
+            "Windows sandbox does not expose cumulative Job CPU accounting",
+        )
+    })?;
+    let start = accounting.total_cpu_time()?;
+    let limit = Duration::from_secs(seconds);
+    loop {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let current = accounting.total_cpu_time()?;
+        let used = current.checked_sub(start).ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows sandbox CPU accounting moved backwards",
+            )
+        })?;
+        if used >= limit {
+            return Ok(());
+        }
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+async fn wait_for_operation_cpu_budget(
+    _pid: u32,
+    _cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
+    seconds: u64,
+) -> Result<()> {
     if seconds == 0 {
         std::future::pending::<Result<()>>().await
     } else {
         Err(Error::new(
             ErrorCode::Unsupported,
-            "Per-operation driver CPU accounting is Linux-only",
+            "Per-operation driver CPU accounting is unavailable on this platform",
         ))
     }
 }
@@ -320,11 +360,11 @@ fn validate_owner_permissions(
     allow_network: bool,
 ) -> Result<()> {
     manifest.validate()?;
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     if manifest.resources.operation_cpu_seconds != 0 {
         return Err(Error::new(
             ErrorCode::Unsupported,
-            "Per-operation driver CPU accounting is Linux-only",
+            "Per-operation driver CPU accounting is unavailable on this platform",
         ));
     }
     if manifest.network && !allow_network {
@@ -801,6 +841,8 @@ pub struct DriverProvider {
     closed: CancellationToken,
     terminate: CancellationToken,
     process_id: u32,
+    cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
+    operation_cpu_gate: Mutex<()>,
     _staged: Arc<StagedFile>,
     #[cfg(unix)]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
@@ -839,6 +881,15 @@ impl DriverProvider {
             let process_id = child
                 .id()
                 .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
+            let cpu_accounting = child.cpu_accounting();
+            #[cfg(target_os = "windows")]
+            if manifest.resources.operation_cpu_seconds != 0 && cpu_accounting.is_none() {
+                let _ = child.kill().await;
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Windows Driver Host requires Job CPU accounting for per-operation budgets",
+                ));
+            }
             let input = child.take_stdin()?;
             let output = child.take_stdout()?;
             let mut io = Io { input, output };
@@ -1019,6 +1070,8 @@ impl DriverProvider {
                 closed,
                 terminate,
                 process_id,
+                cpu_accounting,
+                operation_cpu_gate: Mutex::new(()),
                 _staged: staged,
             }))
         }
@@ -1068,6 +1121,15 @@ impl DriverProvider {
             let process_id = child
                 .id()
                 .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
+            let cpu_accounting = child.cpu_accounting();
+            #[cfg(target_os = "windows")]
+            if manifest.resources.operation_cpu_seconds != 0 && cpu_accounting.is_none() {
+                let _ = child.kill().await;
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Windows Driver Host requires Job CPU accounting for per-operation budgets",
+                ));
+            }
             let input = child.take_stdin()?;
             let output = child.take_stdout()?;
             let mut io = Io { input, output };
@@ -1247,6 +1309,8 @@ impl DriverProvider {
                 closed,
                 terminate,
                 process_id,
+                cpu_accounting,
+                operation_cpu_gate: Mutex::new(()),
                 _staged: staged,
                 _loopback: loopback,
                 _tools: sealed_tools,
@@ -1462,6 +1526,22 @@ impl Provider for DriverProvider {
                 "Pinned driver capability descriptor changed",
             ));
         }
+        // CPU accounting is process-boundary-wide (Job Object on Windows and
+        // process-tree accounting on Linux), not request-tagged. Serialize only Drivers that
+        // opt into a per-operation budget so concurrent requests cannot charge each other.
+        let _operation_cpu_guard = if self.manifest.resources.operation_cpu_seconds != 0 {
+            Some(tokio::select! {
+                guard = self.operation_cpu_gate.lock() => guard,
+                _ = context.cancellation.cancelled() => {
+                    return Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "Driver execution cancelled while waiting for its CPU-budget turn",
+                    ));
+                }
+            })
+        } else {
+            None
+        };
         let id = if context.request_id.is_empty() {
             unique_id()
         } else {
@@ -1574,12 +1654,12 @@ impl Provider for DriverProvider {
         tokio::pin!(response_future);
         let cpu_watch = wait_for_operation_cpu_budget(
             self.process_id,
+            self.cpu_accounting.clone(),
             self.manifest.resources.operation_cpu_seconds,
         );
         tokio::pin!(cpu_watch);
         let response = tokio::select! {
             biased;
-            response = &mut response_future => response,
             budget = &mut cpu_watch => {
                 if let ProtocolIo::V2(io) = &self.io {
                     io.pending.lock().await.remove(&id);
@@ -1607,6 +1687,7 @@ impl Provider for DriverProvider {
                     Err(error) => return Err(error.uncertain()),
                 }
             }
+            response = &mut response_future => response,
         };
 
         match response {
@@ -1888,7 +1969,7 @@ mod tests {
 
         tokio::time::timeout(
             Duration::from_secs(5),
-            wait_for_operation_cpu_budget(root, 1),
+            wait_for_operation_cpu_budget(root, None, 1),
         )
         .await
         .expect("CPU watchdog did not fire")

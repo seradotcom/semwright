@@ -2,6 +2,7 @@
 
 use semwright_platform_api::launch::{ResourceLimits, SandboxKind, SandboxLauncher, SandboxSpec};
 use semwright_platform_windows_sys::launch::WindowsSandbox;
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 fn spec(network: bool) -> SandboxSpec {
@@ -63,4 +64,43 @@ async fn network_authority_materializes_only_internet_client_capability() {
         .expect("read fixture stdout");
     process.wait().await.expect("wait for sandbox child");
     assert_eq!(output, b"native|path=false|network=true|");
+}
+
+#[tokio::test]
+async fn job_cpu_accounting_retains_cpu_after_child_exit() {
+    let mut candidate = spec();
+    candidate
+        .environment
+        .push(("SEMWRIGHT_CPU_MS".into(), "750".into()));
+
+    let mut process = WindowsSandbox
+        .spawn(&candidate)
+        .expect("secure Windows CPU-accounted spawn");
+    let accounting = process
+        .cpu_accounting()
+        .expect("Windows sandbox must expose Job CPU accounting");
+    let start = accounting.total_cpu_time().expect("initial Job CPU");
+
+    let mut stdin = process.take_stdin().expect("sandbox stdin");
+    let mut stdout = process.take_stdout().expect("sandbox stdout");
+    stdin.shutdown().await.expect("close fixture stdin");
+    drop(stdin);
+
+    let mut output = Vec::new();
+    stdout
+        .read_to_end(&mut output)
+        .await
+        .expect("read fixture stdout");
+    process.wait().await.expect("wait for sandbox child");
+
+    let end = accounting
+        .total_cpu_time()
+        .expect("Job CPU remains queryable after child exit");
+    let consumed = end
+        .checked_sub(start)
+        .expect("Job CPU accounting must be monotonic");
+    assert!(
+        consumed >= Duration::from_millis(100),
+        "busy fixture should consume measurable Job CPU, observed {consumed:?}"
+    );
 }
