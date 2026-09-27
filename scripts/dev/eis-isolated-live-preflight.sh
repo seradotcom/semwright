@@ -39,7 +39,7 @@ virt=$(systemd-detect-virt --vm 2>/dev/null || true)
 if [[ -n "$virt" && "$virt" != "none" ]]; then
   isolation_mode="vm"
 else
-  [[ -n "$seat" && "$seat" != "seat0" ]] ||     fail "bare-metal seat0 is the owner-active boundary; use a VM or independent seat"
+  [[ -n "$seat" && "$seat" != "seat0" ]] ||     fail "bare-metal seat0 is not an isolated test boundary; use a VM or independent seat"
   isolation_mode="independent-seat"
   virt="none"
 fi

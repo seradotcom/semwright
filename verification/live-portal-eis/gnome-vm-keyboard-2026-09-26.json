@@ -77,8 +77,8 @@
     "git_diff_check": "PASS"
   },
   "excluded_evidence": [
-    "owner-active direct-desktop keyboard targeting",
-    "same-login nested GNOME keyboard targeting"
+    "non-isolated direct-desktop keyboard targeting",
+    "shared-authority nested GNOME keyboard targeting"
   ],
   "limitations": [
     "This evidence certifies the isolated GNOME Wayland VM keyboard-delivery and cancellation slice only.",

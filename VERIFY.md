@@ -262,14 +262,13 @@ evidence remains in `verification/live-portal-eis/gnome-connect-to-eis.json`.
 Keyboard evidence has a stricter boundary. GNOME exposes keycode-only `ei_keyboard` rather than
 `ei_text`; EIS-advertised XKB translation, cooperative in-flight cancellation, sender backpressure,
 pacing and bidirectional modifier-feedback handling now have deterministic protocol coverage.
-However, subsequent owner-observed keyboard runs showed that EIS text could reach the owner-active
-ChatGPT input despite semantic window-focus checks. A second attempt using GNOME Shell nested with
-separate HOME, runtime, D-Bus and Wayland namespaces also failed to isolate RemoteDesktop/EIS from
-the real graphical login. Those keyboard runs are diagnostic only and must not be used as live
+However, earlier non-isolated keyboard runs demonstrated that semantic focus checks alone do not prove
+target exclusivity. A second attempt using GNOME Shell nested with separate HOME, runtime, D-Bus
+and Wayland namespaces still shared graphical authority with the outer session. Those keyboard runs are diagnostic only and must not be used as live
 target-delivery certification. The invalidated record is
 `verification/live-portal-eis/gnome-eis-cancellation.json`, and the methodology boundary is recorded
 in `verification/live-portal-eis/keyboard-targeting-methodology.json`. Future keyboard live testing
-must use a VM or independent seat/session that cannot inject into the owner-active login.
+must use a VM or independent seat/session with an independently isolated graphical authority boundary.
 
 ## PipeWire ScreenCast closure included in this development line
 

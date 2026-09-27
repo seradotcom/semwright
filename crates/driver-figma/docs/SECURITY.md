@@ -24,11 +24,11 @@ With dynamic-page access, the plugin loads pages once to enable `documentchange`
 
 The bridge itself needs loopback networking only, but Driver Manifest v1 exposes network as a boolean owner grant. The Linux sandbox therefore shares the host network namespace only after explicit owner opt-in, while the driver itself binds exclusively to 127.0.0.1. The narrower authority mismatch is documented in `SDK_GAPS.md`.
 
-The repository includes a real DriverProvider host-conformance test. The local development machine cannot complete the mandatory bubblewrap user-namespace setup, so hosted native CI is the acceptance environment for that path. No unsandboxed fallback is used.
+The repository includes a real DriverProvider host-conformance test. Hosted native CI is the acceptance environment for the mandatory Bubblewrap user-namespace path. No unsandboxed fallback is used.
 
 ## Real-Figma boundary
 
-No authorized disposable Figma session was available for this closeout. Fake-host and plugin-runtime evidence do not substitute for real Figma F1-F4 acceptance.
+Fake-host and plugin-runtime evidence do not substitute for separately recorded real-Figma acceptance.
 
 ## Cloud credential boundary
 

@@ -3,7 +3,7 @@
   "assets": [
     {
       "file": "Semwright mark embedded as semantic SVG",
-      "source": "/home/sergio/Documents/Projects/semwright-site/public/mark.svg (read-only brand reference)",
+      "source": "semwright-site/public/mark.svg (project-owned brand reference)",
       "license": "Semwright project-owned brand asset",
       "generated_or_original": "original",
       "bundled_binary": false,
