@@ -9918,6 +9918,7 @@
               "required_scopes",
               "routes",
               "available",
+              "policy_preview",
               "score"
             ],
             "properties": {
@@ -10007,6 +10008,7 @@
         "capability",
         "provenance",
         "routes",
+        "policy_preview",
         "availability_is_authorization",
         "transactions"
       ],
