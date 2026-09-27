@@ -295,6 +295,5 @@ mod tests {
     fn sealed_tool_budget_is_distinct_from_provider_budget() {
         assert_eq!(MAX_PROVIDER_EXECUTABLE_BYTES, 64 * 1024 * 1024);
         assert_eq!(MAX_SEALED_TOOL_EXECUTABLE_BYTES, 256 * 1024 * 1024);
-        assert!(MAX_SEALED_TOOL_EXECUTABLE_BYTES > 146_414_384);
     }
 }

@@ -27,16 +27,34 @@ const UNIX_SOCKET_PATH_MAX: usize = 107;
 
 #[cfg(unix)]
 fn loopback_directory_path(state: &Path, runtime: Option<&Path>, id: &str) -> Result<PathBuf> {
-    let base = runtime.unwrap_or(state);
-    let directory = base.join(format!("loopback-{id}"));
-    let socket = directory.join("bridge.sock");
-    if socket.as_os_str().as_bytes().len() > UNIX_SOCKET_PATH_MAX {
-        return Err(Error::new(
-            ErrorCode::Unavailable,
-            "Driver loopback Unix socket path exceeds platform limit",
-        ));
+    let state_directory = state.join(format!("loopback-{id}"));
+    if state_directory
+        .join("bridge.sock")
+        .as_os_str()
+        .as_bytes()
+        .len()
+        <= UNIX_SOCKET_PATH_MAX
+    {
+        return Ok(state_directory);
     }
-    Ok(directory)
+
+    if let Some(runtime) = runtime {
+        let runtime_directory = runtime.join(format!("loopback-{id}"));
+        if runtime_directory
+            .join("bridge.sock")
+            .as_os_str()
+            .as_bytes()
+            .len()
+            <= UNIX_SOCKET_PATH_MAX
+        {
+            return Ok(runtime_directory);
+        }
+    }
+
+    Err(Error::new(
+        ErrorCode::Unavailable,
+        "Driver loopback Unix socket path exceeds platform limit",
+    ))
 }
 #[cfg(windows)]
 pub(crate) const SANDBOX_PIPE_ENV: &str = "SEMWRIGHT_DRIVER_LOOPBACK_PIPE";
@@ -298,6 +316,15 @@ pub(crate) async fn start(state: &Path, port: u16) -> Result<Arc<LoopbackProxy>>
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn short_state_path_stays_under_state_even_when_runtime_exists() {
+        let state = Path::new("/tmp/semwright-state");
+        let runtime = Path::new("/run/user/1000/semwright");
+        let id = "a".repeat(32);
+        let directory = loopback_directory_path(state, Some(runtime), &id).unwrap();
+        assert!(directory.starts_with(state));
+    }
 
     #[test]
     fn runtime_base_keeps_long_state_socket_within_unix_budget() {
