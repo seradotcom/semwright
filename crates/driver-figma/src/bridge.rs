@@ -911,6 +911,7 @@ async fn serve_connection(
                 && record.session_id == session_id
                 && record.document_id == document_id
                 && record.expires_at > now
+                && record.generation.checked_add(1) == Some(generation)
         });
         if !still_current {
             drop(guard);
@@ -1712,6 +1713,95 @@ mod tests {
             .close(None)
             .await
             .expect("close second resumed plugin");
+    }
+
+    #[tokio::test]
+    async fn concurrent_resume_attempts_serialize_on_generation() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut first, resume_id, resume_token) =
+            initial_resume_credential(&hub, "resume-concurrent", 1).await;
+        first.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let token_vec = hex::decode(&resume_token).expect("hex resume token");
+        let token: [u8; 32] = token_vec.try_into().expect("32-byte resume token");
+
+        let (mut a, _) = connect_async(&url).await.expect("connect resume a");
+        let (mut b, _) = connect_async(&url).await.expect("connect resume b");
+        for client in [&mut a, &mut b] {
+            send_client(
+                client,
+                &Message::ResumeHello {
+                    protocol: BRIDGE_PROTOCOL_VERSION,
+                    plugin_build: "test-plugin-concurrent".into(),
+                    figma_api: "1.138.0".into(),
+                    editor_type: "figma".into(),
+                    document_id: "test-document".into(),
+                    revision: 0,
+                    capabilities: vec!["design".into()],
+                    resume_id: resume_id.clone(),
+                },
+            )
+            .await;
+        }
+
+        let parse_challenge = |message: Message| match message {
+            Message::ResumeChallenge {
+                session_id,
+                generation,
+                nonce,
+                resume_id: challenged_id,
+            } => {
+                assert_eq!(challenged_id, resume_id);
+                (session_id, generation, nonce)
+            }
+            other => panic!("expected ResumeChallenge, got {other:?}"),
+        };
+        let ca = parse_challenge(recv_client(&mut a).await);
+        let cb = parse_challenge(recv_client(&mut b).await);
+        assert_eq!(ca.0, cb.0);
+        assert_eq!(ca.1, 2);
+        assert_eq!(cb.1, 2);
+        assert_ne!(ca.2, cb.2, "concurrent resume nonces must be fresh");
+
+        let proof_a = resume_proof_bytes(&token, &ca.2, &ca.0, ca.1);
+        send_client(
+            &mut a,
+            &Message::ResumeAuthenticate {
+                session_id: ca.0.clone(),
+                generation: ca.1,
+                resume_id: resume_id.clone(),
+                proof: proof_a,
+            },
+        )
+        .await;
+        assert!(matches!(
+            recv_client(&mut a).await,
+            Message::Ready { generation: 2, .. }
+        ));
+
+        let proof_b = resume_proof_bytes(&token, &cb.2, &cb.0, cb.1);
+        send_client(
+            &mut b,
+            &Message::ResumeAuthenticate {
+                session_id: cb.0,
+                generation: cb.1,
+                resume_id,
+                proof: proof_b,
+            },
+        )
+        .await;
+        match recv_client(&mut b).await {
+            Message::Close { reason } => assert_eq!(reason, "resume_replayed"),
+            other => panic!("second concurrent resume must be rejected, got {other:?}"),
+        }
+
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].session_id, "resume-concurrent");
+        assert_eq!(sessions[0].generation, 2);
+        a.close(None).await.expect("close winning resume");
     }
 
     #[tokio::test]
