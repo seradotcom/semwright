@@ -176,7 +176,8 @@ pub fn process_appcontainer_sid(pid: u32) -> Result<String> {
     let token = OwnedHandle(token);
 
     let mut needed = 0u32;
-    // First call intentionally discovers the required TOKEN_APPCONTAINER_INFORMATION size.
+    // SAFETY: this query intentionally passes no output buffer so Windows reports the
+    // required TOKEN_APPCONTAINER_INFORMATION size in `needed`; token is live and query-only.
     let _ = unsafe { GetTokenInformation(token.0, TokenAppContainerSid, None, 0, &mut needed) };
     if needed == 0 || needed > 65_536 {
         return Err(Error::new(
