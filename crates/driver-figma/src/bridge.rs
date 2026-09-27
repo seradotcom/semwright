@@ -502,7 +502,16 @@ async fn serve_connection(
         } if auth_session == session_id
             && auth_generation == generation
             && secret.verify(&nonce, &session_id, generation, &proof) => {}
-        _ => return Err(BridgeError::Auth),
+        _ => {
+            let _ = send_ws(
+                &mut sink,
+                &Message::Close {
+                    reason: "authentication_failed".into(),
+                },
+            )
+            .await;
+            return Err(BridgeError::Auth);
+        }
     }
 
     let (outbound_tx, mut outbound_rx) = mpsc::channel::<Message>(MAX_PENDING);
@@ -844,16 +853,15 @@ mod tests {
         )
         .await;
 
-        let result = timeout(Duration::from_secs(2), ws.next()).await;
-        match result {
-            Ok(Some(Ok(frame))) if frame.is_text() => {
-                let parsed = parse_message(frame.into_data().as_ref());
-                assert!(
-                    !matches!(parsed, Ok(Message::Ready { .. })),
-                    "invalid proof must never receive Ready"
-                );
-            }
-            _ => {}
+        let result = timeout(Duration::from_secs(2), ws.next())
+            .await
+            .expect("authentication rejection timeout")
+            .expect("server closed before authentication rejection")
+            .expect("authentication rejection websocket frame");
+        assert!(result.is_text(), "authentication rejection must be textual");
+        match parse_message(result.into_data().as_ref()).expect("parse authentication rejection") {
+            Message::Close { reason } => assert_eq!(reason, "authentication_failed"),
+            other => panic!("invalid proof must receive Close, got {other:?}"),
         }
         assert!(hub.sessions().await.is_empty());
     }
