@@ -81,7 +81,7 @@
     "gnome_bridge_left_active": true
   },
   "limitations": [
-    "This is a full GNOME/GDM restart in an independent KVM real-login guest, not a disruptive restart of the user's owner-active physical desktop.",
+    "This is a full GNOME/GDM restart inside an independent KVM guest; non-isolated compositor restarts are outside this certification method.",
     "The temporary service reproduces the production unit's graphical-session lifecycle directives; its ExecStart path/socket/state were intentionally isolated for the test.",
     "No keyboard, pointer, clipboard, or screenshot authority was requested or injected during this restart test.",
     "This does not provide a physical Hyprland login or physical mixed-scale/multi-monitor evidence; R06 remains open for those conditions."
