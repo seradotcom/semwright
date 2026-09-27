@@ -357,6 +357,7 @@ async fn exercise(
     assert_eq!(waited["present"], true);
 
     let late = semantic_query(browser, ctx, &tab, "button", "Loaded later").await?;
+    eprintln!("chromium-live step=hover-late");
     browser
         .execute(ctx, "browser.element.hover", &json!({"_target":late}))
         .await?;
@@ -366,6 +367,7 @@ async fn exercise(
     );
 
     let remember = semantic_query(browser, ctx, &tab, "checkbox", "Remember me").await?;
+    eprintln!("chromium-live step=check-remember");
     let checked = browser
         .execute(
             ctx,
@@ -410,6 +412,7 @@ async fn exercise(
 
     let drag_source = query(browser, ctx, &tab, "#drag-source").await?;
     let drag_target = query(browser, ctx, &tab, "#drag-target").await?;
+    eprintln!("chromium-live step=drag-source-target");
     let dragged = browser
         .execute(
             ctx,
@@ -429,6 +432,7 @@ async fn exercise(
     );
 
     let popup_link = semantic_query(browser, ctx, &tab, "link", "Open popup").await?;
+    eprintln!("chromium-live step=popup-click");
     browser
         .execute(ctx, "browser.element.click", &json!({"_target":popup_link}))
         .await?;
@@ -461,6 +465,7 @@ async fn exercise(
     browser.validate(&tab).await?;
 
     let dialog_button = semantic_query(browser, ctx, &tab, "button", "Open dialog").await?;
+    eprintln!("chromium-live step=dialog-click");
     browser
         .execute(
             ctx,
@@ -511,6 +516,7 @@ async fn exercise(
         .await?;
     assert_eq!(snapshot["sensitive_attributes_omitted"], true);
     let submit = semantic_query(browser, ctx, &tab, "button", "Submit").await?;
+    eprintln!("chromium-live step=submit-click");
     browser
         .execute(ctx, "browser.element.click", &json!({"_target":submit}))
         .await?;
