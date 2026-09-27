@@ -150,7 +150,9 @@ impl Driver for Fixture {
         }
         if command == "driver.fixture.mount_probe" {
             if args.as_object().is_none_or(|args| !args.is_empty()) {
-                return Err(Error::invalid("fixture mount probe accepts an empty object"));
+                return Err(Error::invalid(
+                    "fixture mount probe accepts an empty object",
+                ));
             }
             let root = workspace_mount("fixture-data")?;
             let read = std::fs::read_to_string(root.join("input.txt"))?;
