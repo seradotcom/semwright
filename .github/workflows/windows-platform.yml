@@ -169,3 +169,42 @@ jobs:
           name: windows-${{ matrix.arch }}-evidence
           path: verification/platform-ci/
           retention-days: 14
+
+  sealed-tool-compat:
+    name: sealed-tool compat ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server2022-x64
+            runs_on: windows-2022
+            toolchain: "1.98.1"
+          - name: win11-arm-x64emu
+            runs_on: windows-11-arm
+            toolchain: "1.98.1-x86_64-pc-windows-msvc"
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install diagnostic Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup toolchain install "${{ matrix.toolchain }}" --profile minimal
+      - name: Record compatibility environment
+        run: |
+          set -euo pipefail
+          echo "RUNNER_ARCH=$RUNNER_ARCH"
+          echo "PROCESSOR_ARCHITECTURE=${PROCESSOR_ARCHITECTURE:-unknown}"
+          rustc +${{ matrix.toolchain }} -vV
+      - name: Sealed tool nested execution probe
+        run: >-
+          cargo +${{ matrix.toolchain }} test --locked
+          -p semwright-driver-host
+          --test windows_secure_host
+          -- secure_windows_driver_sealed_tool_is_staged_immutable_and_executable
+          --nocapture
