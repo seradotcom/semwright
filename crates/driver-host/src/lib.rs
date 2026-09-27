@@ -328,7 +328,7 @@ async fn wait_for_operation_cpu_budget(
 fn validate_secret_source(path: &Path) -> Result<()> {
     #[cfg(target_os = "windows")]
     {
-        return semwright_platform_services::verify_private_data_file(path, 4096);
+        semwright_platform_services::verify_private_data_file(path, 4096)
     }
 
     #[cfg(not(target_os = "windows"))]
