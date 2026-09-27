@@ -283,8 +283,13 @@ fn issue_resume_credential(
     let now = Instant::now();
     state.resume.retain(|_, record| record.expires_at > now);
     if state.resume.len() >= MAX_RESUME_CREDENTIALS {
-        if let Some(oldest) = state.resume.keys().next().cloned() {
-            state.resume.remove(&oldest);
+        if let Some(expiring_first) = state
+            .resume
+            .iter()
+            .min_by_key(|(_, record)| record.expires_at)
+            .map(|(id, _)| id.clone())
+        {
+            state.resume.remove(&expiring_first);
         }
     }
     loop {
