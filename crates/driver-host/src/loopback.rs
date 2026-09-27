@@ -31,8 +31,6 @@ pub(crate) struct LoopbackProxy {
     pipe_path: PathBuf,
     #[cfg(windows)]
     listener: StdMutex<Option<TcpListener>>,
-    #[cfg(windows)]
-    reserved: StdMutex<Option<NamedPipeServer>>,
 }
 
 impl LoopbackProxy {
@@ -58,18 +56,15 @@ impl LoopbackProxy {
             .map_err(|_| Error::new(ErrorCode::Internal, "Loopback listener lock poisoned"))?
             .take()
             .ok_or_else(|| Error::new(ErrorCode::Conflict, "Loopback proxy already activated"))?;
-        let reserved = self
-            .reserved
-            .lock()
-            .map_err(|_| Error::new(ErrorCode::Internal, "Loopback pipe lock poisoned"))?
-            .take()
-            .ok_or_else(|| Error::new(ErrorCode::Conflict, "Loopback pipe already activated"))?;
-        semwright_platform_services::windows_authorize_appcontainer_loopback_server(
-            &reserved,
-            expected_pid,
-        )?;
-
         let pipe_path = self.pipe_path.clone();
+        // Create the first named-pipe instance only after the sandbox process exists and its
+        // AppContainer SID can be queried. FIRST_PIPE_INSTANCE makes name squatting fail closed
+        // instead of requiring a post-creation DACL mutation on a handle without WRITE_DAC.
+        let reserved = semwright_platform_services::windows_appcontainer_loopback_server(
+            &pipe_path,
+            expected_pid,
+            true,
+        )?;
         let stop = self.stop.clone();
         let semaphore = Arc::new(Semaphore::new(16));
         tokio::spawn(async move {
@@ -275,12 +270,9 @@ pub(crate) async fn start(_state: &Path, port: u16) -> Result<Arc<LoopbackProxy>
         r"\\.\pipe\LOCAL\semwright-loopback-{}",
         unique_id()
     ));
-    let reserved =
-        semwright_platform_services::windows_reserve_appcontainer_loopback_server(&pipe_path)?;
     Ok(Arc::new(LoopbackProxy {
         stop: CancellationToken::new(),
         pipe_path,
         listener: StdMutex::new(Some(listener)),
-        reserved: StdMutex::new(Some(reserved)),
     }))
 }
