@@ -188,7 +188,6 @@ jobs:
           from pathlib import Path
           manifests = [
               Path("crates/driver-blender/driver.manifest.example.json"),
-              Path("crates/driver-libreoffice/driver.manifest.example.json"),
               Path("crates/driver-mlt-video/driver.manifest.example.json"),
               Path("crates/driver-motion-canvas/driver.manifest.example.json"),
           ]
@@ -198,6 +197,15 @@ jobs:
               assert not data.get("network", False), (path, "unexpected ambient network")
               assert data.get("loopback_port") is None, (path, "unexpected loopback bridge")
               print(f"{path}: stdio_v1 host continuity")
+
+          # LibreOffice is a first-party Driver SDK binary without a standalone
+          # manifest example in this crate. It is hosted over Driver stdio and
+          # owns a bounded local UNO subprocess/pipe internally.
+          libreoffice = Path("crates/driver-libreoffice/src/main.rs").read_text()
+          assert "serve(driver).await" in libreoffice
+          assert "timeout(deadline, child.wait_with_output())" in libreoffice
+          assert "Command::new(SOFFICE)" in libreoffice
+          print("crates/driver-libreoffice: Driver SDK stdio + bounded local UNO process")
           PY
       - name: Type and unit regression
         run: |
