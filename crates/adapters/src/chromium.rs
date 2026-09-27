@@ -303,7 +303,11 @@ impl DownloadState {
 
 fn cdp_event_changes_document_identity(method: &str, event: &Value) -> bool {
     match method {
-        "DOM.documentUpdated" | "Inspector.targetCrashed" => true,
+        "Inspector.targetCrashed" => true,
+        // DOM.documentUpdated may be emitted for a subframe inside the parent target.
+        // Backend-node liveness is checked at use time, so it must not retire unrelated
+        // parent refs. Top-level Page.frameNavigated remains the document boundary.
+        "DOM.documentUpdated" => false,
         // Parent sessions also observe subframe navigation. That does not replace
         // the parent's document. OOPIF child sessions report their own top-level
         // frame without parentId and therefore advance only the child document.
@@ -1514,6 +1518,7 @@ fn collect_frame_rows(
     target: &str,
     tree: &Value,
     parent: Option<&str>,
+    seen: &mut BTreeSet<String>,
     rows: &mut Vec<Value>,
 ) -> Result<()> {
     if rows.len() >= 256 {
@@ -1521,6 +1526,9 @@ fn collect_frame_rows(
     }
     let frame = &tree["frame"];
     let id = arg_str(frame, "id")?;
+    if !seen.insert(id.to_owned()) {
+        return Ok(());
+    }
     let url = frame["url"].as_str().unwrap_or("");
     rows.push(json!({
         "ref": instance.frame_ref(target, frame)?,
@@ -1533,7 +1541,7 @@ fn collect_frame_rows(
     }));
     if let Some(children) = tree["childFrames"].as_array() {
         for child in children {
-            collect_frame_rows(instance, config, target, child, Some(id), rows)?;
+            collect_frame_rows(instance, config, target, child, Some(id), seen, rows)?;
             if rows.len() >= 256 {
                 break;
             }
@@ -1803,6 +1811,8 @@ fn snapshot_hit_matches_target(snapshot: &Value, x: f64, y: f64, target: u64) ->
     })?;
     let mut best: Option<(i64, usize, bool)> = None;
     for document in documents {
+        let document_x = x + document["scrollOffsetX"].as_f64().unwrap_or(0.0);
+        let document_y = y + document["scrollOffsetY"].as_f64().unwrap_or(0.0);
         let Some(backends) = document["nodes"]["backendNodeId"].as_array() else {
             continue;
         };
@@ -1839,10 +1849,10 @@ fn snapshot_hit_matches_target(snapshot: &Value, x: f64, y: f64, target: u64) ->
                 || !bh.is_finite()
                 || bw <= 0.0
                 || bh <= 0.0
-                || x < bx
-                || y < by
-                || x > bx + bw
-                || y > by + bh
+                || document_x < bx
+                || document_y < by
+                || document_x > bx + bw
+                || document_y > by + bh
             {
                 continue;
             }
@@ -2475,7 +2485,41 @@ impl Backend for Chromium {
                     &tree["frameTree"]
                 };
                 let mut rows = Vec::new();
-                collect_frame_rows(instance, &self.config, &tab, root, None, &mut rows)?;
+                let mut seen = BTreeSet::new();
+                collect_frame_rows(
+                    instance,
+                    &self.config,
+                    &tab,
+                    root,
+                    None,
+                    &mut seen,
+                    &mut rows,
+                )?;
+                if frame.is_none() && rows.len() < 256 {
+                    for candidate in cdp.attached_session_candidates()? {
+                        if candidate == session || rows.len() >= 256 {
+                            continue;
+                        }
+                        if cdp.ensure_session_domains(&candidate).await.is_err() {
+                            continue;
+                        }
+                        let Ok(child_tree) = cdp
+                            .call("Page.getFrameTree", json!({}), Some(&candidate))
+                            .await
+                        else {
+                            continue;
+                        };
+                        collect_frame_rows(
+                            instance,
+                            &self.config,
+                            &tab,
+                            &child_tree["frameTree"],
+                            None,
+                            &mut seen,
+                            &mut rows,
+                        )?;
+                    }
+                }
                 let count = rows.len();
                 Ok(json!({"frames":rows,"count":count,"truncated":count==256}))
             }
@@ -3299,7 +3343,7 @@ mod tests {
 
     #[test]
     fn document_identity_events_do_not_confuse_subframe_mutation_with_parent_navigation() {
-        assert!(cdp_event_changes_document_identity(
+        assert!(!cdp_event_changes_document_identity(
             "DOM.documentUpdated",
             &json!({})
         ));
@@ -3398,6 +3442,13 @@ mod tests {
         }]});
         assert!(snapshot_hit_matches_target(&descendant, 50.0, 50.0, 2).unwrap());
         assert!(!snapshot_hit_matches_target(&descendant, 150.0, 150.0, 2).unwrap());
+
+        let scrolled = json!({"documents":[{
+            "scrollOffsetX":0,"scrollOffsetY":100,
+            "nodes":{"backendNodeId":[1,2],"parentIndex":[-1,0]},
+            "layout":{"nodeIndex":[1],"bounds":[[10,110,80,80]],"paintOrders":[2]}
+        }]});
+        assert!(snapshot_hit_matches_target(&scrolled, 50.0, 50.0, 2).unwrap());
     }
 
     #[test]
