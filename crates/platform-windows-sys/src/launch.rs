@@ -15,10 +15,10 @@ use std::{
     io::Read,
     os::windows::{
         ffi::OsStrExt,
-        fs::{MetadataExt, OpenOptionsExt},
+        fs::OpenOptionsExt,
         io::{AsRawHandle, FromRawHandle},
     },
-    path::Path,
+    path::{Component, Path},
 };
 use tokio::{fs::File as TokioFile, process::Command};
 use windows::Win32::{
@@ -52,10 +52,11 @@ use windows::Win32::{
     Storage::FileSystem::{
         BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_APPEND_DATA,
         FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
-        FILE_DELETE_CHILD, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_EXECUTE, FILE_GENERIC_READ,
-        FILE_GENERIC_WRITE, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
-        FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
-        OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
+        FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+        FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES,
+        FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_WRITE_ATTRIBUTES,
+        FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle, OPEN_EXISTING, WRITE_DAC,
+        WRITE_OWNER,
     },
     System::{
         Com::CoTaskMemFree,
@@ -159,19 +160,39 @@ fn authenticode_status(file: &File, path: &Path) -> Result<AuthenticodeStatus> {
 fn info(file: &File) -> Result<BY_HANDLE_FILE_INFORMATION> {
     let mut out = BY_HANDLE_FILE_INFORMATION::default();
     // SAFETY: the std File owns this live HANDLE and `out` is writable.
-    unsafe { GetFileInformationByHandle(HANDLE(file.as_raw_handle()), &mut out) }
-        .map_err(|_| Error::new(ErrorCode::BackendFailed, "PE file identity query failed"))?;
+    unsafe { GetFileInformationByHandle(HANDLE(file.as_raw_handle()), &mut out) }.map_err(
+        |_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows file identity query failed",
+            )
+        },
+    )?;
     Ok(out)
 }
 
-fn single_link_regular_file(path: &Path) -> Result<()> {
+type FileIdentity = (u32, u32, u32);
+
+fn file_identity(metadata: &BY_HANDLE_FILE_INFORMATION) -> FileIdentity {
+    (
+        metadata.dwVolumeSerialNumber,
+        metadata.nFileIndexHigh,
+        metadata.nFileIndexLow,
+    )
+}
+
+fn path_info_no_reparse(path: &Path) -> Result<BY_HANDLE_FILE_INFORMATION> {
     let mut options = std::fs::OpenOptions::new();
     options
         .read(true)
+        .access_mode(FILE_READ_ATTRIBUTES.0)
         .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
-        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+        .custom_flags((FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS).0);
     let file = options.open(path)?;
-    let metadata = info(&file)?;
+    info(&file)
+}
+
+fn require_single_link_regular(metadata: &BY_HANDLE_FILE_INFORMATION) -> Result<()> {
     if metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
         || metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0
         || metadata.nNumberOfLinks != 1
@@ -897,37 +918,45 @@ fn apply_mount_ace(
 const WINDOWS_MOUNT_MAX_ENTRIES: usize = 50_000;
 const WINDOWS_MOUNT_MAX_DEPTH: usize = 128;
 
-fn normalized_windows_mount_path(path: &Path) -> String {
-    let spelling = path.as_os_str().to_string_lossy().replace('/', "\\");
-    let spelling = spelling.strip_prefix(r"\\?\").unwrap_or(&spelling);
-    spelling.trim_end_matches('\\').to_ascii_lowercase()
-}
-
-fn validate_mount_tree(root: &Path) -> Result<()> {
-    let canonical = std::fs::canonicalize(root)?;
-    if normalized_windows_mount_path(&canonical) != normalized_windows_mount_path(root) {
+fn validate_mount_tree(root: &Path) -> Result<(FileIdentity, bool)> {
+    if root
+        .components()
+        .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+    {
         return Err(Error::new(
             ErrorCode::PolicyDenied,
-            "Windows sandbox mount roots must use canonical DOS paths without aliases",
+            "Windows sandbox mount paths may not contain dot or parent components",
         ));
     }
 
-    let root_metadata = std::fs::symlink_metadata(root)?;
-    if root_metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+    // Validate every existing ancestor by HANDLE so an intermediate junction/symlink cannot
+    // redirect the mount outside the owner-granted tree. DOS/8.3 spellings are allowed when
+    // they resolve through a non-reparse ancestor chain.
+    for ancestor in root.ancestors() {
+        if ancestor.as_os_str().is_empty() {
+            continue;
+        }
+        let metadata = path_info_no_reparse(ancestor)?;
+        if metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows sandbox mount paths may not traverse reparse-point ancestors",
+            ));
+        }
+    }
+
+    let root_metadata = path_info_no_reparse(root)?;
+    let identity = file_identity(&root_metadata);
+    if root_metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
         return Err(Error::new(
             ErrorCode::PolicyDenied,
             "Windows sandbox mount roots may not be reparse points",
         ));
     }
-    if root_metadata.is_file() {
-        single_link_regular_file(root)?;
-        return Ok(());
-    }
-    if !root_metadata.is_dir() {
-        return Err(Error::new(
-            ErrorCode::PolicyDenied,
-            "Windows sandbox mounts must be regular files or directories",
-        ));
+    let root_is_dir = root_metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0;
+    if !root_is_dir {
+        require_single_link_regular(&root_metadata)?;
+        return Ok((identity, false));
     }
 
     let mut pending = vec![(root.to_path_buf(), 0usize)];
@@ -949,30 +978,26 @@ fn validate_mount_tree(root: &Path) -> Result<()> {
                 ));
             }
             let path = entry.path();
-            let metadata = std::fs::symlink_metadata(&path)?;
-            if metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
+            let metadata = path_info_no_reparse(&path)?;
+            if metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0 {
                 return Err(Error::new(
                     ErrorCode::PolicyDenied,
                     "Windows sandbox mount trees may not contain reparse points",
                 ));
             }
-            if metadata.is_dir() {
+            if metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 != 0 {
                 pending.push((path, depth.saturating_add(1)));
-            } else if metadata.is_file() {
-                single_link_regular_file(&path)?;
             } else {
-                return Err(Error::new(
-                    ErrorCode::PolicyDenied,
-                    "Windows sandbox mount trees may contain only regular files and directories",
-                ));
+                require_single_link_regular(&metadata)?;
             }
         }
     }
-    Ok(())
+    Ok((identity, true))
 }
 
 struct PreparedMountGrant {
     path: Vec<u16>,
+    identity: FileIdentity,
     materialized: MaterializedMount,
     permissions: u32,
     inheritance: windows::Win32::Security::ACE_FLAGS,
@@ -999,8 +1024,7 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
             "Windows sandbox mounts may not expose an entire volume root",
         ));
     }
-    validate_mount_tree(&mount.source)?;
-    let metadata = std::fs::symlink_metadata(&mount.source)?;
+    let (identity, is_directory) = validate_mount_tree(&mount.source)?;
     let materialized_path = mount
         .source
         .to_str()
@@ -1012,12 +1036,13 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
     }
     if !mount.read_only {
         permissions |= FILE_GENERIC_WRITE.0;
-        if metadata.is_dir() {
+        if is_directory {
             permissions |= FILE_DELETE_CHILD.0;
         }
     }
     Ok(PreparedMountGrant {
         path: wide_null(mount.source.as_os_str())?,
+        identity,
         materialized: MaterializedMount {
             class: mount.class,
             logical_name: mount.logical_name.clone(),
@@ -1025,7 +1050,7 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
             read_only: mount.read_only,
         },
         permissions,
-        inheritance: if metadata.is_dir() {
+        inheritance: if is_directory {
             SUB_CONTAINERS_AND_OBJECTS_INHERIT
         } else {
             NO_INHERITANCE
@@ -1121,10 +1146,9 @@ fn prepare_windows_mounts(
     let mut materialized = Vec::with_capacity(spec.mounts.len());
     for mount in &spec.mounts {
         let plan = prepare_mount_grant(mount)?;
-        let source_key = normalized_windows_mount_path(Path::new(&plan.materialized.path));
-        if !seen_sources.insert(source_key) {
+        if !seen_sources.insert(plan.identity) {
             return Err(Error::invalid(
-                "Windows sandbox mount sources must be unique after DOS path normalization",
+                "Windows sandbox mount sources must refer to unique filesystem objects",
             ));
         }
         materialized.push(plan.materialized.clone());
