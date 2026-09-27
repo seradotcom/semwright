@@ -7,6 +7,11 @@ use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
 };
 use serde_json::{Value, json};
+#[cfg(windows)]
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::windows::named_pipe::ClientOptions,
+};
 
 fn capability() -> Capability {
     Capability {
@@ -452,8 +457,56 @@ impl Driver for Fixture {
     }
 }
 
+#[cfg(windows)]
+async fn loopback_echo_connection(
+    mut pipe: tokio::net::windows::named_pipe::NamedPipeClient,
+) -> std::io::Result<()> {
+    let mut buffer = [0u8; 4096];
+    loop {
+        let read = pipe.read(&mut buffer).await?;
+        if read == 0 {
+            return Ok(());
+        }
+        pipe.write_all(&buffer[..read]).await?;
+        pipe.flush().await?;
+    }
+}
+
+#[cfg(windows)]
+async fn loopback_echo_task(path: String) {
+    if !path.starts_with(r"\\.\pipe\semwright-loopback-") || path.len() > 256 {
+        return;
+    }
+    loop {
+        match ClientOptions::new().open(&path) {
+            Ok(pipe) => {
+                tokio::spawn(async move {
+                    let _ = loopback_echo_connection(pipe).await;
+                });
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::NotFound
+                        | std::io::ErrorKind::PermissionDenied
+                        | std::io::ErrorKind::WouldBlock
+                ) || error.raw_os_error() == Some(231) =>
+            {
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+            Err(_) => {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+        }
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    #[cfg(windows)]
+    if let Ok(path) = std::env::var("SEMWRIGHT_DRIVER_LOOPBACK_PIPE") {
+        tokio::spawn(loopback_echo_task(path));
+    }
     if let Err(error) = serve(Fixture).await {
         eprintln!("{error}");
         std::process::exit(error.exit_code());

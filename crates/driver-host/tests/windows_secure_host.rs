@@ -9,6 +9,10 @@ use semwright_driver_sdk::{
 use semwright_policy::FilesystemGrant;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+};
 use tokio_util::sync::CancellationToken;
 
 fn digest(path: &Path) -> String {
@@ -239,6 +243,55 @@ async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
         Err(error) => error,
     };
     assert_eq!(error.code, semwright_types::ErrorCode::PermissionDenied);
+}
+
+fn free_loopback_port() -> u16 {
+    let listener =
+        std::net::TcpListener::bind(("127.0.0.1", 0)).expect("reserve loopback test port");
+    let port = listener.local_addr().expect("loopback test address").port();
+    drop(listener);
+    port
+}
+
+#[tokio::test]
+async fn secure_windows_driver_loopback_is_host_mediated_without_network_capability() {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let port = free_loopback_port();
+    let mut manifest = manifest(executable);
+    manifest.loopback_port = Some(port);
+    manifest.network = false;
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(manifest, state.path(), &helper, &[], false)
+        .await
+        .expect("Windows loopback Driver Host connection");
+
+    let mut client = TcpStream::connect(("127.0.0.1", port))
+        .await
+        .expect("connect to Host-owned loopback proxy");
+    client
+        .write_all(b"semwright-loopback")
+        .await
+        .expect("write Host loopback probe");
+    let mut reply = [0u8; 18];
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        client.read_exact(&mut reply),
+    )
+    .await
+    .expect("Host loopback round-trip timed out")
+    .expect("read Host loopback reply");
+    assert_eq!(&reply, b"semwright-loopback");
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("loopback Driver Host shutdown");
 }
 
 fn grant_all_application_packages_modify(path: &Path) {

@@ -1,5 +1,5 @@
 //! Sandboxed persistent application-driver host. Drivers are mounted into the broker as Providers.
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 mod loopback;
 
 use async_trait::async_trait;
@@ -852,17 +852,12 @@ fn sandbox_spec_windows(
     helper: &Path,
     roots: &[FilesystemGrant],
     sealed_tools: &[SealedTool],
+    loopback_pipe: Option<&Path>,
 ) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
 
-    if manifest.loopback_port.is_some() {
-        return Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Windows driver loopback remains fail-closed until a non-Unix bridge is implemented",
-        ));
-    }
     let lookup = |name: &str| -> Result<&FilesystemGrant> {
         roots
             .iter()
@@ -928,13 +923,21 @@ fn sandbox_spec_windows(
             })
             .collect::<Result<Vec<_>>>()?,
     );
+    let environment = loopback_pipe
+        .map(|path| {
+            path.to_str()
+                .ok_or_else(|| Error::invalid("Windows loopback pipe path must be Unicode"))
+                .map(|value| vec![(loopback::SANDBOX_PIPE_ENV.into(), value.to_owned())])
+        })
+        .transpose()?
+        .unwrap_or_default();
     Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
         helper: helper.into(),
         mounts,
         args: vec![],
-        environment: vec![],
+        environment,
         sealed_tools: sealed_tools.iter().map(SealedTool::sandbox_mount).collect(),
         network: manifest.network,
         limits: Some(ResourceLimits {
@@ -961,7 +964,7 @@ pub struct DriverProvider {
     cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
     operation_cpu_gate: Mutex<()>,
     _staged: Arc<StagedFile>,
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
     #[cfg(any(unix, target_os = "windows"))]
     _tools: Vec<SealedTool>,
@@ -1006,11 +1009,28 @@ impl DriverProvider {
                     seal_verified_tool(&grant.path, &tool.sha256, &tool.name, state)
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let spec = sandbox_spec_windows(&manifest, &staged_path, helper, roots, &sealed_tools)?;
+            let loopback = match manifest.loopback_port {
+                Some(port) => Some(loopback::start(state, port).await?),
+                None => None,
+            };
+            let spec = sandbox_spec_windows(
+                &manifest,
+                &staged_path,
+                helper,
+                roots,
+                &sealed_tools,
+                loopback.as_deref().map(loopback::LoopbackProxy::pipe_path),
+            )?;
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let process_id = child
                 .id()
                 .ok_or_else(|| Error::new(ErrorCode::Internal, "Driver child has no PID"))?;
+            if let Some(proxy) = &loopback
+                && let Err(error) = proxy.activate(process_id).await
+            {
+                let _ = child.kill().await;
+                return Err(error);
+            }
             let cpu_accounting = child.cpu_accounting();
             #[cfg(target_os = "windows")]
             if manifest.resources.operation_cpu_seconds != 0 && cpu_accounting.is_none() {
@@ -1178,12 +1198,16 @@ impl DriverProvider {
             let monitor_closed = closed.clone();
             let monitor_terminate = terminate.clone();
             let monitor_staged = staged.clone();
+            let monitor_loopback = loopback.clone();
             tokio::spawn(async move {
                 tokio::select! {
                     _ = monitor_terminate.cancelled() => {
                         let _ = child.kill().await;
                     }
                     _ = child.wait() => {}
+                }
+                if let Some(proxy) = monitor_loopback {
+                    proxy.shutdown();
                 }
                 monitor_closed.cancel();
                 drop(monitor_staged);
@@ -1203,6 +1227,7 @@ impl DriverProvider {
                 cpu_accounting,
                 operation_cpu_gate: Mutex::new(()),
                 _staged: staged,
+                _loopback: loopback,
                 _tools: sealed_tools,
             }))
         }
@@ -1418,12 +1443,16 @@ impl DriverProvider {
             let monitor_closed = closed.clone();
             let monitor_terminate = terminate.clone();
             let monitor_staged = staged.clone();
+            let monitor_loopback = loopback.clone();
             tokio::spawn(async move {
                 tokio::select! {
                     _ = monitor_terminate.cancelled() => {
                         let _ = child.kill().await;
                     }
                     _ = child.wait() => {}
+                }
+                if let Some(proxy) = monitor_loopback {
+                    proxy.shutdown();
                 }
                 monitor_closed.cancel();
                 drop(monitor_staged);

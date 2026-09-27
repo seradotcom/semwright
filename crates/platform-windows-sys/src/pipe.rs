@@ -141,15 +141,19 @@ use windows::{
         Foundation::{HLOCAL, LocalFree},
         Security::Authorization::{
             ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+            SE_KERNEL_OBJECT, SetSecurityInfo,
         },
-        Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES},
+        Security::{
+            ACL, DACL_SECURITY_INFORMATION, GetSecurityDescriptorDacl, PSECURITY_DESCRIPTOR,
+            SECURITY_ATTRIBUTES,
+        },
         Storage::FileSystem::{FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX},
         System::Pipes::{
             CreateNamedPipeW, PIPE_READMODE_MESSAGE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_MESSAGE,
             PIPE_WAIT,
         },
     },
-    core::HSTRING,
+    core::{BOOL, HSTRING},
 };
 
 struct OwnedSecurityDescriptor(PSECURITY_DESCRIPTOR);
@@ -231,7 +235,7 @@ pub fn create_owner_only_server(name: &str) -> Result<OwnedPipe> {
 }
 
 use std::{
-    os::windows::io::AsRawHandle,
+    os::windows::{ffi::OsStrExt, io::AsRawHandle},
     path::{Path, PathBuf},
 };
 use tokio::net::windows::named_pipe::{
@@ -309,6 +313,250 @@ pub fn create_tokio_server(path: &Path, first_instance: bool) -> Result<NamedPip
         )
     }?;
     Ok(server)
+}
+
+pub fn reserve_appcontainer_loopback_server(path: &Path) -> Result<NamedPipeServer> {
+    let spelling = path.as_os_str().to_string_lossy();
+    if !spelling.starts_with(r"\\.\pipe\semwright-loopback-") || spelling.len() > 256 {
+        return Err(Error::invalid(
+            "Invalid Semwright AppContainer loopback pipe path",
+        ));
+    }
+    let owner_sid = crate::identity::current_user_sid()?;
+    let sddl: Vec<u16> = format!("D:P(A;;GA;;;SY)(A;;GA;;;{owner_sid})")
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
+    let mut raw = std::ptr::null_mut();
+    // SAFETY: input is NUL-terminated and the API writes one LocalAlloc-owned descriptor pointer.
+    if unsafe {
+        windows_sys::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.as_ptr(),
+            windows_sys::Win32::Security::Authorization::SDDL_REVISION_1,
+            &mut raw,
+            std::ptr::null_mut(),
+        )
+    } == 0
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Reserved loopback pipe security descriptor creation failed",
+        ));
+    }
+    struct LocalDescriptor(*mut std::ffi::c_void);
+    impl Drop for LocalDescriptor {
+        fn drop(&mut self) {
+            // SAFETY: descriptor was allocated by ConvertStringSecurityDescriptor...
+            unsafe {
+                windows_sys::Win32::Foundation::LocalFree(self.0);
+            }
+        }
+    }
+    let descriptor = LocalDescriptor(raw);
+    let attrs = windows_sys::Win32::Security::SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<windows_sys::Win32::Security::SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: descriptor.0,
+        bInheritHandle: 0,
+    };
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let open_mode = windows_sys::Win32::Storage::FileSystem::PIPE_ACCESS_DUPLEX
+        | windows_sys::Win32::Storage::FileSystem::FILE_FLAG_FIRST_PIPE_INSTANCE
+        | windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OVERLAPPED
+        | windows_sys::Win32::Storage::FileSystem::WRITE_DAC;
+    let pipe_mode = windows_sys::Win32::System::Pipes::PIPE_TYPE_BYTE
+        | windows_sys::Win32::System::Pipes::PIPE_READMODE_BYTE
+        | windows_sys::Win32::System::Pipes::PIPE_WAIT
+        | windows_sys::Win32::System::Pipes::PIPE_REJECT_REMOTE_CLIENTS;
+    // SAFETY: the NUL-terminated name and explicit owner/SYSTEM descriptor remain live for
+    // CreateNamedPipeW. WRITE_DAC is requested only on this pre-spawn reservation so the Host
+    // can replace its DACL with the exact kernel-observed AppContainer SID after spawn.
+    let handle = unsafe {
+        windows_sys::Win32::System::Pipes::CreateNamedPipeW(
+            wide.as_ptr(),
+            open_mode,
+            pipe_mode,
+            16,
+            64 * 1024,
+            64 * 1024,
+            5_000,
+            &attrs,
+        )
+    };
+    if handle == windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: CreateNamedPipeW returned one live, overlapped pipe HANDLE. Ownership transfers
+    // exactly once into Tokio, which closes it on drop.
+    unsafe { NamedPipeServer::from_raw_handle(handle as _) }.map_err(Into::into)
+}
+
+pub fn authorize_appcontainer_loopback_server(
+    pipe: &NamedPipeServer,
+    expected_pid: u32,
+) -> Result<()> {
+    let owner_sid = crate::identity::current_user_sid()?;
+    let appcontainer_sid = crate::identity::process_appcontainer_sid(expected_pid)?;
+    let sddl = HSTRING::from(format!(
+        "D:P(A;;GA;;;SY)(A;;GA;;;{owner_sid})(A;;GA;;;{appcontainer_sid})"
+    ));
+    let mut descriptor = PSECURITY_DESCRIPTOR::default();
+    // SAFETY: sddl remains live and the API returns one LocalAlloc-owned descriptor.
+    unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            &sddl,
+            SDDL_REVISION_1,
+            &mut descriptor,
+            None,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Loopback pipe AppContainer DACL creation failed",
+        )
+    })?;
+    let descriptor = OwnedSecurityDescriptor(descriptor);
+    let mut present = BOOL(0);
+    let mut defaulted = BOOL(0);
+    let mut dacl: *mut ACL = std::ptr::null_mut();
+    // SAFETY: descriptor is a valid self-relative descriptor and outputs are writable.
+    unsafe { GetSecurityDescriptorDacl(descriptor.0, &mut present, &mut dacl, &mut defaulted) }
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::PermissionDenied,
+                "Loopback pipe AppContainer DACL lookup failed",
+            )
+        })?;
+    if !present.as_bool() || dacl.is_null() {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Loopback pipe AppContainer DACL is missing",
+        ));
+    }
+    let raw = windows::Win32::Foundation::HANDLE(pipe.as_raw_handle());
+    // SAFETY: raw is the live reserved named-pipe handle and dacl belongs to descriptor,
+    // which remains live for the synchronous SetSecurityInfo call.
+    let status = unsafe {
+        SetSecurityInfo(
+            raw,
+            SE_KERNEL_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(dacl),
+            None,
+        )
+    };
+    if status.0 != 0 {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Loopback pipe AppContainer DACL could not be applied",
+        ));
+    }
+    Ok(())
+}
+
+pub fn create_appcontainer_loopback_server(
+    path: &Path,
+    expected_pid: u32,
+    first_instance: bool,
+) -> Result<NamedPipeServer> {
+    let spelling = path.as_os_str().to_string_lossy();
+    if !spelling.starts_with(r"\\.\pipe\semwright-loopback-") || spelling.len() > 256 {
+        return Err(Error::invalid(
+            "Invalid Semwright AppContainer loopback pipe path",
+        ));
+    }
+    let owner_sid = crate::identity::current_user_sid()?;
+    let appcontainer_sid = crate::identity::process_appcontainer_sid(expected_pid)?;
+    let sddl: Vec<u16> =
+        format!("D:P(A;;GA;;;SY)(A;;GA;;;{owner_sid})(A;;GA;;;{appcontainer_sid})")
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+    let mut raw = std::ptr::null_mut();
+    // SAFETY: input is NUL-terminated and the API writes one LocalAlloc-owned descriptor pointer.
+    if unsafe {
+        windows_sys::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.as_ptr(),
+            windows_sys::Win32::Security::Authorization::SDDL_REVISION_1,
+            &mut raw,
+            std::ptr::null_mut(),
+        )
+    } == 0
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "AppContainer loopback pipe security descriptor creation failed",
+        ));
+    }
+    struct LocalDescriptor(*mut std::ffi::c_void);
+    impl Drop for LocalDescriptor {
+        fn drop(&mut self) {
+            // SAFETY: descriptor was allocated by ConvertStringSecurityDescriptor...
+            unsafe {
+                windows_sys::Win32::Foundation::LocalFree(self.0);
+            }
+        }
+    }
+    let descriptor = LocalDescriptor(raw);
+    let mut attrs = windows_sys::Win32::Security::SECURITY_ATTRIBUTES {
+        nLength: std::mem::size_of::<windows_sys::Win32::Security::SECURITY_ATTRIBUTES>() as u32,
+        lpSecurityDescriptor: descriptor.0,
+        bInheritHandle: 0,
+    };
+    let mut options = ServerOptions::new();
+    options
+        .pipe_mode(PipeMode::Byte)
+        .reject_remote_clients(true)
+        .max_instances(16)
+        .first_pipe_instance(first_instance);
+    // SAFETY: attrs and its security descriptor remain live for the synchronous create call.
+    let server = unsafe {
+        options.create_with_security_attributes_raw(
+            path.as_os_str(),
+            (&mut attrs as *mut windows_sys::Win32::Security::SECURITY_ATTRIBUTES).cast(),
+        )
+    }?;
+    Ok(server)
+}
+
+pub fn validate_appcontainer_loopback_peer(
+    pipe: &NamedPipeServer,
+    expected_pid: u32,
+) -> Result<()> {
+    let raw = windows::Win32::Foundation::HANDLE(pipe.as_raw_handle());
+    let mut pid = 0u32;
+    let mut session = 0u32;
+    // SAFETY: raw is a connected server pipe handle and outputs are live stack storage.
+    unsafe { GetNamedPipeClientProcessId(raw, &mut pid) }.map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Loopback pipe client PID unavailable",
+        )
+    })?;
+    // SAFETY: raw is a connected server pipe handle and outputs are live stack storage.
+    unsafe { GetNamedPipeClientSessionId(raw, &mut session) }.map_err(|_| {
+        Error::new(
+            ErrorCode::PermissionDenied,
+            "Loopback pipe client session unavailable",
+        )
+    })?;
+    if pid != expected_pid || session != crate::identity::current_session_id()? {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Loopback pipe client is not the expected sandbox child",
+        ));
+    }
+    if crate::identity::process_user_sid_bytes(pid)? != crate::identity::current_user_sid_bytes()? {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Loopback pipe client user SID does not match the host owner",
+        ));
+    }
+    // Re-read package identity after connection to defend against stale/reused process identity.
+    let _ = crate::identity::process_appcontainer_sid(pid)?;
+    Ok(())
 }
 
 pub fn open_tokio_client(path: &Path) -> Result<NamedPipeClient> {
