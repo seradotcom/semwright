@@ -32,6 +32,8 @@ fn internet_client_capability_present() -> bool {
 
     let mut required = 0u32;
     // The sizing call is expected to fail with an insufficient buffer and populate required.
+    // SAFETY: token is a live query handle; the null buffer/zero length pair is the documented
+    // sizing probe and required is a valid writable output.
     let _ = unsafe { GetTokenInformation(token.0, TokenCapabilities, None, 0, &mut required) };
     assert!(required >= std::mem::size_of::<TOKEN_GROUPS>() as u32);
     let mut buffer = vec![0u8; required as usize];
