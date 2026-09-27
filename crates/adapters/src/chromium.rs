@@ -739,6 +739,23 @@ impl Cdp {
             .cloned()
             .collect())
     }
+    fn dialog_open(&self, session: &str) -> Result<bool> {
+        let events = self
+            .events
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "CDP event lock poisoned"))?;
+        Ok(events
+            .iter()
+            .rev()
+            .find(|event| {
+                event["session"].as_str() == Some(session)
+                    && matches!(
+                        event["event"].as_str(),
+                        Some("Page.javascriptDialogOpening" | "Page.javascriptDialogClosed")
+                    )
+            })
+            .is_some_and(|event| event["event"] == "Page.javascriptDialogOpening"))
+    }
     fn download_snapshot(&self) -> Result<DownloadState> {
         Ok(self
             .downloads
@@ -3153,13 +3170,37 @@ impl Backend for Chromium {
                 if frame.is_none() {
                     cdp.invalidate_session(&session)?;
                 }
-                for kind in ["mousePressed", "mouseReleased"] {
-                    cdp.call(
-                        "Input.dispatchMouseEvent",
-                        json!({"type":kind,"x":x,"y":y,"button":"left","clickCount":1}),
-                        Some(&session),
-                    )
-                    .await?;
+                cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mousePressed","x":x,"y":y,"button":"left","clickCount":1}),
+                    Some(&session),
+                )
+                .await?;
+                if cdp.dialog_open(&session)? {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Browser dialog was already open before click release",
+                    ));
+                }
+                let release = cdp.call(
+                    "Input.dispatchMouseEvent",
+                    json!({"type":"mouseReleased","x":x,"y":y,"button":"left","clickCount":1}),
+                    Some(&session),
+                );
+                tokio::pin!(release);
+                let dialog = async {
+                    loop {
+                        if cdp.dialog_open(&session)? {
+                            return Ok::<(), Error>(());
+                        }
+                        ctx.check_cancelled()?;
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    }
+                };
+                tokio::pin!(dialog);
+                tokio::select! {
+                    response = &mut release => { response?; }
+                    opened = &mut dialog => { opened?; }
                 }
                 Ok(
                     json!({"accepted":true,"method":"DOM hit-test + CDP Input","coordinate_space":"viewport_css_pixels"}),
