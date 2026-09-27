@@ -359,7 +359,7 @@ pub fn reserve_appcontainer_loopback_server(path: &Path) -> Result<NamedPipeServ
         bInheritHandle: 0,
     };
     let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-    let open_mode = windows_sys::Win32::System::Pipes::PIPE_ACCESS_DUPLEX
+    let open_mode = windows_sys::Win32::Storage::FileSystem::PIPE_ACCESS_DUPLEX
         | windows_sys::Win32::Storage::FileSystem::FILE_FLAG_FIRST_PIPE_INSTANCE
         | windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OVERLAPPED
         | windows_sys::Win32::Storage::FileSystem::WRITE_DAC;
