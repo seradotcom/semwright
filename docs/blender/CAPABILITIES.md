@@ -1,7 +1,6 @@
 # Blender semantic capabilities
 
-The capability catalog keeps a small discovery surface and puts breadth behind typed RNA refs
-instead of generating one tool per Blender property.
+The catalog deliberately avoids one tool per Blender property. Broad coverage comes from typed RNA refs plus focused lifecycle overlays. The combined semantic branch contains **122 explicit Blender capability descriptors**; most Blender breadth is behind the generic semantic substrate.
 
 ## Generic semantic substrate
 
@@ -20,17 +19,29 @@ instead of generating one tool per Blender property.
 - `driver.blender.semantic.object.create`
 - `driver.blender.semantic.datablock.create/remove`
 - `driver.blender.asset.load`
-## Authoring overlays
 
-- modifiers and Object/PoseBone constraints: add/remove;
-- armatures: bones plus Bone Collection lifecycle/membership;
-- animation: keyframe insert/delete plus NLA track/strip lifecycle;
-- node graphs: type discovery, node add/remove, link/unlink, and NodeTree interface sockets/panels/reparenting;
-- mesh: summary, bounded topology replace, attributes and UV layers;
-- vertex groups: lifecycle and bounded weight set/remove;
-- shape keys: add/remove;
-- curves: spline add/remove.
+Refs are generation-bound; semantic mutation rotates the generation and stale refs fail closed.
 
-The original curated scene/object/material/render/file capabilities remain for ergonomic common
-operations. Bounded RNA/operator/add-on introspection remains read-only and does not grant generic
-operator execution.
+## High-level authoring overlays
+
+- Object/data creation and collection relationships.
+- Modifiers and Object/PoseBone constraints.
+- Blender 4.5 Action slots/layers/keyframe strips/channelbags/F-Curves.
+- F-Curve keyframes and built-in F-Curve modifiers.
+- NLA track/strip lifecycle.
+- Scene ViewLayers and timeline markers.
+- Sequence Editor media/datablock/meta/effect strips and strip modifiers.
+- Node graphs, links and NodeTree interface sockets/panels/reparenting.
+- Mesh topology, attributes, UV layers, vertex groups and weights.
+- Shape keys.
+- Curve splines.
+- Masks: layers, splines and points.
+- Armature bones, Bone Collections and Pose constraints.
+- Grease Pencil layers/frames/drawings/strokes.
+- Hair Curves add/remove/resize/reorder/type mutation.
+- MetaBall elements.
+- Movie Tracking objects/tracks/markers.
+- Scoped workspace asset loading.
+- Render settings, still render and scoped .blend open/save.
+
+The original curated scene/object/material/render/file capabilities remain for ergonomic common cases. RNA/operator/add-on introspection remains bounded and read-only; it does not grant generic operator execution.
