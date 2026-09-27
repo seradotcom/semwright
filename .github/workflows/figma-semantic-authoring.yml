@@ -1,0 +1,129 @@
+name: Figma semantic authoring
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "crates/driver-figma/**"
+      - "demos/figma-semantic-authoring/**"
+      - "fuzz/fuzz_targets/figma_composition.rs"
+      - "fuzz/Cargo.toml"
+      - ".github/workflows/figma-semantic-authoring.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: figma-semantic-authoring-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  authoring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/driver-figma/plugin/package-lock.json
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: figma-semantic-authoring
+      - name: Install sandbox and native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/figma-semantic-authoring
+      - name: Preflight Bubblewrap
+        run: |
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          if [ "$current_apparmor" = "1" ]; then
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict; then
+              sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict || true
+            else
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            fi
+          fi
+          bwrap --version | tee verification/figma-semantic-authoring/bwrap.log
+      - name: Rust format and targeted tests
+        run: |
+          cargo fmt --all -- --check
+          cargo test --locked -p semwright-driver-figma --all-targets --all-features             2>&1 | tee verification/figma-semantic-authoring/rust-tests.log
+      - name: Build driver, fake Figma and sandbox helper
+        run: |
+          cargo build --locked -p semwright-driver-figma --features test-tools --bins             -p semwright-plugin-host --bin semwright-sandbox             2>&1 | tee verification/figma-semantic-authoring/build.log
+      - name: Catalog and public API completeness
+        run: |
+          python3 crates/driver-figma/tools/catalog_consistency.py             | tee verification/figma-semantic-authoring/catalog.log
+      - name: Figma plugin tests and coverage
+        working-directory: crates/driver-figma/plugin
+        run: |
+          npm ci
+          node ../tools/api_coverage.mjs | tee ../../../verification/figma-semantic-authoring/api-coverage.log
+          python3 ../tools/rest_api_coverage.py | tee ../../../verification/figma-semantic-authoring/rest-coverage.log
+          python3 ../tools/semantic_completeness.py | tee ../../../verification/figma-semantic-authoring/semantic-completeness.log
+          npm test 2>&1 | tee ../../../verification/figma-semantic-authoring/plugin-tests.log
+          npm run typecheck 2>&1 | tee ../../../verification/figma-semantic-authoring/typecheck.log
+          npm run build 2>&1 | tee ../../../verification/figma-semantic-authoring/plugin-build.log
+      - name: Driver Protocol semantic authoring E2E
+        run: |
+          BIN_DIR="$GITHUB_WORKSPACE/target/debug"             python3 crates/driver-figma/tools/e2e_driver.py             | tee verification/figma-semantic-authoring/e2e.log
+      - name: Sandboxed DriverProvider semantic authoring
+        env:
+          SEMWRIGHT_TEST_FIGMA: "1"
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-figma --features test-tools             --test host_conformance -- --ignored --nocapture             2>&1 | tee verification/figma-semantic-authoring/host-conformance.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: figma-semantic-authoring-evidence
+          path: verification/figma-semantic-authoring
+          retention-days: 14
+
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: nightly-2026-09-18
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: figma-semantic-authoring-fuzz
+          workspaces: fuzz
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - run: cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Fuzz composition spec and ChangeSet parser
+        run: |
+          mkdir -p verification/figma-semantic-authoring
+          cargo +nightly-2026-09-18 fuzz run figma_composition --             -max_total_time=45 -timeout=3 -rss_limit_mb=1024 -max_len=8192             2>&1 | tee verification/figma-semantic-authoring/fuzz-figma-composition.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: figma-semantic-authoring-fuzz
+          path: |
+            verification/figma-semantic-authoring
+            fuzz/artifacts/figma_composition
+          retention-days: 14

@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "baseline_sha": "a04f664969ac830e3cb5a96c6e62e8eefc40b5fe",
+  "skills_reference_sha": "9dffd4d12c78bd85bdb2153b2f61864bdecac0ee",
+  "structural_precheck": {
+    "status": "PASS",
+    "spec_nodes": 124,
+    "desktop_width": 1440,
+    "mobile_width": 390,
+    "source": "landing.spec.json"
+  },
+  "arms": {
+    "A_code_first": {
+      "status": "UNEXECUTED",
+      "reason": "No comparable live Figma transfer run has been recorded yet."
+    },
+    "B_low_level": {
+      "status": "UNEXECUTED",
+      "reason": "Full landing has not yet been executed under a fixed low-level-only budget."
+    },
+    "C_semantic": {
+      "status": "PARTIAL_AUTOMATED_EVIDENCE",
+      "repository_protocol_e2e": "PASS",
+      "plugin_runtime": "PASS",
+      "live_figma": "UNEXECUTED"
+    }
+  },
+  "visual_result_quality": "UNKNOWN",
+  "technical_winner": null,
+  "rule": "Do not declare a benchmark winner until comparable arms have evidence.",
+  "performance_precheck": {
+    "environment": "plugin fake-runtime harness on development workstation",
+    "status": "PASS",
+    "nodes_100": {
+      "checked": 100,
+      "elapsed_ms_observed": 16,
+      "truncated": false
+    },
+    "nodes_1000": {
+      "checked": 512,
+      "elapsed_ms_observed": 1199,
+      "truncated": true,
+      "note": "Global bounded observation is 512 nodes; no full-document PASS is claimed."
+    },
+    "deep_41": {
+      "checked": 41,
+      "elapsed_ms_observed": 0,
+      "truncated": false
+    },
+    "comparability": "Not a live-Figma latency benchmark."
+  }
+}

@@ -1232,6 +1232,57 @@ describe("semantic authoring, validation and bounded repair",()=>{
     expect(child.layoutSizingVertical).toBe("HUG");
   });
 
+  it("bounds semantic validation on 100 and 1000-node documents and deep nesting",async()=>{
+    const h=harness();
+    const root100=h.figma.createFrame();
+    root100.name="Perf/100";
+    for(let i=0;i<99;i++) root100.appendChild(h.figma.createRectangle());
+    const start100=Date.now();
+    const result100=await h.call("composition.validate",{
+      root_node_id:root100.id,
+      max_findings:32,
+    },0);
+    const elapsed100=Date.now()-start100;
+    expect(result100.ok).toBe(true);
+    expect(result100.value.summary.checkedNodes).toBe(100);
+    expect(result100.value.summary.truncated).toBe(false);
+
+    const root1000=h.figma.createFrame();
+    root1000.name="Perf/1000";
+    for(let i=0;i<999;i++) root1000.appendChild(h.figma.createRectangle());
+    const start1000=Date.now();
+    const result1000=await h.call("composition.validate",{
+      root_node_id:root1000.id,
+      max_findings:32,
+    },0);
+    const elapsed1000=Date.now()-start1000;
+    expect(result1000.ok).toBe(true);
+    expect(result1000.value.summary.checkedNodes).toBe(512);
+    expect(result1000.value.summary.truncated).toBe(true);
+
+    const deep=h.figma.createFrame();
+    deep.name="Perf/Deep";
+    let parent=deep;
+    for(let i=0;i<40;i++){
+      const child=h.figma.createFrame();
+      parent.appendChild(child);
+      parent=child;
+    }
+    const startDeep=Date.now();
+    const resultDeep=await h.call("composition.validate",{
+      root_node_id:deep.id,
+      max_findings:32,
+    },0);
+    const elapsedDeep=Date.now()-startDeep;
+    expect(resultDeep.ok).toBe(true);
+    expect(resultDeep.value.summary.checkedNodes).toBe(41);
+    console.log("semantic-authoring-perf",JSON.stringify({
+      nodes100:{checked:result100.value.summary.checkedNodes,elapsedMs:elapsed100,truncated:false},
+      nodes1000:{checked:result1000.value.summary.checkedNodes,elapsedMs:elapsed1000,truncated:true},
+      deep41:{checked:resultDeep.value.summary.checkedNodes,elapsedMs:elapsedDeep,truncated:false},
+    }));
+  });
+
   it("fails closed when semantic component discovery is ambiguous",async()=>{
     const h=harness();
     h.figma.createComponent().name="CTA/Button";

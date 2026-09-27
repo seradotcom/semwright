@@ -35,7 +35,7 @@ The generated Plugin API inventory currently contains 18 global interfaces, 14 a
 
 The REST inventory maps all 54 operationIds in the pinned official OpenAPI snapshot, plus one documented semantic discovery helper. `cloud.status` reports whether the owner-provisioned credential transport is available.
 
-The advertised agent-facing catalog currently contains 401 capabilities: 342 Plugin API/product-semantic operations, 56 cloud operations and three local driver/session operations. The additional product-semantic operations include typed Motion orchestration (`motion.apply`, presets and stagger), native Slot conversion/settings, bounded color-vision analysis/preview, and `verify.node`, which combines structural measurements with an artifact-backed PNG verification render while preserving the lower-level official Plugin API primitives.
+The advertised agent-facing catalog currently contains 401 capabilities: 342 Plugin API/product-semantic operations, 56 cloud operations and three local driver/session operations. The additional product-semantic operations include typed Motion orchestration (`motion.apply`, presets and stagger), native Slot conversion/settings, bounded color-vision analysis/preview, `verify.node`, and eight high-level `composition.*` authoring/measurement/validation/repair operations. The high-level surface compiles to the existing official Plugin API semantics and does not weaken the exhaustive public-API classification.
 
 ## What completeness does not mean
 

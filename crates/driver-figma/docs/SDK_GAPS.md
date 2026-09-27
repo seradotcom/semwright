@@ -44,6 +44,8 @@ Semwright's generic ref store does not directly encode Figma document/node ident
 
 This is workable, but real-Figma collaboration/reconnect acceptance is still required.
 
+Semantic authoring binds every plan to the same session/document/generation/revision tuple and refuses stale replay. This closes the high-level authoring safety path but does not replace a future generic application-native ref abstraction.
+
 ## Secret delivery note
 
 The default PluginTransport does not need a persisted host-delivered secret: the driver generates an ephemeral per-run pairing secret and reveals it only through the explicit secret-access `pairing.begin` capability.

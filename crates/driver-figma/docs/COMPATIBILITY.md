@@ -3,7 +3,7 @@
 | Surface | Status |
 |---|---|
 | Semwright Driver Protocol | v2; child events negotiated and exercised |
-| Figma Design | Broad typed semantic surface; public Plugin API inventory classified; real-Figma acceptance pending |
+| Figma Design | Broad typed semantic surface plus `composition.*` semantic authoring; public Plugin API inventory classified; fake/runtime evidence green, real-Figma acceptance pending |
 | FigJam | Tables, timer, diagram primitives, active-user gated surfaces and editor-specific nodes mapped; real-Figma acceptance pending |
 | Motion | Beta; styles, playhead, keyframes, timelines and animated export mapped/tested against fake runtime |
 | Prototyping | Reactions, flows, transitions, overlays and validation mapped |

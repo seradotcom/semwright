@@ -18,6 +18,7 @@
     "initial_gap": 16,
     "minimum_gap": 24,
     "expected_repair": "set_auto_layout_gap",
-    "note": "The first validation is expected to fail on a real semantic constraint. Final evidence must come from a repair ChangeSet and fresh validation, not from editing the finished file by hand."
+    "note": "The first validation is expected to fail on a real semantic constraint. Final evidence must come from a repair ChangeSet and fresh validation, not from editing the finished file by hand.",
+    "scope": "desktop and mobile hero parents each begin at gap 16 while declaring minimum gap 24"
   }
 }

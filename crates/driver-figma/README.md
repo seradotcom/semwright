@@ -50,4 +50,4 @@ The REST transport uses official endpoints only, explicit operation metadata/sco
 
 The repository's automated fake-host and sandbox results are not presented as real-Figma certification. Real Figma Design, FigJam, Slides, Buzz, Motion and collaboration acceptance still require an authorized disposable account/file.
 
-See [API coverage](docs/API_COVERAGE.json), [REST coverage](docs/REST_API_COVERAGE.json), [security](docs/SECURITY.md), [capabilities](docs/CAPABILITIES.md), and [compatibility](docs/COMPATIBILITY.md).
+See [semantic authoring](docs/SEMANTIC_AUTHORING.md), [composition model](docs/COMPOSITION_MODEL.md), [validation and repair](docs/VALIDATION_AND_REPAIR.md), [ChangeSets](docs/CHANGESETS.md), [semantic-authoring security](docs/SEMANTIC_AUTHORING_SECURITY.md), [API coverage](docs/API_COVERAGE.json), [REST coverage](docs/REST_API_COVERAGE.json), [security](docs/SECURITY.md), [capabilities](docs/CAPABILITIES.md), and [compatibility](docs/COMPATIBILITY.md).
