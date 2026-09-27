@@ -1,6 +1,6 @@
 # Windows API research baseline
 
-This document records the public API families intentionally used by the source drop. It is not native execution evidence.
+This document records the public API families intentionally used by the Windows implementation. It is not native execution evidence.
 
 - Microsoft UI Automation: Control View semantics, element properties, control patterns and runtime identity. UIA/COM objects stay on one dedicated actor thread rather than crossing into Tokio workers as raw interfaces.
 - Input: public `SendInput`; Unicode text uses `KEYEVENTF_UNICODE`. UIPI refusal is propagated; the implementation never elevates or enables `uiAccess`.

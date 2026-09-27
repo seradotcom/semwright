@@ -8,5 +8,5 @@ framing contract, not the entire application adapter surface.
 Build with the workspace, create the real manifest digest using
 `../../scripts/plugin-manifest.py`, then follow [the plugin guide](../../docs/plugins.md).
 `manifest.template.json` is intentionally not installable: its executable and digest
-must be generated from an actual ELF build. Neither the Rust plugin nor its sandbox was
-executed in this handoff.
+must be generated from an actual ELF build. Runtime and sandbox acceptance are proven by
+the corresponding hosted conformance workflow rather than by the template itself.

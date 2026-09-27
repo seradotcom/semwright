@@ -3,7 +3,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, SystemConfigMount,
+    Transport,
 };
 use semwright_policy::FilesystemGrant;
 use sha2::{Digest, Sha256};
@@ -221,6 +222,73 @@ async fn secure_windows_driver_workspace_read_write_is_enforced() {
         std::fs::read(workspace.path().join("child.txt")).expect("read driver-created file"),
         b"written"
     );
+}
+
+async fn execute_system_config_probe() -> (serde_json::Value, tempfile::TempDir) {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let config = tempfile::tempdir().expect("system config grant");
+    std::fs::write(config.path().join("config.txt"), b"system-config")
+        .expect("write system config fixture");
+    grant_all_application_packages_modify(config.path());
+
+    let mut manifest = manifest(executable);
+    manifest.system_config = vec![SystemConfigMount {
+        root: "fixture-config-root".into(),
+        destination: "/etc/fixture-config".into(),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-config-root".into(),
+        path: config.path().to_path_buf(),
+        read: true,
+        write: false,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(manifest, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows Driver Host system config mount");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.config_probe")
+        .expect("fixture config capability")
+        .descriptor
+        .clone();
+    let output = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "windows-system-config".into(),
+            request_id: "windows-system-config-read-only".into(),
+            cancellation: CancellationToken::new(),
+        },
+        &probe,
+        &serde_json::json!({}),
+    )
+    .await
+    .expect("system config probe through LPAC");
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("system config Driver Host shutdown");
+    drop(binary_dir);
+    (output, config)
+}
+
+#[tokio::test]
+async fn secure_windows_driver_system_config_is_read_only() {
+    let (output, config) = execute_system_config_probe().await;
+    assert_eq!(output["read"], "system-config");
+    assert_eq!(output["write_ok"], false);
+    assert!(!config.path().join("child.txt").exists());
 }
 
 #[tokio::test]
