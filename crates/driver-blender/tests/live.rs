@@ -2113,12 +2113,16 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     )
     .await
     .unwrap();
-    assert!(
-        sequence["ref"]
-            .as_str()
-            .unwrap()
-            .contains("sequence_editor")
-    );
+    let sequence_ref = sequence["ref"].as_str().unwrap().to_owned();
+    let sequence_description = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.semantic.object.describe",
+        json!({"ref":sequence_ref}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(sequence_description["rna_type"], "SequenceEditor");
 
     let scenes = call(
         provider.as_ref(),
