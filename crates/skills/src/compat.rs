@@ -2,7 +2,7 @@ use crate::{
     CapabilityRequirement, CatalogCapability, CatalogRoute, RequirementQuery, SkillLock,
     SkillLockEntry, SkillPackage, requirements_digest,
 };
-use semwright_registry::Metadata;
+use semwright_registry::{CatalogQuery, Metadata};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -101,63 +101,78 @@ fn requirement_label(requirement: &CapabilityRequirement) -> Result<String> {
     }
 }
 
-fn query_matches(query: &RequirementQuery, capability: &CatalogCapability) -> bool {
-    if query
-        .provider
-        .as_ref()
-        .is_some_and(|provider| provider != &capability.provenance.provider)
-        || query
-            .source
-            .is_some_and(|source| source != capability.provenance.source)
-        || query
-            .application
+fn query_matches(query: &RequirementQuery, capability: &CatalogCapability) -> Result<bool> {
+    let catalog_query = CatalogQuery {
+        query: query.text.clone(),
+        provider: query.provider.clone(),
+        source: query.source,
+        app: query.application.clone(),
+        tags: query.tags.clone(),
+        object_types: query.object_types.clone(),
+        limit: 100,
+        ..Default::default()
+    };
+    let phrases = catalog_query.validate()?;
+    if catalog_query.provider.as_ref().is_some_and(|provider| {
+        provider != &capability.provenance.provider
+            && !capability.descriptor.backends.contains(provider)
+    }) || catalog_query
+        .source
+        .is_some_and(|source| source != capability.provenance.source)
+        || catalog_query
+            .app
             .as_ref()
             .is_some_and(|app| capability.provenance.app.as_ref() != Some(app))
-        || !query
+        || !catalog_query
             .tags
             .iter()
             .all(|tag| capability.provenance.tags.contains(tag))
-        || !query
+        || !catalog_query
             .object_types
             .iter()
             .all(|kind| capability.provenance.object_types.contains(kind))
     {
-        return false;
+        return Ok(false);
     }
-    let search = format!(
-        "{} {} {} {}",
-        capability.descriptor.name,
-        capability.descriptor.description,
-        capability.provenance.aliases.join(" "),
-        capability.provenance.tags.join(" ")
-    )
-    .to_lowercase();
-    query
-        .text
-        .to_lowercase()
-        .split_whitespace()
-        .all(|word| search.contains(word))
+
+    let name = capability.descriptor.name.to_lowercase();
+    let aliases = capability.provenance.aliases.join(" ").to_lowercase();
+    let tags = capability.provenance.tags.join(" ").to_lowercase();
+    let description = capability.descriptor.description.to_lowercase();
+    Ok(phrases.into_iter().all(|phrase| {
+        name == phrase
+            || capability
+                .provenance
+                .aliases
+                .iter()
+                .any(|alias| alias.eq_ignore_ascii_case(&phrase))
+            || name.split(['.', '_', '-']).any(|token| token == phrase)
+            || name.contains(&phrase)
+            || aliases.contains(&phrase)
+            || tags.contains(&phrase)
+            || description.contains(&phrase)
+    }))
 }
 
 fn matching<'a>(
     requirement: &CapabilityRequirement,
     catalog: &'a [CatalogCapability],
-) -> Vec<&'a CatalogCapability> {
-    let mut matches = catalog
-        .iter()
-        .filter(|capability| {
-            requirement
-                .id
-                .as_ref()
-                .is_some_and(|id| id == &capability.descriptor.name)
-                || requirement
-                    .query
-                    .as_ref()
-                    .is_some_and(|query| query_matches(query, capability))
-        })
-        .collect::<Vec<_>>();
+) -> Result<Vec<&'a CatalogCapability>> {
+    let mut matches = Vec::new();
+    for capability in catalog {
+        let matched = if let Some(id) = &requirement.id {
+            id == &capability.descriptor.name
+        } else if let Some(query) = &requirement.query {
+            query_matches(query, capability)?
+        } else {
+            false
+        };
+        if matched {
+            matches.push(capability);
+        }
+    }
     matches.sort_by(|left, right| left.descriptor.name.cmp(&right.descriptor.name));
-    matches
+    Ok(matches)
 }
 
 fn capability_match(capability: &CatalogCapability) -> CapabilityMatch {
@@ -361,7 +376,7 @@ pub fn doctor(
         }
         for requirement in &requirements.semwright.capabilities {
             let label = requirement_label(requirement)?;
-            let matches = matching(requirement, catalog);
+            let matches = matching(requirement, catalog)?;
             for capability in &matches {
                 scopes.extend(capability.descriptor.requires.iter().cloned());
             }
@@ -497,7 +512,7 @@ pub fn lock(
     let mut entries = Vec::new();
     for requirement in &requirements.semwright.capabilities {
         let label = requirement_label(requirement)?;
-        let mut matches = matching(requirement, catalog);
+        let mut matches = matching(requirement, catalog)?;
         if matches.len() < requirement.minimum_matches {
             if requirement.required {
                 return Err(Error::new(

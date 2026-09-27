@@ -2,6 +2,7 @@ use crate::{
     CapabilityRequirement, LOCK_SCHEMA, MAX_REQUIREMENTS, REQUIREMENTS_SCHEMA, RequirementsFile,
     SkillLock,
 };
+use semwright_registry::CatalogQuery;
 use semwright_types::{Error, ErrorCode, Result};
 use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde_json::Value;
@@ -227,6 +228,17 @@ impl CapabilityRequirement {
             {
                 return Err(Error::invalid("Capability query exceeds its bounds"));
             }
+            CatalogQuery {
+                query: query.text.clone(),
+                provider: query.provider.clone(),
+                source: query.source,
+                app: query.application.clone(),
+                tags: query.tags.clone(),
+                object_types: query.object_types.clone(),
+                limit: 100,
+                ..Default::default()
+            }
+            .validate()?;
         }
         Ok(())
     }

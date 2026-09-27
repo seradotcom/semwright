@@ -275,6 +275,43 @@ fn requirements_reject_authority_fields_and_resolve_exact_query_optional_routes(
 }
 
 #[test]
+fn query_requirements_follow_catalog_backend_and_quoted_phrase_semantics() {
+    let (_temp, root) = temp_skill("catalog-query");
+    write_requirements(
+        &root,
+        json!({
+            "version":1,
+            "semwright":{"capabilities":[{
+                "query":{
+                    "text":"\"fixture capability\"",
+                    "provider":"fixture"
+                }
+            }]}
+        }),
+    );
+    let package = load(&root).unwrap();
+    let report = doctor(
+        &package,
+        &[capability("driver.fixture.read", &[], true)],
+        "0.9.0-dev.1",
+    )
+    .unwrap();
+    assert!(report.semwright_compatible);
+    assert_eq!(report.requirements[0].state, "resolved");
+
+    write_requirements(
+        &root,
+        json!({
+            "version":1,
+            "semwright":{"capabilities":[{
+                "query":{"text":"\"unterminated"}
+            }]}
+        }),
+    );
+    assert!(load(&root).is_err());
+}
+
+#[test]
 fn doctor_distinguishes_policy_preview_denial() {
     let (_temp, root) = temp_skill("policy-preview");
     write_requirements(
