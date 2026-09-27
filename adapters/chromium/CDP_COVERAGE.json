@@ -1,0 +1,201 @@
+{
+  "schema": "semwright-browser-cdp-coverage/1",
+  "baseline_sha": "e543a6bed1497840efdb06ce0f9b96748e9529a1",
+  "authority": "owned isolated Chromium via CDP; no Runtime.evaluate",
+  "domains": [
+    {
+      "name": "Accessibility",
+      "status": "implemented",
+      "methods": [
+        "enable",
+        "getFullAXTree",
+        "getPartialAXTree"
+      ],
+      "purpose": "role/name/value/state semantic authority"
+    },
+    {
+      "name": "DOM",
+      "status": "implemented",
+      "methods": [
+        "enable",
+        "getDocument",
+        "querySelectorAll",
+        "describeNode",
+        "focus",
+        "scrollIntoViewIfNeeded",
+        "getBoxModel",
+        "setFileInputFiles"
+      ],
+      "purpose": "identity, structure and exact action grounding"
+    },
+    {
+      "name": "DOMSnapshot",
+      "status": "implemented_bounded",
+      "methods": [
+        "captureSnapshot"
+      ],
+      "purpose": "bounded layout and paint-order evidence for fail-closed pointer hit-testing; AX + DOM identity remain semantic authority"
+    },
+    {
+      "name": "Page",
+      "status": "implemented",
+      "methods": [
+        "enable",
+        "navigate",
+        "getFrameTree",
+        "getNavigationHistory",
+        "navigateToHistoryEntry",
+        "reload",
+        "stopLoading",
+        "captureScreenshot",
+        "handleJavaScriptDialog",
+        "getLayoutMetrics"
+      ],
+      "purpose": "page/frame/lifecycle authority"
+    },
+    {
+      "name": "Input",
+      "status": "implemented_bounded",
+      "methods": [
+        "dispatchMouseEvent",
+        "dispatchKeyEvent",
+        "insertText"
+      ],
+      "purpose": "bounded semantic keyboard/pointer/scroll/drag fallback after exact semantic grounding"
+    },
+    {
+      "name": "Target",
+      "status": "implemented",
+      "methods": [
+        "getTargets",
+        "createTarget",
+        "attachToTarget",
+        "closeTarget",
+        "activateTarget",
+        "setAutoAttach"
+      ],
+      "purpose": "owned tab/session lifecycle"
+    },
+    {
+      "name": "Browser",
+      "status": "implemented_bounded",
+      "methods": [
+        "setDownloadBehavior",
+        "cancelDownload"
+      ],
+      "purpose": "bounded download lifecycle"
+    },
+    {
+      "name": "Network",
+      "status": "metadata_only",
+      "methods": [
+        "enable"
+      ],
+      "purpose": "redacted failure metadata; no headers or bodies"
+    },
+    {
+      "name": "Runtime",
+      "status": "unsupported_by_design",
+      "reason": "arbitrary JavaScript/object evaluation bypasses semantic and policy model"
+    },
+    {
+      "name": "Storage",
+      "status": "unsupported_by_design",
+      "reason": "cookies/storage can contain credentials and are not required for semantic page control"
+    },
+    {
+      "name": "Debugger/Profiler/Tracing",
+      "status": "unsupported_by_design",
+      "reason": "developer diagnostics are outside user-facing browser semantics"
+    }
+  ],
+  "intents": [
+    {
+      "intent": "observe roles/names/state",
+      "status": "implemented",
+      "surface": "browser.semantic.*"
+    },
+    {
+      "intent": "frames",
+      "status": "implemented",
+      "surface": "browser.frame.list + frame-scoped semantic refs/OOPIF sessions"
+    },
+    {
+      "intent": "navigate/history/reload/stop",
+      "status": "implemented",
+      "surface": "browser.navigate + browser.page.*"
+    },
+    {
+      "intent": "focus/scroll/click/fill",
+      "status": "implemented",
+      "surface": "browser.element.*"
+    },
+    {
+      "intent": "toggle/check/radio",
+      "status": "implemented",
+      "surface": "browser.element.check"
+    },
+    {
+      "intent": "select option",
+      "status": "implemented",
+      "surface": "browser.element.select"
+    },
+    {
+      "intent": "bounded key press",
+      "status": "implemented",
+      "surface": "browser.element.press"
+    },
+    {
+      "intent": "semantic wait",
+      "status": "implemented",
+      "surface": "browser.semantic.wait"
+    },
+    {
+      "intent": "dialogs",
+      "status": "implemented",
+      "surface": "browser.dialog.*"
+    },
+    {
+      "intent": "hover",
+      "status": "implemented",
+      "surface": "browser.element.hover"
+    },
+    {
+      "intent": "drag/drop",
+      "status": "implemented_bounded",
+      "surface": "browser.element.drag_to",
+      "boundary": "same-frame exact source/destination refs; cross-frame drag is unsupported by design"
+    },
+    {
+      "intent": "file upload",
+      "status": "implemented_grant_scoped",
+      "surface": "browser.element.upload",
+      "boundary": "owner-readable filesystem grant + relative path + private staged copy; no arbitrary host path"
+    },
+    {
+      "intent": "cookies/storage/raw network bodies",
+      "status": "unsupported_by_design"
+    },
+    {
+      "intent": "semantic page scroll/lazy discovery",
+      "status": "implemented",
+      "surface": "browser.page.scroll"
+    },
+    {
+      "intent": "popups/new tabs",
+      "status": "implemented",
+      "surface": "browser.tab.list + generation-bound tab refs"
+    },
+    {
+      "intent": "shadow DOM semantics",
+      "status": "implemented",
+      "surface": "browser.semantic.* + bounded DOM snapshot"
+    }
+  ],
+  "completeness": {
+    "status": "complete",
+    "definition": "ordinary user-facing browser semantics on an owned isolated Chromium instance, excluding explicitly classified privileged/developer surfaces",
+    "agent_arbitrary_javascript": false,
+    "raw_cdp_exposed": false
+  }
+}

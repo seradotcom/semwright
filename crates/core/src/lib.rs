@@ -450,18 +450,26 @@ impl Broker {
             "No permitted live backend is available for this command; inspect doctor and capability status",
         ))
     }
-    fn resolve_reference(&self, session: &str, args: &Value) -> Result<Option<Reference>> {
-        args.get("ref")
+    fn resolve_reference_field(
+        &self,
+        session: &str,
+        args: &Value,
+        field: &str,
+    ) -> Result<Option<Reference>> {
+        args.get(field)
             .map(|value| {
                 let id = value
                     .as_str()
-                    .ok_or_else(|| Error::invalid("Reference must be a string"))?;
+                    .ok_or_else(|| Error::invalid(format!("{field} must be a reference string")))?;
                 self.references
                     .lock()
                     .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?
                     .get(id, session)
             })
             .transpose()
+    }
+    fn resolve_reference(&self, session: &str, args: &Value) -> Result<Option<Reference>> {
+        self.resolve_reference_field(session, args, "ref")
     }
     fn application<'a>(
         &self,
@@ -909,6 +917,11 @@ impl Broker {
         } else {
             None
         };
+        let target_reference = if native_ref_capable {
+            self.resolve_reference_field(session, &request.args, "target_ref")?
+        } else {
+            None
+        };
         self.policy.enforce(
             descriptor,
             &request.args,
@@ -954,6 +967,37 @@ impl Broker {
                 ErrorCode::PolicyDenied,
                 "Input without an explicit focused window is forbidden",
             ));
+        }
+        if let Some(target_reference) = &target_reference {
+            let primary = reference.as_ref().ok_or_else(|| {
+                Error::invalid("target_ref requires a primary ref in the same operation")
+            })?;
+            if target_reference.backend != primary.backend
+                || target_reference.target.app != primary.target.app
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Secondary reference must belong to the same backend and application",
+                ));
+            }
+            let backend = self.provider(&target_reference.backend).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::StaleReference,
+                    "Secondary reference backend disappeared",
+                )
+            })?;
+            tokio::time::timeout(
+                Duration::from_secs(3),
+                backend.validate(&target_reference.target),
+            )
+            .await
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::Timeout,
+                    "Secondary reference validation timed out before dispatch",
+                )
+            })??;
+            args["_target2"] = serde_json::to_value(&target_reference.target)?;
         }
         if cancellation.is_cancelled() {
             return Err(Error::new(
