@@ -65,14 +65,20 @@ function extraBase64(bytes: Uint8Array): string {
   }
   return btoa(text);
 }
-function extraStoreArtifact(bytes: Uint8Array, mediaType: string, name: string) {
+let extraArtifactSequence = 0;
+function extraArtifactToken(seed = "artifact"): string {
+  extraArtifactSequence = (extraArtifactSequence + 1) >>> 0;
+  const base = String(seed).replace(/[^A-Za-z0-9._-]/g, "").slice(0, 96) || "artifact";
+  return base + "-" + extraArtifactSequence.toString(16).padStart(8, "0");
+}
+function extraStoreArtifact(bytes: Uint8Array, mediaType: string, name: string, seed = "artifact") {
   if (bytes.byteLength > EXTRA_MAX_ARTIFACT_BYTES) throw new Error("artifact_too_large");
   while (extraArtifacts.size >= EXTRA_MAX_ARTIFACTS) {
     const first = extraArtifacts.keys().next().value as string | undefined;
     if (!first) break;
     extraArtifacts.delete(first);
   }
-  const token = crypto.randomUUID();
+  const token = extraArtifactToken(seed);
   extraArtifacts.set(token, bytes);
   return {token, bytes: bytes.byteLength, mediaType, name};
 }
@@ -849,7 +855,7 @@ async function handleSemanticComplete(request: BridgeRequest, a: any): Promise<B
       if(a.loopCount!==undefined)settings.loopCount=Number(a.loopCount);
       if(a.constraint)settings.constraint=a.constraint;
       const bytes=await (node as any).exportAsync(settings);
-      const artifact=extraStoreArtifact(bytes,extraMediaType(format),String(a.name??("figma-export."+format.toLowerCase())));
+      const artifact=extraStoreArtifact(bytes,extraMediaType(format),String(a.name??("figma-export."+format.toLowerCase())),request.id);
       return ok(request.id,artifact);
     }
     case "artifact.read": {

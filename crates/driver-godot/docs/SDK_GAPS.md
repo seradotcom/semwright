@@ -1,73 +1,110 @@
-# Godot findings against the current Driver SDK
+# Godot Driver SDK findings and closeout status
 
-The original isolated pack was based on Driver Protocol v1. Current Semwright main provides
-Driver Protocol v2, so child events, cooperative cancellation, progress and artifact frames are
-no longer gaps for this driver. The production Godot driver negotiates and exercises those
-interfaces.
+The original isolated Godot pack was built against Driver Protocol v1 and correctly identified
+several missing generic Host/SDK primitives. Those findings have now been closed in Semwright
+rather than bypassed inside the Godot driver.
 
-The remaining findings below should be solved generically, not by granting Godot ambient
-authority.
+The production Godot driver uses **Driver Protocol v3**.
 
-## P0 — loopback-only network authority
+## Resolved — loopback-only bridge authority
 
-Driver manifests still express network as a boolean. Godot needs only an authenticated local
-editor bridge. The driver itself binds to `127.0.0.1`, but `network=true` gives the sandbox
-broader network reach than an ideal loopback ACL. A future host grant should express and enforce
-loopback-only connectivity.
+Godot needs an authenticated local editor bridge, not ambient network access.
 
-## P0 — owner secret delivery
+Driver Host now owns a configured `127.0.0.1` listener and proxies it to a private Unix socket
+mounted inside the sandbox. The Godot driver remains in an isolated network namespace and can
+run with `network=false` and owner network opt-in disabled.
 
-The host scrubs environment and has no first-class secret handle. Godot therefore reads
-owner-generated pairing material from a private read-only config mount. This is bounded and
-redacted, but a generic secret resource with rotation/revocation semantics would be stronger.
-## P1 — broker session/authorization context
+The Host conformance test exercises this exact path.
 
-Driver Protocol v2 execution context carries request identity, cancellation and reporting
-channels, not the broker caller/session authorization identity. Explicit Godot project/session
-refs prevent accidental retargeting but do not create per-agent project grants inside one
-driver instance.
+## Resolved — owner secret delivery
 
-## P1 — broker-native provider-owned app refs
+Pairing material no longer needs to live inline in production driver configuration.
 
-The Godot driver now issues and resolves bounded node/resource/scene refs carrying
-project/session/generation/revision/fingerprint identity and fails closed on stale generation,
-missing targets, class changes and optionally stale revision/fingerprint. This closes the
-application-side identity gap for Godot.
+Driver manifests support first-class secret mounts. Driver Host requires the secret source to be
+a canonical, small, regular, owner-only, single-linked file and exposes it read-only and
+non-executable beneath `/run/secrets/<name>`. Landlock admits only direct secret-file read
+roots, not the whole directory or nested/traversal paths.
 
-The remaining gap is generic broker support: Semwright does not yet materialize arbitrary
-provider-owned native refs into the shared ref store or enforce their stale-generation
-semantics uniformly across every driver. Godot therefore validates these identities inside
-the provider.
+Godot production config uses `secret_file`; inline secrets are accepted only in explicit
+development mode.
 
-## P1 — persistent driver resource budgets
+## Non-goal — caller authorization inside the driver
 
-Linux `RLIMIT_CPU` is cumulative for a persistent process. Long-lived event-driven drivers may
-need a distinction between lifetime limits and per-operation CPU budgets without weakening
-memory, FD or process-tree confinement.
+Broker/Policy remains the authority boundary. Drivers receive operations that have already been
+authorized; they must not become a second policy engine based on caller identity.
 
-## P1 — secondary executable authority
+Protocol v3 carries the Semwright session needed for ref scoping and execution correlation.
+If future deployments require one driver process per tenant/agent, that is a Host lifecycle
+isolation concern, not a requirement to give application drivers independent authorization
+power.
 
-The host pins/stages the driver executable, while Godot runner operations need a second
-owner-approved executable. The driver currently validates Godot path and SHA-256 itself and
-uses a fixed argument builder. A generic host-managed executable handle/staging primitive would
-remove the remaining same-UID replacement race.
-## P1 — companion plugin distribution
+## Resolved — broker-native provider-owned refs
 
-A Godot integration includes both a Rust driver and an `addons/semwright/` EditorPlugin tree.
-Current driver distribution is centered on one executable payload. A reviewed multi-artifact
-package format should install/update/remove companion application plugins without silently
-activating them.
+Protocol v3 negotiates `native_refs`. Dynamic drivers can emit bounded `NativeTarget`
+markers, Broker materializes them into opaque shared RefStore IDs, and the provider validates the
+target before reuse.
 
-## P2 — outer dry-run context
+Godot node/resource/scene refs retain project/session/generation/revision/fingerprint semantics
+and fail closed on stale or changed targets.
 
-Driver Protocol v2 does not carry the broker's outer dry-run bit in `DriverExecutionContext`.
-Godot mutation schemas therefore include an explicit bounded `dry_run` field and still rely on
-normal broker policy/confirmation. A future generic execution context could unify this semantic.
+## Resolved — persistent-driver CPU budgets
 
-## Cross-platform confinement
+The original Linux `RLIMIT_CPU` remains a hard cumulative lifetime cap.
 
-Linux has a tested bubblewrap/Landlock path. macOS and Windows must retain their own fail-closed
-host guarantees before Godot can be declared cross-platform through Semwright.
+Driver resources additionally support an optional Linux per-operation CPU budget. Driver Host
+accounts CPU for the provider process tree, including descendants, and terminates the provider
+with a resource-exhausted uncertain result when the operation budget is exceeded. Longer
+persistent lifetime caps are permitted only when a bounded per-operation budget is configured.
 
-These are SDK/Host improvements, not reasons to expose arbitrary GDScript, shell execution,
-unrestricted object calls or unsandboxed driver fallback.
+Non-Linux hosts reject the opt-in per-operation budget until an equivalent accounting primitive
+exists.
+
+## Resolved — secondary executable authority
+
+Godot runner operations require an owner-approved Godot executable in addition to the driver
+binary.
+
+Driver manifests now support digest-pinned secondary tools. Driver Host verifies the executable,
+copies verified bytes into a sealed Linux memfd, and Bubblewrap materializes the sealed payload
+under `/plugin/tools/<name>`. Landlock grants Execute only to the explicitly declared tool file.
+
+The source path may disappear after Host staging; execution does not reopen the mutable owner
+path.
+
+## Resolved — companion EditorPlugin distribution
+
+Driver Package v2 supports explicit companion payloads in addition to the driver executable.
+
+Companion destinations are normalized relative paths with per-file SHA-256 and size metadata,
+bounded file/count/aggregate budgets, duplicate rejection and exact payload accounting. Symlink
+sources, traversal destinations, digest mismatches and undeclared trailing bytes are rejected.
+
+For Godot, `companions.list` is checked against the reviewed
+`integrations/godot/addons/semwright/` tree. Package installation stores companions in the
+private installed-driver version directory. It does **not** copy or enable the plugin in a user
+Godot project; activation remains an explicit owner action.
+
+## Resolved by design — outer dry-run
+
+The Broker's outer `dry_run` is not a missing Driver Protocol field.
+
+Core handles outer dry-run before provider invocation and returns a non-side-effecting plan, so
+an application driver cannot accidentally execute because it failed to receive a duplicated
+runtime flag. Capability-specific Godot dry-run/preview fields remain semantic application
+features, not security controls.
+
+## Cross-platform certification
+
+Linux x86_64 has real Godot editor acceptance plus bubblewrap/Landlock Driver Host evidence.
+
+macOS, Windows and Linux ARM64 require their own real-editor and platform-host acceptance before
+they are declared certified Godot targets. This is platform certification work, not an
+unresolved P0/P1 Driver SDK blocker for the certified Linux path.
+
+## Closeout
+
+For the certified Linux target there are no unresolved P0/P1 Godot-specific Driver SDK gaps.
+
+These generic improvements were intentionally implemented in Semwright Host/SDK instead of
+granting Godot arbitrary GDScript, shell execution, unrestricted object calls, ambient network
+access or unsandboxed fallback.

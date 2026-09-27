@@ -8,7 +8,8 @@ use serde_json::{Value, json};
 use sha2::Sha256;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    io::ErrorKind,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
     time::Duration,
 };
@@ -17,7 +18,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
     sync::{Mutex, RwLock, mpsc, oneshot},
     task::JoinHandle,
-    time::timeout,
+    time::{Instant, MissedTickBehavior, interval, timeout},
 };
 use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
 use uuid::Uuid;
@@ -25,7 +26,15 @@ use uuid::Uuid;
 type HmacSha256 = Hmac<Sha256>;
 const DEFAULT_PORT: u16 = 38_471;
 const MAX_PENDING: usize = 128;
+const MAX_EXPIRED_REQUESTS: usize = 256;
+#[cfg(not(test))]
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(25);
+#[cfg(test)]
+const REQUEST_TIMEOUT: Duration = Duration::from_millis(150);
+const RECONNECT_GRACE: Duration = Duration::from_secs(2);
+const RECONNECT_POLL: Duration = Duration::from_millis(25);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
+const HEARTBEAT_DEADLINE: Duration = Duration::from_secs(35);
 
 #[derive(Debug, Error)]
 pub enum BridgeError {
@@ -96,6 +105,8 @@ pub enum Message {
         session_id: String,
         document_id: String,
         generation: u64,
+        #[serde(default)]
+        revision: u64,
         capabilities: Vec<String>,
     },
     Challenge {
@@ -153,6 +164,7 @@ pub enum Message {
 pub struct BridgeFailure {
     pub code: String,
     pub message: String,
+    #[serde(alias = "outcomeKnown")]
     pub outcome_known: bool,
 }
 
@@ -170,6 +182,7 @@ struct SessionHandle {
     info: SessionInfo,
     outbound: mpsc::Sender<Message>,
     pending: Arc<Mutex<BTreeMap<String, oneshot::Sender<Message>>>>,
+    expired: Arc<Mutex<BTreeSet<String>>>,
 }
 
 #[derive(Default)]
@@ -177,11 +190,85 @@ struct HubState {
     sessions: BTreeMap<String, SessionHandle>,
 }
 
+async fn take_session_generation(
+    state: &Arc<RwLock<HubState>>,
+    session_id: &str,
+    generation: u64,
+) -> Option<SessionHandle> {
+    let mut guard = state.write().await;
+    if guard
+        .sessions
+        .get(session_id)
+        .is_some_and(|active| active.info.generation == generation)
+    {
+        guard.sessions.remove(session_id)
+    } else {
+        None
+    }
+}
+
+async fn retire_session(handle: SessionHandle, reason: Option<&str>) {
+    if let Some(reason) = reason {
+        let _ = handle.outbound.try_send(Message::Close {
+            reason: reason.to_owned(),
+        });
+    }
+    handle.pending.lock().await.clear();
+    handle.expired.lock().await.clear();
+}
+
+async fn remember_expired(expired: &Arc<Mutex<BTreeSet<String>>>, id: String) {
+    let mut expired = expired.lock().await;
+    if expired.len() >= MAX_EXPIRED_REQUESTS
+        && let Some(oldest) = expired.iter().next().cloned()
+    {
+        expired.remove(&oldest);
+    }
+    expired.insert(id);
+}
+
+fn bridge_log(event: &str, mut fields: serde_json::Map<String, Value>) {
+    if std::env::var_os("SEMWRIGHT_FIGMA_BRIDGE_LOG").is_none() {
+        return;
+    }
+    fields.insert("component".into(), Value::String("figma_bridge".into()));
+    fields.insert("event".into(), Value::String(event.into()));
+    eprintln!("{}", Value::Object(fields));
+}
+
+async fn bind_loopback_listeners(
+    port: u16,
+) -> Result<(SocketAddr, Vec<TcpListener>, Vec<IpAddr>), BridgeError> {
+    let ipv4 = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
+        .await
+        .map_err(|_| BridgeError::Io)?;
+    let addr = ipv4.local_addr().map_err(|_| BridgeError::Io)?;
+    let port = addr.port();
+    let mut listeners = vec![ipv4];
+    let mut hosts = vec![IpAddr::V4(Ipv4Addr::LOCALHOST)];
+
+    match TcpListener::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), port)).await {
+        Ok(ipv6) => {
+            listeners.push(ipv6);
+            hosts.push(IpAddr::V6(Ipv6Addr::LOCALHOST));
+        }
+        Err(error)
+            if matches!(
+                error.kind(),
+                ErrorKind::AddrNotAvailable | ErrorKind::Unsupported
+            ) => {}
+        Err(_) => return Err(BridgeError::Io),
+    }
+
+    Ok((addr, listeners, hosts))
+}
+
 pub struct BridgeHub {
     addr: SocketAddr,
+    listen_hosts: Vec<IpAddr>,
     secret: PairingSecret,
     state: Arc<RwLock<HubState>>,
-    task: JoinHandle<()>,
+    tasks: Vec<JoinHandle<()>>,
 }
 
 impl BridgeHub {
@@ -200,38 +287,62 @@ impl BridgeHub {
         port: u16,
         events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
     ) -> Result<Self, BridgeError> {
-        let listener = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
-            .await
-            .map_err(|_| BridgeError::Io)?;
-        let addr = listener.local_addr().map_err(|_| BridgeError::Io)?;
+        let (addr, listeners, listen_hosts) = bind_loopback_listeners(port).await?;
         let secret = PairingSecret::random();
         let state = Arc::new(RwLock::new(HubState::default()));
-        let accept_state = Arc::clone(&state);
-        let accept_secret = secret.clone();
-        let accept_events = events.clone();
-        let task = tokio::spawn(async move {
-            while let Ok((stream, peer)) = listener.accept().await {
-                if !peer.ip().is_loopback() {
-                    continue;
+        let mut tasks = Vec::with_capacity(listeners.len());
+        for listener in listeners {
+            let accept_state = Arc::clone(&state);
+            let accept_secret = secret.clone();
+            let accept_events = events.clone();
+            tasks.push(tokio::spawn(async move {
+                while let Ok((stream, peer)) = listener.accept().await {
+                    if !peer.ip().is_loopback() {
+                        continue;
+                    }
+                    bridge_log(
+                        "tcp_accepted",
+                        serde_json::Map::from_iter([("peer_addr".into(), json!(peer.to_string()))]),
+                    );
+                    let state = Arc::clone(&accept_state);
+                    let secret = accept_secret.clone();
+                    let events = accept_events.clone();
+                    tokio::spawn(async move {
+                        let _ = serve_connection(stream, state, secret, events).await;
+                    });
                 }
-                let state = Arc::clone(&accept_state);
-                let secret = accept_secret.clone();
-                let events = accept_events.clone();
-                tokio::spawn(async move {
-                    let _ = serve_connection(stream, state, secret, events).await;
-                });
-            }
-        });
+            }));
+        }
+        bridge_log(
+            "listening",
+            serde_json::Map::from_iter([
+                ("listen_port".into(), json!(addr.port())),
+                (
+                    "listen_hosts".into(),
+                    json!(
+                        listen_hosts
+                            .iter()
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>()
+                    ),
+                ),
+            ]),
+        );
         Ok(Self {
             addr,
+            listen_hosts,
             secret,
             state,
-            task,
+            tasks,
         })
     }
 
     pub fn port(&self) -> u16 {
         self.addr.port()
+    }
+
+    pub fn listen_hosts(&self) -> Vec<String> {
+        self.listen_hosts.iter().map(ToString::to_string).collect()
     }
 
     pub fn pairing_code(&self) -> String {
@@ -248,6 +359,12 @@ impl BridgeHub {
             .collect()
     }
 
+    async fn invalidate_generation(&self, session_id: &str, generation: u64, reason: &str) {
+        if let Some(handle) = take_session_generation(&self.state, session_id, generation).await {
+            retire_session(handle, Some(reason)).await;
+        }
+    }
+
     pub async fn execute(
         &self,
         session_id: Option<&str>,
@@ -258,28 +375,41 @@ impl BridgeHub {
         if operation.len() > 128 || !args.is_object() {
             return Err(BridgeError::Protocol);
         }
-        let (chosen_id, generation, revision, tx, pending) = {
-            let state = self.state.read().await;
-            let session = match session_id {
-                Some(id) => state.sessions.get(id).ok_or(BridgeError::Unavailable)?,
-                None if state.sessions.len() == 1 => {
-                    state.sessions.values().next().expect("len checked")
-                }
-                None => return Err(BridgeError::Unavailable),
+        let reconnect_deadline = Instant::now() + RECONNECT_GRACE;
+        let (chosen_id, generation, revision, tx, pending, expired) = loop {
+            let selected = {
+                let state = self.state.read().await;
+                let session = match session_id {
+                    Some(id) => state.sessions.get(id),
+                    None if state.sessions.len() == 1 => state.sessions.values().next(),
+                    None if state.sessions.len() > 1 => return Err(BridgeError::Unavailable),
+                    None => None,
+                };
+                session.map(|session| {
+                    (
+                        session.info.session_id.clone(),
+                        session.info.generation,
+                        session.info.revision,
+                        session.outbound.clone(),
+                        Arc::clone(&session.pending),
+                        Arc::clone(&session.expired),
+                    )
+                })
             };
-            if expected_revision.is_some_and(|rev| rev != session.info.revision) {
-                return Err(BridgeError::Stale);
+            if let Some(selected) = selected {
+                break selected;
             }
-            (
-                session.info.session_id.clone(),
-                session.info.generation,
-                session.info.revision,
-                session.outbound.clone(),
-                Arc::clone(&session.pending),
-            )
+            if Instant::now() >= reconnect_deadline {
+                return Err(BridgeError::Unavailable);
+            }
+            tokio::time::sleep(RECONNECT_POLL).await;
         };
+        if expected_revision.is_some_and(|rev| rev != revision) {
+            return Err(BridgeError::Stale);
+        }
 
         let id = request_id();
+        let request_started = Instant::now();
         let (reply_tx, reply_rx) = oneshot::channel();
         {
             let mut map = pending.lock().await;
@@ -289,24 +419,101 @@ impl BridgeHub {
             map.insert(id.clone(), reply_tx);
         }
 
+        let implicit_revision_guard = !matches!(
+            operation,
+            "artifact.upload.begin" | "artifact.upload.append" | "artifact.status"
+        );
         let request = Message::Request {
             id: id.clone(),
             session_id: chosen_id.clone(),
             generation,
-            expected_revision: expected_revision.or(Some(revision)),
+            expected_revision: expected_revision
+                .or_else(|| implicit_revision_guard.then_some(revision)),
             operation: operation.to_owned(),
             args,
         };
         if tx.send(request).await.is_err() {
             pending.lock().await.remove(&id);
+            bridge_log(
+                "request_failed",
+                serde_json::Map::from_iter([
+                    ("request_id".into(), json!(id)),
+                    ("session_id".into(), json!(chosen_id)),
+                    ("generation".into(), json!(generation)),
+                    ("operation".into(), json!(operation)),
+                    (
+                        "latency_ms".into(),
+                        json!(request_started.elapsed().as_millis()),
+                    ),
+                    ("error".into(), json!("writer_closed")),
+                ]),
+            );
+            self.invalidate_generation(
+                &chosen_id,
+                generation,
+                "Figma plugin session writer closed",
+            )
+            .await;
             return Err(BridgeError::Unavailable);
         }
 
         let response = match timeout(REQUEST_TIMEOUT, reply_rx).await {
-            Ok(Ok(message)) => message,
-            Ok(Err(_)) => return Err(BridgeError::Unavailable),
+            Ok(Ok(message)) => {
+                bridge_log(
+                    "request_complete",
+                    serde_json::Map::from_iter([
+                        ("request_id".into(), json!(id)),
+                        ("session_id".into(), json!(chosen_id)),
+                        ("generation".into(), json!(generation)),
+                        ("operation".into(), json!(operation)),
+                        (
+                            "latency_ms".into(),
+                            json!(request_started.elapsed().as_millis()),
+                        ),
+                    ]),
+                );
+                message
+            }
+            Ok(Err(_)) => {
+                bridge_log(
+                    "request_failed",
+                    serde_json::Map::from_iter([
+                        ("request_id".into(), json!(id)),
+                        ("session_id".into(), json!(chosen_id)),
+                        ("generation".into(), json!(generation)),
+                        ("operation".into(), json!(operation)),
+                        (
+                            "latency_ms".into(),
+                            json!(request_started.elapsed().as_millis()),
+                        ),
+                        ("error".into(), json!("session_disconnected")),
+                    ]),
+                );
+                self.invalidate_generation(
+                    &chosen_id,
+                    generation,
+                    "Figma plugin session disconnected",
+                )
+                .await;
+                return Err(BridgeError::Unavailable);
+            }
             Err(_) => {
                 pending.lock().await.remove(&id);
+                bridge_log(
+                    "request_failed",
+                    serde_json::Map::from_iter([
+                        ("request_id".into(), json!(id)),
+                        ("session_id".into(), json!(chosen_id)),
+                        ("generation".into(), json!(generation)),
+                        ("operation".into(), json!(operation)),
+                        (
+                            "latency_ms".into(),
+                            json!(request_started.elapsed().as_millis()),
+                        ),
+                        ("error".into(), json!("timeout")),
+                    ]),
+                );
+                remember_expired(&expired, id).await;
                 return Err(BridgeError::Timeout);
             }
         };
@@ -352,7 +559,9 @@ impl BridgeHub {
 
 impl Drop for BridgeHub {
     fn drop(&mut self) {
-        self.task.abort();
+        for task in &self.tasks {
+            task.abort();
+        }
     }
 }
 
@@ -362,13 +571,32 @@ async fn serve_connection(
     secret: PairingSecret,
     events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
 ) -> Result<(), BridgeError> {
-    let ws = accept_async(stream)
-        .await
-        .map_err(|_| BridgeError::Protocol)?;
+    let peer_addr = stream.peer_addr().ok().map(|peer| peer.to_string());
+    let ws = match accept_async(stream).await {
+        Ok(ws) => ws,
+        Err(error) => {
+            bridge_log(
+                "websocket_handshake_failed",
+                serde_json::Map::from_iter([
+                    ("peer_addr".into(), json!(peer_addr)),
+                    ("error".into(), json!(error.to_string())),
+                ]),
+            );
+            return Err(BridgeError::Protocol);
+        }
+    };
+    bridge_log(
+        "websocket_open",
+        serde_json::Map::from_iter([("peer_addr".into(), json!(peer_addr))]),
+    );
     let (mut sink, mut source) = ws.split();
 
     let hello = read_message(&mut source).await?;
-    let (session_id, document_id, generation, editor_type, capabilities) = match hello {
+    bridge_log(
+        "hello_received",
+        serde_json::Map::from_iter([("peer_addr".into(), json!(peer_addr))]),
+    );
+    let (session_id, document_id, generation, revision, editor_type, capabilities) = match hello {
         Message::Hello {
             protocol,
             plugin_build,
@@ -377,6 +605,7 @@ async fn serve_connection(
             session_id,
             document_id,
             generation,
+            revision,
             capabilities,
         } if protocol == BRIDGE_PROTOCOL_VERSION
             && !plugin_build.is_empty()
@@ -394,6 +623,7 @@ async fn serve_connection(
                 session_id,
                 document_id,
                 generation,
+                revision,
                 editor_type,
                 capabilities,
             )
@@ -423,12 +653,30 @@ async fn serve_connection(
         } if auth_session == session_id
             && auth_generation == generation
             && secret.verify(&nonce, &session_id, generation, &proof) => {}
-        _ => return Err(BridgeError::Auth),
+        _ => {
+            bridge_log(
+                "authentication_failed",
+                serde_json::Map::from_iter([
+                    ("session_id".into(), json!(session_id)),
+                    ("generation".into(), json!(generation)),
+                    ("peer_addr".into(), json!(peer_addr)),
+                ]),
+            );
+            let _ = send_ws(
+                &mut sink,
+                &Message::Close {
+                    reason: "authentication_failed".into(),
+                },
+            )
+            .await;
+            return Err(BridgeError::Auth);
+        }
     }
 
     let (outbound_tx, mut outbound_rx) = mpsc::channel::<Message>(MAX_PENDING);
     let pending = Arc::new(Mutex::new(BTreeMap::new()));
-    {
+    let expired = Arc::new(Mutex::new(BTreeSet::new()));
+    let superseded = {
         let mut guard = state.write().await;
         if guard
             .sessions
@@ -444,7 +692,7 @@ async fn serve_connection(
                     session_id: session_id.clone(),
                     document_id,
                     generation,
-                    revision: 0,
+                    revision,
                     editor_type,
                     capabilities: capabilities
                         .into_iter()
@@ -454,119 +702,182 @@ async fn serve_connection(
                 },
                 outbound: outbound_tx,
                 pending: Arc::clone(&pending),
+                expired: Arc::clone(&expired),
             },
+        )
+    };
+    if let Some(old) = superseded {
+        bridge_log(
+            "supersession",
+            serde_json::Map::from_iter([
+                ("session_id".into(), json!(session_id)),
+                ("generation".into(), json!(generation)),
+                ("superseded_generation".into(), json!(old.info.generation)),
+            ]),
         );
+        retire_session(old, Some("Superseded by a newer Figma plugin generation")).await;
     }
 
-    send_ws(
-        &mut sink,
-        &Message::Ready {
-            session_id: session_id.clone(),
-            generation,
-            revision: 0,
-        },
-    )
-    .await?;
+    bridge_log(
+        "authenticated",
+        serde_json::Map::from_iter([
+            ("session_id".into(), json!(session_id)),
+            ("generation".into(), json!(generation)),
+            ("peer_addr".into(), json!(peer_addr)),
+        ]),
+    );
 
-    loop {
-        tokio::select! {
-            outbound = outbound_rx.recv() => {
-                let Some(message) = outbound else { break; };
-                send_ws(&mut sink, &message).await?;
-            }
-            inbound = source.next() => {
-                let Some(frame) = inbound else { break; };
-                let frame = frame.map_err(|_| BridgeError::Io)?;
-                if frame.is_close() {
-                    break;
+    let connection_result = async {
+        send_ws(
+            &mut sink,
+            &Message::Ready {
+                session_id: session_id.clone(),
+                generation,
+                revision,
+            },
+        )
+        .await?;
+
+        let mut heartbeat = interval(HEARTBEAT_INTERVAL);
+        heartbeat.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        heartbeat.tick().await;
+        let mut last_seen = Instant::now();
+        let mut heartbeat_seq = 0u64;
+
+        loop {
+            tokio::select! {
+                outbound = outbound_rx.recv() => {
+                    let Some(message) = outbound else { break; };
+                    send_ws(&mut sink, &message).await?;
                 }
-                if !frame.is_text() {
-                    continue;
+                _ = heartbeat.tick() => {
+                    if last_seen.elapsed() >= HEARTBEAT_DEADLINE {
+                        return Err(BridgeError::Unavailable);
+                    }
+                    heartbeat_seq = heartbeat_seq.wrapping_add(1);
+                    send_ws(
+                        &mut sink,
+                        &Message::Ping {
+                            nonce: format!("{generation:x}-{heartbeat_seq:x}"),
+                        },
+                    )
+                    .await?;
                 }
-                let message = parse_message(frame.into_data().as_ref())?;
-                match &message {
-                    Message::Response {
-                        id,
-                        session_id: response_session,
-                        generation: response_generation,
-                        revision,
-                        ..
-                    } => {
-                        if response_session != &session_id || *response_generation != generation {
-                            return Err(BridgeError::Stale);
-                        }
-                        let sender = pending
-                            .lock()
-                            .await
-                            .remove(id)
-                            .ok_or(BridgeError::Duplicate)?;
-                        {
-                            let mut guard = state.write().await;
-                            if let Some(active) = guard.sessions.get_mut(&session_id)
-                                && active.info.generation == generation
+                inbound = source.next() => {
+                    let Some(frame) = inbound else { break; };
+                    let frame = frame.map_err(|_| BridgeError::Io)?;
+                    if frame.is_close() {
+                        break;
+                    }
+                    if !frame.is_text() {
+                        continue;
+                    }
+                    let message = parse_message(frame.into_data().as_ref())?;
+                    last_seen = Instant::now();
+                    match &message {
+                        Message::Response {
+                            id,
+                            session_id: response_session,
+                            generation: response_generation,
+                            revision,
+                            ..
+                        } => {
+                            if response_session != &session_id || *response_generation != generation {
+                                return Err(BridgeError::Stale);
+                            }
+                            let sender = pending.lock().await.remove(id);
+                            let was_expired = if sender.is_none() {
+                                expired.lock().await.remove(id)
+                            } else {
+                                false
+                            };
+                            if sender.is_none() && !was_expired {
+                                return Err(BridgeError::Duplicate);
+                            }
                             {
-                                active.info.revision = *revision;
+                                let mut guard = state.write().await;
+                                if let Some(active) = guard.sessions.get_mut(&session_id)
+                                    && active.info.generation == generation
+                                {
+                                    active.info.revision = *revision;
+                                }
+                            }
+                            if let Some(sender) = sender {
+                                let _ = sender.send(message);
                             }
                         }
-                        let _ = sender.send(message);
-                    }
-                    Message::Event {
-                        session_id: event_session,
-                        generation: event_generation,
-                        revision,
-                        kind,
-                        payload,
-                    } => {
-                        if event_session != &session_id || *event_generation != generation {
-                            return Err(BridgeError::Stale);
-                        }
-                        if !matches!(
-                            kind.as_str(),
-                            "selectionchange"
-                                | "currentpagechange"
-                                | "documentchange"
-                                | "documentchange_unavailable"
-                        ) {
-                            return Err(BridgeError::Protocol);
-                        }
-                        {
-                            let mut guard = state.write().await;
-                            if let Some(active) = guard.sessions.get_mut(&session_id) {
-                                active.info.revision = (*revision).max(active.info.revision);
+                        Message::Event {
+                            session_id: event_session,
+                            generation: event_generation,
+                            revision,
+                            kind,
+                            payload,
+                        } => {
+                            if event_session != &session_id || *event_generation != generation {
+                                return Err(BridgeError::Stale);
+                            }
+                            if !matches!(
+                                kind.as_str(),
+                                "selectionchange"
+                                    | "currentpagechange"
+                                    | "documentchange"
+                                    | "documentchange_unavailable"
+                            ) {
+                                return Err(BridgeError::Protocol);
+                            }
+                            {
+                                let mut guard = state.write().await;
+                                if let Some(active) = guard.sessions.get_mut(&session_id)
+                                    && active.info.generation == generation
+                                {
+                                    active.info.revision = (*revision).max(active.info.revision);
+                                }
+                            }
+                            if let Some(events) = &events {
+                                let _ = events.send(DriverChildEvent::Event {
+                                    kind: format!("figma.{kind}"),
+                                    payload: json!({
+                                        "session_id": session_id,
+                                        "generation": generation,
+                                        "revision": revision,
+                                        "data": payload,
+                                    }),
+                                });
                             }
                         }
-                        if let Some(events) = &events {
-                            let _ = events.send(DriverChildEvent::Event {
-                                kind: format!("figma.{kind}"),
-                                payload: json!({
-                                    "session_id": session_id,
-                                    "generation": generation,
-                                    "revision": revision,
-                                    "data": payload,
-                                }),
-                            });
-                        }
+                        Message::Pong { .. } => {}
+                        Message::Close { .. } => break,
+                        _ => return Err(BridgeError::Protocol),
                     }
-                    Message::Pong { .. } => {}
-                    Message::Close { .. } => break,
-                    _ => return Err(BridgeError::Protocol),
                 }
             }
         }
+        Ok(())
     }
+    .await;
 
-    {
-        let mut guard = state.write().await;
-        if guard
-            .sessions
-            .get(&session_id)
-            .is_some_and(|active| active.info.generation == generation)
-        {
-            guard.sessions.remove(&session_id);
-        }
+    let pending_count = pending.lock().await.len();
+    if let Some(active) = take_session_generation(&state, &session_id, generation).await {
+        retire_session(active, None).await;
     }
+    // The connection owns this pending map even if a newer generation replaced it.
+    // Clearing it guarantees every waiter wakes immediately on all exit paths.
     pending.lock().await.clear();
-    Ok(())
+    expired.lock().await.clear();
+    bridge_log(
+        "disconnect",
+        serde_json::Map::from_iter([
+            ("session_id".into(), json!(session_id)),
+            ("generation".into(), json!(generation)),
+            ("peer_addr".into(), json!(peer_addr)),
+            ("pending_requests".into(), json!(pending_count)),
+            (
+                "result".into(),
+                json!(connection_result.as_ref().err().map(ToString::to_string)),
+            ),
+        ]),
+    );
+    connection_result
 }
 
 async fn read_message<S>(source: &mut S) -> Result<Message, BridgeError>
@@ -612,10 +923,16 @@ pub fn request_id() -> String {
     Uuid::new_v4().simple().to_string()
 }
 
-pub fn pairing_status(port: u16, code: &str, sessions: &[SessionInfo]) -> Value {
+pub fn pairing_status(
+    port: u16,
+    code: &str,
+    sessions: &[SessionInfo],
+    listen_hosts: &[String],
+) -> Value {
     json!({
         "bridge_protocol": BRIDGE_PROTOCOL_VERSION,
         "listen_host": "127.0.0.1",
+        "listen_hosts": listen_hosts,
         "listen_port": port,
         "pairing_code": code,
         "pairing_code_ephemeral": true,
@@ -648,8 +965,17 @@ mod tests {
         parse_message(frame.into_data().as_ref()).expect("parse server message")
     }
 
-    async fn hello(hub: &BridgeHub, session: &str, generation: u64) -> (Client, String) {
-        let url = format!("ws://127.0.0.1:{}", hub.port());
+    async fn hello_at(
+        hub: &BridgeHub,
+        host: &str,
+        session: &str,
+        generation: u64,
+    ) -> (Client, String) {
+        let url = if host.contains(':') {
+            format!("ws://[{host}]:{}", hub.port())
+        } else {
+            format!("ws://{host}:{}", hub.port())
+        };
         let (mut ws, _) = connect_async(url).await.expect("connect loopback bridge");
         send_client(
             &mut ws,
@@ -661,6 +987,7 @@ mod tests {
                 session_id: session.into(),
                 document_id: "test-document".into(),
                 generation,
+                revision: 0,
                 capabilities: vec!["design".into()],
             },
         )
@@ -678,6 +1005,295 @@ mod tests {
         (ws, nonce)
     }
 
+    async fn hello(hub: &BridgeHub, session: &str, generation: u64) -> (Client, String) {
+        hello_at(hub, "127.0.0.1", session, generation).await
+    }
+
+    async fn authenticate_at(
+        hub: &BridgeHub,
+        host: &str,
+        session: &str,
+        generation: u64,
+    ) -> Client {
+        let (mut ws, nonce) = hello_at(hub, host, session, generation).await;
+        let proof = hub.secret.proof(&nonce, session, generation);
+        send_client(
+            &mut ws,
+            &Message::Authenticate {
+                session_id: session.into(),
+                generation,
+                proof,
+            },
+        )
+        .await;
+        match recv_client(&mut ws).await {
+            Message::Ready {
+                session_id,
+                generation: ready_generation,
+                revision,
+            } => {
+                assert_eq!(session_id, session);
+                assert_eq!(ready_generation, generation);
+                assert_eq!(revision, 0);
+            }
+            other => panic!("expected Ready, got {other:?}"),
+        }
+        ws
+    }
+
+    async fn authenticate(hub: &BridgeHub, session: &str, generation: u64) -> Client {
+        authenticate_at(hub, "127.0.0.1", session, generation).await
+    }
+
+    async fn wait_for_no_sessions(hub: &BridgeHub) {
+        timeout(Duration::from_secs(2), async {
+            loop {
+                if hub.sessions().await.is_empty() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("session cleanup timed out");
+    }
+
+    #[tokio::test]
+    async fn accepts_ipv4_and_ipv6_loopback_when_available() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        assert!(hub.listen_hosts().iter().any(|host| host == "127.0.0.1"));
+
+        let mut ipv4 = authenticate_at(&hub, "127.0.0.1", "ipv4", 1).await;
+        ipv4.close(None).await.expect("close ipv4 websocket");
+        wait_for_no_sessions(&hub).await;
+
+        if hub.listen_hosts().iter().any(|host| host == "::1") {
+            let mut ipv6 = authenticate_at(&hub, "::1", "ipv6", 1).await;
+            ipv6.close(None).await.expect("close ipv6 websocket");
+            wait_for_no_sessions(&hub).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn forced_disconnect_wakes_request_and_new_generation_recovers() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut first = authenticate(&hub, "forced", 1).await;
+
+        let execute = hub.execute(Some("forced"), "document.status", None, json!({}));
+        let close = async {
+            let request = recv_client(&mut first).await;
+            assert!(matches!(request, Message::Request { .. }));
+            first.close(None).await.expect("force close websocket");
+        };
+        let (result, ()) = tokio::join!(execute, close);
+        assert!(matches!(result, Err(BridgeError::Unavailable)));
+        wait_for_no_sessions(&hub).await;
+
+        let mut second = authenticate(&hub, "forced", 2).await;
+        let execute = hub.execute(Some("forced"), "document.status", None, json!({}));
+        let respond = async {
+            let request = recv_client(&mut second).await;
+            let (id, session_id, generation) = match request {
+                Message::Request {
+                    id,
+                    session_id,
+                    generation,
+                    ..
+                } => (id, session_id, generation),
+                other => panic!("expected request, got {other:?}"),
+            };
+            send_client(
+                &mut second,
+                &Message::Response {
+                    id,
+                    session_id,
+                    generation,
+                    revision: 1,
+                    ok: true,
+                    value: Some(json!({"status":"ok"})),
+                    error: None,
+                },
+            )
+            .await;
+        };
+        let (result, ()) = tokio::join!(execute, respond);
+        assert_eq!(
+            result.expect("request after reconnect"),
+            json!({"status":"ok"})
+        );
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].generation, 2);
+        second
+            .close(None)
+            .await
+            .expect("close reconnected websocket");
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[test]
+    fn legacy_camel_case_failure_envelope_is_accepted() {
+        let raw = br#"{"type":"response","id":"req","session_id":"session","generation":1,"revision":0,"ok":false,"value":null,"error":{"code":"plugin_error","message":"boom","outcomeKnown":true}}"#;
+        match parse_message(raw).expect("legacy failure envelope") {
+            Message::Response {
+                error: Some(error), ..
+            } => {
+                assert_eq!(error.code, "plugin_error");
+                assert_eq!(error.message, "boom");
+                assert!(error.outcome_known);
+            }
+            other => panic!("expected failure response, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn hello_revision_seeds_session_and_ready_revision() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let url = format!("ws://127.0.0.1:{}", hub.port());
+        let (mut ws, _) = connect_async(url).await.expect("connect loopback bridge");
+        send_client(
+            &mut ws,
+            &Message::Hello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "revision-test".into(),
+                figma_api: "1.139.0".into(),
+                editor_type: "figma".into(),
+                session_id: "revision-session".into(),
+                document_id: "test-document".into(),
+                generation: 1,
+                revision: 37,
+                capabilities: vec!["design".into()],
+            },
+        )
+        .await;
+        let nonce = match recv_client(&mut ws).await {
+            Message::Challenge { nonce, .. } => nonce,
+            other => panic!("expected challenge, got {other:?}"),
+        };
+        send_client(
+            &mut ws,
+            &Message::Authenticate {
+                session_id: "revision-session".into(),
+                generation: 1,
+                proof: hub.secret.proof(&nonce, "revision-session", 1),
+            },
+        )
+        .await;
+        match recv_client(&mut ws).await {
+            Message::Ready { revision, .. } => assert_eq!(revision, 37),
+            other => panic!("expected ready, got {other:?}"),
+        }
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].revision, 37);
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn artifact_memory_ops_skip_implicit_revision_guard() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "artifact-revision", 1).await;
+        {
+            let mut state = hub.state.write().await;
+            state
+                .sessions
+                .get_mut("artifact-revision")
+                .unwrap()
+                .info
+                .revision = 7;
+        }
+
+        let execute = hub.execute(
+            Some("artifact-revision"),
+            "artifact.upload.begin",
+            None,
+            json!({"name":"fixture.bin","mediaType":"application/octet-stream"}),
+        );
+        let respond = async {
+            let request = recv_client(&mut ws).await;
+            let (id, session_id, generation, expected_revision) = match request {
+                Message::Request {
+                    id,
+                    session_id,
+                    generation,
+                    expected_revision,
+                    ..
+                } => (id, session_id, generation, expected_revision),
+                other => panic!("expected request, got {other:?}"),
+            };
+            assert_eq!(expected_revision, None);
+            send_client(
+                &mut ws,
+                &Message::Response {
+                    id,
+                    session_id,
+                    generation,
+                    revision: 8,
+                    ok: true,
+                    value: Some(json!({"token":"fixture","bytes":0,"mediaType":"application/octet-stream","name":"fixture.bin"})),
+                    error: None,
+                },
+            )
+            .await;
+        };
+        let (result, ()) = tokio::join!(execute, respond);
+        assert!(result.is_ok());
+        ws.close(None).await.expect("close websocket");
+    }
+
+    #[tokio::test]
+    async fn document_ops_keep_implicit_revision_guard() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "document-revision", 1).await;
+        {
+            let mut state = hub.state.write().await;
+            state
+                .sessions
+                .get_mut("document-revision")
+                .unwrap()
+                .info
+                .revision = 7;
+        }
+
+        let execute = hub.execute(
+            Some("document-revision"),
+            "document.status",
+            None,
+            json!({}),
+        );
+        let respond = async {
+            let request = recv_client(&mut ws).await;
+            let (id, session_id, generation, expected_revision) = match request {
+                Message::Request {
+                    id,
+                    session_id,
+                    generation,
+                    expected_revision,
+                    ..
+                } => (id, session_id, generation, expected_revision),
+                other => panic!("expected request, got {other:?}"),
+            };
+            assert_eq!(expected_revision, Some(7));
+            send_client(
+                &mut ws,
+                &Message::Response {
+                    id,
+                    session_id,
+                    generation,
+                    revision: 7,
+                    ok: true,
+                    value: Some(json!({"revision":7})),
+                    error: None,
+                },
+            )
+            .await;
+        };
+        let (result, ()) = tokio::join!(execute, respond);
+        assert!(result.is_ok());
+        ws.close(None).await.expect("close websocket");
+    }
+
     #[tokio::test]
     async fn wrong_hmac_never_registers_a_session() {
         let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
@@ -692,16 +1308,15 @@ mod tests {
         )
         .await;
 
-        let result = timeout(Duration::from_secs(2), ws.next()).await;
-        match result {
-            Ok(Some(Ok(frame))) if frame.is_text() => {
-                let parsed = parse_message(frame.into_data().as_ref());
-                assert!(
-                    !matches!(parsed, Ok(Message::Ready { .. })),
-                    "invalid proof must never receive Ready"
-                );
-            }
-            _ => {}
+        let result = timeout(Duration::from_secs(2), ws.next())
+            .await
+            .expect("authentication rejection timeout")
+            .expect("server closed before authentication rejection")
+            .expect("authentication rejection websocket frame");
+        assert!(result.is_text(), "authentication rejection must be textual");
+        match parse_message(result.into_data().as_ref()).expect("parse authentication rejection") {
+            Message::Close { reason } => assert_eq!(reason, "authentication_failed"),
+            other => panic!("invalid proof must receive Close, got {other:?}"),
         }
         assert!(hub.sessions().await.is_empty());
     }
@@ -817,5 +1432,279 @@ mod tests {
             _ => {}
         }
         assert!(hub.sessions().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn request_waits_through_short_reconnect_gap() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+
+        let (result, mut ws) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(3),
+                    hub.execute(
+                        Some("late"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"after-gap"}),
+                    ),
+                )
+                .await
+                .expect("request exceeded reconnect grace")
+            },
+            async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let mut ws = authenticate(&hub, "late", 1).await;
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 1,
+                        ok: true,
+                        value: Some(serde_json::json!({"gap_hidden":true})),
+                        error: None,
+                    },
+                )
+                .await;
+                ws
+            }
+        );
+
+        assert_eq!(
+            result.expect("execute through reconnect gap"),
+            serde_json::json!({"gap_hidden":true})
+        );
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn late_response_after_timeout_keeps_session_usable() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "slow", 1).await;
+
+        let (first_result, ()) = tokio::join!(
+            async {
+                hub.execute(
+                    Some("slow"),
+                    "node.query",
+                    None,
+                    serde_json::json!({"nameEquals":"slow"}),
+                )
+                .await
+            },
+            async {
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                tokio::time::sleep(Duration::from_millis(250)).await;
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 5,
+                        ok: true,
+                        value: Some(serde_json::json!({"late":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert!(matches!(first_result, Err(BridgeError::Timeout)));
+
+        timeout(Duration::from_secs(1), async {
+            loop {
+                let sessions = hub.sessions().await;
+                if sessions.len() == 1 && sessions[0].revision == 5 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("late response did not settle without disconnecting");
+
+        let (second_result, ()) = tokio::join!(
+            async {
+                hub.execute(
+                    Some("slow"),
+                    "node.query",
+                    None,
+                    serde_json::json!({"nameEquals":"after-timeout"}),
+                )
+                .await
+            },
+            async {
+                let request = recv_client(&mut ws).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 6,
+                        ok: true,
+                        value: Some(serde_json::json!({"still_connected":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert_eq!(
+            second_result.expect("session should remain usable after late response"),
+            serde_json::json!({"still_connected":true})
+        );
+
+        ws.close(None).await.expect("close websocket");
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn protocol_failure_retires_session_and_wakes_pending_request() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws = authenticate(&hub, "broken", 1).await;
+        assert_eq!(hub.sessions().await.len(), 1);
+
+        let (result, ()) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(2),
+                    hub.execute(
+                        Some("broken"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"x"}),
+                    ),
+                )
+                .await
+                .expect("pending request did not wake after protocol failure")
+            },
+            async {
+                assert!(matches!(
+                    recv_client(&mut ws).await,
+                    Message::Request { .. }
+                ));
+                ws.send(WsMessage::Text("{not-json".into()))
+                    .await
+                    .expect("send malformed frame");
+            }
+        );
+
+        assert!(matches!(result, Err(BridgeError::Unavailable)));
+        wait_for_no_sessions(&hub).await;
+    }
+
+    #[tokio::test]
+    async fn newer_generation_supersedes_pending_request_and_recovers() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let mut ws1 = authenticate(&hub, "reconnect", 1).await;
+
+        let (old_result, mut ws2) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(2),
+                    hub.execute(
+                        Some("reconnect"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"before"}),
+                    ),
+                )
+                .await
+                .expect("superseded request did not wake")
+            },
+            async {
+                assert!(matches!(
+                    recv_client(&mut ws1).await,
+                    Message::Request { .. }
+                ));
+                authenticate(&hub, "reconnect", 2).await
+            }
+        );
+        assert!(matches!(old_result, Err(BridgeError::Unavailable)));
+
+        let sessions = hub.sessions().await;
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].session_id, "reconnect");
+        assert_eq!(sessions[0].generation, 2);
+
+        let (new_result, ()) = tokio::join!(
+            async {
+                timeout(
+                    Duration::from_secs(2),
+                    hub.execute(
+                        Some("reconnect"),
+                        "node.query",
+                        None,
+                        serde_json::json!({"nameEquals":"after"}),
+                    ),
+                )
+                .await
+                .expect("reconnected request timed out")
+            },
+            async {
+                let request = recv_client(&mut ws2).await;
+                let (id, session_id, generation) = match request {
+                    Message::Request {
+                        id,
+                        session_id,
+                        generation,
+                        ..
+                    } => (id, session_id, generation),
+                    other => panic!("expected request, got {other:?}"),
+                };
+                send_client(
+                    &mut ws2,
+                    &Message::Response {
+                        id,
+                        session_id,
+                        generation,
+                        revision: 1,
+                        ok: true,
+                        value: Some(serde_json::json!({"recovered":true})),
+                        error: None,
+                    },
+                )
+                .await;
+            }
+        );
+        assert_eq!(
+            new_result.expect("reconnected execute"),
+            serde_json::json!({"recovered":true})
+        );
+        ws2.close(None).await.expect("close reconnected websocket");
+        wait_for_no_sessions(&hub).await;
     }
 }

@@ -276,8 +276,11 @@ fn find_keyboard_device(devices: &[LiveDevice]) -> Result<&LiveDevice> {
 
 const EIS_FLUSH_BACKPRESSURE_TIMEOUT: Duration = Duration::from_millis(500);
 const EIS_FLUSH_POLL_SLICE: Duration = Duration::from_millis(10);
-const EIS_KEYCODE_TEXT_BATCH_SIZE: usize = 8;
-const EIS_KEYCODE_TEXT_BATCH_INTERVAL: Duration = Duration::from_millis(8);
+// GNOME/Mutter can silently drop sustained keycode-backed EIS text when the sender
+// outruns the compositor/target. The isolated VM live matrix is reliable at roughly
+// 400-450 characters/s, so keep each burst small and yield often between bursts.
+const EIS_KEYCODE_TEXT_BATCH_SIZE: usize = 4;
+const EIS_KEYCODE_TEXT_BATCH_INTERVAL: Duration = Duration::from_millis(9);
 
 fn frame(
     context: &ei::Context,

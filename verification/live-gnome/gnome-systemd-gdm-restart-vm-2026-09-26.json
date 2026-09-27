@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "recorded_date": "2026-09-26",
+  "status": "PASS_PARTIAL_R06",
+  "scope": "Full GNOME/GDM graphical-session restart through the production-equivalent systemd user-service lifecycle in an isolated KVM guest",
+  "baseline": {
+    "main_commit": "050dbeaa631da599e52e17581bff8e5bf509ee9e",
+    "tested_binary_commit": "6e9fb1b158d7d59be391f6d5f931c9d761862e6b",
+    "daemon_sha256": "b54e5ab8c5d9f71a35c38c77c32db49a3fb3e3f68422d351eb6cb0485b99ec1a",
+    "cli_sha256": "d91455992d9fbfdee8c945e36282387cc92e1d90f40c68ba427b876f9aab0d29",
+    "exact_component_match_to_main": {
+      "bootstrap_rs_blob": "9493f82c36f032e868b7d953036acd16856a9dee",
+      "bridge_rs_blob": "03d8fe96ad7929268593d7e5bf3984718a19d3ba",
+      "production_systemd_unit_blob": "0f9bcb3b3006c42d75ab7895309c6da68e2c19f8"
+    }
+  },
+  "environment": {
+    "isolation_mode": "vm",
+    "virtualization": "kvm",
+    "os": "Ubuntu 24.04.5 LTS",
+    "desktop": "GNOME Shell 46.0",
+    "session_type": "wayland",
+    "seat": "seat0",
+    "remote": false
+  },
+  "service_lifecycle": {
+    "production_contract": {
+      "after": "graphical-session.target",
+      "part_of": "graphical-session.target",
+      "wanted_by": "graphical-session.target",
+      "restart": "on-failure"
+    },
+    "test_unit": "Disposable user unit reproduced the production lifecycle directives but used an isolated socket, state directory, config, and exact candidate binary path.",
+    "manual_daemon_diagnostic": "A prior SSH-launched daemon intentionally outside graphical-session.target survived GDM while its old zbus session connection died; that diagnostic method failed recovery and is not treated as production-service evidence."
+  },
+  "before": {
+    "graphical_session_id": "22",
+    "gnome_shell_pid": 3027,
+    "semwright_service_pid": 8909,
+    "service_active": true,
+    "broker_owner_pid": 8909,
+    "gnome_bridge_owner_pid": 3027,
+    "window_list_ok": true,
+    "window_list_backend": "gnome",
+    "observed_windows": 2,
+    "disposable_fixture_seen": true
+  },
+  "restart": {
+    "operation": "sudo systemctl restart gdm3 inside isolated KVM guest",
+    "service_stop_timestamp_utc": "2026-09-26T22:59:29Z",
+    "service_restart_timestamp_utc": "2026-09-26T22:59:43Z",
+    "systemd_stopped_service_with_graphical_session": true,
+    "systemd_restarted_enabled_service_with_new_graphical_session": true
+  },
+  "after": {
+    "graphical_session_id": "59",
+    "gnome_shell_pid": 10009,
+    "semwright_service_pid": 10281,
+    "service_active": true,
+    "broker_owner_pid": 10281,
+    "gnome_bridge_owner_pid": 10009,
+    "window_list_ok": true,
+    "window_list_backend": "gnome",
+    "observed_windows": 1,
+    "new_disposable_fixture_seen": true
+  },
+  "checks": {
+    "graphical_session_changed": true,
+    "gnome_shell_restarted": true,
+    "semwright_service_restarted": true,
+    "broker_owner_recovered": true,
+    "gnome_bridge_owner_recovered": true,
+    "semantic_window_backend_recovered": true,
+    "no_manual_bridge_reload_after_restart": true
+  },
+  "cleanup": {
+    "temporary_service_disabled_and_removed": true,
+    "temporary_service_inactive": true,
+    "temporary_socket_absent": true,
+    "temporary_broker_owner_absent": true,
+    "gnome_bridge_left_active": true
+  },
+  "limitations": [
+    "This is a full GNOME/GDM restart in an independent KVM real-login guest, not a disruptive restart of the user's owner-active physical desktop.",
+    "The temporary service reproduces the production unit's graphical-session lifecycle directives; its ExecStart path/socket/state were intentionally isolated for the test.",
+    "No keyboard, pointer, clipboard, or screenshot authority was requested or injected during this restart test.",
+    "This does not provide a physical Hyprland login or physical mixed-scale/multi-monitor evidence; R06 remains open for those conditions."
+  ]
+}

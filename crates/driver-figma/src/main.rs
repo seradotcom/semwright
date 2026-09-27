@@ -1729,6 +1729,7 @@ impl Driver for FigmaDriver {
                 "healthy": true,
                 "bridge_protocol": model::BRIDGE_PROTOCOL_VERSION,
                 "listen_host": "127.0.0.1",
+                "listen_hosts": self.hub.listen_hosts(),
                 "listen_port": self.hub.port(),
                 "pairing_required": true,
                 "connected_sessions": sessions.len(),
@@ -1742,6 +1743,7 @@ impl Driver for FigmaDriver {
                 self.hub.port(),
                 &self.hub.pairing_code(),
                 &sessions,
+                &self.hub.listen_hosts(),
             ));
         }
         if command == "driver.figma.session.list" {
@@ -1839,6 +1841,7 @@ impl Driver for FigmaDriver {
             "healthy": true,
             "bridge_protocol": model::BRIDGE_PROTOCOL_VERSION,
             "listen_host": "127.0.0.1",
+            "listen_hosts": self.hub.listen_hosts(),
             "listen_port": self.hub.port(),
             "connected_sessions": sessions.len(),
             "motion": "beta",

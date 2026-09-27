@@ -25,7 +25,7 @@ function exactWindow(windows, command, describe) {
     return found[0];
 }
 
-/* KWin 6 script. All calls are async; Next is a bounded long poll in the Rust broker. */
+/* KWin 5/6 script. All calls are async; Next is a bounded long poll in the Rust broker. */
 (function () {
     'use strict';
     const SERVICE = 'org.semwright.Broker';
@@ -34,13 +34,20 @@ function exactWindow(windows, command, describe) {
     const epoch = String(Date.now()) + '-' + String(Math.random());
     let polling = false;
     let enabled = true;
-    function windows() { return workspace.stackingOrder.filter(window => window.normalWindow || window.dialog); }
+    const kwin6 = typeof workspace.stackingOrder !== 'undefined';
+    function allWindows() { return kwin6 ? workspace.stackingOrder : workspace.clientList(); }
+    function windows() { return allWindows().filter(window => window.normalWindow || window.dialog); }
+    function activeWindow() { return kwin6 ? workspace.activeWindow : workspace.activeClient; }
+    function focusWindow(window) {
+        if (kwin6) workspace.activeWindow = window;
+        else workspace.activeClient = window;
+    }
     function describe(window) {
         const rect = window.frameGeometry;
         const app = String(window.resourceClass);
         return {id: String(window.internalId), app: app,
             fingerprint: epoch + ':' + String(window.pid) + ':' + app,
-            title: String(window.caption).slice(0, 4096), focused: workspace.activeWindow === window,
+            title: String(window.caption).slice(0, 4096), focused: activeWindow() === window,
             bounds: {x: rect.x, y: rect.y, width: rect.width, height: rect.height},
             coordinate_space: 'compositor_logical'};
     }
@@ -53,7 +60,7 @@ function exactWindow(windows, command, describe) {
         const window = exactWindow(windows(), command, describe);
         const rect = window.frameGeometry;
         switch (command.operation) {
-        case 'focus': workspace.activeWindow = window; break;
+        case 'focus': focusWindow(window); break;
         case 'move': window.frameGeometry = {x: command.x, y: command.y, width: rect.width, height: rect.height}; break;
         case 'resize': window.frameGeometry = {x: rect.x, y: rect.y, width: command.width, height: command.height}; break;
         case 'close': window.closeWindow(); break;
@@ -78,14 +85,17 @@ function exactWindow(windows, command, describe) {
             poll();
         });
     }
-    workspace.windowAdded.connect(publish);
-    workspace.windowRemoved.connect(publish);
-    workspace.windowActivated.connect(publish);
+    const added = kwin6 ? workspace.windowAdded : workspace.clientAdded;
+    const removed = kwin6 ? workspace.windowRemoved : workspace.clientRemoved;
+    const activated = kwin6 ? workspace.windowActivated : workspace.clientActivated;
+    added.connect(publish);
+    removed.connect(publish);
+    activated.connect(publish);
     for (const window of windows()) {
         window.frameGeometryChanged.connect(publish);
         window.captionChanged.connect(publish);
     }
-    workspace.windowAdded.connect(function (window) {
+    added.connect(function (window) {
         window.frameGeometryChanged.connect(publish);
         window.captionChanged.connect(publish);
     });

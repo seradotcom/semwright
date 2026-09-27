@@ -5,7 +5,6 @@ use rmcp::{
     ClientHandler, RoleClient, ServiceExt,
     model::{CallToolRequest, CallToolRequestParams, ClientRequest, ServerResult},
     service::{NotificationContext, Peer, PeerRequestOptions, RunningServiceCancellationToken},
-    transport::TokioChildProcess,
 };
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
@@ -26,14 +25,10 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io::Write,
     path::{Path, PathBuf},
-    process::Stdio,
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::{
-    process::Command,
-    sync::{RwLock, broadcast},
-};
+use tokio::sync::{RwLock, broadcast};
 use tokio_util::sync::CancellationToken;
 pub use upstreams::{
     UpstreamRegistry, default_upstream_registry_path, load_upstream_registry, new_upstream,
@@ -227,11 +222,15 @@ impl StdioUpstreamConfig {
     }
     pub fn validate(&self) -> Result<()> {
         self.validate_definition()?;
+        #[cfg(unix)]
         if std::fs::canonicalize(&self.program).ok().as_ref() != Some(&self.program) {
             return Err(Error::invalid(
                 "Federated stdio executable must be an absolute canonical path",
             ));
         }
+        // Windows trust is established by the HANDLE-based platform verifier. Do not
+        // canonicalize here: std::fs::canonicalize rewrites DOS paths as \\?\ paths,
+        // which are intentionally rejected by the verifier to avoid device-path semantics.
         for mount in &self.mounts {
             mount.validate_source()?;
         }
@@ -284,11 +283,23 @@ pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
     Ok(format!("{:x}", digest.finalize()))
 }
 #[cfg(target_os = "windows")]
-pub fn executable_sha256(_program: &std::path::Path) -> Result<String> {
-    Err(Error::new(
-        ErrorCode::SandboxDenied,
-        "Windows external MCP executable trust is fail-closed until owner/DACL and signing policy is implemented",
-    ))
+pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
+    if !program.is_absolute() {
+        return Err(Error::invalid(
+            "Federated Windows stdio executable must use an absolute DOS path",
+        ));
+    }
+    let metadata = std::fs::metadata(program)?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 64 * 1024 * 1024 {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Federated Windows executable must be a bounded regular file",
+        ));
+    }
+    let bytes = std::fs::read(program)?;
+    let digest = format!("{:x}", Sha256::digest(&bytes));
+    let _ = semwright_platform_services::verify_executable(program, &digest)?;
+    Ok(digest)
 }
 
 #[derive(Clone)]
@@ -329,12 +340,12 @@ fn default_upstream_state() -> Result<PathBuf> {
         .join("mcp-upstreams"))
 }
 
-fn sandbox_command(
+fn sandbox_spec(
     config: &StdioUpstreamConfig,
     staged: &Path,
     helper: &Path,
     allow_network: bool,
-) -> Result<Command> {
+) -> Result<semwright_platform_api::launch::SandboxSpec> {
     use semwright_platform_api::launch::{
         Mount, MountClass, ResourceLimits, SandboxKind, SandboxSpec,
     };
@@ -342,6 +353,13 @@ fn sandbox_command(
         return Err(Error::new(
             ErrorCode::PolicyDenied,
             "MCP upstream requests network but the daemon-wide MCP network gate is disabled",
+        ));
+    }
+    #[cfg(target_os = "windows")]
+    if config.network || !config.mounts.is_empty() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows external MCP currently requires the zero-mount, network-denied AppContainer profile",
         ));
     }
     let mounts = config
@@ -357,13 +375,14 @@ fn sandbox_command(
             execute: false,
         })
         .collect();
-    semwright_platform_services::sandbox_command(&SandboxSpec {
+    Ok(SandboxSpec {
         kind: SandboxKind::ExternalMcp,
         staged_executable: staged.to_path_buf(),
         helper: helper.to_path_buf(),
         mounts,
         args: config.args.clone(),
         environment: vec![],
+        sealed_tools: vec![],
         network: config.network,
         limits: Some(ResourceLimits {
             open_files: config.resources.open_files,
@@ -402,8 +421,15 @@ fn stage_upstream(
     config.validate()?;
     prepare_upstream_state(state)?;
     let bytes = semwright_platform_services::verify_executable(&config.program, &config.sha256)?;
+    #[cfg(unix)]
     let staged_path = state.join(format!(
         "mcp-{}-{}",
+        config.slug,
+        semwright_types::unique_id()
+    ));
+    #[cfg(target_os = "windows")]
+    let staged_path = state.join(format!(
+        "mcp-{}-{}.exe",
         config.slug,
         semwright_types::unique_id()
     ));
@@ -418,6 +444,8 @@ fn stage_upstream(
     #[cfg(unix)]
     file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
     drop(file);
+    #[cfg(target_os = "windows")]
+    let _ = semwright_platform_services::verify_executable(&staged_path, &config.sha256)?;
     Ok(staged)
 }
 
@@ -452,17 +480,11 @@ impl ExternalMcpProvider {
         let handler = UpstreamClient {
             signals: signals.clone(),
         };
-        let command = sandbox_command(&config, &staged.0, helper, allow_network)?;
-        let (transport, _) = TokioChildProcess::builder(command)
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|_| {
-                Error::new(
-                    ErrorCode::SandboxDenied,
-                    "Failed to launch owner-configured MCP executable in the required sandbox",
-                )
-            })?;
-        let service = tokio::time::timeout(Duration::from_secs(10), handler.serve(transport))
+        let spec = sandbox_spec(&config, &staged.0, helper, allow_network)?;
+        let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+        let output = child.take_stdout()?;
+        let input = child.take_stdin()?;
+        let service = tokio::time::timeout(Duration::from_secs(10), handler.serve((output, input)))
             .await
             .map_err(|_| Error::new(ErrorCode::Timeout, "MCP initialization timed out"))?
             .map_err(|_| {
@@ -515,7 +537,11 @@ impl ExternalMcpProvider {
             _staged: staged,
         });
         tokio::spawn(async move {
-            let _ = service.waiting().await;
+            tokio::select! {
+                _ = service.waiting() => {}
+                _ = child.wait() => {}
+            }
+            let _ = child.kill().await;
             closed.cancel();
             let _ = signals.send(ProviderSignal::Disconnected);
         });

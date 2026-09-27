@@ -35,6 +35,13 @@ fn valid_read_root(path: &str) -> bool {
         && !path.contains('\0')
 }
 
+fn valid_exec_root(path: &str) -> bool {
+    let sealed_tool = path
+        .strip_prefix("/plugin/tools/")
+        .is_some_and(|name| !name.is_empty() && !name.contains('/'));
+    (path.starts_with("/workspace/") || sealed_tool) && !path.contains("..") && !path.contains('\0')
+}
+
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     let mut writable = vec!["/tmp".to_owned(), "/dev/shm".to_owned()];
@@ -65,7 +72,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             "--exec-root" => {
                 let path = args.next().ok_or("exec root missing")?;
-                if !path.starts_with("/workspace/") || path.contains("..") || path.contains('\0') {
+                if !valid_exec_root(&path) {
                     return Err("invalid sandbox exec root".into());
                 }
                 readable.push((path, true));
@@ -86,7 +93,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if !seen.insert(argument.clone()) {
                     return Err("duplicate sandbox resource limit".into());
                 }
-                cpu = bounded_limit(args.next(), 5, 300)?;
+                cpu = bounded_limit(args.next(), 5, 86_400)?;
             }
             "--limit-as" => {
                 if !seen.insert(argument.clone()) {
@@ -223,11 +230,25 @@ mod tests {
     }
 
     #[test]
+    fn sealed_tool_exec_roots_are_single_file_and_confined() {
+        assert!(valid_exec_root("/plugin/tools/godot"));
+        assert!(!valid_exec_root("/plugin/tools"));
+        assert!(!valid_exec_root("/plugin/tools/nested/tool"));
+        assert!(!valid_exec_root("/plugin/tools/../escape"));
+        assert!(!valid_exec_root("/plugin/other/tool"));
+    }
+
+    #[test]
     fn resource_bounds_match_driver_manifest_hard_limits() {
         assert_eq!(bounded_limit(Some("32".into()), 32, 1024).unwrap(), 32);
         assert!(bounded_limit(Some("31".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("1025".into()), 32, 1024).is_err());
         assert!(bounded_limit(Some("not-a-number".into()), 32, 1024).is_err());
+        assert_eq!(
+            bounded_limit(Some("86400".into()), 5, 86_400).unwrap(),
+            86_400
+        );
+        assert!(bounded_limit(Some("86401".into()), 5, 86_400).is_err());
         assert_eq!(
             bounded_limit(Some("4294967296".into()), 134_217_728, 4_294_967_296).unwrap(),
             4_294_967_296

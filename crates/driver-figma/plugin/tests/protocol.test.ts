@@ -17,7 +17,7 @@ describe("security surface",()=>{
  it("has no eval or Function constructor",()=>{expect(allCode).not.toMatch(/\beval\s*\(/);expect(allCode).not.toMatch(/new\s+Function/);});
  it("uses dynamic page access",()=>expect(manifest.documentAccess).toBe("dynamic-page"));
  it("does not allow wildcard network",()=>expect(manifest.networkAccess.allowedDomains).toEqual(["none"]));
- it("limits dev websocket to loopback",()=>expect(manifest.networkAccess.devAllowedDomains).toEqual(["ws://127.0.0.1:38471"]));
+ it("limits dev websocket to loopback",()=>expect(manifest.networkAccess.devAllowedDomains).toEqual(["ws://localhost:38471"]));
  it("uses async node lookup",()=>expect(code).toContain("getNodeByIdAsync"));
  it("uses async page switching",()=>expect(code).toContain("setCurrentPageAsync"));
  it("loads fonts before text mutation",()=>expect(code).toContain("loadFontAsync"));
@@ -29,7 +29,7 @@ describe("security surface",()=>{
  it("ships a dedicated codegen Dev Mode manifest",()=>{expect(devCodegen.editorType).toEqual(["dev"]);expect(devCodegen.capabilities).toEqual(["codegen","vscode"]);expect(devCodegen.codegenLanguages.length).toBeGreaterThan(0);});
  it("ships a dedicated text-review manifest",()=>{expect(textReview.editorType).toEqual(["figma","figjam"]);expect(textReview.capabilities).toEqual(["textreview"]);expect(textReview.permissions).toBeUndefined();});
  it("keeps collaboration permissions out of the default manifest",()=>{expect(manifest.permissions).toEqual(["teamlibrary"]);expect(collaboration.permissions).toEqual(["teamlibrary","currentuser","activeusers","fileusers"]);});
- it("keeps every manifest offline except the loopback development bridge",()=>{for(const m of [manifest,collaboration,devInspect,devCodegen,textReview]){expect(m.networkAccess.allowedDomains).toEqual(["none"]);expect(m.networkAccess.devAllowedDomains).toEqual(["ws://127.0.0.1:38471"]);}});
+ it("keeps every manifest offline except the loopback development bridge",()=>{for(const m of [manifest,collaboration,devInspect,devCodegen,textReview]){expect(m.networkAccess.allowedDomains).toEqual(["none"]);expect(m.networkAccess.devAllowedDomains).toEqual(["ws://localhost:38471"]);}});
 });
 describe("advanced API",()=>{
  it("implements Motion style operations",()=>expect(code).toContain("applyAnimationStyle"));
@@ -66,8 +66,36 @@ describe("advanced API",()=>{
 });
 describe("authenticated loopback bridge",()=>{
  it("never sends the pairing secret as protocol data",()=>expect(ui).not.toContain("pairing_secret"));
- it("uses WebCrypto HMAC SHA-256",()=>{expect(ui).toContain("crypto.subtle.importKey");expect(ui).toContain('name:"HMAC"');});
- it("waits for a server-generated challenge",()=>{expect(ui).toContain('type:"hello",protocol:2');expect(ui).toContain('m.type==="challenge"');});
+ it("uses WebCrypto HMAC SHA-256 with a sandbox-safe fallback",()=>{
+  expect(ui).toContain("globalThis.crypto?.subtle");
+  expect(ui).toContain('name:"HMAC"');
+  expect(ui).toContain("function hmacSha256(key,data)");
+  expect(ui).toContain("return hex(hmacSha256(secret,data))");
+ });
+ it("does not require crypto.randomUUID in the Figma UI sandbox",()=>{expect(ui).toContain("function randomSessionId()");expect(ui).toContain("crypto.getRandomValues(bytes)");expect(ui).toContain("session=randomSessionId()");});
+ it("does not require WebCrypto in plugin sandbox artifact operations",()=>{
+  expect(allCode).not.toContain("crypto.randomUUID()");
+  expect(allCode).not.toContain("crypto.getRandomValues");
+  expect(allCode).toContain("function extraArtifactToken(seed");
+  expect(allCode).toContain("extraArtifactToken(request.id)");
+ });
+ it("emits the Rust-compatible failure envelope",()=>{expect(code).toContain("outcome_known: outcomeKnown");expect(code).not.toContain("error: {code, message, outcomeKnown}");});
+ it("surfaces a safe synchronous pairing failure reason",()=>{expect(ui).toContain('state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))');});
+ it("refreshes document revision before initial hello and keeps it current while disconnected",()=>{
+  expect(ui).toContain("awaitingPairContext=true");
+  expect(ui).toContain('parent.postMessage({pluginMessage:{type:"bridge-status"}},"*")');
+  expect(ui).toContain("if(awaitingPairContext){awaitingPairContext=false;openSocket();return}");
+  expect(ui).toContain("revision:context?.revision??0");
+  expect(ui).toContain("context={...context,revision:Math.max");
+ });
+ it("accepts Figma WebSocket payloads delivered as string, Blob, or ArrayBuffer",()=>{expect(ui).toContain("async function websocketText(data)");expect(ui).toContain('data instanceof Blob');expect(ui).toContain("data instanceof ArrayBuffer");expect(ui).toContain("await websocketText(e.data)");});
  it("authenticates the server challenge with a separate HMAC proof",()=>{expect(ui).toContain('type:"authenticate"');expect(ui).toContain("proof:authProof");expect(ui).toContain("m.nonce");});
- it("only opens a loopback websocket",()=>expect(ui).toContain('ws://127.0.0.1:'));
+ it("only opens a loopback websocket",()=>{expect(ui).toContain('ws://localhost:');expect(ui).not.toContain('ws://127.0.0.1:');});
+ it("keeps the pairing secret in memory only",()=>{expect(ui).toContain("let pairingSecret=null");expect(ui).not.toContain("localStorage");expect(ui).not.toContain("sessionStorage");});
+ it("automatically reconnects with bounded exponential backoff",()=>{expect(ui).toContain("function scheduleReconnect(reason)");expect(ui).toContain("Math.min(4000,250*(2**Math.min(reconnectAttempt,4)))");expect(ui).toContain("setTimeout(()=>{reconnectTimer=null;openSocket()},delay)");});
+ it("reuses the session identity and advances generation on reconnect",()=>{expect(ui).toContain("const sid=session,gen=++generation,secret=pairingSecret");expect(ui).toContain("generation:gen");});
+ it("manual disconnect cancels reconnect state",()=>{expect(ui).toContain("manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect()");});
+ it("answers server heartbeats",()=>expect(ui).toContain('m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}))'));
+ it("stops retrying before first authentication instead of looping forever",()=>{expect(ui).toContain("authenticatedOnce=false,preReadyFailures=0");expect(ui).toContain("if(preReadyFailures>=3)");expect(ui).toContain("Enter a fresh pairing code and press Connect.");});
+ it("keeps transient reconnect automatic only after a successful ready",()=>{expect(ui).toContain("authenticatedOnce=true;preReadyFailures=0");expect(ui).toContain("if(!authenticatedOnce)");});
 });

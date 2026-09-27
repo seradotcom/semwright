@@ -4,8 +4,8 @@ use windows::Win32::{
     System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_ACTIVE_PROCESS,
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
-        SetInformationJobObject,
+        JOB_OBJECT_LIMIT_PROCESS_TIME, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JobObjectExtendedLimitInformation, SetInformationJobObject,
     },
 };
 
@@ -28,7 +28,11 @@ impl Drop for ProcessJob {
 }
 
 impl ProcessJob {
-    pub fn new(process_limit: Option<u32>, memory_limit: Option<usize>) -> Result<Self> {
+    pub fn new(
+        process_limit: Option<u32>,
+        memory_limit: Option<usize>,
+        cpu_seconds: Option<u64>,
+    ) -> Result<Self> {
         // SAFETY: unnamed job, default security attributes.
         let handle = unsafe { CreateJobObjectW(None, None) }.map_err(|_| {
             Error::new(
@@ -45,6 +49,22 @@ impl ProcessJob {
         if let Some(limit) = memory_limit {
             info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PROCESS_MEMORY;
             info.ProcessMemoryLimit = limit;
+        }
+        if let Some(seconds) = cpu_seconds {
+            let ticks = seconds.checked_mul(10_000_000).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Windows CPU limit exceeds Job budget",
+                )
+            })?;
+            info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PROCESS_TIME;
+            info.BasicLimitInformation.PerProcessUserTimeLimit =
+                i64::try_from(ticks).map_err(|_| {
+                    Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Windows CPU limit exceeds Job budget",
+                    )
+                })?;
         }
         // SAFETY: `info` is fully initialized and its exact byte size is supplied.
         unsafe {

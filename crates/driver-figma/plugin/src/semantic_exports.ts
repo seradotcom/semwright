@@ -21,9 +21,9 @@ function sxCssValue(value: any, variables: Map<string, Variable>): string {
   if(typeof value==="string") return JSON.stringify(value);
   return JSON.stringify(JSON.stringify(value));
 }
-function sxTextArtifact(text:string,name:string,mediaType:string){
+function sxTextArtifact(text:string,name:string,mediaType:string,seed:string){
   const bytes=new TextEncoder().encode(text);
-  return extraStoreArtifact(bytes,mediaType,name);
+  return extraStoreArtifact(bytes,mediaType,name,seed);
 }
 async function sxVariables() {
   const [collections, list]=await Promise.all([
@@ -168,21 +168,21 @@ async function handleSemanticExports(request:BridgeRequest,a:any):Promise<Bridge
   switch(request.operation){
     case "design_system.export.css": {
       const text=await sxCss(a.modeName===undefined?undefined:String(a.modeName));
-      return ok(request.id,sxTextArtifact(text,String(a.name??"figma-tokens.css"),"text/css"));
+      return ok(request.id,sxTextArtifact(text,String(a.name??"figma-tokens.css"),"text/css",request.id));
     }
     case "design_system.export.tailwind": {
       const text=await sxTailwind(a.modeName===undefined?undefined:String(a.modeName));
-      return ok(request.id,sxTextArtifact(text,String(a.name??"figma-tailwind.ts"),"text/typescript"));
+      return ok(request.id,sxTextArtifact(text,String(a.name??"figma-tailwind.ts"),"text/typescript",request.id));
     }
     case "node.export.jsx": {
       const node=await nodeById(String(a.nodeId));
       const text=(await sxJsx(node))+"\n";
-      return ok(request.id,sxTextArtifact(text,String(a.name??sxSlug(node.name)+".figma.jsx"),"text/jsx"));
+      return ok(request.id,sxTextArtifact(text,String(a.name??sxSlug(node.name)+".figma.jsx"),"text/jsx",request.id));
     }
     case "node.export.storybook": {
       const node=await nodeById(String(a.nodeId));
       const text=await sxStorybook(node);
-      return ok(request.id,sxTextArtifact(text,String(a.name??sxSlug(node.name)+".stories.tsx"),"text/typescript"));
+      return ok(request.id,sxTextArtifact(text,String(a.name??sxSlug(node.name)+".stories.tsx"),"text/typescript",request.id));
     }
     default:return null;
   }

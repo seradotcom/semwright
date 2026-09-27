@@ -13,6 +13,7 @@ struct FixtureState {
     persist_modes: Vec<u32>,
     clipboard_requested: bool,
     selection_mime_types: Vec<String>,
+    keyboard_events: Vec<(i32, u32)>,
     starts: u32,
 }
 
@@ -194,6 +195,22 @@ impl RemoteFixture {
         response(connection, &request, results).await?;
         Ok(request)
     }
+
+    #[zbus(name = "NotifyKeyboardKeysym")]
+    fn notify_keyboard_keysym(
+        &self,
+        _session: OwnedObjectPath,
+        _options: Options,
+        keysym: i32,
+        state: u32,
+    ) -> zbus::fdo::Result<()> {
+        self.0
+            .lock()
+            .unwrap()
+            .keyboard_events
+            .push((keysym, state));
+        Ok(())
+    }
 }
 
 #[interface(name = "org.freedesktop.portal.Clipboard")]
@@ -366,4 +383,126 @@ async fn private_portal_fixture_rotates_restore_token_and_grants_clipboard() {
     let cleared = second.clear_restore().await.unwrap();
     assert_eq!(cleared["durable_token_cleared"], true);
     assert_eq!(second.restore_store.status(), RestoreStatus::Absent);
+}
+
+
+#[tokio::test]
+async fn private_portal_notify_text_is_paced_and_complete() {
+    let bus = PrivateBus::start();
+    let fixture = Arc::new(StdMutex::new(FixtureState::default()));
+    let builder = zbus::connection::Builder::address(bus.address.as_str())
+        .unwrap()
+        .name(DEST)
+        .unwrap()
+        .serve_at(PATH, RemoteFixture(fixture.clone()))
+        .unwrap()
+        .serve_at(PATH, ClipboardFixture(fixture.clone()))
+        .unwrap();
+    let _server = builder.build().await.unwrap();
+
+    let root = tempfile::tempdir().unwrap();
+    let ctx = Context {
+        session: "portal-notify-pacing".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: CancellationToken::new(),
+    };
+    let portal = Portal::new_for_test(
+        root.path().join("artifacts"),
+        root.path().join("state"),
+        bus.address.clone(),
+    )
+    .unwrap();
+    let started_session = portal
+        .start(
+            &ctx,
+            &json!({
+                "keyboard":true,
+                "pointer":false,
+                "persist_mode":0,
+                "clipboard":false
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(started_session["input_route"], "portal_notify");
+    assert_eq!(started_session["eis"], false);
+
+    let text = "A".repeat(64);
+    let started = std::time::Instant::now();
+    let result = portal
+        .notify(&ctx, "input.type", &json!({"text":text}))
+        .await
+        .unwrap();
+    assert_eq!(result["backend_route"], "portal_notify");
+    assert!(
+        started.elapsed() >= Duration::from_millis(120),
+        "legacy portal text must retain the sustained compositor-safe pacing budget"
+    );
+
+    let snapshot = fixture.lock().unwrap();
+    assert_eq!(snapshot.keyboard_events.len(), 128);
+    for pair in snapshot.keyboard_events.chunks(2) {
+        assert_eq!(pair, &[(65, 1), (65, 0)]);
+    }
+}
+
+#[tokio::test]
+async fn private_portal_notify_text_cancellation_stops_after_complete_characters() {
+    let bus = PrivateBus::start();
+    let fixture = Arc::new(StdMutex::new(FixtureState::default()));
+    let builder = zbus::connection::Builder::address(bus.address.as_str())
+        .unwrap()
+        .name(DEST)
+        .unwrap()
+        .serve_at(PATH, RemoteFixture(fixture.clone()))
+        .unwrap()
+        .serve_at(PATH, ClipboardFixture(fixture.clone()))
+        .unwrap();
+    let _server = builder.build().await.unwrap();
+
+    let root = tempfile::tempdir().unwrap();
+    let cancellation = CancellationToken::new();
+    let ctx = Context {
+        session: "portal-notify-cancel".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: cancellation.clone(),
+    };
+    let portal = Portal::new_for_test(
+        root.path().join("artifacts"),
+        root.path().join("state"),
+        bus.address.clone(),
+    )
+    .unwrap();
+    let started_session = portal
+        .start(
+            &ctx,
+            &json!({
+                "keyboard":true,
+                "pointer":false,
+                "persist_mode":0,
+                "clipboard":false
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(started_session["input_route"], "portal_notify");
+
+    let cancel_task = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        cancellation.cancel();
+    });
+    let error = portal
+        .notify(&ctx, "input.type", &json!({"text":"A".repeat(4096)}))
+        .await
+        .unwrap_err();
+    cancel_task.await.unwrap();
+    assert_eq!(error.code, ErrorCode::Cancelled);
+
+    let snapshot = fixture.lock().unwrap();
+    assert!(!snapshot.keyboard_events.is_empty());
+    assert!(snapshot.keyboard_events.len() < 4096 * 2);
+    assert_eq!(snapshot.keyboard_events.len() % 2, 0);
+    for pair in snapshot.keyboard_events.chunks(2) {
+        assert_eq!(pair, &[(65, 1), (65, 0)]);
+    }
 }

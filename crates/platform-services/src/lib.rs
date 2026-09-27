@@ -86,6 +86,11 @@ pub fn sandbox_command(
 ) -> Result<tokio::process::Command> {
     launcher().command(s)
 }
+pub fn sandbox_spawn(
+    s: &semwright_platform_api::launch::SandboxSpec,
+) -> Result<semwright_platform_api::launch::SandboxProcess> {
+    launcher().spawn(s)
+}
 pub fn sandbox_available(helper: &Path) -> bool {
     launcher().available(helper)
 }
