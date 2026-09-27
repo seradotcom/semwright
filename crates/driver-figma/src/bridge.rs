@@ -297,6 +297,10 @@ impl BridgeHub {
                     if !peer.ip().is_loopback() {
                         continue;
                     }
+                    bridge_log(
+                        "tcp_accepted",
+                        serde_json::Map::from_iter([("peer_addr".into(), json!(peer.to_string()))]),
+                    );
                     let state = Arc::clone(&accept_state);
                     let secret = accept_secret.clone();
                     let events = accept_events.clone();
@@ -560,12 +564,30 @@ async fn serve_connection(
     events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
 ) -> Result<(), BridgeError> {
     let peer_addr = stream.peer_addr().ok().map(|peer| peer.to_string());
-    let ws = accept_async(stream)
-        .await
-        .map_err(|_| BridgeError::Protocol)?;
+    let ws = match accept_async(stream).await {
+        Ok(ws) => ws,
+        Err(error) => {
+            bridge_log(
+                "websocket_handshake_failed",
+                serde_json::Map::from_iter([
+                    ("peer_addr".into(), json!(peer_addr)),
+                    ("error".into(), json!(error.to_string())),
+                ]),
+            );
+            return Err(BridgeError::Protocol);
+        }
+    };
+    bridge_log(
+        "websocket_open",
+        serde_json::Map::from_iter([("peer_addr".into(), json!(peer_addr))]),
+    );
     let (mut sink, mut source) = ws.split();
 
     let hello = read_message(&mut source).await?;
+    bridge_log(
+        "hello_received",
+        serde_json::Map::from_iter([("peer_addr".into(), json!(peer_addr))]),
+    );
     let (session_id, document_id, generation, editor_type, capabilities) = match hello {
         Message::Hello {
             protocol,
