@@ -2,9 +2,14 @@
 use semwright_backends::fake::FakeDesktop;
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_policy::{Policy, PolicyConfig, Profile};
-use semwright_types::{Envelope, ErrorCode, ExecuteRequest, unique_id};
+use semwright_types::{
+    Envelope, ErrorCode, ExecuteRequest, NativeTarget, target_marker, unique_id,
+};
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::sync::{
+    Arc, Mutex as StdMutex,
+    atomic::{AtomicUsize, Ordering},
+};
 use tokio_util::sync::CancellationToken;
 
 struct Fixture {
@@ -68,6 +73,109 @@ impl Fixture {
         result.data.unwrap()
     }
 }
+
+#[derive(Default)]
+struct DualRefBrowser {
+    invocations: AtomicUsize,
+    last_args: StdMutex<Option<Value>>,
+}
+impl DualRefBrowser {
+    fn native(kind: &str, identity: &str) -> Value {
+        target_marker(NativeTarget {
+            kind: kind.into(),
+            identity: identity.into(),
+            revision: 0,
+            fingerprint: "browser-fixture-epoch".into(),
+            app: "org.semwright.Chromium".into(),
+        })
+    }
+}
+#[async_trait::async_trait]
+impl semwright_backend_api::Backend for DualRefBrowser {
+    fn name(&self) -> &'static str {
+        "chromium"
+    }
+    fn supports(&self, command: &str) -> bool {
+        matches!(
+            command,
+            "browser.tab.list" | "browser.dom.query" | "browser.element.drag_to"
+        )
+    }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| "browser.running".into())
+    }
+    async fn probe(&self) -> Vec<semwright_types::Feature> {
+        vec![semwright_backend_api::feature(
+            "chromium",
+            "browser.running",
+            true,
+            "Dual-ref browser fixture",
+            "",
+        )]
+    }
+    async fn execute(
+        &self,
+        _: &semwright_backend_api::Context,
+        command: &str,
+        args: &Value,
+    ) -> semwright_types::Result<Value> {
+        match command {
+            "browser.tab.list" => Ok(json!({
+                "tabs":[{
+                    "ref":Self::native("tab","tab-1"),
+                    "title":"fixture",
+                    "url_origin":"http://127.0.0.1:1",
+                    "allowed_origin":true
+                }]
+            })),
+            "browser.dom.query" => {
+                let identity = match args["selector"].as_str() {
+                    Some("#source") => "tab-1#1",
+                    Some("#target") => "tab-1#2",
+                    _ => {
+                        return Err(semwright_types::Error::new(
+                            ErrorCode::NotFound,
+                            "fixture selector missing",
+                        ));
+                    }
+                };
+                let row = json!({
+                    "ref":Self::native("dom",identity),
+                    "node_name":"DIV",
+                    "name":null
+                });
+                Ok(json!({"matches":[row.clone()],"single":row,"count":1}))
+            }
+            "browser.element.drag_to" => {
+                self.invocations.fetch_add(1, Ordering::SeqCst);
+                *self.last_args.lock().unwrap() = Some(args.clone());
+                Ok(json!({
+                    "accepted":true,
+                    "method":"two semantic DOM refs + CDP Input drag",
+                    "same_frame":true,
+                    "coordinate_space":"viewport_css_pixels"
+                }))
+            }
+            _ => Err(semwright_types::Error::new(
+                ErrorCode::Unsupported,
+                "Unsupported fixture operation",
+            )),
+        }
+    }
+    async fn validate(&self, target: &NativeTarget) -> semwright_types::Result<()> {
+        if target.app != "org.semwright.Chromium"
+            || target.fingerprint != "browser-fixture-epoch"
+            || !matches!(target.kind.as_str(), "tab" | "dom")
+        {
+            return Err(semwright_types::Error::new(
+                ErrorCode::StaleReference,
+                "Fixture target is stale",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[tokio::test]
 async fn doctor_labels_fixture_not_live_desktop() {
     let f = Fixture::new(Profile::Observe);
@@ -191,6 +299,153 @@ async fn reference_does_not_cross_sessions() {
     assert_eq!(r.error.unwrap().code, ErrorCode::StaleReference);
     assert_eq!(f.desktop.invocations(), 0);
 }
+#[tokio::test]
+async fn secondary_target_ref_is_validated_and_session_bound() {
+    let dir = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&dir.path().join("audit"), 65536, 2).unwrap();
+    let browser = Arc::new(DualRefBrowser::default());
+    let policy = Policy::new(PolicyConfig {
+        profile: Profile::Desktop,
+        allow: ["browser.observe", "browser.modify"]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![browser.clone()],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({"fixture":"dual-ref-browser"}),
+        false,
+    )
+    .unwrap();
+    let session = unique_id();
+    let tab = broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "browser.tab.list".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(tab.ok, "{tab:?}");
+    let tab_ref = tab.data.unwrap()["tabs"][0]["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let element_ref = |selector: &str| {
+        let broker = broker.clone();
+        let session = session.clone();
+        let tab_ref = tab_ref.clone();
+        let selector = selector.to_owned();
+        async move {
+            let result = broker
+                .execute(
+                    session,
+                    unique_id(),
+                    ExecuteRequest {
+                        command: "browser.dom.query".into(),
+                        args: json!({"ref":tab_ref,"selector":selector}),
+                        dry_run: false,
+                        backend: None,
+                    },
+                    CancellationToken::new(),
+                )
+                .await;
+            assert!(result.ok, "{result:?}");
+            result.data.unwrap()["matches"][0]["ref"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        }
+    };
+    let source = element_ref("#source").await;
+    let destination = element_ref("#target").await;
+    let dragged = broker
+        .clone()
+        .execute(
+            session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "browser.element.drag_to".into(),
+                args: json!({"ref":source,"target_ref":destination}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(dragged.ok, "{dragged:?}");
+    assert_eq!(browser.invocations.load(Ordering::SeqCst), 1);
+    let args = browser.last_args.lock().unwrap().clone().unwrap();
+    assert_eq!(args["_target"]["identity"], "tab-1#1");
+    assert_eq!(args["_target2"]["identity"], "tab-1#2");
+
+    let other_session = unique_id();
+    let other_tab = broker
+        .clone()
+        .execute(
+            other_session.clone(),
+            unique_id(),
+            ExecuteRequest {
+                command: "browser.tab.list".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    let other_tab_ref = other_tab.data.unwrap()["tabs"][0]["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let other_target = broker
+        .clone()
+        .execute(
+            other_session,
+            unique_id(),
+            ExecuteRequest {
+                command: "browser.dom.query".into(),
+                args: json!({"ref":other_tab_ref,"selector":"#target"}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    let other_target_ref = other_target.data.unwrap()["matches"][0]["ref"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let denied = broker
+        .clone()
+        .execute(
+            session,
+            unique_id(),
+            ExecuteRequest {
+                command: "browser.element.drag_to".into(),
+                args: json!({"ref":source,"target_ref":other_target_ref}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert_eq!(denied.error.unwrap().code, ErrorCode::StaleReference);
+    assert_eq!(browser.invocations.load(Ordering::SeqCst), 1);
+}
+
 #[tokio::test]
 async fn vanished_node_cannot_target_a_replacement() {
     let f = Fixture::new(Profile::Desktop);

@@ -185,7 +185,15 @@ pub fn confirmation_summary(command: &str, args: &Value) -> String {
     if let Some(map) = args.as_object() {
         for (k, v) in map {
             if [
-                "text", "body", "token", "password", "secret", "inputs", "recipe",
+                "text",
+                "body",
+                "token",
+                "password",
+                "secret",
+                "inputs",
+                "recipe",
+                "paths",
+                "prompt_text",
             ]
             .contains(&k.as_str())
             {
@@ -349,6 +357,22 @@ mod tests {
         );
         assert!(!summary.contains('\u{1b}'));
         assert!(!summary.contains("supersecret"));
+    }
+
+    #[test]
+    fn browser_sensitive_input_fields_are_redacted_from_confirmation() {
+        let summary = confirmation_summary(
+            "browser.element.upload",
+            &serde_json::json!({
+                "root":"uploads",
+                "paths":["private/client-list.csv"],
+                "prompt_text":"one-time secret"
+            }),
+        );
+        assert!(summary.contains("uploads"));
+        assert!(!summary.contains("client-list.csv"));
+        assert!(!summary.contains("one-time secret"));
+        assert_eq!(summary.matches("[REDACTED]").count(), 2);
     }
     proptest! {
         #[test] fn deny_is_monotone(cap in "[a-z]{1,20}\\.[a-z]{1,20}"){

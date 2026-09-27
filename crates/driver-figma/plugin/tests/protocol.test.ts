@@ -79,6 +79,7 @@ describe("authenticated loopback bridge",()=>{
   expect(allCode).toContain("function extraArtifactToken(seed");
   expect(allCode).toContain("extraArtifactToken(request.id)");
  });
+ it("normalizes nullable wire revisions before plugin dispatch",()=>{expect(ui).toContain("expectedRevision:m.expected_revision??undefined");});
  it("emits the Rust-compatible failure envelope",()=>{expect(code).toContain("outcome_known: outcomeKnown");expect(code).not.toContain("error: {code, message, outcomeKnown}");});
  it("surfaces a safe synchronous pairing failure reason",()=>{expect(ui).toContain('state("Pairing failed: "+(err instanceof Error?err.message:"unknown error"))');});
  it("refreshes document revision before initial hello and keeps it current while disconnected",()=>{

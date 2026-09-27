@@ -16,6 +16,7 @@ use semwright_adapters::{
 use semwright_backend_api::Backend;
 use semwright_platform_api::DesktopHost;
 use semwright_platform_common::Application;
+use semwright_policy::FilesystemGrant;
 use semwright_types::{Error, ErrorCode, Result};
 use std::{
     collections::BTreeMap,
@@ -28,6 +29,7 @@ pub async fn bootstrap(
     state: &Path,
     applications: BTreeMap<String, Application>,
     browser: BrowserConfig,
+    filesystem_grants: Vec<FilesystemGrant>,
     blender_socket: Option<PathBuf>,
 ) -> Result<DesktopHost> {
     let dbus = zbus::Connection::session().await.ok();
@@ -63,7 +65,11 @@ pub async fn bootstrap(
             .join("semwright-blender/bridge.sock")
     });
     backends.push(Arc::new(Blender::new(blender_socket)));
-    backends.push(Arc::new(Chromium::new(browser, runtime.join("browser"))?));
+    backends.push(Arc::new(Chromium::new_with_grants(
+        browser,
+        runtime.join("browser"),
+        &filesystem_grants,
+    )?));
     Ok(DesktopHost {
         backends,
         environment,
