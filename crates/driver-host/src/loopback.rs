@@ -30,6 +30,8 @@ pub(crate) struct LoopbackProxy {
     #[cfg(windows)]
     pipe_path: PathBuf,
     #[cfg(windows)]
+    reserved_pipe: StdMutex<Option<NamedPipeServer>>,
+    #[cfg(windows)]
     listener: StdMutex<Option<TcpListener>>,
 }
 
@@ -87,12 +89,19 @@ impl LoopbackProxy {
             .take()
             .ok_or_else(|| Error::new(ErrorCode::Conflict, "Loopback proxy already activated"))?;
         let pipe_path = self.pipe_path.clone();
-        // Create and authenticate the first pipe before reporting the bridge as active. This
-        // makes DriverProvider::connect return only after the child transport is ready.
-        let mut server = semwright_platform_services::windows_appcontainer_loopback_server(
-            &pipe_path,
+        let mut server = self
+            .reserved_pipe
+            .lock()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Reserved loopback pipe lock poisoned"))?
+            .take()
+            .ok_or_else(|| Error::new(ErrorCode::Conflict, "Loopback pipe already activated"))?;
+        // The first LOCAL pipe instance is created before the LPAC child starts with an
+        // owner/SYSTEM-only DACL. Once the kernel PID is known, grant only that child package
+        // SID on the existing instance. This removes the create-after-spawn namespace race
+        // while preserving fail-closed authorization before any child traffic can connect.
+        semwright_platform_services::windows_authorize_appcontainer_loopback_server(
+            &server,
             expected_pid,
-            true,
         )?;
         connect_expected_pipe(&mut server, expected_pid, &self.stop).await?;
 
@@ -274,9 +283,15 @@ pub(crate) async fn start(_state: &Path, port: u16) -> Result<Arc<LoopbackProxy>
         r"\\.\pipe\LOCAL\semwright-loopback-{}",
         unique_id()
     ));
+    // Reserve the first LOCAL instance before the sandbox process is created. The initial
+    // DACL intentionally excludes AppContainer identities; activate() authorizes exactly the
+    // kernel-observed child SID after spawn.
+    let reserved_pipe =
+        semwright_platform_services::windows_reserve_appcontainer_loopback_server(&pipe_path)?;
     Ok(Arc::new(LoopbackProxy {
         stop: CancellationToken::new(),
         pipe_path,
+        reserved_pipe: StdMutex::new(Some(reserved_pipe)),
         listener: StdMutex::new(Some(listener)),
     }))
 }
