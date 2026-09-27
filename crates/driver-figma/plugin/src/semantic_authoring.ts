@@ -72,14 +72,30 @@ function authoringDesignCandidates(kind:"component"|"text_style"|"variable"): Pr
   if (kind === "text_style") return figma.getLocalTextStylesAsync();
   return figma.variables.getLocalVariablesAsync();
 }
-async function authoringResolveDesignRef(kind:"component"|"text_style"|"variable", ref: any): Promise<any|null> {
+type AuthoringDesignCandidates = {
+  component: any[];
+  text_style: any[];
+  variable: any[];
+};
+async function authoringDesignSnapshot(): Promise<AuthoringDesignCandidates> {
+  const [component,text_style,variable]=await Promise.all([
+    authoringDesignCandidates("component"),
+    authoringDesignCandidates("text_style"),
+    authoringDesignCandidates("variable"),
+  ]);
+  return {component,text_style,variable};
+}
+function authoringResolveDesignRef(
+  kind:"component"|"text_style"|"variable",
+  ref:any,
+  candidates:AuthoringDesignCandidates,
+):any|null {
   if (!ref) return null;
-  const candidates = await authoringDesignCandidates(kind);
   const id = typeof ref.id === "string" ? ref.id : null;
   const key = typeof ref.key === "string" ? ref.key : null;
   const name = typeof ref.name === "string" ? ref.name : null;
   if (!id && !key && !name) throw new Error(kind + "_reference_required");
-  const matches = candidates.filter((item:any) =>
+  const matches = candidates[kind].filter((item:any) =>
     (!id || item.id === id) &&
     (!key || item.key === key) &&
     (!name || item.name === name)
@@ -89,20 +105,35 @@ async function authoringResolveDesignRef(kind:"component"|"text_style"|"variable
   if (unique.length !== 1) throw new Error("ambiguous_" + kind);
   return unique[0];
 }
-async function authoringResolveNodeBindings(node:any) {
+async function authoringResolveNodeBindings(
+  node:any,
+  candidates:AuthoringDesignCandidates,
+) {
   const resolved:any = {
     component_id: null,
     text_style_id: null,
     fill_variable_id: null,
   };
   if (node.component?.component) {
-    resolved.component_id = (await authoringResolveDesignRef("component", node.component.component))?.id ?? null;
+    resolved.component_id = authoringResolveDesignRef(
+      "component",
+      node.component.component,
+      candidates,
+    )?.id ?? null;
   }
   if (node.visual?.text_style) {
-    resolved.text_style_id = (await authoringResolveDesignRef("text_style", node.visual.text_style))?.id ?? null;
+    resolved.text_style_id = authoringResolveDesignRef(
+      "text_style",
+      node.visual.text_style,
+      candidates,
+    )?.id ?? null;
   }
   if (node.visual?.fill?.kind === "variable") {
-    resolved.fill_variable_id = (await authoringResolveDesignRef("variable", node.visual.fill.variable))?.id ?? null;
+    resolved.fill_variable_id = authoringResolveDesignRef(
+      "variable",
+      node.visual.fill.variable,
+      candidates,
+    )?.id ?? null;
   }
   return resolved;
 }
@@ -125,12 +156,13 @@ async function authoringDraftChangeSet(spec:any) {
     const delta=authoringDepth(String(a.id),byId)-authoringDepth(String(b.id),byId);
     return delta || Number(a.order??0)-Number(b.order??0) || String(a.id).localeCompare(String(b.id));
   });
+  const candidates=await authoringDesignSnapshot();
   const creates:any[]=[];
   for(const node of ordered){
     creates.push({
       logical_id:String(node.id),
       parent_logical_id:node.parent==null?null:String(node.parent),
-      resolved:await authoringResolveNodeBindings(node),
+      resolved:await authoringResolveNodeBindings(node,candidates),
     });
   }
   return {
@@ -270,7 +302,6 @@ async function authoringCreateNode(spec:any,resolved:any):Promise<SceneNode>{
     }];
   }
   authoringApplyLayout(node,spec);
-  authoringApplySizing(node,spec.sizing);
   if(node.type==="TEXT") await authoringApplyText(node,spec,resolved);
   await authoringApplyVisual(node,spec,resolved);
   if(node.type==="INSTANCE" && spec.component?.variant_properties && typeof node.setProperties==="function"){
@@ -323,6 +354,7 @@ async function authoringApplyComposition(plan:any){
     const parent=parentId?made.get(parentId):target;
     if(!parent || !("appendChild" in parent)) throw new Error("resolved_parent_unavailable");
     (parent as any).appendChild(node);
+    authoringApplySizing(node,entry.sizing);
     made.set(logicalId,node);
     created.push({logicalId,nodeId:node.id,type:node.type,name:node.name});
   }

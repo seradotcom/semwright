@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "required_design_system": {
+    "variable_collection": "Semwright Brand",
+    "variables": {
+      "Brand/Ivory": {
+        "type": "COLOR",
+        "value": {
+          "r": 0.969,
+          "g": 0.953,
+          "b": 0.914,
+          "a": 1
+        }
+      },
+      "Brand/Paper": {
+        "type": "COLOR",
+        "value": {
+          "r": 0.925,
+          "g": 0.894,
+          "b": 0.824,
+          "a": 1
+        }
+      },
+      "Brand/Ink": {
+        "type": "COLOR",
+        "value": {
+          "r": 0.055,
+          "g": 0.075,
+          "b": 0.16,
+          "a": 1
+        }
+      },
+      "Brand/Cobalt": {
+        "type": "COLOR",
+        "value": {
+          "r": 0.12,
+          "g": 0.27,
+          "b": 0.78,
+          "a": 1
+        }
+      },
+      "Brand/Muted": {
+        "type": "COLOR",
+        "value": {
+          "r": 0.31,
+          "g": 0.32,
+          "b": 0.35,
+          "a": 1
+        }
+      }
+    },
+    "text_styles": {
+      "Type/Display": {
+        "font": {
+          "family": "Inter",
+          "style": "Regular"
+        },
+        "size": 52
+      },
+      "Type/Body": {
+        "font": {
+          "family": "Inter",
+          "style": "Regular"
+        },
+        "size": 18
+      },
+      "Type/Label": {
+        "font": {
+          "family": "Inter",
+          "style": "Regular"
+        },
+        "size": 14
+      }
+    },
+    "components": {
+      "Semwright/Button": {
+        "purpose": "native CTA instance; bootstrap with existing component/text/layout/style capabilities"
+      }
+    }
+  },
+  "bootstrap_rule": "Inspect first. Create only missing primitives through existing explicit Figma capabilities; never hide token/component creation inside composition.apply."
+}

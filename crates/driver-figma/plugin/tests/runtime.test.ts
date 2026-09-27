@@ -1159,6 +1159,79 @@ describe("semantic authoring, validation and bounded repair",()=>{
     expect(verified.value.measurement.nodes.some((x:any)=>x.type==="TEXT")).toBe(true);
   });
 
+  it("applies fill and hug sizing only after a node is inside its Auto Layout parent",async()=>{
+    const h=harness();
+    const originalCreateFrame=h.figma.createFrame.bind(h.figma);
+    h.figma.createFrame=()=>{
+      const node=originalCreateFrame();
+      let horizontal="FIXED";
+      let vertical="FIXED";
+      Object.defineProperty(node,"layoutSizingHorizontal",{
+        get(){return horizontal;},
+        set(value){
+          if((value==="FILL"||value==="HUG")&&(!node.parent||node.parent.type==="PAGE")){
+            throw new Error("fill_requires_auto_layout_parent");
+          }
+          horizontal=value;
+        },
+        configurable:true,
+      });
+      Object.defineProperty(node,"layoutSizingVertical",{
+        get(){return vertical;},
+        set(value){
+          if((value==="FILL"||value==="HUG")&&(!node.parent||node.parent.type==="PAGE")){
+            throw new Error("hug_requires_auto_layout_parent");
+          }
+          vertical=value;
+        },
+        configurable:true,
+      });
+      return node;
+    };
+    const spec={
+      version:1,
+      target:{page_id:null,parent_node_id:null},
+      nodes:[
+        {
+          id:"root",kind:"stack",name:"Root",parent:null,order:0,
+          layout:{direction:"vertical",gap:16},
+          sizing:{
+            width:{mode:"fixed",value:400,min:null,max:null},
+            height:{mode:"fixed",value:400,min:null,max:null},
+            aspect_ratio:null,
+          },
+        },
+        {
+          id:"child",kind:"stack",name:"Child",parent:"root",order:0,
+          layout:{direction:"vertical",gap:8},
+          sizing:{
+            width:{mode:"fill",value:null,min:null,max:null},
+            height:{mode:"hug",value:null,min:null,max:null},
+            aspect_ratio:null,
+          },
+        },
+      ],
+      relationships:[],profiles:[],validators:[],
+      budgets:{
+        max_nodes:8,max_depth:4,max_relationships:8,
+        max_findings_per_round:8,max_repair_operations:4,
+        max_iterations:2,max_mutations:8,
+      },
+    };
+    const drafted=await h.call("composition.plan",{spec});
+    expect(drafted.ok).toBe(true);
+    const applied=await h.call("composition.apply",{plan:{
+      version:1,purpose:"composition",
+      base:{document_id:"doc",session_id:"s",generation:1,revision:0},
+      spec,changeset:drafted.value,validators:[],digest:"test-only",
+    }},0);
+    expect(applied.ok).toBe(true);
+    const child=h.nodes.get(applied.value.logicalToNode.child)!;
+    expect(child.parent.id).toBe(applied.value.logicalToNode.root);
+    expect(child.layoutSizingHorizontal).toBe("FILL");
+    expect(child.layoutSizingVertical).toBe("HUG");
+  });
+
   it("fails closed when semantic component discovery is ambiguous",async()=>{
     const h=harness();
     h.figma.createComponent().name="CTA/Button";

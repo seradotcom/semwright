@@ -1,0 +1,5884 @@
+{
+  "version": 1,
+  "target": {
+    "page_id": null,
+    "parent_node_id": null
+  },
+  "nodes": [
+    {
+      "id": "desktop",
+      "kind": "stack",
+      "name": "Semwright / Desktop",
+      "parent": null,
+      "order": 0,
+      "role": "page",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 0,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 1440,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": 0,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-nav",
+      "kind": "row",
+      "name": "01 / Navigation",
+      "parent": "desktop",
+      "order": 0,
+      "role": "navigation",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 24,
+        "padding": {
+          "top": 28,
+          "right": 72,
+          "bottom": 28,
+          "left": 72
+        },
+        "align": "center",
+        "distribute": "space_between",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 88,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-brand",
+      "kind": "text",
+      "name": "Brand",
+      "parent": "d-nav",
+      "order": 0,
+      "role": "brand",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 220,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Semwright",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 22,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-navlinks",
+      "kind": "row",
+      "name": "Navigation links",
+      "parent": "d-nav",
+      "order": 1,
+      "role": "navigation_links",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 28,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "center",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-link1",
+      "kind": "text",
+      "name": "Architecture",
+      "parent": "d-navlinks",
+      "order": 0,
+      "role": "nav_link",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Architecture",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 0.82,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-link2",
+      "kind": "text",
+      "name": "Evidence",
+      "parent": "d-navlinks",
+      "order": 1,
+      "role": "nav_link",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Evidence",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 0.82,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-link3",
+      "kind": "text",
+      "name": "Drivers",
+      "parent": "d-navlinks",
+      "order": 2,
+      "role": "nav_link",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Drivers",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 0.82,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-navcta",
+      "kind": "component_instance",
+      "name": "Navigation CTA",
+      "parent": "d-nav",
+      "order": 2,
+      "role": "cta",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 44,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "component": {
+        "component": {
+          "id": null,
+          "key": null,
+          "name": "Semwright/Button"
+        },
+        "variant_properties": {}
+      }
+    },
+    {
+      "id": "d-hero",
+      "kind": "split",
+      "name": "02 / Hero",
+      "parent": "desktop",
+      "order": 1,
+      "role": "hero",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 72,
+        "padding": {
+          "top": 96,
+          "right": 72,
+          "bottom": 112,
+          "left": 72
+        },
+        "align": "start",
+        "distribute": "space_between",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 760,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-herocopy",
+      "kind": "stack",
+      "name": "Hero / Copy",
+      "parent": "d-hero",
+      "order": 0,
+      "role": "hero_copy",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 16,
+        "padding": {
+          "top": 8,
+          "right": 0,
+          "bottom": 8,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 590,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-eyebrow",
+      "kind": "text",
+      "name": "Hero / Eyebrow",
+      "parent": "d-herocopy",
+      "order": 0,
+      "role": "eyebrow",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "SEMANTIC EXECUTION FOR AGENTS",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-title",
+      "kind": "text",
+      "name": "Hero / Heading",
+      "parent": "d-herocopy",
+      "order": 1,
+      "role": "heading",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Software agents should act on meaning, not pixels.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 68,
+        "line_height": 72,
+        "letter_spacing": 0,
+        "max_lines": 4,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-body",
+      "kind": "text",
+      "name": "Hero / Body",
+      "parent": "d-herocopy",
+      "order": 2,
+      "role": "body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 520,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Semwright is a semantic execution layer for reliable computer use: typed capabilities, native APIs, policy, refs, provenance and evidence.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 20,
+        "line_height": 31,
+        "letter_spacing": 0,
+        "max_lines": 5,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 0.78,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-heroactions",
+      "kind": "row",
+      "name": "Hero / Actions",
+      "parent": "d-herocopy",
+      "order": 3,
+      "role": "cta_group",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 20,
+        "padding": {
+          "top": 12,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "center",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-primarycta",
+      "kind": "component_instance",
+      "name": "Primary CTA",
+      "parent": "d-heroactions",
+      "order": 0,
+      "role": "cta",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 52,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "component": {
+        "component": {
+          "id": null,
+          "key": null,
+          "name": "Semwright/Button"
+        },
+        "variant_properties": {}
+      }
+    },
+    {
+      "id": "d-proofnote",
+      "kind": "text",
+      "name": "Hero / Proof note",
+      "parent": "d-heroactions",
+      "order": 1,
+      "role": "caption",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 260,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Plan → apply → observe → verify.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-visual",
+      "kind": "stack",
+      "name": "Hero / Semantic evidence",
+      "parent": "d-hero",
+      "order": 1,
+      "role": "evidence_visual",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 22,
+        "padding": {
+          "top": 36,
+          "right": 36,
+          "bottom": 36,
+          "left": 36
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 610,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 500,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": 28,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-visual-kicker",
+      "kind": "text",
+      "name": "Evidence / Kicker",
+      "parent": "d-visual",
+      "order": 0,
+      "role": "label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "ONE AUTHORITY BOUNDARY",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 12,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 0.72,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-agent",
+      "kind": "text",
+      "name": "Evidence / Agent",
+      "parent": "d-visual",
+      "order": 1,
+      "role": "diagram_label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Agent intent",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 28,
+        "line_height": 34,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-arrow1",
+      "kind": "text",
+      "name": "Evidence / Arrow 1",
+      "parent": "d-visual",
+      "order": 2,
+      "role": "diagram_connector",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "↓  typed semantic request",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-semwright",
+      "kind": "frame",
+      "name": "Evidence / Semwright",
+      "parent": "d-visual",
+      "order": 3,
+      "role": "diagram_node",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 10,
+        "padding": {
+          "top": 20,
+          "right": 22,
+          "bottom": 20,
+          "left": 22
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": 16,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-semwright-title",
+      "kind": "text",
+      "name": "Evidence / Semwright title",
+      "parent": "d-semwright",
+      "order": 0,
+      "role": "diagram_label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Semwright",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 24,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-semwright-detail",
+      "kind": "text",
+      "name": "Evidence / Semwright detail",
+      "parent": "d-semwright",
+      "order": 1,
+      "role": "diagram_detail",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Broker · policy · refs · provenance · jobs",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 0.9,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-arrow2",
+      "kind": "text",
+      "name": "Evidence / Arrow 2",
+      "parent": "d-visual",
+      "order": 4,
+      "role": "diagram_connector",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "↓  native capability",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-native",
+      "kind": "text",
+      "name": "Evidence / Native",
+      "parent": "d-visual",
+      "order": 5,
+      "role": "diagram_label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Real application objects + measured result",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-proof",
+      "kind": "row",
+      "name": "03 / Proof band",
+      "parent": "desktop",
+      "order": 2,
+      "role": "proof",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 0,
+        "padding": {
+          "top": 34,
+          "right": 72,
+          "bottom": 34,
+          "left": 72
+        },
+        "align": "center",
+        "distribute": "space_between",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 132,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Paper"
+          }
+        },
+        "radius": 0,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-p1",
+      "kind": "stack",
+      "name": "Proof / bounded Figma capabilities",
+      "parent": "d-proof",
+      "order": 0,
+      "role": "metric",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 4,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 275,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-p1-n",
+      "kind": "text",
+      "name": "Metric value",
+      "parent": "d-p1",
+      "order": 0,
+      "role": "metric_value",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "401",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 28,
+        "line_height": 32,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-p1-l",
+      "kind": "text",
+      "name": "Metric label",
+      "parent": "d-p1",
+      "order": 1,
+      "role": "metric_label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "bounded Figma capabilities",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-p2",
+      "kind": "stack",
+      "name": "Proof / SceneNode members classified",
+      "parent": "d-proof",
+      "order": 1,
+      "role": "metric",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 4,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 275,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-p2-n",
+      "kind": "text",
+      "name": "Metric value",
+      "parent": "d-p2",
+      "order": 0,
+      "role": "metric_value",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "3699/3699",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 28,
+        "line_height": 32,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-p2-l",
+      "kind": "text",
+      "name": "Metric label",
+      "parent": "d-p2",
+      "order": 1,
+      "role": "metric_label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "SceneNode members classified",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-p3",
+      "kind": "stack",
+      "name": "Proof / unclassified public methods",
+      "parent": "d-proof",
+      "order": 2,
+      "role": "metric",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 4,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 275,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-p3-n",
+      "kind": "text",
+      "name": "Metric value",
+      "parent": "d-p3",
+      "order": 0,
+      "role": "metric_value",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "0",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 28,
+        "line_height": 32,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-p3-l",
+      "kind": "text",
+      "name": "Metric label",
+      "parent": "d-p3",
+      "order": 1,
+      "role": "metric_label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "unclassified public methods",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-p4",
+      "kind": "stack",
+      "name": "Proof / Broker authority boundary",
+      "parent": "d-proof",
+      "order": 3,
+      "role": "metric",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 4,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 275,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-p4-n",
+      "kind": "text",
+      "name": "Metric value",
+      "parent": "d-p4",
+      "order": 0,
+      "role": "metric_value",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "1",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 28,
+        "line_height": 32,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-p4-l",
+      "kind": "text",
+      "name": "Metric label",
+      "parent": "d-p4",
+      "order": 1,
+      "role": "metric_label",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Broker authority boundary",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-arch",
+      "kind": "row",
+      "name": "04 / Architecture",
+      "parent": "desktop",
+      "order": 3,
+      "role": "architecture",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 96,
+        "padding": {
+          "top": 112,
+          "right": 72,
+          "bottom": 112,
+          "left": 72
+        },
+        "align": "start",
+        "distribute": "space_between",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-archintro",
+      "kind": "stack",
+      "name": "Architecture / Intro",
+      "parent": "d-arch",
+      "order": 0,
+      "role": "section_intro",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 20,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 460,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-archtitle",
+      "kind": "text",
+      "name": "Architecture / Heading",
+      "parent": "d-archintro",
+      "order": 0,
+      "role": "heading",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "The model decides what. Semwright handles what happened.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 44,
+        "line_height": 50,
+        "letter_spacing": 0,
+        "max_lines": 4,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-archbody",
+      "kind": "text",
+      "name": "Architecture / Body",
+      "parent": "d-archintro",
+      "order": 1,
+      "role": "body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "High-level intent compiles to native objects, then Semwright measures actual state and checks explicit contracts. Judgment stays agentic; mechanics become deterministic.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 28,
+        "letter_spacing": 0,
+        "max_lines": 7,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-archlist",
+      "kind": "stack",
+      "name": "Architecture / Steps",
+      "parent": "d-arch",
+      "order": 1,
+      "role": "steps",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 0,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 650,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-1",
+      "kind": "row",
+      "name": "Step 01",
+      "parent": "d-archlist",
+      "order": 0,
+      "role": "process_step",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 24,
+        "padding": {
+          "top": 22,
+          "right": 0,
+          "bottom": 22,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-1-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "d-step-1",
+      "order": 0,
+      "role": "step_number",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 48,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "01",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-1-copy",
+      "kind": "stack",
+      "name": "Step copy",
+      "parent": "d-step-1",
+      "order": 1,
+      "role": "step_copy",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 6,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-1-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "d-step-1-copy",
+      "order": 0,
+      "role": "step_title",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Inspect",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 20,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-1-b",
+      "kind": "text",
+      "name": "Step detail",
+      "parent": "d-step-1-copy",
+      "order": 1,
+      "role": "step_body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Current document semantics and bounded design-system context.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 15,
+        "line_height": 22,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-step-2",
+      "kind": "row",
+      "name": "Step 02",
+      "parent": "d-archlist",
+      "order": 1,
+      "role": "process_step",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 24,
+        "padding": {
+          "top": 22,
+          "right": 0,
+          "bottom": 22,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-2-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "d-step-2",
+      "order": 0,
+      "role": "step_number",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 48,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "02",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-2-copy",
+      "kind": "stack",
+      "name": "Step copy",
+      "parent": "d-step-2",
+      "order": 1,
+      "role": "step_copy",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 6,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-2-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "d-step-2-copy",
+      "order": 0,
+      "role": "step_title",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Plan",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 20,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-2-b",
+      "kind": "text",
+      "name": "Step detail",
+      "parent": "d-step-2-copy",
+      "order": 1,
+      "role": "step_body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Explicit revision-bound ChangeSet; no authority implied.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 15,
+        "line_height": 22,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-step-3",
+      "kind": "row",
+      "name": "Step 03",
+      "parent": "d-archlist",
+      "order": 2,
+      "role": "process_step",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 24,
+        "padding": {
+          "top": 22,
+          "right": 0,
+          "bottom": 22,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-3-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "d-step-3",
+      "order": 0,
+      "role": "step_number",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 48,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "03",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-3-copy",
+      "kind": "stack",
+      "name": "Step copy",
+      "parent": "d-step-3",
+      "order": 1,
+      "role": "step_copy",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 6,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-3-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "d-step-3-copy",
+      "order": 0,
+      "role": "step_title",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Apply",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 20,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-3-b",
+      "kind": "text",
+      "name": "Step detail",
+      "parent": "d-step-3-copy",
+      "order": 1,
+      "role": "step_body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Native Figma nodes, TextNodes, Auto Layout and bindings.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 15,
+        "line_height": 22,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-step-4",
+      "kind": "row",
+      "name": "Step 04",
+      "parent": "d-archlist",
+      "order": 3,
+      "role": "process_step",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 24,
+        "padding": {
+          "top": 22,
+          "right": 0,
+          "bottom": 22,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-4-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "d-step-4",
+      "order": 0,
+      "role": "step_number",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 48,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "04",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-4-copy",
+      "kind": "stack",
+      "name": "Step copy",
+      "parent": "d-step-4",
+      "order": 1,
+      "role": "step_copy",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 6,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-4-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "d-step-4-copy",
+      "order": 0,
+      "role": "step_title",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Measure",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 20,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-4-b",
+      "kind": "text",
+      "name": "Step detail",
+      "parent": "d-step-4-copy",
+      "order": 1,
+      "role": "step_body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Observed geometry comes back from Figma, not from guesses.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 15,
+        "line_height": 22,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-step-5",
+      "kind": "row",
+      "name": "Step 05",
+      "parent": "d-archlist",
+      "order": 4,
+      "role": "process_step",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 24,
+        "padding": {
+          "top": 22,
+          "right": 0,
+          "bottom": 22,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-5-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "d-step-5",
+      "order": 0,
+      "role": "step_number",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 48,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "05",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-5-copy",
+      "kind": "stack",
+      "name": "Step copy",
+      "parent": "d-step-5",
+      "order": 1,
+      "role": "step_copy",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 6,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-step-5-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "d-step-5-copy",
+      "order": 0,
+      "role": "step_title",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Verify",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 20,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-step-5-b",
+      "kind": "text",
+      "name": "Step detail",
+      "parent": "d-step-5-copy",
+      "order": 1,
+      "role": "step_body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Deterministic findings plus visual evidence; bounded repair only.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 15,
+        "line_height": 22,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-close",
+      "kind": "stack",
+      "name": "05 / Closing",
+      "parent": "desktop",
+      "order": 4,
+      "role": "closing",
+      "profile": "desktop",
+      "layout": {
+        "direction": "vertical",
+        "gap": 28,
+        "padding": {
+          "top": 112,
+          "right": 72,
+          "bottom": 112,
+          "left": 72
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": 0,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-close-label",
+      "kind": "text",
+      "name": "Closing / Label",
+      "parent": "d-close",
+      "order": 0,
+      "role": "eyebrow",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "SEMANTIC BEFORE PIXELS",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 0.75,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-close-title",
+      "kind": "text",
+      "name": "Closing / Heading",
+      "parent": "d-close",
+      "order": 1,
+      "role": "heading",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 900,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Give stronger models a stronger execution layer.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 52,
+        "line_height": 58,
+        "letter_spacing": 0,
+        "max_lines": 3,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "d-close-body",
+      "kind": "text",
+      "name": "Closing / Body",
+      "parent": "d-close",
+      "order": 2,
+      "role": "body",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 720,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Native APIs, typed semantics and evidence are infrastructure, not prompt tricks.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 28,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 0.86,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "d-close-cta",
+      "kind": "component_instance",
+      "name": "Closing CTA",
+      "parent": "d-close",
+      "order": 3,
+      "role": "cta",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 52,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "component": {
+        "component": {
+          "id": null,
+          "key": null,
+          "name": "Semwright/Button"
+        },
+        "variant_properties": {}
+      }
+    },
+    {
+      "id": "d-footer",
+      "kind": "row",
+      "name": "06 / Footer",
+      "parent": "desktop",
+      "order": 5,
+      "role": "footer",
+      "profile": "desktop",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 20,
+        "padding": {
+          "top": 30,
+          "right": 72,
+          "bottom": 36,
+          "left": 72
+        },
+        "align": "center",
+        "distribute": "space_between",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 96,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "d-footer-brand",
+      "kind": "text",
+      "name": "Footer / Brand",
+      "parent": "d-footer",
+      "order": 0,
+      "role": "brand",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Semwright",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 16,
+        "line_height": 22,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "d-footer-note",
+      "kind": "text",
+      "name": "Footer / Note",
+      "parent": "d-footer",
+      "order": 1,
+      "role": "caption",
+      "profile": "desktop",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Native APIs before pixels.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "mobile",
+      "kind": "stack",
+      "name": "Semwright / Mobile",
+      "parent": null,
+      "order": 1,
+      "role": "page",
+      "profile": "mobile",
+      "layout": {
+        "direction": "vertical",
+        "gap": 0,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 390,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": 0,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-nav",
+      "kind": "row",
+      "name": "Mobile / Navigation",
+      "parent": "mobile",
+      "order": 0,
+      "role": "navigation",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 12,
+        "padding": {
+          "top": 20,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        },
+        "align": "center",
+        "distribute": "space_between",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 72,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-brand",
+      "kind": "text",
+      "name": "Mobile / Brand",
+      "parent": "m-nav",
+      "order": 0,
+      "role": "brand",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Semwright",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 22,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-menu",
+      "kind": "text",
+      "name": "Mobile / Menu",
+      "parent": "m-nav",
+      "order": 1,
+      "role": "nav_control",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Menu",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-hero",
+      "kind": "stack",
+      "name": "Mobile / Hero",
+      "parent": "mobile",
+      "order": 1,
+      "role": "hero",
+      "profile": "mobile",
+      "layout": {
+        "direction": "vertical",
+        "gap": 16,
+        "padding": {
+          "top": 52,
+          "right": 20,
+          "bottom": 56,
+          "left": 20
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-eyebrow",
+      "kind": "text",
+      "name": "Mobile / Eyebrow",
+      "parent": "m-hero",
+      "order": 0,
+      "role": "eyebrow",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "SEMANTIC EXECUTION FOR AGENTS",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 11,
+        "line_height": 16,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-title",
+      "kind": "text",
+      "name": "Mobile / Heading",
+      "parent": "m-hero",
+      "order": 1,
+      "role": "heading",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Act on meaning, not pixels.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 44,
+        "line_height": 48,
+        "letter_spacing": 0,
+        "max_lines": 4,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "m-body",
+      "kind": "text",
+      "name": "Mobile / Body",
+      "parent": "m-hero",
+      "order": 2,
+      "role": "body",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Typed capabilities, native APIs, policy, refs and evidence for reliable agentic computer use.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 17,
+        "line_height": 26,
+        "letter_spacing": 0,
+        "max_lines": 7,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "m-cta",
+      "kind": "component_instance",
+      "name": "Mobile / CTA",
+      "parent": "m-hero",
+      "order": 3,
+      "role": "cta",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 52,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "component": {
+        "component": {
+          "id": null,
+          "key": null,
+          "name": "Semwright/Button"
+        },
+        "variant_properties": {}
+      }
+    },
+    {
+      "id": "m-visual",
+      "kind": "stack",
+      "name": "Mobile / Evidence",
+      "parent": "m-hero",
+      "order": 4,
+      "role": "evidence_visual",
+      "profile": "mobile",
+      "layout": {
+        "direction": "vertical",
+        "gap": 14,
+        "padding": {
+          "top": 24,
+          "right": 22,
+          "bottom": 24,
+          "left": 22
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 330,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": 22,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-v1",
+      "kind": "text",
+      "name": "Mobile evidence 1",
+      "parent": "m-visual",
+      "order": 0,
+      "role": "diagram_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Agent intent",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 22,
+        "line_height": 28,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "m-v2",
+      "kind": "text",
+      "name": "Mobile evidence 2",
+      "parent": "m-visual",
+      "order": 1,
+      "role": "diagram_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "↓ semantic request",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-v3",
+      "kind": "text",
+      "name": "Mobile evidence 3",
+      "parent": "m-visual",
+      "order": 2,
+      "role": "diagram_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Semwright · one authority boundary",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "m-v4",
+      "kind": "text",
+      "name": "Mobile evidence 4",
+      "parent": "m-visual",
+      "order": 3,
+      "role": "diagram_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "↓ native capability",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-v5",
+      "kind": "text",
+      "name": "Mobile evidence 5",
+      "parent": "m-visual",
+      "order": 4,
+      "role": "diagram_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Observed application state",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Body"
+        }
+      }
+    },
+    {
+      "id": "m-proof",
+      "kind": "stack",
+      "name": "Mobile / Proof",
+      "parent": "mobile",
+      "order": 2,
+      "role": "proof",
+      "profile": "mobile",
+      "layout": {
+        "direction": "vertical",
+        "gap": 18,
+        "padding": {
+          "top": 34,
+          "right": 20,
+          "bottom": 34,
+          "left": 20
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Paper"
+          }
+        },
+        "radius": 0,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-proof-1",
+      "kind": "row",
+      "name": "Mobile metric 1",
+      "parent": "m-proof",
+      "order": 0,
+      "role": "metric",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 18,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-proof-1-n",
+      "kind": "text",
+      "name": "Metric value",
+      "parent": "m-proof-1",
+      "order": 0,
+      "role": "metric_value",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 110,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "401",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 22,
+        "line_height": 28,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "m-proof-1-l",
+      "kind": "text",
+      "name": "Metric label",
+      "parent": "m-proof-1",
+      "order": 1,
+      "role": "metric_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "bounded Figma capabilities",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-proof-2",
+      "kind": "row",
+      "name": "Mobile metric 2",
+      "parent": "m-proof",
+      "order": 1,
+      "role": "metric",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 18,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-proof-2-n",
+      "kind": "text",
+      "name": "Metric value",
+      "parent": "m-proof-2",
+      "order": 0,
+      "role": "metric_value",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 110,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "3699/3699",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 22,
+        "line_height": 28,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "m-proof-2-l",
+      "kind": "text",
+      "name": "Metric label",
+      "parent": "m-proof-2",
+      "order": 1,
+      "role": "metric_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "SceneNode members classified",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-proof-3",
+      "kind": "row",
+      "name": "Mobile metric 3",
+      "parent": "m-proof",
+      "order": 2,
+      "role": "metric",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 18,
+        "padding": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-proof-3-n",
+      "kind": "text",
+      "name": "Metric value",
+      "parent": "m-proof-3",
+      "order": 0,
+      "role": "metric_value",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 110,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "1",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 22,
+        "line_height": 28,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "m-proof-3-l",
+      "kind": "text",
+      "name": "Metric label",
+      "parent": "m-proof-3",
+      "order": 1,
+      "role": "metric_label",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Broker authority boundary",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 13,
+        "line_height": 18,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-arch",
+      "kind": "stack",
+      "name": "Mobile / Architecture",
+      "parent": "mobile",
+      "order": 3,
+      "role": "architecture",
+      "profile": "mobile",
+      "layout": {
+        "direction": "vertical",
+        "gap": 28,
+        "padding": {
+          "top": 56,
+          "right": 20,
+          "bottom": 64,
+          "left": 20
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-archtitle",
+      "kind": "text",
+      "name": "Mobile architecture heading",
+      "parent": "m-arch",
+      "order": 0,
+      "role": "heading",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "What happened should be measurable.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 34,
+        "line_height": 40,
+        "letter_spacing": 0,
+        "max_lines": 4,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "m-step-1",
+      "kind": "row",
+      "name": "Mobile step 01",
+      "parent": "m-arch",
+      "order": 1,
+      "role": "process_step",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 16,
+        "padding": {
+          "top": 14,
+          "right": 0,
+          "bottom": 14,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-step-1-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "m-step-1",
+      "order": 0,
+      "role": "step_number",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 42,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "01",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 12,
+        "line_height": 16,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-1-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "m-step-1",
+      "order": 1,
+      "role": "step_title",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Inspect",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 24,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-2",
+      "kind": "row",
+      "name": "Mobile step 02",
+      "parent": "m-arch",
+      "order": 2,
+      "role": "process_step",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 16,
+        "padding": {
+          "top": 14,
+          "right": 0,
+          "bottom": 14,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-step-2-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "m-step-2",
+      "order": 0,
+      "role": "step_number",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 42,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "02",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 12,
+        "line_height": 16,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-2-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "m-step-2",
+      "order": 1,
+      "role": "step_title",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Plan",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 24,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-3",
+      "kind": "row",
+      "name": "Mobile step 03",
+      "parent": "m-arch",
+      "order": 3,
+      "role": "process_step",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 16,
+        "padding": {
+          "top": 14,
+          "right": 0,
+          "bottom": 14,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-step-3-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "m-step-3",
+      "order": 0,
+      "role": "step_number",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 42,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "03",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 12,
+        "line_height": 16,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-3-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "m-step-3",
+      "order": 1,
+      "role": "step_title",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Apply",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 24,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-4",
+      "kind": "row",
+      "name": "Mobile step 04",
+      "parent": "m-arch",
+      "order": 4,
+      "role": "process_step",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 16,
+        "padding": {
+          "top": 14,
+          "right": 0,
+          "bottom": 14,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-step-4-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "m-step-4",
+      "order": 0,
+      "role": "step_number",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 42,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "04",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 12,
+        "line_height": 16,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-4-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "m-step-4",
+      "order": 1,
+      "role": "step_title",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Measure",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 24,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-5",
+      "kind": "row",
+      "name": "Mobile step 05",
+      "parent": "m-arch",
+      "order": 5,
+      "role": "process_step",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 16,
+        "padding": {
+          "top": 14,
+          "right": 0,
+          "bottom": 14,
+          "left": 0
+        },
+        "align": "baseline",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-step-5-n",
+      "kind": "text",
+      "name": "Step number",
+      "parent": "m-step-5",
+      "order": 0,
+      "role": "step_number",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fixed",
+          "value": 42,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "05",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 12,
+        "line_height": 16,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-step-5-t",
+      "kind": "text",
+      "name": "Step title",
+      "parent": "m-step-5",
+      "order": 1,
+      "role": "step_title",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Verify",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 18,
+        "line_height": 24,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-close",
+      "kind": "stack",
+      "name": "Mobile / Closing",
+      "parent": "mobile",
+      "order": 4,
+      "role": "closing",
+      "profile": "mobile",
+      "layout": {
+        "direction": "vertical",
+        "gap": 22,
+        "padding": {
+          "top": 56,
+          "right": 20,
+          "bottom": 64,
+          "left": 20
+        },
+        "align": "start",
+        "distribute": "start",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Cobalt"
+          }
+        },
+        "radius": 0,
+        "opacity": 1,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-close-title",
+      "kind": "text",
+      "name": "Mobile closing heading",
+      "parent": "m-close",
+      "order": 0,
+      "role": "heading",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "A stronger execution layer for stronger models.",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 36,
+        "line_height": 42,
+        "letter_spacing": 0,
+        "max_lines": 4,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ivory"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Display"
+        }
+      }
+    },
+    {
+      "id": "m-close-cta",
+      "kind": "component_instance",
+      "name": "Mobile closing CTA",
+      "parent": "m-close",
+      "order": 1,
+      "role": "cta",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 52,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "component": {
+        "component": {
+          "id": null,
+          "key": null,
+          "name": "Semwright/Button"
+        },
+        "variant_properties": {}
+      }
+    },
+    {
+      "id": "m-footer",
+      "kind": "row",
+      "name": "Mobile / Footer",
+      "parent": "mobile",
+      "order": 5,
+      "role": "footer",
+      "profile": "mobile",
+      "layout": {
+        "direction": "horizontal",
+        "gap": 12,
+        "padding": {
+          "top": 24,
+          "right": 20,
+          "bottom": 28,
+          "left": 20
+        },
+        "align": "center",
+        "distribute": "space_between",
+        "wrap": false,
+        "absolute_children": false
+      },
+      "sizing": {
+        "width": {
+          "mode": "fill",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "fixed",
+          "value": 84,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      }
+    },
+    {
+      "id": "m-footer-brand",
+      "kind": "text",
+      "name": "Mobile footer brand",
+      "parent": "m-footer",
+      "order": 0,
+      "role": "brand",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Semwright",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 14,
+        "line_height": 20,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Ink"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    },
+    {
+      "id": "m-footer-note",
+      "kind": "text",
+      "name": "Mobile footer note",
+      "parent": "m-footer",
+      "order": 1,
+      "role": "caption",
+      "profile": "mobile",
+      "sizing": {
+        "width": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "height": {
+          "mode": "hug",
+          "value": null,
+          "min": null,
+          "max": null
+        },
+        "aspect_ratio": null
+      },
+      "text": {
+        "characters": "Meaning → evidence",
+        "font_family": "Inter",
+        "font_style": "Regular",
+        "font_size": 12,
+        "line_height": 16,
+        "letter_spacing": 0,
+        "max_lines": null,
+        "fit": "grow_height"
+      },
+      "visual": {
+        "fill": {
+          "kind": "variable",
+          "variable": {
+            "id": null,
+            "key": null,
+            "name": "Brand/Muted"
+          }
+        },
+        "radius": null,
+        "opacity": 1,
+        "text_style": {
+          "id": null,
+          "key": null,
+          "name": "Type/Label"
+        }
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "kind": "minimum_gap",
+      "subject": "d-title",
+      "object": "d-body",
+      "value": 24,
+      "tolerance": 0.5
+    },
+    {
+      "kind": "minimum_gap",
+      "subject": "m-title",
+      "object": "m-body",
+      "value": 24,
+      "tolerance": 0.5
+    },
+    {
+      "kind": "same_width_as",
+      "subject": "d-hero",
+      "object": "d-proof",
+      "value": null,
+      "tolerance": 1
+    },
+    {
+      "kind": "before",
+      "subject": "d-herocopy",
+      "object": "d-visual",
+      "value": null,
+      "tolerance": 1
+    }
+  ],
+  "profiles": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "root_id": "desktop"
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "root_id": "mobile"
+    }
+  ],
+  "validators": [
+    {
+      "kind": "text_clipping",
+      "severity": "error"
+    },
+    {
+      "kind": "parent_overflow",
+      "severity": "error"
+    },
+    {
+      "kind": "sibling_overlap",
+      "severity": "warning"
+    },
+    {
+      "kind": "declared_spacing",
+      "severity": "warning"
+    },
+    {
+      "kind": "aspect_ratio",
+      "severity": "warning"
+    },
+    {
+      "kind": "touch_target",
+      "severity": "warning"
+    },
+    {
+      "kind": "fonts",
+      "severity": "error"
+    },
+    {
+      "kind": "auto_layout",
+      "severity": "error"
+    },
+    {
+      "kind": "responsive_profile",
+      "severity": "error"
+    },
+    {
+      "kind": "component_relationships",
+      "severity": "error"
+    },
+    {
+      "kind": "required_bindings",
+      "severity": "error"
+    },
+    {
+      "kind": "native_text",
+      "severity": "error"
+    }
+  ],
+  "budgets": {
+    "max_nodes": 256,
+    "max_depth": 16,
+    "max_relationships": 128,
+    "max_findings_per_round": 128,
+    "max_repair_operations": 16,
+    "max_iterations": 4,
+    "max_mutations": 64
+  }
+}

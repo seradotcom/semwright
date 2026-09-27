@@ -1034,6 +1034,44 @@ mod tests {
     }
 
     #[test]
+    fn dogfood_landing_spec_is_a_valid_bounded_product_fixture() {
+        let raw = include_str!("../../../demos/figma-semantic-authoring/landing.spec.json");
+        assert!(raw.len() <= MAX_COMPOSITION_BYTES);
+        let value: FigmaCompositionSpecV1 =
+            serde_json::from_str(raw).expect("dogfood landing spec must deserialize");
+        value
+            .validate()
+            .expect("dogfood landing spec must validate");
+        assert_eq!(value.nodes.len(), 124);
+        assert!(
+            value
+                .nodes
+                .iter()
+                .any(|node| { node.id == "desktop" && node.profile.as_deref() == Some("desktop") })
+        );
+        assert!(
+            value
+                .nodes
+                .iter()
+                .any(|node| { node.id == "mobile" && node.profile.as_deref() == Some("mobile") })
+        );
+        assert!(
+            value
+                .nodes
+                .iter()
+                .filter(|node| matches!(node.kind, CompositionNodeKindV1::Text))
+                .count()
+                > 40
+        );
+        assert!(
+            value
+                .nodes
+                .iter()
+                .any(|node| { matches!(node.kind, CompositionNodeKindV1::ComponentInstance) })
+        );
+    }
+
+    #[test]
     fn changeset_cannot_smuggle_scope_risk_or_unknown_parent() {
         let mut changeset = FigmaChangeSetV1 {
             version: 1,
