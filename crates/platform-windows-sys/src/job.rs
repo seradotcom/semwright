@@ -1,11 +1,15 @@
+use semwright_platform_api::launch::SandboxCpuAccounting;
 use semwright_types::{Error, ErrorCode, Result};
+use std::time::Duration;
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE},
     System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_ACTIVE_PROCESS,
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, JOB_OBJECT_LIMIT_PROCESS_MEMORY,
-        JOB_OBJECT_LIMIT_PROCESS_TIME, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-        JobObjectExtendedLimitInformation, SetInformationJobObject,
+        JOB_OBJECT_LIMIT_PROCESS_TIME, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectBasicAccountingInformation,
+        JobObjectExtendedLimitInformation, QueryInformationJobObject, SetInformationJobObject,
+        TerminateJobObject,
     },
 };
 
@@ -79,10 +83,71 @@ impl ProcessJob {
         Ok(Self(handle))
     }
 
+    pub fn terminate(&self, exit_code: u32) -> Result<()> {
+        // SAFETY: this wrapper owns a live Job Object HANDLE.
+        unsafe { TerminateJobObject(self.0, exit_code) }.map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox Job Object termination failed",
+            )
+        })
+    }
+
+    fn total_cpu_100ns(&self) -> Result<u64> {
+        let mut accounting = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION::default();
+        // SAFETY: accounting is a correctly-sized writable buffer for this information class.
+        unsafe {
+            QueryInformationJobObject(
+                Some(self.0),
+                JobObjectBasicAccountingInformation,
+                (&mut accounting as *mut JOBOBJECT_BASIC_ACCOUNTING_INFORMATION).cast(),
+                std::mem::size_of::<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>() as u32,
+                None,
+            )
+        }
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows Job Object CPU accounting query failed",
+            )
+        })?;
+        let user = u64::try_from(accounting.TotalUserTime).map_err(|_| {
+            Error::new(
+                ErrorCode::Internal,
+                "Windows Job Object user CPU accounting became negative",
+            )
+        })?;
+        let kernel = u64::try_from(accounting.TotalKernelTime).map_err(|_| {
+            Error::new(
+                ErrorCode::Internal,
+                "Windows Job Object kernel CPU accounting became negative",
+            )
+        })?;
+        user.checked_add(kernel).ok_or_else(|| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Windows Job Object CPU accounting overflowed",
+            )
+        })
+    }
+
     /// Must be called while a securely-created child is still suspended.
     pub fn assign_suspended_process(&self, process: HANDLE) -> Result<()> {
         // SAFETY: caller guarantees `process` is a live child process HANDLE and still suspended.
         unsafe { AssignProcessToJobObject(self.0, process) }
             .map_err(|_| Error::new(ErrorCode::SandboxDenied, "Child could not enter Job Object"))
+    }
+}
+
+impl SandboxCpuAccounting for ProcessJob {
+    fn total_cpu_time(&self) -> Result<Duration> {
+        let ticks = self.total_cpu_100ns()?;
+        let nanos = ticks.checked_mul(100).ok_or_else(|| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Windows Job Object CPU duration overflowed",
+            )
+        })?;
+        Ok(Duration::from_nanos(nanos))
     }
 }

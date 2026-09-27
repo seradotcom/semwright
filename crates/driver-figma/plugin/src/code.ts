@@ -800,14 +800,84 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
   }
 }
 
+const SEMWRIGHT_RESUME_STORAGE_KEY = "semwright-figma-resume-v1";
+const SEMWRIGHT_DOCUMENT_ID_KEY = "semwright-document-continuity-id-v1";
+
+function validDocumentContinuityId(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{32}$/i.test(value);
+}
+
+function documentContinuityId(
+  ensure: boolean,
+  candidate: unknown,
+): string | null {
+  const existing = figma.root.getPluginData(SEMWRIGHT_DOCUMENT_ID_KEY);
+  if (validDocumentContinuityId(existing)) return existing;
+  if (!ensure || !validDocumentContinuityId(candidate)) return null;
+  figma.root.setPluginData(SEMWRIGHT_DOCUMENT_ID_KEY, candidate);
+  revision++;
+  return candidate;
+}
+
+function resumeStorageKey(documentId: string): string {
+  return SEMWRIGHT_RESUME_STORAGE_KEY + ":" + documentId;
+}
+
+function validResumeCredential(value: unknown): value is {resumeId: string; resumeToken: string} {
+  if (!value || typeof value !== "object") return false;
+  const credential = value as {resumeId?: unknown; resumeToken?: unknown};
+  return typeof credential.resumeId === "string"
+    && /^[0-9a-f]{32}$/i.test(credential.resumeId)
+    && typeof credential.resumeToken === "string"
+    && /^[0-9a-f]{64}$/i.test(credential.resumeToken);
+}
+
 function startBridgeRuntime() {
   figma.showUI(__html__, {width: 360, height: 280, themeColors: true});
-  figma.ui.onmessage = async (message: {type: string; request?: BridgeRequest}) => {
+  figma.ui.onmessage = async (message: {
+    type: string;
+    request?: BridgeRequest;
+    credential?: {resumeId?: unknown; resumeToken?: unknown};
+    documentId?: unknown;
+    ensureDocumentIdentity?: unknown;
+    documentIdentityCandidate?: unknown;
+  }) => {
     if (message.type === "bridge-request" && message.request) {
       figma.ui.postMessage({type: "bridge-response", response: await handle(message.request)});
     }
+    if (message.type === "bridge-resume-store" && validResumeCredential(message.credential)) {
+      const documentId = documentContinuityId(false, null);
+      if (documentId && message.documentId === documentId) {
+        await figma.clientStorage.setAsync(resumeStorageKey(documentId), message.credential);
+      }
+    }
+    if (message.type === "bridge-resume-clear") {
+      const documentId = documentContinuityId(false, null);
+      if (documentId && (message.documentId === undefined || message.documentId === documentId)) {
+        await figma.clientStorage.deleteAsync(resumeStorageKey(documentId));
+      }
+    }
     if (message.type === "bridge-status") {
-      figma.ui.postMessage({type: "document-context", editorType: figma.editorType, documentId: figma.root.id, pageId: figma.currentPage.id, revision});
+      const documentId = documentContinuityId(
+        message.ensureDocumentIdentity === true,
+        message.documentIdentityCandidate,
+      );
+      const stored = documentId
+        ? await figma.clientStorage.getAsync(resumeStorageKey(documentId))
+        : null;
+      const resumeCredential = validResumeCredential(stored) ? stored : null;
+      if (documentId && stored !== undefined && stored !== null && resumeCredential === null) {
+        await figma.clientStorage.deleteAsync(resumeStorageKey(documentId));
+      }
+      figma.ui.postMessage({
+        type: "document-context",
+        editorType: figma.editorType,
+        documentId: documentId ?? figma.root.id,
+        pageId: figma.currentPage.id,
+        revision,
+        resumeCredential,
+        documentContinuity: documentId !== null,
+      });
     }
   };
   figma.on("selectionchange", () => {

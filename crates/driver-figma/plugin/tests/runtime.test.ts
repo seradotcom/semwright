@@ -21,6 +21,7 @@ function harness(editorType = "figma") {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None},
   }).outputText;
   const posted: any[] = [];
+  const clientStorage = new Map<string, unknown>();
   const nodes = new Map<string, AnyNode>();
   const collections = new Map<string, AnyNode>();
   const variables = new Map<string, AnyNode>();
@@ -82,7 +83,13 @@ function harness(editorType = "figma") {
     insertChild(index:number,node:AnyNode){ if(node.parent) node.parent.children.splice(node.parent.children.indexOf(node),1); node.parent=this; this.children.splice(index,0,node); },
   };
   nodes.set(page.id, page);
-  const root: AnyNode = {id:"0:0",type:"DOCUMENT",name:"Document",children:[page]};
+  const documentPluginData = new Map<string,string>();
+  const root: AnyNode = {
+    id:"0:0",type:"DOCUMENT",name:"Document",children:[page],
+    getPluginData(key:string){return documentPluginData.get(key)??"";},
+    setPluginData(key:string,value:string){if(value==="")documentPluginData.delete(key);else documentPluginData.set(key,value);},
+    getPluginDataKeys(){return [...documentPluginData.keys()];},
+  };
   nodes.set(root.id, root);
 
   function component(): AnyNode {
@@ -129,6 +136,11 @@ function harness(editorType = "figma") {
   const figma:any = {
     root, currentPage: page, editorType, mixed: Symbol("mixed"),
     ui: {onmessage: undefined, postMessage: (message:any)=>posted.push(message)},
+    clientStorage: {
+      async getAsync(key:string){return clientStorage.get(key);},
+      async setAsync(key:string,value:unknown){clientStorage.set(key,JSON.parse(JSON.stringify(value)));},
+      async deleteAsync(key:string){clientStorage.delete(key);},
+    },
     showUI(){},
     on(type:string, callback:(event:any)=>void){
       const list=eventHandlers.get(type)??[];
@@ -285,6 +297,42 @@ async function readArtifact(h:ReturnType<typeof harness>,token:string):Promise<s
 }
 
 describe("plugin runtime behavior",()=>{
+  it("creates document continuity identity only on explicit pairing and stores only the resume credential",async()=>{
+    const h=harness();
+    const documentId="c".repeat(32);
+    const credential={resumeId:"a".repeat(32),resumeToken:"b".repeat(64)};
+
+    h.posted.length=0;
+    await h.figma.ui.onmessage({type:"bridge-status"});
+    let context=h.posted.find((x:any)=>x.type==="document-context");
+    expect(context.documentContinuity).toBe(false);
+    expect(context.resumeCredential).toBeNull();
+
+    h.posted.length=0;
+    await h.figma.ui.onmessage({
+      type:"bridge-status",
+      ensureDocumentIdentity:true,
+      documentIdentityCandidate:documentId,
+    });
+    context=h.posted.find((x:any)=>x.type==="document-context");
+    expect(context.documentId).toBe(documentId);
+    expect(context.documentContinuity).toBe(true);
+
+    await h.figma.ui.onmessage({type:"bridge-resume-store",credential,documentId});
+    h.posted.length=0;
+    await h.figma.ui.onmessage({type:"bridge-status"});
+    context=h.posted.find((x:any)=>x.type==="document-context");
+    expect(context.documentId).toBe(documentId);
+    expect(context.resumeCredential).toEqual(credential);
+
+    await h.figma.ui.onmessage({type:"bridge-resume-clear",documentId});
+    h.posted.length=0;
+    await h.figma.ui.onmessage({type:"bridge-status"});
+    const cleared=h.posted.find((x:any)=>x.type==="document-context");
+    expect(cleared.resumeCredential).toBeNull();
+    expect(cleared.documentId).toBe(documentId);
+  });
+
   it("mutates layout and enforces revision preconditions",async()=>{
     const h=harness();
     const created=await h.call("frame.create",{name:"Card",width:320,height:180});

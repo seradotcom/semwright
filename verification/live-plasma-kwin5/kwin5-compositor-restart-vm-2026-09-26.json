@@ -45,7 +45,7 @@
   },
   "limitations": [
     "This is a full compositor restart on an isolated Plasma real-login VM, not a physical Plasma or Hyprland login.",
-    "GNOME owner-active compositor restart was deliberately not attempted because it would disrupt the user's real desktop session.",
+    "A non-isolated compositor restart was deliberately excluded because it does not provide a disposable graphical authority boundary.",
     "Physical mixed-scale/multi-monitor remains unavailable while only the laptop eDP panel is connected.",
     "R06 remains open for the remaining physical/real-login cases."
   ]

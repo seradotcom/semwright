@@ -172,5 +172,31 @@ async fn protocol_v2_streams_events_progress_artifacts_and_cancels_cooperatively
         .unwrap_err();
     assert_eq!(error.code, ErrorCode::Cancelled);
 
+    let disconnect = Provider::capabilities(provider.as_ref())
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.disconnect")
+        .unwrap()
+        .descriptor;
+    let started = std::time::Instant::now();
+    let error = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "v2-disconnect".into(),
+            request_id: "job-v2-disconnect".into(),
+            cancellation: CancellationToken::new(),
+        },
+        &disconnect,
+        &serde_json::json!({}),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(error.code, ErrorCode::Unavailable);
+    assert!(
+        started.elapsed() < Duration::from_secs(2),
+        "child transport loss should wake pending requests immediately"
+    );
+
     Provider::shutdown(provider.as_ref()).await.unwrap();
 }

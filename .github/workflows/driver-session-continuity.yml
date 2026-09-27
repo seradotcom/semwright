@@ -1,0 +1,250 @@
+name: Driver session continuity
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  pull_request:
+    paths:
+      - "crates/driver-sdk/**"
+      - "crates/driver-host/**"
+      - "crates/driver-figma/**"
+      - "crates/driver-godot/**"
+      - "crates/driver-obs/**"
+      - "integrations/godot/**"
+      - ".github/workflows/driver-session-continuity.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  push:
+    branches: [main]
+    paths:
+      - "crates/driver-sdk/**"
+      - "crates/driver-host/**"
+      - "crates/driver-figma/**"
+      - "crates/driver-godot/**"
+      - "crates/driver-obs/**"
+      - "integrations/godot/**"
+      - ".github/workflows/driver-session-continuity.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: driver-session-continuity-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  contract-and-bridges:
+    name: SDK + Figma + Godot continuity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-session-continuity-contract
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Common continuity contract
+        run: cargo test --locked -p semwright-driver-sdk continuity -- --nocapture
+      - name: Figma bridge continuity
+        run: cargo test --locked -p semwright-driver-figma --lib bridge::tests -- --nocapture
+      - name: Godot bridge continuity
+        run: |
+          cargo test --locked -p semwright-driver-godot --test contracts -- --nocapture
+          cargo test --locked -p semwright-driver-godot --test production_fake -- --nocapture
+      - name: Godot type and lint gate
+        run: |
+          cargo check --locked -p semwright-driver-godot --all-targets
+          cargo clippy --locked -p semwright-driver-godot --all-targets --all-features -- -D warnings
+
+  figma-plugin:
+    name: Figma trusted-resume plugin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: crates/driver-figma/plugin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: crates/driver-figma/plugin/package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Plugin tests
+        run: npm test
+      - name: Plugin production build
+        run: npm run build
+
+  host-loss:
+    name: Driver Host transport-loss wakeup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-session-continuity-host
+      - name: Install sandbox prerequisite
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          if [ "$current_apparmor" = "1" ]; then
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict; then
+              sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict || sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            else
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            fi
+          fi
+      - name: Build only host fixture prerequisites
+        run: cargo build --locked -p semwright-driver-host --bin semwright-driver-fixture -p semwright-plugin-host --bin semwright-sandbox
+      - name: Protocol v2 transport-loss conformance
+        env:
+          SEMWRIGHT_TEST_DRIVER_V2: "1"
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: cargo test --locked -p semwright-driver-host --test protocol_v2 -- --ignored --nocapture
+
+  obs-fault-injection:
+    name: OBS reconnect fault injection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-session-continuity-obs
+      - name: Install independent OBS fixture dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-websockets
+          python3 -c 'import websockets; print(websockets.__version__)'
+      - name: OBS common-contract parity
+        run: cargo test --locked -p semwright-driver-obs --test protocol_regression obs_continuity_state_and_backoff_conform_to_driver_sdk_contract -- --exact --nocapture
+      - name: Generation advances after reconnect
+        run: cargo test --locked -p semwright-driver-obs --test fake_matrix generation_increments_on_reconnect -- --ignored --exact --nocapture
+      - name: Reconnect storm is bounded
+        run: cargo test --locked -p semwright-driver-obs --test fake_matrix reconnect_storm_bounded -- --ignored --exact --nocapture
+      - name: Mutation disconnect preserves unknown outcome
+        run: cargo test --locked -p semwright-driver-obs --test fake_matrix mutation_disconnect_has_unknown_outcome -- --ignored --exact --nocapture
+      - name: Concurrent disconnect leaves no waiters
+        run: cargo test --locked -p semwright-driver-obs --test fake_matrix disconnect_mid_concurrency_does_not_leave_waiters -- --ignored --exact --nocapture
+
+  stdio-driver-regression:
+    name: Process-backed stdio driver regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-session-continuity-stdio-drivers
+      - name: Manifest transport contract
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifests = [
+              Path("crates/driver-blender/driver.manifest.example.json"),
+              Path("crates/driver-mlt-video/driver.manifest.example.json"),
+              Path("crates/driver-motion-canvas/driver.manifest.example.json"),
+          ]
+          for path in manifests:
+              data = json.loads(path.read_text())
+              assert data.get("transport") == "stdio_v1", (path, data.get("transport"))
+              assert not data.get("network", False), (path, "unexpected ambient network")
+              assert data.get("loopback_port") is None, (path, "unexpected loopback bridge")
+              print(f"{path}: stdio_v1 host continuity")
+
+          # LibreOffice is a first-party Driver SDK binary without a standalone
+          # manifest example in this crate. It is hosted over Driver stdio and
+          # owns a bounded local UNO subprocess/pipe internally.
+          libreoffice = Path("crates/driver-libreoffice/src/main.rs").read_text()
+          assert "serve(driver).await" in libreoffice
+          assert "timeout(deadline, child.wait_with_output())" in libreoffice
+          assert "Command::new(SYSTEM_SHELL)" in libreoffice
+          assert ".arg(SOFFICE)" in libreoffice
+          assert ".kill_on_drop(true)" in libreoffice
+          assert "for _ in 0..120" in libreoffice
+          print("crates/driver-libreoffice: Driver SDK stdio + bounded local UNO process")
+          PY
+      - name: Type and unit regression
+        run: |
+          cargo check --locked --all-targets             -p semwright-driver-blender             -p semwright-driver-libreoffice             -p semwright-mlt-video-driver             -p semwright-driver-motion-canvas
+          cargo test --locked --all-targets             -p semwright-driver-blender             -p semwright-driver-libreoffice             -p semwright-mlt-video-driver             -p semwright-driver-motion-canvas
+
+  continuity-fuzz:
+    name: Continuity protocol fuzz smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: nightly-2026-09-18
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: driver-session-continuity-fuzz
+          workspaces: fuzz
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - run: cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Bounded continuity fuzz targets
+        run: |
+          set -o pipefail
+          mkdir -p verification/continuity-fuzz
+          for target in figma_bridge_envelope godot_bridge_auth obs_message; do
+            cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=15 -timeout=3 -rss_limit_mb=1024 -max_len=8192 2>&1 | tee "verification/continuity-fuzz/$target.log"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: continuity-fuzz-evidence
+          path: |
+            verification/continuity-fuzz
+            fuzz/artifacts
+          retention-days: 14

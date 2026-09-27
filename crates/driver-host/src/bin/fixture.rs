@@ -17,6 +17,9 @@ fn capability() -> Capability {
                 .into(),
             input_schema: json!({
                 "type":"object",
+                "properties":{
+                    "cpu_ms":{"type":"integer","minimum":0,"maximum":5000}
+                },
                 "additionalProperties":false
             }),
             output_schema: json!({
@@ -28,7 +31,7 @@ fn capability() -> Capability {
             requires: vec!["driver:fixture".into()],
             risk: Risk::ReadOnly,
             idempotency: Idempotency::ReadOnly,
-            timeout_ms: 2_000,
+            timeout_ms: 5_000,
             dry_run: true,
             interactive_consent: false,
             backends: vec!["driver:fixture".into()],
@@ -69,6 +72,28 @@ fn mount_capability() -> Capability {
         },
         aliases: vec!["mount_probe".into()],
         tags: vec!["fixture".into(), "conformance".into(), "filesystem".into()],
+        object_types: vec![],
+    }
+}
+
+fn disconnect_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.disconnect".into(),
+            version: "1".into(),
+            description: "Terminate the fixture child during a protocol-v2 request".into(),
+            input_schema: json!({"type":"object","additionalProperties":false}),
+            output_schema: json!({"type":"object","additionalProperties":false}),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 5_000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec![],
+        tags: vec!["fixture".into(), "protocol-v2".into(), "continuity".into()],
         object_types: vec![],
     }
 }
@@ -126,12 +151,18 @@ impl Driver for Fixture {
         }
     }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
-        Ok(vec![capability(), mount_capability(), long_capability()])
+        Ok(vec![
+            capability(),
+            mount_capability(),
+            long_capability(),
+            disconnect_capability(),
+        ])
     }
     async fn execute(&mut self, command: &str, pinned_digest: &str, args: Value) -> Result<Value> {
         let capability = match command {
             "driver.fixture.ping" => capability(),
             "driver.fixture.mount_probe" => mount_capability(),
+            "driver.fixture.disconnect" => disconnect_capability(),
             _ => {
                 return Err(Error::new(
                     ErrorCode::StaleReference,
@@ -145,14 +176,47 @@ impl Driver for Fixture {
                 "Driver descriptor is not the pinned capability",
             ));
         }
-        if args.as_object().is_none_or(|args| !args.is_empty()) {
-            return Err(Error::invalid("fixture command accepts an empty object"));
-        }
         if command == "driver.fixture.mount_probe" {
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid(
+                    "fixture mount probe accepts an empty object",
+                ));
+            }
             let root = workspace_mount("fixture-data")?;
             let read = std::fs::read_to_string(root.join("input.txt"))?;
             let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
             return Ok(json!({"read":read,"write_ok":write_ok}));
+        }
+        if command == "driver.fixture.disconnect" {
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid("fixture disconnect accepts an empty object"));
+            }
+            std::process::exit(71);
+        }
+
+        let args = args
+            .as_object()
+            .ok_or_else(|| Error::invalid("fixture ping accepts an object"))?;
+        if args.keys().any(|key| key != "cpu_ms") {
+            return Err(Error::invalid("fixture ping received an unknown argument"));
+        }
+        let cpu_ms = args.get("cpu_ms").and_then(Value::as_u64).unwrap_or(0);
+        if cpu_ms > 5_000 {
+            return Err(Error::invalid(
+                "fixture ping cpu_ms exceeds the test budget",
+            ));
+        }
+        if cpu_ms != 0 {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_millis(cpu_ms);
+            let mut state = 0x9e37_79b9_u64;
+            while std::time::Instant::now() < deadline {
+                for _ in 0..16_384 {
+                    state = state
+                        .wrapping_mul(6_364_136_223_846_793_005)
+                        .wrapping_add(1);
+                }
+                std::hint::black_box(state);
+            }
         }
         Ok(json!({"ok":true}))
     }

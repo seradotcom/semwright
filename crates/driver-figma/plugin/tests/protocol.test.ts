@@ -91,10 +91,34 @@ describe("authenticated loopback bridge",()=>{
  it("accepts Figma WebSocket payloads delivered as string, Blob, or ArrayBuffer",()=>{expect(ui).toContain("async function websocketText(data)");expect(ui).toContain('data instanceof Blob');expect(ui).toContain("data instanceof ArrayBuffer");expect(ui).toContain("await websocketText(e.data)");});
  it("authenticates the server challenge with a separate HMAC proof",()=>{expect(ui).toContain('type:"authenticate"');expect(ui).toContain("proof:authProof");expect(ui).toContain("m.nonce");});
  it("only opens a loopback websocket",()=>{expect(ui).toContain('ws://localhost:');expect(ui).not.toContain('ws://127.0.0.1:');});
- it("keeps the pairing secret in memory only",()=>{expect(ui).toContain("let pairingSecret=null");expect(ui).not.toContain("localStorage");expect(ui).not.toContain("sessionStorage");});
+ it("keeps the pairing code memory-only and stores only opaque resume credentials",()=>{
+  expect(ui).toContain("let pairingSecret=null");
+  expect(ui).not.toContain("localStorage");
+  expect(ui).not.toContain("sessionStorage");
+  expect(code).toContain("figma.clientStorage.setAsync(resumeStorageKey(documentId), message.credential)");
+  expect(code).toContain("figma.clientStorage.deleteAsync(resumeStorageKey(documentId))");
+  expect(code).toContain("figma.root.getPluginData(SEMWRIGHT_DOCUMENT_ID_KEY)");
+  expect(code).toContain("figma.root.setPluginData(SEMWRIGHT_DOCUMENT_ID_KEY, candidate)");
+  expect(code).toContain('SEMWRIGHT_RESUME_STORAGE_KEY + ":" + documentId');
+  expect(ui).toContain("ensureDocumentIdentity:true");
+  expect(ui).toContain("documentIdentityCandidate");
+ });
  it("automatically reconnects with bounded exponential backoff",()=>{expect(ui).toContain("function scheduleReconnect(reason)");expect(ui).toContain("Math.min(4000,250*(2**Math.min(reconnectAttempt,4)))");expect(ui).toContain("setTimeout(()=>{reconnectTimer=null;openSocket()},delay)");});
- it("reuses the session identity and advances generation on reconnect",()=>{expect(ui).toContain("const sid=session,gen=++generation,secret=pairingSecret");expect(ui).toContain("generation:gen");});
- it("manual disconnect cancels reconnect state",()=>{expect(ui).toContain("manualDisconnect=true;pairingSecret=null;session=null;generation=0;activeGeneration=0;connecting=false;reconnectAttempt=0;authenticatedOnce=false;preReadyFailures=0;clearReconnect()");});
+ it("resumes trusted sessions with fresh HMAC challenges and refreshes the stored credential",()=>{
+  expect(ui).toContain('type:"resume_hello"');
+  expect(ui).toContain('type:"resume_authenticate"');
+  expect(ui).toContain("async function resumeProof");
+  expect(ui).toContain("figma-resume-v1");
+  expect(ui).toContain('type:"bridge-resume-store",documentId:context?.documentId');
+  expect(ui).toContain("resume_id");
+  expect(ui).toContain("resume_token");
+ });
+ it("manual disconnect revokes the current resume credential and cancels reconnect",()=>{
+  expect(ui).toContain('type:"revoke_resume"');
+  expect(ui).toContain("clearStoredResume()");
+  expect(ui).toContain("manualDisconnect=true");
+  expect(ui).toContain("clearReconnect()");
+ });
  it("answers server heartbeats",()=>expect(ui).toContain('m.type==="ping")socket.send(JSON.stringify({type:"pong",nonce:m.nonce}))'));
  it("stops retrying before first authentication instead of looping forever",()=>{expect(ui).toContain("authenticatedOnce=false,preReadyFailures=0");expect(ui).toContain("if(preReadyFailures>=3)");expect(ui).toContain("Enter a fresh pairing code and press Connect.");});
  it("keeps transient reconnect automatic only after a successful ready",()=>{expect(ui).toContain("authenticatedOnce=true;preReadyFailures=0");expect(ui).toContain("if(!authenticatedOnce)");});

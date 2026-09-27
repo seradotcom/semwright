@@ -32,14 +32,14 @@ relative-logical delta behavior, focus-drift rejection with no fallback, explici
 post-stop state; see `verification/live-portal-eis/gnome-connect-to-eis.json`. GNOME's keycode-only
 keyboard path is protocol-tested through the advertised XKB keymap; cancellation, sender
 backpressure, pacing and bidirectional modifier-feedback handling also have deterministic protocol
-coverage. Real keyboard target delivery is **not certified**: owner-active-login tests and same-login
-nested GNOME tests were invalidated after EIS text reached the owner's active application despite
-semantic window-focus checks.
+coverage. Real keyboard target delivery is **not certified**: non-isolated direct-login and shared-authority
+nested GNOME tests were invalidated because semantic window-focus checks did not guarantee target
+exclusivity.
 
 **RemoteDesktop/EIS test isolation warning:** a nested GNOME Shell, private `HOME`, private runtime,
 private Wayland socket and private session D-Bus are not a sufficient safety boundary for keyboard
 injection on a logged-in host. Live keyboard certification must use a VM or genuinely independent
-seat/login that cannot inject into the owner's active desktop.
+seat/login with an independently isolated graphical authority boundary.
 
 **Still not certified end-to-end:** mapping input to ScreenCast stream coordinates, focused
 portal input across the supported desktop matrix, and multi-monitor/scaling behavior. Relative

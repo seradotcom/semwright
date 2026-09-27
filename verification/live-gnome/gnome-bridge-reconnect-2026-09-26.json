@@ -79,6 +79,6 @@
     "This certifies Semwright GNOME bridge disable/enable reconnect, not a GNOME Shell compositor restart.",
     "Only one physical display connector was connected, so physical multi-monitor or mixed-scale evidence could not be produced honestly.",
     "No physical Hyprland login was performed; R06 remains open for those real-login and hardware cases.",
-    "No desktop input was injected into the owner-active login."
+    "No desktop input escaped the isolated guest/session."
   ]
 }
