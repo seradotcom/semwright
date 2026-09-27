@@ -15,6 +15,7 @@ workspace = true
 semwright-types.workspace = true
 semwright-backend-api.workspace = true
 semwright-protocol.workspace = true
+semwright-policy.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true

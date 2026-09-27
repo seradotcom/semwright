@@ -2,6 +2,7 @@
 use semwright_adapters::chromium::BrowserConfig;
 use semwright_platform_api::DesktopHost;
 use semwright_platform_common::{Application, fake::FakeDesktop};
+use semwright_policy::FilesystemGrant;
 use semwright_types::Result;
 use std::{
     collections::BTreeMap,
@@ -16,6 +17,7 @@ pub async fn bootstrap(
     state: &Path,
     applications: BTreeMap<String, Application>,
     browser: BrowserConfig,
+    filesystem_grants: Vec<FilesystemGrant>,
     blender_socket: Option<PathBuf>,
 ) -> Result<DesktopHost> {
     if fake {
@@ -29,7 +31,15 @@ pub async fn bootstrap(
             keepalive: Box::new(()),
         });
     }
-    let mut host = native(runtime, state, applications, browser, blender_socket).await?;
+    let mut host = native(
+        runtime,
+        state,
+        applications,
+        browser,
+        filesystem_grants,
+        blender_socket,
+    )
+    .await?;
     host.environment["root_fixture_only"] = serde_json::json!(false);
     Ok(host)
 }
@@ -40,9 +50,10 @@ async fn native(
     state: &Path,
     a: BTreeMap<String, Application>,
     b: BrowserConfig,
+    filesystem_grants: Vec<FilesystemGrant>,
     s: Option<PathBuf>,
 ) -> Result<DesktopHost> {
-    semwright_platform_linux::bootstrap(r, state, a, b, s).await
+    semwright_platform_linux::bootstrap(r, state, a, b, filesystem_grants, s).await
 }
 
 #[cfg(target_os = "macos")]
@@ -51,6 +62,7 @@ async fn native(
     _state: &Path,
     _a: BTreeMap<String, Application>,
     _b: BrowserConfig,
+    _filesystem_grants: Vec<FilesystemGrant>,
     _s: Option<PathBuf>,
 ) -> Result<DesktopHost> {
     Ok(DesktopHost {
@@ -68,6 +80,7 @@ async fn native(
     _state: &Path,
     _a: BTreeMap<String, Application>,
     _b: BrowserConfig,
+    _filesystem_grants: Vec<FilesystemGrant>,
     _s: Option<PathBuf>,
 ) -> Result<DesktopHost> {
     let principal = semwright_platform_services::current_principal()?;
