@@ -131,6 +131,14 @@ def main():
             "driver.figma.a11y.vision.analyze",
             "driver.figma.a11y.vision.preview",
             "driver.figma.verify.node",
+            "driver.figma.composition.inspect",
+            "driver.figma.composition.plan",
+            "driver.figma.composition.apply",
+            "driver.figma.composition.measure",
+            "driver.figma.composition.validate",
+            "driver.figma.composition.repair.plan",
+            "driver.figma.composition.repair.apply",
+            "driver.figma.composition.verify",
             "driver.figma.payments.status",
         }
         missing_surface = sorted(required_surface - set(caps))
@@ -467,9 +475,226 @@ def main():
         assert preview["type"] == "result", preview
         assert len(preview["value"]["previews"]) == 1
 
+        semantic_inspect = execute(
+            driver, caps, "driver.figma.composition.inspect",
+            {
+                "session_id": session_id,
+                "expected_revision": 13,
+                "include_design_system": True,
+                "max_nodes": 128,
+            }, "semantic-inspect",
+        )
+        assert semantic_inspect["type"] == "result", semantic_inspect
+        assert semantic_inspect["value"]["editorType"] == "figma"
+
+        semantic_spec = {
+            "version": 1,
+            "target": {"page_id": None, "parent_node_id": None},
+            "nodes": [
+                {
+                    "id": "semantic-hero",
+                    "kind": "stack",
+                    "name": "Semantic Hero",
+                    "parent": None,
+                    "order": 0,
+                    "role": "hero",
+                    "layout": {"direction": "vertical", "gap": 8},
+                    "sizing": {
+                        "width": {"mode": "fixed", "value": 640},
+                        "height": {"mode": "hug"},
+                    },
+                },
+                {
+                    "id": "semantic-heading",
+                    "kind": "text",
+                    "name": "Heading",
+                    "parent": "semantic-hero",
+                    "order": 0,
+                    "role": "heading",
+                    "text": {
+                        "characters": "Meaning before pixels.",
+                        "font_family": "Inter",
+                        "font_style": "Regular",
+                        "font_size": 48,
+                        "fit": "grow_height",
+                    },
+                },
+                {
+                    "id": "semantic-body",
+                    "kind": "text",
+                    "name": "Body",
+                    "parent": "semantic-hero",
+                    "order": 1,
+                    "role": "body",
+                    "text": {
+                        "characters": "Observed state decides whether the contract passed.",
+                        "font_family": "Inter",
+                        "font_style": "Regular",
+                        "font_size": 18,
+                        "fit": "grow_height",
+                    },
+                },
+            ],
+            "relationships": [
+                {
+                    "kind": "minimum_gap",
+                    "subject": "semantic-heading",
+                    "object": "semantic-body",
+                    "value": 24,
+                    "tolerance": 0.5,
+                }
+            ],
+            "validators": [
+                {"kind": "declared_spacing"},
+                {"kind": "native_text"},
+                {"kind": "auto_layout"},
+            ],
+            "budgets": {
+                "max_nodes": 32,
+                "max_depth": 8,
+                "max_relationships": 16,
+                "max_findings_per_round": 32,
+                "max_repair_operations": 8,
+                "max_iterations": 3,
+                "max_mutations": 16,
+            },
+        }
+        semantic_plan = execute(
+            driver, caps, "driver.figma.composition.plan",
+            {
+                "session_id": session_id,
+                "expected_revision": 13,
+                "spec": semantic_spec,
+            }, "semantic-plan",
+        )
+        assert semantic_plan["type"] == "result", semantic_plan
+        plan = semantic_plan["value"]
+        assert plan["base"]["revision"] == 13
+        assert plan["changeset"]["required_scopes"] == ["driver:figma"]
+        assert len(plan["digest"]) == 64
+
+        semantic_apply = execute(
+            driver, caps, "driver.figma.composition.apply",
+            {
+                "session_id": session_id,
+                "expected_revision": 13,
+                "plan": plan,
+            }, "semantic-apply",
+        )
+        assert semantic_apply["type"] == "result", semantic_apply
+        assert semantic_apply["value"]["observedRevision"] == 14
+        semantic_root = semantic_apply["value"]["rootNodeIds"][0]
+
+        semantic_measure = execute(
+            driver, caps, "driver.figma.composition.measure",
+            {
+                "session_id": session_id,
+                "expected_revision": 14,
+                "root_node_id": semantic_root,
+                "max_nodes": 32,
+            }, "semantic-measure",
+        )
+        assert semantic_measure["type"] == "result", semantic_measure
+        measured = semantic_measure["value"]["nodes"]
+        assert any(node["type"] == "TEXT" for node in measured)
+        assert measured[0]["layoutMode"] == "VERTICAL"
+
+        semantic_validation = execute(
+            driver, caps, "driver.figma.composition.validate",
+            {
+                "session_id": session_id,
+                "expected_revision": 14,
+                "root_node_id": semantic_root,
+                "spec": semantic_spec,
+                "max_findings": 32,
+            }, "semantic-validate",
+        )
+        assert semantic_validation["type"] == "result", semantic_validation
+        assert semantic_validation["value"]["status"] == "FAIL"
+        spacing = [
+            finding for finding in semantic_validation["value"]["findings"]
+            if finding["category"] == "declared_spacing"
+        ]
+        assert len(spacing) == 1, semantic_validation
+        assert spacing[0]["confidence_class"] == "DETERMINISTIC"
+        assert spacing[0]["suggested_repairs"] == [
+            {"kind": "set_auto_layout_gap", "gap": 24.0}
+        ]
+
+        semantic_repair_plan = execute(
+            driver, caps, "driver.figma.composition.repair.plan",
+            {
+                "session_id": session_id,
+                "expected_revision": 14,
+                "plan": plan,
+                "findings": semantic_validation["value"]["findings"],
+            }, "semantic-repair-plan",
+        )
+        assert semantic_repair_plan["type"] == "result", semantic_repair_plan
+        repair_plan = semantic_repair_plan["value"]
+        assert repair_plan["purpose"] == "repair"
+        assert repair_plan["base"]["revision"] == 14
+        assert len(repair_plan["changeset"]["modifies"]) == 1
+
+        semantic_repair = execute(
+            driver, caps, "driver.figma.composition.repair.apply",
+            {
+                "session_id": session_id,
+                "expected_revision": 14,
+                "plan": repair_plan,
+            }, "semantic-repair",
+        )
+        assert semantic_repair["type"] == "result", semantic_repair
+        assert semantic_repair["value"]["observedRevision"] == 15
+
+        semantic_revalidation = execute(
+            driver, caps, "driver.figma.composition.validate",
+            {
+                "session_id": session_id,
+                "expected_revision": 15,
+                "root_node_id": semantic_root,
+                "spec": semantic_spec,
+                "max_findings": 32,
+            }, "semantic-revalidate",
+        )
+        assert semantic_revalidation["type"] == "result", semantic_revalidation
+        assert semantic_revalidation["value"]["status"] == "PASS", semantic_revalidation
+
+        semantic_verify_progress = []
+        semantic_verified = execute(
+            driver, caps, "driver.figma.composition.verify",
+            {
+                "session_id": session_id,
+                "expected_revision": 15,
+                "root_node_id": semantic_root,
+                "spec": semantic_spec,
+                "scale": 1,
+                "name": "semantic-verification.png",
+                "max_findings": 32,
+            }, "semantic-verify", semantic_verify_progress,
+        )
+        assert semantic_verified["type"] == "result", semantic_verified
+        assert semantic_verified["value"]["validation"]["status"] == "PASS"
+        assert semantic_verified["value"]["mediaType"] == "image/png"
+        assert len(semantic_verify_progress) == 1
+        assert semantic_verify_progress[0]["artifacts"][0]["reference"] == (
+            f"artifact:figma:{semantic_verified['value']['token']}"
+        )
+
+        stale_plan = execute(
+            driver, caps, "driver.figma.composition.apply",
+            {
+                "session_id": session_id,
+                "expected_revision": 15,
+                "plan": plan,
+            }, "semantic-stale-plan",
+        )
+        assert stale_plan["type"] == "failure", stale_plan
+        assert stale_plan["error"]["code"] == "StaleReference", stale_plan
+
         sessions = execute(driver, caps, "driver.figma.session.list", {}, "sessions-final")
         revision = sessions["value"][0]["revision"]
-        assert revision == 13, sessions
+        assert revision == 15, sessions
 
         shutdown = request(driver, {"type": "shutdown", "id": "bye"}, "shutdown")
         assert shutdown["id"] == "bye"

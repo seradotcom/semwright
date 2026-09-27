@@ -55,9 +55,11 @@ struct RepairFindingInput {
     confidence_class: String,
     subject_node_id: Option<String>,
     subject_logical_id: Option<String>,
+    related_node_ids: Option<Vec<String>>,
     expected: Option<Value>,
     actual: Option<Value>,
     evidence: Option<Value>,
+    suggested_repairs: Option<Vec<Value>>,
 }
 
 #[derive(JsonSchema, Serialize, Deserialize)]

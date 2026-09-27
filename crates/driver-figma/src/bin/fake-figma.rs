@@ -84,6 +84,167 @@ impl Fake {
         }
     }
 
+    fn semantic_measure(&self, root_id: &str) -> Result<Value> {
+        let mut queue = vec![root_id.to_owned()];
+        let mut measured = Vec::new();
+        while let Some(id) = queue.pop() {
+            if measured.len() >= 512 {
+                break;
+            }
+            let node = self
+                .nodes
+                .get(&id)
+                .context("semantic root/node not found")?;
+            queue.extend(node.children.iter().rev().cloned());
+            measured.push(json!({
+                "nodeId": node.id,
+                "logicalId": node.props.get("logicalId").cloned().unwrap_or(Value::Null),
+                "type": node.kind,
+                "name": node.name,
+                "box": {"x":node.x,"y":node.y,"width":node.w,"height":node.h},
+                "layoutMode": node.props.get("layoutMode").cloned().unwrap_or(json!("NONE")),
+                "itemSpacing": node.props.get("itemSpacing").cloned().unwrap_or(json!(0)),
+                "text": if node.kind == "TEXT" {
+                    json!({
+                        "characters":node.props.get("characters").cloned().unwrap_or(json!("")),
+                        "textAutoResize":"HEIGHT"
+                    })
+                } else {
+                    Value::Null
+                }
+            }));
+        }
+        let truncated = measured.len() >= 512;
+        Ok(json!({
+            "rootNodeId":root_id,
+            "nodes":measured,
+            "truncated":truncated,
+            "observedRevision":self.revision
+        }))
+    }
+
+    fn semantic_validate(&self, root_id: &str, spec: Option<&Value>) -> Result<Value> {
+        let _ = self.nodes.get(root_id).context("semantic root not found")?;
+        let mut logical = BTreeMap::<String, String>::new();
+        for node in self.nodes.values() {
+            if let Some(id) = node.props.get("logicalId").and_then(Value::as_str) {
+                logical.insert(id.to_owned(), node.id.clone());
+            }
+        }
+        let mut findings = Vec::<Value>::new();
+        let mut unknown = 0u64;
+        if let Some(spec) = spec {
+            for declared in spec
+                .get("nodes")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let logical_id = declared.get("id").and_then(Value::as_str).unwrap_or("");
+                let Some(node_id) = logical.get(logical_id) else {
+                    findings.push(json!({
+                        "severity":"error",
+                        "category":"missing_declared_node",
+                        "confidence_class":"DETERMINISTIC",
+                        "subject_logical_id":logical_id,
+                        "related_node_ids":[],
+                        "expected":true,
+                        "actual":false,
+                        "evidence":{"logicalId":logical_id},
+                        "suggested_repairs":[]
+                    }));
+                    continue;
+                };
+                let node = self
+                    .nodes
+                    .get(node_id)
+                    .expect("logical index points at node");
+                if declared.get("kind").and_then(Value::as_str) == Some("text")
+                    && node.kind != "TEXT"
+                {
+                    findings.push(json!({
+                        "severity":"error",
+                        "category":"native_text_violation",
+                        "confidence_class":"DETERMINISTIC",
+                        "subject_node_id":node.id,
+                        "subject_logical_id":logical_id,
+                        "related_node_ids":[],
+                        "expected":"TEXT",
+                        "actual":node.kind,
+                        "evidence":{},
+                        "suggested_repairs":[]
+                    }));
+                }
+            }
+            for relation in spec
+                .get("relationships")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let kind = relation.get("kind").and_then(Value::as_str).unwrap_or("");
+                if !matches!(kind, "minimum_gap" | "maximum_gap") {
+                    continue;
+                }
+                let subject = relation
+                    .get("subject")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                let object = relation.get("object").and_then(Value::as_str).unwrap_or("");
+                let (Some(subject_id), Some(object_id)) =
+                    (logical.get(subject), logical.get(object))
+                else {
+                    unknown += 1;
+                    continue;
+                };
+                let parent = self.nodes.values().find(|node| {
+                    node.children.contains(subject_id) && node.children.contains(object_id)
+                });
+                let Some(parent) = parent else {
+                    unknown += 1;
+                    continue;
+                };
+                let actual = parent
+                    .props
+                    .get("itemSpacing")
+                    .and_then(Value::as_f64)
+                    .unwrap_or(0.0);
+                let expected = relation.get("value").and_then(Value::as_f64).unwrap_or(0.0);
+                let failed = if kind == "minimum_gap" {
+                    actual + 0.5 < expected
+                } else {
+                    actual - 0.5 > expected
+                };
+                if failed {
+                    findings.push(json!({
+                        "severity":"warning",
+                        "category":"declared_spacing",
+                        "confidence_class":"DETERMINISTIC",
+                        "subject_node_id":parent.id,
+                        "subject_logical_id":subject,
+                        "related_node_ids":[object_id],
+                        "expected":{"kind":kind,"value":expected},
+                        "actual":actual,
+                        "evidence":{"parentNodeId":parent.id,"autoLayout":true},
+                        "suggested_repairs":[{"kind":"set_auto_layout_gap","gap":expected}]
+                    }));
+                }
+            }
+        }
+        let failures = findings.len() as u64;
+        Ok(json!({
+            "status": if failures > 0 {"FAIL"} else if unknown > 0 {"UNKNOWN"} else {"PASS"},
+            "findings":findings,
+            "summary":{
+                "deterministicFailures":failures,
+                "unknown":unknown,
+                "checkedNodes":self.nodes.len(),
+                "truncated":false
+            },
+            "observedRevision":self.revision
+        }))
+    }
+
     fn execute(&mut self, op: &str, args: &Value) -> Result<Value> {
         match op {
             "document.status" => Ok(json!({
@@ -92,6 +253,316 @@ impl Fake {
                 "revision":self.revision,
                 "currentPage":self.page
             })),
+            "composition.inspect" => {
+                let root = args
+                    .get("root_node_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or(&self.page);
+                Ok(json!({
+                    "editorType":"figma",
+                    "root":self.semantic_measure(root)?,
+                    "designSystem":{"components":[],"variables":[],"textStyles":[]},
+                    "limits":{"maxNodes":512,"maxFindings":1000}
+                }))
+            }
+            "composition.plan" => {
+                let spec = args.get("spec").context("composition spec")?;
+                let nodes = spec
+                    .get("nodes")
+                    .and_then(Value::as_array)
+                    .context("composition nodes")?;
+                let creates = nodes
+                    .iter()
+                    .map(|node| {
+                        json!({
+                            "logical_id":node.get("id").and_then(Value::as_str).unwrap_or(""),
+                            "parent_logical_id":node.get("parent").cloned().unwrap_or(Value::Null),
+                            "resolved":{
+                                "component_id":null,
+                                "text_style_id":null,
+                                "fill_variable_id":null
+                            }
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                Ok(json!({
+                    "version":1,
+                    "creates":creates,
+                    "modifies":[],
+                    "deletes":[],
+                    "expected_effects":[
+                        "native_figma_nodes",
+                        "native_text_for_copy",
+                        "auto_layout_when_declared",
+                        "post_write_measurement"
+                    ],
+                    "postconditions":[
+                        "document_identity_unchanged",
+                        "revision_advanced_only_by_authorized_apply"
+                    ],
+                    "required_scopes":["driver:figma"],
+                    "risk":"mutating_reversible"
+                }))
+            }
+            "composition.apply" => {
+                let spec = args
+                    .get("plan")
+                    .and_then(|plan| plan.get("spec"))
+                    .context("semantic plan spec")?
+                    .clone();
+                let nodes = spec
+                    .get("nodes")
+                    .and_then(Value::as_array)
+                    .context("composition nodes")?
+                    .clone();
+                let mut logical = BTreeMap::<String, String>::new();
+                let mut created = Vec::<Value>::new();
+                for declared in nodes {
+                    let logical_id = declared
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .context("logical id")?
+                        .to_owned();
+                    let parent_id = match declared.get("parent").and_then(Value::as_str) {
+                        Some(parent) => logical
+                            .get(parent)
+                            .cloned()
+                            .context("semantic parent must be created first")?,
+                        None => spec
+                            .get("target")
+                            .and_then(|target| target.get("parent_node_id"))
+                            .and_then(Value::as_str)
+                            .unwrap_or(&self.page)
+                            .to_owned(),
+                    };
+                    let id = format!("1:{}", self.nodes.len() + 1);
+                    let declared_kind = declared
+                        .get("kind")
+                        .and_then(Value::as_str)
+                        .unwrap_or("frame");
+                    let kind = match declared_kind {
+                        "text" => "TEXT",
+                        "section" => "SECTION",
+                        "component_instance" => "INSTANCE",
+                        "shape" | "media" => "RECTANGLE",
+                        _ => "FRAME",
+                    };
+                    let sizing = declared.get("sizing");
+                    let width = sizing
+                        .and_then(|value| value.get("width"))
+                        .filter(|axis| axis.get("mode").and_then(Value::as_str) == Some("fixed"))
+                        .and_then(|axis| axis.get("value"))
+                        .and_then(Value::as_f64)
+                        .unwrap_or(100.0);
+                    let height = sizing
+                        .and_then(|value| value.get("height"))
+                        .filter(|axis| axis.get("mode").and_then(Value::as_str) == Some("fixed"))
+                        .and_then(|axis| axis.get("value"))
+                        .and_then(Value::as_f64)
+                        .unwrap_or(100.0);
+                    let mut props = BTreeMap::new();
+                    props.insert("logicalId".into(), json!(logical_id));
+                    if let Some(text) = declared.get("text") {
+                        props.insert(
+                            "characters".into(),
+                            text.get("characters").cloned().unwrap_or(json!("")),
+                        );
+                    }
+                    let layout_mode = match declared_kind {
+                        "stack" => "VERTICAL",
+                        "row" | "split" => "HORIZONTAL",
+                        "grid" => "GRID",
+                        "overlay" => "NONE",
+                        _ => declared
+                            .get("layout")
+                            .and_then(|layout| layout.get("direction"))
+                            .and_then(Value::as_str)
+                            .map(|value| match value {
+                                "vertical" => "VERTICAL",
+                                "horizontal" => "HORIZONTAL",
+                                "grid" => "GRID",
+                                _ => "NONE",
+                            })
+                            .unwrap_or("NONE"),
+                    };
+                    props.insert("layoutMode".into(), json!(layout_mode));
+                    props.insert(
+                        "itemSpacing".into(),
+                        declared
+                            .get("layout")
+                            .and_then(|layout| layout.get("gap"))
+                            .cloned()
+                            .unwrap_or(json!(0)),
+                    );
+                    let node = Node {
+                        id: id.clone(),
+                        kind: kind.into(),
+                        name: declared
+                            .get("name")
+                            .and_then(Value::as_str)
+                            .unwrap_or(&logical_id)
+                            .into(),
+                        x: 0.0,
+                        y: 0.0,
+                        w: width,
+                        h: height,
+                        children: vec![],
+                        props,
+                    };
+                    self.nodes.insert(id.clone(), node);
+                    self.nodes
+                        .get_mut(&parent_id)
+                        .context("semantic parent missing")?
+                        .children
+                        .push(id.clone());
+                    logical.insert(logical_id.clone(), id.clone());
+                    created.push(json!({
+                        "logicalId":logical_id,
+                        "nodeId":id,
+                        "type":kind,
+                        "name":declared.get("name").cloned().unwrap_or(json!(""))
+                    }));
+                }
+                self.revision += 1;
+                let root_ids = spec
+                    .get("nodes")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter(|node| node.get("parent").is_none_or(Value::is_null))
+                    .filter_map(|node| node.get("id").and_then(Value::as_str))
+                    .filter_map(|id| logical.get(id).cloned())
+                    .collect::<Vec<_>>();
+                Ok(json!({
+                    "applied":true,
+                    "rootNodeIds":root_ids,
+                    "created":created,
+                    "logicalToNode":logical,
+                    "observedRevision":self.revision,
+                    "effects":[
+                        "native_figma_nodes",
+                        "native_text_for_copy",
+                        "auto_layout_when_declared",
+                        "post_write_measurement"
+                    ]
+                }))
+            }
+            "composition.measure" => {
+                let root = args
+                    .get("root_node_id")
+                    .and_then(Value::as_str)
+                    .context("root_node_id")?;
+                self.semantic_measure(root)
+            }
+            "composition.validate" => {
+                let root = args
+                    .get("root_node_id")
+                    .and_then(Value::as_str)
+                    .context("root_node_id")?;
+                self.semantic_validate(root, args.get("spec"))
+            }
+            "composition.repair.plan" => {
+                let mut modifies = Vec::new();
+                for finding in args
+                    .get("findings")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    let repairs = finding
+                        .get("suggested_repairs")
+                        .and_then(Value::as_array)
+                        .cloned()
+                        .unwrap_or_default();
+                    if repairs.len() != 1 {
+                        continue;
+                    }
+                    let Some(node_id) = finding.get("subject_node_id").and_then(Value::as_str)
+                    else {
+                        continue;
+                    };
+                    let repair = &repairs[0];
+                    if repair.get("kind").and_then(Value::as_str) == Some("set_auto_layout_gap") {
+                        modifies.push(json!({
+                            "node_id":node_id,
+                            "logical_id":finding.get("subject_logical_id").cloned().unwrap_or(Value::Null),
+                            "action":{
+                                "kind":"set_auto_layout_gap",
+                                "gap":repair.get("gap").cloned().unwrap_or(json!(0))
+                            }
+                        }));
+                    }
+                }
+                Ok(json!({
+                    "version":1,
+                    "creates":[],
+                    "modifies":modifies,
+                    "deletes":[],
+                    "expected_effects":["bounded_deterministic_repair"],
+                    "postconditions":["fresh_measurement_required","fresh_validation_required"],
+                    "required_scopes":["driver:figma"],
+                    "risk":"mutating_reversible"
+                }))
+            }
+            "composition.repair.apply" => {
+                let changes = args
+                    .get("plan")
+                    .and_then(|plan| plan.get("changeset"))
+                    .and_then(|set| set.get("modifies"))
+                    .and_then(Value::as_array)
+                    .context("repair changes")?
+                    .clone();
+                let mut modified = Vec::new();
+                for change in changes {
+                    let node_id = change
+                        .get("node_id")
+                        .and_then(Value::as_str)
+                        .context("repair node")?;
+                    let action = change.get("action").context("repair action")?;
+                    if action.get("kind").and_then(Value::as_str) != Some("set_auto_layout_gap") {
+                        bail!("unsupported fake repair");
+                    }
+                    let gap = action
+                        .get("gap")
+                        .and_then(Value::as_f64)
+                        .context("repair gap")?;
+                    self.nodes
+                        .get_mut(node_id)
+                        .context("repair target missing")?
+                        .props
+                        .insert("itemSpacing".into(), json!(gap));
+                    modified.push(json!({"nodeId":node_id,"action":"set_auto_layout_gap"}));
+                }
+                self.revision += 1;
+                Ok(json!({
+                    "applied":true,
+                    "modified":modified,
+                    "observedRevision":self.revision
+                }))
+            }
+            "composition.verify" => {
+                let root = args
+                    .get("root_node_id")
+                    .and_then(Value::as_str)
+                    .context("root_node_id")?;
+                let measurement = self.semantic_measure(root)?;
+                let validation = self.semantic_validate(root, args.get("spec"))?;
+                let bytes = vec![137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3];
+                let token = Uuid::new_v4().simple().to_string();
+                let length = bytes.len();
+                self.artifacts.insert(token.clone(), bytes);
+                Ok(json!({
+                    "token":token,
+                    "bytes":length,
+                    "mediaType":"image/png",
+                    "name":args.get("name").and_then(Value::as_str).unwrap_or("semantic-authoring.png"),
+                    "nodeId":root,
+                    "scale":args.get("scale").and_then(Value::as_f64).unwrap_or(1.0),
+                    "measurement":measurement,
+                    "validation":validation,
+                    "observedRevision":self.revision
+                }))
+            }
             "page.list" => Ok(json!([summary(
                 self.nodes.get(&self.page).expect("page fixture")
             )])),

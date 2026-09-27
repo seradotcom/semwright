@@ -180,6 +180,12 @@ async fn figma_driver_runs_through_real_driver_host() {
         "driver.figma.pairing.begin",
         "driver.figma.document.status",
         "driver.figma.compose.apply",
+        "driver.figma.composition.plan",
+        "driver.figma.composition.apply",
+        "driver.figma.composition.validate",
+        "driver.figma.composition.repair.plan",
+        "driver.figma.composition.repair.apply",
+        "driver.figma.composition.verify",
         "driver.figma.export.node",
         "driver.figma.payments.status",
         "driver.figma.cloud.status",
@@ -255,6 +261,187 @@ async fn figma_driver_runs_through_real_driver_host() {
     .await
     .unwrap();
     assert!(!motion.as_array().unwrap().is_empty());
+
+    let semantic_spec = json!({
+        "version": 1,
+        "target": {"page_id": null, "parent_node_id": null},
+        "nodes": [
+            {
+                "id":"hero",
+                "kind":"stack",
+                "name":"Semantic Hero",
+                "parent":null,
+                "order":0,
+                "role":"hero",
+                "layout":{"direction":"vertical","gap":8}
+            },
+            {
+                "id":"heading",
+                "kind":"text",
+                "name":"Heading",
+                "parent":"hero",
+                "order":0,
+                "role":"heading",
+                "text":{"characters":"Meaning before pixels."}
+            },
+            {
+                "id":"body",
+                "kind":"text",
+                "name":"Body",
+                "parent":"hero",
+                "order":1,
+                "role":"body",
+                "text":{"characters":"Observed state decides whether the contract passed."}
+            }
+        ],
+        "relationships": [{
+            "kind":"minimum_gap",
+            "subject":"heading",
+            "object":"body",
+            "value":24,
+            "tolerance":0.5
+        }]
+    });
+    let semantic_plan = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.plan",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":2,
+            "spec":semantic_spec
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(semantic_plan["purpose"], "composition");
+    assert_eq!(semantic_plan["base"]["revision"], 2);
+    assert_eq!(semantic_plan["digest"].as_str().unwrap().len(), 64);
+
+    let semantic_apply = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.apply",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":2,
+            "plan":semantic_plan
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(semantic_apply["observedRevision"], 3);
+    let semantic_root = semantic_apply["rootNodeIds"][0]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let semantic_validation = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.validate",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":3,
+            "root_node_id":semantic_root,
+            "spec":semantic_plan["spec"],
+            "max_findings":32
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(semantic_validation["status"], "FAIL");
+    assert_eq!(semantic_validation["observedRevision"], 3);
+    assert_eq!(
+        semantic_validation["findings"][0]["category"],
+        "declared_spacing"
+    );
+
+    let repair_plan = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.repair.plan",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":3,
+            "plan":semantic_plan,
+            "findings":semantic_validation["findings"]
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(repair_plan["purpose"], "repair");
+    assert_eq!(repair_plan["base"]["revision"], 3);
+    assert_eq!(
+        repair_plan["changeset"]["modifies"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let repaired = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.repair.apply",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":3,
+            "plan":repair_plan
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(repaired["observedRevision"], 4);
+
+    let revalidated = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.validate",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":4,
+            "root_node_id":semantic_root,
+            "spec":semantic_plan["spec"],
+            "max_findings":32
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(revalidated["status"], "PASS");
+
+    let verified = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.verify",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":4,
+            "root_node_id":semantic_root,
+            "spec":semantic_plan["spec"],
+            "scale":1.0,
+            "name":"host-semantic.png",
+            "max_findings":32
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(verified["mediaType"], "image/png");
+    assert_eq!(verified["validation"]["status"], "PASS");
+
+    let stale = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.figma.composition.apply",
+        json!({
+            "session_id":sessions[0]["session_id"],
+            "expected_revision":4,
+            "plan":semantic_plan
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
 
     Provider::shutdown(provider.as_ref()).await.unwrap();
     fake.stop().await;
