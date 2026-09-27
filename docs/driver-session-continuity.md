@@ -46,7 +46,7 @@ Authentication is transport-specific. A reconnect feature must never turn a one-
 secret into an unbounded permanent password.
 
 Figma uses an authenticated localhost WebSocket. After a successful manual pairing the driver
-issues a separate, opaque resume credential. The plugin stores only that rotated credential in
+issues a separate, opaque resume credential. The plugin stores only that credential in
 Figma `clientStorage`, scoped to the current document. Each resume uses a fresh nonce/HMAC,
 consumes the previous credential and receives a replacement. Manual Disconnect revokes the
 current credential. A driver restart clears the server-side credential table, so the stored
@@ -72,7 +72,7 @@ fault-injection paths without using the developer workstation as a heavy runner:
 
 - SDK state/backoff/generation contract;
 - Driver Host child transport loss and pending waiter wake-up;
-- Figma forced disconnect, generation recovery and trusted-resume rotation/revocation;
+- Figma forced disconnect, generation recovery and trusted-resume replay protection/revocation;
 - Figma plugin storage/resume tests and production asset build;
 - Godot short reconnect across a waiting request plus the normal pinned real-Godot acceptance;
 - OBS generation recovery, reconnect-storm bounds, unknown mutation outcome and mid-concurrency

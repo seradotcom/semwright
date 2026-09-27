@@ -91,7 +91,7 @@ describe("authenticated loopback bridge",()=>{
  it("accepts Figma WebSocket payloads delivered as string, Blob, or ArrayBuffer",()=>{expect(ui).toContain("async function websocketText(data)");expect(ui).toContain('data instanceof Blob');expect(ui).toContain("data instanceof ArrayBuffer");expect(ui).toContain("await websocketText(e.data)");});
  it("authenticates the server challenge with a separate HMAC proof",()=>{expect(ui).toContain('type:"authenticate"');expect(ui).toContain("proof:authProof");expect(ui).toContain("m.nonce");});
  it("only opens a loopback websocket",()=>{expect(ui).toContain('ws://localhost:');expect(ui).not.toContain('ws://127.0.0.1:');});
- it("keeps the pairing code memory-only and stores only rotated resume credentials",()=>{
+ it("keeps the pairing code memory-only and stores only opaque resume credentials",()=>{
   expect(ui).toContain("let pairingSecret=null");
   expect(ui).not.toContain("localStorage");
   expect(ui).not.toContain("sessionStorage");
@@ -104,7 +104,7 @@ describe("authenticated loopback bridge",()=>{
   expect(ui).toContain("documentIdentityCandidate");
  });
  it("automatically reconnects with bounded exponential backoff",()=>{expect(ui).toContain("function scheduleReconnect(reason)");expect(ui).toContain("Math.min(4000,250*(2**Math.min(reconnectAttempt,4)))");expect(ui).toContain("setTimeout(()=>{reconnectTimer=null;openSocket()},delay)");});
- it("resumes trusted sessions with fresh HMAC challenges and rotates credentials",()=>{
+ it("resumes trusted sessions with fresh HMAC challenges and refreshes the stored credential",()=>{
   expect(ui).toContain('type:"resume_hello"');
   expect(ui).toContain('type:"resume_authenticate"');
   expect(ui).toContain("async function resumeProof");

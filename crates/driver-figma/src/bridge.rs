@@ -923,7 +923,12 @@ async fn serve_connection(
             .await;
             return Err(BridgeError::Auth);
         }
-        guard.resume.remove(resume_id);
+        let record = guard
+            .resume
+            .get_mut(resume_id)
+            .expect("validated resume credential");
+        record.generation = generation;
+        record.expires_at = now + RESUME_CREDENTIAL_TTL;
     }
 
     let (outbound_tx, mut outbound_rx) = mpsc::channel::<Message>(MAX_PENDING);
@@ -971,9 +976,12 @@ async fn serve_connection(
         retire_session(old, Some("Superseded by a newer Figma plugin generation")).await;
     }
 
-    let (next_resume_id, next_resume_token) = {
-        let mut guard = state.write().await;
-        issue_resume_credential(&mut guard, &session_id, &document_id, generation)
+    let (next_resume_id, next_resume_token) = match &auth_mode {
+        AuthMode::Pairing => {
+            let mut guard = state.write().await;
+            issue_resume_credential(&mut guard, &session_id, &document_id, generation)
+        }
+        AuthMode::Resume { resume_id, token } => (resume_id.clone(), hex::encode(token)),
     };
 
     bridge_log(
@@ -1667,7 +1675,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn trusted_resume_survives_plugin_restart_and_rotates_credential() {
+    async fn trusted_resume_survives_multiple_plugin_restarts_without_storage_handoff() {
         let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
         let (mut first, resume_id, resume_token) =
             initial_resume_credential(&hub, "trusted-resume", 1).await;
@@ -1678,16 +1686,74 @@ mod tests {
             resume_with_credential(&hub, &resume_id, &resume_token).await;
         assert_eq!(session_id, "trusted-resume");
         assert_eq!(generation, 2);
-        assert_ne!(next_id, resume_id);
-        assert_ne!(next_token, resume_token);
+        assert_eq!(next_id, resume_id);
+        assert_eq!(next_token, resume_token);
+        assert_eq!(hub.sessions().await[0].generation, 2);
+
+        resumed
+            .close(None)
+            .await
+            .expect("close first resumed plugin");
+        wait_for_no_sessions(&hub).await;
+
+        let (mut resumed_again, session_id, generation, next_id, next_token) =
+            resume_with_credential(&hub, &resume_id, &resume_token).await;
+        assert_eq!(session_id, "trusted-resume");
+        assert_eq!(generation, 3);
+        assert_eq!(next_id, resume_id);
+        assert_eq!(next_token, resume_token);
 
         let sessions = hub.sessions().await;
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].session_id, "trusted-resume");
-        assert_eq!(sessions[0].generation, 2);
+        assert_eq!(sessions[0].generation, 3);
+
+        resumed_again
+            .close(None)
+            .await
+            .expect("close second resumed plugin");
+    }
+
+    #[tokio::test]
+    async fn captured_resume_proof_cannot_authenticate_a_fresh_challenge() {
+        let hub = BridgeHub::start_on(0, None).await.expect("start bridge");
+        let (mut first, resume_id, resume_token) =
+            initial_resume_credential(&hub, "resume-replay", 1).await;
+        first.close(None).await.expect("close initial plugin");
+        wait_for_no_sessions(&hub).await;
 
         let url = format!("ws://127.0.0.1:{}", hub.port());
-        let (mut replay, _) = connect_async(url).await.expect("connect replay");
+        let token_vec = hex::decode(&resume_token).expect("hex resume token");
+        let token: [u8; 32] = token_vec.try_into().expect("32-byte resume token");
+
+        let (mut captured, _) = connect_async(&url).await.expect("connect captured resume");
+        send_client(
+            &mut captured,
+            &Message::ResumeHello {
+                protocol: BRIDGE_PROTOCOL_VERSION,
+                plugin_build: "test-plugin-capture".into(),
+                figma_api: "1.138.0".into(),
+                editor_type: "figma".into(),
+                document_id: "test-document".into(),
+                revision: 0,
+                capabilities: vec!["design".into()],
+                resume_id: resume_id.clone(),
+            },
+        )
+        .await;
+        let (session_id, generation, nonce_one) = match recv_client(&mut captured).await {
+            Message::ResumeChallenge {
+                session_id,
+                generation,
+                nonce,
+                ..
+            } => (session_id, generation, nonce),
+            other => panic!("expected first ResumeChallenge, got {other:?}"),
+        };
+        let captured_proof = resume_proof_bytes(&token, &nonce_one, &session_id, generation);
+        drop(captured);
+
+        let (mut replay, _) = connect_async(&url).await.expect("connect replay resume");
         send_client(
             &mut replay,
             &Message::ResumeHello {
@@ -1702,12 +1768,34 @@ mod tests {
             },
         )
         .await;
-        match recv_client(&mut replay).await {
-            Message::Close { reason } => assert_eq!(reason, "resume_unavailable"),
-            other => panic!("rotated credential replay must be rejected, got {other:?}"),
-        }
+        let (replay_session, replay_generation, nonce_two) = match recv_client(&mut replay).await {
+            Message::ResumeChallenge {
+                session_id,
+                generation,
+                nonce,
+                ..
+            } => (session_id, generation, nonce),
+            other => panic!("expected second ResumeChallenge, got {other:?}"),
+        };
+        assert_eq!(replay_session, session_id);
+        assert_eq!(replay_generation, generation);
+        assert_ne!(nonce_two, nonce_one, "resume challenge nonce must be fresh");
 
-        resumed.close(None).await.expect("close resumed plugin");
+        send_client(
+            &mut replay,
+            &Message::ResumeAuthenticate {
+                session_id: replay_session,
+                generation: replay_generation,
+                resume_id,
+                proof: captured_proof,
+            },
+        )
+        .await;
+        match recv_client(&mut replay).await {
+            Message::Close { reason } => assert_eq!(reason, "authentication_failed"),
+            other => panic!("captured resume proof must be rejected, got {other:?}"),
+        }
+        assert!(hub.sessions().await.is_empty());
     }
 
     #[tokio::test]

@@ -32,4 +32,4 @@ Security invariants: loopback only, ephemeral secret, HMAC authentication, stric
 
 Manual pairing issues a separate rotating resume credential in `Ready`. The pairing secret itself remains memory-only. The plugin main thread persists only the resume credential through the official document-scoped `figma.clientStorage` API.
 
-Resume uses a fresh server nonce and a domain-separated HMAC transcript (`figma-resume-v1`). Credentials are one-time, rotate on success, expire in the driver, are bounded in memory, and are revoked by explicit Disconnect. A driver restart intentionally invalidates all stored resume credentials and requires a fresh pairing code.
+Resume uses a fresh server nonce and a domain-separated HMAC transcript (`figma-resume-v1`). Credentials remain opaque and stable only for the lifetime of the running driver, use a fresh nonce and generation for every resume, refresh their bounded TTL after successful authentication, and are revoked by explicit Disconnect. A driver restart intentionally invalidates all stored resume credentials and requires a fresh pairing code.
