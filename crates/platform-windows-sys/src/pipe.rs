@@ -235,7 +235,7 @@ pub fn create_owner_only_server(name: &str) -> Result<OwnedPipe> {
 }
 
 use std::{
-    os::windows::io::AsRawHandle,
+    os::windows::{ffi::OsStrExt, io::AsRawHandle},
     path::{Path, PathBuf},
 };
 use tokio::net::windows::named_pipe::{
@@ -353,25 +353,41 @@ pub fn reserve_appcontainer_loopback_server(path: &Path) -> Result<NamedPipeServ
         }
     }
     let descriptor = LocalDescriptor(raw);
-    let mut attrs = windows_sys::Win32::Security::SECURITY_ATTRIBUTES {
+    let attrs = windows_sys::Win32::Security::SECURITY_ATTRIBUTES {
         nLength: std::mem::size_of::<windows_sys::Win32::Security::SECURITY_ATTRIBUTES>() as u32,
         lpSecurityDescriptor: descriptor.0,
         bInheritHandle: 0,
     };
-    let mut options = ServerOptions::new();
-    options
-        .pipe_mode(PipeMode::Byte)
-        .reject_remote_clients(true)
-        .max_instances(16)
-        .first_pipe_instance(true);
-    // SAFETY: attrs and its descriptor remain live for the synchronous create call.
-    unsafe {
-        options.create_with_security_attributes_raw(
-            path.as_os_str(),
-            (&mut attrs as *mut windows_sys::Win32::Security::SECURITY_ATTRIBUTES).cast(),
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let open_mode = windows_sys::Win32::System::Pipes::PIPE_ACCESS_DUPLEX
+        | windows_sys::Win32::Storage::FileSystem::FILE_FLAG_FIRST_PIPE_INSTANCE
+        | windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OVERLAPPED
+        | windows_sys::Win32::Storage::FileSystem::WRITE_DAC;
+    let pipe_mode = windows_sys::Win32::System::Pipes::PIPE_TYPE_BYTE
+        | windows_sys::Win32::System::Pipes::PIPE_READMODE_BYTE
+        | windows_sys::Win32::System::Pipes::PIPE_WAIT
+        | windows_sys::Win32::System::Pipes::PIPE_REJECT_REMOTE_CLIENTS;
+    // SAFETY: the NUL-terminated name and explicit owner/SYSTEM descriptor remain live for
+    // CreateNamedPipeW. WRITE_DAC is requested only on this pre-spawn reservation so the Host
+    // can replace its DACL with the exact kernel-observed AppContainer SID after spawn.
+    let handle = unsafe {
+        windows_sys::Win32::System::Pipes::CreateNamedPipeW(
+            wide.as_ptr(),
+            open_mode,
+            pipe_mode,
+            16,
+            64 * 1024,
+            64 * 1024,
+            5_000,
+            &attrs,
         )
+    };
+    if handle == windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE {
+        return Err(std::io::Error::last_os_error().into());
     }
-    .map_err(Into::into)
+    // SAFETY: CreateNamedPipeW returned one live, overlapped pipe HANDLE. Ownership transfers
+    // exactly once into Tokio, which closes it on drop.
+    unsafe { NamedPipeServer::from_raw_handle(handle as _) }.map_err(Into::into)
 }
 
 pub fn authorize_appcontainer_loopback_server(
