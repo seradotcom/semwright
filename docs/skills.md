@@ -178,7 +178,7 @@ Semwright treats third-party Skills as untrusted user-level instructions.
 - **Malicious instructions:** Broker policy still wins.
 - **Malicious scripts:** Semwright never auto-executes `scripts/`.
 - **Traversal/absolute paths:** rejected by the package/archive path validator; backslashes and Windows drive prefixes are rejected rather than rewritten into a different archive identity.
-- **Symlinks/hardlinks:** symlinks are rejected; on Unix, multiply-linked package files are also rejected. Lock updates replace the package entry instead of truncating an externally linked inode.
+- **Symlinks/hardlinks/races:** symlinks are rejected; on Unix, multiply-linked package files are also rejected. Bounded reads re-check package containment and open-file identity, and lock updates replace the package entry instead of truncating an externally linked inode.
 - **Resource bombs:** file count, size, depth and total-package budgets are enforced.
 - **YAML/JSON ambiguity:** frontmatter is bounded; YAML anchors, aliases, custom tags and duplicate top-level fields are rejected. Semwright requirements/lock JSON rejects duplicate object keys recursively.
 - **Secrets:** bundle excludes common secret/key filenames without reading or logging their contents.

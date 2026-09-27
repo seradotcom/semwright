@@ -187,12 +187,23 @@ pub(crate) fn multiple_links(meta: &fs::Metadata) -> bool {
     }
 }
 
-fn read_bounded(path: &Path, max: u64) -> Result<Vec<u8>> {
-    let meta = fs::symlink_metadata(path)?;
-    if !meta.file_type().is_file()
-        || meta.file_type().is_symlink()
-        || multiple_links(&meta)
-        || meta.len() > max
+#[cfg(unix)]
+fn same_file_identity(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    left.dev() == right.dev() && left.ino() == right.ino()
+}
+
+#[cfg(not(unix))]
+fn same_file_identity(_left: &fs::Metadata, _right: &fs::Metadata) -> bool {
+    true
+}
+
+fn read_bounded_checked(expected_root: Option<&Path>, path: &Path, max: u64) -> Result<Vec<u8>> {
+    let before = fs::symlink_metadata(path)?;
+    if !before.file_type().is_file()
+        || before.file_type().is_symlink()
+        || multiple_links(&before)
+        || before.len() > max
     {
         return Err(Error::invalid("Skill file is not a bounded regular file"));
     }
@@ -204,7 +215,33 @@ fn read_bounded(path: &Path, max: u64) -> Result<Vec<u8>> {
         options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     }
     let mut file = options.open(path)?;
-    let mut bytes = Vec::with_capacity(meta.len() as usize);
+    let opened = file.metadata()?;
+    if !opened.file_type().is_file()
+        || multiple_links(&opened)
+        || opened.len() > max
+        || !same_file_identity(&before, &opened)
+    {
+        return Err(Error::invalid(
+            "Skill file identity changed while it was being opened",
+        ));
+    }
+    if let Some(root) = expected_root {
+        let resolved = fs::canonicalize(path)?;
+        if !resolved.starts_with(root) {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Skill file resolved outside its package root",
+            ));
+        }
+        let current = fs::metadata(&resolved)?;
+        if !same_file_identity(&opened, &current) {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Skill file changed while its package containment was verified",
+            ));
+        }
+    }
+    let mut bytes = Vec::with_capacity(opened.len() as usize);
     file.by_ref().take(max + 1).read_to_end(&mut bytes)?;
     if bytes.len() as u64 > max {
         return Err(Error::new(
@@ -213,6 +250,10 @@ fn read_bounded(path: &Path, max: u64) -> Result<Vec<u8>> {
         ));
     }
     Ok(bytes)
+}
+
+pub(crate) fn read_bounded_within(root: &Path, path: &Path, max: u64) -> Result<Vec<u8>> {
+    read_bounded_checked(Some(root), path, max)
 }
 fn split_frontmatter(text: &str) -> Result<(&str, &str)> {
     let mut offset = 0usize;
@@ -442,7 +483,7 @@ fn walk(
 pub fn load(path: &Path) -> Result<SkillPackage> {
     let root = root_for(path)?;
     let skill_path = root.join("SKILL.md");
-    let skill_bytes = read_bounded(&skill_path, MAX_SKILL_MD_BYTES)?;
+    let skill_bytes = read_bounded_within(&root, &skill_path, MAX_SKILL_MD_BYTES)?;
     let directory = root
         .file_name()
         .and_then(|value| value.to_str())

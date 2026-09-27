@@ -4,7 +4,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
     fs,
-    io::{Read, Write},
+    io::Write,
     path::{Component, Path},
 };
 
@@ -78,30 +78,8 @@ fn sensitive(path: &Path) -> bool {
             .is_some_and(|ext| matches!(ext.to_ascii_lowercase().as_str(), "pem" | "p12" | "pfx"))
 }
 
-fn read_nofollow(path: &Path, max: u64) -> Result<Vec<u8>> {
-    let meta = fs::symlink_metadata(path)?;
-    if !meta.file_type().is_file() || crate::package::multiple_links(&meta) || meta.len() > max {
-        return Err(Error::invalid("Bundle input is not a bounded regular file"));
-    }
-    let mut options = fs::OpenOptions::new();
-    options.read(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
-    }
-    let mut file = options.open(path)?;
-    let mut bytes = Vec::with_capacity(meta.len() as usize);
-    std::io::Read::by_ref(&mut file)
-        .take(max + 1)
-        .read_to_end(&mut bytes)?;
-    if bytes.len() as u64 > max {
-        return Err(Error::new(
-            ErrorCode::ResourceExhausted,
-            "Bundle input changed beyond its validated byte budget",
-        ));
-    }
-    Ok(bytes)
+fn read_nofollow(root: &Path, path: &Path, max: u64) -> Result<Vec<u8>> {
+    crate::package::read_bounded_within(root, path, max)
 }
 
 fn build_zip(mut entries: Vec<(String, Vec<u8>)>) -> Result<Vec<u8>> {
@@ -195,7 +173,7 @@ pub fn bundle(package: &SkillPackage, output: &Path) -> Result<BundleReport> {
     let skill_path = package.root.join("SKILL.md");
     entries.push((
         format!("{skill_name}/SKILL.md"),
-        read_nofollow(&skill_path, crate::MAX_SKILL_MD_BYTES)?,
+        read_nofollow(&package.root, &skill_path, crate::MAX_SKILL_MD_BYTES)?,
     ));
     for resource in &package.resources {
         validate_archive_path(
@@ -213,7 +191,7 @@ pub fn bundle(package: &SkillPackage, output: &Path) -> Result<BundleReport> {
             continue;
         }
         let full = package.root.join(&resource.path);
-        let data = read_nofollow(&full, crate::MAX_RESOURCE_BYTES)?;
+        let data = read_nofollow(&package.root, &full, crate::MAX_RESOURCE_BYTES)?;
         let relative = resource
             .path
             .to_str()

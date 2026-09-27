@@ -127,7 +127,7 @@ impl<'de> serde::Deserialize<'de> for UniqueJson {
     }
 }
 
-fn parse_unique_json(bytes: &[u8], label: &str) -> Result<Value> {
+pub(crate) fn parse_unique_json(bytes: &[u8], label: &str) -> Result<Value> {
     let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     let value = <UniqueJson as serde::Deserialize>::deserialize(&mut deserializer)
         .map_err(|_| Error::invalid(format!("{label} contains malformed or duplicate-key JSON")))?;
@@ -152,22 +152,14 @@ fn parse_typed_bytes<T: serde::de::DeserializeOwned>(
 }
 
 fn read_typed<T: serde::de::DeserializeOwned>(
+    root: &Path,
     path: &Path,
     max: u64,
     schema: &str,
     label: &str,
 ) -> Result<T> {
-    let meta = fs::symlink_metadata(path)?;
-    if !meta.file_type().is_file()
-        || meta.file_type().is_symlink()
-        || crate::package::multiple_links(&meta)
-        || meta.len() > max
-    {
-        return Err(Error::invalid(format!(
-            "{label} is not a bounded regular file"
-        )));
-    }
-    let bytes = fs::read(path)?;
+    let bytes = crate::package::read_bounded_within(root, path, max)
+        .map_err(|_| Error::invalid(format!("{label} is not a bounded package file")))?;
     parse_typed_bytes(&bytes, schema, label)
 }
 
@@ -278,8 +270,13 @@ pub fn load_requirements(root: &Path) -> Result<Option<RequirementsFile>> {
     if !path.exists() {
         return Ok(None);
     }
-    let requirements: RequirementsFile =
-        read_typed(&path, 256 * 1024, REQUIREMENTS_SCHEMA, "Skill requirements")?;
+    let requirements: RequirementsFile = read_typed(
+        root,
+        &path,
+        256 * 1024,
+        REQUIREMENTS_SCHEMA,
+        "Skill requirements",
+    )?;
     requirements.validate()?;
     Ok(Some(requirements))
 }
@@ -289,7 +286,7 @@ pub fn load_lock(root: &Path) -> Result<Option<SkillLock>> {
     if !path.exists() {
         return Ok(None);
     }
-    let lock: SkillLock = read_typed(&path, 1024 * 1024, LOCK_SCHEMA, "Skill lock")?;
+    let lock: SkillLock = read_typed(root, &path, 1024 * 1024, LOCK_SCHEMA, "Skill lock")?;
     lock.validate()?;
     Ok(Some(lock))
 }

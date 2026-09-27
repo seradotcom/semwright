@@ -395,6 +395,111 @@ fn example_tests_validate_schemas_without_execution() {
 }
 
 #[test]
+fn example_tests_reject_duplicate_json_keys() {
+    let (_temp, root) = temp_skill("duplicate-example");
+    fs::create_dir_all(root.join(".semwright/examples")).unwrap();
+    fs::write(
+        root.join(".semwright/examples/duplicate.json"),
+        br#"{"capability":"driver.fixture.read","capability":"driver.fixture.read","input":{}}"#,
+    )
+    .unwrap();
+    let package = load(&root).unwrap();
+    let report = test_examples(&package, &[capability("driver.fixture.read", &[], true)]).unwrap();
+    assert_eq!(report.checked, 1);
+    assert_eq!(report.passed, 0);
+    assert_eq!(report.failures.len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn example_tests_recheck_hardlink_identity_after_package_load() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path().join("example-race");
+    write_skill(&root, "example-race", "");
+    fs::create_dir_all(root.join(".semwright/examples")).unwrap();
+    let example = root.join(".semwright/examples/example.json");
+    fs::write(
+        &example,
+        br#"{"capability":"driver.fixture.read","input":{}}"#,
+    )
+    .unwrap();
+    let package = load(&root).unwrap();
+
+    fs::remove_file(&example).unwrap();
+    let external = temp.path().join("external-example.json");
+    fs::write(
+        &external,
+        br#"{"capability":"driver.fixture.read","input":{}}"#,
+    )
+    .unwrap();
+    fs::hard_link(&external, &example).unwrap();
+
+    let report = test_examples(&package, &[capability("driver.fixture.read", &[], true)]).unwrap();
+    assert_eq!(report.checked, 1);
+    assert_eq!(report.passed, 0);
+    assert_eq!(report.failures.len(), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn example_and_bundle_reads_reject_parent_symlink_swaps_after_load() {
+    use std::os::unix::fs::symlink;
+
+    let temp = TempDir::new().unwrap();
+
+    let examples_root = temp.path().join("example-parent-swap");
+    write_skill(&examples_root, "example-parent-swap", "");
+    fs::create_dir_all(examples_root.join(".semwright/examples")).unwrap();
+    fs::write(
+        examples_root.join(".semwright/examples/example.json"),
+        br#"{"capability":"driver.fixture.read","input":{}}"#,
+    )
+    .unwrap();
+    let examples_package = load(&examples_root).unwrap();
+
+    fs::rename(
+        examples_root.join(".semwright"),
+        examples_root.join(".semwright-original"),
+    )
+    .unwrap();
+    let external_metadata = temp.path().join("external-metadata");
+    fs::create_dir_all(external_metadata.join("examples")).unwrap();
+    fs::write(
+        external_metadata.join("examples/example.json"),
+        br#"{"capability":"driver.fixture.read","input":{}}"#,
+    )
+    .unwrap();
+    symlink(&external_metadata, examples_root.join(".semwright")).unwrap();
+
+    let report = test_examples(
+        &examples_package,
+        &[capability("driver.fixture.read", &[], true)],
+    )
+    .unwrap();
+    assert_eq!(report.checked, 1);
+    assert_eq!(report.passed, 0);
+    assert_eq!(report.failures.len(), 1);
+
+    let bundle_root = temp.path().join("bundle-parent-swap");
+    write_skill(&bundle_root, "bundle-parent-swap", "");
+    fs::create_dir(bundle_root.join("references")).unwrap();
+    fs::write(bundle_root.join("references/info.md"), "safe").unwrap();
+    let bundle_package = load(&bundle_root).unwrap();
+
+    fs::rename(
+        bundle_root.join("references"),
+        bundle_root.join("references-original"),
+    )
+    .unwrap();
+    let external_references = temp.path().join("external-references");
+    fs::create_dir(&external_references).unwrap();
+    fs::write(external_references.join("info.md"), "outside").unwrap();
+    symlink(&external_references, bundle_root.join("references")).unwrap();
+
+    assert!(bundle(&bundle_package, &temp.path().join("race.zip")).is_err());
+}
+
+#[test]
 fn scaffold_and_export_create_portable_standard_skills() {
     let temp = TempDir::new().unwrap();
     let scaffolded = temp.path().join("new-skill");

@@ -580,18 +580,31 @@ pub fn test_examples(
     let mut failures = Vec::new();
     let mut passed = 0usize;
     for path in &paths {
-        let meta = fs::symlink_metadata(path)?;
-        if !meta.file_type().is_file()
-            || meta.file_type().is_symlink()
-            || meta.len() > 256 * 1024
-            || path.extension().and_then(|value| value.to_str()) != Some("json")
-        {
+        if path.extension().and_then(|value| value.to_str()) != Some("json") {
             failures.push("example is not a bounded regular .json file".into());
             continue;
         }
-        let bytes = fs::read(path)?;
-        let example: Example = serde_json::from_slice(&bytes)
-            .map_err(|_| Error::invalid("Skill example JSON is malformed"))?;
+        let bytes = match crate::package::read_bounded_within(&package.root, path, 256 * 1024) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                failures.push("example is not a bounded unlinked regular .json file".into());
+                continue;
+            }
+        };
+        let value = match crate::requirements::parse_unique_json(&bytes, "Skill example") {
+            Ok(value) => value,
+            Err(_) => {
+                failures.push("Skill example JSON is malformed or has duplicate keys".into());
+                continue;
+            }
+        };
+        let example: Example = match serde_json::from_value(value) {
+            Ok(example) => example,
+            Err(_) => {
+                failures.push("Skill example JSON does not match the example contract".into());
+                continue;
+            }
+        };
         let Some(capability) = by_id.get(example.capability.as_str()) else {
             failures.push(format!("{}: capability missing", example.capability));
             continue;
