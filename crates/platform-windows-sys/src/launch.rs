@@ -1862,6 +1862,7 @@ impl SandboxLauncher for WindowsSandbox {
         let job = Arc::new(ProcessJob::new(process_limit, memory_limit, cpu_seconds)?);
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
+        let current_directory = wide_null(OsStr::new(&profile.local_app_data))?;
         let mut command = command_line(spec)?;
         let environment = environment_block(
             spec,
@@ -1885,7 +1886,7 @@ impl SandboxLauncher for WindowsSandbox {
                 true,
                 flags,
                 Some(environment.as_ptr().cast()),
-                PCWSTR::null(),
+                PCWSTR(current_directory.as_ptr()),
                 (&startup as *const STARTUPINFOEXW).cast(),
                 &mut process_info,
             )
