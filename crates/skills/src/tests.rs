@@ -62,6 +62,7 @@ fn capability(name: &str, tags: &[&str], available: bool) -> CatalogCapability {
             .into(),
             available,
         }],
+        policy_preview: None,
     }
 }
 
@@ -215,6 +216,31 @@ fn requirements_reject_authority_fields_and_resolve_exact_query_optional_routes(
     )
     .unwrap();
     assert!(load(&root).is_err());
+}
+
+#[test]
+fn doctor_distinguishes_policy_preview_denial() {
+    let (_temp, root) = temp_skill("policy-preview");
+    write_requirements(
+        &root,
+        json!({
+            "version":1,
+            "semwright":{"capabilities":[{"id":"driver.fixture.read"}]}
+        }),
+    );
+    let package = load(&root).unwrap();
+    let mut denied = capability("driver.fixture.read", &[], true);
+    denied.policy_preview = Some(PolicyPreview {
+        state: "deny".into(),
+        preview_only: true,
+        execution_rechecks: true,
+        reason: "fixture policy denies this capability".into(),
+    });
+    let report = doctor(&package, &[denied], "0.9.0-dev.1").unwrap();
+    assert!(!report.semwright_compatible);
+    assert_eq!(report.policy_denied, ["capability:driver.fixture.read"]);
+    assert_eq!(report.requirements[0].state, "policy_denied_preview");
+    assert_eq!(report.authority_summary.policy_state, "preview_denied");
 }
 
 #[test]

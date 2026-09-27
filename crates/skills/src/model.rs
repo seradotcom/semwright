@@ -153,6 +153,17 @@ pub struct CatalogCapability {
     pub provenance: Metadata,
     #[serde(default)]
     pub routes: Vec<CatalogRoute>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_preview: Option<PolicyPreview>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyPreview {
+    pub state: String,
+    pub preview_only: bool,
+    pub execution_rechecks: bool,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

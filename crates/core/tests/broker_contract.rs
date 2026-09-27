@@ -710,7 +710,11 @@ async fn catalog_is_compact_provenanced_and_uses_actual_operation_state() {
     let description = fixture
         .call("capabilities.describe", json!({"name":"ui.invoke"}))
         .await;
-    assert!(description.data.unwrap()["capability"]["input_schema"].is_object());
+    let description = description.data.unwrap();
+    assert!(description["capability"]["input_schema"].is_object());
+    assert_eq!(description["policy_preview"]["state"], "deny");
+    assert_eq!(description["policy_preview"]["preview_only"], true);
+    assert_eq!(description["policy_preview"]["execution_rechecks"], true);
     assert_eq!(
         fixture
             .call("capabilities.search", json!({"revision":0}))

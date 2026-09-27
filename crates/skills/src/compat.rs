@@ -20,6 +20,7 @@ pub struct CapabilityMatch {
     pub descriptor_sha256: String,
     pub available: bool,
     pub required_scopes: Vec<String>,
+    pub policy_preview: Option<crate::PolicyPreview>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +56,7 @@ pub struct CompatibilityReport {
     pub requirements: Vec<RequirementReport>,
     pub missing: Vec<String>,
     pub unavailable: Vec<String>,
+    pub policy_denied: Vec<String>,
     pub drift: Vec<Drift>,
     pub warnings: Vec<String>,
     pub authority_summary: AuthoritySummary,
@@ -151,6 +153,7 @@ fn capability_match(capability: &CatalogCapability) -> CapabilityMatch {
         descriptor_sha256: capability.provenance.descriptor_sha256.clone(),
         available: capability.available(),
         required_scopes: capability.descriptor.requires.clone(),
+        policy_preview: capability.policy_preview.clone(),
     }
 }
 pub fn catalog_capability_from_broker(value: &Value) -> Result<CatalogCapability> {
@@ -190,10 +193,16 @@ pub fn catalog_capability_from_broker(value: &Value) -> Result<CatalogCapability
                 .unwrap_or(false),
         });
     }
+    let policy_preview = value
+        .get("policy_preview")
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()?;
     Ok(CatalogCapability {
         descriptor,
         provenance,
         routes,
+        policy_preview,
     })
 }
 
@@ -302,6 +311,7 @@ pub fn doctor(
     let mut reports = Vec::new();
     let mut missing = Vec::new();
     let mut unavailable = Vec::new();
+    let mut policy_denied = Vec::new();
     let mut warnings = package.warnings.clone();
     let mut scopes = BTreeSet::new();
     let mut compatible = true;
@@ -330,6 +340,16 @@ pub fn doctor(
                 .iter()
                 .filter(|capability| capability.available())
                 .count();
+            let policy_allowed = matches
+                .iter()
+                .filter(|capability| {
+                    capability.available()
+                        && capability
+                            .policy_preview
+                            .as_ref()
+                            .is_none_or(|preview| preview.state != "deny")
+                })
+                .count();
             let state = if matches.len() < requirement.minimum_matches {
                 if requirement.required {
                     compatible = false;
@@ -346,6 +366,14 @@ pub fn doctor(
                     degraded = true;
                 }
                 "route_unavailable"
+            } else if policy_allowed < requirement.minimum_matches {
+                if requirement.required {
+                    compatible = false;
+                    policy_denied.push(label.clone());
+                } else {
+                    degraded = true;
+                }
+                "policy_denied_preview"
             } else {
                 "resolved"
             };
@@ -384,6 +412,20 @@ pub fn doctor(
     if !drift.is_empty() {
         compatible = false;
     }
+    let preview_states = catalog
+        .iter()
+        .filter_map(|capability| capability.policy_preview.as_ref())
+        .map(|preview| preview.state.as_str())
+        .collect::<BTreeSet<_>>();
+    let policy_state = if preview_states.contains("deny") {
+        "preview_denied"
+    } else if preview_states.contains("require_confirmation") {
+        "preview_requires_confirmation"
+    } else if preview_states.iter().all(|state| *state == "allow") && !preview_states.is_empty() {
+        "preview_allow"
+    } else {
+        "not_evaluated"
+    };
     let result = if compatible && degraded {
         "degraded"
     } else if compatible {
@@ -400,11 +442,12 @@ pub fn doctor(
         requirements: reports,
         missing,
         unavailable,
+        policy_denied,
         drift,
         warnings,
         authority_summary: AuthoritySummary {
             required_scopes: scopes.into_iter().collect(),
-            policy_state: "not_evaluated".into(),
+            policy_state: policy_state.into(),
             grants_changed: false,
         },
         result: result.into(),

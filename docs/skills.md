@@ -50,8 +50,10 @@ non-authoritative. They may explain or recommend an operation. Every real operat
 enters the normal Broker path and is independently schema-validated and policy-checked.
 
 A registered/available route is not a permission. `skill doctor` therefore reports
-aggregate required scopes as information and reports policy as `not_evaluated` rather
-than manufacturing a grant.
+aggregate required scopes as information and may surface the Broker's conservative
+`policy_preview` (`allow`, `deny`, `require_confirmation`, or an argument/target-dependent
+state). That preview is explicitly non-authoritative: every execution is rechecked by
+Broker policy with the real arguments and target, and doctor never manufactures a grant.
 
 ## Package layout
 
