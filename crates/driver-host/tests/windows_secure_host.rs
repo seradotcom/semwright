@@ -304,17 +304,14 @@ async fn concurrent_windows_operations_do_not_charge_each_others_cpu() {
         cancellation: CancellationToken::new(),
     };
 
-    let first = Provider::execute(
-        provider.as_ref(),
-        &first_context,
-        &first_ping,
-        &serde_json::json!({"cpu_ms":650}),
-    );
+    let first_args = serde_json::json!({"cpu_ms":650});
+    let second_args = serde_json::json!({"cpu_ms":650});
+    let first = Provider::execute(provider.as_ref(), &first_context, &first_ping, &first_args);
     let second = Provider::execute(
         provider.as_ref(),
         &second_context,
         &second_ping,
-        &serde_json::json!({"cpu_ms":650}),
+        &second_args,
     );
     let (first, second) = tokio::join!(first, second);
     assert_eq!(first.expect("first CPU-bounded operation")["ok"], true);
