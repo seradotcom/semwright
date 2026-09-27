@@ -151,8 +151,12 @@ impl HostToolExecutor for HostToolBroker {
                 "Driver requested an ungranted sealed tool",
             )
         })?;
-        // Bind each invocation to the exact Host-staged immutable bytes.
-        let _ = verify_owned_executable(&tool.staged.0, &tool.sha256)?;
+        // Bind each invocation to the exact Host-staged immutable bytes while
+        // allowing Windows' supported x64 user-mode emulation for sealed tools on ARM64.
+        let _ = semwright_platform_services::verify_sealed_tool_executable(
+            &tool.staged.0,
+            &tool.sha256,
+        )?;
 
         let remaining_operation_cpu = if self.operation_cpu_seconds == 0 {
             None
@@ -280,7 +284,7 @@ impl HostToolExecutor for HostToolBroker {
 
 #[cfg(target_os = "windows")]
 fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Result<SealedTool> {
-    let bytes = verify_owned_executable(path, digest)?;
+    let bytes = semwright_platform_services::verify_sealed_tool_executable(path, digest)?;
     let staged_path = state.join(format!("driver-tool-{name}-{}.exe", unique_id()));
     let staged = Arc::new(StagedFile(staged_path.clone()));
     let mut file = std::fs::OpenOptions::new()
@@ -292,7 +296,7 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Re
     drop(file);
 
     // Re-attest the exact private copy that will become visible to the LPAC child.
-    let _ = verify_owned_executable(&staged_path, digest)?;
+    let _ = semwright_platform_services::verify_sealed_tool_executable(&staged_path, digest)?;
     Ok(SealedTool {
         name: name.to_owned(),
         staged,

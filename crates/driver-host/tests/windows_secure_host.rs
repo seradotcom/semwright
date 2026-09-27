@@ -132,7 +132,9 @@ async fn secure_windows_driver_host_roundtrips_protocol_v2() {
 #[tokio::test]
 async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() {
     let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
-    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+    let tool_source = std::env::var_os("SEMWRIGHT_TEST_TOOL_FIXTURE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture")));
 
     let binary_dir = tempfile::tempdir().expect("fixture directory");
     let executable = binary_dir.path().join("driver.exe");
@@ -143,11 +145,6 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
     harden_fixture(&owner_tool);
 
     let mut candidate = manifest(executable);
-    if let Ok(value) = std::env::var("SEMWRIGHT_TEST_ADDRESS_SPACE_BYTES") {
-        candidate.resources.address_space_bytes = value
-            .parse()
-            .expect("valid sealed-tool compatibility memory budget");
-    }
     candidate.protocol = 4;
     candidate.interfaces.host_tools = true;
     candidate.tools = vec![DriverToolMount {

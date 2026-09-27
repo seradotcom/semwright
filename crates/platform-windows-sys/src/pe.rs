@@ -52,6 +52,29 @@ pub fn require_native_architecture(bytes: &[u8]) -> Result<PeArchitecture> {
     Ok(found)
 }
 
+/// Host-mediated user-mode tools may use Windows' supported x64 emulation on an ARM64 host.
+/// Driver processes remain native-only because they define the long-lived sandbox/runtime
+/// boundary; this compatibility rule is deliberately scoped to short-lived sealed tools.
+fn sealed_tool_architecture_supported(host_arch: &str, found: PeArchitecture) -> bool {
+    match host_arch {
+        "x86_64" => found == PeArchitecture::Amd64,
+        "aarch64" => matches!(found, PeArchitecture::Arm64 | PeArchitecture::Amd64),
+        _ => false,
+    }
+}
+
+pub fn require_sealed_tool_architecture(bytes: &[u8]) -> Result<PeArchitecture> {
+    let found = architecture(bytes)?;
+    let supported = sealed_tool_architecture_supported(std::env::consts::ARCH, found);
+    if !supported {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "PE architecture is not supported for a sealed tool on this Windows host",
+        ));
+    }
+    Ok(found)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -75,5 +98,29 @@ mod tests {
     fn rejects_truncated_and_unknown_images() {
         assert!(architecture(b"MZ").is_err());
         assert!(architecture(&image(0x014c)).is_err());
+    }
+
+    #[test]
+    fn sealed_tool_architecture_support_is_host_specific() {
+        assert!(sealed_tool_architecture_supported(
+            "x86_64",
+            PeArchitecture::Amd64
+        ));
+        assert!(!sealed_tool_architecture_supported(
+            "x86_64",
+            PeArchitecture::Arm64
+        ));
+        assert!(sealed_tool_architecture_supported(
+            "aarch64",
+            PeArchitecture::Arm64
+        ));
+        assert!(sealed_tool_architecture_supported(
+            "aarch64",
+            PeArchitecture::Amd64
+        ));
+        assert!(!sealed_tool_architecture_supported(
+            "riscv64",
+            PeArchitecture::Amd64
+        ));
     }
 }

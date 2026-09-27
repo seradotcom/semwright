@@ -1,4 +1,8 @@
-use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
+use crate::{
+    identity::current_user_sid_bytes,
+    job::ProcessJob,
+    pe::{require_native_architecture, require_sealed_tool_architecture},
+};
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass, SANDBOX_MOUNTS_ENV,
@@ -465,7 +469,7 @@ fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
             "Materialized Windows sealed tool digest mismatch",
         ));
     }
-    require_native_architecture(&bytes)?;
+    require_sealed_tool_architecture(&bytes)?;
     require_authenticode_policy(authenticode_status(&file, path)?)?;
     Ok(())
 }
@@ -556,73 +560,83 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
     Ok(())
 }
 
+fn verify_windows_executable(path: &Path, digest: &str, sealed_tool: bool) -> Result<Vec<u8>> {
+    if !path.is_absolute() {
+        return Err(Error::invalid(
+            "Pinned Windows executable path must be absolute",
+        ));
+    }
+    let spelling = path.as_os_str().to_string_lossy().to_ascii_lowercase();
+    if spelling.starts_with(r"\\") || spelling.starts_with(r"\\?\") || spelling.starts_with(r"\\.\")
+    {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "UNC, extended and device executable paths are not accepted",
+        ));
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+    let mut file = options.open(path)?;
+    let before = info(&file)?;
+    verify_trusted_file_acl(&file, "executable", false)?;
+    if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        || before.nNumberOfLinks != 1
+        || before.nFileSizeHigh != 0
+        || before.nFileSizeLow as u64 > MAX_EXECUTABLE
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Unsafe Windows executable type, link count or size",
+        ));
+    }
+    let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
+    file.by_ref()
+        .take(MAX_EXECUTABLE + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_EXECUTABLE {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows executable exceeds size budget",
+        ));
+    }
+    let after = info(&file)?;
+    if !same_identity(&before, &after)
+        || before.nFileSizeHigh != after.nFileSizeHigh
+        || before.nFileSizeLow != after.nFileSizeLow
+        || before.ftLastWriteTime != after.ftLastWriteTime
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Windows executable changed while it was being verified",
+        ));
+    }
+    let expected = digest.trim().to_ascii_lowercase();
+    if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Executable digest mismatch",
+        ));
+    }
+    if sealed_tool {
+        require_sealed_tool_architecture(&bytes)?;
+    } else {
+        require_native_architecture(&bytes)?;
+    }
+    require_authenticode_policy(authenticode_status(&file, path)?)?;
+    Ok(bytes)
+}
+
+pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
+    verify_windows_executable(path, digest, true)
+}
+
 pub struct WindowsVerifier;
 impl ExecutableVerifier for WindowsVerifier {
     fn verify(&self, path: &Path, digest: &str) -> Result<Vec<u8>> {
-        if !path.is_absolute() {
-            return Err(Error::invalid(
-                "Pinned Windows executable path must be absolute",
-            ));
-        }
-        let spelling = path.as_os_str().to_string_lossy().to_ascii_lowercase();
-        if spelling.starts_with(r"\\")
-            || spelling.starts_with(r"\\?\")
-            || spelling.starts_with(r"\\.\")
-        {
-            return Err(Error::new(
-                ErrorCode::PolicyDenied,
-                "UNC, extended and device executable paths are not accepted",
-            ));
-        }
-        let mut options = std::fs::OpenOptions::new();
-        options
-            .read(true)
-            .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
-            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
-        let mut file = options.open(path)?;
-        let before = info(&file)?;
-        verify_trusted_file_acl(&file, "executable", false)?;
-        if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
-            || before.nNumberOfLinks != 1
-            || before.nFileSizeHigh != 0
-            || before.nFileSizeLow as u64 > MAX_EXECUTABLE
-        {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Unsafe Windows executable type, link count or size",
-            ));
-        }
-        let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
-        file.by_ref()
-            .take(MAX_EXECUTABLE + 1)
-            .read_to_end(&mut bytes)?;
-        if bytes.len() as u64 > MAX_EXECUTABLE {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "Windows executable exceeds size budget",
-            ));
-        }
-        let after = info(&file)?;
-        if !same_identity(&before, &after)
-            || before.nFileSizeHigh != after.nFileSizeHigh
-            || before.nFileSizeLow != after.nFileSizeLow
-            || before.ftLastWriteTime != after.ftLastWriteTime
-        {
-            return Err(Error::new(
-                ErrorCode::Conflict,
-                "Windows executable changed while it was being verified",
-            ));
-        }
-        let expected = digest.trim().to_ascii_lowercase();
-        if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Executable digest mismatch",
-            ));
-        }
-        require_native_architecture(&bytes)?;
-        require_authenticode_policy(authenticode_status(&file, path)?)?;
-        Ok(bytes)
+        verify_windows_executable(path, digest, false)
     }
 }
 

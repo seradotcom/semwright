@@ -179,11 +179,11 @@ jobs:
           - name: server2022-x64
             runs_on: windows-2022
             toolchain: "1.98.1"
-            address_space_bytes: "536870912"
-          - name: win11-arm-x64emu
+            tool_target: ""
+          - name: win11-arm-native-host-x64tool
             runs_on: windows-11-arm
-            toolchain: "1.98.1-x86_64-pc-windows-msvc"
-            address_space_bytes: "2147483648"
+            toolchain: "1.98.1"
+            tool_target: "x86_64-pc-windows-msvc"
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 30
     defaults:
@@ -203,9 +203,17 @@ jobs:
           echo "RUNNER_ARCH=$RUNNER_ARCH"
           echo "PROCESSOR_ARCHITECTURE=${PROCESSOR_ARCHITECTURE:-unknown}"
           rustc +${{ matrix.toolchain }} -vV
+      - name: Build emulated sealed tool fixture
+        if: matrix.tool_target != ''
+        run: |
+          set -euo pipefail
+          rustup target add --toolchain "${{ matrix.toolchain }}" "${{ matrix.tool_target }}"
+          cargo +${{ matrix.toolchain }} build --locked \
+            -p semwright-driver-host \
+            --bin semwright-tool-fixture \
+            --target "${{ matrix.tool_target }}"
+          echo "SEMWRIGHT_TEST_TOOL_FIXTURE=$PWD/target/${{ matrix.tool_target }}/debug/semwright-tool-fixture.exe" >> "$GITHUB_ENV"
       - name: Sealed tool nested execution probe
-        env:
-          SEMWRIGHT_TEST_ADDRESS_SPACE_BYTES: ${{ matrix.address_space_bytes }}
         run: >-
           cargo +${{ matrix.toolchain }} test --locked
           -p semwright-driver-host
