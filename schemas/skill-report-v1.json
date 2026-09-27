@@ -4,7 +4,7 @@
   "title": "Semwright Skill conformance report v1",
   "type": "object",
   "additionalProperties": true,
-  "required": ["schema_version", "skill", "standard_valid", "warnings"],
+  "required": ["schema_version", "skill", "standard_valid", "warnings", "result"],
   "properties": {
     "schema_version": { "const": 1 },
     "skill": { "type": "string", "minLength": 1, "maxLength": 64 },

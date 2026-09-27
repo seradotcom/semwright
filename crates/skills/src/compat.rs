@@ -73,6 +73,21 @@ pub struct ExampleReport {
     pub executed_operations: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct SkillTestReport {
+    pub schema_version: u32,
+    pub skill: String,
+    pub standard_valid: bool,
+    pub semwright_compatible: bool,
+    pub warnings: Vec<String>,
+    pub result: String,
+    pub pass: bool,
+    pub compatibility: CompatibilityReport,
+    pub examples: ExampleReport,
+    pub executed_operations: usize,
+    pub script_execution: &'static str,
+}
+
 fn schema_digest(descriptor: &CommandDescriptor) -> Result<String> {
     let bytes = serde_json::to_vec(&[&descriptor.input_schema, &descriptor.output_schema])?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
@@ -583,5 +598,33 @@ pub fn test_examples(
         passed,
         failures,
         executed_operations: 0,
+    })
+}
+
+pub fn conformance_test(
+    package: &SkillPackage,
+    catalog: &[CatalogCapability],
+    semwright_version: &str,
+) -> Result<SkillTestReport> {
+    let compatibility = doctor(package, catalog, semwright_version)?;
+    let examples = test_examples(package, catalog)?;
+    let pass = compatibility.semwright_compatible && examples.failures.is_empty();
+    let result = if examples.failures.is_empty() {
+        compatibility.result.clone()
+    } else {
+        "incompatible".into()
+    };
+    Ok(SkillTestReport {
+        schema_version: 1,
+        skill: package.manifest.name.clone(),
+        standard_valid: true,
+        semwright_compatible: compatibility.semwright_compatible,
+        warnings: compatibility.warnings.clone(),
+        result,
+        pass,
+        compatibility,
+        examples,
+        executed_operations: 0,
+        script_execution: "disabled",
     })
 }

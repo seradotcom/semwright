@@ -337,6 +337,22 @@ fn lock_detects_descriptor_and_schema_drift() {
 }
 
 #[test]
+fn versioned_report_schema_accepts_validate_doctor_and_test_outputs() {
+    let (_temp, root) = temp_skill("reports");
+    let package = load(&root).unwrap();
+    let schema: serde_json::Value = serde_json::from_str(REPORT_SCHEMA).unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    let reports = [
+        serde_json::to_value(validate(&root).unwrap()).unwrap(),
+        serde_json::to_value(doctor(&package, &[], "0.9.0-dev.1").unwrap()).unwrap(),
+        serde_json::to_value(conformance_test(&package, &[], "0.9.0-dev.1").unwrap()).unwrap(),
+    ];
+    for report in reports {
+        assert!(validator.is_valid(&report), "{report:#}");
+    }
+}
+
+#[test]
 fn example_tests_validate_schemas_without_execution() {
     let (_temp, root) = temp_skill("examples");
     fs::create_dir_all(root.join(".semwright/examples")).unwrap();

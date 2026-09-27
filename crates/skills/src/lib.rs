@@ -13,8 +13,8 @@ mod requirements;
 pub use bundle::{BundleReport, bundle};
 pub use compat::{
     AuthoritySummary, CapabilityMatch, CompatibilityReport, Drift, ExampleReport,
-    RequirementReport, capability_ids_from_search, catalog_capability_from_broker, doctor, lock,
-    test_examples,
+    RequirementReport, SkillTestReport, capability_ids_from_search, catalog_capability_from_broker,
+    conformance_test, doctor, lock, test_examples,
 };
 pub use model::*;
 pub use package::{

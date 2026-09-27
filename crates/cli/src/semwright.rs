@@ -879,22 +879,10 @@ async fn manage_skill_remote(cli: &Cli, command: &Skill, client: &mut ipc::Clien
         Skill::Test { path } => {
             let package = skills::load(path)?;
             let catalog = skill_catalog(client, &package).await?;
-            let compatibility = skills::doctor(&package, &catalog, env!("CARGO_PKG_VERSION"))?;
-            let examples = skills::test_examples(&package, &catalog)?;
-            let pass = compatibility.semwright_compatible && examples.failures.is_empty();
-            print_result(
-                &json!({
-                    "schema_version":1,
-                    "skill":package.manifest.name,
-                    "pass":pass,
-                    "compatibility":compatibility,
-                    "examples":examples,
-                    "executed_operations":0,
-                    "script_execution":"disabled"
-                }),
-                cli.json,
-            )?;
-            Ok(if pass { 0 } else { 1 })
+            let report = skills::conformance_test(&package, &catalog, env!("CARGO_PKG_VERSION"))?;
+            let code = if report.pass { 0 } else { 1 };
+            print_result(&serde_json::to_value(report)?, cli.json)?;
+            Ok(code)
         }
         Skill::Export { capability, output } => {
             let mut revision = None;
