@@ -1,5 +1,7 @@
 use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
 use async_trait::async_trait;
+#[cfg(test)]
+use semwright_platform_api::launch::MountClass;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, Mount, SANDBOX_MOUNTS_ENV, SandboxChildControl,
     SandboxLauncher, SandboxProcess, SandboxSpec, encode_materialized_mounts,
