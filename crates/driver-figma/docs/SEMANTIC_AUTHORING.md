@@ -54,6 +54,18 @@ inspect
 
 Every apply is bound to document identity, plugin session, provider generation and document revision. Drift requires reinspection and replanning. A materially changed plan is never silently recomputed during apply.
 
+## Workflow Distillation
+
+Semantic authoring does not add a workflow engine. Successful runs remain ordinary Semwright capability traces and therefore compose with the existing Workflow Distillation path:
+
+```text
+record -> compile -> verify -> replay -> promote
+```
+
+A promoted Recipe may capture stable mechanics such as a page shell or card-grid procedure, but promotion remains subject to the existing distillation gates. Skill/model judgment is not auto-promoted, and durable Recipes must reacquire current Figma refs instead of embedding session-scoped or stale object identity.
+
+The authoring layer contributes typed plans, findings, postconditions and verification evidence to that existing process; none of those artifacts grant authority or bypass Broker policy.
+
 ## Native structure
 
 The compiler creates native Frames/Sections, TextNodes, Auto Layout containers, shapes, image-filled nodes and component instances. Design refs can resolve local components, variables and text styles. Ambiguous resolution fails closed.
