@@ -60,7 +60,7 @@ partial mutation on disconnect, duplicate JSON keys, same-UID MCP-upstream isola
 output flooding, audit failure before/after effect, poisoned text in every rendering
 surface, artifact cleanup after abnormal termination, sandbox-kernel variation and
 configuration TOCTOU boundaries.
-No independent security review has been performed in this handoff.
+Independent security review remains a separate release-readiness requirement.
 
 ## Platform-specific enforcement
 

@@ -101,7 +101,7 @@ The full gate script also requires `cargo-audit` and `cargo-deny`:
 ./scripts/ci/rust-gates.sh
 ```
 
-Local checks that do not compile Rust can be repeated with:
+Source-only checks that do not compile Rust can be repeated with:
 
 ```sh
 python -m pip install jsonschema PyYAML websocket-client
@@ -136,7 +136,7 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 
 ## Components and evidence
 
-| Component | Delivered | Evidence in this handoff |
+| Component | Delivered | Evidence |
 |---|---|---|
 | Rust core, broker, CLI, MCP, inspector | Source + Rust unit/property/integration tests | Hosted development line compiles and executes on x86_64 + ARM64 under the exact-SHA quality matrix |
 | Platform boundary | `platform-api` + shared services + per-OS hosts | Linux workspace gates plus Darwin cross-checks for Rust-only portable crates |

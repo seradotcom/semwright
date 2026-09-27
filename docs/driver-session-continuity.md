@@ -70,7 +70,7 @@ loss observable and bounded.
 ## Conformance
 
 The `Driver session continuity` GitHub Actions workflow exercises the common contract and
-fault-injection paths without using the developer workstation as a heavy runner:
+fault-injection paths in hosted CI:
 
 - SDK state/backoff/generation contract;
 - Driver Host child transport loss and pending waiter wake-up;

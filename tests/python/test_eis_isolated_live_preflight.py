@@ -84,7 +84,7 @@ class EisIsolatedLivePreflightTests(unittest.TestCase):
         with tmp:
             run = subprocess.run([str(SCRIPT)], env=env, text=True, capture_output=True)
         self.assertNotEqual(run.returncode, 0)
-        self.assertIn("owner-active boundary", run.stderr)
+        self.assertIn("not an isolated test boundary", run.stderr)
 
     def test_can_require_expected_desktop(self):
         tmp, env = self._fixture(virt="kvm", desktop="KDE")

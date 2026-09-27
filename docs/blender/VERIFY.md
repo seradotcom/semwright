@@ -1,6 +1,6 @@
 # Blender semantic completeness verification
 
-Authoritative heavy verification runs in GitHub Actions. Local development is intentionally limited to source editing, `cargo fmt`, `git diff --check`, syntax checks and small read-only audits so the workstation does not accumulate Blender downloads, Rust targets, fuzz corpora or render artifacts.
+Authoritative Blender verification runs in GitHub Actions, including runtime downloads, Rust compilation, fuzzing, rendering and retained evidence. Source-level checks remain independently reproducible.
 
 Frozen implementation baseline for this semantic-completeness mission:
 
