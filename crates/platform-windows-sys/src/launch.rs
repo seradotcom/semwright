@@ -433,13 +433,27 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
         ));
     }
 
+    let (validated_identity, is_directory) = validate_mount_tree(path)?;
+    if is_directory {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Windows private data source must be a regular file",
+        ));
+    }
+
     let mut options = std::fs::OpenOptions::new();
     options
         .read(true)
-        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
+        .share_mode(FILE_SHARE_READ.0)
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
     let mut file = options.open(path)?;
     let before = info(&file)?;
+    if file_identity(&before) != validated_identity {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Windows private data source identity changed during validation",
+        ));
+    }
     verify_trusted_file_acl(&file, "private data file", true)?;
     let size = (u64::from(before.nFileSizeHigh) << 32) | u64::from(before.nFileSizeLow);
     if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
