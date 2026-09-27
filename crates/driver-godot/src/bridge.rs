@@ -20,6 +20,8 @@ use std::{
 };
 #[cfg(unix)]
 use tokio::net::UnixListener;
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
@@ -195,6 +197,42 @@ pub struct Bridge {
     stop: CancellationToken,
 }
 
+#[cfg(windows)]
+async fn connect_loopback_pipe(path: &str, stop: &CancellationToken) -> Result<NamedPipeClient> {
+    if !path.starts_with(r"\\.\pipe\semwright-loopback-") || path.len() > 256 {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Godot loopback pipe path is not Host-controlled",
+        ));
+    }
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        if stop.is_cancelled() {
+            return Err(Error::new(ErrorCode::Cancelled, "Godot loopback stopped"));
+        }
+        match ClientOptions::new().open(path) {
+            Ok(pipe) => return Ok(pipe),
+            Err(error)
+                if (matches!(
+                    error.kind(),
+                    std::io::ErrorKind::NotFound
+                        | std::io::ErrorKind::PermissionDenied
+                        | std::io::ErrorKind::WouldBlock
+                ) || error.raw_os_error() == Some(231))
+                    && tokio::time::Instant::now() < deadline =>
+            {
+                tokio::select! {
+                    _ = stop.cancelled() => {
+                        return Err(Error::new(ErrorCode::Cancelled, "Godot loopback stopped"));
+                    }
+                    _ = tokio::time::sleep(Duration::from_millis(20)) => {}
+                }
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
 impl Bridge {
     pub async fn start(
         port: u16,
@@ -239,6 +277,44 @@ impl Bridge {
                             });
                         }
                     }
+                }
+            });
+            return Ok(bridge);
+        }
+
+        #[cfg(windows)]
+        if let Ok(pipe_path) = std::env::var("SEMWRIGHT_DRIVER_LOOPBACK_PIPE") {
+            if !pipe_path.starts_with(r"\\.\pipe\semwright-loopback-") || pipe_path.len() > 256 {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Godot loopback pipe path is not Host-controlled",
+                ));
+            }
+            let pipe_stop = stop.clone();
+            let pipe_sessions = sessions.clone();
+            let pipe_projects = projects.clone();
+            let pipe_events = events.clone();
+            tokio::spawn(async move {
+                loop {
+                    let pipe = tokio::select! {
+                        _ = pipe_stop.cancelled() => break,
+                        result = connect_loopback_pipe(&pipe_path, &pipe_stop) => {
+                            let Ok(pipe) = result else {
+                                if pipe_stop.is_cancelled() {
+                                    break;
+                                }
+                                tokio::time::sleep(Duration::from_millis(50)).await;
+                                continue;
+                            };
+                            pipe
+                        }
+                    };
+                    let sessions = pipe_sessions.clone();
+                    let projects = pipe_projects.clone();
+                    let events = pipe_events.clone();
+                    tokio::spawn(async move {
+                        let _ = serve_connection(pipe, sessions, projects, events).await;
+                    });
                 }
             });
             return Ok(bridge);
