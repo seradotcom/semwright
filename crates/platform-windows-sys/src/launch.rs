@@ -1318,6 +1318,7 @@ struct WindowsMountGrant {
     path: Vec<u16>,
     sid: Vec<u8>,
     active: bool,
+    require_sid_absence_after_revoke: bool,
 }
 
 impl WindowsMountGrant {
@@ -1387,6 +1388,46 @@ impl WindowsMountGrant {
             path: prepared.path.clone(),
             sid: sid_bytes,
             active: true,
+            require_sid_absence_after_revoke: true,
+        })
+    }
+
+    fn narrow_profile_authority(prepared: &PreparedMountGrant, sid: PSID) -> Result<Self> {
+        let sid_bytes = copy_sid_bytes(sid)?;
+        let owned_sid = PSID(sid_bytes.as_ptr().cast_mut().cast());
+        if !dacl_has_sid(&prepared.path, owned_sid)? {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows LPAC profile object did not inherit its AppContainer SID",
+            ));
+        }
+        if let Err(error) = set_mount_ace(
+            &prepared.path,
+            owned_sid,
+            DENY_ACCESS,
+            prepared.denied_permissions,
+            prepared.inheritance,
+        ) {
+            let _ = set_mount_ace(&prepared.path, owned_sid, REVOKE_ACCESS, 0, NO_INHERITANCE);
+            return Err(error);
+        }
+        if !dacl_has_deny(
+            &prepared.path,
+            owned_sid,
+            prepared.denied_permissions,
+            prepared.inheritance,
+        )? {
+            let _ = set_mount_ace(&prepared.path, owned_sid, REVOKE_ACCESS, 0, NO_INHERITANCE);
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed-tool profile deny ACE verification failed",
+            ));
+        }
+        Ok(Self {
+            path: prepared.path.clone(),
+            sid: sid_bytes,
+            active: true,
+            require_sid_absence_after_revoke: false,
         })
     }
 
@@ -1394,7 +1435,15 @@ impl WindowsMountGrant {
         if !self.active {
             return Ok(());
         }
-        revoke_mount_sid(&self.path, PSID(self.sid.as_ptr().cast_mut().cast()))?;
+        let sid = PSID(self.sid.as_ptr().cast_mut().cast());
+        if self.require_sid_absence_after_revoke {
+            revoke_mount_sid(&self.path, sid)?;
+        } else {
+            // Profile-local objects inherit the AppContainer SID from the unique LPAC profile.
+            // Remove only Semwright's explicit narrowing ACEs; inherited profile authority is
+            // intentionally left for DeleteAppContainerProfile to dispose with the profile.
+            set_mount_ace(&self.path, sid, REVOKE_ACCESS, 0, NO_INHERITANCE)?;
+        }
         self.active = false;
         Ok(())
     }
@@ -1555,9 +1604,12 @@ fn prepare_windows_tools(
 
     let encoded = encode_materialized_tools(&materialized)?;
     let mut grants = Vec::with_capacity(prepared.len() + 1);
-    grants.push(WindowsMountGrant::grant(&profile_traverse, profile.sid)?);
+    grants.push(WindowsMountGrant::narrow_profile_authority(
+        &profile_traverse,
+        profile.sid,
+    )?);
     for plan in &prepared {
-        match WindowsMountGrant::grant(plan, profile.sid) {
+        match WindowsMountGrant::narrow_profile_authority(plan, profile.sid) {
             Ok(grant) => grants.push(grant),
             Err(error) => {
                 if revoke_mount_grants(&mut grants).is_err() {
