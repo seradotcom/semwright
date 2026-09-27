@@ -3181,9 +3181,20 @@ fn doctor_out() -> Value {
             ("driver".into(), string(64)),
             ("bridge".into(), integer()),
             ("connected_sessions".into(), integer()),
+            ("reconnecting_sessions".into(), integer()),
+            ("reconnects".into(), integer()),
+            ("reconnect_grace_ms".into(), integer()),
             ("certification".into(), string(64)),
         ]),
-        &["driver", "bridge", "connected_sessions", "certification"],
+        &[
+            "driver",
+            "bridge",
+            "connected_sessions",
+            "reconnecting_sessions",
+            "reconnects",
+            "reconnect_grace_ms",
+            "certification",
+        ],
     )
 }
 fn sessions_out() -> Value {

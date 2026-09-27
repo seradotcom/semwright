@@ -254,12 +254,97 @@ with tempfile.TemporaryDirectory(prefix="semwright-godot-acceptance-") as td_raw
                 f"sessions={sessions!r}\nGodot log tail:\n{tail}"
             )
         sid = matching[0]["session"]
+        first_generation = matching[0]["generation"]
 
         def call(name, args, native_target=None):
             rid = f"op-{len(trace):03d}"
             value, progress = execute(driver, caps, name, args, rid, native_target=native_target)
             trace.append({"id": rid, "command": name, "args": args, "result": value, "progress": progress})
             return value
+
+        # Session-continuity acceptance: terminate the real Godot editor after the
+        # first authenticated pairing, keep the Semwright driver alive, and relaunch
+        # the same project with the same owner-provided pairing material. A full
+        # application restart naturally creates a new logical session, but it must
+        # recover without human interaction, never expose the old connection as
+        # active, and leave the driver health endpoint responsive throughout.
+        continuity_before = call("driver.godot.doctor", {})
+        assert continuity_before["connected_sessions"] == 1, continuity_before
+        godot.terminate()
+        try:
+            godot.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            godot.kill()
+            godot.wait(timeout=5)
+
+        disconnected = None
+        for _ in range(200):
+            disconnected = call("driver.godot.doctor", {})
+            if disconnected["connected_sessions"] == 0:
+                break
+            time.sleep(0.05)
+        assert disconnected is not None and disconnected["connected_sessions"] == 0, disconnected
+        assert disconnected["reconnecting_sessions"] <= 1, disconnected
+
+        godot = subprocess.Popen(
+            [str(GODOT), "--headless", "--editor", "--path", str(project)],
+            env=env, stdout=godot_log, stderr=subprocess.STDOUT,
+        )
+        recovered = []
+        for i in range(600):
+            value = call("driver.godot.session.list", {})
+            recovered = [
+                session for session in value["sessions"]
+                if session.get("project") == project_id
+            ]
+            if len(recovered) == 1:
+                break
+            if len(recovered) > 1:
+                raise RuntimeError(
+                    f"multiple active Godot sessions after application restart: {recovered!r}"
+                )
+            if godot.poll() is not None:
+                godot_log.flush()
+                tail = (td / "godot-editor.log").read_text(errors="replace")[-8000:]
+                raise RuntimeError(
+                    f"Godot editor exited during automatic recovery (rc={godot.returncode}):\n{tail}"
+                )
+            time.sleep(0.05)
+        if len(recovered) != 1:
+            godot_log.flush()
+            tail = (td / "godot-editor.log").read_text(errors="replace")[-8000:]
+            raise RuntimeError(
+                "timed out waiting for automatic Godot recovery after application restart; "
+                f"sessions={recovered!r}\nGodot log tail:\n{tail}"
+            )
+        sid = recovered[0]["session"]
+        assert recovered[0]["generation"] != first_generation
+
+        continuity_after = None
+        for _ in range(140):
+            continuity_after = call("driver.godot.doctor", {})
+            if (
+                continuity_after["connected_sessions"] == 1
+                and continuity_after["reconnecting_sessions"] == 0
+            ):
+                break
+            time.sleep(0.05)
+        assert continuity_after is not None, "missing post-restart continuity status"
+        assert continuity_after["connected_sessions"] == 1, continuity_after
+        assert continuity_after["reconnecting_sessions"] == 0, continuity_after
+        trace.append({
+            "id": "continuity-restart",
+            "command": "driver.godot.session.continuity",
+            "args": {},
+            "result": {
+                "initial_session": matching[0],
+                "recovered_session": recovered[0],
+                "before": continuity_before,
+                "during": disconnected,
+                "after": continuity_after,
+            },
+            "progress": [],
+        })
 
         status = call("driver.godot.project.inspect", {"session": sid})
         st = stamp(status)

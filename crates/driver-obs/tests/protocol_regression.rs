@@ -783,3 +783,49 @@ fn plugin_data_does_not_export_native_ref_markers() {
     let value = bounds::scrub(&json!({"$ref":"untrusted-native-looking-value","ordinary":true}));
     assert_eq!(value, json!({"ordinary":true}));
 }
+
+#[test]
+fn obs_continuity_state_and_backoff_conform_to_driver_sdk_contract() {
+    use semwright_driver_sdk::continuity::{
+        ConnectionState as CommonState, ReconnectBudget as CommonBudget,
+    };
+
+    let pairs = [
+        (ConnectionState::Disconnected, CommonState::Disconnected),
+        (ConnectionState::Connecting, CommonState::Connecting),
+        (ConnectionState::Authenticating, CommonState::Authenticating),
+        (ConnectionState::Identified, CommonState::Identified),
+        (ConnectionState::Ready, CommonState::Ready),
+        (ConnectionState::Reconnecting, CommonState::Reconnecting),
+        (ConnectionState::Closing, CommonState::Closing),
+        (ConnectionState::Closed, CommonState::Closed),
+        (ConnectionState::Failed, CommonState::Failed),
+    ];
+    for (obs, common) in pairs {
+        assert_eq!(CommonState::from(obs), common);
+    }
+
+    let common_stamp = semwright_driver_sdk::continuity::ContinuityStamp::from(Stamp {
+        generation: 7,
+        graph_revision: 11,
+    });
+    assert_eq!(common_stamp.generation, 7);
+    assert_eq!(common_stamp.revision, 11);
+
+    let now = Instant::now();
+    let mut obs_budget = ReconnectBudget::new(5);
+    let mut common_budget = CommonBudget::standard(5).unwrap();
+    for offset in 0..5 {
+        let instant = now + Duration::from_millis(offset);
+        assert_eq!(
+            obs_budget.reserve(instant).unwrap(),
+            common_budget.reserve(instant).unwrap()
+        );
+    }
+    assert!(obs_budget.reserve(now + Duration::from_millis(6)).is_err());
+    assert!(
+        common_budget
+            .reserve(now + Duration::from_millis(6))
+            .is_err()
+    );
+}

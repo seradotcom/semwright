@@ -5,6 +5,9 @@ const BRIDGE_VERSION := 1
 const MAX_NODES := 4000
 const MAX_FILES := 4096
 const MAX_EVENT_PAYLOAD_CHARS := 12000
+const RECONNECT_BASE_MS := 250
+const RECONNECT_MAX_MS := 4000
+const PRE_READY_FAILURE_LIMIT := 8
 const ProjectOps = preload("res://addons/semwright/ops/project_ops.gd")
 const ResourceOps = preload("res://addons/semwright/ops/resource_ops.gd")
 const ScriptOps = preload("res://addons/semwright/ops/script_ops.gd")
@@ -43,9 +46,15 @@ var _hello_sent := false
 var _port := 0
 var _project := ""
 var _secret := ""
+var _manual_disconnect := false
+var _reconnect_attempt := 0
+var _reconnect_at_ms := 0
+var _authenticated_once := false
+var _pre_ready_failures := 0
 
 func _enter_tree() -> void:
     _bind_editor_events()
+    _manual_disconnect = false
     _port = int(OS.get_environment("SEMWRIGHT_GODOT_PORT"))
     _project = OS.get_environment("SEMWRIGHT_GODOT_PROJECT")
     _secret = OS.get_environment("SEMWRIGHT_GODOT_SECRET")
@@ -56,9 +65,12 @@ func _enter_tree() -> void:
     _connect_bridge()
 
 func _exit_tree() -> void:
+    _manual_disconnect = true
+    _reconnect_at_ms = 0
     if _ws != null:
         _ws.close(1000, "plugin disabled")
     _phase = "disconnected"
+    set_process(false)
 
 func _bind_editor_events() -> void:
     scene_changed.connect(_on_scene_changed)
@@ -116,19 +128,48 @@ func _on_resources_reimported(resources: PackedStringArray) -> void:
     _emit_event("resources_reimported", {"resources": bounded})
 
 func _connect_bridge() -> void:
+    if _manual_disconnect:
+        return
     _ws = WebSocketPeer.new()
     _ws.inbound_buffer_size = 524288
     _ws.outbound_buffer_size = 524288
     _ws.max_queued_packets = 64
     var err := _ws.connect_to_url("ws://127.0.0.1:%d" % _port)
     if err != OK:
-        push_error("Semwright: WebSocket connect failed: %s" % error_string(err))
+        _ws = null
+        _schedule_reconnect("connect failed: %s" % error_string(err))
         return
     _phase = "connecting"
     _hello_sent = false
+    _reconnect_at_ms = 0
+    set_process(true)
+
+func _schedule_reconnect(reason: String) -> void:
+    if _manual_disconnect:
+        _phase = "disconnected"
+        set_process(false)
+        return
+    if not _authenticated_once:
+        _pre_ready_failures += 1
+        if _pre_ready_failures >= PRE_READY_FAILURE_LIMIT:
+            push_error("Semwright: bridge authentication/bootstrap failed repeatedly: %s" % reason)
+            _manual_disconnect = true
+            _phase = "disconnected"
+            set_process(false)
+            return
+    var exponent := mini(_reconnect_attempt, 4)
+    var delay := mini(RECONNECT_MAX_MS, RECONNECT_BASE_MS * (1 << exponent))
+    _reconnect_attempt += 1
+    _reconnect_at_ms = Time.get_ticks_msec() + delay
+    _phase = "reconnecting"
+    _ws = null
     set_process(true)
 
 func _process(_delta: float) -> void:
+    if _phase == "reconnecting":
+        if Time.get_ticks_msec() >= _reconnect_at_ms:
+            _connect_bridge()
+        return
     if _ws == null:
         return
     _ws.poll()
@@ -148,19 +189,21 @@ func _process(_delta: float) -> void:
             _handle_message(parsed)
     elif state == WebSocketPeer.STATE_CLOSED:
         if _phase != "disconnected":
-            push_warning("Semwright: bridge disconnected.")
-        _phase = "disconnected"
-        set_process(false)
+            push_warning("Semwright: bridge disconnected; scheduling reconnect.")
+        _schedule_reconnect("socket closed")
 
 func _send_hello() -> void:
     _client_nonce = Crypto.new().generate_random_bytes(16).hex_encode()
-    _send({
+    var hello := {
         "type": "hello",
         "project": _project,
         "nonce": _client_nonce,
-        "plugin_version": "0.1.0",
+        "plugin_version": "0.2.0",
         "engine_version": Engine.get_version_info().get("string", "unknown"),
-    })
+    }
+    if _session.length() == 32:
+        hello["resume_session"] = _session
+    _send(hello)
     _hello_sent = true
     _phase = "challenge"
 
@@ -173,8 +216,14 @@ func _handle_message(message: Dictionary) -> void:
             _fail_connection("bridge version mismatch")
             return
         _phase = "ready"
+        _authenticated_once = true
+        _pre_ready_failures = 0
+        _reconnect_attempt = 0
+        _reconnect_at_ms = 0
     elif kind == "request" and _phase == "ready":
         _handle_request(message)
+    elif kind == "ping" and _phase == "ready":
+        _send({"type":"pong","nonce":str(message.get("nonce", ""))})
     else:
         _fail_connection("unexpected bridge message")
 
@@ -223,9 +272,13 @@ func _send(value: Dictionary) -> void:
 
 func _fail_connection(reason: String) -> void:
     push_error("Semwright: %s" % reason)
+    _manual_disconnect = true
+    _reconnect_at_ms = 0
     if _ws != null:
         _ws.close(1002, "protocol error")
+    _ws = null
     _phase = "disconnected"
+    set_process(false)
 
 func _handle_request(message: Dictionary) -> void:
     var id := str(message.get("id", ""))

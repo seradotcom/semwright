@@ -76,6 +76,28 @@ fn mount_capability() -> Capability {
     }
 }
 
+fn disconnect_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.disconnect".into(),
+            version: "1".into(),
+            description: "Terminate the fixture child during a protocol-v2 request".into(),
+            input_schema: json!({"type":"object","additionalProperties":false}),
+            output_schema: json!({"type":"object","additionalProperties":false}),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 5_000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec![],
+        tags: vec!["fixture".into(), "protocol-v2".into(), "continuity".into()],
+        object_types: vec![],
+    }
+}
+
 fn long_capability() -> Capability {
     Capability {
         descriptor: CommandDescriptor {
@@ -129,12 +151,18 @@ impl Driver for Fixture {
         }
     }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
-        Ok(vec![capability(), mount_capability(), long_capability()])
+        Ok(vec![
+            capability(),
+            mount_capability(),
+            long_capability(),
+            disconnect_capability(),
+        ])
     }
     async fn execute(&mut self, command: &str, pinned_digest: &str, args: Value) -> Result<Value> {
         let capability = match command {
             "driver.fixture.ping" => capability(),
             "driver.fixture.mount_probe" => mount_capability(),
+            "driver.fixture.disconnect" => disconnect_capability(),
             _ => {
                 return Err(Error::new(
                     ErrorCode::StaleReference,
@@ -158,6 +186,12 @@ impl Driver for Fixture {
             let read = std::fs::read_to_string(root.join("input.txt"))?;
             let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
             return Ok(json!({"read":read,"write_ok":write_ok}));
+        }
+        if command == "driver.fixture.disconnect" {
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid("fixture disconnect accepts an empty object"));
+            }
+            std::process::exit(71);
         }
 
         let args = args

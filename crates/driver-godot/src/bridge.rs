@@ -1,19 +1,30 @@
 use crate::config::{ProjectConfig, is_hex};
 use futures_util::{SinkExt, StreamExt};
 use hmac::{Hmac, Mac};
-use semwright_driver_sdk::DriverChildEvent;
+use semwright_driver_sdk::{
+    DriverChildEvent,
+    continuity::{ConnectionState, ContinuityStamp},
+};
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::{Value, json};
 use sha2::Sha256;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
 #[cfg(unix)]
 use tokio::net::UnixListener;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
-    sync::{RwLock, mpsc, oneshot},
+    sync::{Mutex, Notify, RwLock, mpsc, oneshot},
+    time::Instant,
 };
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 use tokio_util::sync::CancellationToken;
@@ -21,6 +32,10 @@ use tokio_util::sync::CancellationToken;
 type HmacSha256 = Hmac<Sha256>;
 const BRIDGE_VERSION: u64 = 1;
 const MAX_WIRE_BYTES: usize = 512 * 1024;
+const MAX_SESSIONS: usize = 8;
+pub const RECONNECT_GRACE: Duration = Duration::from_secs(5);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
+const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(25);
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(deny_unknown_fields)]
@@ -38,14 +53,145 @@ struct Call {
     reply: oneshot::Sender<Result<Value>>,
 }
 
-struct Session {
-    info: SessionInfo,
+#[derive(Clone)]
+struct ActiveSession {
+    generation: String,
     tx: mpsc::Sender<Call>,
+    stop: CancellationToken,
+}
+
+struct SessionSlot {
+    project: String,
+    info: RwLock<SessionInfo>,
+    active: RwLock<Option<ActiveSession>>,
+    state: RwLock<ConnectionState>,
+    notify: Notify,
+    stamp: Mutex<ContinuityStamp>,
+    reconnects: AtomicU64,
+}
+
+impl SessionSlot {
+    fn new(project: String, info: SessionInfo) -> Self {
+        Self {
+            project,
+            info: RwLock::new(info),
+            active: RwLock::new(None),
+            state: RwLock::new(ConnectionState::Disconnected),
+            notify: Notify::new(),
+            stamp: Mutex::new(ContinuityStamp::default()),
+            reconnects: AtomicU64::new(0),
+        }
+    }
+
+    async fn activate(
+        &self,
+        info: SessionInfo,
+        tx: mpsc::Sender<Call>,
+        stop: CancellationToken,
+    ) -> Result<Option<ActiveSession>> {
+        {
+            let mut state = self.state.write().await;
+            match *state {
+                ConnectionState::Disconnected | ConnectionState::Reconnecting => {}
+                ConnectionState::Ready => {
+                    state.transition(ConnectionState::Reconnecting)?;
+                }
+                _ => {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Godot logical session cannot activate from its current continuity state",
+                    ));
+                }
+            }
+            state.transition(ConnectionState::Connecting)?;
+            state.transition(ConnectionState::Authenticating)?;
+            state.transition(ConnectionState::Ready)?;
+        }
+
+        let old = self.active.write().await.replace(ActiveSession {
+            generation: info.generation.clone(),
+            tx,
+            stop,
+        });
+        *self.info.write().await = info;
+        let mut stamp = self.stamp.lock().await;
+        stamp.next_connection()?;
+        if stamp.generation > 1 {
+            self.reconnects.fetch_add(1, Ordering::Relaxed);
+        }
+        drop(stamp);
+        self.notify.notify_waiters();
+        Ok(old)
+    }
+
+    async fn deactivate_if_generation(&self, generation: &str) -> Result<bool> {
+        let mut active = self.active.write().await;
+        let matches = active
+            .as_ref()
+            .is_some_and(|current| current.generation == generation);
+        if matches {
+            let mut state = self.state.write().await;
+            state.transition(ConnectionState::Reconnecting)?;
+            *active = None;
+            drop(state);
+            self.notify.notify_waiters();
+        }
+        Ok(matches)
+    }
+
+    async fn close_for_cleanup(&self) -> Result<()> {
+        let mut state = self.state.write().await;
+        state.transition(ConnectionState::Closing)?;
+        state.transition(ConnectionState::Closed)?;
+        Ok(())
+    }
+
+    async fn sender_until(&self, deadline: Instant) -> Result<mpsc::Sender<Call>> {
+        loop {
+            let notified = self.notify.notified();
+            if let Some(tx) = self
+                .active
+                .read()
+                .await
+                .as_ref()
+                .map(|current| current.tx.clone())
+            {
+                return Ok(tx);
+            }
+            if tokio::time::timeout_at(deadline, notified).await.is_err() {
+                return Err(Error::new(
+                    ErrorCode::Unavailable,
+                    "Godot editor session did not reconnect within the grace window",
+                ));
+            }
+        }
+    }
+
+    async fn active_info(&self) -> Option<SessionInfo> {
+        if self.active.read().await.is_some() {
+            Some(self.info.read().await.clone())
+        } else {
+            None
+        }
+    }
+
+    async fn should_cleanup(&self, generation: &str) -> bool {
+        self.active.read().await.is_none() && self.info.read().await.generation == generation
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct BridgeContinuity {
+    pub connected_sessions: usize,
+    pub reconnecting_sessions: usize,
+    pub reconnects: u64,
+    pub reconnect_grace_ms: u64,
 }
 
 #[derive(Clone)]
 pub struct Bridge {
-    sessions: Arc<RwLock<HashMap<String, Arc<Session>>>>,
+    sessions: Arc<RwLock<HashMap<String, Arc<SessionSlot>>>>,
     stop: CancellationToken,
 }
 
@@ -120,12 +266,47 @@ impl Bridge {
     }
 
     pub async fn list(&self) -> Vec<SessionInfo> {
-        self.sessions
+        let slots = self
+            .sessions
             .read()
             .await
             .values()
-            .map(|s| s.info.clone())
-            .collect()
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut active = Vec::with_capacity(slots.len());
+        for slot in slots {
+            if let Some(info) = slot.active_info().await {
+                active.push(info);
+            }
+        }
+        active
+    }
+
+    pub async fn continuity(&self) -> BridgeContinuity {
+        let slots = self
+            .sessions
+            .read()
+            .await
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut connected_sessions = 0usize;
+        let mut reconnecting_sessions = 0usize;
+        let mut reconnects = 0u64;
+        for slot in slots {
+            match *slot.state.read().await {
+                ConnectionState::Ready => connected_sessions += 1,
+                ConnectionState::Reconnecting => reconnecting_sessions += 1,
+                _ => {}
+            }
+            reconnects = reconnects.saturating_add(slot.reconnects.load(Ordering::Relaxed));
+        }
+        BridgeContinuity {
+            connected_sessions,
+            reconnecting_sessions,
+            reconnects,
+            reconnect_grace_ms: RECONNECT_GRACE.as_millis() as u64,
+        }
     }
 
     pub async fn call(
@@ -135,7 +316,7 @@ impl Bridge {
         args: Value,
         timeout: Duration,
     ) -> Result<Value> {
-        let session = self
+        let slot = self
             .sessions
             .read()
             .await
@@ -144,17 +325,31 @@ impl Bridge {
             .ok_or_else(|| {
                 Error::new(ErrorCode::NotFound, "Godot editor session is not connected")
             })?;
+        let now = Instant::now();
+        let dispatch_deadline = now + timeout.min(RECONNECT_GRACE);
+        let response_deadline = now + timeout;
         let (tx, rx) = oneshot::channel();
-        session
-            .tx
-            .send(Call {
-                op: op.to_owned(),
-                args,
-                reply: tx,
-            })
-            .await
-            .map_err(|_| Error::new(ErrorCode::Unavailable, "Godot editor session disconnected"))?;
-        match tokio::time::timeout(timeout, rx).await {
+        let mut call = Call {
+            op: op.to_owned(),
+            args,
+            reply: tx,
+        };
+        loop {
+            let sender = slot.sender_until(dispatch_deadline).await?;
+            match sender.send(call).await {
+                Ok(()) => break,
+                Err(error) => {
+                    call = error.0;
+                    if Instant::now() >= dispatch_deadline {
+                        return Err(Error::new(
+                            ErrorCode::Unavailable,
+                            "Godot editor session disconnected before request dispatch",
+                        ));
+                    }
+                }
+            }
+        }
+        match tokio::time::timeout_at(response_deadline, rx).await {
             Ok(Ok(result)) => result,
             Ok(Err(_)) => Err(Error::new(
                 ErrorCode::Unavailable,
@@ -173,7 +368,7 @@ impl Bridge {
 
 async fn serve_connection<S>(
     stream: S,
-    sessions: Arc<RwLock<HashMap<String, Arc<Session>>>>,
+    sessions: Arc<RwLock<HashMap<String, Arc<SessionSlot>>>>,
     projects: Arc<HashMap<String, ProjectConfig>>,
     events: mpsc::UnboundedSender<DriverChildEvent>,
 ) -> Result<()>
@@ -198,9 +393,34 @@ where
         .ok_or_else(|| Error::new(ErrorCode::PermissionDenied, "Unpaired Godot project"))?;
     let secret =
         hex::decode(&paired.secret).map_err(|_| Error::invalid("Invalid pairing secret"))?;
+    let requested_resume = match hello.get("resume_session") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(value)) if is_hex(value, 32) => Some(value.clone()),
+        Some(_) => {
+            return Err(Error::invalid(
+                "Godot resume_session must be a 32-character hexadecimal session ID",
+            ));
+        }
+    };
+    let resumed_slot = if let Some(session) = requested_resume.as_deref() {
+        let candidate = sessions.read().await.get(session).cloned();
+        candidate.filter(|slot| slot.project == project)
+    } else {
+        None
+    };
+    if resumed_slot.is_none() && sessions.read().await.len() >= MAX_SESSIONS {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Godot bridge session limit reached",
+        ));
+    }
     let server_nonce = random_hex(16)?;
     let generation = random_hex(16)?;
-    let session_id = random_hex(16)?;
+    let session_id = if let Some(slot) = resumed_slot.as_ref() {
+        slot.info.read().await.session.clone()
+    } else {
+        random_hex(16)?
+    };
     let server_transcript = transcript(
         "server",
         &project,
@@ -240,7 +460,17 @@ where
             "Godot bridge authentication failed",
         ));
     }
-    send_json(&mut ws, &json!({"type":"ready","bridge":BRIDGE_VERSION,"session":session_id,"generation":generation})).await?;
+    send_json(
+        &mut ws,
+        &json!({
+            "type":"ready",
+            "bridge":BRIDGE_VERSION,
+            "session":session_id,
+            "generation":generation,
+            "resumed":resumed_slot.is_some()
+        }),
+    )
+    .await?;
 
     let info = SessionInfo {
         session: session_id.clone(),
@@ -250,12 +480,67 @@ where
         engine_version,
     };
     let (tx, mut rx) = mpsc::channel::<Call>(32);
-    let session = Arc::new(Session { info, tx });
-    sessions.write().await.insert(session_id.clone(), session);
+    let connection_stop = CancellationToken::new();
+    let slot = if let Some(slot) = resumed_slot {
+        let mut guard = sessions.write().await;
+        match guard.get(&session_id) {
+            Some(current) if Arc::ptr_eq(current, &slot) => {}
+            Some(_) => {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Godot logical session was replaced during authentication",
+                ));
+            }
+            None => {
+                guard.insert(session_id.clone(), slot.clone());
+            }
+        }
+        drop(guard);
+        slot
+    } else {
+        let slot = Arc::new(SessionSlot::new(project.clone(), info.clone()));
+        let mut guard = sessions.write().await;
+        if guard.len() >= MAX_SESSIONS {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Godot bridge session limit reached",
+            ));
+        }
+        guard.insert(session_id.clone(), slot.clone());
+        slot
+    };
+    if let Some(old) = slot.activate(info, tx, connection_stop.clone()).await? {
+        old.stop.cancel();
+    }
     let mut request_counter: u64 = 0;
+    let mut heartbeat = tokio::time::interval(HEARTBEAT_INTERVAL);
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    heartbeat.tick().await;
+    let mut pending_ping: Option<(String, Instant)> = None;
     let result: Result<()> = async {
         loop {
             tokio::select! {
+                _ = connection_stop.cancelled() => {
+                    return Err(Error::new(
+                        ErrorCode::Unavailable,
+                        "Godot session generation was superseded",
+                    ));
+                }
+                _ = heartbeat.tick() => {
+                    if let Some((_, sent_at)) = pending_ping.as_ref()
+                        && Instant::now().duration_since(*sent_at) >= HEARTBEAT_TIMEOUT
+                    {
+                        return Err(Error::new(
+                            ErrorCode::Unavailable,
+                            "Godot bridge heartbeat timed out",
+                        ));
+                    }
+                    if pending_ping.is_none() {
+                        let nonce = random_hex(8)?;
+                        send_json(&mut ws, &json!({"type":"ping","nonce":nonce})).await?;
+                        pending_ping = Some((nonce, Instant::now()));
+                    }
+                }
                 maybe_call = rx.recv() => {
                     let Some(call) = maybe_call else { break; };
                     request_counter = request_counter.checked_add(1).ok_or_else(|| {
@@ -271,7 +556,15 @@ where
                         break;
                     }
                     let response = loop {
-                        let value = recv_json(&mut ws).await?;
+                        let value = tokio::select! {
+                            _ = connection_stop.cancelled() => {
+                                return Err(Error::new(
+                                    ErrorCode::Unavailable,
+                                    "Godot session generation was superseded",
+                                ));
+                            }
+                            value = recv_json(&mut ws) => value?,
+                        };
                         match value.get("type").and_then(Value::as_str) {
                             Some("response")
                                 if value.get("id").and_then(Value::as_str) == Some(request_id.as_str()) =>
@@ -286,6 +579,22 @@ where
                                     &generation,
                                     &value,
                                 )?;
+                            }
+                            Some("pong") => {
+                                let nonce = value
+                                    .get("nonce")
+                                    .and_then(Value::as_str)
+                                    .ok_or_else(|| Error::invalid("Godot heartbeat pong is missing nonce"))?;
+                                if !pending_ping
+                                    .as_ref()
+                                    .is_some_and(|(expected, _)| expected == nonce)
+                                {
+                                    return Err(Error::new(
+                                        ErrorCode::ProtocolMismatch,
+                                        "Godot heartbeat pong did not match",
+                                    ));
+                                }
+                                pending_ping = None;
                             }
                             _ => {
                                 return Err(Error::new(
@@ -317,19 +626,38 @@ where
                 }
                 incoming = recv_json(&mut ws) => {
                     let value = incoming?;
-                    if value.get("type").and_then(Value::as_str) == Some("event") {
-                        forward_event(
-                            &events,
-                            &project,
-                            &session_id,
-                            &generation,
-                            &value,
-                        )?;
-                    } else {
-                        return Err(Error::new(
-                            ErrorCode::ProtocolMismatch,
-                            "Unexpected idle Godot bridge frame",
-                        ));
+                    match value.get("type").and_then(Value::as_str) {
+                        Some("event") => {
+                            forward_event(
+                                &events,
+                                &project,
+                                &session_id,
+                                &generation,
+                                &value,
+                            )?;
+                        }
+                        Some("pong") => {
+                            let nonce = value
+                                .get("nonce")
+                                .and_then(Value::as_str)
+                                .ok_or_else(|| Error::invalid("Godot heartbeat pong is missing nonce"))?;
+                            if !pending_ping
+                                .as_ref()
+                                .is_some_and(|(expected, _)| expected == nonce)
+                            {
+                                return Err(Error::new(
+                                    ErrorCode::ProtocolMismatch,
+                                    "Godot heartbeat pong did not match",
+                                ));
+                            }
+                            pending_ping = None;
+                        }
+                        _ => {
+                            return Err(Error::new(
+                                ErrorCode::ProtocolMismatch,
+                                "Unexpected idle Godot bridge frame",
+                            ));
+                        }
                     }
                 }
             }
@@ -337,8 +665,41 @@ where
         Ok(())
     }
     .await;
-    sessions.write().await.remove(&session_id);
+    if slot.deactivate_if_generation(&generation).await? {
+        schedule_cleanup(
+            sessions.clone(),
+            session_id.clone(),
+            generation.clone(),
+            slot.clone(),
+        );
+    }
     result
+}
+
+fn schedule_cleanup(
+    sessions: Arc<RwLock<HashMap<String, Arc<SessionSlot>>>>,
+    session_id: String,
+    generation: String,
+    slot: Arc<SessionSlot>,
+) {
+    tokio::spawn(async move {
+        tokio::time::sleep(RECONNECT_GRACE).await;
+        if !slot.should_cleanup(&generation).await {
+            return;
+        }
+        let mut guard = sessions.write().await;
+        if guard
+            .get(&session_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &slot))
+            && slot.should_cleanup(&generation).await
+        {
+            if slot.close_for_cleanup().await.is_err() {
+                return;
+            }
+            guard.remove(&session_id);
+            slot.notify.notify_waiters();
+        }
+    });
 }
 
 fn forward_event(

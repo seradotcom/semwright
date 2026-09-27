@@ -104,6 +104,24 @@ user's real home directory.
 The manifest defines what the driver needs; it never creates a policy grant. Capability calls
 still pass through the broker's normal risk, confirmation, cancellation and audit path.
 
+## Session continuity
+
+Persistent drivers may outlive the application's own socket, editor plugin or helper process.
+Semwright therefore treats driver-process health and application-transport availability as
+separate states. First-party persistent transports follow a common bounded continuity contract:
+dead transports wake pending requests, stale generations cannot answer newer calls, reconnect
+loops are bounded, reconnecting sessions are not reported as active, and uncertain mutation
+outcomes are never silently replayed.
+
+The portable state/backoff primitives live in `semwright_driver_sdk::continuity`; authentication
+and recovery remain transport-specific. Figma uses a rotated document-scoped trusted-resume
+credential after the initial manual pairing, Godot can resume a logical plugin session during a
+short transport gap and automatically re-authenticates after an editor restart, and OBS retains
+its mature generation/reconnect actor while conforming to the same invariants.
+
+See [Driver session continuity](driver-session-continuity.md) for the complete contract,
+security rules and fault-injection gates.
+
 ## Cross-driver artifact handoff
 
 Drivers do not bind directly to each other. Capabilities may advertise semantic artifact ports
