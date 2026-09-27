@@ -33,6 +33,36 @@ pub(crate) struct LoopbackProxy {
     listener: StdMutex<Option<TcpListener>>,
 }
 
+#[cfg(windows)]
+async fn connect_expected_pipe(
+    server: &mut NamedPipeServer,
+    expected_pid: u32,
+    stop: &CancellationToken,
+) -> Result<()> {
+    let connected = tokio::select! {
+        _ = stop.cancelled() => {
+            return Err(Error::new(ErrorCode::Cancelled, "Loopback proxy stopped"));
+        }
+        result = tokio::time::timeout(Duration::from_secs(5), server.connect()) => result,
+    };
+    match connected {
+        Ok(Ok(())) => {}
+        Ok(Err(_)) => {
+            return Err(Error::new(
+                ErrorCode::Unavailable,
+                "Driver loopback pipe connection failed",
+            ));
+        }
+        Err(_) => {
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "Driver loopback pipe connection timed out",
+            ));
+        }
+    }
+    semwright_platform_services::validate_windows_appcontainer_loopback_peer(server, expected_pid)
+}
+
 impl LoopbackProxy {
     pub(crate) fn shutdown(&self) {
         self.stop.cancel();
@@ -57,18 +87,18 @@ impl LoopbackProxy {
             .take()
             .ok_or_else(|| Error::new(ErrorCode::Conflict, "Loopback proxy already activated"))?;
         let pipe_path = self.pipe_path.clone();
-        // Create the first named-pipe instance only after the sandbox process exists and its
-        // AppContainer SID can be queried. FIRST_PIPE_INSTANCE makes name squatting fail closed
-        // instead of requiring a post-creation DACL mutation on a handle without WRITE_DAC.
-        let reserved = semwright_platform_services::windows_appcontainer_loopback_server(
+        // Create and authenticate the first pipe before reporting the bridge as active. This
+        // makes DriverProvider::connect return only after the child transport is ready.
+        let mut server = semwright_platform_services::windows_appcontainer_loopback_server(
             &pipe_path,
             expected_pid,
             true,
         )?;
+        connect_expected_pipe(&mut server, expected_pid, &self.stop).await?;
+
         let stop = self.stop.clone();
         let semaphore = Arc::new(Semaphore::new(16));
         tokio::spawn(async move {
-            let mut server = reserved;
             loop {
                 let accepted = tokio::select! {
                     _ = stop.cancelled() => break,
@@ -84,55 +114,29 @@ impl LoopbackProxy {
                     continue;
                 };
 
-                let connected = tokio::select! {
-                    _ = stop.cancelled() => break,
-                    result = tokio::time::timeout(Duration::from_secs(5), server.connect()) => result,
-                };
-                if !matches!(connected, Ok(Ok(()))) {
-                    drop(permit);
-                    match semwright_platform_services::windows_appcontainer_loopback_server(
-                        &pipe_path,
-                        expected_pid,
-                        false,
-                    ) {
-                        Ok(next) => server = next,
-                        Err(_) => break,
-                    }
-                    continue;
-                }
-                if semwright_platform_services::validate_windows_appcontainer_loopback_peer(
-                    &server,
-                    expected_pid,
-                )
-                .is_err()
-                {
-                    drop(permit);
-                    match semwright_platform_services::windows_appcontainer_loopback_server(
-                        &pipe_path,
-                        expected_pid,
-                        false,
-                    ) {
-                        Ok(next) => server = next,
-                        Err(_) => break,
-                    }
-                    continue;
-                }
-
-                let next = match semwright_platform_services::windows_appcontainer_loopback_server(
-                    &pipe_path,
-                    expected_pid,
-                    false,
-                ) {
-                    Ok(next) => next,
-                    Err(_) => break,
-                };
                 let connected_pipe = server;
-                server = next;
                 let connection_stop = stop.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
                     let _ = proxy_pipe_connection(tcp, connected_pipe, connection_stop).await;
                 });
+
+                let mut next =
+                    match semwright_platform_services::windows_appcontainer_loopback_server(
+                        &pipe_path,
+                        expected_pid,
+                        false,
+                    ) {
+                        Ok(next) => next,
+                        Err(_) => break,
+                    };
+                if connect_expected_pipe(&mut next, expected_pid, &stop)
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+                server = next;
             }
         });
         Ok(())
