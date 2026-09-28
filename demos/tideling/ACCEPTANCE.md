@@ -8,7 +8,7 @@ art approval or imply completion of a later wave.
 |---|---|---|
 | 0 Art direction | Original palette, warm expressive fish/cool reef, side camera | ART_DIRECTION.md, original authored reference render |
 | 1 Hero | 3 modeled silhouettes, actual rig, idle/swim/turn/bite/dash actions | GLB inspection and native Blender/Godot import; final animation/art approval remains open |
-| 2 Visual reef | Blender flora/rocks/shells, depth layers, fog, light ribbons, suspended particles and moving plants | Hosted juvenile capture reviewed: central foliage blocker resolved; full six-state capture rerun pending |
+| 2 Visual reef | Blender flora/rocks/shells, depth layers, fog, light ribbons, suspended particles and moving plants | Hosted juvenile capture reviewed: central foliage blocker resolved; six-state hosted capture passes; later-stage fixture revised to keep hunters from obscuring the hero |
 | 3 Movement | Keyboard/arrows, stick mapping, acceleration/deceleration, facing, dash and following camera | Real keyboard/dash acceptance passes; physical gamepad and human feel not verified |
 | 4 Core loop | Consumption, thresholds, predators, combo and 180-second ending | 13 rules checks and real collision acceptance pass; pause, timed ending, retry and mute suite also passes in hosted CI |
 | 5 Ecosystem | 7 enabled species, weighted spawning, pursuit/flee behavior and small-fish schooling | Runtime spawn code/resources; distinctness and schooling quality still need final visual review |
@@ -27,6 +27,7 @@ art approval or imply completion of a later wave.
 - Cross-app failure retained: https://github.com/seradotcom/semwright/actions/runs/36397681592 (fa31449).
 - Missing provenance failure retained: https://github.com/seradotcom/semwright/actions/runs/36398481511 (e868bc8).
 - Cross-app animation failure retained: https://github.com/seradotcom/semwright/actions/runs/36399345793 (0c3184c).
+- Animated baseline, species discovery, controls, lifecycle, pack and six visual states pass: https://github.com/seradotcom/semwright/actions/runs/36400796292 (fefc6c0).
 - A deterministic input bot reached stage 3 and was caught after 125.77 seconds.
   This is one observed automated run, not human feel evaluation or proof of timer victory.
 

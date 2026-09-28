@@ -4,7 +4,7 @@ Filesystem setup installs the owner-approved baseline and bridge. After baseline
 all Blender authoring and Godot resource changes use discovered Semwright capabilities.
 The external Godot acceptance script only observes/exercises the resulting game.
 """
-import hashlib,json,os,shutil,socket,struct,subprocess,sys,tempfile,time
+import hashlib,json,os,shutil,socket,struct,subprocess,tempfile,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3]
 EVIDENCE=ROOT/'verification/tideling-cross-app'

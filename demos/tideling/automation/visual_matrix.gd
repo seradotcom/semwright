@@ -25,13 +25,20 @@ func run() -> void:
 		fish.position = Vector3(-3,0,0) if id=="yellow" else Vector3(3,0,0) if id=="blue_gold" else Vector3(4,2,0)
 		fish.model.rotation.y = PI if id != "yellow" else 0
 	await capture("hierarchy")
-	game.paused = false
+	# Keep staged actors apart so a hunter cannot hide the hero's growth silhouette.
+	for fish in game.population: fish.queue_free()
+	game.population.clear()
+	for i in range(3):
+		var fish = game.spawn_fish(false,load("res://species/yellow.tres"))
+		fish.position = Vector3(-5+i*5,3,0)
 	# Deliberate visual fixture staging, not gameplay evidence.
 	for i in range(35): game.rules.eat(load("res://species/fry.tres"))
 	game.set_hero(2)
+	game.update_hud()
 	await capture("stage-2")
 	for i in range(85): game.rules.eat(load("res://species/fry.tres"))
 	game.set_hero(3)
+	game.update_hud()
 	await capture("stage-3")
 	game.end_game(true)
 	await capture("ending")

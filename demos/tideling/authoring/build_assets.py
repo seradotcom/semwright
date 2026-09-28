@@ -1,5 +1,5 @@
 """Direct Blender authoring, never presented as a Semwright execution trace."""
-import bpy, math, json, sys, hashlib, random
+import bpy, json, sys, hashlib, random
 from pathlib import Path
 from mathutils import Vector
 from math import sin, cos, pi
