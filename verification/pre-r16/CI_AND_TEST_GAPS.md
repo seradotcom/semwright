@@ -63,3 +63,10 @@ QUEUED, IN_PROGRESS, SKIPPED and CANCELLED are not PASS. A successful workflow t
 a relevant test is not execution evidence. Do not retry a failure without inspecting its root cause.
 The official candidate bundle and main freeze remain withheld until required changes are integrated,
 the exact main SHA is green, claims are reconciled and unique security-related work is disposed.
+
+## Follow-up audit checks
+
+The added builtin provenance parity test passed (1 test, 0.005s). Together with the 18 targeted
+packet tests, 19 targeted Python cases passed; these are distinct from the hosted Rust suite.
+The source verifier passed again with rust_compiled=false. PR156 dispatches heavy validation.
+Its initial head 4c7c296 reproduced the inherited Windows ARM64 fixture failure; see FOLLOWUP_FINDINGS.md.

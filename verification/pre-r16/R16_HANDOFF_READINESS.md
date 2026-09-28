@@ -16,8 +16,9 @@ and final merged-SHA verification are not complete.
 3. Forty-eight unmerged heads and security-relevant dirty worktree changes still require behavioral
    comparison. No release-critical change has been declared absent merely from patch/commit IDs.
 4. Audit fixes exist on a branch, not a verified main candidate; new Rust regressions require Actions.
-5. Root documentation is being reconciled, but concurrent RELEASE_BLOCKERS.md and website claims
-   are not yet fully reconciled. The public website was not inspected in this pass.
+5. Root documentation is reconciled with the later read-only website observation, but concurrent
+   RELEASE_BLOCKERS.md still needs owner-coordinated reconciliation. Historical public proofs do
+   not remove the current-SHA gate or outstanding branch review requirements.
 
 ## Remaining release blockers
 
@@ -62,3 +63,9 @@ record CANDIDATE_R16_BASELINE_SHA and generate the immutable UNREVIEWED packet.
 
 This repository has completed focused maintainer preflight work only. R16 remains open and requires
 independent review. The full preflight is not falsely declared complete.
+
+## Subsequent reconciliation
+
+See FOLLOWUP_FINDINGS.md: one Windows network backup is behaviorally superseded (47 heads remain),
+the Blender provenance fault is identified, Windows ARM64 failure is reproduced at the audit head,
+and the website public-proof observation is complete. Initial inventories remain historical snapshots.

@@ -336,6 +336,14 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 
 ## Evidence boundaries
 
+Historical public proofs are also retained in the separate website checkout: Figma Desktop
+126.5.6 at `3cd86958f70f7a8231d31e492b5505acff19dae0` exercises the driver/Plugin API route,
+not every operation through the CLI/broker. Godot Parcel Lantern at
+`9ecf35fd9c3d6fbcbc1f8b72b8d4734c70037ffa` records a bounded full broker route and clean restart.
+Neither was re-executed by this preflight. See
+[website/public proof observation](verification/pre-r16/WEBSITE_AND_PUBLIC_PROOFS.md).
+
+
 The observed workflows provide hosted regression evidence for the listed source SHA, with the
 Windows ARM64 failure explicitly retained. Historical records separately cover GNOME semantic
 GTK, nested Hyprland and isolated GNOME/Plasma VM input delivery/cancellation. In particular,

@@ -66,3 +66,9 @@ plugin tests, 1 hostile driver test, 1 protocol-v2 test and 7 federation tests p
 cases. This is PRECHECK evidence, not independent review and not evidence for the later fix commit.
 The archive generator's 18 Python tests (12 new + 6 existing packet-contract tests) passed separately.
 Each run/job has an exact identifier. QUEUED, IN_PROGRESS, SKIPPED and CANCELLED are never PASS.
+
+## Subsequent reconciliation
+
+See FOLLOWUP_FINDINGS.md: one Windows network backup is behaviorally superseded (47 heads remain),
+the Blender provenance fault is identified, Windows ARM64 failure is reproduced at the audit head,
+and the website public-proof observation is complete. Initial inventories remain historical snapshots.

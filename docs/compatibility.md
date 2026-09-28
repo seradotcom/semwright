@@ -20,7 +20,7 @@ and unresolved work before treating any later commit as a review candidate.
 | macOS Accessibility/Input/Capture | AXUIElement / CoreGraphics / ScreenCaptureKit | native hosted builds/noninteractive platform checks; actual TCC-gated operation depends on an authorized desktop | real authorized interactive Mac |
 | macOS arbitrary drivers/plugins | platform launcher boundary | deliberately unavailable | prove supported isolation model before enabling |
 | Blender / LibreOffice / MLT / KiCad / OBS | first-party DriverProviders | repository-specific tests/integration gates | per-application live matrix varies |
-| Figma | official Plugin API via authenticated loopback DriverProvider bridge | typed/plugin/fake-host tests plus sandboxed host CI | authorized disposable real-Figma Design/FigJam/Motion acceptance |
+| Figma | official Plugin API via authenticated loopback DriverProvider bridge | typed/plugin/fake-host tests, sandboxed host CI and historical Figma 126.5.6 driver-protocol proof at 3cd86958 | full CLI/broker and broader Design/FigJam/Motion acceptance are not established by that limited proof |
 | Chromium | private-profile CDP adapter | real hosted browser integration on Linux development line | broader OS matrix |
 | Plugins | platform sandbox service | Linux Bubblewrap/Landlock with executed hostile plugin/driver fixtures; platform-specific Windows authority tests | independent review and broader platform/live coverage |
 | Windows | UIA, input/capture, named-pipe IPC and restricted process-launch host | native x64/ARM64 and sealed-tool compatibility jobs; observed ARM64 UIA fixture failed on a stale reference | resolve the exact-SHA fixture failure; interactive consent/capture/UIPI/session/display matrix remains separately limited |

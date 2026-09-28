@@ -50,8 +50,9 @@
     "unmerged_refs": 85,
     "unmerged_distinct_heads": 63,
     "patch_or_changed_tree_equivalent_heads": 15,
-    "behavioral_disposition_pending_heads": 48,
-    "cleanup_performed": false
+    "behavioral_disposition_pending_heads": 47,
+    "cleanup_performed": false,
+    "behaviorally_superseded_heads": 1
   },
   "security_findings": [
     {
@@ -126,7 +127,7 @@
       "type": "unreconciled-unique-work",
       "release_blocking": true,
       "status": "OPEN_BEHAVIORAL_REVIEW",
-      "summary": "48 unmerged distinct heads still require behavioral disposition; security-relevant dirty worktrees are preserved, not declared obsolete.",
+      "summary": "47 unmerged distinct heads still require behavioral disposition; security-relevant dirty worktrees are preserved, not declared obsolete.",
       "source": "inventory/branch-tree-comparison.json; inventory/worktrees.json",
       "fix_sha": null,
       "regression": "compare high-priority dirty diffs, missing changes and regression evidence against main"
@@ -140,7 +141,9 @@
       "summary": "PR154 introduces owner-pinned Blender runtime alongside new export surface and currently failing checks; freeze must resolve the necessary security/runtime subset.",
       "source": "PR154 at d46b241b97beb14093da71582c5106e6d616271c",
       "fix_sha": null,
-      "regression": "owner root-cause fixes and exact-head plus merged-main checks"
+      "regression": "owner root-cause fixes and exact-head plus merged-main checks",
+      "root_cause_detail": "Direct source and failing run 36397956332 confirm 143 descriptors but 142 provenance entries; blender.export.glb lacks explicit builtin provenance. The owner was notified in comment 5866922131.",
+      "audit_regression": "tests/python/test_builtin_provenance_sync.py passes on audit branch; owner mapping/count changes remain outside this branch."
     }
   ],
   "resource_leaks": {
@@ -303,9 +306,18 @@
         "workflowName": "Native application integration"
       }
     ],
-    "audit_branch_ci": "NOT_YET_DISPATCHED",
+    "audit_branch_ci": "DISPATCHED_BY_PR_156; observe checks on exact head; queued/in-progress is not PASS",
     "queued_is_pass": false,
-    "skipped_is_pass": false
+    "skipped_is_pass": false,
+    "audit_branch_observation": {
+      "head_sha": "4c7c296a7f58124f0eead4319044985949fe18d9",
+      "pr": 156,
+      "windows_arm64": "FAILURE",
+      "windows_run": 36401539616,
+      "windows_job": 108860320846,
+      "failure": "Same UIA StaleReference at line 438 after approximately 20s of physical point probing; main fixture source unchanged by audit",
+      "other_checks": "MIXED_SUCCESS_IN_PROGRESS_QUEUED; no all-green claim"
+    }
   },
   "release_blockers": {
     "R06": "OPEN: physical Hyprland login and physical mixed-scale/multi-monitor when hardware exists; historical synthetic/nested/VM evidence not promoted to physical",
@@ -409,5 +421,13 @@
       "sources": "docs/compatibility.md; inventory/main-runs-start.json; PR153/154",
       "finding": "Linux, macOS and Windows have different enforcement and evidence. Initial Windows ARM64 failed; hosted successes are not interactive acceptance. Mac TCC, physical R06 and unresolved security-related branch/worktree work prevent an unqualified freeze. Owners retain their active work."
     }
-  ]
+  ],
+  "website_observation": {
+    "site_sha": "a1ee04fc3f5e6ed3d486e679d8c40077e24752b0",
+    "product_sha": "9ecf35fd9c3d6fbcbc1f8b72b8d4734c70037ffa",
+    "historical_pin_deliberate": true,
+    "new_live_reproduction": false,
+    "report": "WEBSITE_AND_PUBLIC_PROOFS.md"
+  },
+  "audit_pr": 156
 }

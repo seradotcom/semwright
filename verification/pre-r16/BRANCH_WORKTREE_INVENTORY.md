@@ -141,3 +141,9 @@ Full changed-path lists, unmatched commit identifiers and comparison methods are
 | `2424c389eaafd89b80a6e32b7155d9c577a874b2` | 1 | 1 | 1 | REQUIRES_BEHAVIORAL_DISPOSITION |
 | `d1ef157d46bf6e349d680f1fa0ac6160be1c2cd6` | 1 | 40 | 24 | REQUIRES_BEHAVIORAL_DISPOSITION |
 | `d91f9498b4040c062a555ea1b3b1279201491899` | 1 | 8 | 7 | REQUIRES_BEHAVIORAL_DISPOSITION |
+
+## Subsequent reconciliation
+
+See FOLLOWUP_FINDINGS.md: one Windows network backup is behaviorally superseded (47 heads remain),
+the Blender provenance fault is identified, Windows ARM64 failure is reproduced at the audit head,
+and the website public-proof observation is complete. Initial inventories remain historical snapshots.

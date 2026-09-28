@@ -104,3 +104,9 @@ Verification/regression: owner root-cause fixes and exact-head plus merged-main 
 The bundle safety tests execute exclusively against disposable repositories. No public secret values
 were printed or added to findings. No test was skipped, weakened, converted to flaky, or replaced by
 an unconditional PASS. Independent review and release admission remain unchanged.
+
+## Subsequent reconciliation
+
+See FOLLOWUP_FINDINGS.md: one Windows network backup is behaviorally superseded (47 heads remain),
+the Blender provenance fault is identified, Windows ARM64 failure is reproduced at the audit head,
+and the website public-proof observation is complete. Initial inventories remain historical snapshots.

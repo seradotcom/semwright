@@ -46,3 +46,9 @@ PipeWire doctor field is fixed. `RELEASE_BLOCKERS.md` remains under concurrent W
 its evergreen green-CI/R11 sandbox wording is still a coordination item, not silently assumed corrected.
 R06 preserves physical Hyprland/mixed-display limitations. R16 requires a genuinely independent review.
 No release version, gate admission, tag, branch deletion or canonical checkout cleanup was performed.
+
+## Subsequent reconciliation
+
+See FOLLOWUP_FINDINGS.md: one Windows network backup is behaviorally superseded (47 heads remain),
+the Blender provenance fault is identified, Windows ARM64 failure is reproduced at the audit head,
+and the website public-proof observation is complete. Initial inventories remain historical snapshots.

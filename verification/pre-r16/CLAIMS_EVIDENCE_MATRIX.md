@@ -15,7 +15,7 @@ No row is INDEPENDENTLY_REVIEWED. Historical records retain their own SHA.
 | macOS | IMPLEMENTED; native hosted build/noninteractive tests | initial Intel/ARM jobs success | no TCC/live desktop acceptance inferred |
 | GNOME/Plasma isolated input | Historical LIVE_TESTED | dated VM records preserve delivery/cancellation/focus checks | not rerun on initial SHA; not physical R06 closure |
 | Hyprland nested AMD path | Historical HARDWARE_TESTED within nested setup | preserved hardware-backed render-node record | synthetic second output is not physical mixed-scale |
-| Figma | IMPLEMENTED; fake/plugin/hosted protocol tests | initial native/continuity jobs | no disposable real Figma Design/FigJam/Motion acceptance claim |
+| Figma | IMPLEMENTED; hosted protocol tests; historical limited LIVE_TESTED record | initial native/continuity jobs plus public proof at 3cd86958 | historical real driver/Plugin API proof is not full CLI/broker or all-surface acceptance |
 | Godot / Motion / MLT / KiCad / OBS | Driver-specific implementation and test levels | separate workflow/source records; no common full-API claim | runtime and curated-surface coverage differs by driver |
 | Jobs/events/Tasks | IMPLEMENTED; UNIT_TESTED; hosted conformance | remove obsolete follow-on progress/artifact wording | remote durable task persistence not implied |
 | Workflow Distillation | IMPLEMENTED; contract tested in quality suite | record/replay/promote gates and descriptor drift checks | proposals do not grant authority; no formal information-flow proof |
@@ -38,4 +38,4 @@ README, VERIFY, compatibility and changelog now separate implementation and exec
 The historical September 21 changelog entry no longer implies the current development version lacks
 its committed lockfile and later features. `RELEASE_BLOCKERS.md` still needs coordinated edits in
 the Windows owner branch: its exact-document-SHA/green assertion and R11 sandbox sentence are stale.
-The public website has not yet been checked and is not covered by these corrections.
+The subsequent read-only website check is documented in WEBSITE_AND_PUBLIC_PROOFS.md. Its historical pin is deliberate; limited real Figma/Godot proofs are acknowledged without promoting them to current-SHA evidence.
