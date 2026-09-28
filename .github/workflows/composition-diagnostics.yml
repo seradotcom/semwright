@@ -8,6 +8,7 @@ on:
       - 'crates/motion-authoring/**'
       - 'crates/av-composition/**'
       - 'fixtures/composition/**'
+      - 'benchmarks/composition/**'
       - 'scripts/composition/**'
       - '.github/workflows/composition-diagnostics.yml'
       - 'Cargo.lock'
@@ -54,6 +55,8 @@ jobs:
         run: python scripts/composition/run-suite.py motion
       - name: AV coordination and final-media sync contracts
         run: python scripts/composition/run-suite.py av
+      - name: Benchmark harness invariants
+        run: python benchmarks/composition/test_run.py
       - name: Lints
         run: cargo clippy --locked -p semwright-semantic-composition -p semwright-media-time -p semwright-motion-authoring -p semwright-av-composition --all-targets -- -D warnings
       - name: Generated contract schemas

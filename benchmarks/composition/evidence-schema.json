@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Composition benchmark evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "benchmark", "tested_sha", "task_id", "input_digest", "asset_digests", "output_profile_digest", "environment", "arms", "human_review"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "benchmark": {"const": "composition-authoring-equivalence-v1"},
+    "tested_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "task_id": {"type": "string", "minLength": 1, "maxLength": 80},
+    "input_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "asset_digests": {"type": "array", "maxItems": 128, "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "output_profile_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "provider_version", "runtime", "native_application"],
+      "properties": {
+        "provider": {"type": ["string", "null"], "maxLength": 128},
+        "provider_version": {"type": ["string", "null"], "maxLength": 128},
+        "runtime": {"type": ["string", "null"], "maxLength": 256},
+        "native_application": {"type": ["string", "null"], "maxLength": 256}
+      }
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low_level", "high_level"],
+      "properties": {
+        "low_level": {"$ref": "#/$defs/arm"},
+        "high_level": {"$ref": "#/$defs/arm"}
+      }
+    },
+    "human_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performed", "notes"],
+      "properties": {
+        "performed": {"type": "boolean"},
+        "notes": {"type": ["string", "null"], "maxLength": 8192}
+      }
+    }
+  },
+  "$defs": {
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "setup_ms", "execution_ms", "calls", "retries", "errors", "observable_tokens", "interventions", "artifact_digests", "native_editable", "checks", "verification", "limitations"],
+      "properties": {
+        "status": {"enum": ["NOT_RUN", "PASS", "FAIL", "BLOCKED"]},
+        "setup_ms": {"type": ["integer", "null"], "minimum": 0},
+        "execution_ms": {"type": ["integer", "null"], "minimum": 0},
+        "calls": {"type": ["integer", "null"], "minimum": 0},
+        "retries": {"type": ["integer", "null"], "minimum": 0},
+        "errors": {"type": "array", "maxItems": 128, "items": {"type": "string", "maxLength": 1024}},
+        "observable_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "interventions": {"type": ["integer", "null"], "minimum": 0},
+        "artifact_digests": {"type": "array", "maxItems": 128, "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+        "native_editable": {"type": ["boolean", "null"]},
+        "checks": {"type": "object", "maxProperties": 128, "additionalProperties": {"enum": ["PASS", "FAIL", "UNKNOWN", "NOT_APPLICABLE"]}},
+        "verification": {"type": ["string", "null"], "enum": ["PASS", "FAIL", "UNKNOWN", "NOT_RUN", null]},
+        "limitations": {"type": "array", "maxItems": 128, "items": {"type": "string", "maxLength": 2048}}
+      }
+    }
+  }
+}

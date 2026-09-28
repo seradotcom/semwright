@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "benchmark": "composition-authoring-equivalence-v1",
+  "tested_sha": null,
+  "task_id": "structured-layout-edit",
+  "input_digest": null,
+  "asset_digests": [],
+  "output_profile_digest": null,
+  "environment": {
+    "provider": null,
+    "provider_version": null,
+    "runtime": null,
+    "native_application": null
+  },
+  "arms": {
+    "low_level": {
+      "status": "NOT_RUN",
+      "setup_ms": null,
+      "execution_ms": null,
+      "calls": null,
+      "retries": null,
+      "errors": [],
+      "observable_tokens": null,
+      "interventions": null,
+      "artifact_digests": [],
+      "native_editable": null,
+      "checks": {},
+      "verification": null,
+      "limitations": []
+    },
+    "high_level": {
+      "status": "NOT_RUN",
+      "setup_ms": null,
+      "execution_ms": null,
+      "calls": null,
+      "retries": null,
+      "errors": [],
+      "observable_tokens": null,
+      "interventions": null,
+      "artifact_digests": [],
+      "native_editable": null,
+      "checks": {},
+      "verification": null,
+      "limitations": []
+    }
+  },
+  "human_review": {
+    "performed": false,
+    "notes": null
+  }
+}

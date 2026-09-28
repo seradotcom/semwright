@@ -56,7 +56,7 @@ pub enum StagePayload {
         spec: SyncSpec,
     },
     PreparePublication {
-        manifest: PublicationManifest,
+        manifest: Box<PublicationManifest>,
     },
     Publish {
         receipt: PublicationCandidate,
@@ -305,7 +305,7 @@ impl AvCoordinator {
                 spec: b.spec.sync.clone(),
             },
             Stage::PreparePublication => StagePayload::PreparePublication {
-                manifest: self.manifest()?,
+                manifest: Box::new(self.manifest()?),
             },
             Stage::Publish => StagePayload::Publish {
                 receipt: o.publication.clone().ok_or_else(missing)?,
