@@ -706,13 +706,13 @@ def main():
             f"artifact:figma:{semantic_verified['value']['token']}"
         )
 
-        semantic_heading = semantic_apply["value"]["logicalToNode"]["heading"]
+        semantic_heading = semantic_apply["value"]["logicalToNode"]["semantic-heading"]
         semantic_update_spec = {
             "version": 1,
             "target": {"page_id": None, "parent_node_id": None},
             "nodes": [
                 {
-                    "id": "hero",
+                    "id": "semantic-hero",
                     "kind": "stack",
                     "name": "Semantic Hero",
                     "parent": None,
@@ -722,10 +722,10 @@ def main():
                     "layout": {"direction": "vertical", "gap": 32},
                 },
                 {
-                    "id": "heading",
+                    "id": "semantic-heading",
                     "kind": "text",
                     "name": "Heading",
-                    "parent": "hero",
+                    "parent": "semantic-hero",
                     "existing_node_id": semantic_heading,
                     "order": 0,
                     "role": "heading",
@@ -774,8 +774,8 @@ def main():
         assert updated["value"]["observedRevision"] == 16
         assert updated["value"]["created"] == []
         assert len(updated["value"]["modified"]) == 2
-        assert updated["value"]["logicalToNode"]["hero"] == semantic_root
-        assert updated["value"]["logicalToNode"]["heading"] == semantic_heading
+        assert updated["value"]["logicalToNode"]["semantic-hero"] == semantic_root
+        assert updated["value"]["logicalToNode"]["semantic-heading"] == semantic_heading
 
         updated_measurement = execute(
             driver, caps, "driver.figma.composition.measure",
@@ -789,7 +789,7 @@ def main():
         )
         updated_heading = next(
             node for node in updated_measurement["value"]["nodes"]
-            if node["logicalId"] == "heading"
+            if node["logicalId"] == "semantic-heading"
         )
         assert updated_heading["nodeId"] == semantic_heading
         assert updated_heading["text"]["characters"] == (
