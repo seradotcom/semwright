@@ -274,17 +274,24 @@ fn validate_regular_file(
     Ok(info)
 }
 
-fn mark_delete_on_close(file: &File) {
+fn mark_delete_on_close(file: &File) -> Result<()> {
     let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
     // SAFETY: file is a live temp HANDLE and disposition is a correctly sized input buffer.
-    let _ = unsafe {
+    unsafe {
         SetFileInformationByHandle(
             handle(file),
             FileDispositionInfo,
             (&disposition as *const FILE_DISPOSITION_INFO).cast(),
             size_of::<FILE_DISPOSITION_INFO>() as u32,
         )
-    };
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Windows confined temporary cleanup could not be confirmed",
+        )
+        .uncertain()
+    })
 }
 
 fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
@@ -491,7 +498,13 @@ impl Root {
             FILE_NON_DIRECTORY_FILE,
             "Windows confined temporary file creation failed",
         )?;
-        let temp_info = validate_regular_file(&temp, self.root_identity.volume, true)?;
+        let temp_info = match validate_regular_file(&temp, self.root_identity.volume, true) {
+            Ok(info) => info,
+            Err(error) => {
+                mark_delete_on_close(&temp)?;
+                return Err(error);
+            }
+        };
         let temp_identity = identity(&temp_info);
         let mut renamed = false;
         let result = (|| -> Result<()> {
@@ -525,7 +538,7 @@ impl Root {
             Ok(())
         })();
         if result.is_err() && !renamed {
-            mark_delete_on_close(&temp);
+            mark_delete_on_close(&temp)?;
         }
         result
     }
