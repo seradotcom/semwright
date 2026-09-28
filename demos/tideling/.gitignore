@@ -1,0 +1,5 @@
+project/.godot/
+artifacts/
+evidence/*
+!evidence/README.md
+*.blend1

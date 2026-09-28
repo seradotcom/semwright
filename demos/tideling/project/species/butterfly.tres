@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TidelingSpecies" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/species.gd" id="1"]
+[resource]
+script = ExtResource("1")
+id = "butterfly"
+display_name = "Butterfly"
+asset_path = "res://assets/butterfly.glb"
+edible_stage = 2
+size = 0.53
+speed = 1.5
+nutrition = 8
+predator = false
+spawn_weight = 2
+enabled = true

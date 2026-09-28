@@ -64,7 +64,7 @@ fn curated_capabilities() -> Result<Vec<Capability>> {
             .unwrap_or_default();
         let mut tags = vec!["blender".into(), "native".into(), "curated".into()];
         match descriptor.name.as_str() {
-            "driver.blender.file.save" => {
+            "driver.blender.file.save" | "driver.blender.export.glb" => {
                 tags.push(semwright_driver_sdk::artifact_output_tag("model/3d")?)
             }
             "driver.blender.render" => {

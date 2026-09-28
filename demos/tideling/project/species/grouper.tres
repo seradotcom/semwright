@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TidelingSpecies" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/species.gd" id="1"]
+[resource]
+script = ExtResource("1")
+id = "grouper"
+display_name = "Dusk prowler"
+asset_path = "res://assets/grouper.glb"
+edible_stage = 4
+size = 1.1
+speed = 2.5
+nutrition = 25
+predator = true
+spawn_weight = 0.45
+enabled = true

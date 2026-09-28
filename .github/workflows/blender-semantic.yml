@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - "crates/driver-blender/**"
+      - "adapters/blender/**"
+      - "schemas/commands.json"
       - ".github/workflows/blender-semantic.yml"
       - "scripts/dev/ci-driver-bwrap-profile.sh"
 
@@ -116,3 +118,13 @@ jobs:
           name: blender-semantic-evidence-${{ github.sha }}
           path: verification/blender-semantic
           retention-days: 14
+
+      - name: Export typed GLB with real Blender
+        run: |
+          /usr/local/bin/blender --background --factory-startup --disable-autoexec --python-exit-code 1 \
+            --python demos/tideling/automation/export_contract_test.py 2>&1 | tee verification/blender-semantic/glb-export.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blender-driver-${{ github.sha }}
+          path: target/debug/semwright-blender-driver
+          retention-days: 7
