@@ -48,8 +48,8 @@ use windows::Win32::{
             SE_FILE_OBJECT, SetEntriesInAclW, SetNamedSecurityInfoW, TRUSTEE_IS_SID,
             TRUSTEE_IS_USER, TRUSTEE_W,
         },
-        CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
-        GetAclInformation, GetLengthSid, GetSecurityDescriptorControl,
+        CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, DeriveCapabilitySidsFromName,
+        EqualSid, FreeSid, GetAce, GetAclInformation, GetLengthSid, GetSecurityDescriptorControl,
         Isolation::{
             CreateAppContainerProfile, DeleteAppContainerProfile, GetAppContainerFolderPath,
         },
@@ -260,6 +260,60 @@ fn well_known_sid(kind: windows::Win32::Security::WELL_KNOWN_SID_TYPE) -> Result
     }
     bytes.truncate(len as usize);
     Ok(bytes)
+}
+
+fn free_derived_sid_array(array: *mut PSID, count: u32) {
+    if array.is_null() {
+        return;
+    }
+    // Capability derivation is expected to return a tiny list. Bound traversal defensively;
+    // leaking an impossible oversized OS allocation is preferable to trusting an absurd count.
+    let bounded = count.min(64) as usize;
+    // SAFETY: DeriveCapabilitySidsFromName returns at least count LocalAlloc-owned SID
+    // pointers followed by a LocalAlloc-owned pointer array on success.
+    unsafe {
+        for sid in std::slice::from_raw_parts(array, bounded) {
+            if !sid.is_invalid() {
+                let _ = LocalFree(Some(HLOCAL(sid.0)));
+            }
+        }
+        let _ = LocalFree(Some(HLOCAL(array.cast())));
+    }
+}
+
+fn named_capability_sid(name: &str) -> Result<Vec<u8>> {
+    let wide = wide_null(OsStr::new(name))?;
+    let mut group_sids: *mut PSID = std::ptr::null_mut();
+    let mut group_count = 0u32;
+    let mut capability_sids: *mut PSID = std::ptr::null_mut();
+    let mut capability_count = 0u32;
+    // SAFETY: all out-pointers reference live locals and wide is NUL-terminated.
+    let derived = unsafe {
+        DeriveCapabilitySidsFromName(
+            PCWSTR(wide.as_ptr()),
+            &mut group_sids,
+            &mut group_count,
+            &mut capability_sids,
+            &mut capability_count,
+        )
+    };
+    let result = match derived {
+        Ok(()) if capability_count == 1 && !capability_sids.is_null() => {
+            // SAFETY: the API reported exactly one capability SID.
+            copy_sid_bytes(unsafe { *capability_sids })
+        }
+        Ok(()) => Err(Error::new(
+            ErrorCode::SandboxDenied,
+            format!("Windows capability {name} did not resolve to exactly one SID"),
+        )),
+        Err(_) => Err(Error::new(
+            ErrorCode::SandboxDenied,
+            format!("Windows capability {name} could not be resolved"),
+        )),
+    };
+    free_derived_sid_array(group_sids, group_count);
+    free_derived_sid_array(capability_sids, capability_count);
+    result
 }
 
 fn sid_matches(sid: PSID, expected: &[u8]) -> bool {
@@ -2305,34 +2359,50 @@ impl SandboxLauncher for WindowsSandbox {
         let child_stderr = inherited_null()?;
 
         let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
-        let mut attributes = ProcAttributes::new(3 - u32::from(cross_arch_host_tool))?;
+        let mut attributes = ProcAttributes::new(3)?;
         attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
-        if !cross_arch_host_tool {
-            let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
-            attributes.set_value(
-                PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-                &all_application_packages_policy,
-            )?;
-        }
-        // Diagnostic only: x64-on-ARM64 sealed-tool children use regular AppContainer here to
-        // isolate whether LPAC itself blocks Prism initialization. This branch must not merge
-        // with this relaxation; the result decides between a targeted capability fix and
-        // fail-closed cross-architecture support.
+        let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
+        attributes.set_value(
+            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+            &all_application_packages_policy,
+        )?;
 
         let network_sid = spec
             .network
             .then(|| well_known_sid(WinCapabilityInternetClientSid))
             .transpose()?;
-        let mut network_capability = network_sid.as_ref().map(|sid| SID_AND_ATTRIBUTES {
-            Sid: PSID(sid.as_ptr().cast_mut().cast()),
-            Attributes: SE_GROUP_ENABLED as u32,
-        });
+        // Windows-on-ARM x64 emulation performs compatibility initialization that needs
+        // read-only registry access. Keep this capability scoped to the cross-architecture
+        // Host-tool case; native drivers/tools and network-disabled children do not gain it.
+        let emulation_registry_sid = cross_arch_host_tool
+            .then(|| named_capability_sid("registryRead"))
+            .transpose()?;
+        let mut capability_entries = Vec::with_capacity(2);
+        if let Some(sid) = network_sid.as_ref() {
+            capability_entries.push(SID_AND_ATTRIBUTES {
+                Sid: PSID(sid.as_ptr().cast_mut().cast()),
+                Attributes: SE_GROUP_ENABLED as u32,
+            });
+        }
+        if let Some(sid) = emulation_registry_sid.as_ref() {
+            capability_entries.push(SID_AND_ATTRIBUTES {
+                Sid: PSID(sid.as_ptr().cast_mut().cast()),
+                Attributes: SE_GROUP_ENABLED as u32,
+            });
+        }
         let capabilities = SECURITY_CAPABILITIES {
             AppContainerSid: profile.sid,
-            Capabilities: network_capability
-                .as_mut()
-                .map_or(std::ptr::null_mut(), |capability| capability),
-            CapabilityCount: u32::from(network_capability.is_some()),
+            Capabilities: if capability_entries.is_empty() {
+                std::ptr::null_mut()
+            } else {
+                capability_entries.as_mut_ptr()
+            },
+            CapabilityCount: u32::try_from(capability_entries.len()).map_err(|_| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Windows sandbox capability count exceeds platform budget",
+                )
+            })?,
             ..Default::default()
         };
         attributes.set_value(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, &capabilities)?;
