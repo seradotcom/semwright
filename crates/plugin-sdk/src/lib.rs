@@ -1,4 +1,5 @@
 //! Semwright plugin protocol v2. Stdio is reserved for bounded framed JSON.
+use semwright_platform_api::launch::{MountClass, SANDBOX_MOUNTS_ENV, decode_materialized_mounts};
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::*;
 use serde::{Deserialize, Serialize};
@@ -7,6 +8,45 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, path::PathBuf};
 
 pub const PLUGIN_PROTOCOL_VERSION: u32 = 2;
+
+fn valid_mount_name(logical_name: &str) -> bool {
+    !logical_name.is_empty()
+        && logical_name.len() <= 64
+        && logical_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
+/// Resolve an owner-granted plugin workspace root as materialized by the current sandbox.
+pub fn workspace_mount(logical_name: &str) -> Result<PathBuf> {
+    if !valid_mount_name(logical_name) {
+        return Err(Error::invalid("Invalid plugin workspace mount name"));
+    }
+    match std::env::var(SANDBOX_MOUNTS_ENV) {
+        Ok(encoded) => decode_materialized_mounts(&encoded)?
+            .into_iter()
+            .find(|mount| {
+                mount.class == MountClass::Workspace && mount.logical_name == logical_name
+            })
+            .map(|mount| PathBuf::from(mount.path))
+            .ok_or_else(|| Error::unavailable("Requested plugin workspace was not materialized")),
+        Err(std::env::VarError::NotPresent) => {
+            #[cfg(unix)]
+            {
+                Ok(std::path::Path::new("/workspace").join(logical_name))
+            }
+            #[cfg(not(unix))]
+            {
+                Err(Error::unavailable(
+                    "Sandbox mount table is required on this platform",
+                ))
+            }
+        }
+        Err(std::env::VarError::NotUnicode(_)) => Err(Error::invalid(
+            "Sandbox mount table must be valid UTF-8 JSON",
+        )),
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {

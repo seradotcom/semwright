@@ -3470,6 +3470,7 @@ name = "semwright-plugin-sdk"
 version = "0.9.0-dev.1"
 dependencies = [
  "proptest",
+ "semwright-platform-api",
  "semwright-protocol",
  "semwright-types",
  "serde",

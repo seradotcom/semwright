@@ -1,7 +1,8 @@
 #![cfg(target_os = "windows")]
 
 use semwright_platform_api::launch::{
-    ResourceLimits, SandboxKind, SandboxLauncher, SandboxSpec, SealedToolMount, SealedToolSource,
+    Mount, MountClass, ResourceLimits, SandboxKind, SandboxLauncher, SandboxSpec, SealedToolMount,
+    SealedToolSource,
 };
 use semwright_platform_windows_sys::launch::WindowsSandbox;
 use std::time::Duration;
@@ -39,6 +40,42 @@ fn direct_sealed_tool_authority_is_fail_closed_on_windows() {
     }];
     let error = match WindowsSandbox.spawn(&candidate) {
         Ok(_) => panic!("direct Windows sealed tools must use Host-mediated protocol v4"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::SandboxDenied);
+}
+
+#[test]
+fn plugin_mount_contract_is_workspace_only() {
+    let mut candidate = spec(false);
+    candidate.kind = SandboxKind::Plugin;
+    candidate.mounts = vec![Mount {
+        source: std::env::current_exe().expect("current test executable"),
+        class: MountClass::Secret,
+        logical_name: "secret".into(),
+        read_only: true,
+        execute: false,
+    }];
+    let error = match WindowsSandbox.spawn(&candidate) {
+        Ok(_) => panic!("Windows Plugin must not materialize non-workspace mount classes"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::SandboxDenied);
+}
+
+#[test]
+fn external_mcp_mounts_remain_fail_closed_on_windows() {
+    let mut candidate = spec(false);
+    candidate.kind = SandboxKind::ExternalMcp;
+    candidate.mounts = vec![Mount {
+        source: std::env::current_exe().expect("current test executable"),
+        class: MountClass::Workspace,
+        logical_name: "workspace".into(),
+        read_only: true,
+        execute: false,
+    }];
+    let error = match WindowsSandbox.spawn(&candidate) {
+        Ok(_) => panic!("external MCP mounts require portable path virtualization first"),
         Err(error) => error,
     };
     assert_eq!(error.code, semwright_types::ErrorCode::SandboxDenied);
