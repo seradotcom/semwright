@@ -112,6 +112,20 @@ jobs:
           -p semwright-mcp
           -p semwright-tui
           --all-targets -- -D warnings
+      - name: Host runner outbound network preflight
+        run: |
+          python - <<'PY'
+          import json, socket
+          results = {}
+          for endpoint in ("1.1.1.1:443", "1.0.0.1:443"):
+              host, port = endpoint.rsplit(":", 1)
+              try:
+                  with socket.create_connection((host, int(port)), timeout=1.5):
+                      results[endpoint] = "reachable"
+              except OSError as error:
+                  results[endpoint] = f"{type(error).__name__}:{getattr(error, 'winerror', None) or getattr(error, 'errno', None)}"
+          print("SEMWRIGHT_HOST_EGRESS=" + json.dumps(results, sort_keys=True))
+          PY
       - name: Native Windows runtime tests
         run: >-
           cargo test --locked
@@ -135,9 +149,11 @@ jobs:
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_sealed_tool --nocapture
       - name: Secure Windows Driver loopback bridge
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_loopback --nocapture
-      - name: Secure Windows Plugin Host round-trip
+      - name: Secure Windows Driver ambient network authority
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_network --nocapture
+      - name: Secure Windows Plugin Host authority
         run: cargo test --locked -p semwright-plugin-host --features test-tools --test windows_secure_host -- --nocapture
-      - name: Secure Windows external MCP round-trip
+      - name: Secure Windows external MCP authority
         run: cargo test --locked -p semwright-federation --test windows_secure_stdio -- --nocapture
       - name: Native Windows docs
         run: |

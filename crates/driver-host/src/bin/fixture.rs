@@ -153,6 +153,46 @@ fn config_capability() -> Capability {
     }
 }
 
+fn network_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.network_probe".into(),
+            version: "1".into(),
+            description:
+                "Probe owner-granted ambient network without inheriting filesystem authority".into(),
+            input_schema: json!({
+                "type":"object",
+                "properties":{
+                    "address":{"type":"string","maxLength":128},
+                    "host_path":{"type":"string","maxLength":4096}
+                },
+                "required":["address","host_path"],
+                "additionalProperties":false
+            }),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "reachable":{"type":"boolean"},
+                    "host_visible":{"type":"boolean"},
+                    "error_code":{"type":"integer"}
+                },
+                "required":["reachable","host_visible","error_code"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 3_000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["network_probe".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "network".into()],
+        object_types: vec![],
+    }
+}
+
 fn disconnect_capability() -> Capability {
     Capability {
         descriptor: CommandDescriptor {
@@ -265,6 +305,7 @@ impl Driver for Fixture {
             tool_capability(),
             config_capability(),
             secret_capability(),
+            network_capability(),
             long_capability(),
             disconnect_capability(),
         ])
@@ -276,6 +317,7 @@ impl Driver for Fixture {
             "driver.fixture.tool_probe" => tool_capability(),
             "driver.fixture.config_probe" => config_capability(),
             "driver.fixture.secret_probe" => secret_capability(),
+            "driver.fixture.network_probe" => network_capability(),
             "driver.fixture.disconnect" => disconnect_capability(),
             _ => {
                 return Err(Error::new(
@@ -425,6 +467,55 @@ impl Driver for Fixture {
             let read = std::fs::read_to_string(&path)?;
             let write_ok = std::fs::write(&path, b"changed").is_ok();
             return Ok(json!({"read":read,"write_ok":write_ok}));
+        }
+        if command == "driver.fixture.network_probe" {
+            let args = args
+                .as_object()
+                .ok_or_else(|| Error::invalid("fixture network probe accepts an object"))?;
+            if args
+                .keys()
+                .any(|key| key != "address" && key != "host_path")
+            {
+                return Err(Error::invalid(
+                    "fixture network probe received an unknown argument",
+                ));
+            }
+            let address = args
+                .get("address")
+                .and_then(Value::as_str)
+                .ok_or_else(|| Error::invalid("fixture network probe address is required"))?
+                .parse::<std::net::SocketAddr>()
+                .map_err(|_| Error::invalid("fixture network probe address is invalid"))?;
+            let host_path = args
+                .get("host_path")
+                .and_then(Value::as_str)
+                .ok_or_else(|| Error::invalid("fixture network probe host_path is required"))?;
+            // Windows network isolation can leave a connect operation pending longer than the
+            // requested socket deadline. Keep that kernel wait off the Driver protocol runtime and
+            // bound the fixture response independently so a denied probe cannot wedge the session.
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            let _network_probe = std::thread::spawn(move || {
+                let outcome = match std::net::TcpStream::connect_timeout(
+                    &address,
+                    std::time::Duration::from_millis(750),
+                ) {
+                    Ok(_) => (true, 0),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                };
+                let _ = sender.send(outcome);
+            });
+            let (reachable, error_code) =
+                tokio::time::timeout(std::time::Duration::from_millis(1_000), receiver)
+                    .await
+                    .ok()
+                    .and_then(|result| result.ok())
+                    .unwrap_or((false, -2));
+            let host_visible = std::fs::read(host_path).is_ok();
+            return Ok(json!({
+                "reachable":reachable,
+                "host_visible":host_visible,
+                "error_code":error_code
+            }));
         }
         if command == "driver.fixture.disconnect" {
             if args.as_object().is_none_or(|args| !args.is_empty()) {

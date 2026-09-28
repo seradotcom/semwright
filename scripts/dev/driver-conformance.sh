@@ -66,7 +66,7 @@ assert inspect["identity"]["namespace"] == "driver.fixture."
 assert inspect["policy_grants_changed"] is False
 assert conformance["provider"] == "driver:fixture"
 assert conformance["namespace"] == "driver.fixture."
-assert conformance["capabilities"] == 7  # ping + mount_probe + tool_probe + config_probe + secret_probe + long + continuity disconnect fixture
+assert conformance["capabilities"] == 8  # ping + mount_probe + tool_probe + config_probe + secret_probe + network_probe + long + continuity disconnect fixture
 assert conformance["sandboxed"] is True
 assert conformance["persistent_process"] is True
 assert conformance["health"] is True

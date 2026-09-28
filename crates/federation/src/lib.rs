@@ -356,10 +356,10 @@ fn sandbox_spec(
         ));
     }
     #[cfg(target_os = "windows")]
-    if config.network || !config.mounts.is_empty() {
+    if !config.mounts.is_empty() {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows external MCP currently requires the zero-mount, network-denied AppContainer profile",
+            "Windows external MCP currently requires the zero-mount AppContainer profile",
         ));
     }
     let mounts = config
