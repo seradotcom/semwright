@@ -175,10 +175,7 @@ impl<'a> BrokerPublisher<'a> {
                     command: command.into(),
                     args,
                     dry_run: false,
-                    timeout_ms: None,
-                    idempotency_key: None,
-                    allow_fallback: false,
-                    readiness: None,
+                    backend: None,
                 },
                 cancel,
             )
@@ -198,7 +195,7 @@ impl<'a> BrokerPublisher<'a> {
             )
             .await?;
         value
-            .get("content")
+            .get("text")
             .and_then(Value::as_str)
             .map(str::to_owned)
             .ok_or_else(|| {
@@ -236,7 +233,13 @@ impl<'a> BrokerPublisher<'a> {
                 "existing candidate has different content",
             )?,
             Err(error) if error.code == ErrorCode::NotFound => {
-                self.call("filesystem.write",json!({"root":self.targets.candidate_root,"path":path,"content":content,"overwrite":false}),cancel.clone()).await.map_err(|e|Error::Denied(e.to_string()))?;
+                self.call(
+                    "filesystem.write",
+                    json!({"root":self.targets.candidate_root,"path":path,"text":content}),
+                    cancel.clone(),
+                )
+                .await
+                .map_err(|e| Error::Denied(e.to_string()))?;
             }
             Err(error) => return Err(Error::Denied(error.to_string())),
         }
@@ -315,7 +318,7 @@ impl<'a> BrokerPublisher<'a> {
         }
         // Scoped-root atomic copy is the existing authority path. The read-before-
         // copy check is best effort, not a new filesystem compare-and-swap claim.
-        let result=self.call("artifact.handoff",json!({"source_root":candidate.source_root,"source_path":candidate.source_path,"destination_root":candidate.destination_root,"destination_path":candidate.destination_path,"max_bytes":candidate.bytes,"expected_sha256":candidate.manifest_digest.as_str(),"semantic_type":"av-publication-manifest-v1","media_type":"application/json"}),cancel.clone()).await.map_err(|e|Error::Unknown(e.to_string()))?;
+        let result=self.call("artifact.handoff",json!({"source_root":candidate.source_root,"source_path":candidate.source_path,"destination_root":candidate.destination_root,"destination_path":candidate.destination_path,"max_bytes":candidate.bytes,"expected_sha256":candidate.manifest_digest.as_str(),"semantic_type":"application/vnd.semwright.av-publication-manifest+json","media_type":"application/json"}),cancel.clone()).await.map_err(|e|Error::Unknown(e.to_string()))?;
         ensure(
             result.get("copied") == Some(&json!(true))
                 && result.get("atomic") == Some(&json!(true))

@@ -55,7 +55,7 @@ fn sync() -> SyncSpec {
     }
 }
 fn cues() -> t::CueGraph {
-    c::strict_decode(br#"{"version":1,"cues":[{"id":"cue-a","anchor":{"kind":"absolute","time":{"num":"1","den":"1"}},"duration":{"num":"1","den":"10"},"source":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","method":"fixture","method_version":1,"confidence":10000},{"id":"cue-b","anchor":{"kind":"absolute","time":{"num":"2","den":"1"}},"duration":{"num":"1","den":"10"},"source":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","method":"fixture","method_version":1,"confidence":10000}]}"#).unwrap()
+    c::strict_decode(br#"{"version":1,"cues":[{"id":"cue-a","anchor":{"kind":"absolute","time":{"num":"1","den":"1"}},"duration":{"num":"1","den":"10"},"source":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","method":"fixture","version":1,"confidence":10000},{"id":"cue-b","anchor":{"kind":"absolute","time":{"num":"2","den":"1"}},"duration":{"num":"1","den":"10"},"source":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","method":"fixture","version":1,"confidence":10000}]}"#).unwrap()
 }
 fn plan() -> AvPlan {
     let proof = |service: Service, name: &str| ServiceProof {
