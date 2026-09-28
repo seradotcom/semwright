@@ -2849,6 +2849,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-av-composition"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "schemars",
+ "semwright-driver-sdk",
+ "semwright-media-time",
+ "semwright-recipes",
+ "semwright-semantic-composition",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "semwright-backend-api"
 version = "0.9.0-dev.1"
 dependencies = [

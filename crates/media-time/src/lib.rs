@@ -297,3 +297,6 @@ impl TimeMap {
         )
     }
 }
+
+pub mod artifact;
+pub use artifact::*;

@@ -1,0 +1,25 @@
+[package]
+name = "semwright-av-composition"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Evidence-bound audiovisual coordination above the existing Broker"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+semwright-semantic-composition.workspace = true
+semwright-media-time.workspace = true
+semwright-types.workspace = true
+semwright-driver-sdk.workspace = true
+semwright-recipes.workspace = true
+async-trait.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

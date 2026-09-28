@@ -103,3 +103,12 @@ impl CueGraph {
         canonical_digest(self)
     }
 }
+
+impl CueGraph {
+    pub fn digest(
+        &self,
+    ) -> semwright_semantic_composition::Result<semwright_semantic_composition::Digest> {
+        self.resolve()?;
+        semwright_semantic_composition::canonical_digest(self)
+    }
+}
