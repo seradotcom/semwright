@@ -160,7 +160,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
             cooperative_cancellation: true,
             progress: true,
             artifacts: true,
-            host_tools: true,
+            host_tools: false,
             health: true,
             ..Default::default()
         },
@@ -212,7 +212,8 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     broker.mount_provider(provider.clone()).await.unwrap();
     let health = call(&broker, "doctor", json!({})).await;
     assert!(health.ok, "{health:?}");
-    assert_eq!(health.data.unwrap()["runtime_available"], true);
+    let doctor = health.data.unwrap();
+    assert_eq!(doctor["runtime_available"], true, "{doctor}");
     let arguments = json!({"preset":"notification","seed":42,"sample_rate":48000,"duration_frames":48000,"channels":2,"format":"wav","bit_depth":16,"output_file":"proof.wav"});
     let result = call(&broker, "sfx.render", arguments.clone()).await;
     assert!(result.ok, "{result:?}");

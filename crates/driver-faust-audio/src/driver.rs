@@ -28,15 +28,19 @@ pub struct FaustAudioDriver {
 
 impl FaustAudioDriver {
     pub fn production() -> Result<Self> {
-        match Runtime::load_production()? {
-            Some(runtime) => Ok(Self {
+        match Runtime::load_production() {
+            Ok(Some(runtime)) => Ok(Self {
                 runtime: Some(runtime),
                 runtime_reason: "owner-pinned Faust runtime is available".into(),
             }),
-            None => Ok(Self {
+            Ok(None) => Ok(Self {
                 runtime: None,
                 runtime_reason:
                     "owner-pinned Faust interpreter and faust-libraries mount are absent".into(),
+            }),
+            Err(error) => Ok(Self {
+                runtime: None,
+                runtime_reason: format!("{}", error),
             }),
         }
     }
@@ -240,7 +244,7 @@ impl Driver for FaustAudioDriver {
             cooperative_cancellation: true,
             progress: true,
             artifacts: true,
-            host_tools: true,
+            host_tools: false,
             health: true,
             ..Default::default()
         }
@@ -260,10 +264,7 @@ impl Driver for FaustAudioDriver {
             .await
     }
     async fn health(&mut self) -> Result<Value> {
-        let version = match &self.runtime {
-            Some(runtime) => Some(runtime.version()),
-            None => None,
-        };
+        let version = self.runtime.as_ref().map(Runtime::version);
         Ok(json!({
             "healthy": true,
             "runtime_available": self.runtime.is_some(),
@@ -353,7 +354,7 @@ impl FaustAudioDriver {
                         context.as_ref().ok_or_else(|| {
                             Error::new(
                                 ErrorCode::Unsupported,
-                                "Protocol-v4 Host context is required",
+                                "Driver Host execution context is required",
                             )
                         })?,
                         &program,
@@ -373,7 +374,7 @@ impl FaustAudioDriver {
                     context.as_ref().ok_or_else(|| {
                         Error::new(
                             ErrorCode::Unsupported,
-                            "Protocol-v4 Host context is required",
+                            "Driver Host execution context is required",
                         )
                     })?,
                 )
@@ -386,7 +387,7 @@ impl FaustAudioDriver {
                     context.as_ref().ok_or_else(|| {
                         Error::new(
                             ErrorCode::Unsupported,
-                            "Protocol-v4 Host context is required",
+                            "Driver Host execution context is required",
                         )
                     })?,
                 )

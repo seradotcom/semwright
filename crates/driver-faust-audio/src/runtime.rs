@@ -1,4 +1,4 @@
-//! Production execution exclusively through protocol-v4 owner-pinned Host tools.
+//! Production uses immutable owner-pinned tools inside the Linux Driver Host sandbox.
 use crate::faust::FaustProgram;
 use semwright_audio_domain::{
     model::AudioProject,
@@ -14,6 +14,10 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
     time::Duration,
+};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    process::Command,
 };
 
 pub const HELPER_NAME: &str = "faust-interpreter";
@@ -143,9 +147,7 @@ impl Runtime {
                 "Faust source exceeds sealed-tool budget",
             ));
         }
-        let output = context
-            .execute_tool(HELPER_NAME, args, source.to_vec(), Duration::from_secs(30))
-            .await?;
+        let output = run_sealed_tool(context, args, source).await?;
         if output.exit_code != 0 {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -334,4 +336,84 @@ fn validate_file_name(value: &str, format: AudioFormat) -> Result<()> {
         return Err(Error::invalid("Invalid audio output filename"));
     }
     Ok(())
+}
+
+async fn bounded_output<R: tokio::io::AsyncRead + Unpin>(reader: R) -> Result<Vec<u8>> {
+    let mut result = Vec::new();
+    reader.take(262145).read_to_end(&mut result).await?;
+    if result.len() > 262144 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Native tool output exceeded limit",
+        ));
+    }
+    Ok(result)
+}
+async fn run_sealed_tool(
+    context: &DriverExecutionContext,
+    args: Vec<String>,
+    source: &[u8],
+) -> Result<semwright_driver_sdk::ToolExecutionOutput> {
+    if !cfg!(target_os = "linux") {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Audio runtime grants are not implemented for this platform's tool broker",
+        ));
+    }
+    context.check_cancelled()?;
+    // Fixed tool identity, materialized and made immutable by the real Driver Host.
+    // No input field can select an executable, environment, shell or script.
+    let mut child = Command::new(tool_path(HELPER_NAME)?)
+        .args(args)
+        .env_clear()
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()?;
+    let mut input = child
+        .stdin
+        .take()
+        .ok_or_else(|| Error::unavailable("tool stdin"))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| Error::unavailable("tool stdout"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| Error::unavailable("tool stderr"))?;
+    let cancellation = context.cancellation();
+    let result = {
+        let execution = async {
+            let write_input = async {
+                input.write_all(source).await?;
+                input.shutdown().await?;
+                drop(input);
+                Ok::<(), Error>(())
+            };
+            let wait = async { child.wait().await.map_err(Error::from) };
+            let (_, stdout, stderr, status) = tokio::try_join!(
+                write_input,
+                bounded_output(stdout),
+                bounded_output(stderr),
+                wait
+            )?;
+            Ok(semwright_driver_sdk::ToolExecutionOutput {
+                exit_code: status.code().unwrap_or(-1),
+                stdout,
+                stderr,
+            })
+        };
+        tokio::select! {
+            _ = cancellation.cancelled() => Err(Error::new(ErrorCode::Cancelled, "Native tool cancelled")),
+            result = tokio::time::timeout(Duration::from_secs(30), execution) =>
+                result.unwrap_or_else(|_| Err(Error::new(ErrorCode::Timeout, "Native tool timed out"))),
+        }
+    };
+    if result.is_err() {
+        let _ = child.kill().await;
+        let _ = child.wait().await;
+    }
+    result
 }

@@ -83,6 +83,9 @@ jobs:
           dpkg-query -W faust libsndfile1-dev > verification/audio/runtime-packages.txt
           sha256sum /usr/bin/faust > verification/audio/faust.sha256
           faust --version > verification/audio/faust-version.txt
+      - name: Check namespace prerequisite without changing host security policy
+        run: |
+          bwrap --die-with-parent --unshare-all --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev -- /usr/bin/true
       - name: Build fixed interpreter and sandbox binaries on runner
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/faust-runtime/main.cpp -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
