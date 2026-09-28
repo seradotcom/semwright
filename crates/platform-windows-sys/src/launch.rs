@@ -2364,6 +2364,21 @@ impl SandboxLauncher for WindowsSandbox {
         // process token, matching Microsoft's AppContainer network-capability creation model.
         // The prior token-only path exposed the SID but did not yield real outbound connectivity.
         let profile = AppContainerProfile::create(&capability_entries)?;
+        // LPAC strips the registry access that ordinary AppContainers inherit. Winsock
+        // initialization depends on read-only system networking configuration, so grant the
+        // documented LPAC registryRead capability only when ambient network was explicitly
+        // owner-authorized. This remains process-scoped and does not change filesystem mounts,
+        // loopback policy, or the AppContainer profile's network capability declaration.
+        let network_registry_sid = spec
+            .network
+            .then(|| named_capability_sid("registryRead"))
+            .transpose()?;
+        if let Some(sid) = network_registry_sid.as_ref() {
+            capability_entries.push(SID_AND_ATTRIBUTES {
+                Sid: PSID(sid.as_ptr().cast_mut().cast()),
+                Attributes: SE_GROUP_ENABLED as u32,
+            });
+        }
         let (mut mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
         let (tool_grants, tool_table) = prepare_windows_tools(spec, &profile)?;
         mount_grants.extend(tool_grants);
