@@ -9,8 +9,11 @@ pub enum Confinement {
     LinuxOpenat2NoSymlinksNoMounts,
     /// Pinned root, single child only. NOT an openat2-equivalent traversal claim.
     PinnedRootSingleChild,
-    /// Windows HANDLE-verified pinned root; initial implementation is read-only and one child.
+    /// Historical narrow Windows HANDLE-verified root: read-only and one immediate child.
     WindowsPinnedRootSingleChildReadOnly,
+    /// Windows HANDLE-relative traversal with every component opened no-reparse and pinned.
+    /// This is deliberately not claimed to be equivalent to Linux openat2 semantics.
+    WindowsHandleRelativeNoReparse,
 }
 
 pub trait ScopedRoot: Send + Sync {
