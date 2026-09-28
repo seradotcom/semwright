@@ -50,6 +50,7 @@ jobs:
         with:
           key: godot-conformance
       - name: Preflight Driver Host sandbox
+        # Exercises the same /plugin/tools sealed-tool exec path used by Driver Host.
         run: |
           set -o pipefail
           mkdir -p verification/godot-ci
