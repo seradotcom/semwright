@@ -266,20 +266,19 @@
         }
       ],
       "previewPolicy": "Native source references replace HTML/CSS previews. No browser detector applies. Tonal ramps are omitted because no runtime scale is authored.",
-      "openVisualIssues": [
-        "Central background foliage obstruction requires visual review."
-      ],
+      "openVisualIssues": [],
       "evidenceLimits": [
-        "No builds, tests or browsers run for this documentation refresh.",
-        "Source inspection does not certify focus visibility or screen readability.",
+        "Hosted visual fixtures are staged, not organic gameplay.",
+        "Physical gamepad and human movement feel remain unverified.",
         "Reduced effects does not suppress camera movement or ambient reef motion."
-      ]
+      ],
+      "visualReview": "Six hosted states from run 36401489681 reviewed: no material prototype interface or legibility blockers. Golden art and human feel remain open."
     }
   },
   "components": [],
   "narrative": {
     "northStar": "A small life in a vast reef",
-    "overview": "The original modeled fish and reef carry the experience. A warm hero moves through cool water, framed by layered coral, rock and kelp. The interface is a sparse native Godot CanvasLayer over the living scene; opening and ending copy use an editorial serif while play information stays compact.\n\nThis document refreshes the earlier directional notes from the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. It records a development prototype, not an approved golden game, complete accessibility review or Semwright driver proof. The hosted juvenile capture confirms that reduced, darkened kelp clears the central swimming plane; the full visual-state matrix remains pending. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.",
+    "overview": "The original modeled fish and reef carry the experience. A warm hero moves through cool water, framed by layered coral, rock and kelp. The interface is a sparse native Godot CanvasLayer over the living scene; opening and ending copy use an editorial serif while play information stays compact.\n\nThis document refreshes the earlier directional notes from the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. It records a development prototype, not an approved golden game, complete accessibility review or Semwright driver proof. The six hosted states (title, gameplay, hierarchy, stage two, stage three and ending) passed prototype readability review: the hero is unobstructed, growth stages are distinct, and HUD, instructions and actions are legible. These staged fixtures do not establish organic progression or human movement feel. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.",
     "keyCharacteristics": [
       "Warm fish and action accents against cool, layered water.",
       "A live reef behind the opening and ending overlay.",

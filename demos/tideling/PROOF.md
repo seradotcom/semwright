@@ -1,5 +1,12 @@
 # Reproduce the cross-application proof
 
+**Verified branch checkpoint:** `2bde9f0f9d78460a2b5bbfe9ca3f08688ce33b6c`,
+[Actions run 36401772211](https://github.com/seradotcom/semwright/actions/runs/36401772211).
+The route, source-game acceptance and exported-pack acceptance all passed.
+The [retained receipt](proofs/2bde9f0-receipt.json) records 332 semantic operations,
+matching export/handoff digests, observed tail motion and both passing gameplay
+records. This is a branch proof, not a merged public release.
+
 Run the **Tideling real cross-app proof** GitHub Actions workflow on the revision to
 be evaluated. It installs hash-pinned Blender 4.5.14 and Godot 4.7.2, builds both
 drivers, the sandbox helper, CLI and broker from that same revision, and executes

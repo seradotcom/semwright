@@ -1,8 +1,26 @@
 {
   "classification": "DEVELOPMENT_PROTOTYPE",
   "golden_game": false,
-  "semwright_cross_app_proof": false,
+  "semwright_cross_app_proof": true,
   "merged_sha_public_proof": false,
-  "completed_evidence": ["Blender rigged animated GLB assets", "Godot import and GPU render", "13 gameplay rule checks", "Real collision stage gate, keyboard, dash and predator end", "Pause, timed ending, retry and mute acceptance", "Hosted Linux pack export and portable launch"],
-  "open": ["Final visual and movement-feel review", "Broker-routed new GLB and cross-app baseline/delta proof rerun", "Clean merged-SHA public proof"]
+  "completed_evidence": [
+    "Blender rigged animated GLB assets",
+    "Godot import and GPU render",
+    "13 gameplay rule checks",
+    "Real collision stage gate, keyboard, dash and predator end",
+    "Pause, timed ending, retry and mute acceptance",
+    "Hosted Linux pack export and portable launch",
+    "Six hosted visual states reviewed for prototype readability",
+    "Broker-routed Blender rig, animation and scoped GLB export",
+    "Digest-verified handoff and new Godot species resource",
+    "Real spawn, tail animation motion and collision growth gate",
+    "Same acceptance repeated against exported BlueGold game pack"
+  ],
+  "open": [
+    "Golden art, animation and human movement-feel review",
+    "Physical gamepad validation",
+    "Clean merged-SHA public proof"
+  ],
+  "proof_source_sha": "2bde9f0f9d78460a2b5bbfe9ca3f08688ce33b6c",
+  "proof_run": "https://github.com/seradotcom/semwright/actions/runs/36401772211"
 }

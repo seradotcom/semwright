@@ -8,17 +8,21 @@ art approval or imply completion of a later wave.
 |---|---|---|
 | 0 Art direction | Original palette, warm expressive fish/cool reef, side camera | ART_DIRECTION.md, original authored reference render |
 | 1 Hero | 3 modeled silhouettes, actual rig, idle/swim/turn/bite/dash actions | GLB inspection and native Blender/Godot import; final animation/art approval remains open |
-| 2 Visual reef | Blender flora/rocks/shells, depth layers, fog, light ribbons, suspended particles and moving plants | Hosted juvenile capture reviewed: central foliage blocker resolved; six-state hosted capture passes; later-stage fixture revised to keep hunters from obscuring the hero |
+| 2 Visual reef | Blender flora/rocks/shells, depth layers, fog, light ribbons, suspended particles and moving plants | Six hosted states reviewed: unobstructed hero, distinct growth stages and readable UI; prototype visual review passed |
 | 3 Movement | Keyboard/arrows, stick mapping, acceleration/deceleration, facing, dash and following camera | Real keyboard/dash acceptance passes; physical gamepad and human feel not verified |
 | 4 Core loop | Consumption, thresholds, predators, combo and 180-second ending | 13 rules checks and real collision acceptance pass; pause, timed ending, retry and mute suite also passes in hosted CI |
-| 5 Ecosystem | 7 enabled species, weighted spawning, pursuit/flee behavior and small-fish schooling | Runtime spawn code/resources; distinctness and schooling quality still need final visual review |
-| 6 Polish | Original audio, three ambient layers, bite/growth particles, camera breath, HUD, mute and reduced-effects option | Visual states captured; reduced effects does not disable every ambient motion |
+| 5 Ecosystem | 7 enabled species, weighted spawning, pursuit/flee behavior and small-fish schooling | Actual spawn and tier behavior verified; visual hierarchy review passed for the prototype, organic schooling quality remains part of golden review |
+| 6 Polish | Original audio, three ambient layers, bite/growth particles, camera breath, HUD, mute and reduced-effects option | Six visual states reviewed for legibility; reduced effects does not disable every ambient motion |
 | 7 Golden game | Portable Linux development checkpoint exported and launched in hosted Actions | **NOT GOLDEN** while art/feel gates remain open |
 | 8 Semantic surfaces | Named rig/bones/materials/collection, typed species resources, tier groups and collision profiles | New export capability added; native adapter/contract CI passes |
-| 9 Cross-app proof | Hosted harness authors a fresh BlueGoldFish using typed commands, transfers GLB, configures spawn and exercises gameplay | Two attempts stopped before application mutations: owner config permissions, then missing builtin exporter provenance. Both corrections are implemented. The next run completed 331 broker operations and the consumption stage gate, but failed swim playback because Godot strips the loop suffix. Selector correction and animation-motion regression are pending hosted rerun. No full success claimed |
+| 9 Cross-app proof | Fresh BlueGoldFish authored through typed broker commands; GLB handoff; new Godot species resource; spawn, animation and consumption | **PASS** on branch SHA `2bde9f0`: candidate absent at baseline; tail motion observed; stage-one overlap rejected; collision-fed growth unlocks consumption and score; repeated against exported PCK. See PROOF.md and hosted receipt |
 | 10 Clean merged-SHA public proof | Draft PR #155 and source/hash-bearing build artifacts | **NOT COMPLETE**: no merged revision or final public proof |
 
 ## Observed checkpoints
+
+- Full cross-app route and exported BlueGold game acceptance: https://github.com/seradotcom/semwright/actions/runs/36401772211 (`2bde9f0`).
+- Baseline controls, animation, lifecycle, exported pack and six-state capture: https://github.com/seradotcom/semwright/actions/runs/36401780346 (`2bde9f0`, PR merge checkout).
+- Prototype visual review: six fixtures from https://github.com/seradotcom/semwright/actions/runs/36401489681 (`e6af94d`); no material interface/legibility blockers. Fixtures do not prove human feel or golden art.
 
 - Blender driver/real adapter export: https://github.com/seradotcom/semwright/actions/runs/36396464354 (4afe3c1).
 - Godot rules, real controls/collisions and portable pack: https://github.com/seradotcom/semwright/actions/runs/36396813694 (24c7fe4).

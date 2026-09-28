@@ -34,7 +34,7 @@ jobs:
           "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/rules_test.gd 2>&1 | tee verification/tideling/rules.log
           timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/runtime_proof.gd 2>&1 | tee verification/tideling/runtime.log
           timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/state_test.gd 2>&1 | tee verification/tideling/states.log
-          ! rg 'SCRIPT ERROR|^ERROR:' verification/tideling/{import,rules,runtime,states}.log
+          if rg 'SCRIPT ERROR|^ERROR:' verification/tideling/{import,rules,runtime,states}.log; then exit 1; fi
       - name: Export portable development checkpoint
         run: |
           set -euo pipefail
@@ -48,7 +48,7 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$RUNNER_TEMP/Tideling/GODOT-LICENSE.txt"
           cd "$RUNNER_TEMP/Tideling"
           ./Tideling.x86_64 --headless --main-pack "$RUNNER_TEMP/Tideling/Tideling.pck" --script "$GITHUB_WORKSPACE/demos/tideling/automation/runtime_proof.gd" 2>&1 | tee "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"
-          ! rg 'SCRIPT ERROR|^ERROR:' "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"
+          if rg 'SCRIPT ERROR|^ERROR:' "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"; then exit 1; fi
           printf '%s\n' "$GITHUB_SHA" > SOURCE_SHA.txt
           sha256sum Tideling.pck Tideling.x86_64 > SHA256SUMS.txt
       - name: Capture visual fixtures on the hosted renderer
@@ -59,7 +59,7 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE=1 timeout 240 xvfb-run -a "$GODOT_BIN" --path demos/tideling/project \
             --audio-driver Dummy --script ../automation/visual_matrix.gd -- "$GITHUB_WORKSPACE/verification/tideling" \
             2>&1 | tee verification/tideling/visual-fixtures.log
-          ! rg 'SCRIPT ERROR|^ERROR:' verification/tideling/visual-fixtures.log
+          if rg 'SCRIPT ERROR|^ERROR:' verification/tideling/visual-fixtures.log; then exit 1; fi
           for state in title-004 game-004 hierarchy stage-2 stage-3 ending; do
             test -s "verification/tideling/$state.png"
           done
