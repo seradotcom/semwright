@@ -296,7 +296,7 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
         .and_then(|value| u32::try_from(value).ok())
         .ok_or_else(|| Error::invalid("Windows rename target exceeds Unicode budget"))?;
     let header = offset_of!(FILE_RENAME_INFO, FileName);
-    let total = header
+    let payload = header
         .checked_add(wide.len().saturating_mul(2))
         .ok_or_else(|| {
             Error::new(
@@ -304,6 +304,7 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
                 "Windows rename buffer overflow",
             )
         })?;
+    let total = payload.max(size_of::<FILE_RENAME_INFO>());
     let mut buffer = vec![0u8; total];
     let info = buffer.as_mut_ptr().cast::<FILE_RENAME_INFO>();
     // SAFETY: buffer is large enough for the fixed prefix plus every UTF-16 unit.
