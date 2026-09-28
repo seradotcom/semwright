@@ -495,6 +495,7 @@ async fn figma_semantic_plan_does_not_grant_apply_authority() {
     let config = PolicyConfig {
         profile: Profile::Observe,
         allow: [provider.identity.id.clone()].into(),
+        confirm_mutations: true,
         ..Default::default()
     };
     let broker = Broker::new(
@@ -526,14 +527,14 @@ async fn figma_semantic_plan_does_not_grant_apply_authority() {
         CancellationToken::new(),
     )
     .await;
-    assert_eq!(denied.error.unwrap().code, ErrorCode::PolicyDenied);
-    assert_eq!(denied.execution.policy_decision, "deny");
+    assert_eq!(denied.error.unwrap().code, ErrorCode::ConsentRequired);
+    assert_eq!(denied.execution.policy_decision, "require_confirmation");
     assert_eq!(
         provider.calls.load(Ordering::SeqCst),
         1,
-        "Broker policy must deny semantic mutation before provider execution"
+        "Broker policy must block semantic mutation before provider execution"
     );
-    assert_eq!(audit.tail(1).unwrap()[0].decision, "deny");
+    assert_eq!(audit.tail(1).unwrap()[0].decision, "require_confirmation");
     broker.shutdown().await;
 }
 
