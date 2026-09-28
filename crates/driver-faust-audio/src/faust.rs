@@ -7,8 +7,8 @@ use semwright_audio_domain::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const TRANSLATOR_VERSION: u32 = 1;
-const MAX_SOURCE_BYTES: usize = 1_048_576;
+pub const TRANSLATOR_VERSION: u32 = 2;
+const MAX_SOURCE_BYTES: usize = 60_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FaustProgram {
@@ -84,12 +84,23 @@ pub fn translate(
     } else {
         format!("({expression}) <: par(i, {outputs}, _)")
     };
+    let definitions = memo
+        .iter()
+        .map(|(id, expr)| {
+            let index = by_id
+                .keys()
+                .position(|key| *key == id.as_str())
+                .expect("validated signal");
+            format!("n{index} = {expr};\n")
+        })
+        .collect::<String>();
     let source = format!(
         "import(\"stdfaust.lib\");\n\
          declare name \"Semwright deterministic semantic synth\";\n\
          declare semwright_translator_version \"{TRANSLATOR_VERSION}\";\n\
-         t = +(1) ~ _;\n\
+         t = (+(1) ~ _) - 1;\n\
          seeded_noise(seed) = random / 2147483647.0 with {{ random = +(seed) ~ *(1103515245); }};\n\
+         {definitions}\
          process = {process};\n"
     );
     if source.len() > MAX_SOURCE_BYTES {
@@ -112,8 +123,16 @@ fn expression(
     sample_rate: SampleRate,
     duration_frames: u64,
 ) -> Result<String> {
-    if let Some(value) = memo.get(id) {
-        return Ok(value.clone());
+    let index = by_id
+        .keys()
+        .position(|key| *key == id)
+        .ok_or_else(|| Error::invalid("Missing signal"))?;
+    let symbol = format!("n{index}");
+    if memo.contains_key(id) {
+        return Ok(symbol);
+    }
+    if visiting.len() >= 128 {
+        return Err(Error::limit("Signal graph depth exceeds translator limit"));
     }
     if !visiting.insert(id.to_owned()) {
         return Err(Error::invalid(
@@ -242,8 +261,12 @@ fn expression(
         }
     };
     visiting.remove(id);
-    memo.insert(id.to_owned(), value.clone());
-    Ok(value)
+    let bytes = memo.values().map(String::len).sum::<usize>();
+    if bytes.saturating_add(value.len()) > MAX_SOURCE_BYTES - 4096 {
+        return Err(Error::limit("Generated graph exceeds sealed-tool budget"));
+    }
+    memo.insert(id.to_owned(), value);
+    Ok(symbol)
 }
 
 fn filter_expr(

@@ -3210,6 +3210,7 @@ dependencies = [
  "async-trait",
  "semwright-audio-domain",
  "semwright-backend-api",
+ "semwright-core",
  "semwright-driver-host",
  "semwright-driver-sdk",
  "semwright-policy",

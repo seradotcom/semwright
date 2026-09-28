@@ -78,13 +78,23 @@ jobs:
       - name: Install runner-only Faust runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y faust=2.70.3+ds-1.1build2 libsndfile1-dev
+          sudo apt-get install -y faust=2.70.3+ds-1.1build2 libsndfile1-dev bubblewrap libpipewire-0.3-dev
           mkdir -p verification/audio
           dpkg-query -W faust libsndfile1-dev > verification/audio/runtime-packages.txt
           sha256sum /usr/bin/faust > verification/audio/faust.sha256
           faust --version > verification/audio/faust-version.txt
+      - name: Build fixed interpreter and sandbox binaries on runner
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/faust-runtime/main.cpp -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
+          cargo build --locked -p semwright-daemon -p semwright-faust-audio-driver --bins
+          find target/debug -maxdepth 1 -type f -name '*sandbox*' -print
       - name: Real Faust translation acceptance
         run: python3 scripts/audio/run-suite.py faust
+      - name: Broker to sealed interpreter and independent PCM oracle
+        run: |
+          export SEMWRIGHT_TEST_FAUST_HELPER="$RUNNER_TEMP/semwright-faust-interpreter"
+          export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
+          python3 scripts/audio/run-suite.py faust-host
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

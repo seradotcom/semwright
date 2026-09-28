@@ -11,7 +11,9 @@ use semwright_audio_domain::{
     support::{AudioOperation, OperationSupport},
     time::{SampleRange, SampleRate},
 };
-use semwright_driver_sdk::{Capability, Driver, descriptor_digest};
+use semwright_driver_sdk::{
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest,
+};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk};
 use serde_json::{Value, json};
 
@@ -26,14 +28,15 @@ pub struct FaustAudioDriver {
 
 impl FaustAudioDriver {
     pub fn production() -> Result<Self> {
-        match Runtime::load_production().map_err(map_domain)? {
+        match Runtime::load_production()? {
             Some(runtime) => Ok(Self {
                 runtime: Some(runtime),
                 runtime_reason: "owner-pinned Faust runtime is available".into(),
             }),
             None => Ok(Self {
                 runtime: None,
-                runtime_reason: "owner-pinned /workspace/runtime/runtime.json is absent".into(),
+                runtime_reason:
+                    "owner-pinned Faust interpreter and faust-libraries mount are absent".into(),
             }),
         }
     }
@@ -165,8 +168,8 @@ fn capabilities() -> Vec<Capability> {
             description: "Compile generated semantic Faust source with the owner-pinned compiler",
             input: synth_input_schema,
             output: validate_output_schema,
-            risk: Risk::ReadOnly,
-            idempotency: Idempotency::ReadOnly,
+            risk: Risk::Mutating,
+            idempotency: Idempotency::NonIdempotent,
         },
         Op {
             name: "sfx.render",
@@ -232,11 +235,56 @@ impl Driver for FaustAudioDriver {
         Ok(capabilities())
     }
 
-    async fn execute(
+    fn interfaces(&self) -> DriverInterfaces {
+        DriverInterfaces {
+            cooperative_cancellation: true,
+            progress: true,
+            artifacts: true,
+            host_tools: true,
+            health: true,
+            ..Default::default()
+        }
+    }
+    async fn execute(&mut self, command: &str, digest: &str, args: Value) -> Result<Value> {
+        self.execute_inner(command, digest, args, None).await
+    }
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        self.execute_inner(command, digest, args, Some(context))
+            .await
+    }
+    async fn health(&mut self) -> Result<Value> {
+        let version = match &self.runtime {
+            Some(runtime) => Some(runtime.version()),
+            None => None,
+        };
+        Ok(json!({
+            "healthy": true,
+            "runtime_available": self.runtime.is_some(),
+            "runtime_reason": self.runtime_reason,
+            "faust_version": version,
+            "translator_version": TRANSLATOR_VERSION,
+            "arbitrary_faust_source": false,
+            "arbitrary_compiler_flags": false,
+            "shell_execution": false,
+            "network": false
+        }))
+    }
+}
+
+impl FaustAudioDriver {
+    async fn execute_inner(
         &mut self,
         command: &str,
         descriptor_sha256: &str,
         args: Value,
+        context: Option<DriverExecutionContext>,
     ) -> Result<Value> {
         let cap = capability(command)?;
         if descriptor_digest(&cap.descriptor)? != descriptor_sha256 {
@@ -301,23 +349,48 @@ impl Driver for FaustAudioDriver {
                     )
                 })?;
                 runtime
-                    .validate_program(&program)
-                    .await
-                    .map_err(map_domain)?;
+                    .validate_program(
+                        context.as_ref().ok_or_else(|| {
+                            Error::new(
+                                ErrorCode::Unsupported,
+                                "Protocol-v4 Host context is required",
+                            )
+                        })?,
+                        &program,
+                    )
+                    .await?;
                 Ok(json!({
                     "valid": true,
                     "source_sha256": program.source_sha256,
                     "translator_version": TRANSLATOR_VERSION,
-                    "compiler_version": runtime.version().await.map_err(map_domain)?
+                    "compiler_version": runtime.version()
                 }))
             }
             Some("sfx.render") => {
                 let request = RenderRequest::from_preset(&args)?;
-                self.render_request(request).await
+                self.render_request(
+                    request,
+                    context.as_ref().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::Unsupported,
+                            "Protocol-v4 Host context is required",
+                        )
+                    })?,
+                )
+                .await
             }
             Some("synth.render") => {
                 let request = RenderRequest::from_synth(&args)?;
-                self.render_request(request).await
+                self.render_request(
+                    request,
+                    context.as_ref().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::Unsupported,
+                            "Protocol-v4 Host context is required",
+                        )
+                    })?,
+                )
+                .await
             }
             _ => Err(Error::new(
                 ErrorCode::NotFound,
@@ -326,27 +399,11 @@ impl Driver for FaustAudioDriver {
         }
     }
 
-    async fn health(&mut self) -> Result<Value> {
-        let version = match &self.runtime {
-            Some(runtime) => Some(runtime.version().await.map_err(map_domain)?),
-            None => None,
-        };
-        Ok(json!({
-            "healthy": true,
-            "runtime_available": self.runtime.is_some(),
-            "runtime_reason": self.runtime_reason,
-            "faust_version": version,
-            "translator_version": TRANSLATOR_VERSION,
-            "arbitrary_faust_source": false,
-            "arbitrary_compiler_flags": false,
-            "shell_execution": false,
-            "network": false
-        }))
-    }
-}
-
-impl FaustAudioDriver {
-    async fn render_request(&self, request: RenderRequest) -> Result<Value> {
+    async fn render_request(
+        &self,
+        request: RenderRequest,
+        context: &DriverExecutionContext,
+    ) -> Result<Value> {
         let runtime = self.runtime.as_ref().ok_or_else(|| {
             Error::new(
                 ErrorCode::Unavailable,
@@ -359,10 +416,7 @@ impl FaustAudioDriver {
             request.duration_frames,
             request.channels,
         )?;
-        runtime
-            .validate_program(&program)
-            .await
-            .map_err(map_domain)?;
+        context.check_cancelled()?;
 
         let profile = AudioProfile {
             sample_rate: SampleRate(request.sample_rate),
@@ -385,18 +439,31 @@ impl FaustAudioDriver {
             channels: request.channels,
             bit_depth: request.bit_depth,
             normalize_lufs_milli: None,
-            dither_seed: Some(request.seed),
+            dither_seed: None,
         };
         let artifact = runtime
-            .render(
-                &program,
-                &intent,
-                &project,
-                std::path::Path::new("/workspace/output"),
-                &request.output_file,
-            )
-            .await
-            .map_err(map_domain)?;
+            .render(context, &program, &intent, &project, &request.output_file)
+            .await?;
+        context.report_progress(
+            semwright_types::JobProgress {
+                completed: artifact.native.frames,
+                total: Some(artifact.native.frames),
+                message: Some("Native Faust render published".into()),
+            },
+            vec![semwright_types::JobArtifact {
+                name: "audio".into(),
+                reference: format!("artifact:sha256:{}", artifact.sha256),
+                media_type: Some(
+                    match artifact.format {
+                        AudioFormat::Wav => "audio/wav",
+                        AudioFormat::Flac => "audio/flac",
+                    }
+                    .into(),
+                ),
+                sha256: Some(artifact.sha256.clone()),
+                bytes: Some(artifact.bytes),
+            }],
+        )?;
         Ok(json!({
             "artifact": {
                 "file": artifact.file_name,
@@ -406,7 +473,9 @@ impl FaustAudioDriver {
             },
             "source_sha256": program.source_sha256,
             "translator_version": TRANSLATOR_VERSION,
-            "deterministic": true
+            "deterministic": true,
+            "native_receipt": artifact.native,
+            "libraries_sha256": artifact.libraries_sha256
         }))
     }
 }
@@ -459,7 +528,6 @@ struct RenderRequest {
     sample_rate: u32,
     duration_frames: u64,
     channels: u16,
-    seed: u64,
     format: AudioFormat,
     bit_depth: BitDepth,
     output_file: String,
@@ -473,7 +541,7 @@ impl RenderRequest {
         let source = SourceRequest::from_preset(value)?;
         Self::finish(value, source, required_u64(value, "seed")?)
     }
-    fn finish(value: &Value, source: SourceRequest, seed: u64) -> Result<Self> {
+    fn finish(value: &Value, source: SourceRequest, _seed: u64) -> Result<Self> {
         let format = match required_str(value, "format", 16)? {
             "wav" => AudioFormat::Wav,
             "flac" => AudioFormat::Flac,
@@ -490,7 +558,6 @@ impl RenderRequest {
             sample_rate: source.sample_rate,
             duration_frames: source.duration_frames,
             channels: source.channels,
-            seed,
             format,
             bit_depth,
             output_file: required_str(value, "output_file", 240)?.to_owned(),
@@ -666,8 +733,16 @@ fn render_output_schema() -> Value {
         },"required":["file","sha256","bytes","format"],"additionalProperties":false},
         "source_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
         "translator_version":{"const":TRANSLATOR_VERSION},
-        "deterministic":{"const":true}
-    },"required":["artifact","source_sha256","translator_version","deterministic"],"additionalProperties":false})
+        "deterministic":{"const":true},
+        "libraries_sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+        "native_receipt":{"type":"object","properties":{
+            "schema_version":{"const":1},"frames":{"type":"integer","minimum":1},
+            "sample_rate":{"type":"integer","minimum":8000,"maximum":192000},
+            "channels":{"type":"integer","minimum":1,"maximum":16},
+            "clipped_input_samples":{"type":"integer","minimum":0},
+            "compiler_version":{"const":"2.70.3"},"engine":{"const":"faust-interpreter"},"dither":{"const":"none"}
+        },"required":["schema_version","frames","sample_rate","channels","clipped_input_samples","compiler_version","engine","dither"],"additionalProperties":false}
+    },"required":["artifact","source_sha256","translator_version","deterministic","native_receipt","libraries_sha256"],"additionalProperties":false})
 }
 
 #[cfg(test)]
