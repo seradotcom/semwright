@@ -1,12 +1,20 @@
 # Verification — Semwright 0.9.0-dev.1
 
-**Accepted development baseline: the exact Git commit containing this document.**
+**Evidence is commit-scoped, not inherited by the commit containing this document.**
 
-**Verdict: all required hosted quality workflows are green on this exact commit; Semwright is
-still a development snapshot and is not v1.0/release accepted.** Evidence from earlier commits is
-historical only and is not used to certify this baseline.
+The maintainer pre-R16 observation used
+`241000c268d1bf1dc29d4e91a913097ac0d020cb`. Eleven workflows succeeded and the Windows
+workflow failed on its ARM64 native UIA fixture. Consequently this observation is
+**NOT_READY_FOR_INDEPENDENT_R16_REVIEW**, not an all-green candidate. Fixes and later
+commits require their own checks. R16 remains OPEN and this file is not an independent
+security review. See [the preflight inventory](verification/pre-r16/PRE_R16_STATE_MAP.md).
 
-## Exact-commit GitHub Actions evidence
+The table below names required gates, not an assertion that they have passed on a future
+commit. For the observed SHA, the per-run/job records are retained under
+`verification/pre-r16/inventory/`; historical live evidence below retains its original
+SHA/environment and does not automatically certify the observation or a later candidate.
+
+## Required GitHub Actions gates
 
 | Workflow/job | Required result | Evidence location |
 |---|---:|---|
@@ -33,12 +41,21 @@ historical only and is not used to certify this baseline.
 | Platformization / native macOS Intel | PASS | Commit checks: Platformization and macOS |
 | Packaging certification / x86_64 | PASS | Commit checks: `Packaging certification` |
 | Packaging certification / ARM64 | PASS | Commit checks: `Packaging certification` |
+| Windows / x64 native noninteractive | PASS | Observed run `36394993424`, job `108839165102`: success |
+| Windows / ARM64 native noninteractive | PASS | Observed run `36394993424`, job `108839165329`: **failure**, stale UIA reference |
+| Windows / sealed-tool compatibility | PASS | Both observed compatibility jobs succeeded; not interactive certification |
+| Supply-chain / Nix, bundles and attestations | PASS | Observed run `36394993370`: success |
+| Godot / conformance and real runtime | PASS | Observed run `36394993332`: success |
+| OBS / protocol, sandbox, real probe and fuzz | PASS | Observed run `36394993299`: success |
+| Driver continuity | PASS | Observed run `36394993500`: success |
+| Plasma Wayland / Openbox EWMH | PASS | Observed runs `36394993404` / `36394993501`: success |
 
 The development matrix uses Rust 1.98.1, while Rust **1.88.0 is the declared and executed MSRV**. The hosted MSRV job runs the required fmt/check/build/Clippy/tests/doctests/docs/release/fake/federation gates at that lower bound. The normal x86_64/ARM64 matrix runs the locked workspace on 1.98.1. Source contracts run Python discovery, Node tests, source/schema validation and the native C/openat2 harness; a separate hosted static-lints job executes pinned Ruff 0.13.2, ShellCheck and actionlint including embedded workflow shell.
 
 The dependency job runs `cargo audit --deny warnings` and `cargo deny --locked check`. Coverage
 produces workspace LCOV and JSON artifacts; no percentage is asserted here. The fuzz job executes
-the `protocol`, `selector`, `recipe`, `plugin`, and `path` targets for bounded intervals. Workflows
+the target list in `.github/workflows/security.yml` for bounded intervals (24 targets at
+the preflight observation, including workflow, video, Figma, Godot and Skills surfaces). Workflows
 use explicit Bash, so a producer failure cannot be hidden by `tee`.
 
 The native Chromium job launches the Rust adapter against the hosted runner's real Chrome binary
@@ -61,8 +78,8 @@ is untrusted data and cannot claim builtin authority. Provider capabilities can 
 replaced and removed atomically against a catalog revision, and invocation provenance is preserved
 through execution and audit.
 
-The exact-commit quality suite exercises **12 Provider Runtime integration tests** and **10 dynamic
-provider catalog tests**. These include simultaneous registration, operation-level availability,
+The quality suite includes `crates/core/tests/provider_runtime.rs` and the dynamic provider
+catalog tests. Their executed counts must be taken from the selected SHA's job log. These include simultaneous registration, operation-level availability,
 atomic descriptor replacement, stale catalog revisions, schema/result validation, timeout and
 cancellation propagation, hostile metadata, provider-scoped events, definitive disconnect, and
 bounded external JSON Schema/value traversal including Draft 7 `dependencies`. The real Chromium
@@ -78,8 +95,11 @@ import bounded/namespaced tools as untrusted capabilities, and execute through t
 policy/approval/audit path. Integration tests exercise policy denial, cancellation, malformed
 descriptors/results, `tools/list_changed` refresh, crash invalidation and owner-registry lifecycle.
 
-This certifies the mediated federation path, not the upstream executable itself. A trusted stdio
-upstream still runs as the same Unix user and is not currently sandboxed against that UID. Remote
+This is regression evidence for the mediated federation path, not certification of the upstream
+executable. The current launcher stages verified bytes and requires the platform sandbox;
+`ExternalMcpProvider::sandbox_spec` fails closed when isolation is unavailable. Filesystem/network
+grants are explicit. This does not protect against a separate malicious same-UID process outside
+that sandbox, nor prove the kernel or native-code boundary correct. Remote
 MCP transports and input-required rounds remain follow-on work; broker jobs are mapped to MCP Tasks
 as described in the Events and Jobs section below.
 
@@ -118,8 +138,9 @@ sandbox boundary, not a formal proof against kernel, Bubblewrap, Landlock or nat
 
 The App Driver SDK now has owner-facing static/local distribution that is deliberately separate
 from broker authority. `.swdp` v1 is not an arbitrary archive: it contains one bounded metadata
-document and exactly one ELF payload, eliminating package-controlled extraction paths, symlinks and
-install hooks. The package and executable are SHA-256 pinned; the index independently pins package
+document and an executable payload. The current format also supports explicitly declared,
+bounded companion files; their destinations and sizes are validated rather than treated as an
+arbitrary archive. Platform executable admission remains distinct from package inspection. The package and executable are SHA-256 pinned; the index independently pins package
 size/hash, driver identity/version/publisher, a Semwright SemVer requirement and optional exact
 application versions.
 
@@ -303,7 +324,8 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 
 ## Verification hardening included in the baseline
 
-- The command schema contract expects the current 90 descriptors (180 input/output schemas).
+- The command schema contract derives its expected descriptors from the checked-in catalog
+  (142 builtin descriptors at the preflight observation), rather than a stale fixed count.
 - The local runner bounds time and output, records real exit codes and hashes, persists transitions,
   rejects contradictory PASS reports, and does not overwrite prior evidence.
 - Release admission has an independent required-gate set and rejects malformed/partial metadata,
@@ -314,21 +336,20 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 
 ## Evidence boundaries
 
-This baseline now claims executed hosted evidence for Plasma/KWin Wayland, real headless Sway IPC
-and Openbox/EWMH X11 in addition to the real GNOME Wayland semantic GTK route, plus owner-hardware
-nested Hyprland native-IPC lifecycle/stale-ref evidence and a synthetic mixed-scale second output.
-It also records a real owner-approved GNOME RemoteDesktop/`ConnectToEIS` grant-and-stop lifecycle
-plus focused EIS pointer move/click, exact relative-logical coordinate behavior and focus-drift
-rejection. It does **not** yet claim a physical Hyprland login, focused keyboard live certification,
-in-flight input cancellation, physical mixed-scale display evidence or a complete real-login desktop
-matrix. It does not yet certify a sandbox for
-same-UID MCP upstream executables, a remote signed driver marketplace or universal cryptographic
-publisher identity.
-Adversarial plugin/driver sandbox regressions are executed but do not constitute a formal security
-proof. Rust 1.88 is the executed MSRV; Chromium hardening, MCP Tasks mapping, Provider Runtime
-progress/artifacts, Driver Protocol v2 child events/cancellation, reproducible native tar/deb
-packaging, pinned Nix evaluation, normalized CycloneDX SBOMs and GitHub attestations are executed.
-Independent security review and the remaining live desktop/portal matrix remain open.
+The observed workflows provide hosted regression evidence for the listed source SHA, with the
+Windows ARM64 failure explicitly retained. Historical records separately cover GNOME semantic
+GTK, nested Hyprland and isolated GNOME/Plasma VM input delivery/cancellation. In particular,
+`verification/live-portal-eis/gnome-vm-keyboard-2026-09-26.json` and
+`verification/live-portal-eis/plasma-kde-portal-notify-vm-2026-09-26.json` record the later isolated
+keyboard paths; the earlier shared-authority keyboard attempts remain invalidated diagnostics.
+These records do not constitute physical Hyprland-login or physical mixed-scale/multi-monitor
+acceptance. The exact residual R06 conditions remain in `RELEASE_BLOCKERS.md`.
+
+Linux hostile plugin/driver/federation prechecks ran with positive test counts at the observed
+SHA. This is not an independent review, a formal sandbox proof, or an interchangeable Windows /
+macOS / Linux security certificate. A remote signed marketplace, universal publisher identity,
+full native application APIs and interactive Mac/Windows acceptance are not implied by hosted
+success. R16 remains OPEN; `release-readiness.json` remains fail-closed.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

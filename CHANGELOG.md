@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Integrated portable platform contracts and native macOS/Windows hosts, preserving distinct
+  hosted, interactive and physical-hardware verification levels.
+- Added Provider Runtime, governed sandboxed MCP federation, persistent Driver Protocol v2,
+  bounded events/jobs/artifacts, local driver distribution and application-specific drivers.
+- Added Workflow Distillation and Agent Skills compatibility with broker policy re-entry,
+  descriptor-drift checks and explicit verification/replay/promotion gates.
+- Implemented AT-SPI delta recovery, portal/EIS lifecycle and bounded PipeWire capture;
+  added native packaging reproducibility, Nix, SBOM and attestation workflows.
+- Hardened security-review bundle generation: reject existing/unsafe output destinations,
+  preserve previous bundles, create private output and checksum `BASELINE_SHA`.
+- Escape terminal controls in CLI human diagnostics and JSON metadata without changing
+  parsed values; remove the obsolete hardcoded PipeWire-unimplemented diagnostic.
+- Reconcile current documentation with commit-scoped evidence. The pre-R16 observation
+  retains a Windows ARM64 failure, unresolved parallel work and R16 OPEN; no release is declared.
+
 - Renamed the canonical user CLI from `computerctl` to `semwright` across build targets,
   packaging, workflows, examples, smoke tests and documentation.
 - Renamed the advertised MCP gateway tools from the legacy `computer_*` names to
@@ -28,7 +43,9 @@ traceability. Corrected CLI recipe/manifest serialization, KWin cancelled queue 
 audit decision labels, fake app-ref validation, configuration section/path consistency and
 Chromium snapshot generation handling during review.
 
-**No Rust compilation, Cargo.lock, binary release, live desktop certification, plugin
-sandbox conformance run or live Blender result exists for this version.** EIS, PipeWire
-pixels, persistent portal grants and AT-SPI deltas remain unimplemented. See VERIFY.md and
-RELEASE_BLOCKERS.md. No production-ready claim or fake green CI badge is made.
+Historical state of the initial source snapshot on 2026-09-21: Rust execution, a committed
+lockfile, live desktop/Blender evidence and hostile sandbox conformance had not yet been
+established, and EIS, PipeWire pixels, persistent portal grants and AT-SPI deltas were unfinished.
+Later unreleased commits using the same development version added those implementations and
+separate evidence. This historical entry does not describe current support or certify a release;
+see `VERIFY.md` and `RELEASE_BLOCKERS.md` for the evidence boundaries.

@@ -1,0 +1,413 @@
+{
+  "audit_version": "1.0.0",
+  "schema_id": "semwright.pre-r16-audit/v1",
+  "start_sha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+  "candidate_sha": null,
+  "date": "2026-09-28T09:01:53.706936+00:00",
+  "status": "NOT_READY_FOR_INDEPENDENT_R16_REVIEW",
+  "audit_complete": false,
+  "maintainer_preflight_only": true,
+  "independent_review_performed": false,
+  "r16_ready": false,
+  "r16_state": "OPEN",
+  "fix_commits": [
+    "53c5344ec3fea500b7cade8471928a25bb194048"
+  ],
+  "open_prs": [
+    {
+      "number": 153,
+      "head_sha": "ab5b4f95d2193a7e1070fc5158c037c0b8f3a281",
+      "classification": "F",
+      "reason": "The interactive harness still accepts exit-zero without positive test counts and uses generic self-hosted Windows labels; baseline ARM64 UIA failure also requires owner reconciliation."
+    },
+    {
+      "number": 154,
+      "head_sha": "d46b241b97beb14093da71582c5106e6d616271c",
+      "classification": "F",
+      "reason": "Owner-pinned runtime is relevant to isolation; the PR also expands GLB capabilities and has multiple failing checks. Resolve runtime/security requirements without automatically admitting new export surface."
+    },
+    {
+      "number": 155,
+      "head_sha": "9acfa3c4f3c02c340db8cb579277f4754ef8d96d",
+      "classification": "E",
+      "reason": "Game/demo and cross-application expansion is outside the pre-release audit. Its Blender export overlaps PR154; reconcile that overlap without adding the demo to the review baseline."
+    }
+  ],
+  "must_land_prs": [],
+  "must_resolve_before_freeze": [
+    153,
+    154
+  ],
+  "superseded_prs": [],
+  "deferred_prs": [
+    155
+  ],
+  "unique_branch_findings": {
+    "refs_inspected": 333,
+    "worktrees_inspected": 188,
+    "dirty_worktrees": 46,
+    "detached_worktrees": 14,
+    "unmerged_refs": 85,
+    "unmerged_distinct_heads": 63,
+    "patch_or_changed_tree_equivalent_heads": 15,
+    "behavioral_disposition_pending_heads": 48,
+    "cleanup_performed": false
+  },
+  "security_findings": [
+    {
+      "id": "PRE-001",
+      "severity": "MEDIUM",
+      "type": "destructive-release-tool",
+      "release_blocking": true,
+      "status": "FIX_COMMITTED_CI_PENDING",
+      "summary": "Review-bundle generation deleted a caller-selected existing output path.",
+      "source": "scripts/dev/security-review-bundle.sh",
+      "fix_sha": "53c5344ec3fea500b7cade8471928a25bb194048",
+      "regression": "tests/python/test_security_review_bundle_safety.py; 12 executed tests passed"
+    },
+    {
+      "id": "PRE-002",
+      "severity": "LOW",
+      "type": "bundle-integrity",
+      "release_blocking": false,
+      "status": "FIX_COMMITTED_CI_PENDING",
+      "summary": "BASELINE_SHA was outside SHA256SUMS.",
+      "source": "scripts/dev/security-review-bundle.sh",
+      "fix_sha": "53c5344ec3fea500b7cade8471928a25bb194048",
+      "regression": "baseline tampering regression passed"
+    },
+    {
+      "id": "PRE-003",
+      "severity": "MEDIUM",
+      "type": "terminal-display",
+      "release_blocking": true,
+      "status": "FIX_COMMITTED_CI_PENDING",
+      "summary": "CLI human errors could contain raw terminal controls from filenames; JSON output left C1/format controls literal.",
+      "source": "crates/cli/src/lib.rs; crates/cli/src/semwright.rs",
+      "fix_sha": "53c5344ec3fea500b7cade8471928a25bb194048",
+      "regression": "Rust unit and production CLI tests added; execution delegated to Actions"
+    },
+    {
+      "id": "PRE-004",
+      "severity": "MEDIUM",
+      "type": "claim-evidence-drift",
+      "release_blocking": true,
+      "status": "REMEDIATION_IN_AUDIT_BRANCH",
+      "summary": "README/VERIFY/compatibility and doctor contradicted implemented/tested paths and overstated exact-commit CI. RELEASE_BLOCKERS.md also needs owner-coordinated reconciliation.",
+      "source": "README.md; VERIFY.md; docs/compatibility.md; CHANGELOG.md; RELEASE_BLOCKERS.md; crates/core/src/lib.rs",
+      "fix_sha": "53c5344ec3fea500b7cade8471928a25bb194048",
+      "regression": "doctor contract regression added; source/doc checks required"
+    },
+    {
+      "id": "PRE-005",
+      "severity": "GATE",
+      "type": "exact-sha-ci-failure",
+      "release_blocking": true,
+      "status": "OPEN_OWNER_WINDOWS",
+      "summary": "Observed main Windows ARM64 native UIA test fails StaleReference; later job steps were skipped.",
+      "source": "Actions run 36394993424 job 108839165329",
+      "fix_sha": null,
+      "regression": "owner must address fixture lifecycle/root cause and provide new exact-SHA green evidence"
+    },
+    {
+      "id": "PRE-006",
+      "severity": "MEDIUM",
+      "type": "false-positive-test-evidence",
+      "release_blocking": true,
+      "status": "OPEN_OWNER_WINDOWS",
+      "summary": "PR153 marks interactive rows PASS from cargo exit code alone; zero-selected tests and generic runner routing are not rejected.",
+      "source": "PR153 at ab5b4f95d2193a7e1070fc5158c037c0b8f3a281",
+      "fix_sha": null,
+      "regression": "positive executed count, ignored-only/zero-test rejection and dedicated runner label required"
+    },
+    {
+      "id": "PRE-007",
+      "severity": "GATE",
+      "type": "unreconciled-unique-work",
+      "release_blocking": true,
+      "status": "OPEN_BEHAVIORAL_REVIEW",
+      "summary": "48 unmerged distinct heads still require behavioral disposition; security-relevant dirty worktrees are preserved, not declared obsolete.",
+      "source": "inventory/branch-tree-comparison.json; inventory/worktrees.json",
+      "fix_sha": null,
+      "regression": "compare high-priority dirty diffs, missing changes and regression evidence against main"
+    },
+    {
+      "id": "PRE-008",
+      "severity": "GATE",
+      "type": "active-runtime-remediation",
+      "release_blocking": true,
+      "status": "OPEN_OWNER_BLENDER",
+      "summary": "PR154 introduces owner-pinned Blender runtime alongside new export surface and currently failing checks; freeze must resolve the necessary security/runtime subset.",
+      "source": "PR154 at d46b241b97beb14093da71582c5106e6d616271c",
+      "fix_sha": null,
+      "regression": "owner root-cause fixes and exact-head plus merged-main checks"
+    }
+  ],
+  "resource_leaks": {
+    "confirmed_new_leak": false,
+    "meaning": "No new leak reproduced; this is not proof of absence. Whole-runtime soak and cross-platform cleanup were not executed by this audit."
+  },
+  "claim_mismatches": [
+    "stale unimplemented PipeWire doctor field",
+    "stale README native and sandbox evidence",
+    "evergreen exact-commit all-green verdict",
+    "Windows described as future host",
+    "stale workflow/schema counts",
+    "R11 upstream-sandbox prose in RELEASE_BLOCKERS.md"
+  ],
+  "ci": {
+    "observed_sha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+    "observed_runs": [
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993404,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:06:06Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993404",
+        "workflowName": "Plasma Wayland live"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993501,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:06:36Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993501",
+        "workflowName": "Native X11 EWMH live"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993500,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:07:23Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993500",
+        "workflowName": "Driver session continuity"
+      },
+      {
+        "conclusion": "failure",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993424,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:09:07Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993424",
+        "workflowName": "Platformization and Windows"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993361,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:10:31Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993361",
+        "workflowName": "Packaging certification"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993383,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:13:22Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993383",
+        "workflowName": "Dependency, coverage and fuzz gates"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993418,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:15:18Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993418",
+        "workflowName": "Platformization and macOS"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993428,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:25:01Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993428",
+        "workflowName": "Quality gates"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:21Z",
+        "databaseId": 36394993370,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:27:51Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993370",
+        "workflowName": "Supply-chain certification"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:20Z",
+        "databaseId": 36394993332,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:05:47Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993332",
+        "workflowName": "Godot driver integration"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:20Z",
+        "databaseId": 36394993299,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:05:47Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993299",
+        "workflowName": "OBS driver integration"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-09-28T08:02:20Z",
+        "databaseId": 36394993321,
+        "event": "push",
+        "headBranch": "main",
+        "headSha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+        "status": "completed",
+        "updatedAt": "2026-09-28T08:13:56Z",
+        "url": "https://github.com/seradotcom/semwright/actions/runs/36394993321",
+        "workflowName": "Native application integration"
+      }
+    ],
+    "audit_branch_ci": "NOT_YET_DISPATCHED",
+    "queued_is_pass": false,
+    "skipped_is_pass": false
+  },
+  "release_blockers": {
+    "R06": "OPEN: physical Hyprland login and physical mixed-scale/multi-monitor when hardware exists; historical synthetic/nested/VM evidence not promoted to physical",
+    "R16": "OPEN: independent identified reviewer/report on exact candidate SHA required"
+  },
+  "bundle": {
+    "candidate_bundle": null,
+    "reason": "No candidate declared; generator exercised with disposable Git snapshots only",
+    "manifest_status_required": "UNREVIEWED"
+  },
+  "scope_exclusions": [
+    "no owner Windows/Blender/Godot edits",
+    "no canonical checkout implementation",
+    "no heavy builds/tests on connected device",
+    "no new feature development",
+    "no worktree deletion",
+    "no independent R16 conclusion"
+  ],
+  "security_precheck": [
+    {
+      "area": "1. Authorization and confirmation",
+      "status": "PRECHECK PASS",
+      "scope": "Scoped static/fixture precheck only",
+      "sources": "crates/policy/src/lib.rs; crates/core/src/lib.rs; crates/daemon/src/console.rs; broker_contract/provider_runtime tests",
+      "finding": "Deny precedence, explicit filesystem/application scopes, broker policy re-entry, independent foreground-console challenge and post-approval revalidation exist. Request metadata cannot manufacture approval. Full interactive hostile-prompt testing was not repeated."
+    },
+    {
+      "area": "2. IPC and session identity",
+      "status": "PRECHECK PASS",
+      "scope": "Scoped static/fixture precheck only",
+      "sources": "crates/daemon/src/server.rs; crates/core/src/jobs.rs; broker_contract/provider_runtime tests",
+      "finding": "Peer validation precedes admission; session/request IDs are bounded and replay IDs rejected. Connection cancellation and job refs/events are session-scoped. Broker sessions share an owner policy; this is not a mutually hostile same-UID tenant service."
+    },
+    {
+      "area": "3. Object identity and focus",
+      "status": "FINDING",
+      "scope": "Windows exact-SHA failure remains",
+      "sources": "crates/core/src/lib.rs; crates/platform-windows/tests/uia_native_fixture.rs; Actions 36394993424/108839165329",
+      "finding": "Broker dispatch resolves refs after approval, checks backend identity, and refuses input unless the window remains focused. No silent fallback is taken. Windows ARM64 nevertheless fails exact UIA inspection with StaleReference; root cause and regression remain owner work."
+    },
+    {
+      "area": "4. Portal authority",
+      "status": "NOT EXECUTED",
+      "scope": "No new live portal session in this audit",
+      "sources": "crates/platform-linux/src/portal.rs; verification/live-portal-eis/; RELEASE_BLOCKERS.md R02/R04/R06",
+      "finding": "Historical isolated VM input and private protocol fixtures are distinguished from invalidated shared-authority attempts. A successful initial-SHA PipeWire job is recorded, not promoted to physical login/multimonitor proof. No consent dialog or input was driven on the connected owner desktop."
+    },
+    {
+      "area": "5. Filesystem confinement",
+      "status": "PRECHECK PASS",
+      "scope": "Scoped Linux source and existing regression review",
+      "sources": "crates/platform-linux-sys/src/filesystem.rs; crates/platform-common/src/artifact.rs",
+      "finding": "FD-relative openat2 rejects symlinks, mount crossing, dot/parent paths; reads require bounded single-link regular files; atomic writes use private exclusive temporaries and directory fsync. Artifact copy enforces source/destination grants and digest before write. This is not an exhaustive root-open race proof or equivalent Windows/macOS certification."
+    },
+    {
+      "area": "6. Plugin and driver isolation",
+      "status": "PRECHECK PASS",
+      "scope": "Executed initial-SHA Linux hostile fixtures",
+      "sources": "crates/driver-host/src/lib.rs; crates/platform-linux-sys/src/launch.rs; inventory/hostile-precheck-execution.txt",
+      "finding": "Linux launcher clears environment, requires Bubblewrap/Landlock, materializes explicit mounts/tools and has no unsandboxed fallback. Hostile plugin 3/3 and driver 1/1 actually ran; protocol-v2 1/1 also ran. Driver/native application authority and unrelated same-UID processes remain distinct boundaries. Blender runtime changes are unresolved owner work."
+    },
+    {
+      "area": "7. Federated MCP",
+      "status": "PRECHECK PASS",
+      "scope": "Executed initial-SHA federation fixture",
+      "sources": "crates/federation/src/lib.rs; inventory/hostile-precheck-execution.txt",
+      "finding": "Sandboxed stdio fixture ran 7/7 tests. Definitions/identities are owner-bound, descriptors are untrusted and namespaced, policy is re-entered, and disconnect invalidates catalog generation. Remote transports and Windows filesystem virtualization are not implied. README/VERIFY sandbox claims were stale and are corrected in the audit branch."
+    },
+    {
+      "area": "8. Prompt-injection containment",
+      "status": "PRECHECK PASS",
+      "scope": "Code/contract-level authority review, not LLM persuasion",
+      "sources": "crates/core/src/lib.rs; crates/core/src/workflows.rs; crates/registry/src/; crates/core/tests/provider_runtime.rs",
+      "finding": "Imported metadata does not grant builtin provenance or self-approval. Workflow proposals are non-executing until explicit gates; learned recipe steps re-enter policy. Completed workflow-library visibility is owner-wide, not a separate tenant vault; recording/event ownership does not imply cross-user isolation. Formal information-flow noninterference is not claimed."
+    },
+    {
+      "area": "9. Audit and disclosure",
+      "status": "FINDING",
+      "scope": "CLI remediation committed; new Rust execution pending",
+      "sources": "crates/core/src/audit.rs; crates/core/src/lib.rs; crates/cli/src/lib.rs; crates/cli/tests/terminal_display.rs",
+      "finding": "Journal records metadata rather than raw request values; audit-finish failure returns an uncertain outcome instead of claiming rollback. CLI terminal controls required escaping (PRE-003). Tracked-pattern scan found no high-confidence candidate and GitHub open alert metadata was empty; this was not full-history secret scanning or comprehensive TUI/error-path proof."
+    },
+    {
+      "area": "10. Resource and lifecycle safety",
+      "status": "NOT EXECUTED",
+      "scope": "No new whole-runtime soak",
+      "sources": "RESOURCE_LIFECYCLE_AUDIT.md; crates/core/src/jobs.rs; crates/daemon/src/server.rs; existing hostile fixtures",
+      "finding": "Session/job/result/event budgets and cancellation/shutdown paths were inspected. Existing hostile tests cover descendant cleanup. Long-repetition RSS/FD/socket measurements, browser crash/restart soak and all cross-platform cleanup races were not rerun; no new absence-of-leaks claim is made."
+    },
+    {
+      "area": "11. Supply chain",
+      "status": "FINDING",
+      "scope": "Release-tool remediation and evidence gates pending",
+      "sources": "scripts/dev/security-review-bundle.sh; .github/workflows/; Cargo.lock; deny.toml",
+      "finding": "All 199 observed Action uses are immutable SHAs/local actions. Scoped attestation job excludes PRs and requires Nix/bundle jobs; it uses contents:read plus id-token/attestations/artifact-metadata write, not write-all. Bundle deletion and BASELINE_SHA checksum defects were fixed and 18 packet tests passed. Hosted dependency/coverage/fuzz jobs succeeded at the initial SHA; no independent certification follows."
+    },
+    {
+      "area": "12. Platform boundaries",
+      "status": "FINDING",
+      "scope": "Windows regression and incomplete owner work",
+      "sources": "docs/compatibility.md; inventory/main-runs-start.json; PR153/154",
+      "finding": "Linux, macOS and Windows have different enforcement and evidence. Initial Windows ARM64 failed; hosted successes are not interactive acceptance. Mac TCC, physical R06 and unresolved security-related branch/worktree work prevent an unqualified freeze. Owners retain their active work."
+    }
+  ]
+}

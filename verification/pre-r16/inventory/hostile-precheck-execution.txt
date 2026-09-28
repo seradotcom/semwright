@@ -1,0 +1,19 @@
+driver-conformance	Sandboxed persistent driver conformance	2026-09-28T08:10:02.1270161Z [36;1m  SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \[0m
+driver-conformance	Sandboxed persistent driver conformance	2026-09-28T08:10:02.1270685Z [36;1m  cargo test --locked -p semwright-driver-host --test protocol_v2 \[0m
+driver-conformance	Sandboxed persistent driver conformance	2026-09-28T08:10:32.5613917Z running 1 test
+driver-conformance	Sandboxed persistent driver conformance	2026-09-28T08:10:33.3946610Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:33.4093683Z [36;1mcargo test --locked -p semwright-plugin-host --features test-tools \[0m
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:33.4094790Z [36;1m  --test adversarial -- --ignored --nocapture 2>&1 | tee verification/native-ci/plugin-adversarial.log[0m
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:33.4097294Z [36;1mSEMWRIGHT_TEST_DRIVER_SANDBOX=1 \[0m
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:33.4098029Z [36;1m  SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \[0m
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:33.4099254Z [36;1m  cargo test --locked -p semwright-driver-host --features test-tools \[0m
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:33.4100483Z [36;1m  --test adversarial_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-adversarial.log[0m
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:33.4172309Z   SEMWRIGHT_TEST_PLUGIN_SANDBOX: 1
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:37.3854623Z running 3 tests
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:39.3568523Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.97s
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:41.9340285Z running 1 test
+driver-conformance	Adversarial plugin sandbox and handshake attestation	2026-09-28T08:10:44.7211373Z test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.79s
+driver-conformance	Sandboxed external MCP federation	﻿2026-09-28T08:10:44.7304122Z ##[group]Run cargo test --locked -p semwright-federation --test federation -- --nocapture \
+driver-conformance	Sandboxed external MCP federation	2026-09-28T08:10:44.7304814Z [36;1mcargo test --locked -p semwright-federation --test federation -- --nocapture \[0m
+driver-conformance	Sandboxed external MCP federation	2026-09-28T08:11:04.1058459Z running 7 tests
+driver-conformance	Sandboxed external MCP federation	2026-09-28T08:11:10.3469537Z test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.24s
