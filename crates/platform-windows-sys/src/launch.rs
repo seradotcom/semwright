@@ -29,6 +29,8 @@ use std::{
     sync::Arc,
 };
 use tokio::{fs::File as TokioFile, process::Command};
+#[cfg(target_arch = "aarch64")]
+use windows::Win32::System::Threading::{GetMachineTypeAttributes, UserEnabled};
 use windows::Win32::{
     Foundation::{
         CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_READ,
@@ -82,12 +84,11 @@ use windows::Win32::{
         Threading::{
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
-            GetExitCodeProcess, GetMachineTypeAttributes, INFINITE,
-            InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
-            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+            GetExitCodeProcess, INFINITE, InitializeProcThreadAttributeList,
+            LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
             PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
-            TerminateProcess, UpdateProcThreadAttribute, UserEnabled, WaitForSingleObject,
+            TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
         },
         WindowsProgramming::PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
     },
@@ -2206,6 +2207,29 @@ impl Drop for NativeSandboxChild {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
+fn require_x64_user_mode_support() -> Result<()> {
+    let attributes =
+        unsafe { GetMachineTypeAttributes(IMAGE_FILE_MACHINE_AMD64) }.map_err(|_| {
+            Error::new(
+                ErrorCode::Unsupported,
+                "Windows x64 emulation capability query failed",
+            )
+        })?;
+    if attributes.0 & UserEnabled.0 == 0 {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows host does not enable x64 user-mode execution",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_arch = "aarch64"))]
+fn require_x64_user_mode_support() -> Result<()> {
+    Ok(())
+}
+
 fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
     let markers = spec
         .environment
@@ -2231,22 +2255,9 @@ fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
     let architecture = architecture_file(&spec.staged_executable)?;
     match (std::env::consts::ARCH, architecture) {
         ("aarch64", PeArchitecture::Amd64) => {
-            // Windows 11 ARM64 transparently emulates x64 user-mode binaries. Verify that
-            // the OS advertises x64 user-mode support, but let CreateProcess select Prism from
-            // the PE architecture instead of forcing PROC_THREAD_ATTRIBUTE_MACHINE_TYPE.
-            let attributes = unsafe { GetMachineTypeAttributes(IMAGE_FILE_MACHINE_AMD64) }
-                .map_err(|_| {
-                    Error::new(
-                        ErrorCode::Unsupported,
-                        "Windows x64 emulation capability query failed",
-                    )
-                })?;
-            if attributes.0 & UserEnabled.0 == 0 {
-                return Err(Error::new(
-                    ErrorCode::Unsupported,
-                    "Windows host does not enable x64 user-mode execution",
-                ));
-            }
+            // Windows 11 ARM64 transparently emulates x64 user-mode binaries. Verify support
+            // only in ARM64 builds so older x64 hosts never import this Windows 11 API.
+            require_x64_user_mode_support()?;
             Ok(true)
         }
         ("aarch64", PeArchitecture::Arm64) | ("x86_64", PeArchitecture::Amd64) => Ok(false),
