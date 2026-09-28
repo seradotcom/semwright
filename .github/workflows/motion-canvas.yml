@@ -5,6 +5,10 @@ on:
   pull_request:
     paths:
       - 'crates/driver-motion-canvas/**'
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'integrations/composition/motion/**'
       - 'integrations/motion-canvas/**'
       - 'fixtures/motion-canvas/**'
       - 'demos/launch-film/**'
@@ -235,6 +239,7 @@ jobs:
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
           cargo test --locked -p semwright-driver-motion-canvas motion_driver_runs_through_real_driver_host_without_network -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/conformance.log
           cargo test --locked -p semwright-driver-motion-canvas real_motion_canvas_render_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/render.log
+          cargo test --locked -p semwright-driver-motion-canvas composition_authoring_runs_through_broker_driver_host_and_native_renderer -- --ignored --nocapture 2>&1 | tee verification/motion-canvas-host/composition-authoring.log
       - name: Capture sandbox denial diagnostics
         if: failure()
         run: |

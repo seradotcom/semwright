@@ -3112,6 +3112,7 @@ dependencies = [
  "rustix",
  "schemars",
  "semwright-backend-api",
+ "semwright-core",
  "semwright-driver-host",
  "semwright-driver-sdk",
  "semwright-media-time",

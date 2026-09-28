@@ -1,16 +1,18 @@
 #![cfg(target_os = "linux")]
 use semwright_backend_api::{Context, Provider};
+use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, SystemConfigMount,
     Transport,
 };
-use semwright_policy::FilesystemGrant;
+use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
+    sync::Arc,
     time::Duration,
 };
 use tokio_util::sync::CancellationToken;
@@ -43,6 +45,26 @@ async fn call(
         &args,
     )
     .await
+}
+
+const BROKER_SESSION: &str = "motion-composition-native";
+async fn broker_call(broker: &Arc<Broker>, name: &str, args: Value) -> Value {
+    let envelope = broker
+        .clone()
+        .execute(
+            BROKER_SESSION.into(),
+            semwright_types::unique_id(),
+            semwright_types::ExecuteRequest {
+                command: name.into(),
+                args,
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(envelope.ok, "Broker call {name} failed: {envelope:#?}");
+    envelope.data.expect("successful Broker envelope has data")
 }
 fn fixture() -> Vec<u8> {
     include_bytes!("../../../fixtures/motion-canvas/hello-text/semwright-motion.json").to_vec()
@@ -350,4 +372,201 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
     assert_eq!(still_healthy["capability_count"], caps.len());
 
     Provider::shutdown(provider.as_ref()).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires pinned Motion Canvas runtime plus production Broker and Driver Host"]
+async fn composition_authoring_runs_through_broker_driver_host_and_native_renderer() {
+    if std::env::var_os("SEMWRIGHT_TEST_MOTION_CANVAS_RENDER").is_none() {
+        return;
+    }
+    let h = Harness::new();
+    std::fs::remove_file(h.project.path().join("semwright-motion.json")).unwrap();
+    let runtime =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_RUNTIME").expect("runtime root env"));
+    let grants = vec![
+        grant("project", h.project.path(), true),
+        grant("output", h.output.path(), true),
+        grant("runtime", &runtime, false),
+        grant("fontconfig", Path::new("/etc/fonts"), false),
+    ];
+    let provider = DriverProvider::connect(
+        manifest(h.executable.clone(), true),
+        h.state.path(),
+        &h.helper,
+        &grants,
+        false,
+    )
+    .await
+    .unwrap();
+
+    let audit = Audit::open(&h.state.path().join("broker-audit"), 65_536, 2).unwrap();
+    let policy = Policy::new(PolicyConfig {
+        allow: [provider.identity().id.clone()].into(),
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+
+    let empty = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.inspect",
+        json!({}),
+    )
+    .await;
+    assert_eq!(empty["fingerprint"], Value::Null);
+    assert_eq!(empty["film"], Value::Null);
+    assert_eq!(empty["low_level_project"], false);
+
+    let mut film: Value = serde_json::from_slice(include_bytes!(
+        "../../../fixtures/composition/motion/technical.json"
+    ))
+    .unwrap();
+    // Native pipeline proof is intentionally taste-neutral: keep lifecycle/cue/
+    // transition checks and omit the fixture's optional geometry rule.
+    film["sequences"][0]["beats"][0]["shots"][0]["constraints"] = json!([]);
+
+    let planned = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.plan",
+        json!({
+            "film": film,
+            "budget": {
+                "max_iterations": 4,
+                "max_operations": 64,
+                "max_findings": 64,
+                "max_observations": 8,
+                "max_elapsed_ms": 120000
+            }
+        }),
+    )
+    .await;
+    let plan_ref = planned["plan_ref"]
+        .as_str()
+        .expect("server-issued plan ref")
+        .to_owned();
+    assert_eq!(planned["repair"], false);
+
+    let applied = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.apply",
+        json!({"plan_ref": plan_ref, "dry_run": false}),
+    )
+    .await;
+    assert_eq!(applied["applied"], true);
+    assert_eq!(applied["execution_status"], "completed");
+    let fingerprint = applied["fingerprint"]
+        .as_str()
+        .expect("applied source fingerprint")
+        .to_owned();
+
+    let inspected = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.inspect",
+        json!({}),
+    )
+    .await;
+    assert_eq!(inspected["fingerprint"], fingerprint);
+    assert_eq!(inspected["low_level_project"], false);
+    assert_eq!(inspected["film"]["id"], "technical-motion");
+
+    let started = broker_call(
+        &broker,
+        "driver.motion-canvas.render.start",
+        json!({
+            "expected_fingerprint": fingerprint,
+            "profile": {
+                "first_frame": 0,
+                "end_frame_exclusive": 90,
+                "scale": "full",
+                "transparent": false,
+                "timeout_ms": 120000
+            }
+        }),
+    )
+    .await;
+    let job_ref = started["job_ref"]
+        .as_str()
+        .expect("render job ref")
+        .to_owned();
+
+    let terminal = loop {
+        let status = broker_call(
+            &broker,
+            "driver.motion-canvas.render.status",
+            json!({"job_ref": job_ref}),
+        )
+        .await;
+        match status["state"].as_str().expect("render state") {
+            "succeeded" | "failed" | "cancelled" => break status,
+            _ => tokio::time::sleep(Duration::from_millis(100)).await,
+        }
+    };
+    assert_eq!(terminal["state"], "succeeded", "terminal: {terminal:#}");
+    assert_eq!(terminal["artifact"]["frame_count"], 90);
+
+    let rendered = broker_call(
+        &broker,
+        "driver.motion-canvas.render.result",
+        json!({"job_ref": job_ref}),
+    )
+    .await;
+    assert_eq!(rendered["state"], "succeeded");
+
+    let verified = broker_call(
+        &broker,
+        "driver.motion-canvas.composition.verify",
+        json!({"plan_ref": plan_ref, "job_ref": job_ref}),
+    )
+    .await;
+    assert_eq!(verified["report"]["execution_status"], "completed");
+    assert_eq!(verified["report"]["support_level"], "native");
+    assert!(
+        verified["measurement"]["findings"]
+            .as_array()
+            .expect("findings")
+            .is_empty(),
+        "native authoring findings: {verified:#}"
+    );
+    let checks = verified["measurement"]["validation"]["checks"]
+        .as_array()
+        .expect("verification checks");
+    assert!(!checks.is_empty());
+    assert!(
+        checks
+            .iter()
+            .all(|check| check["verdict"].as_str() == Some("PASS")),
+        "native verification did not fully pass: {verified:#}"
+    );
+
+    if let Some(evidence) = std::env::var_os("SEMWRIGHT_TEST_MOTION_EVIDENCE").map(PathBuf::from) {
+        std::fs::create_dir_all(&evidence).unwrap();
+        std::fs::write(
+            evidence.join("composition-broker-native.json"),
+            serde_json::to_vec_pretty(&json!({
+                "schema_version": 1,
+                "source_sha": option_env!("GITHUB_SHA"),
+                "broker_session": BROKER_SESSION,
+                "plan_ref": plan_ref,
+                "source_fingerprint": fingerprint,
+                "render": rendered,
+                "verification": verified,
+                "claim_scope": "Broker -> Driver Host -> Motion Canvas native render observations"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+    }
+
+    broker.shutdown().await;
 }
