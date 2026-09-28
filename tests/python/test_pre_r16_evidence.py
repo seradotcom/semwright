@@ -39,6 +39,21 @@ class PreR16EvidenceTests(unittest.TestCase):
         self.assertEqual(len(audit["security_precheck"]), 12)
         self.assertEqual(len({row["area"] for row in audit["security_precheck"]}), 12)
 
+    def test_post_merge_state_records_audit_in_main(self):
+        audit = json.loads((ROOT / "pre-r16-audit.json").read_text())
+        self.assertEqual(
+            audit["observed_main_sha"],
+            "6dc9da507a2fc239a766a6a81a7607fbcc79618d",
+        )
+        self.assertTrue(audit["audit_lane_complete"])
+        self.assertEqual(audit["must_land_prs"], [])
+        self.assertEqual(
+            audit["merged_after_classification"]["156"],
+            audit["observed_main_sha"],
+        )
+        self.assertNotIn(155, audit["deferred_prs"])
+        self.assertFalse(audit["ci"]["main_exact_sha_green_claimed"])
+
     def test_recorded_prs_are_classified_without_claiming_live_refresh(self):
         state = json.loads((ROOT / "inventory/continuation-state.json").read_text())
         rows = state["prs"]
