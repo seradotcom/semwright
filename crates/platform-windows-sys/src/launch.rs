@@ -1711,10 +1711,24 @@ fn prepare_windows_mounts(
     if spec.mounts.is_empty() {
         return Ok((Vec::new(), None));
     }
-    if spec.kind != semwright_platform_api::launch::SandboxKind::Driver {
+    if !matches!(
+        spec.kind,
+        semwright_platform_api::launch::SandboxKind::Driver
+            | semwright_platform_api::launch::SandboxKind::Plugin
+    ) {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows filesystem grants are currently limited to Driver children with mount-table semantics",
+            "Windows filesystem grants require Driver or Plugin SDK mount-table semantics",
+        ));
+    }
+    if spec.kind == semwright_platform_api::launch::SandboxKind::Plugin
+        && spec.mounts.iter().any(|mount| {
+            mount.class != semwright_platform_api::launch::MountClass::Workspace || mount.execute
+        })
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows Plugin mounts are workspace-only and non-executable",
         ));
     }
     let mut seen_sources = BTreeSet::new();

@@ -51,13 +51,6 @@ impl Host {
                 "Plugin requests network but owner configuration denies it",
             ));
         }
-        #[cfg(target_os = "windows")]
-        if !manifest.mounts.is_empty() {
-            return Err(Error::new(
-                ErrorCode::SandboxDenied,
-                "Windows plugins currently require the zero-mount AppContainer profile",
-            ));
-        }
         for mount in &manifest.mounts {
             let grant = self
                 .roots
@@ -75,10 +68,18 @@ impl Host {
                     "Plugin mount exceeds root permissions",
                 ));
             }
+            #[cfg(unix)]
             if std::fs::canonicalize(&grant.path)? != grant.path {
                 return Err(Error::new(
                     ErrorCode::PolicyDenied,
                     "Plugin roots must be canonical paths",
+                ));
+            }
+            #[cfg(target_os = "windows")]
+            if !grant.path.is_absolute() {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Windows Plugin roots must be absolute paths",
                 ));
             }
         }

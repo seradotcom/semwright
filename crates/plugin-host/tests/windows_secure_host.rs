@@ -4,7 +4,8 @@ use semwright_plugin_host::{
     Host,
     windows_fixture::{COMMAND, NAME, VERSION, commands},
 };
-use semwright_plugin_sdk::{Manifest, PLUGIN_PROTOCOL_VERSION};
+use semwright_plugin_sdk::{Manifest, Mount as PluginMount, PLUGIN_PROTOCOL_VERSION};
+use semwright_policy::FilesystemGrant;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -31,6 +32,19 @@ fn harden_fixture(path: &Path) {
         .status()
         .expect("run icacls");
     assert!(status.success(), "fixture DACL hardening must succeed");
+}
+
+fn grant_all_application_packages_modify(path: &Path) {
+    let status = std::process::Command::new("icacls")
+        .arg(path)
+        .arg("/grant")
+        .arg("*S-1-15-2-1:(OI)(CI)(M)")
+        .status()
+        .expect("grant ALL APPLICATION PACKAGES modify");
+    assert!(
+        status.success(),
+        "broad application-package Plugin workspace grant must succeed"
+    );
 }
 
 const EXTERNAL_ENDPOINTS: [&str; 2] = ["1.1.1.1:443", "1.0.0.1:443"];
@@ -103,6 +117,106 @@ async fn secure_windows_plugin_host_roundtrips_attested_protocol() {
     assert_eq!(value["temp_present"], true);
     assert_eq!(value["network_reachable"], false);
     assert_eq!(value["host_visible"], false);
+    assert_eq!(value["mount_read"], serde_json::Value::Null);
+    assert_eq!(value["mount_write_ok"], false);
+}
+
+async fn execute_mount_probe(
+    read_only: bool,
+    owner_write: bool,
+    broad_app_write: bool,
+) -> (serde_json::Value, tempfile::TempDir) {
+    let source = std::path::PathBuf::from(env!("CARGO_BIN_EXE_semwright-windows-plugin-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("plugin.exe");
+    std::fs::copy(&source, &executable).expect("copy plugin fixture");
+    harden_fixture(&executable);
+
+    let workspace = tempfile::tempdir().expect("Plugin workspace grant");
+    std::fs::write(workspace.path().join("input.txt"), b"mounted-plugin-data")
+        .expect("write Plugin workspace fixture");
+    if broad_app_write {
+        grant_all_application_packages_modify(workspace.path());
+    }
+
+    let mut candidate = manifest(executable, false);
+    candidate.mounts = vec![PluginMount {
+        root: "fixture-data".into(),
+        read_only,
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-data".into(),
+        path: workspace.path().to_path_buf(),
+        read: true,
+        write: owner_write,
+    }];
+
+    let state = tempfile::tempdir().expect("plugin state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let host = Host::new(state.path().to_path_buf(), helper, roots, false)
+        .expect("construct mounted Plugin Host");
+    host.install(candidate)
+        .expect("install mounted plugin fixture");
+
+    let output = host
+        .execute(
+            COMMAND,
+            json!({"message":"mount-probe","mount_name":"fixture-data"}),
+            CancellationToken::new(),
+        )
+        .await
+        .expect("execute Windows Plugin workspace probe");
+    drop(binary_dir);
+    (output, workspace)
+}
+
+#[tokio::test]
+async fn secure_windows_plugin_workspace_read_only_is_enforced() {
+    let (output, workspace) = execute_mount_probe(true, false, true).await;
+    assert_eq!(output["mount_read"], "mounted-plugin-data");
+    assert_eq!(output["mount_write_ok"], false);
+    assert!(!workspace.path().join("child.txt").exists());
+}
+
+#[tokio::test]
+async fn secure_windows_plugin_workspace_read_write_is_enforced() {
+    let (output, workspace) = execute_mount_probe(false, true, false).await;
+    assert_eq!(output["mount_read"], "mounted-plugin-data");
+    assert_eq!(output["mount_write_ok"], true);
+    assert_eq!(
+        std::fs::read(workspace.path().join("child.txt")).expect("read plugin-created file"),
+        b"plugin-written"
+    );
+}
+
+#[tokio::test]
+async fn secure_windows_plugin_writable_mount_requires_owner_write_grant() {
+    let source = std::path::PathBuf::from(env!("CARGO_BIN_EXE_semwright-windows-plugin-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("plugin.exe");
+    std::fs::copy(&source, &executable).expect("copy plugin fixture");
+    harden_fixture(&executable);
+
+    let workspace = tempfile::tempdir().expect("Plugin workspace grant");
+    let mut candidate = manifest(executable, false);
+    candidate.mounts = vec![PluginMount {
+        root: "fixture-data".into(),
+        read_only: false,
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-data".into(),
+        path: workspace.path().to_path_buf(),
+        read: true,
+        write: false,
+    }];
+    let state = tempfile::tempdir().expect("plugin state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let host =
+        Host::new(state.path().to_path_buf(), helper, roots, false).expect("construct Plugin Host");
+    let error = host
+        .install(candidate)
+        .expect_err("writable Plugin mount must require owner write authority");
+    assert_eq!(error.code, semwright_types::ErrorCode::PolicyDenied);
 }
 
 #[tokio::test]
