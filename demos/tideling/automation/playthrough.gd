@@ -3,7 +3,9 @@ var game
 var frames := 0
 var max_stage := 1
 var started := false
+var showcase := false
 func _initialize() -> void:
+	showcase = "showcase" in OS.get_cmdline_user_args()
 	boot.call_deferred()
 func boot() -> void:
 	game = load("res://reef.tscn").instantiate()
@@ -14,10 +16,10 @@ func _physics_process(_delta: float) -> bool:
 	if not started: return false
 	frames += 1
 	max_stage = maxi(max_stage, game.rules.stage)
-	if game.finished or frames > 11000:
-		print("TIDELING_PLAYTHROUGH "+JSON.stringify({"kind":"GAME_RUNTIME_BOT", "seconds":game.rules.elapsed, "stage":game.rules.stage,"score":game.rules.score,"survived":game.rules.elapsed>=180,"max_stage":max_stage,"frames":frames,"note":"Deterministic input bot; does not establish human movement feel."}))
+	if game.finished or frames > 11000 or (showcase and frames >= 900):
+		print("TIDELING_PLAYTHROUGH "+JSON.stringify({"kind":"GAME_RUNTIME_BOT_CLIP" if showcase else "GAME_RUNTIME_BOT", "seconds":game.rules.elapsed, "stage":game.rules.stage,"score":game.rules.score,"survived":game.rules.elapsed>=180,"max_stage":max_stage,"frames":frames,"note":"Deterministic input bot; does not establish human movement feel."}))
 		started = false
-		shutdown.call_deferred(game.finished and game.rules.elapsed >= 120 and max_stage == 3)
+		shutdown.call_deferred(showcase or (game.finished and game.rules.elapsed >= 120 and max_stage == 3))
 		return false
 	var nearest = null
 	var dist := INF

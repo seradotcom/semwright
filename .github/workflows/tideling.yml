@@ -34,9 +34,11 @@ jobs:
           "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/rules_test.gd 2>&1 | tee verification/tideling/rules.log
           timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/runtime_proof.gd 2>&1 | tee verification/tideling/runtime.log
           timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/state_test.gd 2>&1 | tee verification/tideling/states.log
-          timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/controls_test.gd 2>&1 | tee verification/tideling/controls.log
-          timeout 240 "$GODOT_BIN" --headless --fixed-fps 60 --path demos/tideling/project --script ../automation/playthrough.gd 2>&1 | tee verification/tideling/playthrough.log
+          acceptance_status=0
+          timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/controls_test.gd 2>&1 | tee verification/tideling/controls.log || acceptance_status=1
+          timeout 240 "$GODOT_BIN" --headless --fixed-fps 60 --path demos/tideling/project --script ../automation/playthrough.gd 2>&1 | tee verification/tideling/playthrough.log || acceptance_status=1
           if rg 'SCRIPT ERROR|^ERROR:' verification/tideling/{import,rules,runtime,states,controls,playthrough}.log; then exit 1; fi
+          exit "$acceptance_status"
       - name: Export portable development checkpoint
         run: |
           set -euo pipefail
@@ -48,6 +50,7 @@ jobs:
           cp LICENSE-MIT LICENSE-APACHE NOTICE "$RUNNER_TEMP/Tideling/"
           cp demos/tideling/PACKAGE_README.txt "$RUNNER_TEMP/Tideling/README.txt"
           curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$RUNNER_TEMP/Tideling/GODOT-LICENSE.txt"
+          curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/COPYRIGHT.txt -o "$RUNNER_TEMP/Tideling/GODOT-THIRD-PARTY.txt"
           cd "$RUNNER_TEMP/Tideling"
           ./Tideling.x86_64 --headless --main-pack "$RUNNER_TEMP/Tideling/Tideling.pck" --script "$GITHUB_WORKSPACE/demos/tideling/automation/runtime_proof.gd" 2>&1 | tee "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"
           if rg 'SCRIPT ERROR|^ERROR:' "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"; then exit 1; fi
@@ -57,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y xvfb libgl1-mesa-dri
+          sudo apt-get install -y xvfb libgl1-mesa-dri ffmpeg
           LIBGL_ALWAYS_SOFTWARE=1 timeout 240 xvfb-run -a "$GODOT_BIN" --path demos/tideling/project \
             --audio-driver Dummy --script ../automation/visual_matrix.gd -- "$GITHUB_WORKSPACE/verification/tideling" \
             2>&1 | tee verification/tideling/visual-fixtures.log
@@ -65,6 +68,15 @@ jobs:
           for state in title-004 game-004 hierarchy stage-2 stage-3 ending; do
             test -s "verification/tideling/$state.png"
           done
+      - name: Record a native gameplay preview
+        run: |
+          set -euo pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 timeout 300 xvfb-run -a "$GODOT_BIN" --path demos/tideling/project \
+            --resolution 960x600 --fixed-fps 24 --write-movie "$RUNNER_TEMP/tideling.avi" \
+            --script ../automation/playthrough.gd -- showcase 2>&1 | tee verification/tideling/preview.log
+          if rg 'SCRIPT ERROR|^ERROR:' verification/tideling/preview.log; then exit 1; fi
+          ffmpeg -y -i "$RUNNER_TEMP/tideling.avi" -c:v libx264 -crf 20 -pix_fmt yuv420p -c:a aac -movflags +faststart verification/tideling/Tideling-preview.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1 verification/tideling/Tideling-preview.mp4 > verification/tideling/preview-duration.txt
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: Tideling-Linux-development-${{ github.sha }}

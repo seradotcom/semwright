@@ -41,6 +41,7 @@ jobs:
           echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT_BIN" | sha256sum -c -
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
           curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$RUNNER_TEMP/GODOT-LICENSE.txt"
+          curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/COPYRIGHT.txt -o "$RUNNER_TEMP/GODOT-THIRD-PARTY.txt"
           bash scripts/dev/ci-driver-bwrap-profile.sh verification/tideling-cross-app/sandbox-setup.log
       - name: Build both drivers and the real broker from this revision
         run: |
@@ -65,3 +66,17 @@ jobs:
           name: Tideling-cross-app-${{ github.sha }}
           path: verification/tideling-cross-app
           retention-days: 14
+      - name: Assemble distributable proof bundle
+        run: |
+          set -euo pipefail
+          mkdir -p verification/tideling-release
+          tar -czf verification/tideling-release/Tideling-BlueGold-Linux.tar.gz -C verification/tideling-cross-app Tideling-BlueGold
+          cp verification/tideling-cross-app/{RECEIPT.json,operations.jsonl,descriptors.jsonl,glb-inspection.json} verification/tideling-release/
+          printf '%s\n' "$GITHUB_SHA" > verification/tideling-release/SOURCE_SHA.txt
+          cd verification/tideling-release
+          sha256sum Tideling-BlueGold-Linux.tar.gz RECEIPT.json operations.jsonl descriptors.jsonl glb-inspection.json SOURCE_SHA.txt > SHA256SUMS.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Tideling-release-${{ github.sha }}
+          path: verification/tideling-release
+          retention-days: 30

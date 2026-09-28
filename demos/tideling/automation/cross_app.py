@@ -184,6 +184,7 @@ def run(work):
             shutil.copy2(ROOT/license_name,package/license_name)
         shutil.copy2(project/'assets/FONT-LICENSE.txt',package/'FONT-LICENSE.txt')
         shutil.copy2(Path(os.environ['RUNNER_TEMP'])/'GODOT-LICENSE.txt',package/'GODOT-LICENSE.txt')
+        shutil.copy2(Path(os.environ['RUNNER_TEMP'])/'GODOT-THIRD-PARTY.txt',package/'GODOT-THIRD-PARTY.txt')
         (package/'README.txt').write_text((ROOT/'demos/tideling/PACKAGE_README.txt').read_text().replace('The Bluegold candidate is disabled in this baseline.','BlueGoldFish was created and enabled through the recorded Semwright broker route.'))
         (package/'SOURCE_SHA.txt').write_text(os.environ['GITHUB_SHA']+'\n')
         (package/'SHA256SUMS.txt').write_text(''.join(sha(package/name)+'  '+name+'\n' for name in ['Tideling.pck','Tideling.x86_64']))
