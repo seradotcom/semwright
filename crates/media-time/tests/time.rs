@@ -1,0 +1,215 @@
+use semwright_media_time::*;
+use semwright_semantic_composition::{Digest, strict_decode};
+fn q(n: i64, d: i64) -> Rational {
+    Rational::new(n, d).unwrap()
+}
+#[test]
+fn reduces_sign_and_zero() {
+    assert_eq!(q(2, 4), q(1, 2));
+    assert_eq!(q(1, -2), q(-1, 2));
+    assert_eq!(q(0, 42), Rational::ZERO);
+}
+#[test]
+fn zero_denominator_rejected() {
+    assert!(Rational::new(1, 0).is_err());
+}
+#[test]
+fn checked_overflow() {
+    assert!(q(i64::MAX, 1).checked_add(q(1, 1)).is_err());
+    assert!(q(i64::MIN, 1).checked_div(q(-1, 1)).is_err());
+}
+#[test]
+fn all_rounding_policies_negative() {
+    assert_eq!(q(-3, 2).round(Round::Floor).unwrap(), -2);
+    assert_eq!(q(-3, 2).round(Round::Ceil).unwrap(), -1);
+    assert_eq!(q(-3, 2).round(Round::TowardZero).unwrap(), -1);
+    assert_eq!(q(-3, 2).round(Round::NearestAway).unwrap(), -2);
+}
+#[test]
+fn noncanonical_wire_rejected() {
+    for s in [
+        r#"{"num":"2","den":"4"}"#,
+        r#"{"num":"01","den":"1"}"#,
+        r#"{"num":"-0","den":"1"}"#,
+        r#"{"num":1,"den":2}"#,
+        r#"{"num":"1","den":"0"}"#,
+    ] {
+        assert!(strict_decode::<Rational>(s.as_bytes()).is_err(), "{s}");
+    }
+}
+#[test]
+fn rational_wire_roundtrip() {
+    for n in -99..=99 {
+        for d in 1..=19 {
+            let v = q(n, d);
+            let bytes = serde_json::to_vec(&v).unwrap();
+            assert_eq!(strict_decode::<Rational>(&bytes).unwrap(), v);
+        }
+    }
+}
+#[test]
+fn frame_sample_matrix_no_accumulated_drift() {
+    for (n, d) in [
+        (24, 1),
+        (25, 1),
+        (30, 1),
+        (60, 1),
+        (24000, 1001),
+        (30000, 1001),
+        (60000, 1001),
+    ] {
+        let frames = Rate::new(n, d).unwrap();
+        for hz in [44100, 48000, 96000] {
+            let samples = Rate::new(hz, 1).unwrap();
+            for i in [0, 1, 2, 999, 10000, 1000000] {
+                let t = frames.at(i).unwrap();
+                let s = samples.quantize(t, Round::NearestAway).unwrap();
+                let err = s.error;
+                if err.num != 0 {
+                    assert!(q(err.num.abs(), err.den) <= q(1, 2 * i64::from(hz)));
+                }
+                let back = frames
+                    .quantize(samples.at(s.index).unwrap(), Round::NearestAway)
+                    .unwrap();
+                assert_eq!(back.index, i);
+            }
+        }
+    }
+}
+#[test]
+fn addition_subtraction_property() {
+    for n in -40..40 {
+        for d in 1..30 {
+            let a = q(n, d);
+            let b = q(d, 31);
+            assert_eq!(a.checked_add(b).unwrap().checked_sub(b).unwrap(), a);
+        }
+    }
+}
+#[test]
+fn long_ntsc_boundary_is_exact() {
+    let fps = Rate::new(30000, 1001).unwrap();
+    let sr = Rate::new(48000, 1).unwrap();
+    assert_eq!(
+        sr.quantize(fps.at(30000).unwrap(), Round::NearestAway)
+            .unwrap()
+            .index,
+        48048000
+    );
+}
+#[test]
+fn interval_half_open() {
+    let i = Interval::new(q(0, 1), q(1, 1)).unwrap();
+    assert!(i.contains(q(0, 1)));
+    assert!(!i.contains(q(1, 1)));
+    assert!(Interval::new(q(1, 1), q(1, 1)).is_err());
+}
+#[test]
+fn preroll_is_explicit() {
+    let i = Interval::new(q(-1, 1), q(1, 1)).unwrap();
+    assert!(i.nonnegative().is_err());
+    assert_eq!(i.duration().unwrap(), q(2, 1));
+}
+#[test]
+fn uses_existing_video_frame_rate() {
+    let native = semwright_video_domain::time::FrameRate::new(30000, 1001).unwrap();
+    let r = Rate::try_from(native).unwrap();
+    assert_eq!(
+        semwright_video_domain::time::FrameRate::try_from(r).unwrap(),
+        native
+    );
+}
+fn cue(id: &str, anchor: Anchor) -> Cue {
+    Cue {
+        id: id.into(),
+        anchor,
+        duration: q(1, 1),
+        source: Digest::of_bytes(b"source"),
+        method: "fixture".into(),
+        version: 1,
+        confidence: Some(10000),
+    }
+}
+#[test]
+fn cue_dag_order_independent() {
+    let g = CueGraph {
+        version: 1,
+        cues: vec![
+            cue(
+                "b",
+                Anchor::After {
+                    cue: "a".into(),
+                    offset: q(1, 2),
+                },
+            ),
+            cue("a", Anchor::Absolute { time: q(0, 1) }),
+        ],
+    };
+    assert_eq!(
+        g.resolve().unwrap()["b"],
+        ResolvedCue::Resolved {
+            start: q(3, 2),
+            end: q(5, 2)
+        }
+    );
+}
+#[test]
+fn cue_cycle_rejected() {
+    let g = CueGraph {
+        version: 1,
+        cues: vec![
+            cue(
+                "a",
+                Anchor::After {
+                    cue: "b".into(),
+                    offset: q(0, 1),
+                },
+            ),
+            cue(
+                "b",
+                Anchor::After {
+                    cue: "a".into(),
+                    offset: q(0, 1),
+                },
+            ),
+        ],
+    };
+    assert!(g.resolve().is_err());
+}
+#[test]
+fn unknown_words_never_receive_timestamps() {
+    let g = CueGraph {
+        version: 1,
+        cues: vec![
+            cue(
+                "a",
+                Anchor::Unknown {
+                    reason: "unaligned word".into(),
+                },
+            ),
+            cue(
+                "b",
+                Anchor::After {
+                    cue: "a".into(),
+                    offset: q(0, 1),
+                },
+            ),
+        ],
+    };
+    assert!(matches!(
+        g.resolve().unwrap()["b"],
+        ResolvedCue::Unknown { .. }
+    ));
+}
+#[test]
+fn time_map_does_not_extrapolate() {
+    let m = TimeMap {
+        version: 1,
+        segments: vec![MapSegment {
+            source: Interval::new(q(0, 1), q(2, 1)).unwrap(),
+            target: Interval::new(q(3, 1), q(4, 1)).unwrap(),
+        }],
+    };
+    assert_eq!(m.map(q(1, 1)).unwrap(), q(7, 2));
+    assert!(m.map(q(2, 1)).is_err());
+}
