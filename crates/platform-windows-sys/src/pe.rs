@@ -1,7 +1,12 @@
 use semwright_types::{Error, ErrorCode, Result};
+use std::{
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    path::Path,
+};
 
-const IMAGE_FILE_MACHINE_AMD64: u16 = 0x8664;
-const IMAGE_FILE_MACHINE_ARM64: u16 = 0xAA64;
+pub const IMAGE_FILE_MACHINE_AMD64: u16 = 0x8664;
+pub const IMAGE_FILE_MACHINE_ARM64: u16 = 0xAA64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PeArchitecture {
@@ -22,6 +27,35 @@ pub fn architecture(bytes: &[u8]) -> Result<PeArchitecture> {
     }
     let machine = u16::from_le_bytes(bytes[off + 4..off + 6].try_into().expect("bounded slice"));
     match machine {
+        IMAGE_FILE_MACHINE_AMD64 => Ok(PeArchitecture::Amd64),
+        IMAGE_FILE_MACHINE_ARM64 => Ok(PeArchitecture::Arm64),
+        _ => Err(Error::new(
+            ErrorCode::Unsupported,
+            "PE machine architecture is not supported by Semwright",
+        )),
+    }
+}
+
+pub fn architecture_file(path: &Path) -> Result<PeArchitecture> {
+    let mut file = File::open(path)?;
+    let mut dos = [0u8; 0x40];
+    file.read_exact(&mut dos)?;
+    if &dos[..2] != b"MZ" {
+        return Err(Error::invalid("Executable is not a PE image"));
+    }
+    let offset = u32::from_le_bytes(dos[0x3c..0x40].try_into().expect("bounded slice")) as u64;
+    if offset > 16 * 1024 * 1024 {
+        return Err(Error::invalid(
+            "PE header offset exceeds bounded inspection window",
+        ));
+    }
+    file.seek(SeekFrom::Start(offset))?;
+    let mut header = [0u8; 6];
+    file.read_exact(&mut header)?;
+    if &header[..4] != b"PE\0\0" {
+        return Err(Error::invalid("Malformed PE signature"));
+    }
+    match u16::from_le_bytes([header[4], header[5]]) {
         IMAGE_FILE_MACHINE_AMD64 => Ok(PeArchitecture::Amd64),
         IMAGE_FILE_MACHINE_ARM64 => Ok(PeArchitecture::Arm64),
         _ => Err(Error::new(

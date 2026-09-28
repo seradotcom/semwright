@@ -77,6 +77,9 @@ impl Mount {
 }
 
 pub const SANDBOX_MOUNTS_ENV: &str = "SEMWRIGHT_SANDBOX_MOUNTS_V1";
+/// Internal host-only marker for a short-lived sealed tool child. Platform launchers may
+/// consume this for compatibility policy, but must not forward it into the child environment.
+pub const SANDBOX_HOST_TOOL_CHILD_ENV: &str = "SEMWRIGHT_HOST_TOOL_CHILD";
 const MAX_MATERIALIZED_MOUNTS: usize = 32;
 const MAX_MOUNT_ENV_BYTES: usize = 16 * 1024;
 

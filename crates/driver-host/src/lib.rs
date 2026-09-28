@@ -179,6 +179,10 @@ impl HostToolExecutor for HostToolBroker {
         spec.staged_executable = tool.staged.0.clone();
         spec.args = args;
         spec.environment.clear();
+        spec.environment.push((
+            semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
+            "1".into(),
+        ));
         spec.sealed_tools.clear();
         let timeout = Duration::from_millis(timeout_ms);
         let timeout_cpu_seconds = timeout

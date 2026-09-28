@@ -1,13 +1,17 @@
 use crate::{
     identity::current_user_sid_bytes,
     job::ProcessJob,
-    pe::{require_native_architecture, require_sealed_tool_architecture},
+    pe::{
+        IMAGE_FILE_MACHINE_AMD64, PeArchitecture, architecture_file, require_native_architecture,
+        require_sealed_tool_architecture,
+    },
 };
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass, SANDBOX_MOUNTS_ENV,
-    SANDBOX_TOOLS_ENV, SandboxChildControl, SandboxCpuAccounting, SandboxLauncher, SandboxProcess,
-    SandboxSpec, SealedToolSource, encode_materialized_mounts, encode_materialized_tools,
+    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
+    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl,
+    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, SealedToolSource,
+    encode_materialized_mounts, encode_materialized_tools,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -80,9 +84,10 @@ use windows::Win32::{
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
             GetExitCodeProcess, INFINITE, InitializeProcThreadAttributeList,
             LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-            PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
-            PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
-            TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_MACHINE_TYPE,
+            PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION, ResumeThread,
+            STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute,
+            WaitForSingleObject,
         },
         WindowsProgramming::PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
     },
@@ -1939,7 +1944,12 @@ fn environment_block(
     mount_table: Option<&str>,
     tool_table: Option<&str>,
 ) -> Result<Vec<u16>> {
-    let mut entries = spec.environment.clone();
+    let mut entries = spec
+        .environment
+        .iter()
+        .filter(|(name, _)| name != SANDBOX_HOST_TOOL_CHILD_ENV)
+        .cloned()
+        .collect::<Vec<_>>();
     if entries
         .iter()
         .any(|(name, _)| name == SANDBOX_MOUNTS_ENV || name == SANDBOX_TOOLS_ENV)
@@ -2196,6 +2206,39 @@ impl Drop for NativeSandboxChild {
     }
 }
 
+fn host_tool_machine_type(spec: &SandboxSpec) -> Result<Option<u16>> {
+    let markers = spec
+        .environment
+        .iter()
+        .filter(|(name, _)| name == SANDBOX_HOST_TOOL_CHILD_ENV)
+        .collect::<Vec<_>>();
+    if markers.is_empty() {
+        return Ok(None);
+    }
+    if markers.len() != 1
+        || markers[0].1 != "1"
+        || spec.kind != semwright_platform_api::launch::SandboxKind::Driver
+        || !spec.mounts.is_empty()
+        || !spec.sealed_tools.is_empty()
+        || spec.network
+        || spec.environment.len() != 1
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool compatibility marker is only valid for isolated Host-mediated tool children",
+        ));
+    }
+    let architecture = architecture_file(&spec.staged_executable)?;
+    match (std::env::consts::ARCH, architecture) {
+        ("aarch64", PeArchitecture::Amd64) => Ok(Some(IMAGE_FILE_MACHINE_AMD64)),
+        ("aarch64", PeArchitecture::Arm64) | ("x86_64", PeArchitecture::Amd64) => Ok(None),
+        _ => Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows sealed-tool machine type is not supported by this host",
+        )),
+    }
+}
+
 /// Windows arbitrary-child launch is platform-owned: an AppContainer identity and explicit
 /// inherited-handle list are attached at creation, the process starts suspended, enters a
 /// kill-on-close Job Object, and is resumed only after that boundary exists.
@@ -2211,6 +2254,7 @@ impl SandboxLauncher for WindowsSandbox {
 
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
+        let machine_type = host_tool_machine_type(spec)?;
         if !spec.sealed_tools.is_empty() {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
@@ -2228,8 +2272,11 @@ impl SandboxLauncher for WindowsSandbox {
         let child_stderr = inherited_null()?;
 
         let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
-        let mut attributes = ProcAttributes::new(3)?;
+        let mut attributes = ProcAttributes::new(3 + u32::from(machine_type.is_some()))?;
         attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
+        if let Some(machine_type) = machine_type {
+            attributes.set_value(PROC_THREAD_ATTRIBUTE_MACHINE_TYPE, &machine_type)?;
+        }
         let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
         attributes.set_value(
             PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
