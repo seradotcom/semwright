@@ -65,7 +65,11 @@ async fn plugin_probe(
         CancellationToken::new(),
     )
     .await
-    .expect("execute Windows plugin network probe")
+    .unwrap_or_else(|error| {
+        panic!(
+            "execute Windows plugin network probe message={message} address={address}: {error:?}"
+        )
+    })
 }
 
 #[tokio::test]
