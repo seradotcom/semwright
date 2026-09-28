@@ -18,6 +18,7 @@ semwright-platform-services.workspace = true
 semwright-recipes.workspace = true
 semwright-plugin-sdk.workspace = true
 semwright-registry.workspace = true
+semwright-skills.workspace = true
 semwright-federation.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-driver-host.workspace = true

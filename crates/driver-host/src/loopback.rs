@@ -1,4 +1,6 @@
 use semwright_types::{Error, ErrorCode, Result, unique_id};
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
 #[cfg(windows)]
 use std::sync::Mutex as StdMutex;
 use std::{
@@ -20,6 +22,40 @@ use tokio_util::sync::CancellationToken;
 pub(crate) const MOUNT_NAME: &str = "semwright-internal-loopback";
 #[cfg(unix)]
 pub(crate) const SANDBOX_SOCKET: &str = "/workspace/semwright-internal-loopback/bridge.sock";
+#[cfg(unix)]
+const UNIX_SOCKET_PATH_MAX: usize = 107;
+
+#[cfg(unix)]
+fn loopback_directory_path(state: &Path, runtime: Option<&Path>, id: &str) -> Result<PathBuf> {
+    let state_directory = state.join(format!("loopback-{id}"));
+    if state_directory
+        .join("bridge.sock")
+        .as_os_str()
+        .as_bytes()
+        .len()
+        <= UNIX_SOCKET_PATH_MAX
+    {
+        return Ok(state_directory);
+    }
+
+    if let Some(runtime) = runtime {
+        let runtime_directory = runtime.join(format!("loopback-{id}"));
+        if runtime_directory
+            .join("bridge.sock")
+            .as_os_str()
+            .as_bytes()
+            .len()
+            <= UNIX_SOCKET_PATH_MAX
+        {
+            return Ok(runtime_directory);
+        }
+    }
+
+    Err(Error::new(
+        ErrorCode::Unavailable,
+        "Driver loopback Unix socket path exceeds platform limit",
+    ))
+}
 #[cfg(windows)]
 pub(crate) const SANDBOX_PIPE_ENV: &str = "SEMWRIGHT_DRIVER_LOOPBACK_PIPE";
 
@@ -238,7 +274,12 @@ pub(crate) async fn start(state: &Path, port: u16) -> Result<Arc<LoopbackProxy>>
             "Driver loopback port is unavailable",
         )
     })?;
-    let directory = state.join(format!("loopback-{}", unique_id()));
+    let runtime = if std::env::var_os("XDG_RUNTIME_DIR").is_some() {
+        Some(semwright_protocol::runtime_directory()?)
+    } else {
+        None
+    };
+    let directory = loopback_directory_path(state, runtime.as_deref(), &unique_id())?;
     semwright_protocol::private_directory(&directory)?;
     let socket_path = directory.join("bridge.sock");
 
@@ -270,6 +311,40 @@ pub(crate) async fn start(state: &Path, port: u16) -> Result<Arc<LoopbackProxy>>
     });
 
     Ok(Arc::new(LoopbackProxy { stop, directory }))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn short_state_path_stays_under_state_even_when_runtime_exists() {
+        let state = Path::new("/tmp/semwright-state");
+        let runtime = Path::new("/run/user/1000/semwright");
+        let id = "a".repeat(32);
+        let directory = loopback_directory_path(state, Some(runtime), &id).unwrap();
+        assert!(directory.starts_with(state));
+    }
+
+    #[test]
+    fn runtime_base_keeps_long_state_socket_within_unix_budget() {
+        let state = PathBuf::from("/tmp").join("s".repeat(180));
+        let runtime = Path::new("/run/user/1000/semwright");
+        let id = "a".repeat(32);
+        let directory = loopback_directory_path(&state, Some(runtime), &id).unwrap();
+        let socket = directory.join("bridge.sock");
+        assert!(directory.starts_with(runtime));
+        assert!(socket.as_os_str().as_bytes().len() <= UNIX_SOCKET_PATH_MAX);
+    }
+
+    #[test]
+    fn long_state_without_runtime_is_rejected_early() {
+        let state = PathBuf::from("/tmp").join("s".repeat(180));
+        let id = "a".repeat(32);
+        let error = loopback_directory_path(&state, None, &id).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Unavailable);
+        assert!(error.message.contains("socket path"));
+    }
 }
 
 #[cfg(windows)]
