@@ -180,7 +180,9 @@ impl<'de> Deserialize<'de> for AudioOperation {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationSupport {
     SafeRoundtrip,
@@ -194,5 +196,14 @@ impl OperationSupport {
     }
     pub fn requires_metadata_acknowledgement(self) -> bool {
         self == Self::MetadataRisk
+    }
+}
+
+impl schemars::JsonSchema for AudioOperation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "AudioOperation".into()
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({"type":"string","enum":Self::ALL.iter().map(|op| op.as_str()).collect::<Vec<_>>()})
     }
 }

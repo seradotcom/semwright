@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub const ASSET_PROVIDER_CONTRACT_VERSION: u32 = 1;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetProviderKind {
     DeterministicLocal,
@@ -17,7 +17,7 @@ pub enum AssetProviderKind {
     Custom,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum GenerationKind {
     SoundEffect,
@@ -28,7 +28,7 @@ pub enum GenerationKind {
     InstrumentSample,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AssetProviderDescriptor {
     pub contract_version: u32,
@@ -59,7 +59,7 @@ impl AssetProviderDescriptor {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AssetGenerationRequest {
     pub contract_version: u32,
@@ -90,7 +90,7 @@ impl AssetGenerationRequest {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AssetGenerationReceipt {
     pub provider_id: String,

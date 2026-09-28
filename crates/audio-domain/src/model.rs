@@ -18,7 +18,7 @@ pub const MAX_CLIPS: usize = 100_000;
 pub const MAX_EFFECTS: usize = 16_384;
 pub const MAX_AUTOMATION_POINTS: usize = 1_000_000;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AudioProfile {
     pub sample_rate: SampleRate,
@@ -52,7 +52,7 @@ impl AudioProfile {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SampleSource {
     RelativePath { path: String },
@@ -75,7 +75,7 @@ impl SampleSource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SampleOrigin {
     Imported,
@@ -93,7 +93,7 @@ impl SampleOrigin {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Sample {
     pub id: String,
@@ -118,7 +118,7 @@ impl Sample {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Waveform {
     Sine,
@@ -128,7 +128,7 @@ pub enum Waveform {
     Noise,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Oscillator {
     pub waveform: Waveform,
@@ -158,7 +158,7 @@ impl Oscillator {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Envelope {
     pub attack_frames: u64,
@@ -181,7 +181,7 @@ impl Envelope {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FilterKind {
     LowPass,
@@ -190,7 +190,7 @@ pub enum FilterKind {
     Notch,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Filter {
     pub kind: FilterKind,
@@ -205,7 +205,7 @@ impl Filter {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EqBand {
     pub frequency: MilliHz,
@@ -223,7 +223,7 @@ impl EqBand {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Effect {
     Eq {
@@ -338,7 +338,7 @@ impl Effect {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EffectInstance {
     pub id: String,
@@ -352,7 +352,7 @@ impl EffectInstance {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EffectChain {
     pub effects: Vec<EffectInstance>,
@@ -373,7 +373,7 @@ impl EffectChain {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SignalNodeKind {
     Oscillator {
@@ -411,7 +411,7 @@ pub enum SignalNodeKind {
     Multiply,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Signal {
     pub id: String,
@@ -481,7 +481,7 @@ impl Signal {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Synth {
     pub id: String,
@@ -526,7 +526,7 @@ impl Synth {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AutomationCurve {
     Hold,
@@ -534,7 +534,7 @@ pub enum AutomationCurve {
     Smooth,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EffectParameter {
     GainDb,
@@ -552,7 +552,7 @@ pub enum EffectParameter {
     CeilingDb,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SynthParameter {
     FrequencyHz,
@@ -571,7 +571,7 @@ pub enum SynthParameter {
     FmModulationIndex,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AutomationTarget {
     StemGain,
@@ -592,7 +592,7 @@ pub enum AutomationTarget {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AutomationPoint {
     pub frame: SampleFrame,
@@ -600,7 +600,7 @@ pub struct AutomationPoint {
     pub curve: AutomationCurve,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Automation {
     pub id: String,
@@ -641,7 +641,7 @@ impl Automation {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ClipSource {
     Sample {
@@ -654,7 +654,7 @@ pub enum ClipSource {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AudioClip {
     pub id: String,
@@ -679,7 +679,7 @@ impl AudioClip {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BusSend {
     pub target_bus: String,
@@ -688,7 +688,7 @@ pub struct BusSend {
     pub pre_fader: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Bus {
     pub id: String,
@@ -720,7 +720,7 @@ impl Bus {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Stem {
     pub id: String,
@@ -753,7 +753,11 @@ impl Stem {
             validate_text("clip name", &clip.name, 4096)?;
             MilliDb::new(clip.gain.0)?;
             SampleRange::new(clip.source_range.start.0, clip.source_range.end.0)?;
-            if clip.fade_in_frames + clip.fade_out_frames > clip.duration() {
+            if clip
+                .fade_in_frames
+                .checked_add(clip.fade_out_frames)
+                .is_none_or(|sum| sum > clip.duration())
+            {
                 return Err(Error::invalid("Clip fades exceed clip duration"));
             }
             clip.end()?;
@@ -769,7 +773,7 @@ impl Stem {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AudioProject {
     pub model_version: u32,
@@ -999,6 +1003,9 @@ fn validate_acyclic_signals(signals: &[Signal]) -> Result<()> {
     ) -> Result<()> {
         if permanent.contains(id) {
             return Ok(());
+        }
+        if temporary.len() >= 256 {
+            return Err(Error::limit("Signal graph depth exceeds model budget"));
         }
         if !temporary.insert(id) {
             return Err(Error::invalid("Signal graph contains a cycle"));

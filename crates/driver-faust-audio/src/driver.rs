@@ -702,7 +702,7 @@ fn contract_schema() -> Value {
         "adapter_id":{"type":"string","maxLength":128},
         "semantic_model_version":{"const":1},
         "projection_fidelity":{"const":"exact"},
-        "operations":{"type":"array","minItems":34,"maxItems":34,"items":{"type":"object","properties":{
+        "operations":{"type":"array","minItems":AudioOperation::ALL.len(),"maxItems":AudioOperation::ALL.len(),"items":{"type":"object","properties":{
             "operation":{"type":"string","maxLength":128},
             "support":{"type":"string","enum":["safe_roundtrip","metadata_risk","render_only","unsupported"]},
             "reason":{"type":["string","null"],"maxLength":2048}

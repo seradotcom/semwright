@@ -21,3 +21,6 @@ pub mod time;
 pub mod units;
 
 pub use error::{Error, Result};
+
+pub mod signal_analysis;
+pub mod wav;
