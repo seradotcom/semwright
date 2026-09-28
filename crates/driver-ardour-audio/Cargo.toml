@@ -1,0 +1,36 @@
+[package]
+name = "semwright-ardour-audio-driver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Curated Ardour semantic session backend for Semwright audio-domain"
+
+[lib]
+name = "semwright_ardour_audio"
+path = "src/lib.rs"
+
+[[bin]]
+name = "semwright-ardour-audio-driver"
+path = "src/main.rs"
+
+[features]
+default = []
+live-tests = []
+
+[dependencies]
+async-trait.workspace = true
+semwright-audio-domain.workspace = true
+semwright-driver-sdk.workspace = true
+semwright-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+semwright-driver-host.workspace = true
+
+[lints]
+workspace = true

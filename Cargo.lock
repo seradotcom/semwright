@@ -2849,6 +2849,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-ardour-audio-driver"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "semwright-audio-domain",
+ "semwright-driver-host",
+ "semwright-driver-sdk",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "semwright-audio-domain"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
+
+[[package]]
 name = "semwright-backend-api"
 version = "0.9.0-dev.1"
 dependencies = [
@@ -3174,6 +3201,25 @@ dependencies = [
  "semwright-types",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "semwright-faust-audio-driver"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "semwright-audio-domain",
+ "semwright-backend-api",
+ "semwright-driver-host",
+ "semwright-driver-sdk",
+ "semwright-policy",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
