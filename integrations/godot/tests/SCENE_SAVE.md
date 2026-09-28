@@ -1,0 +1,18 @@
+# Explicit scene-only save
+
+`driver.godot.scene.save` accepts optional boolean `save_external_resources`, default **true**. Omission/true retains `EditorInterface.save_scene()` and its existing external-resource behavior. False invokes the conservative helper on the current edited scene; it does not accept a replacement path.
+
+The explicit false mode requires an existing canonical project `.tscn`, every descendant owned by the root, no nested scene instances/placeholders, and no inherited packed state. Other cases fail with Unsupported before saving. It constructs a PackedScene, checks complete node count and instance/base metadata, and writes only that scene with ResourceSaver flags0. It never calls ResourceSaver on external resources, set_uid, take_over_path, or resource bundling flags.
+
+Referenced external resources are found through stored Resource/Array/Dictionary values and hashed before and after. Limits:4000 nodes,512 resources,65536 traversal values,depth32,256MiB external-file hashing,5000ms. Native getters, pack/save and a single hash call cannot be preempted internally; the deadline is rechecked around work. Limit violations never return successful partial verification. If a write or post-write check fails, the error explicitly requires inspecting current bytes; no rollback or atomic-save claim is made. Artifacts are preserved.
+
+Unsaved edits *inside external resources* are deliberately not persisted by this mode. Resource identity/path stays external, and a subsequent reload reads its existing bytes. Inline resources owned by the scene may be serialized as part of that scene. Editor dirty bookkeeping is not cleared through an undocumented API; the caller must reload/restart and inspect. This mode does not claim undo support beyond the pre-existing mutation receipt shape.
+
+Fixture tests are synthetic, not acceptance evidence:
+
+- `cargo test -p semwright-driver-godot --test contracts` validates legacy/default and explicit true/false input, wrong types and forbidden replacement paths.
+- With the addon and tests copied into an independent Godot fixture project, run `godot --headless --path FIXTURE --script res://tests/scene_save_contract.gd`. The test creates a unique user:// directory belonging to that fixture; its fake path validator authorizes only that directory, while the product uses canonical res:// validation. It verifies reparented ownership/transforms, shared resource identity, scene reload, exact external bytes despite an unsaved in-memory resource edit, dry-run inertia, unsupported owner/instance and budget/path failures. No existing art or run is altered.
+
+The Godot integration workflow runs this fixture with pinned Godot4.7.2. It requires exit0 and the explicit SCENE_SAVE_FIXTURE_TESTS PASS marker and rejects engine/script errors. The Rust driver contract suite runs separately.
+
+API basis: [PackedScene.pack](https://docs.godotengine.org/en/latest/classes/class_packedscene.html) packs owned nodes; [SceneState](https://docs.godotengine.org/en/latest/classes/class_scenestate.html) exposes base/instance state. These reference pages do not substitute for testing the effective Godot4.7.2 binary.

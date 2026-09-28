@@ -29,3 +29,5 @@ addons/semwright/ops/variant_codec.gd=../../integrations/godot/addons/semwright/
 addons/semwright/ops/visual_ops.gd=../../integrations/godot/addons/semwright/ops/visual_ops.gd
 addons/semwright/plugin.cfg=../../integrations/godot/addons/semwright/plugin.cfg
 addons/semwright/plugin.gd=../../integrations/godot/addons/semwright/plugin.gd
+addons/semwright/ops/readback_ops.gd=../../integrations/godot/addons/semwright/ops/readback_ops.gd
+addons/semwright/ops/scene_save_ops.gd=../../integrations/godot/addons/semwright/ops/scene_save_ops.gd

@@ -266,7 +266,7 @@ fn specs() -> Vec<Spec> {
             15_000,
             true,
             true,
-            mutation_in,
+            scene_save_in,
             mutation_out,
         ),
         spec(
@@ -644,7 +644,7 @@ fn specs() -> Vec<Spec> {
             15_000,
             false,
             false,
-            animation_player_in,
+            animation_inspect_in,
             animation_out,
         ),
         spec(
@@ -2868,6 +2868,17 @@ fn mutation_in() -> Value {
         &["session", "expect", "dry_run"],
     )
 }
+fn scene_save_in() -> Value {
+    object(
+        Map::from_iter([
+            session_prop(),
+            expect_prop(),
+            dry_prop(),
+            ("save_external_resources".into(), boolean()),
+        ]),
+        &["session", "expect", "dry_run"],
+    )
+}
 fn path_mutation_in() -> Value {
     object(
         Map::from_iter([
@@ -2900,7 +2911,15 @@ fn node_target_read_in() -> Value {
 }
 fn node_inspect_in() -> Value {
     object(
-        Map::from_iter([session_prop(), ("path".into(), string(240))]),
+        Map::from_iter([
+            session_prop(),
+            ("path".into(), string(240)),
+            ("include_vertex_bounds".into(), boolean()),
+            (
+                "resource_properties".into(),
+                json!({"type":"array","maxItems":8,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":96}}),
+            ),
+        ]),
         &["session", "path"],
     )
 }
@@ -3236,14 +3255,31 @@ fn scene_out() -> Value {
         }}),
     )
 }
+fn observed_node_schema() -> Value {
+    let vector = json!({"type":"array","minItems":3,"maxItems":3,"items":{"type":"number"}});
+    let nullable_vector = json!({"anyOf":[{"type":"null"},vector.clone()]});
+    json!({"type":"object","additionalProperties":false,"required":["scope","owner_path","parent_path"],"properties":{
+        "scope":{"const":"edited_scene"},
+        "owner_path":{"type":["string","null"]},"parent_path":{"type":["string","null"]},
+        "position":vector.clone(),"rotation":vector.clone(),"scale":vector.clone(),"global_position":vector,
+        "rotation_order":{"type":"integer","minimum":0,"maximum":5},"is_playing":{"type":"boolean"},
+        "light_size":{"type":"number"},
+        "vertex_bounds":{"type":"object","additionalProperties":false,
+            "required":["global_min","global_max","vertex_count","surface_count","complete","space","geometry"],"properties":{
+                "global_min":nullable_vector.clone(),"global_max":nullable_vector,
+                "vertex_count":{"type":"integer","minimum":0,"maximum":250000},
+                "surface_count":{"type":"integer","minimum":0,"maximum":64},
+                "complete":{"const":true},"space":{"const":"global"},"geometry":{"const":"base_mesh_vertices"}}},
+        "resource_properties":{"type":"object","maxProperties":8,"additionalProperties":{"anyOf":[{"type":"null"},
+            {"type":"object","additionalProperties":false,"required":["class","path","properties"],"properties":{
+                "class":{"type":"string"},"path":{"type":"string"},"properties":{"type":"object","maxProperties":256}}}]}}
+    }})
+}
 fn node_out() -> Value {
     read_out(
         json!({"type":"object","additionalProperties":false,"required":["path","name","class","ref","properties"],"properties":{
-            "path":{"type":"string"},
-            "name":{"type":"string"},
-            "class":{"type":"string"},
-            "ref":godot_ref_schema(),
-            "properties":{"type":"object"}
+            "path":{"type":"string"},"name":{"type":"string"},"class":{"type":"string"},
+            "ref":godot_ref_schema(),"properties":{"type":"object"},"observed":observed_node_schema()
         }}),
     )
 }
@@ -3452,9 +3488,14 @@ fn signal_connect_in() -> Value {
         ],
     )
 }
-fn animation_player_in() -> Value {
+fn animation_inspect_in() -> Value {
     object(
-        Map::from_iter([session_prop(), ("player".into(), string(240))]),
+        Map::from_iter([
+            session_prop(),
+            ("player".into(), string(240)),
+            ("keys_offset".into(), bounded_int(0, 1000000)),
+            ("keys_limit".into(), bounded_int(0, 64)),
+        ]),
         &["session", "player"],
     )
 }
@@ -4529,8 +4570,28 @@ fn signal_out() -> Value {
     )
 }
 fn animation_out() -> Value {
+    let key = json!({"type":"object","additionalProperties":false,"required":["time","transition","value"],"properties":{
+        "index":{"type":"integer","minimum":0},"time":{"type":"number"},"transition":{"type":"number"},"value":{}}});
+    let track = json!({"type":"object","additionalProperties":false,"required":["index","type","path","enabled","keys"],"properties":{
+        "index":{"type":"integer","minimum":0},"type":{"type":"integer","minimum":0},"path":{"type":"string"},"enabled":{"type":"boolean"},
+        "interpolation_type":{"type":"integer","minimum":0},"interpolation_loop_wrap":{"type":"boolean"},
+        "update_mode":{"type":["integer","null"]},"key_count":{"type":"integer","minimum":0},
+        "keys_offset":bounded_int(0,1000000),"keys_limit":bounded_int(0,64),
+        "next_offset":{"type":["integer","null"],"minimum":0},"keys_complete":{"type":"boolean"},
+        "keys":{"type":"array","maxItems":64,"items":key}}});
+    let animation = json!({"type":"object","additionalProperties":false,"required":["name","length","loop_mode","tracks"],"properties":{
+        "name":{"type":"string"},"length":{"type":"number"},"loop_mode":{"type":"integer"},
+        "step":{"type":"number"},"resource_path":{"type":"string"},"tracks":{"type":"array","maxItems":128,"items":track}}});
+    let library = json!({"type":"object","additionalProperties":false,"required":["name","animations"],"properties":{
+        "name":{"type":"string"},"resource_path":{"type":"string"},"animations":{"type":"array","maxItems":128,"items":animation}}});
     read_out(
-        json!({"type":"object","additionalProperties":false,"required":["libraries"],"properties":{"libraries":{"type":"array","maxItems":128,"items":{"type":"object"}}}}),
+        json!({"type":"object","additionalProperties":false,"required":["libraries"],"properties":{
+            "scope":{"const":"edited_scene"},"metadata_complete":{"const":true},
+            "keys_offset":bounded_int(0,1000000),"keys_limit":bounded_int(0,64),"returned_keys":bounded_int(0,256),
+            "player_state":{"type":"object","additionalProperties":false,"required":["is_playing","speed_scale","autoplay"],"properties":{
+                "is_playing":{"type":"boolean"},"speed_scale":{"type":"number"},"autoplay":{"type":"string"}}},
+            "libraries":{"type":"array","maxItems":32,"items":library}
+        }}),
     )
 }
 

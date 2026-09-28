@@ -33,6 +33,8 @@ const AnimationGraphOps = preload("res://addons/semwright/ops/animation_graph_op
 const MultiplayerOps = preload("res://addons/semwright/ops/multiplayer_ops.gd")
 const EditorOps = preload("res://addons/semwright/ops/editor_ops.gd")
 const ApiOps = preload("res://addons/semwright/ops/api_ops.gd")
+const ReadbackOps = preload("res://addons/semwright/ops/readback_ops.gd")
+const SceneSaveOps = preload("res://addons/semwright/ops/scene_save_ops.gd")
 const RefOps = preload("res://addons/semwright/ops/ref_ops.gd")
 const VariantCodec = preload("res://addons/semwright/ops/variant_codec.gd")
 
@@ -653,9 +655,16 @@ func _scene_open(args: Dictionary) -> Dictionary:
 func _scene_save(args: Dictionary) -> Dictionary:
     var conflict := _check_expect(args)
     if not conflict.is_empty(): return conflict
+    var external = args.get("save_external_resources", true)
+    if not (external is bool): return _error("invalid_argument", "save_external_resources must be boolean")
     var root := EditorInterface.get_edited_scene_root()
     if root == null:
         return _error("not_found", "no edited scene")
+    if not external:
+        var result := SceneSaveOps.save_scene_only(self, root, bool(args.get("dry_run", false)))
+        if result.has("_error"): return result
+        if result.applied: _revision += 1
+        return _mutation_result(result.applied, [str(root.scene_file_path)], "Save scene only; external resources not saved")
     if bool(args.get("dry_run", false)):
         return _mutation_result(false, [str(root.scene_file_path)], "dry-run")
     var err := EditorInterface.save_scene()
@@ -677,9 +686,12 @@ func _node_inspect(args: Dictionary) -> Dictionary:
                 continue
             props[name] = _encode_value(node.get(name))
     var root := EditorInterface.get_edited_scene_root()
+    var observed := ReadbackOps.observe(self, root, node, args)
+    if observed.has("_error"): return observed
     var path := str(root.get_path_to(node))
     var current_stamp := _stamp()
     return {"stamp":current_stamp,"data":{
+        "observed":observed,
         "path":path,
         "name":str(node.name),
         "class":node.get_class(),
