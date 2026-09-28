@@ -26,7 +26,7 @@ use windows::{
     },
     Win32::{
         Foundation::{
-            HANDLE, OBJ_CASE_INSENSITIVE, STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_COLLISION,
+            HANDLE, OBJ_CASE_INSENSITIVE, STATUS_OBJECT_NAME_COLLISION,
             STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND, UNICODE_STRING,
         },
         Storage::FileSystem::{
@@ -34,8 +34,8 @@ use windows::{
             FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT, FILE_DISPOSITION_INFO,
             FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ,
             FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_RENAME_INFO, FILE_SHARE_DELETE,
-            FILE_SHARE_READ, FILE_SHARE_WRITE, FileDispositionInfo, FileRenameInfo,
-            GetFileInformationByHandle, SYNCHRONIZE, SetFileInformationByHandle,
+            FILE_SHARE_MODE, FILE_SHARE_READ, FILE_SHARE_WRITE, FileDispositionInfo,
+            FileRenameInfo, GetFileInformationByHandle, SYNCHRONIZE, SetFileInformationByHandle,
         },
         System::IO::IO_STATUS_BLOCK,
     },
@@ -151,8 +151,6 @@ fn nt_error(status: windows::Win32::Foundation::NTSTATUS, context: &'static str)
         ErrorCode::NotFound
     } else if status == STATUS_OBJECT_NAME_COLLISION {
         ErrorCode::Conflict
-    } else if status == STATUS_ACCESS_DENIED {
-        ErrorCode::PolicyDenied
     } else {
         ErrorCode::PolicyDenied
     };
@@ -188,6 +186,7 @@ fn nt_open_relative(
     desired_access: FILE_ACCESS_RIGHTS,
     disposition: NTCREATEFILE_CREATE_DISPOSITION,
     options: NTCREATEFILE_CREATE_OPTIONS,
+    share_access: FILE_SHARE_MODE,
     context: &'static str,
 ) -> Result<File> {
     validate_component(name)?;
@@ -222,7 +221,7 @@ fn nt_open_relative(
             &mut io_status,
             None,
             FILE_ATTRIBUTE_NORMAL,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            share_access,
             disposition,
             options | NT_FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT,
             None,
@@ -395,6 +394,7 @@ impl Root {
                 FILE_GENERIC_READ | SYNCHRONIZE,
                 NT_FILE_OPEN,
                 FILE_DIRECTORY_FILE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                 "Windows root-relative directory open failed",
             )?;
             validate_directory(&next, self.root_identity.volume)?;
@@ -416,6 +416,7 @@ impl Root {
             FILE_GENERIC_READ | SYNCHRONIZE,
             NT_FILE_OPEN,
             FILE_NON_DIRECTORY_FILE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
             "Windows root-relative file open failed",
         )?;
         let info = validate_regular_file(&file, self.root_identity.volume, require_single_link)?;
@@ -434,6 +435,7 @@ impl Root {
             FILE_READ_ATTRIBUTES | SYNCHRONIZE,
             NT_FILE_OPEN,
             FILE_NON_DIRECTORY_FILE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
             "Windows root-relative metadata open failed",
         )?;
         let info = validate_regular_file(&file, self.root_identity.volume, require_single_link)?;
@@ -496,6 +498,7 @@ impl Root {
             FILE_GENERIC_WRITE | FILE_READ_ATTRIBUTES | DELETE | SYNCHRONIZE,
             NT_FILE_CREATE,
             FILE_NON_DIRECTORY_FILE,
+            FILE_SHARE_READ | FILE_SHARE_DELETE,
             "Windows confined temporary file creation failed",
         )?;
         let temp_info = match validate_regular_file(&temp, self.root_identity.volume, true) {
