@@ -1,0 +1,62 @@
+name: Windows interactive certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      capture_mode:
+        description: "WGC picker action to certify"
+        required: true
+        default: "Skip"
+        type: choice
+        options:
+          - Skip
+          - Select
+          - Cancel
+          - Both
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-interactive-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: unlocked Windows desktop
+    runs-on: [self-hosted, Windows, semwright-interactive]
+    timeout-minutes: 120
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt
+      - name: Verify interactive runner identity
+        run: |
+          if ($env:RUNNER_ENVIRONMENT -ne "self-hosted") {
+            throw "Interactive certification requires a self-hosted runner."
+          }
+          Write-Host "runner_arch=$env:RUNNER_ARCH session=$env:SESSIONNAME sha=${{ github.sha }}"
+      - name: Run interactive certification harness
+        run: |
+          ./scripts/windows/run-interactive-certification.ps1 `
+            -CaptureMode "${{ inputs.capture_mode }}" `
+            -EvidenceRoot "$PWD/verification/windows-interactive/evidence"
+      - name: Upload interactive evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: windows-interactive-${{ runner.arch }}-${{ github.sha }}
+          path: verification/windows-interactive/
+          if-no-files-found: error
+          retention-days: 30

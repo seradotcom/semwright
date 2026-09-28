@@ -74,6 +74,20 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.python.test_windows_contracts
+      - name: Interactive harness PowerShell parses
+        shell: pwsh
+        run: |
+          $errors = $null
+          $tokens = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD/scripts/windows/run-interactive-certification.ps1",
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -ne 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            throw "Interactive certification PowerShell did not parse."
+          }
       - name: Native Windows runtime check
         run: >-
           cargo check --locked
