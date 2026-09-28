@@ -31,6 +31,6 @@ From a clean checkout on an unlocked disposable Windows desktop:
 pwsh ./scripts/windows/run-interactive-certification.ps1 -CaptureMode Both
 ```
 
-A manual GitHub dispatch may use `.github/workflows/windows-interactive.yml`, but only a self-hosted Windows runner labeled `semwright-interactive` can accept that job. GitHub-hosted Windows runners cannot run the workflow.
+A manual GitHub dispatch may use `.github/workflows/windows-interactive.yml`, which targets self-hosted Windows runners only. The harness itself additionally requires an interactive user session, Explorer in that session and a visible foreground window; a service/noninteractive runner fails closed. GitHub-hosted Windows runners cannot run the workflow.
 
 Evidence is written under `verification/windows-interactive/` and contains per-row logs, SHA-256 hashes, commit SHA, architecture/session metadata and `result.json`. The overall result intentionally remains `WINDOWS_INTERACTIVE_PENDING` while any required row above is pending.

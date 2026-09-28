@@ -24,7 +24,7 @@ concurrency:
 jobs:
   certify:
     name: unlocked Windows desktop
-    runs-on: [self-hosted, Windows, semwright-interactive]
+    runs-on: [self-hosted, Windows]
     timeout-minutes: 120
     env:
       CARGO_INCREMENTAL: 0
@@ -32,7 +32,7 @@ jobs:
       CARGO_PROFILE_TEST_DEBUG: 0
     defaults:
       run:
-        shell: pwsh
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -43,14 +43,15 @@ jobs:
           components: rustfmt
       - name: Verify interactive runner identity
         run: |
-          if ($env:RUNNER_ENVIRONMENT -ne "self-hosted") {
-            throw "Interactive certification requires a self-hosted runner."
-          }
-          Write-Host "runner_arch=$env:RUNNER_ARCH session=$env:SESSIONNAME sha=${{ github.sha }}"
+          set -euo pipefail
+          test "$RUNNER_ENVIRONMENT" = "self-hosted"
+          command -v pwsh >/dev/null
+          printf 'runner_arch=%s session=%s sha=%s\n' "$RUNNER_ARCH" "${SESSIONNAME:-unknown}" "${{ github.sha }}"
       - name: Run interactive certification harness
         run: |
-          ./scripts/windows/run-interactive-certification.ps1 `
-            -CaptureMode "${{ inputs.capture_mode }}" `
+          set -euo pipefail
+          pwsh -NoProfile -File ./scripts/windows/run-interactive-certification.ps1 \
+            -CaptureMode "${{ inputs.capture_mode }}" \
             -EvidenceRoot "$PWD/verification/windows-interactive/evidence"
       - name: Upload interactive evidence
         if: always()

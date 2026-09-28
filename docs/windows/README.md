@@ -8,6 +8,6 @@ Native Windows x64 and ARM64 CI proves the currently supported noninteractive au
 
 Hosted Windows CI is not an interactive desktop certificate. Real UIA physical-pixel, SendInput, picker-consent, UIPI/UAC, mixed-DPI/multi-monitor, lock/wake and real-application evidence stays `WINDOWS_INTERACTIVE_PENDING` until captured on an unlocked disposable Windows session.
 
-Use `scripts/windows/run-interactive-certification.ps1` directly on such a session, or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner carrying the `semwright-interactive` label. The workflow cannot run on GitHub-hosted runners.
+Use `scripts/windows/run-interactive-certification.ps1` directly on such a session, or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner. The harness itself rejects service/noninteractive sessions, and the workflow cannot run on GitHub-hosted runners.
 
 Status vocabulary: `IMPLEMENTED_SOURCE` means code is present; `PASS_WINDOWS_NATIVE_CI` requires native Actions evidence; `PASS_WINDOWS_INTERACTIVE` requires evidence from an actual unlocked Windows desktop; `WINDOWS_INTERACTIVE_PENDING` means the interactive row has not been certified; `BLOCKED_*` means the authority remains deliberately unavailable.

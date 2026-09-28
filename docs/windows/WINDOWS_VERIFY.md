@@ -16,7 +16,7 @@ Run on an unlocked disposable Windows desktop from a clean checkout:
 pwsh ./scripts/windows/run-interactive-certification.ps1 -CaptureMode Both
 ```
 
-Or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner labeled `semwright-interactive`. The workflow is `workflow_dispatch` only and rejects non-self-hosted execution.
+Or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner. The workflow is `workflow_dispatch` only; the harness rejects noninteractive/service sessions even on self-hosted machines.
 
 The harness writes `verification/windows-interactive/<timestamp>/result.json` plus per-row logs and SHA-256 hashes. It marks only actually executed rows as `PASS_WINDOWS_INTERACTIVE`; unexecuted rows remain `WINDOWS_INTERACTIVE_PENDING`. The overall classification remains pending while any required row is pending.
 
