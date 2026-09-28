@@ -634,6 +634,7 @@ fn official_skills_validate_and_keep_progressive_disclosure_small() {
         "semwright-workflow-distillation",
         "semwright-driver-authoring",
         "semwright-figma-production",
+        "semwright-video-production",
     ] {
         let report = validate(&repo.join("skills").join(name)).unwrap();
         assert!(report.standard_valid, "{name}");
