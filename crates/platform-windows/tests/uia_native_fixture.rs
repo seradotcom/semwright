@@ -12,6 +12,7 @@ use windows::{
         System::LibraryLoader::GetModuleHandleW,
         UI::{
             HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
+            Input::KeyboardAndMouse::SetFocus,
             WindowsAndMessaging::*,
         },
     },
