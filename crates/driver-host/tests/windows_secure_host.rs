@@ -66,7 +66,7 @@ async fn driver_network_probe(
     });
     let output = Provider::execute(provider, &context, &probe, &args)
         .await
-        .expect("execute fixture network probe");
+        .unwrap_or_else(|error| panic!("execute fixture network probe {request_id}: {error:?}"));
     (
         output["reachable"].as_bool().expect("reachable bool"),
         output["host_visible"].as_bool().expect("host_visible bool"),

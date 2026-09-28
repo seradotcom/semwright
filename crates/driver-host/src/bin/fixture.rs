@@ -489,12 +489,23 @@ impl Driver for Fixture {
                 .get("host_path")
                 .and_then(Value::as_str)
                 .ok_or_else(|| Error::invalid("fixture network probe host_path is required"))?;
-            let reachable = tokio::time::timeout(
-                std::time::Duration::from_millis(750),
-                tokio::net::TcpStream::connect(address),
-            )
-            .await
-            .is_ok_and(|result| result.is_ok());
+            // Windows network isolation can leave a connect operation pending longer than the
+            // requested socket deadline. Keep that kernel wait off the Driver protocol runtime and
+            // bound the fixture response independently so a denied probe cannot wedge the session.
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            let _network_probe = std::thread::spawn(move || {
+                let reachable = std::net::TcpStream::connect_timeout(
+                    &address,
+                    std::time::Duration::from_millis(750),
+                )
+                .is_ok();
+                let _ = sender.send(reachable);
+            });
+            let reachable = tokio::time::timeout(std::time::Duration::from_millis(1_000), receiver)
+                .await
+                .ok()
+                .and_then(|result| result.ok())
+                .unwrap_or(false);
             let host_visible = std::fs::read(host_path).is_ok();
             return Ok(json!({"reachable":reachable,"host_visible":host_visible}));
         }
