@@ -27,7 +27,8 @@ func setup(data: TidelingSpecies) -> void:
 	animation = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if animation:
 		for clip in animation.get_animation_list():
-			if "Swim_loop" in clip:
+			# Godot consumes the _loop import hint and renames the clip.
+			if String(clip).trim_suffix("_loop").ends_with("_Swim"):
 				animation.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 				animation.play(clip)
 				animation.speed_scale = 1.0 / sqrt(data.size + .3)

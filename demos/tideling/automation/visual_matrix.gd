@@ -5,9 +5,10 @@ func _initialize() -> void:
 	output = OS.get_cmdline_user_args()[0]
 	run.call_deferred()
 func capture(id: String) -> void:
-	for i in range(100): await process_frame
+	for i in range(24): await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(output.path_join(id+".png"))
+	print("TIDELING_CAPTURE "+id)
 func run() -> void:
 	game = load("res://reef.tscn").instantiate()
 	root.add_child(game)

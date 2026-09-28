@@ -23,3 +23,7 @@ The generated GLBs contain original geometry, materials, skeletons and animation
 `authoring/build_assets.py` reproduces them in Blender 4.5.14 (`-- --all`).
 Title font: Fraunces, Google Fonts distribution, SIL Open Font License in assets/FONT-LICENSE.txt.
 All fish/environment geometry and synthesized audio are original to this demo.
+
+For the reproducible broker route and evidence interpretation, see [PROOF.md](PROOF.md).
+The game workflow publishes a baseline Linux development package; the cross-app
+workflow publishes its enabled BlueGold variant only after acceptance passes.

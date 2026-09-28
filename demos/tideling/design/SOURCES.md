@@ -7,3 +7,4 @@
 - Godot import design informed by official 3D scene pipeline: https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_3d_scenes/index.html . Execution target is 4.7.2 stable.
 - Gameplay premise is the generic eat/grow/survive loop; characters, geometry, sounds, title treatment and level composition are original. TIDELING remains a provisional project name, not a trademark clearance claim.
 - The portable checkpoint includes Godot's official engine binary and its MIT license; font license included separately. It is built on GitHub-hosted Actions and contains no Semwright pairing secret or proof harness.
+- Godot 4.7.2 animation import renames loop-hint clips: https://github.com/godotengine/godot/blob/4.7.2-stable/editor/import/3d/resource_importer_scene.cpp . Runtime selection accepts the imported Swim name and explicitly enables its loop.

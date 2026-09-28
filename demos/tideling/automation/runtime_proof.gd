@@ -13,6 +13,9 @@ func run() -> void:
 	root.add_child(game)
 	game.start_game()
 	game.active = false
+	var animations_playing: bool = game.player_animation != null and game.player_animation.is_playing()
+	for fish in game.population:
+		animations_playing = animations_playing and fish.animation != null and fish.animation.is_playing()
 	for fish in game.population: fish.queue_free()
 	game.population.clear()
 	for i in range(3): await physics_frame
@@ -45,7 +48,7 @@ func run() -> void:
 	hunter.position = game.player.position
 	for i in range(5): await physics_frame
 	var died: bool = game.finished and not game.active
-	var record := {"kind":"GAME_RUNTIME", "bluegold_blocked_stage_1":blocked_at_one, "bluegold_consumed_stage_2":eaten_at_two, "keyboard_moves_player":movement, "dash_accelerates":dash, "predator_ends_run":died, "score":game.rules.score, "stage":game.rules.stage, "note":"Direct runtime test, not Semwright proof. Species explicitly injected only in this external test."}
+	var record := {"kind":"GAME_RUNTIME", "hero_and_fauna_swim_playing":animations_playing, "bluegold_blocked_stage_1":blocked_at_one, "bluegold_consumed_stage_2":eaten_at_two, "keyboard_moves_player":movement, "dash_accelerates":dash, "predator_ends_run":died, "score":game.rules.score, "stage":game.rules.stage, "note":"Direct runtime test, not Semwright proof. Species explicitly injected only in this external test."}
 	print("TIDELING_RUNTIME_PROOF "+JSON.stringify(record))
 	game.audio.stop()
 	game.ambience.stop()
@@ -53,4 +56,4 @@ func run() -> void:
 	for i in range(4): await process_frame
 	# Let the audio server release its command queue before engine shutdown.
 	await create_timer(.15).timeout
-	quit(0 if blocked_at_one and eaten_at_two and died and movement and dash else 1)
+	quit(0 if animations_playing and blocked_at_one and eaten_at_two and died and movement and dash else 1)

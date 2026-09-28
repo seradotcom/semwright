@@ -56,10 +56,13 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1-mesa-dri
-          LIBGL_ALWAYS_SOFTWARE=1 timeout 180 xvfb-run -a "$GODOT_BIN" --path demos/tideling/project \
+          LIBGL_ALWAYS_SOFTWARE=1 timeout 240 xvfb-run -a "$GODOT_BIN" --path demos/tideling/project \
             --audio-driver Dummy --script ../automation/visual_matrix.gd -- "$GITHUB_WORKSPACE/verification/tideling" \
             2>&1 | tee verification/tideling/visual-fixtures.log
           ! rg 'SCRIPT ERROR|^ERROR:' verification/tideling/visual-fixtures.log
+          for state in title-004 game-004 hierarchy stage-2 stage-3 ending; do
+            test -s "verification/tideling/$state.png"
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: Tideling-Linux-development-${{ github.sha }}

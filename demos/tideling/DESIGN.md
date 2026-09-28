@@ -89,7 +89,7 @@ components:
 
 The original modeled fish and reef carry the experience. A warm hero moves through cool water, framed by layered coral, rock and kelp. The interface is a sparse native Godot CanvasLayer over the living scene; opening and ending copy use an editorial serif while play information stays compact.
 
-This document refreshes the earlier directional notes from the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. It records a development prototype, not an approved golden game, complete accessibility review or Semwright driver proof. Central background foliage still needs visual review for obstruction. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.
+This document refreshes the earlier directional notes from the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. It records a development prototype, not an approved golden game, complete accessibility review or Semwright driver proof. The hosted juvenile capture confirms that reduced, darkened kelp clears the central swimming plane; the full visual-state matrix remains pending. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.
 
 **Key Characteristics:**
 
@@ -129,7 +129,7 @@ The opening title starts at (66, 180), introductory text at (70, 295), Dive at (
 
 During play, stage starts at (44, 32), growth at (44, 71), score at (1060, 28), timer at (1135, 67), and combo at (595, 36). Burst instructions start at (44, 726), recharge at (44, 753), and hint text at (320, 724). Sound sits at (1080, 734) with a 150 × 36 assigned size. Growth and recharge track dimensions are defined above. HUD edge shading covers the full authored canvas.
 
-The orthographic camera begins at size 23. Active target size is 18.5, 20.8 or 23.1 across three stages, plus the growth pulse contribution. Camera follow is damped. The reef places three background layers behind the swimming plane, with near-edge fronds framing the lagoon; unobstructed gameplay is the intent, with the central foliage issue still open.
+The orthographic camera begins at size 23. Active target size is 18.5, 20.8 or 23.1 across three stages, plus the growth pulse contribution. Camera follow is damped. The reef places three background layers behind the swimming plane, with near-edge fronds framing the lagoon; unobstructed gameplay is the intent, with the central foliage obstruction resolved in the hosted juvenile capture.
 
 ## Elevation & Depth
 

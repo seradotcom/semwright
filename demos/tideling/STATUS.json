@@ -3,6 +3,6 @@
   "golden_game": false,
   "semwright_cross_app_proof": false,
   "merged_sha_public_proof": false,
-  "completed_evidence": ["Blender rigged animated GLB assets", "Godot import and GPU render", "13 gameplay rule checks", "Real collision stage gate, keyboard, dash and predator end"],
-  "open": ["Complete playthrough balance", "Final visual review", "Portable build verification", "Broker-routed new GLB capability", "Cross-app baseline/delta proof", "Merged-SHA public proof"]
+  "completed_evidence": ["Blender rigged animated GLB assets", "Godot import and GPU render", "13 gameplay rule checks", "Real collision stage gate, keyboard, dash and predator end", "Pause, timed ending, retry and mute acceptance", "Hosted Linux pack export and portable launch"],
+  "open": ["Final visual and movement-feel review", "Broker-routed new GLB and cross-app baseline/delta proof rerun", "Clean merged-SHA public proof"]
 }

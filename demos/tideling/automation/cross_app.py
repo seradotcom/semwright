@@ -4,7 +4,7 @@ Filesystem setup installs the owner-approved baseline and bridge. After baseline
 all Blender authoring and Godot resource changes use discovered Semwright capabilities.
 The external Godot acceptance script only observes/exercises the resulting game.
 """
-import hashlib,json,os,shutil,socket,subprocess,sys,tempfile,time
+import hashlib,json,os,shutil,socket,struct,subprocess,sys,tempfile,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3]
 EVIDENCE=ROOT/'verification/tideling-cross-app'
@@ -62,7 +62,7 @@ def run(work):
         execution=result.get('execution',{})
         if name.startswith('driver.'):
             expected='driver:'+name.split('.')[1]
-            assert execution.get('backend')==expected and execution.get('policy_decision')=='allow',execution
+            assert execution.get('backend')==expected and execution.get('policy_decision')=='allow' and execution.get('provenance',{}).get('provider')==expected,execution
         row={'command':name,'args':args,'data':result.get('data'),'execution':execution,'request_id':result.get('request_id')}
         ops.append(row)
         with (EVIDENCE/'operations.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
@@ -130,6 +130,12 @@ def run(work):
         b('semantic.custom.set',{'ref':ref('objects','BlueGoldFish_Rig'),'key':'semantic_id','value':'BlueGoldFish'})
         exported=b('export.glb',{'collection':'BlueGoldFish','path':'BlueGoldFish.glb','animations':True})
         assert sha(producer/'BlueGoldFish.glb')==exported['sha256']
+        shutil.copy2(producer/'BlueGoldFish.glb',EVIDENCE/'BlueGoldFish.glb')
+        binary=(producer/'BlueGoldFish.glb').read_bytes()
+        json_length,chunk_kind=struct.unpack('<I4s',binary[12:20]);assert chunk_kind==b'JSON'
+        gltf=json.loads(binary[20:20+json_length])
+        write_json(EVIDENCE/'glb-inspection.json',{'animations':[a.get('name') for a in gltf.get('animations',[])],'skins':len(gltf.get('skins',[])),'meshes':len(gltf.get('meshes',[]))})
+        assert gltf.get('skins') and any('Swim' in a.get('name','') for a in gltf.get('animations',[]))
         handoff=invoke('artifact.handoff',{'source_root':'workspace','source_path':'BlueGoldFish.glb','destination_root':'godot-project','destination_path':'assets/blue_gold.glb','expected_sha256':exported['sha256'],'semantic_type':'model/3d','media_type':'model/gltf-binary','max_bytes':67108864})
         assert handoff['sha256']==exported['sha256']
         el=(EVIDENCE/'godot-editor.log').open('w');handles.append(el)
@@ -159,6 +165,7 @@ def run(work):
         mutate('resource.patch',{'path':'res://species/blue_gold.tres','properties':[{'name':'enabled','value':True},{'name':'spawn_weight','value':4.0},{'name':'edible_stage','value':2},{'name':'size','value':.47}]})
         observed=g('resource.inspect',{'path':'res://species/blue_gold.tres'})['data']['properties']
         assert observed['enabled'] is True and observed['edible_stage']==2 and observed['spawn_weight']>0,observed
+        shutil.copy2(project/'species/blue_gold.tres',EVIDENCE/'BlueGoldFish.tres')
         editor.terminate();editor.wait(timeout=20)
         # Runtime acceptance invokes no driver-independent edits of project resources.
         log=EVIDENCE/'gameplay.log'

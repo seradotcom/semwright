@@ -1603,15 +1603,9 @@
     "source_version": "0.9.0-dev.1",
     "app": null,
     "aliases": [],
-    "object_types": [
-      "workflow"
-    ],
+    "object_types": ["workflow"],
     "untrusted_metadata": false,
-    "tags": [
-      "workflow",
-      "proposal",
-      "list"
-    ]
+    "tags": ["workflow", "proposal", "list"]
   },
   "workflow.proposal.get": {
     "provider": "semwright-core",
@@ -1619,15 +1613,9 @@
     "source_version": "0.9.0-dev.1",
     "app": null,
     "aliases": [],
-    "object_types": [
-      "workflow"
-    ],
+    "object_types": ["workflow"],
     "untrusted_metadata": false,
-    "tags": [
-      "workflow",
-      "proposal",
-      "get"
-    ]
+    "tags": ["workflow", "proposal", "get"]
   },
   "workflow.proposal.plan": {
     "provider": "semwright-core",
@@ -1635,15 +1623,9 @@
     "source_version": "0.9.0-dev.1",
     "app": null,
     "aliases": [],
-    "object_types": [
-      "workflow"
-    ],
+    "object_types": ["workflow"],
     "untrusted_metadata": false,
-    "tags": [
-      "workflow",
-      "proposal",
-      "plan"
-    ]
+    "tags": ["workflow", "proposal", "plan"]
   },
   "workflow.proposal.accept": {
     "provider": "semwright-core",
@@ -1651,15 +1633,9 @@
     "source_version": "0.9.0-dev.1",
     "app": null,
     "aliases": [],
-    "object_types": [
-      "workflow"
-    ],
+    "object_types": ["workflow"],
     "untrusted_metadata": false,
-    "tags": [
-      "workflow",
-      "proposal",
-      "accept"
-    ]
+    "tags": ["workflow", "proposal", "accept"]
   },
   "workflow.proposal.dismiss": {
     "provider": "semwright-core",
@@ -1667,15 +1643,9 @@
     "source_version": "0.9.0-dev.1",
     "app": null,
     "aliases": [],
-    "object_types": [
-      "workflow"
-    ],
+    "object_types": ["workflow"],
     "untrusted_metadata": false,
-    "tags": [
-      "workflow",
-      "proposal",
-      "dismiss"
-    ]
+    "tags": ["workflow", "proposal", "dismiss"]
   },
   "browser.page.reload": {
     "provider": "browser-cdp",
@@ -1685,10 +1655,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "page"
-    ]
+    "tags": ["browser", "page"]
   },
   "browser.page.stop": {
     "provider": "browser-cdp",
@@ -1698,10 +1665,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "page"
-    ]
+    "tags": ["browser", "page"]
   },
   "browser.page.back": {
     "provider": "browser-cdp",
@@ -1711,10 +1675,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "page"
-    ]
+    "tags": ["browser", "page"]
   },
   "browser.page.forward": {
     "provider": "browser-cdp",
@@ -1724,10 +1685,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "page"
-    ]
+    "tags": ["browser", "page"]
   },
   "browser.frame.list": {
     "provider": "browser-cdp",
@@ -1737,11 +1695,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "frame",
-      "semantic"
-    ]
+    "tags": ["browser", "frame", "semantic"]
   },
   "browser.semantic.snapshot": {
     "provider": "browser-cdp",
@@ -1751,10 +1705,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "semantic"
-    ]
+    "tags": ["browser", "semantic"]
   },
   "browser.semantic.query": {
     "provider": "browser-cdp",
@@ -1764,10 +1715,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "semantic"
-    ]
+    "tags": ["browser", "semantic"]
   },
   "browser.semantic.inspect": {
     "provider": "browser-cdp",
@@ -1777,10 +1725,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "semantic"
-    ]
+    "tags": ["browser", "semantic"]
   },
   "browser.element.focus": {
     "provider": "browser-cdp",
@@ -1790,11 +1735,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.element.scroll": {
     "provider": "browser-cdp",
@@ -1804,11 +1745,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.element.click": {
     "provider": "browser-cdp",
@@ -1818,11 +1755,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.element.fill": {
     "provider": "browser-cdp",
@@ -1832,11 +1765,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.element.hover": {
     "provider": "browser-cdp",
@@ -1846,11 +1775,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.element.press": {
     "provider": "browser-cdp",
@@ -1860,11 +1785,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.element.check": {
     "provider": "browser-cdp",
@@ -1874,11 +1795,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.element.select": {
     "provider": "browser-cdp",
@@ -1888,11 +1805,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ]
+    "tags": ["browser", "element", "semantic"]
   },
   "browser.semantic.wait": {
     "provider": "browser-cdp",
@@ -1902,11 +1815,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "semantic",
-      "wait"
-    ]
+    "tags": ["browser", "semantic", "wait"]
   },
   "browser.dialog.status": {
     "provider": "browser-cdp",
@@ -1916,11 +1825,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "dialog",
-      "semantic"
-    ]
+    "tags": ["browser", "dialog", "semantic"]
   },
   "browser.dialog.respond": {
     "provider": "browser-cdp",
@@ -1930,11 +1835,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "dialog",
-      "semantic"
-    ]
+    "tags": ["browser", "dialog", "semantic"]
   },
   "browser.element.drag_to": {
     "provider": "browser-cdp",
@@ -1944,12 +1845,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic",
-      "drag"
-    ]
+    "tags": ["browser", "element", "semantic", "drag"]
   },
   "browser.element.upload": {
     "provider": "browser-cdp",
@@ -1959,13 +1855,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "element",
-      "semantic",
-      "upload",
-      "filesystem-grant"
-    ]
+    "tags": ["browser", "element", "semantic", "upload", "filesystem-grant"]
   },
   "browser.page.scroll": {
     "provider": "browser-cdp",
@@ -1975,11 +1865,7 @@
     "aliases": [],
     "object_types": [],
     "untrusted_metadata": false,
-    "tags": [
-      "browser",
-      "page",
-      "semantic"
-    ]
+    "tags": ["browser", "page", "semantic"]
   },
   "blender.export.glb": {
     "aliases": [],

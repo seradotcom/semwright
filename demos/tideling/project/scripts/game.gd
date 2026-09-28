@@ -101,7 +101,7 @@ func set_hero(stage: int) -> void:
 func play_action(fragment: String) -> void:
 	if not player_animation: return
 	for clip in player_animation.get_animation_list():
-		if fragment in clip:
+		if String(clip).trim_suffix("_loop").ends_with("_" + fragment.trim_suffix("_loop")):
 			player_animation.get_animation(clip).loop_mode = Animation.LOOP_LINEAR if "loop" in fragment else Animation.LOOP_NONE
 			player_animation.play(clip, .12)
 			if "loop" not in fragment: player_animation.queue(find_swim())
@@ -109,7 +109,7 @@ func play_action(fragment: String) -> void:
 
 func find_swim() -> String:
 	for clip in player_animation.get_animation_list():
-		if "Swim_loop" in clip: return clip
+		if String(clip).trim_suffix("_loop").ends_with("_Swim"): return clip
 	return ""
 
 func spawn_fish(initial := false, forced: TidelingSpecies = null) -> ReefFish:
