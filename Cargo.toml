@@ -40,7 +40,7 @@ xkeysym = "=0.2.1"
 pipewire = { version = "=0.10.1", features = ["v0_3_65"] }
 png = "0.18"
 calloop = "0.14"
-x11rb = { version = "0.13", features = ["xtest"] }
+x11rb = { version = "0.14", features = ["xtest"] }
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "handshake"] }
 url = "2"
 base64 = "0.23"
