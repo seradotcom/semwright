@@ -270,11 +270,21 @@ impl ServerHandler for Fixture {
                 let write_ok =
                     std::fs::write("/workspace/allowed/written.txt", b"sandbox-write\n").is_ok();
                 let host_visible = std::fs::read_to_string(host_path).is_ok();
-                let network_reachable = std::net::TcpStream::connect_timeout(
-                    &address,
-                    std::time::Duration::from_millis(750),
-                )
-                .is_ok();
+                // A denied LPAC connect can remain pending longer than the requested
+                // socket deadline. Keep the kernel wait off the MCP protocol task and bound
+                // this synthetic probe independently.
+                let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+                let _probe = std::thread::spawn(move || {
+                    let reachable = std::net::TcpStream::connect_timeout(
+                        &address,
+                        std::time::Duration::from_millis(750),
+                    )
+                    .is_ok();
+                    let _ = sender.send(reachable);
+                });
+                let network_reachable = receiver
+                    .recv_timeout(std::time::Duration::from_millis(1_000))
+                    .unwrap_or(false);
                 let env_clean = [
                     "DBUS_SESSION_BUS_ADDRESS",
                     "DISPLAY",
