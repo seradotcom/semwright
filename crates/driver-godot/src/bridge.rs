@@ -826,6 +826,7 @@ fn map_code(code: &str) -> ErrorCode {
         "stale_reference" => ErrorCode::StaleReference,
         "permission_denied" => ErrorCode::PermissionDenied,
         "unsupported" => ErrorCode::Unsupported,
+        "resource_exhausted" => ErrorCode::ResourceExhausted,
         "unavailable" => ErrorCode::Unavailable,
         _ => ErrorCode::BackendFailed,
     }

@@ -1,35 +1,88 @@
 @tool
 extends RefCounted
 
+const ReadbackOps = preload("res://addons/semwright/ops/readback_ops.gd")
+const MAX_INSPECT_LIBRARIES := 32
+const MAX_INSPECT_ANIMATIONS := 128
+const MAX_INSPECT_TRACKS := 128
+const MAX_INSPECT_KEYS := 256
+const MAX_INSPECT_MS := 1000
+
 static func inspect(ctx, args: Dictionary) -> Dictionary:
     var player = _player(ctx, str(args.get("player", "")))
     if player == null: return ctx._error("not_found", "AnimationPlayer not found")
+    return inspect_player(ctx, player, args)
+
+static func _bounded_page_integer(value, maximum: int) -> bool:
+    if value is int: return value >= 0 and value <= maximum
+    # Godot JSON.parse_string represents JSON numbers as floats. Validate before
+    # coercion: booleans, strings, fractions and non-finite values are not integers.
+    if not (value is float): return false
+    return is_finite(value) and value >= 0.0 and value <= maximum and floor(value) == value
+
+static func inspect_player(ctx, player: AnimationPlayer, args: Dictionary) -> Dictionary:
+    var raw_offset = args.get("keys_offset", 0)
+    var raw_limit = args.get("keys_limit", 16)
+    if not _bounded_page_integer(raw_offset, 1000000) or not _bounded_page_integer(raw_limit, 64):
+        return ctx._error("invalid_argument", "keys_offset must be integral 0..1000000 and keys_limit integral 0..64")
+    var offset := int(raw_offset)
+    var limit := int(raw_limit)
+    var started := Time.get_ticks_msec()
     var libraries: Array = []
-    for library_name in player.get_animation_library_list():
+    var animation_count := 0
+    var track_count := 0
+    var returned_keys := 0
+    var library_names = player.get_animation_library_list()
+    if library_names.size() > MAX_INSPECT_LIBRARIES:
+        return ctx._error("resource_exhausted", "animation library metadata budget exceeded")
+    for library_name in library_names:
         var library = player.get_animation_library(library_name)
         var animations: Array = []
         for animation_name in library.get_animation_list():
-            var animation = library.get_animation(animation_name)
+            animation_count += 1
+            if animation_count > MAX_INSPECT_ANIMATIONS:
+                return ctx._error("resource_exhausted", "animation metadata budget exceeded")
+            var animation: Animation = library.get_animation(animation_name)
+            track_count += animation.get_track_count()
+            if track_count > MAX_INSPECT_TRACKS:
+                return ctx._error("resource_exhausted", "animation track metadata budget exceeded")
             var tracks: Array = []
-            for i in animation.get_track_count():
+            for i in range(animation.get_track_count()):
                 var keys: Array = []
-                for k in animation.track_get_key_count(i):
-                    var value = animation.track_get_key_value(i, k)
-                    keys.append({
-                        "time": animation.track_get_key_time(i, k),
-                        "transition": animation.track_get_key_transition(i, k),
-                        "value": ctx._encode_value(value),
-                    })
-                tracks.append({
-                    "index":i,
-                    "type":animation.track_get_type(i),
-                    "path":str(animation.track_get_path(i)),
-                    "enabled":animation.track_is_enabled(i),
-                    "keys":keys,
-                })
-            animations.append({"name":str(animation_name),"length":animation.length,"loop_mode":animation.loop_mode,"tracks":tracks})
-        libraries.append({"name":str(library_name),"animations":animations})
-    return {"stamp":ctx._stamp(),"data":{"libraries":libraries}}
+                var total := animation.track_get_key_count(i)
+                var stop := mini(total, offset + limit)
+                var first := mini(offset, total)
+                if returned_keys + stop - first > MAX_INSPECT_KEYS:
+                    return ctx._error("resource_exhausted", "animation key page budget exceeded; reduce keys_limit")
+                for k in range(first, stop):
+                    var encoded = ctx._encode_value(animation.track_get_key_value(i, k))
+                    if ReadbackOps.incomplete(encoded):
+                        return ctx._error("resource_exhausted", "animation key value cannot be represented completely")
+                    keys.append({"index":k,"time":animation.track_get_key_time(i,k),
+                        "transition":animation.track_get_key_transition(i,k),"value":encoded})
+                    returned_keys += 1
+                    if Time.get_ticks_msec() - started > MAX_INSPECT_MS:
+                        return ctx._error("resource_exhausted", "animation readback time budget exceeded")
+                tracks.append({"index":i,"type":animation.track_get_type(i),
+                    "path":str(animation.track_get_path(i)),"enabled":animation.track_is_enabled(i),
+                    "interpolation_type":animation.track_get_interpolation_type(i),
+                    "interpolation_loop_wrap":animation.track_get_interpolation_loop_wrap(i),
+                    "update_mode":animation.value_track_get_update_mode(i) if animation.track_get_type(i) == Animation.TYPE_VALUE else null,
+                    "key_count":total,"keys_offset":offset,"keys_limit":limit,
+                    "next_offset":stop if stop < total and limit > 0 else null,
+                    "keys_complete":offset == 0 and stop == total,"keys":keys})
+                if Time.get_ticks_msec() - started > MAX_INSPECT_MS:
+                    return ctx._error("resource_exhausted", "animation readback time budget exceeded")
+            animations.append({"name":str(animation_name),"length":animation.length,
+                "loop_mode":animation.loop_mode,"step":animation.step,
+                "resource_path":animation.resource_path,"tracks":tracks})
+        libraries.append({"name":str(library_name),"resource_path":library.resource_path,"animations":animations})
+    if Time.get_ticks_msec() - started > MAX_INSPECT_MS:
+        return ctx._error("resource_exhausted", "animation readback time budget exceeded")
+    return {"stamp":ctx._stamp(),"data":{"scope":"edited_scene","metadata_complete":true,
+        "keys_offset":offset,"keys_limit":limit,"returned_keys":returned_keys,
+        "player_state":{"is_playing":player.is_playing(),"speed_scale":player.speed_scale,
+            "autoplay":str(player.autoplay)},"libraries":libraries}}
 
 static func create(ctx, args: Dictionary) -> Dictionary:
     var conflict = ctx._check_expect(args)
