@@ -173,9 +173,10 @@ fn network_capability() -> Capability {
                 "type":"object",
                 "properties":{
                     "reachable":{"type":"boolean"},
-                    "host_visible":{"type":"boolean"}
+                    "host_visible":{"type":"boolean"},
+                    "error_code":{"type":"integer"}
                 },
-                "required":["reachable","host_visible"],
+                "required":["reachable","host_visible","error_code"],
                 "additionalProperties":false
             }),
             requires: vec!["driver:fixture".into()],
@@ -494,20 +495,27 @@ impl Driver for Fixture {
             // bound the fixture response independently so a denied probe cannot wedge the session.
             let (sender, receiver) = tokio::sync::oneshot::channel();
             let _network_probe = std::thread::spawn(move || {
-                let reachable = std::net::TcpStream::connect_timeout(
+                let outcome = match std::net::TcpStream::connect_timeout(
                     &address,
                     std::time::Duration::from_millis(750),
-                )
-                .is_ok();
-                let _ = sender.send(reachable);
+                ) {
+                    Ok(_) => (true, 0),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                };
+                let _ = sender.send(outcome);
             });
-            let reachable = tokio::time::timeout(std::time::Duration::from_millis(1_000), receiver)
-                .await
-                .ok()
-                .and_then(|result| result.ok())
-                .unwrap_or(false);
+            let (reachable, error_code) =
+                tokio::time::timeout(std::time::Duration::from_millis(1_000), receiver)
+                    .await
+                    .ok()
+                    .and_then(|result| result.ok())
+                    .unwrap_or((false, -2));
             let host_visible = std::fs::read(host_path).is_ok();
-            return Ok(json!({"reachable":reachable,"host_visible":host_visible}));
+            return Ok(json!({
+                "reachable":reachable,
+                "host_visible":host_visible,
+                "error_code":error_code
+            }));
         }
         if command == "driver.fixture.disconnect" {
             if args.as_object().is_none_or(|args| !args.is_empty()) {

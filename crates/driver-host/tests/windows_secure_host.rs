@@ -67,10 +67,13 @@ async fn driver_network_probe(
     let output = Provider::execute(provider, &context, &probe, &args)
         .await
         .unwrap_or_else(|error| panic!("execute fixture network probe {request_id}: {error:?}"));
-    (
-        output["reachable"].as_bool().expect("reachable bool"),
-        output["host_visible"].as_bool().expect("host_visible bool"),
-    )
+    let reachable = output["reachable"].as_bool().expect("reachable bool");
+    let host_visible = output["host_visible"].as_bool().expect("host_visible bool");
+    let error_code = output["error_code"].as_i64().expect("error_code integer");
+    eprintln!(
+        "driver network probe {request_id} address={address} reachable={reachable} error_code={error_code} host_visible={host_visible}"
+    );
+    (reachable, host_visible)
 }
 
 async fn driver_can_reach_external(
