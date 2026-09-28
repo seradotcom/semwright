@@ -231,10 +231,14 @@ impl FigmaDriver {
                 .get("findings")
                 .and_then(Value::as_array)
                 .ok_or_else(|| Error::invalid("findings required"))?;
-            if findings.is_empty()
-                || findings.len() > p.spec.budgets.max_findings_per_round as usize
-            {
-                return Err(denied("repair requires bounded native findings"));
+            if findings.is_empty() {
+                return Err(denied("repair requires at least one native finding"));
+            }
+            if findings.len() > p.spec.budgets.max_findings_per_round as usize {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "repair finding count exceeds the plan's fixed per-round budget",
+                ));
             }
             let expected = args
                 .get("expected_revision")
