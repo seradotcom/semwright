@@ -98,7 +98,7 @@ impl Film {
         ensure(
             !e.type_scale.is_empty()
                 && e.type_scale.len() <= 32
-                && e.colors.len() <= 64
+                && e.colors.len() <= 30
                 && e.spacing.len() <= 32,
             "editorial token budgets",
         )?;

@@ -1665,7 +1665,7 @@ mod tests {
         let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             digest,
-            "824bd2edb781f8d952e5ce09caf0bd866547f8aa055d22fef4c690a8282f1c29"
+            "6af0b31625d2747295c6d63669a2d8259b1419c6ccdd210155b37c92ef87358f"
         );
 
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");
@@ -1675,7 +1675,14 @@ mod tests {
         );
         let manifest: semwright_driver_sdk::Manifest =
             serde_json::from_slice(manifest_bytes).unwrap();
+        #[cfg(not(windows))]
         manifest.validate().unwrap();
+        // This is the Linux deployment example, not a Windows-native runtime.
+        #[cfg(windows)]
+        assert_eq!(
+            manifest.validate().unwrap_err().code,
+            ErrorCode::InvalidArgument
+        );
     }
 
     struct RecipeCatalog {
@@ -1736,7 +1743,7 @@ mod tests {
     #[test]
     fn catalog_is_curated_and_descriptor_names_are_owned() {
         let catalog = MotionDriver::catalog().unwrap();
-        assert_eq!(catalog.len(), 25);
+        assert_eq!(catalog.len(), 33);
         assert!(
             catalog
                 .iter()
@@ -1865,7 +1872,14 @@ mod driver_tests {
         assert!(manifest.interfaces.progress);
         assert!(manifest.interfaces.artifacts);
         assert!(!manifest.interfaces.native_refs);
+        #[cfg(not(windows))]
         manifest.validate().unwrap();
+        // This is the Linux deployment example, not a Windows-native runtime.
+        #[cfg(windows)]
+        assert_eq!(
+            manifest.validate().unwrap_err().code,
+            ErrorCode::InvalidArgument
+        );
     }
 
     #[tokio::test]
@@ -1874,7 +1888,7 @@ mod driver_tests {
         let mut driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
         let caps = driver.capabilities().await.unwrap();
-        assert_eq!(caps.len(), 25);
+        assert_eq!(caps.len(), 33);
         let mut names = std::collections::BTreeSet::new();
         for cap in caps {
             assert!(cap.descriptor.name.starts_with("driver.motion-canvas."));
@@ -1895,7 +1909,10 @@ mod driver_tests {
         assert_eq!(out["node_version"], NODE_VERSION);
         assert_eq!(out["network"], false);
         assert_eq!(out["render_available"], false);
-        assert_eq!(out["capability_count"], 25);
+        assert_eq!(
+            out["capability_count"],
+            MotionDriver::catalog().unwrap().len()
+        );
     }
 
     #[tokio::test]

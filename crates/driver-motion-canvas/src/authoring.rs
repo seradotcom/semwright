@@ -82,6 +82,27 @@ pub fn project(film: &Film, base: Option<&Project>) -> Result<(Project, Realizat
     p.theme.font_family = film.editorial.font.family.clone();
     p.theme.mono_family = film.editorial.mono_font.family.clone();
     p.theme.colors = film.editorial.colors.clone();
+    // Explicit compatibility aliases, never an unrelated default palette.
+    let ink = film
+        .editorial
+        .colors
+        .get("text")
+        .or_else(|| film.editorial.colors.get("ink"))
+        .ok_or_else(|| Error::invalid("Editorial profile needs a text or ink token"))?
+        .clone();
+    let surface = film
+        .editorial
+        .colors
+        .get("background")
+        .or_else(|| film.editorial.colors.get("surface"))
+        .ok_or_else(|| Error::invalid("Editorial profile needs a background or surface token"))?
+        .clone();
+    p.theme.colors.entry("ink".into()).or_insert(ink);
+    p.theme.colors.entry("surface".into()).or_insert(surface);
+    realization
+        .schedule
+        .frame_count(&film.output)
+        .map_err(contract)?;
     p.variables.clear();
     p.audio.clear(); // AV audio is a separate, explicitly delivered public plan.
     let expected_assets = film

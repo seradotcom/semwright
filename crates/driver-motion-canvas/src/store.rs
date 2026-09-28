@@ -332,10 +332,16 @@ impl ProjectStore {
             ));
         }
         write_owned(&self.root, relative, bytes)?;
-        if let Some(parent) = path.parent() {
-            File::open(parent)?.sync_all()?;
+        // File bytes are synced separately. Unix supports directory fsync;
+        // Windows does not provide this same directory durability contract.
+        // Atomic publication is not a Windows power-loss durability guarantee.
+        #[cfg(unix)]
+        {
+            if let Some(parent) = path.parent() {
+                File::open(parent)?.sync_all()?;
+            }
+            File::open(&self.root)?.sync_all()?;
         }
-        File::open(&self.root)?.sync_all()?;
         Ok(())
     }
 
@@ -358,10 +364,16 @@ impl ProjectStore {
             ));
         }
         fs::remove_file(&path)?;
-        if let Some(parent) = path.parent() {
-            File::open(parent)?.sync_all()?;
+        // File bytes are synced separately. Unix supports directory fsync;
+        // Windows does not provide this same directory durability contract.
+        // Atomic publication is not a Windows power-loss durability guarantee.
+        #[cfg(unix)]
+        {
+            if let Some(parent) = path.parent() {
+                File::open(parent)?.sync_all()?;
+            }
+            File::open(&self.root)?.sync_all()?;
         }
-        File::open(&self.root)?.sync_all()?;
         Ok(())
     }
 

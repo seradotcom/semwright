@@ -653,9 +653,14 @@ export const semwrightExporterPlugin: Plugin={name:'semwright-driver-exporter-v1
         "package-lock.json".into(),
         include_bytes!("../../../integrations/motion-canvas/runtime/package-lock.json").to_vec(),
     );
-    files.insert("semwright-compiler.json".into(), serde_json::to_vec_pretty(&json!({
-        "schema_version":1,"compiler_version":COMPILER_VERSION,"authoring_compiler_version":project.authoring.as_ref().map(|_|crate::authoring::COMPILER_EXTENSION_VERSION),"motion_canvas_version":MOTION_CANVAS_VERSION,
-        "semantic_sha256":security::sha256(&serde_json::to_vec(project)?)}))?);
+    let mut receipt = json!({"schema_version":1,"compiler_version":COMPILER_VERSION,"motion_canvas_version":MOTION_CANVAS_VERSION,"semantic_sha256":security::sha256(&serde_json::to_vec(project)?)});
+    if project.authoring.is_some() {
+        receipt["authoring_compiler_version"] = json!(crate::authoring::COMPILER_EXTENSION_VERSION);
+    }
+    files.insert(
+        "semwright-compiler.json".into(),
+        serde_json::to_vec_pretty(&receipt)?,
+    );
     if files.values().map(Vec::len).sum::<usize>() > 8_388_608 {
         return Err(Error::invalid("Generated source exceeds byte budget"));
     }
