@@ -13,6 +13,7 @@ use semwright_federation::{
     new_upstream, save_upstream_registry,
 };
 use semwright_protocol::{self as ipc, ClientMessage, ServerMessage};
+use semwright_skills as skills;
 use semwright_types::provider::canonical_slug;
 use semwright_types::*;
 use serde_json::json;
@@ -626,6 +627,309 @@ async fn manage_upstream(cli: &Cli, command: &McpUpstream) -> Result<()> {
     print_result(&result, cli.json)
 }
 
+fn skill_inspect_value(package: &skills::SkillPackage) -> serde_json::Value {
+    let references = package
+        .resources
+        .iter()
+        .filter(|resource| resource.kind == skills::ResourceKind::Reference)
+        .map(|resource| &resource.path)
+        .collect::<Vec<_>>();
+    let scripts = package
+        .resources
+        .iter()
+        .filter(|resource| resource.kind == skills::ResourceKind::Script)
+        .map(|resource| &resource.path)
+        .collect::<Vec<_>>();
+    let assets = package
+        .resources
+        .iter()
+        .filter(|resource| resource.kind == skills::ResourceKind::Asset)
+        .map(|resource| &resource.path)
+        .collect::<Vec<_>>();
+    let exact = package
+        .requirements
+        .iter()
+        .flat_map(|requirements| &requirements.semwright.capabilities)
+        .filter_map(|requirement| requirement.id.as_ref())
+        .collect::<Vec<_>>();
+    let queries = package
+        .requirements
+        .iter()
+        .flat_map(|requirements| &requirements.semwright.capabilities)
+        .filter_map(|requirement| requirement.query.as_ref())
+        .collect::<Vec<_>>();
+    json!({
+        "schema_version":1,
+        "skill_instructions":{
+            "name":package.manifest.name,
+            "description":package.manifest.description,
+            "body_bytes":package.body.len(),
+            "authority":"none"
+        },
+        "root":package.root,
+        "resources":package.resources,
+        "references":references,
+        "scripts":scripts,
+        "assets":assets,
+        "semwright_executable_capabilities":{
+            "exact_ids":exact,
+            "queries":queries,
+            "requirements":package.requirements,
+            "lock":package.lock
+        },
+        "script_execution":"disabled",
+        "warnings":package.warnings
+    })
+}
+
+fn print_skill_validation(report: &skills::ValidationReport, machine: bool) -> Result<()> {
+    if machine {
+        return print_result(&serde_json::to_value(report)?, true);
+    }
+    println!("PASS");
+    println!();
+    println!("Skill:");
+    println!("  {}", report.skill);
+    println!();
+    println!("Manifest:");
+    println!("  valid");
+    println!();
+    println!("Resources:");
+    println!("  {}", report.resources);
+    println!();
+    println!("Semwright requirements:");
+    println!(
+        "  {}",
+        if report.semwright_requirements {
+            "valid"
+        } else {
+            "not present"
+        }
+    );
+    println!();
+    println!("Script execution:");
+    println!("  disabled");
+    if !report.warnings.is_empty() {
+        println!();
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {warning}");
+        }
+    }
+    Ok(())
+}
+
+async fn skill_broker_call(
+    client: &mut ipc::Client,
+    command: &str,
+    args: serde_json::Value,
+) -> Result<serde_json::Value> {
+    let envelope = client
+        .execute(
+            unique_id(),
+            ExecuteRequest {
+                command: command.into(),
+                args,
+                dry_run: false,
+                backend: None,
+            },
+        )
+        .await?;
+    if let Some(error) = envelope.error {
+        return Err(error);
+    }
+    envelope
+        .data
+        .ok_or_else(|| Error::new(ErrorCode::ProtocolMismatch, "Broker response has no data"))
+}
+
+async fn skill_broker_version(client: &mut ipc::Client) -> Result<String> {
+    let value = skill_broker_call(client, "doctor", json!({})).await?;
+    value
+        .get("version")
+        .and_then(serde_json::Value::as_str)
+        .filter(|version| !version.is_empty() && version.len() <= 128)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Broker doctor response has no bounded Semwright version",
+            )
+        })
+}
+
+fn catalog_revision(value: &serde_json::Value) -> Result<u64> {
+    value
+        .get("revision")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Catalog response has no revision",
+            )
+        })
+}
+
+async fn skill_describe(
+    client: &mut ipc::Client,
+    id: &str,
+    revision: &mut Option<u64>,
+) -> Result<Option<skills::CatalogCapability>> {
+    let value = match skill_broker_call(client, "capabilities.describe", json!({"name":id})).await {
+        Ok(value) => value,
+        Err(error) if error.code == ErrorCode::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let observed = catalog_revision(&value)?;
+    if revision.is_some_and(|expected| expected != observed) {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Capability catalog changed while evaluating Skill dependencies; retry",
+        ));
+    }
+    *revision = Some(observed);
+    Ok(Some(skills::catalog_capability_from_broker(&value)?))
+}
+
+async fn skill_catalog(
+    client: &mut ipc::Client,
+    package: &skills::SkillPackage,
+) -> Result<Vec<skills::CatalogCapability>> {
+    use std::collections::BTreeSet;
+    let mut ids = BTreeSet::new();
+    let mut revision = None;
+    if let Some(requirements) = &package.requirements {
+        for requirement in &requirements.semwright.capabilities {
+            if let Some(id) = &requirement.id {
+                ids.insert(id.clone());
+            }
+            let Some(query) = &requirement.query else {
+                continue;
+            };
+            let mut offset = 0usize;
+            loop {
+                let source = query
+                    .source
+                    .map(serde_json::to_value)
+                    .transpose()?
+                    .unwrap_or(serde_json::Value::Null);
+                let value = skill_broker_call(
+                    client,
+                    "capabilities.search",
+                    json!({
+                        "query":query.text,
+                        "provider":query.provider,
+                        "source":source,
+                        "app":query.application,
+                        "category":serde_json::Value::Null,
+                        "risk":serde_json::Value::Null,
+                        "available":serde_json::Value::Null,
+                        "tags":query.tags,
+                        "object_types":query.object_types,
+                        "limit":100,
+                        "offset":offset,
+                        "revision":revision
+                    }),
+                )
+                .await?;
+                let observed = catalog_revision(&value)?;
+                if revision.is_some_and(|expected| expected != observed) {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Capability catalog changed during Skill dependency search; retry",
+                    ));
+                }
+                revision = Some(observed);
+                ids.extend(skills::capability_ids_from_search(&value)?);
+                match value.get("next_offset").and_then(serde_json::Value::as_u64) {
+                    Some(next) => offset = next as usize,
+                    None => break,
+                }
+            }
+        }
+    }
+    if let Some(lock) = &package.lock {
+        ids.extend(lock.entries.iter().map(|entry| entry.capability_id.clone()));
+    }
+
+    let mut catalog = Vec::new();
+    for id in ids {
+        if let Some(entry) = skill_describe(client, &id, &mut revision).await? {
+            catalog.push(entry);
+        }
+    }
+    Ok(catalog)
+}
+
+async fn manage_skill_remote(cli: &Cli, command: &Skill, client: &mut ipc::Client) -> Result<i32> {
+    match command {
+        Skill::Doctor { path } => {
+            let package = skills::load(path)?;
+            let broker_version = skill_broker_version(client).await?;
+            let catalog = skill_catalog(client, &package).await?;
+            let report = skills::doctor(&package, &catalog, &broker_version)?;
+            let code = if report.semwright_compatible { 0 } else { 1 };
+            print_result(&serde_json::to_value(report)?, cli.json)?;
+            Ok(code)
+        }
+        Skill::Lock { path } => {
+            let package = skills::load(path)?;
+            let broker_version = skill_broker_version(client).await?;
+            let catalog = skill_catalog(client, &package).await?;
+            let lock = skills::lock(&package, &catalog, &broker_version)?;
+            if !cli.dry_run {
+                skills::write_lock(&package.root, &lock)?;
+            }
+            print_result(
+                &json!({
+                    "schema_version":1,
+                    "skill":package.manifest.name,
+                    "locked":!cli.dry_run,
+                    "dry_run":cli.dry_run,
+                    "lock":lock,
+                    "authority_granted":false
+                }),
+                cli.json,
+            )?;
+            Ok(0)
+        }
+        Skill::Test { path } => {
+            let package = skills::load(path)?;
+            let broker_version = skill_broker_version(client).await?;
+            let catalog = skill_catalog(client, &package).await?;
+            let report = skills::conformance_test(&package, &catalog, &broker_version)?;
+            let code = if report.pass { 0 } else { 1 };
+            print_result(&serde_json::to_value(report)?, cli.json)?;
+            Ok(code)
+        }
+        Skill::Export { capability, output } => {
+            let mut revision = None;
+            let entry = skill_describe(client, capability, &mut revision)
+                .await?
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "Capability was not found"))?;
+            let report = skills::export_capability(&entry, output)?;
+            print_result(
+                &json!({
+                    "schema_version":1,
+                    "generated_starter":true,
+                    "source_capability":capability,
+                    "validation":report,
+                    "authority_granted":false
+                }),
+                cli.json,
+            )?;
+            Ok(0)
+        }
+        Skill::Validate { .. }
+        | Skill::Inspect { .. }
+        | Skill::Scaffold { .. }
+        | Skill::Bundle { .. } => Err(Error::new(
+            ErrorCode::Internal,
+            "Static Skill command reached broker-backed execution",
+        )),
+    }
+}
+
 async fn local(cli: &Cli) -> Result<bool> {
     match &cli.command {
         Command::Completions { shell } => {
@@ -655,6 +959,56 @@ async fn local(cli: &Cli) -> Result<bool> {
                 cli.json,
             )?;
         }
+        Command::Skill {
+            command: Skill::Validate { path },
+        } => {
+            let report = skills::validate(path)?;
+            print_skill_validation(&report, cli.json)?;
+        }
+        Command::Skill {
+            command: Skill::Inspect { path },
+        } => {
+            let package = skills::load(path)?;
+            print_result(&skill_inspect_value(&package), cli.json)?;
+        }
+        Command::Skill {
+            command: Skill::Scaffold { name, output },
+        } => {
+            let report = skills::scaffold(name, output)?;
+            print_result(
+                &json!({
+                    "schema_version":1,
+                    "created":output,
+                    "validation":report,
+                    "authority_granted":false
+                }),
+                cli.json,
+            )?;
+        }
+        Command::Skill {
+            command: Skill::Bundle { path, output },
+        } => {
+            let package = skills::load(path)?;
+            if cli.dry_run {
+                print_result(
+                    &json!({
+                        "schema_version":1,
+                        "skill":package.manifest.name,
+                        "output":output,
+                        "created":false,
+                        "dry_run":true
+                    }),
+                    cli.json,
+                )?;
+            } else {
+                let report = skills::bundle(&package, output)?;
+                print_result(&serde_json::to_value(report)?, cli.json)?;
+            }
+        }
+        Command::Skill {
+            command:
+                Skill::Doctor { .. } | Skill::Export { .. } | Skill::Test { .. } | Skill::Lock { .. },
+        } => return Ok(false),
         Command::Recipe {
             command: Recipe::Scaffold { name, output },
         } => {
@@ -731,6 +1085,9 @@ async fn run(cli: &Cli) -> Result<i32> {
         .clone()
         .unwrap_or(socket.with_file_name("cli.session"));
     let mut client = ipc::connect_persistent(&socket, &ticket).await?;
+    if let Command::Skill { command } = &cli.command {
+        return manage_skill_remote(cli, command, &mut client).await;
+    }
     if let Command::Watch { after } = &cli.command {
         ipc::write_frame(
             &mut client.stream,

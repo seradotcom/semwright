@@ -30,3 +30,11 @@ render processes; backend-specific fuzzing remains the responsibility of each vi
 Run from the repository root. Keep failures as minimal regression fixtures; do not
 label these commands PASS until their actual exit statuses have been recorded.
 The short budgets are intentional. No unbounded background fuzzing is started.
+
+## Agent Skills targets
+
+- `skill_frontmatter`: bounded SKILL.md/frontmatter parser, including YAML/UTF-8 edge cases.
+- `skill_requirements`: v1 requirements JSON + schema/typed validation.
+- `skill_archive_path`: bundle/resource relative-path sanitizer.
+
+The hosted bounded-fuzz job runs these with the existing target set. Semwright Skill fuzzing never executes `scripts/`.

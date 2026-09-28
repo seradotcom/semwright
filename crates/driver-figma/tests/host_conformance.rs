@@ -196,6 +196,45 @@ async fn figma_driver_runs_through_real_driver_host() {
         );
     }
 
+    let skill_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../skills/semwright-figma-production");
+    let skill = semwright_skills::load(&skill_root).expect("Figma production Skill validates");
+    let requirements = skill
+        .requirements
+        .as_ref()
+        .expect("Figma production Skill declares Semwright requirements");
+    for requirement in &requirements.semwright.capabilities {
+        if let Some(id) = &requirement.id {
+            if requirement.required {
+                assert!(
+                    names.contains(id.as_str()),
+                    "Figma production Skill requires stale capability: {id}"
+                );
+            }
+            continue;
+        }
+        let query = requirement
+            .query
+            .as_ref()
+            .expect("validated query requirement");
+        let matching = capabilities
+            .iter()
+            .filter(|capability| {
+                query.tags.iter().all(|tag| capability.tags.contains(tag))
+                    && query
+                        .object_types
+                        .iter()
+                        .all(|kind| capability.object_types.contains(kind))
+            })
+            .count();
+        if requirement.required {
+            assert!(
+                matching >= requirement.minimum_matches,
+                "Figma production Skill query no longer resolves: {query:?}"
+            );
+        }
+    }
+
     let pairing = call(
         provider.as_ref(),
         &capabilities,

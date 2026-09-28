@@ -130,18 +130,21 @@ search_pages="$TMP/blender-capabilities.jsonl"
 : > "$search_pages"
 offset=0
 while true; do
-  page=$(run capabilities search "" --provider driver:blender --limit 100 --offset "$offset")
-  printf '%s\n' "$page" >> "$search_pages"
-  next_offset=$(python3 - "$page" <<'PY_PAGE'
-import json, sys
-value = json.loads(sys.argv[1])["data"]["next_offset"]
+  page_file="$TMP/blender-capabilities-page-$offset.json"
+  run capabilities search "" --provider driver:blender --limit 100 --offset "$offset" > "$page_file"
+  cat "$page_file" >> "$search_pages"
+  printf '\n' >> "$search_pages"
+  next_offset=$(python3 - "$page_file" <<'PY_PAGE'
+import json, pathlib, sys
+value = json.loads(pathlib.Path(sys.argv[1]).read_text())["data"]["next_offset"]
 print("" if value is None else value)
 PY_PAGE
   )
   [[ -n "$next_offset" ]] || break
   offset=$next_offset
 done
-search=$(python3 - "$search_pages" <<'PY_SEARCH'
+search_file="$TMP/blender-capabilities.json"
+python3 - "$search_pages" > "$search_file" <<'PY_SEARCH'
 import json, pathlib, sys
 pages = [json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text().splitlines() if line]
 assert pages
@@ -157,24 +160,34 @@ merged["data"]["offset"] = 0
 merged["data"]["next_offset"] = None
 print(json.dumps(merged, separators=(",", ":")))
 PY_SEARCH
-)
-status=$(run execute driver.blender.status)
-summary=$(run execute driver.blender.introspect.summary)
-operators=$(run execute driver.blender.introspect.operators --args-json '{"query":"primitive_cube_add","limit":32}')
-types=$(run execute driver.blender.introspect.types --args-json '{"query":"Mesh","limit":32}')
-scene=$(run execute driver.blender.scene.inspect)
-create=$(run execute driver.blender.object.create --args-json '{"name":"BrokerCube","primitive":"cube","location":[1,2,3]}')
-material=$(run execute driver.blender.material.create --args-json '{"name":"BrokerMaterial","color":[0.3,0.5,0.9,1],"roughness":0.4,"metallic":0.05}')
-assign=$(run execute driver.blender.material.assign --args-json '{"object":"BrokerCube","material":"BrokerMaterial"}')
-settings=$(run execute driver.blender.render.settings --args-json '{"width":64,"height":64,"engine":"CYCLES","samples":1}')
-render=$(run execute driver.blender.render --args-json '{"path":"broker-preview.png"}')
+status_file="$TMP/blender-status.json"
+summary_file="$TMP/blender-summary.json"
+operators_file="$TMP/blender-operators.json"
+types_file="$TMP/blender-types.json"
+scene_file="$TMP/blender-scene.json"
+create_file="$TMP/blender-create.json"
+material_file="$TMP/blender-material.json"
+assign_file="$TMP/blender-assign.json"
+settings_file="$TMP/blender-settings.json"
+render_file="$TMP/blender-render.json"
 
-python3 - "$search" "$status" "$summary" "$operators" "$types" "$scene" "$create" "$material" "$assign" "$settings" "$render" <<'PY'
-import json, sys
+run execute driver.blender.status > "$status_file"
+run execute driver.blender.introspect.summary > "$summary_file"
+run execute driver.blender.introspect.operators --args-json '{"query":"primitive_cube_add","limit":32}' > "$operators_file"
+run execute driver.blender.introspect.types --args-json '{"query":"Mesh","limit":32}' > "$types_file"
+run execute driver.blender.scene.inspect > "$scene_file"
+run execute driver.blender.object.create --args-json '{"name":"BrokerCube","primitive":"cube","location":[1,2,3]}' > "$create_file"
+run execute driver.blender.material.create --args-json '{"name":"BrokerMaterial","color":[0.3,0.5,0.9,1],"roughness":0.4,"metallic":0.05}' > "$material_file"
+run execute driver.blender.material.assign --args-json '{"object":"BrokerCube","material":"BrokerMaterial"}' > "$assign_file"
+run execute driver.blender.render.settings --args-json '{"width":64,"height":64,"engine":"CYCLES","samples":1}' > "$settings_file"
+run execute driver.blender.render --args-json '{"path":"broker-preview.png"}' > "$render_file"
+
+python3 - "$search_file" "$status_file" "$summary_file" "$operators_file" "$types_file" "$scene_file" "$create_file" "$material_file" "$assign_file" "$settings_file" "$render_file" <<'PY'
+import json, pathlib, sys
 (
     search, status, summary, operators, types, scene, create,
     material, assign, settings, render,
-) = map(json.loads, sys.argv[1:])
+) = [json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:]]
 rows = search["data"]["capabilities"]
 ids = {row["id"] for row in rows}
 expected = {
