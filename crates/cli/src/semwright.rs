@@ -689,7 +689,7 @@ fn print_skill_validation(report: &skills::ValidationReport, machine: bool) -> R
     println!("PASS");
     println!();
     println!("Skill:");
-    println!("  {}", report.skill);
+    println!("  {}", escape_terminal_text(&report.skill));
     println!();
     println!("Manifest:");
     println!("  valid");
@@ -713,7 +713,7 @@ fn print_skill_validation(report: &skills::ValidationReport, machine: bool) -> R
         println!();
         println!("Warnings:");
         for warning in &report.warnings {
-            println!("  - {warning}");
+            println!("  - {}", escape_terminal_text(warning));
         }
     }
     Ok(())
@@ -1193,7 +1193,7 @@ async fn main() {
             if cli.json {
                 let _ = print_result(&json!({"ok":false,"error":error}), true);
             } else {
-                eprintln!("{error}");
+                eprintln!("{}", escape_terminal_text(&error.to_string()));
             }
             error.exit_code()
         }

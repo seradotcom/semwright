@@ -180,7 +180,16 @@ impl semwright_backend_api::Backend for DualRefBrowser {
 async fn doctor_labels_fixture_not_live_desktop() {
     let f = Fixture::new(Profile::Observe);
     let r = f.call("doctor", json!({})).await;
-    assert_eq!(r.data.unwrap()["fake"], true);
+    assert_eq!(r.data.as_ref().unwrap()["fake"], true);
+    let data = r.data.as_ref().unwrap();
+    assert_eq!(data["unimplemented"], json!([]));
+    assert!(data["features"].is_array());
+    assert!(
+        data["verification"]
+            .as_str()
+            .unwrap()
+            .contains("not a live desktop")
+    );
 }
 #[tokio::test]
 async fn semantic_hit_test_materializes_a_ref_without_input_side_effects() {
