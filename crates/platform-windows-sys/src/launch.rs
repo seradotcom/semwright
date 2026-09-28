@@ -1866,7 +1866,7 @@ struct AppContainerProfile {
 }
 
 impl AppContainerProfile {
-    fn create() -> Result<Self> {
+    fn create(capabilities: &[SID_AND_ATTRIBUTES]) -> Result<Self> {
         let suffix: String = unique_id()
             .chars()
             .filter(char::is_ascii_alphanumeric)
@@ -1874,13 +1874,14 @@ impl AppContainerProfile {
             .collect();
         let name = format!("Semwright.Sandbox.{suffix}");
         let wide = wide_null(OsStr::new(&name))?;
-        // SAFETY: all strings are stable NUL-terminated buffers; no capabilities are requested.
+        // SAFETY: all strings are stable NUL-terminated buffers and every capability SID
+        // remains live for the duration of this synchronous profile-creation call.
         let sid = unsafe {
             CreateAppContainerProfile(
                 PCWSTR(wide.as_ptr()),
                 PCWSTR(wide.as_ptr()),
                 PCWSTR(wide.as_ptr()),
-                None,
+                (!capabilities.is_empty()).then_some(capabilities),
             )
         }
         .map_err(|_| {
@@ -2348,7 +2349,21 @@ impl SandboxLauncher for WindowsSandbox {
                 "Windows sealed tools require Host-mediated driver protocol v4 execution",
             ));
         }
-        let profile = AppContainerProfile::create()?;
+        let network_sid = spec
+            .network
+            .then(|| well_known_sid(WinCapabilityInternetClientSid))
+            .transpose()?;
+        let mut capability_entries = Vec::with_capacity(2);
+        if let Some(sid) = network_sid.as_ref() {
+            capability_entries.push(SID_AND_ATTRIBUTES {
+                Sid: PSID(sid.as_ptr().cast_mut().cast()),
+                Attributes: SE_GROUP_ENABLED as u32,
+            });
+        }
+        // Register internetClient on the unique AppContainer profile as well as on the
+        // process token, matching Microsoft's AppContainer network-capability creation model.
+        // The prior token-only path exposed the SID but did not yield real outbound connectivity.
+        let profile = AppContainerProfile::create(&capability_entries)?;
         let (mut mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
         let (tool_grants, tool_table) = prepare_windows_tools(spec, &profile)?;
         mount_grants.extend(tool_grants);
@@ -2367,23 +2382,14 @@ impl SandboxLauncher for WindowsSandbox {
             &all_application_packages_policy,
         )?;
 
-        let network_sid = spec
-            .network
-            .then(|| well_known_sid(WinCapabilityInternetClientSid))
-            .transpose()?;
         // Windows-on-ARM x64 emulation performs compatibility initialization that needs
         // read-only registry access. Keep this capability scoped to the cross-architecture
         // Host-tool case; native drivers/tools and network-disabled children do not gain it.
+        // It intentionally remains process-scoped rather than being registered on the profile;
+        // this PR changes only ambient network authority.
         let emulation_registry_sid = cross_arch_host_tool
             .then(|| named_capability_sid("registryRead"))
             .transpose()?;
-        let mut capability_entries = Vec::with_capacity(2);
-        if let Some(sid) = network_sid.as_ref() {
-            capability_entries.push(SID_AND_ATTRIBUTES {
-                Sid: PSID(sid.as_ptr().cast_mut().cast()),
-                Attributes: SE_GROUP_ENABLED as u32,
-            });
-        }
         if let Some(sid) = emulation_registry_sid.as_ref() {
             capability_entries.push(SID_AND_ATTRIBUTES {
                 Sid: PSID(sid.as_ptr().cast_mut().cast()),
@@ -2654,7 +2660,7 @@ mod verifier_tests {
 
     #[test]
     fn appcontainer_workspace_ace_is_verified_and_revoked() {
-        let profile = AppContainerProfile::create().expect("AppContainer profile");
+        let profile = AppContainerProfile::create(&[]).expect("AppContainer profile");
         let directory = tempfile::tempdir().expect("workspace directory");
         let mount = Mount {
             source: directory.path().to_path_buf(),
