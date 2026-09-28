@@ -36,3 +36,34 @@ and its current checks. New dependency upgrades and demo expansion do not automa
 required pre-R16 work. A change of main does not erase older SHA-scoped findings or proofs.
 The audit lane continues independently; no new candidate SHA or independent review conclusion
 is asserted here. R16 remains OPEN and global readiness remains NOT_READY until final admission.
+
+## PRE-011: main-thread Figma codec assumptions
+
+The production TypeScript called browser globals (`atob`, `btoa`, `TextEncoder`) while
+its VM fixture injected those globals. The official Plugin API documents a minimal
+main-thread sandbox and native `figma.base64Encode`/`figma.base64Decode`; iframe globals
+must not be assumed to exist in that sandbox. Artifact encoding/decoding now uses those
+native methods. A small bounded UTF-8 helper preserves byte budgets and lone-surrogate
+replacement without DOM APIs. The fixture no longer supplies browser codec globals.
+Added regressions cover Unicode/surrogates, artifact roundtrip and the 100,000-byte
+plugin-data limit. This is a source/harness compatibility correction, not a new claim
+of live Figma certification. No capability, manifest permission or authoring feature changed.
+
+Primary API references, consulted 2026-09-28:
+- https://developers.figma.com/docs/plugins/how-plugins-run/
+- https://developers.figma.com/docs/plugins/api/figma/#base64encodedata-uint8array-string
+
+## Secret precheck first execution and exact-content triage
+
+Actions run 36465457336 executed the positive control and scanned 1,032 commits / 1,070
+tracked files at PR merge-test SHA 989c4686c14f0b244e814d268654b91be6326256 (PR head
+1fff19e90df9bc83c3d855ce47d5bf63fab1126b). It correctly returned FINDINGS, not a false PASS.
+Three tree matches and their three historical introductions were manually classified:
+public Figma REST API-spec commit identity; OBS fixture-only golden authentication response;
+and the Godot Key game object's collision-shape resource path. The OBS golden regression
+recomputes the response from a literal fixture password. No real credential was established.
+
+`pre-r16-secret-triage.json` binds each exception to its rule, exact file and SHA-256 of the
+single matching source line. Changed content, a different rule/path or a multiline match
+remains untriaged and fails the gate. Both raw finding counts and explicit non-secret
+classifications remain in evidence. This is not a directory exclusion or a zero-findings claim.

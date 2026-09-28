@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/pre-r16.yml'
       - 'scripts/ci/pre-r16-secret-scan.py'
+      - 'scripts/ci/pre-r16-secret-triage.json'
       - 'tests/python/test_pre_r16_secret_scan.py'
       - 'verification/pre-r16/**'
   workflow_dispatch:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import secrets
 import string
 import subprocess
@@ -34,6 +35,43 @@ def sanitize_findings(findings: list, snapshot: Path) -> list[dict]:
             "commit": str(finding.get("Commit", "")),
         })
     return result
+
+
+def triage_metadata(finding: dict, source_line: str, entries: list[dict]) -> dict | None:
+    # A new value in the same file must not inherit a reviewed exception.
+    if finding.get("start_line") != finding.get("end_line"):
+        return None
+    digest = hashlib.sha256(source_line.strip().encode()).hexdigest()
+    for entry in entries:
+        if (finding.get("file") == entry["file"]
+                and finding.get("rule_id") == entry["rule_id"]
+                and digest == entry["line_sha256"]):
+            return {"classification": "REVIEWED_NON_SECRET", "line_sha256": digest,
+                    "reason": entry["reason"]}
+    return None
+
+
+def classify_findings(findings: list[dict], snapshot: Path, source_sha: str) -> list[dict]:
+    entries = json.loads((ROOT / "scripts/ci/pre-r16-secret-triage.json").read_text())["entries"]
+    for finding in findings:
+        path = Path(finding["file"])
+        line = finding.get("start_line")
+        commit = finding.get("commit") or source_sha
+        if (path.is_absolute() or ".." in path.parts or not path.parts
+                or not isinstance(line, int) or isinstance(line, bool) or line < 1
+                or not re.fullmatch(r"[0-9a-f]{40}", commit)):
+            raise ValueError("Invalid finding source identity")
+        if finding.get("commit"):
+            source = subprocess.check_output(["git", "show", f"{commit}:{path.as_posix()}"],
+                                             cwd=ROOT, text=True, timeout=60)
+        else:
+            source = (snapshot / path).read_text()
+        lines = source.splitlines()
+        if line > len(lines):
+            raise ValueError("Finding line outside recorded source")
+        triage = triage_metadata(finding, lines[line - 1], entries)
+        finding["triage"] = triage or {"classification": "UNTRIAGED"}
+    return findings
 
 
 def scan_status(code: int, findings: list) -> str:
@@ -120,13 +158,24 @@ def run(binary: str, output: Path) -> int:
                 ("head_history", "git", ROOT, "HEAD"),
             ]:
                 scan_code, findings = execute(str(binary_path), mode, source, private, config, ignore, opts)
+                sanitized = classify_findings(sanitize_findings(findings, snapshot), snapshot,
+                                              summary["source_sha"])
+                untriaged = sum(item["triage"]["classification"] == "UNTRIAGED" for item in sanitized)
                 summary["results"].append({
                     "scope": label, "exit_code": scan_code, "status": scan_status(scan_code, findings),
-                    "finding_count": len(findings), "findings": sanitize_findings(findings, snapshot),
+                    "finding_count": len(findings), "untriaged_findings": untriaged,
+                    "findings": sanitized,
                 })
         states = [item["status"] for item in summary["results"]]
-        summary["status"] = "ERROR" if "ERROR" in states else "FINDINGS" if "FINDINGS" in states else "PASS"
-        code = 0 if summary["status"] == "PASS" else 1 if summary["status"] == "FINDINGS" else 2
+        if "ERROR" in states:
+            summary["status"] = "ERROR"
+        elif any(item["untriaged_findings"] for item in summary["results"]):
+            summary["status"] = "FINDINGS"
+        elif "FINDINGS" in states:
+            summary["status"] = "PASS_WITH_TRIAGED_NON_SECRETS"
+        else:
+            summary["status"] = "PASS"
+        code = 0 if summary["status"].startswith("PASS") else 1 if summary["status"] == "FINDINGS" else 2
     except (OSError, ValueError, subprocess.SubprocessError, tarfile.TarError) as error:
         # Exceptions may include path/content arguments. Publish only the class.
         summary["status"] = "ERROR"

@@ -136,6 +136,11 @@ function harness(editorType = "figma") {
   annotationCategories.set("cat:1",{id:"cat:1",label:"Review",color:"yellow",isPreset:false});
   const figma:any = {
     root, currentPage: page, editorType, mixed: Symbol("mixed"), hasMissingFont: false,
+    base64Encode(bytes:Uint8Array){return Buffer.from(bytes).toString("base64");},
+    base64Decode(text:string){
+      const binary=globalThis.atob(text);
+      return Uint8Array.from(binary,character=>character.charCodeAt(0));
+    },
     ui: {onmessage: undefined, postMessage: (message:any)=>posted.push(message)},
     clientStorage: {
       async getAsync(key:string){return clientStorage.get(key);},
@@ -266,11 +271,16 @@ function harness(editorType = "figma") {
     },
   };
 
-  vm.runInNewContext(javascript, {
-    figma, __html__:"", console, setTimeout, clearTimeout,
-    atob: globalThis.atob, btoa: globalThis.btoa, crypto: globalThis.crypto,
-    TextEncoder: globalThis.TextEncoder, TextDecoder: globalThis.TextDecoder,
+  // Browser codecs must not be test-only globals in the main-thread sandbox.
+  const pluginContext=vm.createContext({
+    figma, __html__:"", console, setTimeout, clearTimeout, crypto: globalThis.crypto,
   });
+  vm.runInContext(javascript, pluginContext);
+  const codecs={
+    encode:(text:string)=>vm.runInContext("extraUtf8Encode",pluginContext)(text) as Uint8Array,
+    length:(text:string)=>vm.runInContext("extraUtf8ByteLength",pluginContext)(text) as number,
+    globals:vm.runInContext("[typeof atob,typeof btoa,typeof TextEncoder,typeof TextDecoder]",pluginContext),
+  };
   if (typeof figma.ui.onmessage !== "function") throw new Error("plugin did not install UI message handler");
 
   async function call(operation:string,args:Record<string,unknown>={},expectedRevision?:number){
@@ -283,7 +293,7 @@ function harness(editorType = "figma") {
   function emit(type:string,event:any){
     for(const callback of eventHandlers.get(type)??[]) callback(event);
   }
-  return {call, figma, nodes, page, posted, emit, scene};
+  return {call, figma, nodes, page, posted, emit, scene, codecs};
 }
 
 async function readArtifact(h:ReturnType<typeof harness>,token:string):Promise<string>{
@@ -301,6 +311,37 @@ async function readArtifact(h:ReturnType<typeof harness>,token:string):Promise<s
 }
 
 describe("plugin runtime behavior",()=>{
+  it("uses native Figma codecs without browser codec globals",async()=>{
+    const h=harness();
+    expect(h.codecs.globals).toEqual(["undefined","undefined","undefined","undefined"]);
+    const cases=["","ASCII","ñ漢😀",String.fromCharCode(0,127,128,2047,2048,65535),
+      String.fromCharCode(0xd800),String.fromCharCode(0xdfff),"A"+String.fromCharCode(0xd800)+"B"];
+    for(const text of cases){
+      const expected=new TextEncoder().encode(text);
+      expect(Array.from(h.codecs.encode(text))).toEqual(Array.from(expected));
+      expect(h.codecs.length(text)).toBe(expected.byteLength);
+    }
+    const created=await h.call("frame.create",{name:"Unicode ñ漢😀"});
+    const exported=await h.call("node.export.jsx",{nodeId:created.value.id});
+    expect(exported.ok).toBe(true);
+    const text=await readArtifact(h,exported.value.token);
+    expect(text).toContain("Unicode ñ漢😀");
+  });
+
+  it("counts UTF-8 bytes without weakening plugin-data limits",async()=>{
+    const h=harness();
+    const value="ñ".repeat(49999)+"a";
+    const args={targetKind:"NODE",targetId:"0:0",key:"k",value};
+    const stored=await h.call("object.plugin_data.set",args);
+    expect(stored.ok).toBe(true);
+    expect(stored.value.bytes).toBe(100000);
+    const rejected=await h.call("object.plugin_data.set",{...args,value:value+"a"});
+    expect(rejected.ok).toBe(false);
+    expect(rejected.error.message).toContain("plugin_data_limit");
+    const retained=await h.call("object.plugin_data.get",{targetKind:"NODE",targetId:"0:0",key:"k"});
+    expect(retained.value.value).toBe(value);
+  });
+
   it("creates document continuity identity only on explicit pairing and stores only the resume credential",async()=>{
     const h=harness();
     const documentId="c".repeat(32);
