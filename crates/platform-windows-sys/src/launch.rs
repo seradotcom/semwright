@@ -2305,13 +2305,19 @@ impl SandboxLauncher for WindowsSandbox {
         let child_stderr = inherited_null()?;
 
         let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
-        let mut attributes = ProcAttributes::new(3)?;
+        let mut attributes = ProcAttributes::new(3 - u32::from(cross_arch_host_tool))?;
         attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
-        let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
-        attributes.set_value(
-            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-            &all_application_packages_policy,
-        )?;
+        if !cross_arch_host_tool {
+            let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
+            attributes.set_value(
+                PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+                &all_application_packages_policy,
+            )?;
+        }
+        // Diagnostic only: x64-on-ARM64 sealed-tool children use regular AppContainer here to
+        // isolate whether LPAC itself blocks Prism initialization. This branch must not merge
+        // with this relaxation; the result decides between a targeted capability fix and
+        // fail-closed cross-architecture support.
 
         let network_sid = spec
             .network
