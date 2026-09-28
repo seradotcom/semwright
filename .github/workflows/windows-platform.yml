@@ -77,19 +77,7 @@ jobs:
       - name: Interactive harness PowerShell parses
         run: |
           set -euo pipefail
-          pwsh -NoProfile -NonInteractive -Command '
-            $errors = $null
-            $tokens = $null
-            [System.Management.Automation.Language.Parser]::ParseFile(
-              "$PWD/scripts/windows/run-interactive-certification.ps1",
-              [ref]$tokens,
-              [ref]$errors
-            ) | Out-Null
-            if ($errors.Count -ne 0) {
-              $errors | ForEach-Object { Write-Error $_ }
-              throw "Interactive certification PowerShell did not parse."
-            }
-          '
+          pwsh -NoProfile -NonInteractive -File ./scripts/windows/validate-interactive-certification.ps1
       - name: Native Windows runtime check
         run: >-
           cargo check --locked
