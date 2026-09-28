@@ -82,12 +82,12 @@ use windows::Win32::{
         Threading::{
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
-            GetExitCodeProcess, INFINITE, InitializeProcThreadAttributeList,
-            LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
-            PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_MACHINE_TYPE,
-            PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, PROCESS_INFORMATION, ResumeThread,
-            STARTF_USESTDHANDLES, STARTUPINFOEXW, TerminateProcess, UpdateProcThreadAttribute,
-            WaitForSingleObject,
+            GetExitCodeProcess, GetMachineTypeAttributes, INFINITE,
+            InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
+            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
+            PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+            TerminateProcess, UpdateProcThreadAttribute, UserEnabled, WaitForSingleObject,
         },
         WindowsProgramming::PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
     },
@@ -2206,14 +2206,14 @@ impl Drop for NativeSandboxChild {
     }
 }
 
-fn host_tool_machine_type(spec: &SandboxSpec) -> Result<Option<u16>> {
+fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
     let markers = spec
         .environment
         .iter()
         .filter(|(name, _)| name == SANDBOX_HOST_TOOL_CHILD_ENV)
         .collect::<Vec<_>>();
     if markers.is_empty() {
-        return Ok(None);
+        return Ok(false);
     }
     if markers.len() != 1
         || markers[0].1 != "1"
@@ -2230,11 +2230,29 @@ fn host_tool_machine_type(spec: &SandboxSpec) -> Result<Option<u16>> {
     }
     let architecture = architecture_file(&spec.staged_executable)?;
     match (std::env::consts::ARCH, architecture) {
-        ("aarch64", PeArchitecture::Amd64) => Ok(Some(IMAGE_FILE_MACHINE_AMD64)),
-        ("aarch64", PeArchitecture::Arm64) | ("x86_64", PeArchitecture::Amd64) => Ok(None),
+        ("aarch64", PeArchitecture::Amd64) => {
+            // Windows 11 ARM64 transparently emulates x64 user-mode binaries. Verify that
+            // the OS advertises x64 user-mode support, but let CreateProcess select Prism from
+            // the PE architecture instead of forcing PROC_THREAD_ATTRIBUTE_MACHINE_TYPE.
+            let attributes = unsafe { GetMachineTypeAttributes(IMAGE_FILE_MACHINE_AMD64) }
+                .map_err(|_| {
+                    Error::new(
+                        ErrorCode::Unsupported,
+                        "Windows x64 emulation capability query failed",
+                    )
+                })?;
+            if attributes.0 & UserEnabled.0 == 0 {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Windows host does not enable x64 user-mode execution",
+                ));
+            }
+            Ok(true)
+        }
+        ("aarch64", PeArchitecture::Arm64) | ("x86_64", PeArchitecture::Amd64) => Ok(false),
         _ => Err(Error::new(
             ErrorCode::Unsupported,
-            "Windows sealed-tool machine type is not supported by this host",
+            "Windows sealed-tool architecture is not supported by this host",
         )),
     }
 }
@@ -2254,7 +2272,7 @@ impl SandboxLauncher for WindowsSandbox {
 
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
-        let machine_type = host_tool_machine_type(spec)?;
+        let cross_arch_host_tool = host_tool_cross_arch(spec)?;
         if !spec.sealed_tools.is_empty() {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
@@ -2272,12 +2290,8 @@ impl SandboxLauncher for WindowsSandbox {
         let child_stderr = inherited_null()?;
 
         let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
-        let cross_arch_host_tool = machine_type.is_some();
-        let mut attributes = ProcAttributes::new(3 + u32::from(cross_arch_host_tool))?;
+        let mut attributes = ProcAttributes::new(3)?;
         attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
-        if let Some(machine_type) = machine_type {
-            attributes.set_value(PROC_THREAD_ATTRIBUTE_MACHINE_TYPE, &machine_type)?;
-        }
         let all_application_packages_policy = PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
         attributes.set_value(
             PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
