@@ -11,7 +11,10 @@ remains valid for that head and is not silently transferred to later commits.
 
 The continuation added unfinished workflow-recording cleanup in `1fff19e90df9bc83c3d855ce47d5bf63fab1126b`
 and plugin-runtime codec corrections in `536e8b14bdc7bb0873ee3cd0a65e5f1048342d81`.
-New Rust/plugin regressions require their own final-head checks. Source-only Python
+The four new recording regressions passed the complete ARM64 Quality job 109082539796
+on code head 536e8b14; both new codec regressions passed within 89 plugin tests plus
+typecheck/build in job 109082185324. The final document head still requires its own CI.
+Source-only Python
 validation passed 171 tests. No heavy test or dependency install was run on the connected device.
 
 ## Completed audit accounting

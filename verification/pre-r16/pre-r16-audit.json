@@ -7,7 +7,7 @@
   "candidate_sha": null,
   "date": "2026-09-28",
   "status": "NOT_READY_FOR_INDEPENDENT_R16_REVIEW",
-  "audit_lane_state": "IMPLEMENTATION_AND_DISPOSITION_COMPLETE_CI_PENDING",
+  "audit_lane_state": "REMEDIATIONS_VERIFIED_FINAL_HEAD_CI_PENDING",
   "audit_complete": false,
   "maintainer_preflight_only": true,
   "independent_review_performed": false,
@@ -124,9 +124,11 @@
     {
       "id": "PRE-010",
       "severity": "MEDIUM",
-      "status": "FIX_COMMITTED_CI_PENDING",
+      "status": "FIX_VERIFIED_ON_CODE_HEAD",
       "summary": "Revocation now discards unfinished recordings without persisting partial evidence or erasing completed traces",
-      "fix_sha": "1fff19e90df9bc83c3d855ce47d5bf63fab1126b"
+      "fix_sha": "1fff19e90df9bc83c3d855ce47d5bf63fab1126b",
+      "run": 36467811798,
+      "job": 109082539796
     },
     {
       "id": "PRE-011",
@@ -163,7 +165,6 @@
     "secret_precheck_run": 36467811671,
     "secret_precheck_job": 109082183674,
     "secret_precheck_status": "PASS_WITH_TRIAGED_NON_SECRETS",
-    "secret_precheck_merge_sha": "7f844d5bf7b5973fd7d8f41d0072f6595dc36903",
     "secret_precheck_report": "inventory/secret-precheck-triaged-run.json",
     "queued_is_pass": false,
     "skipped_is_pass": false,
@@ -177,6 +178,14 @@
       "typecheck": "PASS",
       "plugin_build": "PASS",
       "new_codec_tests_executed": true
+    },
+    "scan_source_revision": "7f844d5bf7b5973fd7d8f41d0072f6595dc36903",
+    "rust_arm64_code_verification": {
+      "head": "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81",
+      "run": 36467811798,
+      "job": 109082539796,
+      "status": "SUCCESS",
+      "new_recording_regressions_executed": 4
     }
   },
   "security_precheck": [

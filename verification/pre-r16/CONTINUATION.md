@@ -67,3 +67,17 @@ recomputes the response from a literal fixture password. No real credential was 
 single matching source line. Changed content, a different rule/path or a multiline match
 remains untriaged and fails the gate. Both raw finding counts and explicit non-secret
 classifications remain in evidence. This is not a directory exclusion or a zero-findings claim.
+
+## Documentation-only false-positive follow-up
+
+Run 36469051449 on document head 0e7c8bb917b0a5afecc15c413e99aae91b35b587 reported one
+additional generic-api-key match: the scanner merge-test SHA under a metadata field named
+secret_precheck_merge_sha. It exactly equals the already published source_sha receipt, not
+a credential. Current metadata calls the field scan_source_revision; the precise historical
+line remains content-hash/rule/path triaged so history is preserved rather than rewritten.
+No file-wide exclusion is added and changed values still fail the gate.
+
+The workflow recording fix now has all four named regressions executed in the successful
+ARM64 Quality job 109082539796 (run 36467811798, code head 536e8b14). The Figma job
+109082185324 executed both new codec regressions inside 89 plugin tests plus typecheck/build.
+Later documentation or triage-only commits still receive their own checks.
