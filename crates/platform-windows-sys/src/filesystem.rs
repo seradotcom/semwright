@@ -305,9 +305,10 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
             )
         })?;
     let total = payload.max(size_of::<FILE_RENAME_INFO>());
-    let mut buffer = vec![0u8; total];
-    let info = buffer.as_mut_ptr().cast::<FILE_RENAME_INFO>();
-    // SAFETY: buffer is large enough for the fixed prefix plus every UTF-16 unit.
+    let words = total.div_ceil(size_of::<usize>());
+    let mut storage = vec![0usize; words];
+    let info = storage.as_mut_ptr().cast::<FILE_RENAME_INFO>();
+    // SAFETY: storage is pointer-aligned and large enough for the fixed prefix plus every UTF-16 unit.
     unsafe {
         (*info).Anonymous.ReplaceIfExists = true;
         (*info).RootDirectory = handle(parent);
@@ -316,7 +317,7 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
         SetFileInformationByHandle(
             handle(file),
             FileRenameInfo,
-            buffer.as_ptr().cast(),
+            storage.as_ptr().cast(),
             u32::try_from(total).map_err(|_| {
                 Error::new(
                     ErrorCode::ResourceExhausted,
