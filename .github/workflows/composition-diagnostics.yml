@@ -1,0 +1,76 @@
+name: Composition diagnostics
+on:
+  push:
+    branches: [feat/composition-media]
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'scripts/composition/**'
+      - '.github/workflows/composition-diagnostics.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+  pull_request:
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'scripts/composition/**'
+      - '.github/workflows/composition-diagnostics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: composition-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  contracts:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-contracts-v1
+          save-if: ${{ github.event_name == 'push' }}
+      - name: Format
+        run: cargo fmt -p semwright-semantic-composition -p semwright-media-time -- --check
+      - name: Typed contracts and exact media time
+        run: python scripts/composition/run-suite.py contracts
+      - name: Lints
+        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-media-time --all-targets -- -D warnings
+      - name: Generated contract schemas
+        run: cargo run --locked -p semwright-semantic-composition --example schemas > verification/composition/schemas.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: composition-contracts-${{ matrix.os }}-${{ github.sha }}
+          path: verification/composition
+          retention-days: 7
+          if-no-files-found: error
+  contracts-gate:
+    if: always()
+    needs: [contracts]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: All requested platforms must execute successfully
+        env:
+          RESULT: ${{ needs.contracts.result }}
+        run: test "$RESULT" = success
