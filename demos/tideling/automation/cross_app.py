@@ -17,6 +17,7 @@ def write_json(path,value):Path(path).write_text(json.dumps(value,indent=2)+'\n'
 def command(argv,**kwargs):return subprocess.run([str(x) for x in argv],check=True,timeout=180,**kwargs)
 
 def run(work):
+    os.umask(0o077)
     os.chmod(work,0o700)
     project=work/'project'; producer=work/'producer';config=work/'godot-config';out=work/'output'
     for p in [producer,config,out,work/'state',work/'runtime']:p.mkdir(mode=0o700)
