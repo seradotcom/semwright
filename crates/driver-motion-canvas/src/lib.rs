@@ -1,5 +1,6 @@
 //! Managed Motion Canvas domain and deterministic compiler.
 pub mod audio_codegen;
+pub mod authoring;
 pub mod compiler;
 pub mod diff;
 pub mod driver;

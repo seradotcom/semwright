@@ -29,6 +29,9 @@ use std::{
     time::Duration,
 };
 
+#[path = "composition.rs"]
+mod composition;
+
 const ID: &str = "motion-canvas";
 const SCOPE: &str = "driver:motion-canvas";
 
@@ -380,6 +383,7 @@ fn external_motion_canvas_version(bytes: &[u8]) -> Result<Option<String>> {
 }
 
 pub struct MotionDriver {
+    composition: composition::CompositionRuntime,
     roots: BTreeMap<String, PathBuf>,
     store: Option<ProjectStore>,
     renderer: RenderManager,
@@ -440,6 +444,7 @@ impl MotionDriver {
             .unwrap_or_else(|| PathBuf::from("/workspace/output"));
         let renderer = RenderManager::new(runtime, output);
         Ok(Self {
+            composition: Default::default(),
             roots,
             store,
             renderer,
@@ -452,6 +457,7 @@ impl MotionDriver {
         roots.insert("project".into(), root.to_path_buf());
         let renderer = RenderManager::new(None, root.join("test-output"));
         Ok(Self {
+            composition: Default::default(),
             roots,
             store: Some(Self::store_for_project_root(root)?),
             renderer,
@@ -619,7 +625,7 @@ impl MotionDriver {
     }
 
     fn catalog() -> Result<Vec<Capability>> {
-        Ok(vec![
+        let mut capabilities = vec![
             Self::cap::<EmptyArgs, DoctorOutput>(
                 "driver.motion-canvas.doctor",
                 "Inspect bounded Motion Canvas driver and renderer prerequisites",
@@ -789,7 +795,9 @@ impl MotionDriver {
                 Idempotency::ReadOnly,
                 true,
             )?,
-        ])
+        ];
+        capabilities.extend(composition::catalog()?);
+        Ok(capabilities)
     }
     fn ref_for(snapshot: &Snapshot, kind: Kind, id: &str) -> String {
         Reference::new(&snapshot.project, &snapshot.source_sha256, kind, id).encode()
@@ -1527,6 +1535,12 @@ impl Driver for MotionDriver {
         Self::catalog()
     }
     async fn execute(&mut self, command: &str, digest: &str, args: Value) -> Result<Value> {
+        if command.starts_with("driver.motion-canvas.composition.") {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Composition requires host session context",
+            ));
+        }
         let capability = Self::catalog()?
             .into_iter()
             .find(|c| c.descriptor.name == command)
@@ -1568,6 +1582,22 @@ impl Driver for MotionDriver {
         context: DriverExecutionContext,
     ) -> Result<Value> {
         context.check_cancelled()?;
+        if command.starts_with("driver.motion-canvas.composition.") {
+            return self
+                .execute_composition(command, digest, args, &context)
+                .await;
+        }
+        if command == "driver.motion-canvas.render.start" {
+            let source = args
+                .get("expected_fingerprint")
+                .and_then(Value::as_str)
+                .ok_or_else(|| Error::invalid("expected fingerprint required"))?
+                .to_owned();
+            let value = self.execute(command, digest, args).await?;
+            let job: JobView = serde_json::from_value(value.clone())?;
+            self.record_authoring_render(&context, &job, &source)?;
+            return Ok(value);
+        }
         if command != "driver.motion-canvas.render.execute" {
             return self.execute(command, digest, args).await;
         }
@@ -1586,7 +1616,9 @@ impl Driver for MotionDriver {
             ));
         }
         let input = self.checked_render_input(args)?;
+        let source = input.expected_fingerprint.clone();
         let view = self.execute_render_with_context(input, &context).await?;
+        self.record_authoring_render(&context, &view, &source)?;
         let value = serde_json::to_value(view)?;
         let validator = jsonschema::validator_for(&capability.descriptor.output_schema)
             .map_err(|_| Error::new(ErrorCode::Internal, "Invalid embedded output schema"))?;

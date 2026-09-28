@@ -148,6 +148,7 @@ pub struct JobView {
 }
 
 struct Job {
+    source_sha256: String,
     view: JobView,
     cancel: CancellationToken,
 }
@@ -236,6 +237,7 @@ impl RenderManager {
         guard.insert(
             job_ref.clone(),
             Job {
+                source_sha256: snapshot.source_sha256.clone(),
                 view: view.clone(),
                 cancel: cancel.clone(),
             },
@@ -356,11 +358,22 @@ async fn run_render(
     fs::create_dir_all(output_root)?;
     let output = output_root.join(id);
     fs::create_dir(&output)?;
+    let render_input_digest = semwright_semantic_composition::canonical_digest(&(
+        project,
+        plan,
+        crate::authoring::COMPILER_EXTENSION_VERSION,
+        security::sha256(&fs::read(&runtime.helper)?),
+    ))
+    .map_err(|e| Error::invalid(e.to_string()))?;
     let config = json!({
+        "authoring": project.authoring.is_some(),
+        "renderInputDigest":render_input_digest.as_str(),
         "name": "frames",
         "width": plan.width,
         "height": plan.height,
-        "fps": plan.fps,
+        "fps": f64::from(plan.fps) / f64::from(plan.fps_denominator),
+        "fpsNum": plan.fps,
+        "fpsDen": plan.fps_denominator,
         "firstFrame": plan.first_frame,
         "endFrameExclusive": plan.end_frame_exclusive,
         "colorSpace": match plan.color_space { ColorSpace::Srgb => "srgb", ColorSpace::DisplayP3 => "display-p3" },
@@ -528,8 +541,15 @@ async fn run_render(
     // cancellation requests remain responsive while large artifacts are certified.
     let validation_output = output.clone();
     let validation_plan = plan.clone();
+    let validation_authoring = project.authoring.is_some();
+    let validation_input_digest = render_input_digest.as_str().to_owned();
     let validation = tokio::task::spawn_blocking(move || {
-        validate_artifacts(&validation_output, &validation_plan)
+        validate_artifacts(
+            &validation_output,
+            &validation_plan,
+            validation_authoring,
+            &validation_input_digest,
+        )
     })
     .await
     .map_err(|_| {
@@ -571,7 +591,12 @@ async fn terminate_tree(_pid: Option<u32>, child: &mut tokio::process::Child) {
     let _ = child.wait().await;
 }
 
-fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummary> {
+fn validate_artifacts(
+    output: &Path,
+    plan: &RenderPlan,
+    authoring: bool,
+    render_input_digest: &str,
+) -> Result<ArtifactSummary> {
     let frames = output.join("frames");
     let meta = fs::symlink_metadata(&frames)?;
     if !meta.is_dir() || meta.file_type().is_symlink() {
@@ -660,7 +685,35 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
             "Transparent render produced no transparent pixels",
         ));
     }
+    let native_observations = if authoring {
+        let receipt_bytes =
+            crate::store::read_granted_file(output, "native-observations-receipt.json", 4096)?;
+        let receipt: serde_json::Value = serde_json::from_slice(&receipt_bytes)?;
+        let data = crate::store::read_granted_file(
+            output,
+            "native-observations.ndjson",
+            64 * 1024 * 1024,
+        )?;
+        if receipt
+            .get("render_input_digest")
+            .and_then(serde_json::Value::as_str)
+            != Some(render_input_digest)
+            || receipt.get("sha256").and_then(serde_json::Value::as_str)
+                != Some(security::sha256(&data).as_str())
+            || receipt.get("bytes").and_then(serde_json::Value::as_u64) != Some(data.len() as u64)
+            || receipt.get("frames").and_then(serde_json::Value::as_u64) != Some(plan.frame_count)
+        {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "native observation receipt mismatch",
+            ));
+        }
+        Some(receipt)
+    } else {
+        None
+    };
     let manifest_bytes = serde_json::to_vec_pretty(&json!({
+        "native_observations":native_observations,
         "renderer": "motion-canvas-core-renderer-v3.17.2",
         "plan": plan,
         "pixel_validation": {
@@ -693,4 +746,86 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
         last_png: format!("{directory}/frames/{last}"),
         manifest_sha256: security::sha256(&manifest_bytes),
     })
+}
+
+/// Returned only for a completed, source-bound job. Paths never originate in capability args.
+pub struct NativeObservationBundle {
+    pub bytes: Vec<u8>,
+    pub observation_sha256: String,
+    pub render_input_digest: String,
+    pub artifact_sha256: String,
+    pub plan: RenderPlan,
+}
+impl RenderManager {
+    pub async fn native_observations(
+        &self,
+        job_ref: &str,
+        expected_source: &str,
+    ) -> Result<NativeObservationBundle> {
+        let guard = self.jobs.lock().await;
+        let job = guard
+            .get(job_ref)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "render job not found"))?;
+        if job.source_sha256 != expected_source || job.view.state != RenderState::Succeeded {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "render is not completed for the current project source",
+            ));
+        }
+        let artifact = job
+            .view
+            .artifact
+            .clone()
+            .ok_or_else(|| Error::new(ErrorCode::BackendFailed, "render artifact absent"))?;
+        drop(guard);
+        let bytes = crate::store::read_granted_file(
+            &self.output_root,
+            &artifact.manifest,
+            8 * 1024 * 1024,
+        )?;
+        if security::sha256(&bytes) != artifact.manifest_sha256 {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "render manifest changed",
+            ));
+        }
+        let manifest: serde_json::Value = serde_json::from_slice(&bytes)?;
+        let receipt = manifest
+            .get("native_observations")
+            .ok_or_else(|| Error::invalid("not an instrumented authoring render"))?;
+        let observation_sha256 = receipt
+            .get("sha256")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| Error::invalid("native observation digest absent"))?
+            .to_owned();
+        let render_input_digest = receipt
+            .get("render_input_digest")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| Error::invalid("native render input binding absent"))?
+            .to_owned();
+        let bytes = crate::store::read_granted_file(
+            &self.output_root,
+            &format!("{}/native-observations.ndjson", artifact.directory),
+            64 * 1024 * 1024,
+        )?;
+        if security::sha256(&bytes) != observation_sha256 {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "native observation stream changed",
+            ));
+        }
+        let plan = serde_json::from_value(
+            manifest
+                .get("plan")
+                .cloned()
+                .ok_or_else(|| Error::invalid("render plan missing"))?,
+        )?;
+        Ok(NativeObservationBundle {
+            bytes,
+            observation_sha256,
+            render_input_digest,
+            artifact_sha256: artifact.manifest_sha256,
+            plan,
+        })
+    }
 }

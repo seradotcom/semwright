@@ -347,7 +347,7 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
     .unwrap();
     assert_eq!(still_healthy["render_available"], true);
     assert_eq!(still_healthy["network"], false);
-    assert_eq!(still_healthy["capability_count"], 25);
+    assert_eq!(still_healthy["capability_count"], caps.len());
 
     Provider::shutdown(provider.as_ref()).await.unwrap();
 }

@@ -11,14 +11,6 @@ on:
       - '.github/workflows/composition-diagnostics.yml'
       - 'Cargo.lock'
       - 'Cargo.toml'
-  pull_request:
-    paths:
-      - 'crates/semantic-composition/**'
-      - 'crates/media-time/**'
-      - 'crates/motion-authoring/**'
-      - 'fixtures/composition/**'
-      - 'scripts/composition/**'
-      - '.github/workflows/composition-diagnostics.yml'
   workflow_dispatch:
 permissions:
   contents: read

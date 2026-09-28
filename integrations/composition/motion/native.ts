@@ -54,7 +54,7 @@ function sec(q:Rat):number {requireValue(/^-?(0|[1-9][0-9]*)$/.test(q.num)&&/^[1
 function vec(p:Point){return new Vector2(finite(p.x,'x'),finite(p.y,'y'));}
 function align(v:string){switch(v){case 'start':return 'start';case 'end':return 'end';case 'stretch':return 'stretch';case 'baseline':return 'baseline';case 'center':return 'center';default:throw new Error('invalid align');}}
 function color(s:string){requireValue(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s),'unsafe color');return s;}
-function asset(urls:AssetUrls,id:string){const url=urls[id];requireValue(typeof url==='string' && /^(\/|\.\/|data:)/.test(url),'asset must be a generated local import');return url;}
+function asset(urls:AssetUrls,id:string){const url=urls[id];requireValue(typeof url==='string' && /^(\/(?!\/)|\.\/|data:)/.test(url),'asset must be a generated local import');return url;}
 const timings:Record<string,TimingFunction>={linear,in_cubic:easeInCubic,out_cubic:easeOutCubic,in_out_cubic:easeInOutCubic,out_back:easeOutBack,out_expo:easeOutExpo,in_out_sine:easeInOutSine,out_elastic:easeOutElastic};
 const archetypes:Record<string,{direction:'row'|'column';justify:'start'|'center'|'space-between';align:'start'|'center'|'stretch';columns:number;titleGrow:number}>={
  statement:{direction:'column',justify:'center',align:'start',columns:1,titleGrow:0},
@@ -199,7 +199,7 @@ function* executeInstruction(i:Instruction,nodes:Map<string,Node>,initial:Map<st
   case 'set':sig(node(op.target),op.channel).set(resolve(op.value,op.target,op.channel,initial));break;
   case 'reactive_connection':{const path=node(op.path);requireValue(path instanceof Line,'connection requires Line');path.points(()=>[node(op.from).absolutePosition().transformAsPoint(path.worldToLocal()),node(op.to).absolutePosition().transformAsPoint(path.worldToLocal())]);break;}
   case 'path_follow':{const path=node(op.path);const marker=node(op.marker);requireValue(path instanceof Line,'trace requires native Line');yield* tween(duration,p=>{const sample=path.getPointAtPercentage(op.from+(op.to-op.from)*easing(p));marker.absolutePosition(sample.position.transformAsPoint(path.localToWorld()));if(op.orient){const tangent=sample.tangent.transform(path.localToWorld());marker.absoluteRotation(Math.atan2(tangent.y,tangent.x)*180/Math.PI);}});break;}
-  case 'camera_follow':{const cam=node(op.camera);requireValue(cam instanceof Camera,'follow requires Camera');cam.absolutePosition(()=>node(op.target).absolutePosition());yield* waitFor(duration);break;}
+  case 'camera_follow':{const cam=node(op.camera);requireValue(cam instanceof Camera,'follow requires Camera');cam.absolutePosition(()=>node(op.target).absolutePosition());yield* waitFor(duration);cam.absolutePosition(cloned(cam.absolutePosition()) as Vector2);break;}
   case 'morph_points':{const target=node(op.target);requireValue(target instanceof Line&&op.from.length===op.to.length&&op.from.length>=2,'incompatible morph topology');target.closed(op.closed);target.points(op.from.map(vec));yield* target.points(op.to.map(vec),duration,easing);break;}
   case 'code_selection':{const code=node(op.target);requireValue(code instanceof Code,'selection requires Code');yield* code.selection(lines(op.first_line,op.end_line_exclusive-1),duration,easing);break;}
   case 'counter':{const text=node(op.target);requireValue(text instanceof Txt,'counter requires text');yield* tween(duration,p=>{text.text(op.prefix+(op.from+(op.to-op.from)*easing(p)).toFixed(op.decimal_places)+op.suffix);});break;}
@@ -302,3 +302,6 @@ export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
   yield* all(waitFor(end-start),...tasks);
  });
 }
+
+export type NativeProbeFunction=(canvas:HTMLCanvasElement,frame:number,binding:FrameBinding)=>Promise<NativeProbe>;
+export declare const nativeProbeType: NativeProbeFunction;

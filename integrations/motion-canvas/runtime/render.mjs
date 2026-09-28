@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import process from 'node:process';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import motionCanvasModule from '@motion-canvas/vite-plugin';
@@ -33,6 +34,7 @@ import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
+if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
 const state={done:false,result:null,frame:config.firstFrame,error:null,phase:'created'};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
@@ -101,12 +103,24 @@ async function main() {
     page.on('pageerror', error => note('pageerror', error));
     page.on('console', message => { if (['error','warning'].includes(message.type())) note(`console:${message.type()}`, message.text()); });
     const written = new Set();
+    let observationBytes=0;
+    const observationHash=createHash('sha256');
+    let observationCount=0;
+    if(config.authoring) await fs.writeFile(path.join(output,'native-observations.ndjson'),'',{flag:'wx'});
     await page.exposeBinding('__SEMWRIGHT_EXPORT_FRAME__', async (_source, payload) => {
       if (!payload || !Number.isSafeInteger(payload.frame) || payload.frame < config.firstFrame || payload.frame >= config.endFrameExclusive || typeof payload.data !== 'string' || !payload.data.startsWith('data:image/png;base64,')) fail('invalid frame payload');
       if (written.has(payload.frame)) fail('duplicate frame payload');
       const bytes = Buffer.from(payload.data.slice('data:image/png;base64,'.length), 'base64');
       if (bytes.length < 8 || bytes.length > 32 * 1024 * 1024 || bytes.subarray(0,8).toString('hex') !== '89504e470d0a1a0a') fail('invalid PNG payload');
       written.add(payload.frame);
+      if(config.authoring){
+        if(!payload.observation||payload.observation.frame!==payload.frame)fail('native observation/frame mismatch');
+        const line=Buffer.from(JSON.stringify(payload.observation)+'\n','utf8');
+        observationBytes+=line.length;
+        if(line.length>524288||observationBytes>64*1024*1024)fail('native observation byte budget exceeded');
+        observationHash.update(line);observationCount++;
+        await fs.appendFile(path.join(output,'native-observations.ndjson'),line);
+      }
       await fs.writeFile(path.join(output, 'frames', `${String(payload.frame).padStart(6,'0')}.png`), bytes, {flag:'wx'});
     });
     await page.route('**/*', async route => {
@@ -129,6 +143,10 @@ async function main() {
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) fail(`renderer failed: ${state.error}`);
     if (state.result !== 0) fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+    if(config.authoring){
+      if(observationCount!==config.endFrameExclusive-config.firstFrame)fail('native observation count incomplete');
+      await fs.writeFile(path.join(output,'native-observations-receipt.json'),JSON.stringify({version:1,render_input_digest:config.renderInputDigest,sha256:observationHash.digest('hex'),bytes:observationBytes,frames:observationCount,fps_num:config.fpsNum,fps_den:config.fpsDen}),{flag:'wx'});
+    }
     const files = (await fs.readdir(path.join(output,'frames'))).sort();
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
   } finally { await cleanup(); }

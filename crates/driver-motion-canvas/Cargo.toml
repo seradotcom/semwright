@@ -10,6 +10,9 @@ name = "semwright-motion-canvas-driver"
 path = "src/main.rs"
 
 [dependencies]
+semwright-motion-authoring.workspace = true
+semwright-media-time.workspace = true
+semwright-semantic-composition.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true

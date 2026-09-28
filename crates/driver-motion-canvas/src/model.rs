@@ -24,6 +24,8 @@ pub const MAX_FRAMES: u64 = 18_000;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Project {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authoring: Option<semwright_motion_authoring::ManagedBinding>,
     pub schema_version: u32,
     pub component_version: u32,
     pub id: String,
@@ -43,6 +45,7 @@ pub struct Project {
 impl Project {
     pub fn empty(id: String) -> Self {
         Self {
+            authoring: None,
             schema_version: SCHEMA_VERSION,
             component_version: COMPONENT_VERSION,
             id,
@@ -69,6 +72,11 @@ pub struct Settings {
     pub width: u32,
     pub height: u32,
     pub fps: u32,
+    #[serde(
+        default = "default_fps_denominator",
+        skip_serializing_if = "is_default_fps_denominator"
+    )]
+    pub fps_denominator: u32,
     pub background: Option<String>,
     #[serde(default)]
     pub color_space: ColorSpace,
@@ -79,6 +87,7 @@ impl Default for Settings {
             width: 1920,
             height: 1080,
             fps: 30,
+            fps_denominator: 1,
             background: Some("#f7f5ee".into()),
             color_space: ColorSpace::Srgb,
         }
@@ -779,4 +788,11 @@ impl RenderScale {
             Self::Double => (2, 1),
         }
     }
+}
+
+fn default_fps_denominator() -> u32 {
+    1
+}
+fn is_default_fps_denominator(v: &u32) -> bool {
+    *v == 1
 }

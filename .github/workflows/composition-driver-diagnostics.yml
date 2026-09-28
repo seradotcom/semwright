@@ -1,0 +1,83 @@
+name: Composition driver diagnostics
+on:
+  push:
+    branches: [feat/composition-media]
+    paths:
+      - 'crates/driver-motion-canvas/**'
+      - 'crates/driver-figma/**'
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'integrations/composition/**'
+      - 'integrations/motion-canvas/**'
+      - 'fixtures/composition/**'
+      - '.github/workflows/composition-driver-diagnostics.yml'
+      - 'Cargo.lock'
+permissions:
+  contents: read
+concurrency:
+  group: composition-driver-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  rust-driver:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-drivers-v1
+      - name: Compile both production adapters and their tests
+        run: cargo check --locked -p semwright-driver-motion-canvas -p semwright-driver-figma --all-targets
+      - name: Motion driver unit regression
+        run: cargo test --locked -p semwright-driver-motion-canvas --lib
+      - name: Figma shared-kernel regression
+        run: cargo test --locked -p semwright-driver-figma --lib --bin semwright-figma-driver
+      - name: Lints
+        run: cargo clippy --locked -p semwright-driver-motion-canvas -p semwright-driver-figma --all-targets -- -D warnings
+  native-typecheck:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Pinned Motion Canvas dependencies
+        working-directory: integrations/motion-canvas/runtime
+        run: npm ci --ignore-scripts
+      - name: Check the native runtime against upstream types
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          cp ../../composition/motion/native.ts native-authoring-check.ts
+          ./node_modules/.bin/tsc --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowSyntheticDefaultImports native-authoring-check.ts
+      - name: Renderer syntax
+        run: node --check integrations/motion-canvas/runtime/render.mjs
+  adapter-gate:
+    if: always()
+    needs: [rust-driver, native-typecheck]
+    runs-on: windows-2022
+    timeout-minutes: 2
+    steps:
+      - name: Both adapter lanes must complete
+        env:
+          RUST: ${{ needs.rust-driver.result }}
+          TYPESCRIPT: ${{ needs.native-typecheck.result }}
+        run: test "$RUST" = success && test "$TYPESCRIPT" = success

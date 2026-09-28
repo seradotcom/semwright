@@ -94,8 +94,12 @@ pub fn settings(settings: &Settings) -> Result<()> {
         "Resolution exceeds bounds",
     )?;
     ensure(
-        (1..=120).contains(&settings.fps),
-        "Frame rate must be an integer from 1 to 120",
+        settings.fps_denominator > 0
+            && settings.fps >= settings.fps_denominator
+            && u64::from(settings.fps) <= 120 * u64::from(settings.fps_denominator)
+            && semwright_media_time::Rate::new(settings.fps, settings.fps_denominator)
+                .is_ok_and(|r| r.num == settings.fps && r.den == settings.fps_denominator),
+        "Frame rate must be reduced rational from 1 to 120",
     )?;
     if let Some(bg) = &settings.background {
         ensure(
@@ -510,6 +514,7 @@ pub fn animations(scene: &Scene, theme: &Theme) -> Result<()> {
 }
 
 pub fn project_valid(project: &Project) -> Result<()> {
+    crate::authoring::check_binding(project)?;
     ensure(
         project.schema_version == SCHEMA_VERSION && project.component_version == COMPONENT_VERSION,
         "Unsupported managed project version",
@@ -752,6 +757,11 @@ pub struct RenderPlan {
     pub width: u32,
     pub height: u32,
     pub fps: u32,
+    #[serde(
+        default = "default_render_den",
+        skip_serializing_if = "render_den_is_one"
+    )]
+    pub fps_denominator: u32,
     pub first_frame: u64,
     pub end_frame_exclusive: u64,
     pub frame_count: u64,
@@ -765,7 +775,7 @@ pub fn render_plan(project: &Project, profile: &RenderProfile) -> Result<RenderP
     let (n, d) = profile.scale.ratio();
     let width = project.settings.width * n / d;
     let height = project.settings.height * n / d;
-    let duration = ms_to_frames(project.duration_ms(), project.settings.fps)?;
+    let duration = crate::authoring::frame_count(project)?;
     ensure(
         (project.settings.width * n).is_multiple_of(d)
             && (project.settings.height * n).is_multiple_of(d)
@@ -791,6 +801,7 @@ pub fn render_plan(project: &Project, profile: &RenderProfile) -> Result<RenderP
         width,
         height,
         fps: project.settings.fps,
+        fps_denominator: project.settings.fps_denominator,
         first_frame: profile.first_frame,
         end_frame_exclusive: profile.end_frame_exclusive,
         frame_count: profile.end_frame_exclusive - profile.first_frame,
@@ -799,4 +810,11 @@ pub fn render_plan(project: &Project, profile: &RenderProfile) -> Result<RenderP
         color_space: project.settings.color_space,
         timeout_ms: profile.timeout_ms,
     })
+}
+
+fn default_render_den() -> u32 {
+    1
+}
+fn render_den_is_one(v: &u32) -> bool {
+    *v == 1
 }
