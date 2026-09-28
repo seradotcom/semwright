@@ -140,6 +140,19 @@
     ],
     "untrusted_metadata": false
   },
+  "blender.export.glb": {
+    "aliases": [],
+    "app": "org.blender.Blender",
+    "object_types": [],
+    "provider": "blender-native",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "blender",
+      "export"
+    ],
+    "untrusted_metadata": false
+  },
   "blender.material.assign": {
     "aliases": [],
     "app": "org.blender.Blender",

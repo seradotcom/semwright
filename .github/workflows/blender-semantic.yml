@@ -5,6 +5,9 @@ on:
   pull_request:
     paths:
       - "crates/driver-blender/**"
+      - "adapters/blender/**"
+      - "schemas/commands.json"
+      - "schemas/builtin-provenance.json"
       - ".github/workflows/blender-semantic.yml"
       - "scripts/dev/ci-driver-bwrap-profile.sh"
 
@@ -21,6 +24,8 @@ jobs:
   blender-semantic:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    env:
+      SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
     defaults:
       run:
         shell: bash
@@ -42,26 +47,40 @@ jobs:
           curl --fail --location --retry 3 --output /tmp/blender.tar.xz "$BLENDER_URL"
           echo "$BLENDER_SHA256  /tmp/blender.tar.xz" | sha256sum --check -
           sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
-          sudo ln -sf /usr/local/blender-4.5.14-linux-x64/blender /usr/local/bin/blender
+          rm -f /tmp/blender.tar.xz
           mkdir -p verification/blender-semantic
-          /usr/local/bin/blender --version | head -5 | tee verification/blender-semantic/version.log
-          test "$(/usr/local/bin/blender --version | head -1)" = "Blender 4.5.14 LTS"
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -5 | tee verification/blender-semantic/version.log
+          test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
+          sha256sum "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" | tee verification/blender-semantic/blender-executable-sha256.log
           bwrap --version | tee verification/blender-semantic/bwrap-version.log
       - name: Preflight scoped Driver Host Bubblewrap
         run: |
           bash scripts/dev/ci-driver-bwrap-profile.sh verification/blender-semantic/sandbox-setup.log
           test -d /etc/fonts
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin --dir /plugin/tools)
           for runtime in /usr /lib /lib64; do
             if [ -e "$runtime" ]; then bwrap_args+=(--ro-bind "$runtime" "$runtime"); fi
           done
           bwrap_args+=(--dir /etc)
           if [ -e /etc/ld.so.cache ]; then bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache); fi
-          bwrap_args+=(--ro-bind /etc/fonts /etc/fonts)
-          bwrap "${bwrap_args[@]}" -- /usr/local/bin/blender --version
+          bwrap_args+=(
+            --ro-bind /etc/fonts /etc/fonts
+            --ro-bind "$SEMWRIGHT_TEST_BLENDER_ROOT" /workspace/blender-runtime
+            --ro-bind "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" /plugin/tools/blender
+            --setenv HOME /home
+            --setenv PYTHONNOUSERSITE 1
+            --setenv LD_LIBRARY_PATH /workspace/blender-runtime/lib
+            --setenv BLENDER_SYSTEM_RESOURCES /workspace/blender-runtime/4.5
+            --setenv BLENDER_SYSTEM_SCRIPTS /workspace/blender-runtime/4.5/scripts
+            --setenv BLENDER_SYSTEM_EXTENSIONS /workspace/blender-runtime/4.5/extensions
+            --setenv BLENDER_SYSTEM_DATAFILES /workspace/blender-runtime/4.5/datafiles
+            --setenv BLENDER_SYSTEM_PYTHON /workspace/blender-runtime/4.5/python
+            --setenv BLENDER_USER_RESOURCES /tmp/blender-user
+          )
+          bwrap "${bwrap_args[@]}" -- /plugin/tools/blender --version
       - name: Generate pinned RNA coverage
         run: |
-          /usr/local/bin/blender --background --factory-startup --disable-autoexec \
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec \
             --python "$GITHUB_WORKSPACE/crates/driver-blender/tools/rna_coverage.py" -- \
             "$GITHUB_WORKSPACE/verification/blender-semantic/RNA_COVERAGE.json"
           python3 - <<'PY'
@@ -100,7 +119,8 @@ jobs:
           VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name=="semwright-driver-blender") | .version')
           python3 crates/driver-blender/tests/protocol_probe.py \
             --driver "$GITHUB_WORKSPACE/target/debug/semwright-blender-driver" \
-            --version "$VERSION"
+            --version "$VERSION" \
+            --blender-root "$SEMWRIGHT_TEST_BLENDER_ROOT"
       - name: Real semantic DriverProvider against Blender 4.5.14
         env:
           SEMWRIGHT_TEST_BLENDER: "1"
