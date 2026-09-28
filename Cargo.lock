@@ -2998,6 +2998,7 @@ dependencies = [
  "semwright-backend-api",
  "semwright-driver-host",
  "semwright-driver-sdk",
+ "semwright-semantic-composition",
  "semwright-skills",
  "semwright-types",
  "serde",

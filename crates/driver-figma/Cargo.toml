@@ -25,6 +25,7 @@ default = []
 test-tools = ["dep:anyhow"]
 
 [dependencies]
+semwright-semantic-composition.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-types.workspace = true
 anyhow = { workspace = true, optional = true }
