@@ -1,14 +1,14 @@
 use crate::*;
 use semwright_semantic_composition::{Digest, bounded_id, canonical_digest};
 use std::collections::{BTreeMap, BTreeSet};
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Anchor {
     Absolute { time: Rational },
     After { cue: String, offset: Rational },
     Unknown { reason: String },
 }
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Cue {
     pub id: String,
@@ -25,7 +25,7 @@ pub enum ResolvedCue {
     Resolved { start: Rational, end: Rational },
     Unknown { reason: String },
 }
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CueGraph {
     pub version: u32,

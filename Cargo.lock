@@ -3273,6 +3273,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-motion-authoring"
+version = "0.9.0-dev.1"
+dependencies = [
+ "schemars",
+ "semwright-media-time",
+ "semwright-semantic-composition",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "semwright-platform-api"
 version = "0.9.0-dev.1"
 dependencies = [

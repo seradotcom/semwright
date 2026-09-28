@@ -1,0 +1,286 @@
+[
+  {
+    "kind": "fade_in",
+    "target": "box_a"
+  },
+  {
+    "kind": "fade_out",
+    "target": "box_a"
+  },
+  {
+    "kind": "reveal",
+    "target": "box_a"
+  },
+  {
+    "kind": "conceal",
+    "target": "box_a"
+  },
+  {
+    "kind": "slide_in",
+    "target": "box_a",
+    "offset": {
+      "x": 20,
+      "y": 10
+    }
+  },
+  {
+    "kind": "slide_out",
+    "target": "box_a",
+    "offset": {
+      "x": 20,
+      "y": 10
+    }
+  },
+  {
+    "kind": "draw",
+    "target": "path"
+  },
+  {
+    "kind": "erase",
+    "target": "path"
+  },
+  {
+    "kind": "settle",
+    "target": "box_a",
+    "offset": {
+      "x": 20,
+      "y": 10
+    },
+    "rotation": 4
+  },
+  {
+    "kind": "emerge",
+    "target": "box_a",
+    "scale": 0.8
+  },
+  {
+    "kind": "resolve",
+    "target": "label",
+    "tracking": 4
+  },
+  {
+    "kind": "connect",
+    "path": "path",
+    "from": "box_a",
+    "to": "box_b"
+  },
+  {
+    "kind": "group",
+    "targets": [
+      "box_a",
+      "box_b"
+    ],
+    "anchor": "overlay",
+    "gap": 50
+  },
+  {
+    "kind": "separate",
+    "targets": [
+      "box_a",
+      "box_b"
+    ],
+    "displacement": {
+      "x": 20,
+      "y": 0
+    }
+  },
+  {
+    "kind": "compare",
+    "left": "box_a",
+    "right": "box_b",
+    "center": {
+      "x": 0,
+      "y": 0
+    },
+    "gap": 200
+  },
+  {
+    "kind": "replace",
+    "outgoing": "box_a",
+    "incoming": "box_b"
+  },
+  {
+    "kind": "swap",
+    "left": "box_a",
+    "right": "box_b"
+  },
+  {
+    "kind": "focus",
+    "target": "box_a",
+    "others": [
+      "box_b"
+    ],
+    "scale": 1.1,
+    "dim": 0.3
+  },
+  {
+    "kind": "deemphasize",
+    "target": "box_b",
+    "opacity": 0.3
+  },
+  {
+    "kind": "shared_element",
+    "target": "box_b",
+    "source": "box_a"
+  },
+  {
+    "kind": "match_position",
+    "target": "box_b",
+    "source": "box_a"
+  },
+  {
+    "kind": "match_scale",
+    "target": "box_b",
+    "source": "box_a"
+  },
+  {
+    "kind": "carry_forward",
+    "target": "box_b",
+    "source": "box_a",
+    "offset": {
+      "x": 0,
+      "y": 20
+    }
+  },
+  {
+    "kind": "camera_follow",
+    "camera": "camera",
+    "target": "box_a"
+  },
+  {
+    "kind": "morph",
+    "target": "path",
+    "points": [
+      {
+        "x": -50,
+        "y": 10
+      },
+      {
+        "x": 50,
+        "y": 40
+      }
+    ],
+    "closed": false
+  },
+  {
+    "kind": "progressive_disclosure",
+    "targets": [
+      "box_a",
+      "box_b"
+    ]
+  },
+  {
+    "kind": "step_through",
+    "targets": [
+      "box_a",
+      "box_b"
+    ]
+  },
+  {
+    "kind": "hold",
+    "targets": [
+      "box_a",
+      "box_b"
+    ]
+  },
+  {
+    "kind": "trace_path",
+    "path": "path",
+    "marker": "box_a",
+    "orient": true
+  },
+  {
+    "kind": "highlight_region",
+    "target": "box_a",
+    "overlay": "overlay",
+    "center": {
+      "x": 0,
+      "y": 0
+    },
+    "size": {
+      "width": 20,
+      "height": 40
+    }
+  },
+  {
+    "kind": "annotate",
+    "label": "label",
+    "target": "box_a",
+    "offset": {
+      "x": 0,
+      "y": -40
+    }
+  },
+  {
+    "kind": "zoom_context",
+    "camera": "camera",
+    "zoom": 2
+  },
+  {
+    "kind": "explode_structure",
+    "targets": [
+      "box_a",
+      "box_b"
+    ],
+    "origin": {
+      "x": 0,
+      "y": 0
+    },
+    "spread": 1.5
+  },
+  {
+    "kind": "counter",
+    "target": "label",
+    "from": 0,
+    "to": 12,
+    "decimal_places": 1,
+    "prefix": "",
+    "suffix": ""
+  },
+  {
+    "kind": "chart_build",
+    "bars": [
+      "box_a",
+      "box_b"
+    ]
+  },
+  {
+    "kind": "data_transition",
+    "bars": [
+      "box_a",
+      "box_b"
+    ],
+    "heights": [
+      80,
+      140
+    ]
+  },
+  {
+    "kind": "code_focus",
+    "target": "code",
+    "first_line": 0,
+    "end_line_exclusive": 1
+  },
+  {
+    "kind": "code_diff",
+    "target": "code",
+    "replacement": "let value = 2;"
+  },
+  {
+    "kind": "text_emphasis",
+    "target": "label",
+    "scale": 1.1,
+    "color": "#ff0000"
+  },
+  {
+    "kind": "stagger",
+    "targets": [
+      "box_a",
+      "box_b"
+    ],
+    "offset": {
+      "x": 0,
+      "y": 20
+    }
+  }
+]

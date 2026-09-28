@@ -5,6 +5,8 @@ on:
     paths:
       - 'crates/semantic-composition/**'
       - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'fixtures/composition/**'
       - 'scripts/composition/**'
       - '.github/workflows/composition-diagnostics.yml'
       - 'Cargo.lock'
@@ -13,6 +15,8 @@ on:
     paths:
       - 'crates/semantic-composition/**'
       - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'fixtures/composition/**'
       - 'scripts/composition/**'
       - '.github/workflows/composition-diagnostics.yml'
   workflow_dispatch:
@@ -50,11 +54,13 @@ jobs:
           key: composition-contracts-v1
           save-if: ${{ github.event_name == 'push' }}
       - name: Format
-        run: cargo fmt -p semwright-semantic-composition -p semwright-media-time -- --check
+        run: cargo fmt -p semwright-semantic-composition -p semwright-media-time -p semwright-motion-authoring -- --check
       - name: Typed contracts and exact media time
         run: python scripts/composition/run-suite.py contracts
+      - name: Motion authoring models and grammar
+        run: python scripts/composition/run-suite.py motion
       - name: Lints
-        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-media-time --all-targets -- -D warnings
+        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-media-time -p semwright-motion-authoring --all-targets -- -D warnings
       - name: Generated contract schemas
         run: cargo run --locked -p semwright-semantic-composition --example schemas > verification/composition/schemas.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
