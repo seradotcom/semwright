@@ -33,7 +33,8 @@ jobs:
           "$GODOT_BIN" --headless --editor --path demos/tideling/project --import 2>&1 | tee verification/tideling/import.log
           "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/rules_test.gd 2>&1 | tee verification/tideling/rules.log
           timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/runtime_proof.gd 2>&1 | tee verification/tideling/runtime.log
-          ! rg 'SCRIPT ERROR|^ERROR:' verification/tideling/{import,rules,runtime}.log
+          timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/state_test.gd 2>&1 | tee verification/tideling/states.log
+          ! rg 'SCRIPT ERROR|^ERROR:' verification/tideling/{import,rules,runtime,states}.log
       - name: Export portable development checkpoint
         run: |
           set -euo pipefail

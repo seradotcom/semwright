@@ -228,7 +228,7 @@ func _physics_process(delta: float) -> void:
 		player.position.y = 1.0 + sin(clock*.8)*.35
 		player_model.rotation.y = -.2
 	for fish in population:
-		fish.swim(delta, player.position, rules.stage, clock, active)
+		fish.swim(delta, player.position, rules.stage, clock, active, population)
 
 func _process(delta: float) -> void:
 	super._process(delta)

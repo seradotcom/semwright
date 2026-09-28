@@ -11,3 +11,4 @@ class_name TidelingSpecies
 @export var predator := false
 @export var spawn_weight := 1.0
 @export var enabled := true
+@export var schooling := true

@@ -33,13 +33,28 @@ func setup(data: TidelingSpecies) -> void:
 				animation.speed_scale = 1.0 / sqrt(data.size + .3)
 				break
 
-func swim(delta: float, target: Vector3, stage: int, time: float, playing: bool) -> void:
+func swim(delta: float, target: Vector3, stage: int, time: float, playing: bool, neighbors: Array[ReefFish] = []) -> void:
 	var move := Vector3(heading, sin(time * 1.4 + phase) * .18, 0)
 	var distance := position.distance_to(target)
 	if playing and species.predator and species.edible_stage > stage and distance < 7.5:
 		move = (target - position).normalized()
 	elif playing and species.edible_stage <= stage and distance < 2.7:
 		move = (position - target).normalized()
+	if species.schooling and not species.predator and distance > 2.7:
+		var center := Vector3.ZERO
+		var alignment := Vector3.ZERO
+		var separation := Vector3.ZERO
+		var count := 0
+		for neighbor in neighbors:
+			if neighbor == self or neighbor.species.id != species.id: continue
+			var gap := position.distance_to(neighbor.position)
+			if gap > 4.0: continue
+			center += neighbor.position
+			alignment += neighbor.velocity
+			count += 1
+			if gap < .9: separation += (position-neighbor.position).normalized()
+		if count > 0:
+			move = (move + (center/count-position)*.13 + alignment.normalized()*.3 + separation*.6).normalized()
 	velocity = velocity.lerp(move * species.speed, 1.0 - exp(-delta * 2.2))
 	position += velocity * delta
 	position.y = clampf(position.y, -5.9, 8.7)
