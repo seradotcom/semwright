@@ -43,6 +43,7 @@ jobs:
           cp "$GODOT_BIN" "$RUNNER_TEMP/Tideling/Tideling.x86_64"
           chmod +x "$RUNNER_TEMP/Tideling/Tideling.x86_64"
           cp demos/tideling/project/assets/FONT-LICENSE.txt "$RUNNER_TEMP/Tideling/"
+          cp LICENSE-MIT LICENSE-APACHE NOTICE "$RUNNER_TEMP/Tideling/"
           cp demos/tideling/PACKAGE_README.txt "$RUNNER_TEMP/Tideling/README.txt"
           curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$RUNNER_TEMP/Tideling/GODOT-LICENSE.txt"
           cd "$RUNNER_TEMP/Tideling"

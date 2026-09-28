@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [feat/tideling]
-    paths: ["demos/tideling/automation/cross_app*", ".github/workflows/tideling-cross-app.yml"]
+    paths: ["demos/tideling/automation/cross_app*", ".github/workflows/tideling-cross-app.yml", "schemas/builtin-provenance.json", "schemas/commands.json", "adapters/blender/**", "crates/driver-blender/**"]
 permissions:
   contents: read
 env:
