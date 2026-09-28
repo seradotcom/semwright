@@ -52,10 +52,10 @@ impl Host {
             ));
         }
         #[cfg(target_os = "windows")]
-        if manifest.network || !manifest.mounts.is_empty() {
+        if !manifest.mounts.is_empty() {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
-                "Windows plugins currently require the zero-mount, network-denied AppContainer profile",
+                "Windows plugins currently require the zero-mount AppContainer profile",
             ));
         }
         for mount in &manifest.mounts {

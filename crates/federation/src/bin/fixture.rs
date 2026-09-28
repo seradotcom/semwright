@@ -146,6 +146,7 @@ impl ServerHandler for Fixture {
                     "required":["host_path","port"],
                     "properties":{
                         "host_path":{"type":"string","maxLength":4096},
+                        "host":{"type":"string","maxLength":64},
                         "port":{"type":"integer","minimum":1,"maximum":65535}
                     },
                     "additionalProperties":false
@@ -257,15 +258,21 @@ impl ServerHandler for Fixture {
                     .and_then(Value::as_u64)
                     .and_then(|value| u16::try_from(value).ok())
                     .ok_or_else(|| ErrorData::invalid_params("port is required", None))?;
+                let host = args
+                    .get("host")
+                    .and_then(Value::as_str)
+                    .unwrap_or("127.0.0.1");
+                let address = format!("{host}:{port}")
+                    .parse::<std::net::SocketAddr>()
+                    .map_err(|_| ErrorData::invalid_params("host must be an IPv4 address", None))?;
                 let seed = std::fs::read_to_string("/workspace/allowed/seed.txt")
                     .unwrap_or_else(|_| "<unreadable>".into());
                 let write_ok =
                     std::fs::write("/workspace/allowed/written.txt", b"sandbox-write\n").is_ok();
                 let host_visible = std::fs::read_to_string(host_path).is_ok();
-                let address = std::net::SocketAddr::from(([127, 0, 0, 1], port));
                 let network_reachable = std::net::TcpStream::connect_timeout(
                     &address,
-                    std::time::Duration::from_millis(200),
+                    std::time::Duration::from_millis(750),
                 )
                 .is_ok();
                 let env_clean = [

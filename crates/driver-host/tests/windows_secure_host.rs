@@ -38,6 +38,60 @@ fn harden_fixture(path: &Path) {
     assert!(status.success(), "fixture DACL hardening must succeed");
 }
 
+const EXTERNAL_ENDPOINTS: [&str; 2] = ["1.1.1.1:443", "1.0.0.1:443"];
+
+async fn driver_network_probe(
+    provider: &DriverProvider,
+    address: &str,
+    host_path: &Path,
+    request_id: &str,
+) -> (bool, bool) {
+    let capabilities = Provider::capabilities(provider)
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.network_probe")
+        .expect("fixture network probe capability")
+        .descriptor
+        .clone();
+    let context = Context {
+        session: "windows-network-authority".into(),
+        request_id: request_id.into(),
+        cancellation: CancellationToken::new(),
+    };
+    let args = serde_json::json!({
+        "address": address,
+        "host_path": host_path.to_string_lossy(),
+    });
+    let output = Provider::execute(provider, &context, &probe, &args)
+        .await
+        .expect("execute fixture network probe");
+    (
+        output["reachable"].as_bool().expect("reachable bool"),
+        output["host_visible"].as_bool().expect("host_visible bool"),
+    )
+}
+
+async fn driver_can_reach_external(
+    provider: &DriverProvider,
+    host_path: &Path,
+    prefix: &str,
+) -> bool {
+    for (index, endpoint) in EXTERNAL_ENDPOINTS.iter().enumerate() {
+        let (reachable, host_visible) =
+            driver_network_probe(provider, endpoint, host_path, &format!("{prefix}-{index}")).await;
+        assert!(
+            !host_visible,
+            "network authority must not grant host filesystem visibility"
+        );
+        if reachable {
+            return true;
+        }
+    }
+    false
+}
+
 fn manifest(executable: PathBuf) -> Manifest {
     Manifest {
         manifest_version: 1,
@@ -127,6 +181,109 @@ async fn secure_windows_driver_host_roundtrips_protocol_v2() {
     Provider::shutdown(provider.as_ref())
         .await
         .expect("secure Windows Driver Host shutdown");
+}
+
+#[tokio::test]
+async fn secure_windows_driver_network_is_owner_gated_internet_only_and_restart_stable() {
+    let source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    std::fs::copy(&source, &executable).expect("copy driver fixture");
+    harden_fixture(&executable);
+
+    let host_dir = tempfile::tempdir().expect("host-only directory");
+    let host_path = host_dir.path().join("host-only.txt");
+    std::fs::write(&host_path, b"must-remain-host-only").expect("write host-only fixture");
+    harden_fixture(&host_path);
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+
+    let mut denied = manifest(executable.clone());
+    denied.network = true;
+    let error = match DriverProvider::connect(denied, state.path(), &helper, &[], false).await {
+        Ok(_) => panic!("owner-disabled Driver network must be denied before spawn"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::PolicyDenied);
+
+    let offline = DriverProvider::connect(
+        manifest(executable.clone()),
+        state.path(),
+        &helper,
+        &[],
+        true,
+    )
+    .await
+    .expect("network-denied Windows Driver Host");
+    for (index, endpoint) in EXTERNAL_ENDPOINTS.iter().enumerate() {
+        let (reachable, host_visible) = driver_network_probe(
+            offline.as_ref(),
+            endpoint,
+            &host_path,
+            &format!("offline-{index}"),
+        )
+        .await;
+        assert!(!reachable, "network=false must deny outbound Internet");
+        assert!(!host_visible, "network=false must not expose host files");
+    }
+    let denied_listener =
+        std::net::TcpListener::bind(("127.0.0.1", 0)).expect("bind denied host loopback");
+    let denied_loopback = denied_listener
+        .local_addr()
+        .expect("denied loopback address")
+        .to_string();
+    let (reachable, host_visible) = driver_network_probe(
+        offline.as_ref(),
+        &denied_loopback,
+        &host_path,
+        "offline-loopback",
+    )
+    .await;
+    assert!(!reachable, "network=false must deny direct host loopback");
+    assert!(!host_visible, "network=false must not expose host files");
+    Provider::shutdown(offline.as_ref())
+        .await
+        .expect("shutdown offline Driver Host");
+
+    let mut allowed_manifest = manifest(executable.clone());
+    allowed_manifest.network = true;
+    let allowed = DriverProvider::connect(allowed_manifest, state.path(), &helper, &[], true)
+        .await
+        .expect("owner-authorized Windows Driver network");
+    assert!(
+        driver_can_reach_external(allowed.as_ref(), &host_path, "allowed").await,
+        "internetClient must permit at least one stable outbound Internet endpoint"
+    );
+
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("bind host loopback");
+    let loopback = listener.local_addr().expect("loopback address").to_string();
+    let (reachable, host_visible) =
+        driver_network_probe(allowed.as_ref(), &loopback, &host_path, "loopback").await;
+    assert!(
+        !reachable,
+        "internetClient must not grant direct host loopback"
+    );
+    assert!(
+        !host_visible,
+        "network=true must not increase filesystem authority"
+    );
+    Provider::shutdown(allowed.as_ref())
+        .await
+        .expect("shutdown network-enabled Driver Host");
+
+    let mut restarted_manifest = manifest(executable);
+    restarted_manifest.network = true;
+    let restarted = DriverProvider::connect(restarted_manifest, state.path(), &helper, &[], true)
+        .await
+        .expect("restart network-enabled Windows Driver Host");
+    assert!(
+        driver_can_reach_external(restarted.as_ref(), &host_path, "restart").await,
+        "network authority must remain deterministic after restart"
+    );
+    Provider::shutdown(restarted.as_ref())
+        .await
+        .expect("shutdown restarted Driver Host");
 }
 
 #[tokio::test]
