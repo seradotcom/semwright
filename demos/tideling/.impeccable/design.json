@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-28T08:25:44Z",
+  "generatedAt": "2026-09-28T17:49:24Z",
   "title": "Design System: TIDELING",
   "extensions": {
     "colorMeta": {
@@ -165,12 +165,17 @@
         "name": "frond-sway",
         "value": "sin(clock * 0.6 + index) * 0.045 radians",
         "purpose": "Ambient reef movement; remains with reduced effects."
+      },
+      {
+        "name": "hero-animation-state",
+        "value": "Opening: Idle_loop; ordinary idle/swim selection: Idle_loop below movement speed 0.2, Swim_loop otherwise; horizontal reversal: Turn.",
+        "purpose": "Source-observed hero state selection; animation timing and human movement feel are not certified by the visual review."
       }
     ],
     "breakpoints": [],
     "native": {
       "platform": "Godot 4 desktop / CanvasLayer over Node3D",
-      "status": "Development prototype; source-derived documentation, not golden approval or driver proof.",
+      "status": "Small native demo; SHIP for the six reviewed hosted-007 visual/interface states, not commercial-quality certification or driver proof.",
       "sources": [
         "project/scripts/game.gd",
         "project/scripts/reef.gd",
@@ -269,16 +274,24 @@
       "openVisualIssues": [],
       "evidenceLimits": [
         "Hosted visual fixtures are staged, not organic gameplay.",
-        "Physical gamepad and human movement feel remain unverified.",
-        "Reduced effects does not suppress camera movement or ambient reef motion."
+        "Visual/interface SHIP is not commercial-quality, animation-timing or complete accessibility certification.",
+        "Physical gamepad and human movement feel remain unverified by this visual review.",
+        "Idle, Turn and retry-reset behavior are documented from source; these captures do not independently verify their runtime timing or transitions.",
+        "Reduced effects does not suppress camera movement or ambient reef motion.",
+        "This documentation does not establish Semwright driver proof or claim later hosted controls runs, recording or merged-SHA publication have passed."
       ],
-      "visualReview": "Six hosted states from run 36401489681 reviewed: no material prototype interface or legibility blockers. Golden art and human feel remain open."
+      "visualReview": "Final review: SHIP for all six hosted-007 valid1280x800 states (title, gameplay, hierarchy, stage two, stage three and ending). No material fixes required; cohesive small demo at its current visual ceiling. Disposition covers these captures only.",
+      "retryReset": {
+        "source": "project/scripts/game.gd::start_game",
+        "behavior": "Reset spawn_clock and stage_pulse to zero; queue existing transient effect nodes for removal and clear effects.",
+        "evidence": "Source inspection only; captured states do not independently verify reset behavior."
+      }
     }
   },
   "components": [],
   "narrative": {
     "northStar": "A small life in a vast reef",
-    "overview": "The original modeled fish and reef carry the experience. A warm hero moves through cool water, framed by layered coral, rock and kelp. The interface is a sparse native Godot CanvasLayer over the living scene; opening and ending copy use an editorial serif while play information stays compact.\n\nThis document refreshes the earlier directional notes from the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. It records a development prototype, not an approved golden game, complete accessibility review or Semwright driver proof. The six hosted states (title, gameplay, hierarchy, stage two, stage three and ending) passed prototype readability review: the hero is unobstructed, growth stages are distinct, and HUD, instructions and actions are legible. These staged fixtures do not establish organic progression or human movement feel. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.",
+    "overview": "The original modeled fish and reef carry the experience. A warm hero moves through cool water, framed by layered coral, rock and kelp. The interface is a sparse native Godot CanvasLayer over the living scene; opening and ending copy use an editorial serif while play information stays compact.\n\nThis document records the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. Final visual/interface review of the six `hosted-007` `valid1280x800` states (title, gameplay, hierarchy, stage two, stage three and ending) returned SHIP with no material fixes required. The hero is unobstructed, growth stages are distinct, and HUD, instructions and actions are legible. The review found a cohesive small demo at its current visual ceiling; its disposition is limited to those captured states and is not commercial-quality certification. These staged fixtures do not establish organic progression, animation timing, human movement feel, complete accessibility or Semwright driver proof. The source behavior documented below does not claim a later hosted run or publication has passed. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.",
     "keyCharacteristics": [
       "Warm fish and action accents against cool, layered water.",
       "A live reef behind the opening and ending overlay.",

@@ -89,7 +89,7 @@ components:
 
 The original modeled fish and reef carry the experience. A warm hero moves through cool water, framed by layered coral, rock and kelp. The interface is a sparse native Godot CanvasLayer over the living scene; opening and ending copy use an editorial serif while play information stays compact.
 
-This document refreshes the earlier directional notes from the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. It records a development prototype, not an approved golden game, complete accessibility review or Semwright driver proof. The six hosted states (title, gameplay, hierarchy, stage two, stage three and ending) passed prototype readability review: the hero is unobstructed, growth stages are distinct, and HUD, instructions and actions are legible. These staged fixtures do not establish organic progression or human movement feel. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.
+This document records the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. Final visual/interface review of the six `hosted-007` `valid1280x800` states (title, gameplay, hierarchy, stage two, stage three and ending) returned SHIP with no material fixes required. The hero is unobstructed, growth stages are distinct, and HUD, instructions and actions are legible. The review found a cohesive small demo at its current visual ceiling; its disposition is limited to those captured states and is not commercial-quality certification. These staged fixtures do not establish organic progression, animation timing, human movement feel, complete accessibility or Semwright driver proof. The source behavior documented below does not claim a later hosted run or publication has passed. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.
 
 **Key Characteristics:**
 
@@ -148,6 +148,12 @@ The hero's authored leaf-shaped dorsal crest, crescent tail, lucid eyes and spli
 ### Dive action and ending overlay
 
 A single warm native Button starts play; it becomes “Dive again” at the ending. Hover and pressed share the lighter sand fill. All explicitly set text states use action ink. The code grabs keyboard focus on opening and ending; focus decoration itself comes from the inherited Godot theme and has not been independently specified here. Enter starts while inactive, and R retries after ending. Ending titles shrink to the ending typography role and show points, elapsed seconds and stage in the subtitle.
+
+### Hero animation and retry
+
+The opening hero plays `Idle_loop`. During play, ordinary swimming and idle states select `Idle_loop` below a movement speed of 0.2 and `Swim_loop` otherwise; reversing horizontal input triggers `Turn`. These are source-observed state choices, not a certification of animation timing or human movement feel.
+
+Starting or retrying resets the spawn clock and growth pulse, queues existing transient effect nodes for removal, and clears their tracking list. A new dive therefore begins without the prior run's pending spawn interval, growth pulse or transient particles. This reset behavior is documented from source; the captured visual states do not independently verify it.
 
 ### Growth and burst meters
 

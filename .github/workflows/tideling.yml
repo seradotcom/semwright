@@ -35,7 +35,7 @@ jobs:
           timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/runtime_proof.gd 2>&1 | tee verification/tideling/runtime.log
           timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/state_test.gd 2>&1 | tee verification/tideling/states.log
           acceptance_status=0
-          timeout 60 "$GODOT_BIN" --headless --path demos/tideling/project --script ../automation/controls_test.gd 2>&1 | tee verification/tideling/controls.log || acceptance_status=1
+          timeout 60 "$GODOT_BIN" --headless --fixed-fps 60 --path demos/tideling/project --script ../automation/controls_test.gd 2>&1 | tee verification/tideling/controls.log || acceptance_status=1
           timeout 240 "$GODOT_BIN" --headless --fixed-fps 60 --path demos/tideling/project --script ../automation/playthrough.gd 2>&1 | tee verification/tideling/playthrough.log || acceptance_status=1
           if rg 'SCRIPT ERROR|^ERROR:' verification/tideling/{import,rules,runtime,states,controls,playthrough}.log; then exit 1; fi
           exit "$acceptance_status"

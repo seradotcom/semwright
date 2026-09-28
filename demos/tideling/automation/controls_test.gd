@@ -28,10 +28,11 @@ func run() -> void:
     game.spawn_clock = -100
     await frames(3)
     var start: Vector3 = game.player.position
+    var response_started: float = game.rules.elapsed
     key(KEY_D, true)
     await frames(15)
-    print("TIDELING_RESPONSE "+JSON.stringify({"distance":game.player.position.x-start.x,"speed":game.motion.x,"strength":Input.get_action_strength("swim_right"),"physics_hz":Engine.physics_ticks_per_second}))
-    results["keyboard_response_within_250ms"] = game.player.position.x > start.x + .5 and game.motion.x > 4
+    print("TIDELING_RESPONSE "+JSON.stringify({"distance":game.player.position.x-start.x,"speed":game.motion.x,"strength":Input.get_action_strength("swim_right"),"simulation_seconds":game.rules.elapsed-response_started,"physics_hz":Engine.physics_ticks_per_second}))
+    results["keyboard_response_by_250ms_simulated"] = game.player.position.x > start.x + .5 and game.motion.x > 4
     await frames(20)
     key(KEY_D, false)
     var released: Vector3 = game.player.position
