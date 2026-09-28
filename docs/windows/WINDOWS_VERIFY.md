@@ -1,20 +1,25 @@
-# Verification commands — intentionally not executed by authoring session
+# Windows verification
 
-Run only after applying this drop to the exact baseline or a reviewed rebased equivalent.
+Use the exact commit being certified. Keep native CI and interactive-desktop evidence separate.
 
-1. Confirm `git rev-parse HEAD` matches the expected integration base before applying replacements.
-2. Run existing Linux/macOS workflows unchanged.
-3. Run `.github/workflows/windows-platform.yml` on GitHub-hosted native x64 and ARM64 runners.
-4. On Windows, then run the repository equivalents of `cargo fmt --all -- --check`, workspace check/clippy/test/doc, cargo audit, cargo deny, coverage and bounded fuzz/property suites.
-5. Build `fixtures/windows-uia` and run the live matrix on an unlocked disposable Windows 11 session.
+## Native CI
 
-Do not label a hosted CI run `PASS_WINDOWS_INTERACTIVE`. W4 requires native CI evidence; W5 requires a real interactive desktop. Driver Host remains fail-closed until secure-spawn is implemented, even if all compile checks are green.
+`.github/workflows/windows-platform.yml` runs native Windows x64 and ARM64 checks. It covers the platform crates, Driver/Plugin Hosts, secure spawn, authority profiles, UIA fixture semantics available on hosted runners, sealed-tool compatibility and portable contract regressions. A green hosted run may be labeled `PASS_WINDOWS_NATIVE_CI`; it must never be labeled `PASS_WINDOWS_INTERACTIVE`.
 
-## Screen capture closeout
+The Windows authority boundary currently includes platform-owned AppContainer/LPAC spawn, Job containment, owner-gated ambient network, Driver workspace/system-config/secret/sealed-tool/loopback authority and Plugin workspace mounts. Governed external MCP spawn is supported, while external MCP filesystem mounts remain `BLOCKED_PORTABLE_PATH_VIRTUALIZATION`.
 
-Hosted Windows CI may certify compilation and the bounded D3D11/PNG/artifact helpers, but it
-must not be relabelled as interactive picker evidence. W5 additionally requires an unlocked
-Windows 11 desktop to exercise screen.capture through the system GraphicsCapturePicker,
-including user cancellation, target close/resize, timeout, artifact expiry and confirmation
-that no image bytes enter audit logs. Programmatic CreateForWindow remains an internal
-revalidated primitive and is not a substitute for the public command's consent flow.
+## Interactive certification
+
+Run on an unlocked disposable Windows desktop from a clean checkout:
+
+```powershell
+pwsh ./scripts/windows/run-interactive-certification.ps1 -CaptureMode Both
+```
+
+Or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner. The workflow is `workflow_dispatch` only; the harness rejects noninteractive/service sessions even on self-hosted machines.
+
+The harness writes `verification/windows-interactive/<timestamp>/result.json` plus per-row logs and SHA-256 hashes. It marks only actually executed rows as `PASS_WINDOWS_INTERACTIVE`; unexecuted rows remain `WINDOWS_INTERACTIVE_PENDING`. The overall classification remains pending while any required row is pending.
+
+The WGC selection test requires the operator to choose a non-sensitive target in the system picker. The cancellation test requires the operator to cancel the picker. The harness does not automate consent.
+
+Physical/machine-specific rows such as elevated-target UIPI denial, UAC secure desktop, mixed-DPI/multi-monitor, lock/unlock/sleep/wake, real application coverage and UIA virtualization/event stress remain pending until that evidence is supplied.

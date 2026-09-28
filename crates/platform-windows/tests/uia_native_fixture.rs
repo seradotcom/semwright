@@ -12,6 +12,7 @@ use windows::{
         System::LibraryLoader::GetModuleHandleW,
         UI::{
             HiDpi::{DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext},
+            Input::KeyboardAndMouse::SetFocus,
             WindowsAndMessaging::*,
         },
     },
@@ -21,6 +22,7 @@ use windows::{
 const ID_BUTTON: isize = 101;
 const ID_EDIT: isize = 102;
 const ID_PASSWORD: isize = 103;
+const WM_FOCUS_FIXTURE_CONTROL: u32 = WM_APP + 1;
 
 unsafe extern "system" fn fixture_proc(
     hwnd: HWND,
@@ -34,6 +36,19 @@ unsafe extern "system" fn fixture_proc(
             if let Ok(edit) = unsafe { GetDlgItem(Some(hwnd), ID_EDIT as i32) } {
                 // SAFETY: edit is a child HWND returned synchronously from the live fixture.
                 let _ = unsafe { SetWindowTextW(edit, w!("invoked")) };
+            }
+            LRESULT(0)
+        }
+        WM_FOCUS_FIXTURE_CONTROL => {
+            let id = wparam.0 as i32;
+            // SAFETY: hwnd is the live fixture window and id selects one fixture-owned child.
+            if let Ok(control) = unsafe { GetDlgItem(Some(hwnd), id) } {
+                if id == ID_EDIT as i32 {
+                    // SAFETY: control is the live fixture edit child.
+                    let _ = unsafe { SetWindowTextW(control, w!("")) };
+                }
+                // SAFETY: this message executes on the fixture UI thread that owns control.
+                let _ = unsafe { SetFocus(Some(control)) };
             }
             LRESULT(0)
         }
@@ -381,6 +396,49 @@ async fn snapshot_with_owned_hit_point(
     );
 }
 
+async fn focus_fixture_control(backend: &Windows, hwnd: isize, id: isize, target: &NativeTarget) {
+    // SAFETY: hwnd is the live fixture top-level window and the private WM_APP message
+    // is handled only by the fixture UI thread.
+    unsafe {
+        PostMessageW(
+            Some(HWND(hwnd as *mut core::ffi::c_void)),
+            WM_FOCUS_FIXTURE_CONTROL,
+            WPARAM(id as usize),
+            LPARAM(0),
+        )
+    }
+    .expect("request fixture control focus");
+
+    for _ in 0..100 {
+        if backend.is_focused(target).await.unwrap_or(false) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("fixture control {id} did not receive focus");
+}
+
+fn require_interactive_certification_session() {
+    assert_eq!(
+        std::env::var("SEMWRIGHT_WINDOWS_INTERACTIVE").as_deref(),
+        Ok("1"),
+        "interactive certification requires SEMWRIGHT_WINDOWS_INTERACTIVE=1"
+    );
+    if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
+        assert_eq!(
+            std::env::var("RUNNER_ENVIRONMENT").as_deref(),
+            Ok("self-hosted"),
+            "hosted GitHub runners must never claim PASS_WINDOWS_INTERACTIVE"
+        );
+    }
+    // SAFETY: read-only query for the current interactive foreground window.
+    let foreground = unsafe { GetForegroundWindow() };
+    assert!(
+        !foreground.is_invalid(),
+        "interactive certification requires an unlocked input desktop"
+    );
+}
+
 fn native_ref(value: &Value) -> NativeTarget {
     serde_json::from_value(value["ref"]["$ref"].clone()).expect("native target marker")
 }
@@ -516,4 +574,173 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
 
     backend.shutdown().await.expect("shutdown backend");
     std::fs::remove_dir_all(&artifacts).expect("remove private artifact directory");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires an unlocked disposable Windows desktop"]
+async fn interactive_windows_input_pointer_clipboard_and_focus_drift() {
+    require_interactive_certification_session();
+    // SAFETY: configure DPI awareness before this test creates any HWND.
+    unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) }
+        .expect("interactive fixture requires per-monitor-v2 DPI awareness");
+
+    let (fixture, hwnd, title) = start_fixture();
+    let artifacts =
+        std::env::temp_dir().join(format!("semwright-windows-interactive-{}", unique_id()));
+    let backend = Windows::new(&artifacts).expect("Windows backend");
+    let ctx = context();
+
+    let windows = backend
+        .execute(&ctx, "window.list", &json!({}))
+        .await
+        .expect("interactive window enumeration");
+    let row = windows["windows"]
+        .as_array()
+        .expect("windows")
+        .iter()
+        .find(|row| row["title"] == title)
+        .expect("interactive fixture window");
+    let window_target = native_ref(row);
+
+    let snapshot = backend
+        .execute(
+            &ctx,
+            "ui.snapshot",
+            &json!({"_target":window_target.clone()}),
+        )
+        .await
+        .expect("interactive UIA snapshot");
+    let edit = find_node(&snapshot, |node| {
+        node["role"] == "text"
+            && node["facets"]["text"]["password"] != true
+            && node["actions"]
+                .as_array()
+                .is_some_and(|actions| actions.iter().any(|action| action == "set_text"))
+    });
+    let password = find_node(&snapshot, |node| node["facets"]["text"]["password"] == true);
+    let edit_target = native_ref(edit);
+    let password_target = native_ref(password);
+
+    focus_fixture_control(&backend, hwnd, ID_EDIT, &edit_target).await;
+    let unicode = "Semwright ✓ ñ 漢";
+    backend
+        .execute(
+            &ctx,
+            "input.type",
+            &json!({"_target":edit_target.clone(),"text":unicode}),
+        )
+        .await
+        .expect("Unicode SendInput into focused edit");
+    tokio::time::sleep(Duration::from_millis(120)).await;
+    let typed = backend
+        .execute(
+            &ctx,
+            "ui.read_text",
+            &json!({"_target":edit_target.clone()}),
+        )
+        .await
+        .expect("read Unicode typed text");
+    assert_eq!(typed["text"], unicode);
+
+    focus_fixture_control(&backend, hwnd, ID_PASSWORD, &password_target).await;
+    let drift = backend
+        .execute(
+            &ctx,
+            "input.type",
+            &json!({"_target":edit_target.clone(),"text":"must-not-type"}),
+        )
+        .await
+        .expect_err("focus drift must refuse synthetic typing");
+    assert_eq!(drift.code, ErrorCode::Conflict);
+
+    backend
+        .execute(
+            &ctx,
+            "window.focus",
+            &json!({"_target":window_target.clone()}),
+        )
+        .await
+        .expect("focus fixture top-level window");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let mut original_cursor = POINT::default();
+    // SAFETY: original_cursor is writable local storage.
+    unsafe { GetCursorPos(&mut original_cursor) }.expect("read original cursor position");
+    let (button_x, button_y) = fixture_button_points(hwnd)[0];
+    // SAFETY: coordinates are inside the live fixture button.
+    unsafe { SetCursorPos(button_x, button_y) }.expect("position cursor over fixture button");
+    backend
+        .execute(
+            &ctx,
+            "pointer.click",
+            &json!({"_target":window_target.clone(),"button":"left"}),
+        )
+        .await
+        .expect("synthetic pointer click");
+    tokio::time::sleep(Duration::from_millis(120)).await;
+    let invoked = backend
+        .execute(
+            &ctx,
+            "ui.read_text",
+            &json!({"_target":edit_target.clone()}),
+        )
+        .await
+        .expect("read text after pointer click");
+    assert_eq!(invoked["text"], "invoked");
+
+    let mut before_move = POINT::default();
+    // SAFETY: before_move is writable local storage.
+    unsafe { GetCursorPos(&mut before_move) }.expect("read pointer before relative move");
+    backend
+        .execute(
+            &ctx,
+            "pointer.move",
+            &json!({"_target":window_target.clone(),"dx":17,"dy":9}),
+        )
+        .await
+        .expect("relative pointer movement");
+    tokio::time::sleep(Duration::from_millis(80)).await;
+    let mut after_move = POINT::default();
+    // SAFETY: after_move is writable local storage.
+    unsafe { GetCursorPos(&mut after_move) }.expect("read pointer after relative move");
+    assert_ne!(
+        (after_move.x, after_move.y),
+        (before_move.x, before_move.y),
+        "pointer.move must change the physical cursor position"
+    );
+    // SAFETY: restore the user's cursor inside the disposable certification session.
+    let _ = unsafe { SetCursorPos(original_cursor.x, original_cursor.y) };
+
+    let clipboard_text = "Semwright clipboard ✓ ñ 漢";
+    backend
+        .execute(&ctx, "clipboard.write", &json!({"text":clipboard_text}))
+        .await
+        .expect("clipboard write");
+    let clipboard = backend
+        .execute(&ctx, "clipboard.read", &json!({"max_bytes":1024}))
+        .await
+        .expect("clipboard read");
+    assert_eq!(clipboard["text"], clipboard_text);
+    let bounded = backend
+        .execute(&ctx, "clipboard.read", &json!({"max_bytes":4}))
+        .await
+        .expect_err("clipboard read must honor caller byte budget");
+    assert_eq!(bounded.code, ErrorCode::ResourceExhausted);
+
+    // SAFETY: hwnd belongs to the live fixture and WM_CLOSE is a standard async message.
+    unsafe {
+        PostMessageW(
+            Some(HWND(hwnd as *mut core::ffi::c_void)),
+            WM_CLOSE,
+            WPARAM(0),
+            LPARAM(0),
+        )
+    }
+    .expect("close interactive fixture");
+    fixture.join().expect("interactive fixture thread");
+    backend
+        .shutdown()
+        .await
+        .expect("shutdown interactive backend");
+    std::fs::remove_dir_all(&artifacts).expect("remove interactive artifact directory");
 }
