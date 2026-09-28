@@ -113,7 +113,9 @@ jobs:
             timeout 90 "$GODOT_BIN" --headless --path "$fixture" \
               --script "res://tests/${contract}_contract.gd" 2>&1 | tee "$log"
             grep -q "^${contract^^}_FIXTURE_TESTS PASS:" "$log"
-            ! grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" "$log"
+            if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" "$log"; then
+              exit 1
+            fi
           done
       - name: Build production driver
         run: |
