@@ -6,7 +6,9 @@ use reqwest::{
 };
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::{Map, Value, json};
-use std::{path::Path, time::Duration};
+#[cfg(target_os = "linux")]
+use std::path::Path;
+use std::time::Duration;
 use zeroize::Zeroizing;
 
 #[cfg(unix)]
@@ -17,10 +19,13 @@ use tokio::io::AsyncReadExt;
 pub const CREDENTIAL_DIR: &str = "/workspace/figma-credential";
 pub const CREDENTIAL_SOCKET: &str = "/workspace/figma-credential/secret.sock";
 const API_BASE: &str = "https://api.figma.com/";
+#[cfg(target_os = "linux")]
 const MAX_SECRET_BYTES: usize = 4096;
 const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// Credential acquisition is Linux-only in this baseline; other targets fail closed.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 enum AuthKind {
     OAuth,
     Personal,

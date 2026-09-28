@@ -567,6 +567,8 @@ fn read_owned(root: &Path, relative: &str, limit: usize) -> Result<Vec<u8>> {
     Ok(data)
 }
 fn sync_tree(root: &Path) -> Result<()> {
+    #[cfg(not(unix))]
+    let _ = root;
     #[cfg(unix)]
     {
         for entry in fs::read_dir(root)? {

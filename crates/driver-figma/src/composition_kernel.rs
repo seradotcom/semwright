@@ -184,7 +184,7 @@ impl FigmaCompositionRuntime {
     }
 }
 impl FigmaDriver {
-    async fn execute_composition_with_context(
+    pub(super) async fn execute_composition_with_context(
         &mut self,
         command: &str,
         digest: &str,
