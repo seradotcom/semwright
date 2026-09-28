@@ -75,9 +75,9 @@ func build_reef() -> void:
 			var item := asset(kind, Vector3(x, -7.5, z - 0.5), rng.randf_range(1.2, 2.8) * (1.3 if layer > 0 else 1.0))
 			item.rotation.y = rng.randf_range(-0.45, 0.45)
 			if kind == "kelp":
-				if layer == 0:
-					item.scale *= .62
-					darken(item)
+				item.scale *= .58
+				if layer == 0: darken(item)
+				else: darken(item, Color("1c505c"))
 				fronds.append(item)
 	# Tall distant walls and dark near-edge fronds frame the navigable lagoon.
 	for side in [-1.0, 1.0]:
@@ -138,9 +138,9 @@ func capture(path: String) -> void:
 	get_viewport().get_texture().get_image().save_png(path)
 	get_tree().quit()
 
-func darken(node: Node) -> void:
+func darken(node: Node, color := Color("073f42")) -> void:
 	if node is MeshInstance3D:
-		var m := simple_material(Color("073f42"))
+		var m := simple_material(color)
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		node.material_override = m
-	for child in node.get_children(): darken(child)
+	for child in node.get_children(): darken(child, color)
