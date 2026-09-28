@@ -26,16 +26,17 @@ use windows::{
     },
     Win32::{
         Foundation::{
-            HANDLE, OBJ_CASE_INSENSITIVE, STATUS_OBJECT_NAME_COLLISION,
+            GetLastError, HANDLE, OBJ_CASE_INSENSITIVE, STATUS_OBJECT_NAME_COLLISION,
             STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND, UNICODE_STRING,
         },
         Storage::FileSystem::{
-            BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ACCESS_RIGHTS, FILE_ATTRIBUTE_DIRECTORY,
-            FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT, FILE_DISPOSITION_INFO,
-            FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_READ,
-            FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_RENAME_INFO, FILE_SHARE_DELETE,
-            FILE_SHARE_MODE, FILE_SHARE_READ, FILE_SHARE_WRITE, FileDispositionInfo,
-            FileRenameInfo, GetFileInformationByHandle, SYNCHRONIZE, SetFileInformationByHandle,
+            BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ACCESS_RIGHTS, FILE_ADD_FILE,
+            FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
+            FILE_DISPOSITION_INFO, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+            FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_RENAME_INFO,
+            FILE_SHARE_DELETE, FILE_SHARE_MODE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE,
+            FileDispositionInfo, FileRenameInfo, GetFileInformationByHandle, SYNCHRONIZE,
+            SetFileInformationByHandle,
         },
         System::IO::IO_STATUS_BLOCK,
     },
@@ -160,9 +161,20 @@ fn nt_error(status: windows::Win32::Foundation::NTSTATUS, context: &'static str)
     )
 }
 
-fn open_no_reparse(path: &Path, directory: bool) -> Result<File> {
+fn open_no_reparse(path: &Path, directory: bool, writable_directory: bool) -> Result<File> {
     let mut options = std::fs::OpenOptions::new();
-    options.read(true);
+    let access = if directory {
+        let mut access = (FILE_READ_ATTRIBUTES | FILE_TRAVERSE | SYNCHRONIZE).0;
+        if writable_directory {
+            access |= FILE_ADD_FILE.0;
+        }
+        access
+    } else {
+        FILE_GENERIC_READ.0
+    };
+    // access_mode overrides the generic OpenOptions read/write flags so directory handles
+    // receive only traversal/metadata authority plus FILE_ADD_FILE when owner policy is writable.
+    options.access_mode(access);
     options.share_mode((FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE).0);
     let mut flags = FILE_FLAG_OPEN_REPARSE_POINT.0;
     if directory {
@@ -314,8 +326,14 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
     let words = total.div_ceil(size_of::<usize>());
     let mut storage = vec![0usize; words];
     let info = storage.as_mut_ptr().cast::<FILE_RENAME_INFO>();
+    let total_u32 = u32::try_from(total).map_err(|_| {
+        Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows rename buffer too large",
+        )
+    })?;
     // SAFETY: storage is pointer-aligned and large enough for the fixed prefix plus every UTF-16 unit.
-    unsafe {
+    let result = unsafe {
         (*info).Anonymous.ReplaceIfExists = true;
         (*info).RootDirectory = handle(parent);
         (*info).FileNameLength = name_bytes;
@@ -324,20 +342,18 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
             handle(file),
             FileRenameInfo,
             storage.as_ptr().cast(),
-            u32::try_from(total).map_err(|_| {
-                Error::new(
-                    ErrorCode::ResourceExhausted,
-                    "Windows rename buffer too large",
-                )
-            })?,
+            total_u32,
         )
-    }
-    .map_err(|_| {
-        Error::new(
+    };
+    if result.is_err() {
+        // SAFETY: SetFileInformationByHandle just failed on this thread.
+        let code = unsafe { GetLastError() }.0;
+        return Err(Error::new(
             ErrorCode::BackendFailed,
-            "Windows root-relative rename failed",
-        )
-    })
+            format!("Windows root-relative rename failed (Win32 {code})"),
+        ));
+    }
+    Ok(())
 }
 
 pub struct Root {
@@ -356,7 +372,7 @@ impl Root {
             ));
         }
         safe_root_syntax(path)?;
-        let root = open_no_reparse(path, true)?;
+        let root = open_no_reparse(path, true, writable)?;
         let info = information(&root)?;
         if info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0 {
             return Err(Error::invalid("Windows scoped root must be a directory"));
@@ -380,18 +396,23 @@ impl Root {
         Ok(())
     }
 
-    fn open_parent(&self, path: &Path) -> Result<(File, OsString)> {
+    fn open_parent(&self, path: &Path, for_write: bool) -> Result<(File, OsString)> {
         let mut components = validated_components(path)?;
         let basename = components
             .pop()
             .ok_or_else(|| Error::invalid("Confined path basename missing"))?;
+        let parent_count = components.len();
         let mut parent = self.root.try_clone()?;
-        for component in components {
+        for (index, component) in components.into_iter().enumerate() {
             self.root_still_pinned()?;
+            let mut desired = FILE_READ_ATTRIBUTES | FILE_TRAVERSE | SYNCHRONIZE;
+            if for_write && index + 1 == parent_count {
+                desired |= FILE_ADD_FILE;
+            }
             let next = nt_open_relative(
                 &parent,
                 &component,
-                FILE_GENERIC_READ | SYNCHRONIZE,
+                desired,
                 NT_FILE_OPEN,
                 FILE_DIRECTORY_FILE,
                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -450,7 +471,7 @@ impl Root {
             return Err(Error::invalid("Read limit exceeds scoped binary budget"));
         }
         self.root_still_pinned()?;
-        let (parent, basename) = self.open_parent(path)?;
+        let (parent, basename) = self.open_parent(path, false)?;
         let (file, info) = self.open_existing_file(&parent, &basename, true)?;
         let size = ((info.nFileSizeHigh as u64) << 32) | info.nFileSizeLow as u64;
         if size > limit as u64 || size > MAX_SCOPED_BINARY_BYTES as u64 {
@@ -483,7 +504,7 @@ impl Root {
             ));
         }
         self.root_still_pinned()?;
-        let (parent, basename) = self.open_parent(path)?;
+        let (parent, basename) = self.open_parent(path, true)?;
 
         match self.inspect_existing_file(&parent, &basename, true) {
             Ok(_) => {}
