@@ -30,7 +30,7 @@ tokio-tungstenite.workspace = true
 tokio-util.workspace = true
 hmac = "0.12"
 hex = "0.4"
-getrandom = "0.2"
+getrandom = "0.4"
 zeroize = "1"
 
 [dev-dependencies]
