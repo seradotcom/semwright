@@ -150,6 +150,9 @@ impl Broker {
         if let Ok(mut jobs) = self.jobs.lock() {
             jobs.revoke_session(session);
         }
+        if let Ok(mut workflows) = self.workflows.lock() {
+            workflows.revoke_session(session);
+        }
     }
     pub fn subscribe(&self) -> broadcast::Receiver<Event> {
         self.broadcast.subscribe()

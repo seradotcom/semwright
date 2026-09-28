@@ -1082,6 +1082,42 @@ async fn record_clipboard_trace(fixture: &Fixture, text: &str) -> String {
 }
 
 #[tokio::test]
+async fn revoked_broker_sessions_do_not_exhaust_workflow_recording_capacity() {
+    let fixture = workflow_fixture();
+    for index in 0..64 {
+        let session = unique_id();
+        let started = fixture
+            .broker
+            .clone()
+            .execute(
+                session.clone(),
+                unique_id(),
+                ExecuteRequest {
+                    command: "workflow.record.start".into(),
+                    args: json!({"name":"discarded","capture_values":true}),
+                    dry_run: false,
+                    backend: None,
+                },
+                CancellationToken::new(),
+            )
+            .await;
+        assert!(started.ok, "iteration {index}: {started:?}");
+        fixture.broker.revoke_session(&session);
+    }
+    let traces = fixture.call("workflow.traces.list", json!({})).await;
+    assert!(traces.ok, "{traces:?}");
+    assert_eq!(traces.data.unwrap()["traces"], json!([]));
+    // The normal broker path can still record and finish a new authorized session.
+    let completed = record_clipboard_trace(&fixture, "retained-owner-library").await;
+    fixture.broker.revoke_session(&fixture.session);
+    let traces = fixture.call("workflow.traces.list", json!({})).await;
+    assert!(traces.ok, "{traces:?}");
+    let data = traces.data.unwrap();
+    assert_eq!(data["traces"].as_array().unwrap().len(), 1);
+    assert_eq!(data["traces"][0]["id"], completed);
+}
+
+#[tokio::test]
 async fn workflow_recording_requires_explicit_scope() {
     let fixture = Fixture::new(Profile::Desktop);
     let result = fixture

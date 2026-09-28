@@ -1,0 +1,47 @@
+import importlib.util
+import json
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+SPEC = importlib.util.spec_from_file_location("pre_r16_secrets", ROOT / "scripts/ci/pre-r16-secret-scan.py")
+SCANNER = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(SCANNER)
+
+
+class SecretScanEvidenceTests(unittest.TestCase):
+    def test_report_drops_secret_bodies_and_identity_metadata(self):
+        rows = SCANNER.sanitize_findings([{
+            "RuleID": "synthetic", "File": "/tmp/snapshot/test.txt", "StartLine": 3,
+            "EndLine": 4, "Commit": "a" * 40, "Match": "DO-NOT-PUBLISH",
+            "Secret": "DO-NOT-PUBLISH", "Description": "DO-NOT-PUBLISH",
+            "Author": "DO-NOT-PUBLISH", "Email": "DO-NOT-PUBLISH", "Message": "DO-NOT-PUBLISH",
+        }], Path("/tmp/snapshot"))
+        self.assertEqual(rows[0]["file"], "test.txt")
+        self.assertNotIn("DO-NOT-PUBLISH", json.dumps(rows))
+        self.assertEqual(set(rows[0]), {"rule_id", "file", "start_line", "end_line", "commit"})
+
+    def test_exit_code_and_findings_must_agree(self):
+        self.assertEqual(SCANNER.scan_status(0, []), "PASS")
+        self.assertEqual(SCANNER.scan_status(1, [{}]), "FINDINGS")
+        for code, rows in [(1, []), (0, [{}]), (2, []), (124, []), (-9, [])]:
+            self.assertEqual(SCANNER.scan_status(code, rows), "ERROR")
+
+    def test_malformed_findings_are_rejected(self):
+        with self.assertRaises(ValueError):
+            SCANNER.sanitize_findings(["untrusted text"], Path("/tmp/snapshot"))
+
+    def test_workflow_is_hosted_read_only_and_history_complete(self):
+        text = (ROOT / ".github/workflows/pre-r16.yml").read_text()
+        self.assertIn("runs-on: ubuntu-24.04", text)
+        self.assertIn("fetch-depth: 0", text)
+        self.assertIn("persist-credentials: false", text)
+        self.assertIn("contents: read", text)
+        self.assertNotIn("self-hosted", text)
+        self.assertNotIn("pull_request_target", text)
+        self.assertNotIn("continue-on-error", text)
+        self.assertIn("sha256sum -c -", text)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -35,7 +35,9 @@ Promotion cannot convert an operation into broader authority.
 
 Recording is session-scoped and bounded to 64 operational steps. Commands that manage
 workflows, recipes, audit, discovery, jobs, events and plugins are not recursively
-recorded.
+recorded. Expiring or revoking a broker session discards its unfinished recording
+and releases its recording slot; it does not save the partial trace or promote a workflow.
+Completed traces already in the owner library remain available under the existing policy.
 
 By default `capture_values=false`. Non-reference values are redacted, making the trace
 useful for diagnostics but intentionally not compilable. Compilation requires an explicit
