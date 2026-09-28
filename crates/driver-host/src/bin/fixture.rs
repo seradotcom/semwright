@@ -489,11 +489,12 @@ impl Driver for Fixture {
                 .get("host_path")
                 .and_then(Value::as_str)
                 .ok_or_else(|| Error::invalid("fixture network probe host_path is required"))?;
-            let reachable = std::net::TcpStream::connect_timeout(
-                &address,
+            let reachable = tokio::time::timeout(
                 std::time::Duration::from_millis(750),
+                tokio::net::TcpStream::connect(address),
             )
-            .is_ok();
+            .await
+            .is_ok_and(|result| result.is_ok());
             let host_visible = std::fs::read(host_path).is_ok();
             return Ok(json!({"reachable":reachable,"host_visible":host_visible}));
         }
