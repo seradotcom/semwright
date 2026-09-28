@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='tideling-glb-') as work:
     assert Path(work,'fish.glb').read_bytes()==before
     assert not list(Path(work).glob('.semwright-export-*'))
     print('TIDELING_EXPORT_CONTRACT '+json.dumps({'kind':'REAL_BLENDER_ADAPTER','passed':True,'result':result}))
-# Test named collection closure and atomic no-clobber under a competing output.
+# Test named collection closure and rejection of symbolic output paths.
 with tempfile.TemporaryDirectory(prefix='tideling-glb-denials-') as work:
     calls=Commands(bpy,work)
     cube=bpy.data.objects['Cube']

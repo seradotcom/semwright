@@ -165,7 +165,23 @@ def run(work):
         with log.open('w') as stream:command([GODOT,'--headless','--path',project,'--script',ROOT/'demos/tideling/automation/cross_app_runtime.gd'],stdout=stream,stderr=subprocess.STDOUT)
         line=next(x for x in log.read_text().splitlines() if x.startswith('TIDELING_CROSS_APP_RUNTIME '))
         gameplay=json.loads(line.split(' ',1)[1]);assert gameplay['passed'],gameplay
-        receipt={'classification':'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':os.environ.get('GITHUB_SHA'),'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_species_sha256':baseline_species_sha,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'limitations':['Baseline game assets directly authored before proof','Visual golden gate still open','Branch proof is not merged-SHA public proof']}
+        # Retain the resulting playable delta, separately from the baseline checkpoint.
+        package=EVIDENCE/'Tideling-BlueGold';package.mkdir()
+        with (EVIDENCE/'proof-export.log').open('w') as stream:
+            command([GODOT,'--headless','--editor','--path',project,'--export-pack','Linux',package/'Tideling.pck'],stdout=stream,stderr=subprocess.STDOUT)
+        shutil.copy2(GODOT,package/'Tideling.x86_64');(package/'Tideling.x86_64').chmod(0o755)
+        for license_name in ['LICENSE-MIT','LICENSE-APACHE','NOTICE']:
+            shutil.copy2(ROOT/license_name,package/license_name)
+        shutil.copy2(project/'assets/FONT-LICENSE.txt',package/'FONT-LICENSE.txt')
+        shutil.copy2(Path(os.environ['RUNNER_TEMP'])/'GODOT-LICENSE.txt',package/'GODOT-LICENSE.txt')
+        (package/'README.txt').write_text((ROOT/'demos/tideling/PACKAGE_README.txt').read_text().replace('The Bluegold candidate is disabled in this baseline.','BlueGoldFish was created and enabled through the recorded Semwright broker route.'))
+        (package/'SOURCE_SHA.txt').write_text(os.environ['GITHUB_SHA']+'\n')
+        (package/'SHA256SUMS.txt').write_text(''.join(sha(package/name)+'  '+name+'\n' for name in ['Tideling.pck','Tideling.x86_64']))
+        with (EVIDENCE/'proof-portable-smoke.log').open('w') as stream:
+            command([package/'Tideling.x86_64','--headless','--quit-after','120'],cwd=package,stdout=stream,stderr=subprocess.STDOUT)
+        for log_name in ['gameplay.log','proof-export.log','proof-portable-smoke.log']:
+            assert not any('SCRIPT ERROR' in line or line.startswith('ERROR:') for line in (EVIDENCE/log_name).read_text().splitlines()),log_name
+        receipt={'classification':'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':os.environ.get('GITHUB_SHA'),'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_species_sha256':baseline_species_sha,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'playable_pack_sha256':sha(package/'Tideling.pck'),'limitations':['Baseline game assets directly authored before proof','Visual golden gate still open','Branch proof is not merged-SHA public proof']}
         write_json(EVIDENCE/'RECEIPT.json',receipt)
         shutil.copy2(project/'assets/blue_gold.glb',EVIDENCE/'BlueGoldFish.glb')
         shutil.copy2(project/'species/blue_gold.tres',EVIDENCE/'BlueGoldFish.tres')

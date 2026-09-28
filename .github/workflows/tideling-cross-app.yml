@@ -40,6 +40,7 @@ jobs:
           GODOT_BIN="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
           echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT_BIN" | sha256sum -c -
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$RUNNER_TEMP/GODOT-LICENSE.txt"
           bash scripts/dev/ci-driver-bwrap-profile.sh verification/tideling-cross-app/sandbox-setup.log
       - name: Build both drivers and the real broker from this revision
         run: |

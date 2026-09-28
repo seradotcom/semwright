@@ -1653,7 +1653,12 @@ mod tests {
             .iter()
             .find(|capability| capability.descriptor.name == "driver.blender.export.glb")
             .unwrap();
-        assert!(exported.tags.iter().any(|tag| tag == "artifact-out:model/3d"));
+        assert!(
+            exported
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-out:model/3d")
+        );
         let render = capabilities
             .iter()
             .find(|capability| capability.descriptor.name == "driver.blender.render")

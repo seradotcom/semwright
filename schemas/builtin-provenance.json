@@ -114,22 +114,6 @@
     ],
     "untrusted_metadata": false
   },
-  "blender.export.glb": {
-    "aliases": [],
-    "app": "org.blender.Blender",
-    "object_types": [
-      "collection"
-    ],
-    "provider": "blender-native",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "blender",
-      "export",
-      "artifact-out:model/3d"
-    ],
-    "untrusted_metadata": false
-  },
   "blender.file.open": {
     "aliases": [],
     "app": "org.blender.Blender",
@@ -343,34 +327,6 @@
     ],
     "untrusted_metadata": false
   },
-  "browser.dialog.respond": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "dialog",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.dialog.status": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "dialog",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
   "browser.dom.click": {
     "aliases": [],
     "app": "org.semwright.Chromium",
@@ -436,163 +392,6 @@
     ],
     "untrusted_metadata": false
   },
-  "browser.element.check": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.click": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.drag_to": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic",
-      "drag"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.fill": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.focus": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.hover": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.press": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.scroll": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.select": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.element.upload": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "element",
-      "semantic",
-      "upload",
-      "filesystem-grant"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.frame.list": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "frame",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
   "browser.launch": {
     "aliases": [],
     "app": "org.semwright.Chromium",
@@ -619,72 +418,6 @@
     ],
     "untrusted_metadata": false
   },
-  "browser.page.back": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "page"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.page.forward": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "page"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.page.reload": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "page"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.page.scroll": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "page",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.page.stop": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "page"
-    ],
-    "untrusted_metadata": false
-  },
   "browser.screenshot": {
     "aliases": [],
     "app": "org.semwright.Chromium",
@@ -695,59 +428,6 @@
     "tags": [
       "browser",
       "screenshot"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.semantic.inspect": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.semantic.query": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.semantic.snapshot": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "semantic"
-    ],
-    "untrusted_metadata": false
-  },
-  "browser.semantic.wait": {
-    "aliases": [],
-    "app": "org.semwright.Chromium",
-    "object_types": [],
-    "provider": "browser-cdp",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "browser",
-      "semantic",
-      "wait"
     ],
     "untrusted_metadata": false
   },
@@ -1594,6 +1274,22 @@
     ],
     "untrusted_metadata": false
   },
+  "workflow.candidates.list": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "workflow"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "workflow",
+      "list",
+      "candidate"
+    ],
+    "untrusted_metadata": false
+  },
   "workflow.candidate.delete": {
     "aliases": [],
     "app": null,
@@ -1621,22 +1317,6 @@
     "tags": [
       "workflow",
       "get"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.candidates.list": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "list",
-      "candidate"
     ],
     "untrusted_metadata": false
   },
@@ -1670,38 +1350,6 @@
     ],
     "untrusted_metadata": false
   },
-  "workflow.pattern.get": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "pattern",
-      "get"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.patterns.list": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "pattern",
-      "list"
-    ],
-    "untrusted_metadata": false
-  },
   "workflow.promote": {
     "aliases": [],
     "app": null,
@@ -1728,86 +1376,6 @@
     "source_version": "0.9.0-dev.1",
     "tags": [
       "workflow",
-      "list"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.proposal.accept": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "proposal",
-      "accept"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.proposal.dismiss": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "proposal",
-      "dismiss"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.proposal.get": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "proposal",
-      "get"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.proposal.plan": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "proposal",
-      "plan"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.proposals.list": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "proposal",
       "list"
     ],
     "untrusted_metadata": false
@@ -1854,86 +1422,6 @@
     "tags": [
       "workflow",
       "replay"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.suggestion.compile": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "suggestion",
-      "compile"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.suggestion.dismiss": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "suggestion",
-      "dismiss"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.suggestion.get": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "suggestion",
-      "get"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.suggestion.restore": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "suggestion",
-      "restore"
-    ],
-    "untrusted_metadata": false
-  },
-  "workflow.suggestions.list": {
-    "aliases": [],
-    "app": null,
-    "object_types": [
-      "workflow"
-    ],
-    "provider": "semwright-core",
-    "source": "builtin",
-    "source_version": "0.9.0-dev.1",
-    "tags": [
-      "workflow",
-      "suggestion",
-      "list"
     ],
     "untrusted_metadata": false
   },
@@ -1994,6 +1482,518 @@
     "tags": [
       "workflow",
       "verify"
+    ],
+    "untrusted_metadata": false
+  },
+  "workflow.patterns.list": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "pattern",
+      "list"
+    ]
+  },
+  "workflow.pattern.get": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "pattern",
+      "get"
+    ]
+  },
+  "workflow.suggestions.list": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "suggestion",
+      "list"
+    ]
+  },
+  "workflow.suggestion.get": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "suggestion",
+      "get"
+    ]
+  },
+  "workflow.suggestion.dismiss": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "suggestion",
+      "dismiss"
+    ]
+  },
+  "workflow.suggestion.restore": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "suggestion",
+      "restore"
+    ]
+  },
+  "workflow.suggestion.compile": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "suggestion",
+      "compile"
+    ]
+  },
+  "workflow.proposals.list": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "proposal",
+      "list"
+    ]
+  },
+  "workflow.proposal.get": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "proposal",
+      "get"
+    ]
+  },
+  "workflow.proposal.plan": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "proposal",
+      "plan"
+    ]
+  },
+  "workflow.proposal.accept": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "proposal",
+      "accept"
+    ]
+  },
+  "workflow.proposal.dismiss": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "workflow"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "workflow",
+      "proposal",
+      "dismiss"
+    ]
+  },
+  "browser.page.reload": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "page"
+    ]
+  },
+  "browser.page.stop": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "page"
+    ]
+  },
+  "browser.page.back": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "page"
+    ]
+  },
+  "browser.page.forward": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "page"
+    ]
+  },
+  "browser.frame.list": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "frame",
+      "semantic"
+    ]
+  },
+  "browser.semantic.snapshot": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "semantic"
+    ]
+  },
+  "browser.semantic.query": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "semantic"
+    ]
+  },
+  "browser.semantic.inspect": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "semantic"
+    ]
+  },
+  "browser.element.focus": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.element.scroll": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.element.click": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.element.fill": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.element.hover": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.element.press": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.element.check": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.element.select": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic"
+    ]
+  },
+  "browser.semantic.wait": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "semantic",
+      "wait"
+    ]
+  },
+  "browser.dialog.status": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "dialog",
+      "semantic"
+    ]
+  },
+  "browser.dialog.respond": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "dialog",
+      "semantic"
+    ]
+  },
+  "browser.element.drag_to": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic",
+      "drag"
+    ]
+  },
+  "browser.element.upload": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "element",
+      "semantic",
+      "upload",
+      "filesystem-grant"
+    ]
+  },
+  "browser.page.scroll": {
+    "provider": "browser-cdp",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": "org.semwright.Chromium",
+    "aliases": [],
+    "object_types": [],
+    "untrusted_metadata": false,
+    "tags": [
+      "browser",
+      "page",
+      "semantic"
+    ]
+  },
+  "blender.export.glb": {
+    "aliases": [],
+    "app": "org.blender.Blender",
+    "object_types": [
+      "collection"
+    ],
+    "provider": "blender-native",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "blender",
+      "export",
+      "artifact-out:model/3d"
     ],
     "untrusted_metadata": false
   }
