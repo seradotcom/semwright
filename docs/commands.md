@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-142 built-in descriptors. A descriptor is not proof of live backend support.
+143 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -80,6 +80,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `blender.material.assign` | `blender.modify` | mutating_reversible | 30000 ms | blender |
 | `blender.render.settings` | `blender.modify` | mutating_reversible | 30000 ms | blender |
 | `blender.render` | `blender.modify` | mutating | 300000 ms | blender |
+| `blender.export.glb` | `blender.modify` | mutating | 120000 ms | blender |
 | `blender.file.save` | `blender.modify` | destructive | 30000 ms | blender |
 | `blender.file.open` | `blender.modify` | destructive | 30000 ms | blender |
 | `browser.status` | `browser.observe` | read_only | 60000 ms | chromium |
@@ -2071,6 +2072,38 @@ Idempotency: `non_idempotent`. Dry run: `true`.
     }
   },
   "required": [
+    "path"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `blender.export.glb`
+
+Export a named collection as a new self-contained GLB in the configured workspace; never overwrite an existing file.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "collection": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "path": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 4096
+    },
+    "animations": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "collection",
     "path"
   ],
   "additionalProperties": false

@@ -122,8 +122,15 @@ fn artifact_ports_are_discoverable_through_normal_tag_filters() {
             ..Default::default()
         })
         .unwrap();
-    assert_eq!(outputs.len(), 1);
-    assert_eq!(outputs[0].0.name, producer.name);
+    let mut output_names = outputs
+        .iter()
+        .map(|row| row.0.name.as_str())
+        .collect::<Vec<_>>();
+    output_names.sort_unstable();
+    assert_eq!(
+        output_names,
+        vec!["blender.export.glb", producer.name.as_str()]
+    );
 
     let inputs = registry
         .ranked(&CatalogQuery {

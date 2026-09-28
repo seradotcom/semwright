@@ -1,0 +1,79 @@
+{
+  "classification": "BRANCH_CROSS_APP_PROOF",
+  "status": "PASS",
+  "source_sha": "2bde9f0f9d78460a2b5bbfe9ca3f08688ce33b6c",
+  "route": "CLI \u2192 broker/policy \u2192 sandboxed Blender driver \u2192 artifact.handoff \u2192 sandboxed Godot driver \u2192 authenticated EditorPlugin \u2192 actual game collisions",
+  "baseline_candidate_asset_absent": true,
+  "baseline_candidate_resource_absent": true,
+  "baseline_species_sha256": {
+    "barracuda.tres": "04bdc1f5b71b8f9912f3bbf6030f26f155f77895eb73c6040fd18432e86af396",
+    "blue.tres": "c5a0b9f8f0258cccfb29078e33e7f4521c3e760ce3a190f7dcc8e5e0667b275d",
+    "butterfly.tres": "2acd5a51a7ac618f51f1425bd25232704915ddf9fb4a31bba528bacda6e39f59",
+    "fry.tres": "e081ef71081bfe5885765e255fff6b3543af338a1328624ab0edaeba41c1e869",
+    "grouper.tres": "a47bc0381a6fcb1b7e3ea35f09fac4f2b4a9fcfcab75f3cad52d0d9e76267888",
+    "puffer.tres": "7a2803e816ee8bf7e801c8b111edfc51360ddd233580a12f747117479ca20700",
+    "yellow.tres": "71b6e6f957583f0357f7383ad6383d38937c16bdc5e67a84d8ea705513f4f177"
+  },
+  "enabled_species_sha256": "5c41e61ee51efb7aa71f60c23d9956bc0a1428cdfe38e00f78f234d03d9cacf0",
+  "export": {
+    "bytes": 1326016,
+    "changed": true,
+    "format": "glb",
+    "objects": 13,
+    "path": "BlueGoldFish.glb",
+    "sha256": "60496b88ec6f56093c00b6146e5cc8569b70f84acd90bb56c41ac35daffa343e"
+  },
+  "handoff": {
+    "atomic": true,
+    "bytes": 1326016,
+    "copied": true,
+    "destination": {
+      "path": "assets/blue_gold.glb",
+      "root": "godot-project"
+    },
+    "media_type": "model/gltf-binary",
+    "semantic_type": "model/3d",
+    "sha256": "60496b88ec6f56093c00b6146e5cc8569b70f84acd90bb56c41ac35daffa343e",
+    "source": {
+      "path": "BlueGoldFish.glb",
+      "root": "workspace"
+    }
+  },
+  "gameplay": {
+    "animated_tail_moves": true,
+    "animation_clips": [
+      "BlueGoldFish_Swim"
+    ],
+    "auto_spawned": 8,
+    "consumed_stage_2": true,
+    "grew_through_collisions": true,
+    "inedible_stage_1": true,
+    "passed": true,
+    "prey_tier_2_and_collision_layer": true,
+    "score_after": 1730,
+    "score_before": 1380,
+    "swim_animation_playing": true
+  },
+  "operations": 332,
+  "playable_pack_sha256": "e633bf53d81203cc0f19561e07c97ef791d42aeb81a8050eb0a04f580472cc77",
+  "packaged_gameplay": {
+    "animated_tail_moves": true,
+    "animation_clips": [
+      "BlueGoldFish_Swim"
+    ],
+    "auto_spawned": 8,
+    "consumed_stage_2": true,
+    "grew_through_collisions": true,
+    "inedible_stage_1": true,
+    "passed": true,
+    "prey_tier_2_and_collision_layer": true,
+    "score_after": 1730,
+    "score_before": 1380,
+    "swim_animation_playing": true
+  },
+  "limitations": [
+    "Baseline game assets directly authored before proof",
+    "Visual golden gate still open",
+    "Branch proof is not merged-SHA public proof"
+  ]
+}

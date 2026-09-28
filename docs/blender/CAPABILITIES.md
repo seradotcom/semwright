@@ -1,6 +1,6 @@
 # Blender semantic capabilities
 
-The catalog deliberately avoids one tool per Blender property. Broad coverage comes from typed RNA refs plus focused lifecycle overlays. The combined semantic branch exposes **139 Blender capabilities total**: 122 explicitly wired semantic/introspection/authoring descriptors plus 17 pre-existing curated operations, with no name overlap. Most Blender breadth is still behind the generic semantic substrate rather than one tool per RNA property.
+The catalog deliberately avoids one tool per Blender property. Broad coverage comes from typed RNA refs plus focused lifecycle overlays. The combined semantic branch exposes **140 Blender capabilities total**: 122 explicitly wired semantic/introspection/authoring descriptors plus 18 curated operations, with no name overlap. Most Blender breadth is still behind the generic semantic substrate rather than one tool per RNA property.
 
 ## Generic semantic substrate
 
@@ -45,3 +45,16 @@ Refs are generation-bound; semantic mutation rotates the generation and stale re
 - Render settings, still render and scoped .blend open/save.
 
 The original curated scene/object/material/render/file capabilities remain for ergonomic common cases. RNA/operator/add-on introspection remains bounded and read-only; it does not grant generic operator execution.
+
+## Collection GLB export
+
+`driver.blender.export.glb` exports an explicitly named collection of meshes,
+armatures and empties to a new `.glb` within the granted workspace. Parents and
+armature dependencies must be in the collection. Instancers are rejected because
+the native exporter expands them beyond the selected object set and object budget.
+Animation is enabled by default.
+The fixed exporter returns SHA-256, byte size and object count; it restores editor
+selection and refuses existing outputs. It does not expose generic operators or
+exporter scripts. Filesystem confinement has the same trusted-workspace race
+boundary as other Blender path APIs. Atomic publication never replaces a target.
+The artifact carries `artifact-out:model/3d` for broker-mediated handoff.
