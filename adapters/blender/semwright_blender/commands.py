@@ -233,6 +233,8 @@ class Commands:
         for obj in objects:
             if obj.type not in {"MESH", "ARMATURE", "EMPTY"}:
                 raise CommandError("Unsupported", "GLB collection accepts meshes, armatures and empties only")
+            if obj.is_instancer:
+                raise CommandError("Unsupported", "GLB collection must contain concrete objects, not instancers")
             if obj.parent is not None and obj.parent.name not in names:
                 raise CommandError("Conflict", "Export collection must include object parents")
             for modifier in obj.modifiers:

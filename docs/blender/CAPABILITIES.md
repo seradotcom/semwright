@@ -50,7 +50,9 @@ The original curated scene/object/material/render/file capabilities remain for e
 
 `driver.blender.export.glb` exports an explicitly named collection of meshes,
 armatures and empties to a new `.glb` within the granted workspace. Parents and
-armature dependencies must be in the collection. Animation is enabled by default.
+armature dependencies must be in the collection. Instancers are rejected because
+the native exporter expands them beyond the selected object set and object budget.
+Animation is enabled by default.
 The fixed exporter returns SHA-256, byte size and object count; it restores editor
 selection and refuses existing outputs. It does not expose generic operators or
 exporter scripts. Filesystem confinement has the same trusted-workspace race
