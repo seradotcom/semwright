@@ -87,15 +87,19 @@ fn manifest(
             .collect(),
         network,
         loopback_port,
+        // Keep the conformance envelope aligned with driver.manifest.example.json.
+        // A much smaller historical fixture can terminate the sandboxed provider before
+        // protocol attestation, which tests resource starvation rather than Driver Host
+        // conformance.
         resources: DriverResources {
-            open_files: 128,
-            processes: 32,
-            cpu_seconds: 60,
+            open_files: 256,
+            processes: 64,
+            cpu_seconds: 300,
             operation_cpu_seconds: 0,
-            address_space_bytes: 536_870_912,
-            file_size_bytes: 16_777_216,
+            address_space_bytes: 4_294_967_296,
+            file_size_bytes: 1_073_741_824,
         },
-        request_timeout_ms: 5_000,
+        request_timeout_ms: 30_000,
         interfaces: interfaces(),
     }
 }
