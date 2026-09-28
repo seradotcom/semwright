@@ -30,8 +30,10 @@ After the baseline is frozen, the recorded semantic route performs these steps:
    group and collision layer. An overlap must fail at stage one; consuming ordinary
    prey through physical collisions must grow the player; the candidate must then
    be consumed and increase score.
-7. Export and smoke-launch the resulting game pack on the hosted runner. Retain a
-   portable Linux development package alongside the receipt and source SHA.
+7. Export the resulting game pack, then repeat the full runtime acceptance using
+   the packaged executable with an explicit `--main-pack`. The external harness
+   lets audio finish before orderly shutdown; it is not included in the package.
+   Retain the portable Linux package, both gameplay records and source SHA.
 
 The acceptance script positions fish and supplies ordinary prey to make the stage
 boundary reproducible. It does not author the candidate or directly assign growth.

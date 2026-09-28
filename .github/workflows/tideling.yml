@@ -47,7 +47,7 @@ jobs:
           cp demos/tideling/PACKAGE_README.txt "$RUNNER_TEMP/Tideling/README.txt"
           curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$RUNNER_TEMP/Tideling/GODOT-LICENSE.txt"
           cd "$RUNNER_TEMP/Tideling"
-          ./Tideling.x86_64 --headless --quit-after 120 2>&1 | tee "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"
+          ./Tideling.x86_64 --headless --main-pack "$RUNNER_TEMP/Tideling/Tideling.pck" --script "$GITHUB_WORKSPACE/demos/tideling/automation/runtime_proof.gd" 2>&1 | tee "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"
           ! rg 'SCRIPT ERROR|^ERROR:' "$GITHUB_WORKSPACE/verification/tideling/portable-smoke.log"
           printf '%s\n' "$GITHUB_SHA" > SOURCE_SHA.txt
           sha256sum Tideling.pck Tideling.x86_64 > SHA256SUMS.txt

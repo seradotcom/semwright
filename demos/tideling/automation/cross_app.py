@@ -188,10 +188,12 @@ def run(work):
         (package/'SOURCE_SHA.txt').write_text(os.environ['GITHUB_SHA']+'\n')
         (package/'SHA256SUMS.txt').write_text(''.join(sha(package/name)+'  '+name+'\n' for name in ['Tideling.pck','Tideling.x86_64']))
         with (EVIDENCE/'proof-portable-smoke.log').open('w') as stream:
-            command([package/'Tideling.x86_64','--headless','--quit-after','120'],cwd=package,stdout=stream,stderr=subprocess.STDOUT)
+            command([package/'Tideling.x86_64','--headless','--main-pack',package/'Tideling.pck','--script',ROOT/'demos/tideling/automation/cross_app_runtime.gd'],cwd=package,stdout=stream,stderr=subprocess.STDOUT)
+        packed_line=next(x for x in (EVIDENCE/'proof-portable-smoke.log').read_text().splitlines() if x.startswith('TIDELING_CROSS_APP_RUNTIME '))
+        packed_gameplay=json.loads(packed_line.split(' ',1)[1]);assert packed_gameplay['passed'],packed_gameplay
         for log_name in ['gameplay.log','proof-export.log','proof-portable-smoke.log']:
             assert not any('SCRIPT ERROR' in line or line.startswith('ERROR:') for line in (EVIDENCE/log_name).read_text().splitlines()),log_name
-        receipt={'classification':'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':os.environ.get('GITHUB_SHA'),'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_candidate_resource_absent':True,'baseline_species_sha256':baseline_species,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'playable_pack_sha256':sha(package/'Tideling.pck'),'limitations':['Baseline game assets directly authored before proof','Visual golden gate still open','Branch proof is not merged-SHA public proof']}
+        receipt={'classification':'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':os.environ.get('GITHUB_SHA'),'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_candidate_resource_absent':True,'baseline_species_sha256':baseline_species,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'playable_pack_sha256':sha(package/'Tideling.pck'),'packaged_gameplay':packed_gameplay,'limitations':['Baseline game assets directly authored before proof','Visual golden gate still open','Branch proof is not merged-SHA public proof']}
         write_json(EVIDENCE/'RECEIPT.json',receipt)
         shutil.copy2(project/'assets/blue_gold.glb',EVIDENCE/'BlueGoldFish.glb')
         shutil.copy2(project/'species/blue_gold.tres',EVIDENCE/'BlueGoldFish.tres')
