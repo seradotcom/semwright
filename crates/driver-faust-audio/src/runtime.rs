@@ -109,7 +109,7 @@ impl Runtime {
         let output = self
             .run_bounded(
                 &self.config.faust.path,
-                ["-version"],
+                ["--version"],
                 None,
                 Duration::from_secs(10),
             )
