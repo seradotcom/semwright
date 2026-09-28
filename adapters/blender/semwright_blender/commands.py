@@ -1,5 +1,8 @@
 """Application-native commands. No eval, exec, arbitrary operators, or script arguments."""
 import json
+import hashlib
+import struct
+import tempfile
 import os
 import stat
 from pathlib import Path
@@ -198,6 +201,8 @@ class Commands:
             finally:
                 scene.render.filepath = previous_path
                 scene.render.image_settings.file_format = previous_format
+        if command == "blender.export.glb":
+            return self.export_glb(args)
         if command == "blender.file.save":
             target = self.workspace.path(args["path"], ".blend")
             result = bpy.ops.wm.save_as_mainfile(filepath=target, check_existing=False, copy=True)
@@ -213,3 +218,73 @@ class Commands:
                 raise CommandError("BackendFailed", "Open did not finish")
             return {"changed": True, "path": args["path"], "use_scripts": False}
         raise CommandError("Unsupported", "Unimplemented host command")
+
+    def export_glb(self, args):
+        """One fixed exporter, a closed collection and a new atomic artifact."""
+        bpy = self.bpy
+        target = self.workspace.path(args["path"], ".glb")
+        if os.path.lexists(target):
+            raise CommandError("Conflict", "Export target already exists")
+        collection = require_named(bpy.data.collections, args["collection"])
+        objects = list(collection.all_objects)
+        if not 1 <= len(objects) <= 2048:
+            raise CommandError("InvalidArgument", "Collection must contain 1 to 2048 objects")
+        names = {obj.name for obj in objects}
+        for obj in objects:
+            if obj.type not in {"MESH", "ARMATURE", "EMPTY"}:
+                raise CommandError("Unsupported", "GLB collection accepts meshes, armatures and empties only")
+            if obj.parent is not None and obj.parent.name not in names:
+                raise CommandError("Conflict", "Export collection must include object parents")
+            for modifier in obj.modifiers:
+                if modifier.type == "ARMATURE" and modifier.object is not None and modifier.object.name not in names:
+                    raise CommandError("Conflict", "Export collection must include its armature dependencies")
+        if bpy.context.mode != "OBJECT":
+            raise CommandError("Conflict", "GLB export requires object mode")
+        selected = list(bpy.context.selected_objects)
+        active = bpy.context.view_layer.objects.active
+        fd, temporary = tempfile.mkstemp(prefix=".semwright-export-", suffix=".glb", dir=os.path.dirname(target))
+        os.close(fd)
+        try:
+            for obj in selected:
+                obj.select_set(False)
+            for obj in objects:
+                obj.select_set(True)
+            if {obj.name for obj in bpy.context.selected_objects} != names:
+                raise CommandError("Conflict", "Collection includes objects unavailable in the active view layer")
+            bpy.context.view_layer.objects.active = objects[0]
+            result = bpy.ops.export_scene.gltf(
+                filepath=temporary, check_existing=False, export_format="GLB",
+                use_selection=True, export_extras=True, export_cameras=False,
+                export_lights=False, export_animations=args.get("animations", True),
+                export_animation_mode="ACTIONS", export_draco_mesh_compression_enable=False,
+            )
+            if "FINISHED" not in result:
+                raise CommandError("BackendFailed", "GLB export did not finish")
+            size = os.stat(temporary).st_size
+            if not 12 <= size <= 268435456:
+                raise CommandError("BackendFailed", "GLB export exceeds artifact budget or is empty")
+            digest = hashlib.sha256()
+            with open(temporary, "rb") as stream:
+                header = stream.read(12)
+                if struct.unpack("<4sII", header) != (b"glTF", 2, size):
+                    raise CommandError("BackendFailed", "Exporter did not produce a GLB 2 artifact")
+                digest.update(header)
+                for block in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(block)
+            self.workspace.path(args["path"], ".glb")
+            os.chmod(temporary, 0o600)
+            try:
+                os.link(temporary, target)
+            except FileExistsError as error:
+                raise CommandError("Conflict", "Export target appeared during export; preserved") from error
+            return {"changed": True, "path": args["path"], "format": "glb",
+                    "sha256": digest.hexdigest(), "bytes": size, "objects": len(objects)}
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+            for obj in list(bpy.context.selected_objects):
+                obj.select_set(False)
+            for obj in selected:
+                if bpy.data.objects.get(obj.name) is obj:
+                    obj.select_set(True)
+            bpy.context.view_layer.objects.active = active

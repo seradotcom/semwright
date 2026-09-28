@@ -1,8 +1,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, SystemConfigMount,
-    Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
+    SystemConfigMount, Transport,
 };
 use semwright_policy::FilesystemGrant;
 use serde_json::{Value, json};
@@ -65,7 +65,22 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
             .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
     );
-    assert!(Path::new("/usr/local/bin/blender").exists() || Path::new("/usr/bin/blender").exists());
+    let blender_runtime = std::fs::canonicalize(PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_BLENDER_ROOT")
+            .expect("SEMWRIGHT_TEST_BLENDER_ROOT must point to Blender 4.5.14 LTS"),
+    ))
+    .unwrap();
+    let blender_tool = blender_runtime.join("blender");
+    assert!(blender_tool.is_file());
+    for relative in [
+        "lib",
+        "4.5/scripts",
+        "4.5/extensions",
+        "4.5/datafiles",
+        "4.5/python",
+    ] {
+        assert!(blender_runtime.join(relative).is_dir());
+    }
     assert!(Path::new("/etc/fonts").is_dir());
 
     let workspace = tempfile::tempdir().unwrap();
@@ -87,17 +102,28 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
             supported_versions: vec!["4.5.14".into()],
         },
         transport: Transport::StdioV1,
-        mounts: vec![DriverMount {
-            root: "workspace".into(),
-            read_only: false,
-            execute: false,
-        }],
+        mounts: vec![
+            DriverMount {
+                root: "workspace".into(),
+                read_only: false,
+                execute: false,
+            },
+            DriverMount {
+                root: "blender-runtime".into(),
+                read_only: true,
+                execute: false,
+            },
+        ],
         system_config: vec![SystemConfigMount {
             root: "font-config".into(),
             destination: "/etc/fonts".into(),
         }],
         secrets: vec![],
-        tools: vec![],
+        tools: vec![DriverToolMount {
+            root: "blender-executable".into(),
+            name: "blender".into(),
+            sha256: digest(&blender_tool),
+        }],
         network: false,
         loopback_port: None,
         resources: DriverResources {
@@ -108,7 +134,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
             address_space_bytes: 4_294_967_296,
             file_size_bytes: 1_073_741_824,
         },
-        request_timeout_ms: 120_000,
+        request_timeout_ms: 300_000,
         interfaces: DriverInterfaces::default(),
     };
     let grants = vec![
@@ -121,6 +147,18 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         FilesystemGrant {
             name: "font-config".into(),
             path: std::fs::canonicalize("/etc/fonts").unwrap(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "blender-runtime".into(),
+            path: blender_runtime.clone(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "blender-executable".into(),
+            path: blender_tool.clone(),
             read: true,
             write: false,
         },
@@ -2727,6 +2765,47 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     assert_eq!(removed_node["changed"], true);
+
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.collection.create",
+        json!({"name":"SemwrightExport"}),
+    )
+    .await
+    .unwrap();
+    call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.collection.link",
+        json!({"object":"SemwrightCube","collection":"SemwrightExport"}),
+    )
+    .await
+    .unwrap();
+    let exported = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.export.glb",
+        json!({"collection":"SemwrightExport","path":"semwright-cube.glb","animations":false}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(exported["changed"], true);
+    assert_eq!(exported["format"], "glb");
+    assert_eq!(exported["objects"], 1);
+    assert_eq!(
+        exported["sha256"],
+        digest(&workspace_path.join("semwright-cube.glb"))
+    );
+    let second_export = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.export.glb",
+        json!({"collection":"SemwrightExport","path":"semwright-cube.glb","animations":false}),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(second_export.code, semwright_types::ErrorCode::Conflict);
 
     call(
         provider.as_ref(),
