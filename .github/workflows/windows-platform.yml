@@ -152,7 +152,7 @@ jobs:
       - name: Secure Windows Driver ambient network authority
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_network --nocapture
       - name: Secure Windows Plugin Host authority
-        run: cargo test --locked -p semwright-plugin-host --features test-tools --test windows_secure_host -- --nocapture --test-threads=1
+        run: cargo test --locked -p semwright-plugin-host --features test-tools --test windows_secure_host -- --nocapture
       - name: Secure Windows external MCP authority
         run: cargo test --locked -p semwright-federation --test windows_secure_stdio -- --nocapture
       - name: Native Windows docs

@@ -56,8 +56,20 @@ pub fn dispatch(command: &str, args: Value) -> Result<Value> {
         .and_then(Value::as_str)
         .and_then(|address| address.parse::<std::net::SocketAddr>().ok())
         .is_some_and(|address| {
-            std::net::TcpStream::connect_timeout(&address, std::time::Duration::from_millis(750))
-                .is_ok()
+            // A denied LPAC connect can remain pending longer than the socket deadline.
+            // Keep the kernel wait off the plugin protocol thread and bound the fixture probe.
+            let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+            let _probe = std::thread::spawn(move || {
+                let reachable = std::net::TcpStream::connect_timeout(
+                    &address,
+                    std::time::Duration::from_millis(750),
+                )
+                .is_ok();
+                let _ = sender.send(reachable);
+            });
+            receiver
+                .recv_timeout(std::time::Duration::from_millis(1_000))
+                .unwrap_or(false)
         });
     let host_visible = args
         .get("host_path")
