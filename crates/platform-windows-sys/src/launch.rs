@@ -2272,7 +2272,8 @@ impl SandboxLauncher for WindowsSandbox {
         let child_stderr = inherited_null()?;
 
         let handles = [child_stdin.raw(), child_stdout.raw(), child_stderr.raw()];
-        let mut attributes = ProcAttributes::new(3 + u32::from(machine_type.is_some()))?;
+        let cross_arch_host_tool = machine_type.is_some();
+        let mut attributes = ProcAttributes::new(3 + u32::from(cross_arch_host_tool))?;
         attributes.set_slice(PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &handles)?;
         if let Some(machine_type) = machine_type {
             attributes.set_value(PROC_THREAD_ATTRIBUTE_MACHINE_TYPE, &machine_type)?;
@@ -2318,7 +2319,18 @@ impl SandboxLauncher for WindowsSandbox {
                     ErrorCode::ResourceExhausted,
                     "Windows process limit exceeds Job budget",
                 )
-            })?;
+            })?
+            .map(|limit| {
+                if cross_arch_host_tool {
+                    // x64-on-ARM64 emulation may require one runtime-support process. This
+                    // extra Job slot is platform overhead, not delegated driver authority:
+                    // the LPAC child remains without mounts/network and the compatibility
+                    // probe still requires ordinary descendant spawn attempts to fail.
+                    limit.saturating_add(1)
+                } else {
+                    limit
+                }
+            });
         let memory_limit = limits
             .map(|limit| usize::try_from(limit.address_space_bytes))
             .transpose()
