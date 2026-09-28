@@ -1,9 +1,19 @@
-use crate::{identity::current_user_sid_bytes, job::ProcessJob, pe::require_native_architecture};
+#[cfg(target_arch = "aarch64")]
+use crate::pe::IMAGE_FILE_MACHINE_AMD64;
+use crate::{
+    identity::current_user_sid_bytes,
+    job::ProcessJob,
+    pe::{
+        PeArchitecture, architecture_file, require_native_architecture,
+        require_sealed_tool_architecture,
+    },
+};
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, Mount, MountClass, SANDBOX_MOUNTS_ENV,
-    SandboxChildControl, SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec,
-    encode_materialized_mounts,
+    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
+    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl,
+    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, SealedToolSource,
+    encode_materialized_mounts, encode_materialized_tools,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -21,6 +31,8 @@ use std::{
     sync::Arc,
 };
 use tokio::{fs::File as TokioFile, process::Command};
+#[cfg(target_arch = "aarch64")]
+use windows::Win32::System::Threading::{GetMachineTypeAttributes, UserEnabled};
 use windows::Win32::{
     Foundation::{
         CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, GENERIC_ALL, GENERIC_READ,
@@ -36,15 +48,15 @@ use windows::Win32::{
             SE_FILE_OBJECT, SetEntriesInAclW, SetNamedSecurityInfoW, TRUSTEE_IS_SID,
             TRUSTEE_IS_USER, TRUSTEE_W,
         },
-        CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, EqualSid, FreeSid, GetAce,
-        GetAclInformation, GetLengthSid,
+        CopySid, CreateWellKnownSid, DACL_SECURITY_INFORMATION, DeriveCapabilitySidsFromName,
+        EqualSid, FreeSid, GetAce, GetAclInformation, GetLengthSid, GetSecurityDescriptorControl,
         Isolation::{
             CreateAppContainerProfile, DeleteAppContainerProfile, GetAppContainerFolderPath,
         },
-        NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
-        SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES, SECURITY_MAX_SID_SIZE, SID_AND_ATTRIBUTES,
-        SUB_CONTAINERS_AND_OBJECTS_INHERIT, WinBuiltinAdministratorsSid,
-        WinCapabilityInternetClientSid, WinLocalSystemSid,
+        NO_INHERITANCE, OWNER_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+        PSECURITY_DESCRIPTOR, PSID, SE_DACL_PROTECTED, SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES,
+        SECURITY_MAX_SID_SIZE, SID_AND_ATTRIBUTES, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+        WinBuiltinAdministratorsSid, WinCapabilityInternetClientSid, WinLocalSystemSid,
         WinTrust::{
             WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
             WTD_CACHE_ONLY_URL_RETRIEVAL, WTD_CHOICE_FILE, WTD_REVOCATION_CHECK_NONE,
@@ -74,8 +86,8 @@ use windows::Win32::{
         Threading::{
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
             DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT, GetCurrentProcess,
-            INFINITE, InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST,
-            PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
+            GetExitCodeProcess, INFINITE, InitializeProcThreadAttributeList,
+            LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
             PROCESS_INFORMATION, ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW,
             TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
@@ -250,6 +262,60 @@ fn well_known_sid(kind: windows::Win32::Security::WELL_KNOWN_SID_TYPE) -> Result
     Ok(bytes)
 }
 
+fn free_derived_sid_array(array: *mut PSID, count: u32) {
+    if array.is_null() {
+        return;
+    }
+    // Capability derivation is expected to return a tiny list. Bound traversal defensively;
+    // leaking an impossible oversized OS allocation is preferable to trusting an absurd count.
+    let bounded = count.min(64) as usize;
+    // SAFETY: DeriveCapabilitySidsFromName returns at least count LocalAlloc-owned SID
+    // pointers followed by a LocalAlloc-owned pointer array on success.
+    unsafe {
+        for sid in std::slice::from_raw_parts(array, bounded) {
+            if !sid.is_invalid() {
+                let _ = LocalFree(Some(HLOCAL(sid.0)));
+            }
+        }
+        let _ = LocalFree(Some(HLOCAL(array.cast())));
+    }
+}
+
+fn named_capability_sid(name: &str) -> Result<Vec<u8>> {
+    let wide = wide_null(OsStr::new(name))?;
+    let mut group_sids: *mut PSID = std::ptr::null_mut();
+    let mut group_count = 0u32;
+    let mut capability_sids: *mut PSID = std::ptr::null_mut();
+    let mut capability_count = 0u32;
+    // SAFETY: all out-pointers reference live locals and wide is NUL-terminated.
+    let derived = unsafe {
+        DeriveCapabilitySidsFromName(
+            PCWSTR(wide.as_ptr()),
+            &mut group_sids,
+            &mut group_count,
+            &mut capability_sids,
+            &mut capability_count,
+        )
+    };
+    let result = match derived {
+        Ok(()) if capability_count == 1 && !capability_sids.is_null() => {
+            // SAFETY: the API reported exactly one capability SID.
+            copy_sid_bytes(unsafe { *capability_sids })
+        }
+        Ok(()) => Err(Error::new(
+            ErrorCode::SandboxDenied,
+            format!("Windows capability {name} did not resolve to exactly one SID"),
+        )),
+        Err(_) => Err(Error::new(
+            ErrorCode::SandboxDenied,
+            format!("Windows capability {name} could not be resolved"),
+        )),
+    };
+    free_derived_sid_array(group_sids, group_count);
+    free_derived_sid_array(capability_sids, capability_count);
+    result
+}
+
 fn sid_matches(sid: PSID, expected: &[u8]) -> bool {
     if sid.is_invalid() || expected.is_empty() {
         return false;
@@ -414,6 +480,62 @@ fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Resul
     Ok(())
 }
 
+fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
+    if !path.is_absolute() {
+        return Err(Error::invalid(
+            "Materialized Windows sealed tool path must be absolute",
+        ));
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+    let mut file = options.open(path)?;
+    let before = info(&file)?;
+    if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        || before.nNumberOfLinks != 1
+        || before.nFileSizeHigh != 0
+        || before.nFileSizeLow as u64 > MAX_EXECUTABLE
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Unsafe materialized Windows sealed tool type, link count or size",
+        ));
+    }
+    let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
+    file.by_ref()
+        .take(MAX_EXECUTABLE + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_EXECUTABLE {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized Windows sealed tool exceeds size budget",
+        ));
+    }
+    let after = info(&file)?;
+    if !same_identity(&before, &after)
+        || before.nFileSizeHigh != after.nFileSizeHigh
+        || before.nFileSizeLow != after.nFileSizeLow
+        || before.ftLastWriteTime != after.ftLastWriteTime
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Materialized Windows sealed tool changed while being verified",
+        ));
+    }
+    let expected = digest.trim().to_ascii_lowercase();
+    if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Materialized Windows sealed tool digest mismatch",
+        ));
+    }
+    require_sealed_tool_architecture(&bytes)?;
+    require_authenticode_policy(authenticode_status(&file, path)?)?;
+    Ok(())
+}
+
 pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
     if max_bytes == 0 || max_bytes > 16 * 1024 * 1024 {
         return Err(Error::invalid(
@@ -500,73 +622,83 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
     Ok(())
 }
 
+fn verify_windows_executable(path: &Path, digest: &str, sealed_tool: bool) -> Result<Vec<u8>> {
+    if !path.is_absolute() {
+        return Err(Error::invalid(
+            "Pinned Windows executable path must be absolute",
+        ));
+    }
+    let spelling = path.as_os_str().to_string_lossy().to_ascii_lowercase();
+    if spelling.starts_with(r"\\") || spelling.starts_with(r"\\?\") || spelling.starts_with(r"\\.\")
+    {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "UNC, extended and device executable paths are not accepted",
+        ));
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
+    let mut file = options.open(path)?;
+    let before = info(&file)?;
+    verify_trusted_file_acl(&file, "executable", false)?;
+    if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+        || before.nNumberOfLinks != 1
+        || before.nFileSizeHigh != 0
+        || before.nFileSizeLow as u64 > MAX_EXECUTABLE
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Unsafe Windows executable type, link count or size",
+        ));
+    }
+    let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
+    file.by_ref()
+        .take(MAX_EXECUTABLE + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_EXECUTABLE {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Windows executable exceeds size budget",
+        ));
+    }
+    let after = info(&file)?;
+    if !same_identity(&before, &after)
+        || before.nFileSizeHigh != after.nFileSizeHigh
+        || before.nFileSizeLow != after.nFileSizeLow
+        || before.ftLastWriteTime != after.ftLastWriteTime
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Windows executable changed while it was being verified",
+        ));
+    }
+    let expected = digest.trim().to_ascii_lowercase();
+    if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Executable digest mismatch",
+        ));
+    }
+    if sealed_tool {
+        require_sealed_tool_architecture(&bytes)?;
+    } else {
+        require_native_architecture(&bytes)?;
+    }
+    require_authenticode_policy(authenticode_status(&file, path)?)?;
+    Ok(bytes)
+}
+
+pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
+    verify_windows_executable(path, digest, true)
+}
+
 pub struct WindowsVerifier;
 impl ExecutableVerifier for WindowsVerifier {
     fn verify(&self, path: &Path, digest: &str) -> Result<Vec<u8>> {
-        if !path.is_absolute() {
-            return Err(Error::invalid(
-                "Pinned Windows executable path must be absolute",
-            ));
-        }
-        let spelling = path.as_os_str().to_string_lossy().to_ascii_lowercase();
-        if spelling.starts_with(r"\\")
-            || spelling.starts_with(r"\\?\")
-            || spelling.starts_with(r"\\.\")
-        {
-            return Err(Error::new(
-                ErrorCode::PolicyDenied,
-                "UNC, extended and device executable paths are not accepted",
-            ));
-        }
-        let mut options = std::fs::OpenOptions::new();
-        options
-            .read(true)
-            .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_DELETE.0)
-            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT.0);
-        let mut file = options.open(path)?;
-        let before = info(&file)?;
-        verify_trusted_file_acl(&file, "executable", false)?;
-        if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
-            || before.nNumberOfLinks != 1
-            || before.nFileSizeHigh != 0
-            || before.nFileSizeLow as u64 > MAX_EXECUTABLE
-        {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Unsafe Windows executable type, link count or size",
-            ));
-        }
-        let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
-        file.by_ref()
-            .take(MAX_EXECUTABLE + 1)
-            .read_to_end(&mut bytes)?;
-        if bytes.len() as u64 > MAX_EXECUTABLE {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "Windows executable exceeds size budget",
-            ));
-        }
-        let after = info(&file)?;
-        if !same_identity(&before, &after)
-            || before.nFileSizeHigh != after.nFileSizeHigh
-            || before.nFileSizeLow != after.nFileSizeLow
-            || before.ftLastWriteTime != after.ftLastWriteTime
-        {
-            return Err(Error::new(
-                ErrorCode::Conflict,
-                "Windows executable changed while it was being verified",
-            ));
-        }
-        let expected = digest.trim().to_ascii_lowercase();
-        if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Executable digest mismatch",
-            ));
-        }
-        require_native_architecture(&bytes)?;
-        require_authenticode_policy(authenticode_status(&file, path)?)?;
-        Ok(bytes)
+        verify_windows_executable(path, digest, false)
     }
 }
 
@@ -799,6 +931,185 @@ fn named_dacl(path: &[u16]) -> Result<(*mut ACL, SecurityDescriptor)> {
         ));
     }
     Ok((dacl, SecurityDescriptor(descriptor)))
+}
+
+fn explicit_sid_grant(
+    sid: PSID,
+    permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> EXPLICIT_ACCESS_W {
+    EXPLICIT_ACCESS_W {
+        grfAccessPermissions: permissions,
+        grfAccessMode: GRANT_ACCESS,
+        grfInheritance: inheritance,
+        Trustee: TRUSTEE_W {
+            pMultipleTrustee: std::ptr::null_mut(),
+            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
+            TrusteeForm: TRUSTEE_IS_SID,
+            TrusteeType: TRUSTEE_IS_USER,
+            ptstrName: PWSTR(sid.0.cast()),
+        },
+    }
+}
+
+fn protected_profile_acl_matches(
+    path: &[u16],
+    app_sid: PSID,
+    permissions: u32,
+    forbidden_permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<bool> {
+    let (dacl, descriptor) = named_dacl(path)?;
+    let mut control = 0u16;
+    let mut revision = 0u32;
+    // SAFETY: descriptor is live for this call and both outputs are writable locals.
+    unsafe { GetSecurityDescriptorControl(descriptor.0, &mut control, &mut revision) }.map_err(
+        |_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed-tool protected DACL state could not be read",
+            )
+        },
+    )?;
+    if control & SE_DACL_PROTECTED.0 == 0 {
+        return Ok(false);
+    }
+
+    let current = current_user_sid_bytes()?;
+    let system = well_known_sid(WinLocalSystemSid)?;
+    let admins = well_known_sid(WinBuiltinAdministratorsSid)?;
+    let mut acl_info = ACL_SIZE_INFORMATION::default();
+    // SAFETY: dacl belongs to the live descriptor guard and acl_info is a sized output buffer.
+    unsafe {
+        GetAclInformation(
+            dacl,
+            (&mut acl_info as *mut ACL_SIZE_INFORMATION).cast(),
+            std::mem::size_of::<ACL_SIZE_INFORMATION>() as u32,
+            AclSizeInformation,
+        )
+    }
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL is invalid",
+        )
+    })?;
+    if acl_info.AceCount > 16 {
+        return Ok(false);
+    }
+
+    let inheritance_mask = SUB_CONTAINERS_AND_OBJECTS_INHERIT.0;
+    let mut app_seen = false;
+    for index in 0..acl_info.AceCount {
+        let mut raw: *mut core::ffi::c_void = std::ptr::null_mut();
+        // SAFETY: index is bounded by AceCount and raw is a writable ACE out-pointer.
+        unsafe { GetAce(dacl, index, &mut raw) }.map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed-tool protected DACL entry could not be inspected",
+            )
+        })?;
+        if raw.is_null() {
+            return Ok(false);
+        }
+        // SAFETY: GetAce returned storage owned by the live DACL/security descriptor.
+        let header = unsafe { &*(raw.cast::<ACE_HEADER>()) };
+        if header.AceType as u32 != ACCESS_ALLOWED_ACE_TYPE
+            || usize::from(header.AceSize) < std::mem::size_of::<ACCESS_ALLOWED_ACE>()
+        {
+            return Ok(false);
+        }
+        // SAFETY: a simple access-allowed ACE is at least ACCESS_ALLOWED_ACE bytes.
+        let ace = unsafe { &*(raw.cast::<ACCESS_ALLOWED_ACE>()) };
+        let sid = PSID((&ace.SidStart as *const u32).cast_mut().cast());
+        // SAFETY: both SIDs are live for this comparison.
+        if unsafe { EqualSid(sid, app_sid).is_ok() } {
+            if ace.Mask & permissions != permissions
+                || ace.Mask & forbidden_permissions != 0
+                || u32::from(header.AceFlags) & inheritance_mask != inheritance.0
+            {
+                return Ok(false);
+            }
+            app_seen = true;
+            continue;
+        }
+        if sid_matches(sid, &current) || sid_matches(sid, &system) || sid_matches(sid, &admins) {
+            continue;
+        }
+        return Ok(false);
+    }
+    Ok(app_seen)
+}
+
+fn set_protected_profile_acl(
+    path: &[u16],
+    app_sid: PSID,
+    permissions: u32,
+    forbidden_permissions: u32,
+    inheritance: windows::Win32::Security::ACE_FLAGS,
+) -> Result<()> {
+    let current = current_user_sid_bytes()?;
+    let system = well_known_sid(WinLocalSystemSid)?;
+    let admins = well_known_sid(WinBuiltinAdministratorsSid)?;
+    let entries = [
+        explicit_sid_grant(
+            PSID(current.as_ptr().cast_mut().cast()),
+            GENERIC_ALL.0,
+            NO_INHERITANCE,
+        ),
+        explicit_sid_grant(
+            PSID(system.as_ptr().cast_mut().cast()),
+            GENERIC_ALL.0,
+            NO_INHERITANCE,
+        ),
+        explicit_sid_grant(
+            PSID(admins.as_ptr().cast_mut().cast()),
+            GENERIC_ALL.0,
+            NO_INHERITANCE,
+        ),
+        explicit_sid_grant(app_sid, permissions, inheritance),
+    ];
+    let mut updated: *mut ACL = std::ptr::null_mut();
+    // SAFETY: all SID buffers and entries remain live through this synchronous call.
+    let status = unsafe { SetEntriesInAclW(Some(&entries), None, &mut updated) };
+    if status.0 != 0 || updated.is_null() {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL could not be constructed",
+        ));
+    }
+    let updated = LocalAcl(updated);
+    // SAFETY: path is NUL-terminated and updated contains a valid ACL allocated above.
+    let status = unsafe {
+        SetNamedSecurityInfoW(
+            PCWSTR(path.as_ptr()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            None,
+            None,
+            Some(updated.0),
+            None,
+        )
+    };
+    if status.0 != 0 {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL could not be applied",
+        ));
+    }
+    if !protected_profile_acl_matches(
+        path,
+        app_sid,
+        permissions,
+        forbidden_permissions,
+        inheritance,
+    )? {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool protected DACL verification failed",
+        ));
+    }
+    Ok(())
 }
 
 fn dacl_has_sid(path: &[u16], sid: PSID) -> Result<bool> {
@@ -1212,10 +1523,53 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
     })
 }
 
+fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGrant> {
+    if !staging_root.is_absolute() {
+        return Err(Error::invalid(
+            "Windows sealed-tool staging root must be absolute",
+        ));
+    }
+    let (identity, is_directory) = validate_mount_tree(staging_root)?;
+    if !is_directory {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool staging root must be a directory",
+        ));
+    }
+    let materialized_path = staging_root
+        .to_str()
+        .ok_or_else(|| Error::invalid("Windows sealed-tool staging root must be Unicode"))?
+        .to_owned();
+    Ok(PreparedMountGrant {
+        path: wide_null(staging_root.as_os_str())?,
+        identity,
+        materialized: MaterializedMount {
+            class: MountClass::Workspace,
+            logical_name: "__sealed-tool-staging__".into(),
+            path: materialized_path,
+            read_only: true,
+        },
+        // This is a dedicated per-profile directory containing only tools already named in
+        // the host-controlled tool table. Windows image resolution may read/list this directory
+        // on some hosts, so grant read + traverse while continuing to deny all mutation.
+        permissions: FILE_GENERIC_READ.0 | FILE_GENERIC_EXECUTE.0,
+        denied_permissions: FILE_WRITE_DATA.0
+            | FILE_APPEND_DATA.0
+            | FILE_WRITE_EA.0
+            | FILE_WRITE_ATTRIBUTES.0
+            | FILE_DELETE_CHILD.0
+            | DELETE.0
+            | WRITE_DAC.0
+            | WRITE_OWNER.0,
+        inheritance: NO_INHERITANCE,
+    })
+}
+
 struct WindowsMountGrant {
     path: Vec<u16>,
     sid: Vec<u8>,
     active: bool,
+    require_sid_absence_after_revoke: bool,
 }
 
 impl WindowsMountGrant {
@@ -1285,6 +1639,28 @@ impl WindowsMountGrant {
             path: prepared.path.clone(),
             sid: sid_bytes,
             active: true,
+            require_sid_absence_after_revoke: true,
+        })
+    }
+
+    fn narrow_profile_authority(prepared: &PreparedMountGrant, sid: PSID) -> Result<Self> {
+        let sid_bytes = copy_sid_bytes(sid)?;
+        let owned_sid = PSID(sid_bytes.as_ptr().cast_mut().cast());
+        // These objects are created inside the unique, disposable AppContainer profile.
+        // Replace inherited profile ACLs entirely so broad package-group authority cannot
+        // widen a sealed tool beyond the exact read/execute (or traverse) grant.
+        set_protected_profile_acl(
+            &prepared.path,
+            owned_sid,
+            prepared.permissions,
+            prepared.denied_permissions,
+            prepared.inheritance,
+        )?;
+        Ok(Self {
+            path: prepared.path.clone(),
+            sid: sid_bytes,
+            active: true,
+            require_sid_absence_after_revoke: true,
         })
     }
 
@@ -1292,7 +1668,15 @@ impl WindowsMountGrant {
         if !self.active {
             return Ok(());
         }
-        revoke_mount_sid(&self.path, PSID(self.sid.as_ptr().cast_mut().cast()))?;
+        let sid = PSID(self.sid.as_ptr().cast_mut().cast());
+        if self.require_sid_absence_after_revoke {
+            revoke_mount_sid(&self.path, sid)?;
+        } else {
+            // Profile-local objects inherit the AppContainer SID from the unique LPAC profile.
+            // Remove only Semwright's explicit narrowing ACEs; inherited profile authority is
+            // intentionally left for DeleteAppContainerProfile to dispose with the profile.
+            set_mount_ace(&self.path, sid, REVOKE_ACCESS, 0, NO_INHERITANCE)?;
+        }
         self.active = false;
         Ok(())
     }
@@ -1356,6 +1740,115 @@ fn prepare_windows_mounts(
                     return Err(Error::new(
                         ErrorCode::SandboxDenied,
                         "Windows sandbox mount transaction failed and prior grants could not be fully revoked",
+                    ));
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok((grants, Some(encoded)))
+}
+
+fn prepare_windows_tools(
+    spec: &SandboxSpec,
+    profile: &AppContainerProfile,
+) -> Result<(Vec<WindowsMountGrant>, Option<String>)> {
+    if spec.sealed_tools.is_empty() {
+        return Ok((Vec::new(), None));
+    }
+    if spec.kind != semwright_platform_api::launch::SandboxKind::Driver {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed tools are currently limited to Driver children",
+        ));
+    }
+    let staging_root = spec.staged_executable.parent().ok_or_else(|| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows Driver staging root is unavailable",
+        )
+    })?;
+    let profile_tool_root = Path::new(&profile.local_app_data).join("SemwrightTools");
+    std::fs::create_dir(&profile_tool_root).map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool profile directory could not be created",
+        )
+    })?;
+    let profile_traverse = prepare_tool_staging_traverse(&profile_tool_root)?;
+    let mut identities = BTreeSet::new();
+    let mut prepared = Vec::with_capacity(spec.sealed_tools.len());
+    let mut materialized = Vec::with_capacity(spec.sealed_tools.len());
+    for tool in &spec.sealed_tools {
+        let (path, sha256) = match &tool.source {
+            SealedToolSource::VerifiedFile { path, sha256 } => (path, sha256),
+            SealedToolSource::UnixFd(_) => {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Windows sealed tools require Host-staged verified files",
+                ));
+            }
+        };
+        if path.parent() != Some(staging_root) {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sealed tools must come from the private Driver staging root",
+            ));
+        }
+
+        // Re-attest the Host-staged source, copy only verified bytes into the unique
+        // AppContainer profile, sync them, and then re-attest the exact executable that the
+        // LPAC child will receive. The owner source and Host staging directory stay inaccessible.
+        let bytes = WindowsVerifier.verify(path, sha256)?;
+        let materialized_path = profile_tool_root.join(format!("{}.exe", tool.name));
+        let mut output = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&materialized_path)
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Windows sealed-tool profile copy could not be created",
+                )
+            })?;
+        std::io::Write::write_all(&mut output, &bytes)?;
+        output.sync_all()?;
+        drop(output);
+        verify_materialized_sealed_tool(&materialized_path, sha256)?;
+
+        let plan = prepare_mount_grant(&Mount {
+            source: materialized_path,
+            class: MountClass::Workspace,
+            logical_name: tool.name.clone(),
+            read_only: true,
+            execute: true,
+        })?;
+        if !identities.insert(plan.identity) {
+            return Err(Error::invalid(
+                "Windows sealed tools must refer to unique materialized executables",
+            ));
+        }
+        materialized.push(MaterializedTool {
+            name: tool.name.clone(),
+            path: plan.materialized.path.clone(),
+        });
+        prepared.push(plan);
+    }
+
+    let encoded = encode_materialized_tools(&materialized)?;
+    let mut grants = Vec::with_capacity(prepared.len() + 1);
+    grants.push(WindowsMountGrant::narrow_profile_authority(
+        &profile_traverse,
+        profile.sid,
+    )?);
+    for plan in &prepared {
+        match WindowsMountGrant::narrow_profile_authority(plan, profile.sid) {
+            Ok(grant) => grants.push(grant),
+            Err(error) => {
+                if revoke_mount_grants(&mut grants).is_err() {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Windows sealed-tool transaction failed and prior grants could not be fully revoked",
                     ));
                 }
                 return Err(error);
@@ -1506,15 +1999,27 @@ fn environment_block(
     spec: &SandboxSpec,
     profile: &AppContainerProfile,
     mount_table: Option<&str>,
+    tool_table: Option<&str>,
 ) -> Result<Vec<u16>> {
-    let mut entries = spec.environment.clone();
-    if entries.iter().any(|(name, _)| name == SANDBOX_MOUNTS_ENV) {
+    let mut entries = spec
+        .environment
+        .iter()
+        .filter(|(name, _)| name != SANDBOX_HOST_TOOL_CHILD_ENV)
+        .cloned()
+        .collect::<Vec<_>>();
+    if entries
+        .iter()
+        .any(|(name, _)| name == SANDBOX_MOUNTS_ENV || name == SANDBOX_TOOLS_ENV)
+    {
         return Err(Error::invalid(
-            "Sandbox mount table environment is reserved to the platform host",
+            "Sandbox mount/tool table environment is reserved to the platform host",
         ));
     }
     if let Some(table) = mount_table {
         entries.push((SANDBOX_MOUNTS_ENV.into(), table.to_owned()));
+    }
+    if let Some(table) = tool_table {
+        entries.push((SANDBOX_TOOLS_ENV.into(), table.to_owned()));
     }
     if let Some(system_root) = std::env::var_os("SystemRoot") {
         entries.push((
@@ -1651,6 +2156,7 @@ struct NativeSandboxChild {
     mount_grants: Vec<WindowsMountGrant>,
     profile_name: Option<Vec<u16>>,
     exited: bool,
+    exit_code: Option<i32>,
 }
 
 impl NativeSandboxChild {
@@ -1670,10 +2176,24 @@ impl NativeSandboxChild {
         result
     }
 
+    fn capture_exit_code(&mut self) -> Result<()> {
+        let mut code = 0u32;
+        // SAFETY: process is a live owned process HANDLE and code is a writable DWORD.
+        unsafe { GetExitCodeProcess(self.process.raw(), &mut code) }.map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Windows sandbox exit code query failed",
+            )
+        })?;
+        self.exit_code = Some(i32::from_ne_bytes(code.to_ne_bytes()));
+        Ok(())
+    }
+
     fn observed_exit(&mut self) -> Result<bool> {
         // SAFETY: process is a live owned process HANDLE.
         let wait = unsafe { WaitForSingleObject(self.process.raw(), 0) };
         if wait == WAIT_OBJECT_0 {
+            self.capture_exit_code()?;
             self._job.terminate(0)?;
             self.exited = true;
             self.cleanup_authority()?;
@@ -1715,9 +2235,14 @@ impl SandboxChildControl for NativeSandboxChild {
                 "Windows sandbox wait returned an unexpected status",
             ));
         }
+        self.capture_exit_code()?;
         self._job.terminate(0)?;
         self.exited = true;
         self.cleanup_authority()
+    }
+
+    fn exit_code(&self) -> Option<i32> {
+        self.exit_code
     }
 }
 
@@ -1738,6 +2263,69 @@ impl Drop for NativeSandboxChild {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
+fn require_x64_user_mode_support() -> Result<()> {
+    // SAFETY: this is a read-only capability query for a constant machine type and returns
+    // a value by copy; no caller-owned pointers or handles are involved.
+    let attributes =
+        unsafe { GetMachineTypeAttributes(IMAGE_FILE_MACHINE_AMD64) }.map_err(|_| {
+            Error::new(
+                ErrorCode::Unsupported,
+                "Windows x64 emulation capability query failed",
+            )
+        })?;
+    if attributes.0 & UserEnabled.0 == 0 {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows host does not enable x64 user-mode execution",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_arch = "aarch64"))]
+fn require_x64_user_mode_support() -> Result<()> {
+    Ok(())
+}
+
+fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
+    let markers = spec
+        .environment
+        .iter()
+        .filter(|(name, _)| name == SANDBOX_HOST_TOOL_CHILD_ENV)
+        .collect::<Vec<_>>();
+    if markers.is_empty() {
+        return Ok(false);
+    }
+    if markers.len() != 1
+        || markers[0].1 != "1"
+        || spec.kind != semwright_platform_api::launch::SandboxKind::Driver
+        || !spec.mounts.is_empty()
+        || !spec.sealed_tools.is_empty()
+        || spec.network
+        || spec.environment.len() != 1
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sealed-tool compatibility marker is only valid for isolated Host-mediated tool children",
+        ));
+    }
+    let architecture = architecture_file(&spec.staged_executable)?;
+    match (std::env::consts::ARCH, architecture) {
+        ("aarch64", PeArchitecture::Amd64) => {
+            // Windows 11 ARM64 transparently emulates x64 user-mode binaries. Verify support
+            // only in ARM64 builds so older x64 hosts never import this Windows 11 API.
+            require_x64_user_mode_support()?;
+            Ok(true)
+        }
+        ("aarch64", PeArchitecture::Arm64) | ("x86_64", PeArchitecture::Amd64) => Ok(false),
+        _ => Err(Error::new(
+            ErrorCode::Unsupported,
+            "Windows sealed-tool architecture is not supported by this host",
+        )),
+    }
+}
+
 /// Windows arbitrary-child launch is platform-owned: an AppContainer identity and explicit
 /// inherited-handle list are attached at creation, the process starts suspended, enters a
 /// kill-on-close Job Object, and is resumed only after that boundary exists.
@@ -1753,14 +2341,17 @@ impl SandboxLauncher for WindowsSandbox {
 
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
+        let cross_arch_host_tool = host_tool_cross_arch(spec)?;
         if !spec.sealed_tools.is_empty() {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
-                "Windows sealed-tool mounts remain fail-closed until immutable executable grants are transactional",
+                "Windows sealed tools require Host-mediated driver protocol v4 execution",
             ));
         }
         let profile = AppContainerProfile::create()?;
-        let (mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
+        let (mut mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
+        let (tool_grants, tool_table) = prepare_windows_tools(spec, &profile)?;
+        mount_grants.extend(tool_grants);
         let (child_stdin, parent_stdin) = inheritable_pipe()?;
         let (parent_stdout, child_stdout) = inheritable_pipe()?;
         clear_inheritance(parent_stdin.raw())?;
@@ -1780,16 +2371,38 @@ impl SandboxLauncher for WindowsSandbox {
             .network
             .then(|| well_known_sid(WinCapabilityInternetClientSid))
             .transpose()?;
-        let mut network_capability = network_sid.as_ref().map(|sid| SID_AND_ATTRIBUTES {
-            Sid: PSID(sid.as_ptr().cast_mut().cast()),
-            Attributes: SE_GROUP_ENABLED as u32,
-        });
+        // Windows-on-ARM x64 emulation performs compatibility initialization that needs
+        // read-only registry access. Keep this capability scoped to the cross-architecture
+        // Host-tool case; native drivers/tools and network-disabled children do not gain it.
+        let emulation_registry_sid = cross_arch_host_tool
+            .then(|| named_capability_sid("registryRead"))
+            .transpose()?;
+        let mut capability_entries = Vec::with_capacity(2);
+        if let Some(sid) = network_sid.as_ref() {
+            capability_entries.push(SID_AND_ATTRIBUTES {
+                Sid: PSID(sid.as_ptr().cast_mut().cast()),
+                Attributes: SE_GROUP_ENABLED as u32,
+            });
+        }
+        if let Some(sid) = emulation_registry_sid.as_ref() {
+            capability_entries.push(SID_AND_ATTRIBUTES {
+                Sid: PSID(sid.as_ptr().cast_mut().cast()),
+                Attributes: SE_GROUP_ENABLED as u32,
+            });
+        }
         let capabilities = SECURITY_CAPABILITIES {
             AppContainerSid: profile.sid,
-            Capabilities: network_capability
-                .as_mut()
-                .map_or(std::ptr::null_mut(), |capability| capability),
-            CapabilityCount: u32::from(network_capability.is_some()),
+            Capabilities: if capability_entries.is_empty() {
+                std::ptr::null_mut()
+            } else {
+                capability_entries.as_mut_ptr()
+            },
+            CapabilityCount: u32::try_from(capability_entries.len()).map_err(|_| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Windows sandbox capability count exceeds platform budget",
+                )
+            })?,
             ..Default::default()
         };
         attributes.set_value(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, &capabilities)?;
@@ -1811,7 +2424,18 @@ impl SandboxLauncher for WindowsSandbox {
                     ErrorCode::ResourceExhausted,
                     "Windows process limit exceeds Job budget",
                 )
-            })?;
+            })?
+            .map(|limit| {
+                if cross_arch_host_tool {
+                    // x64-on-ARM64 emulation may require one runtime-support process. This
+                    // extra Job slot is platform overhead, not delegated driver authority:
+                    // the LPAC child remains without mounts/network and the compatibility
+                    // probe still requires ordinary descendant spawn attempts to fail.
+                    limit.saturating_add(1)
+                } else {
+                    limit
+                }
+            });
         let memory_limit = limits
             .map(|limit| usize::try_from(limit.address_space_bytes))
             .transpose()
@@ -1825,8 +2449,14 @@ impl SandboxLauncher for WindowsSandbox {
         let job = Arc::new(ProcessJob::new(process_limit, memory_limit, cpu_seconds)?);
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
+        let current_directory = wide_null(OsStr::new(&profile.local_app_data))?;
         let mut command = command_line(spec)?;
-        let environment = environment_block(spec, &profile, mount_table.as_deref())?;
+        let environment = environment_block(
+            spec,
+            &profile,
+            mount_table.as_deref(),
+            tool_table.as_deref(),
+        )?;
         let mut process_info = PROCESS_INFORMATION::default();
         let flags = CREATE_SUSPENDED
             | EXTENDED_STARTUPINFO_PRESENT
@@ -1843,7 +2473,7 @@ impl SandboxLauncher for WindowsSandbox {
                 true,
                 flags,
                 Some(environment.as_ptr().cast()),
-                PCWSTR::null(),
+                PCWSTR(current_directory.as_ptr()),
                 (&startup as *const STARTUPINFOEXW).cast(),
                 &mut process_info,
             )
@@ -1898,6 +2528,7 @@ impl SandboxLauncher for WindowsSandbox {
                 mount_grants,
                 profile_name: Some(profile_name),
                 exited: false,
+                exit_code: None,
             }),
             cpu_accounting,
         ))
@@ -1919,6 +2550,8 @@ impl SandboxLauncher for WindowsSandbox {
             "filesystem_mounts": "driver_appcontainer_sid_acl_v1",
             "plugin_mcp_mounts": "fail_closed_pending_portable_mount_lookup",
             "network": "internetClient_capability_only_when_requested",
+            "sealed_tools": "host_mediated_driver_protocol_v4_only",
+            "driver_child_process_creation": "denied",
             "resource_limits": ["processes", "cpu_seconds", "process_memory"],
         })
     }

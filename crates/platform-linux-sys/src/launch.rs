@@ -1,6 +1,7 @@
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, Mount, MountClass, SANDBOX_MOUNTS_ENV, SandboxKind,
-    SandboxLauncher, SandboxSpec, encode_materialized_mounts,
+    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass, SANDBOX_MOUNTS_ENV,
+    SANDBOX_TOOLS_ENV, SandboxKind, SandboxLauncher, SandboxSpec, SealedToolSource,
+    encode_materialized_mounts, encode_materialized_tools,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
@@ -156,6 +157,15 @@ impl SandboxLauncher for LinuxSandbox {
             p.arg("--ro-bind").arg(&m.source).arg(destination);
         }
         for tool in &s.sealed_tools {
+            let fd = match &tool.source {
+                SealedToolSource::UnixFd(fd) => *fd,
+                SealedToolSource::VerifiedFile { .. } => {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Linux sealed tools require Host-owned immutable file descriptors",
+                    ));
+                }
+            };
             // Materialize the Host-verified sealed bytes directly into the private
             // sandbox root. The child receives no write/remove/create Landlock rights
             // for this path, so the executable remains immutable after policy install.
@@ -163,7 +173,7 @@ impl SandboxLauncher for LinuxSandbox {
             // bind-mounting it, which can make later execve() resolve as ENOENT under
             // deleted-file mediation on Ubuntu/AppArmor.
             p.args(["--perms", "0500", "--file"])
-                .arg(tool.fd.to_string())
+                .arg(fd.to_string())
                 .arg(format!("/plugin/tools/{}", tool.name));
         }
         p.arg("--ro-bind")
@@ -205,6 +215,19 @@ impl SandboxLauncher for LinuxSandbox {
                     .collect::<Result<Vec<_>>>()?,
             )?;
             p.arg("--setenv").arg(SANDBOX_MOUNTS_ENV).arg(mount_table);
+
+            if !s.sealed_tools.is_empty() {
+                let tool_table = encode_materialized_tools(
+                    &s.sealed_tools
+                        .iter()
+                        .map(|tool| MaterializedTool {
+                            name: tool.name.clone(),
+                            path: format!("/plugin/tools/{}", tool.name),
+                        })
+                        .collect::<Vec<_>>(),
+                )?;
+                p.arg("--setenv").arg(SANDBOX_TOOLS_ENV).arg(tool_table);
+            }
         }
         for (name, value) in &s.environment {
             p.arg("--setenv").arg(name).arg(value);

@@ -1,7 +1,12 @@
 use semwright_types::{Error, ErrorCode, Result};
+use std::{
+    fs::File,
+    io::{Read, Seek, SeekFrom},
+    path::Path,
+};
 
-const IMAGE_FILE_MACHINE_AMD64: u16 = 0x8664;
-const IMAGE_FILE_MACHINE_ARM64: u16 = 0xAA64;
+pub const IMAGE_FILE_MACHINE_AMD64: u16 = 0x8664;
+pub const IMAGE_FILE_MACHINE_ARM64: u16 = 0xAA64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PeArchitecture {
@@ -22,6 +27,35 @@ pub fn architecture(bytes: &[u8]) -> Result<PeArchitecture> {
     }
     let machine = u16::from_le_bytes(bytes[off + 4..off + 6].try_into().expect("bounded slice"));
     match machine {
+        IMAGE_FILE_MACHINE_AMD64 => Ok(PeArchitecture::Amd64),
+        IMAGE_FILE_MACHINE_ARM64 => Ok(PeArchitecture::Arm64),
+        _ => Err(Error::new(
+            ErrorCode::Unsupported,
+            "PE machine architecture is not supported by Semwright",
+        )),
+    }
+}
+
+pub fn architecture_file(path: &Path) -> Result<PeArchitecture> {
+    let mut file = File::open(path)?;
+    let mut dos = [0u8; 0x40];
+    file.read_exact(&mut dos)?;
+    if &dos[..2] != b"MZ" {
+        return Err(Error::invalid("Executable is not a PE image"));
+    }
+    let offset = u32::from_le_bytes(dos[0x3c..0x40].try_into().expect("bounded slice")) as u64;
+    if offset > 16 * 1024 * 1024 {
+        return Err(Error::invalid(
+            "PE header offset exceeds bounded inspection window",
+        ));
+    }
+    file.seek(SeekFrom::Start(offset))?;
+    let mut header = [0u8; 6];
+    file.read_exact(&mut header)?;
+    if &header[..4] != b"PE\0\0" {
+        return Err(Error::invalid("Malformed PE signature"));
+    }
+    match u16::from_le_bytes([header[4], header[5]]) {
         IMAGE_FILE_MACHINE_AMD64 => Ok(PeArchitecture::Amd64),
         IMAGE_FILE_MACHINE_ARM64 => Ok(PeArchitecture::Arm64),
         _ => Err(Error::new(
@@ -52,6 +86,29 @@ pub fn require_native_architecture(bytes: &[u8]) -> Result<PeArchitecture> {
     Ok(found)
 }
 
+/// Host-mediated user-mode tools may use Windows' supported x64 emulation on an ARM64 host.
+/// Driver processes remain native-only because they define the long-lived sandbox/runtime
+/// boundary; this compatibility rule is deliberately scoped to short-lived sealed tools.
+fn sealed_tool_architecture_supported(host_arch: &str, found: PeArchitecture) -> bool {
+    match host_arch {
+        "x86_64" => found == PeArchitecture::Amd64,
+        "aarch64" => matches!(found, PeArchitecture::Arm64 | PeArchitecture::Amd64),
+        _ => false,
+    }
+}
+
+pub fn require_sealed_tool_architecture(bytes: &[u8]) -> Result<PeArchitecture> {
+    let found = architecture(bytes)?;
+    let supported = sealed_tool_architecture_supported(std::env::consts::ARCH, found);
+    if !supported {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "PE architecture is not supported for a sealed tool on this Windows host",
+        ));
+    }
+    Ok(found)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -75,5 +132,29 @@ mod tests {
     fn rejects_truncated_and_unknown_images() {
         assert!(architecture(b"MZ").is_err());
         assert!(architecture(&image(0x014c)).is_err());
+    }
+
+    #[test]
+    fn sealed_tool_architecture_support_is_host_specific() {
+        assert!(sealed_tool_architecture_supported(
+            "x86_64",
+            PeArchitecture::Amd64
+        ));
+        assert!(!sealed_tool_architecture_supported(
+            "x86_64",
+            PeArchitecture::Arm64
+        ));
+        assert!(sealed_tool_architecture_supported(
+            "aarch64",
+            PeArchitecture::Arm64
+        ));
+        assert!(sealed_tool_architecture_supported(
+            "aarch64",
+            PeArchitecture::Amd64
+        ));
+        assert!(!sealed_tool_architecture_supported(
+            "riscv64",
+            PeArchitecture::Amd64
+        ));
     }
 }

@@ -3,8 +3,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverSecretMount, Manifest,
-    SystemConfigMount, Transport,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverSecretMount,
+    DriverToolMount, Manifest, SystemConfigMount, Transport,
 };
 use semwright_policy::FilesystemGrant;
 use sha2::{Digest, Sha256};
@@ -76,6 +76,7 @@ fn manifest(executable: PathBuf) -> Manifest {
             artifacts: true,
             health: true,
             native_refs: false,
+            host_tools: false,
         },
     }
 }
@@ -126,6 +127,140 @@ async fn secure_windows_driver_host_roundtrips_protocol_v2() {
     Provider::shutdown(provider.as_ref())
         .await
         .expect("secure Windows Driver Host shutdown");
+}
+
+#[tokio::test]
+async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = std::env::var_os("SEMWRIGHT_TEST_TOOL_FIXTURE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture")));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let owner_tool = binary_dir.path().join("owner-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &owner_tool).expect("copy tool fixture");
+    harden_fixture(&executable);
+    harden_fixture(&owner_tool);
+
+    let mut candidate = manifest(executable);
+    if let Ok(value) = std::env::var("SEMWRIGHT_TEST_ADDRESS_SPACE_BYTES") {
+        candidate.resources.address_space_bytes = value
+            .parse()
+            .expect("valid sealed-tool compatibility memory budget");
+    }
+    candidate.protocol = 4;
+    candidate.interfaces.host_tools = true;
+    candidate.tools = vec![DriverToolMount {
+        root: "fixture-tool-root".into(),
+        name: "probe".into(),
+        sha256: digest(&owner_tool),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-tool-root".into(),
+        path: owner_tool.clone(),
+        read: true,
+        write: false,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows Driver Host sealed tool");
+
+    // The owner source is not the executable granted to the LPAC child. Mutating it after
+    // connect must not change the Host-staged, re-attested tool.
+    std::fs::write(&owner_tool, b"tampered-after-connect").expect("mutate owner tool source");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_probe")
+        .expect("fixture tool capability")
+        .descriptor
+        .clone();
+    let output = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "windows-sealed-tool".into(),
+            request_id: "windows-sealed-tool-probe".into(),
+            cancellation: CancellationToken::new(),
+        },
+        &probe,
+        &serde_json::json!({}),
+    )
+    .await
+    .expect("sealed tool probe through LPAC");
+
+    assert_eq!(
+        output["spawn_error_kind"], "",
+        "sealed tool spawn diagnostics: {output}"
+    );
+    assert_eq!(
+        output["exit_code"], 0,
+        "sealed tool exit diagnostics: {output}"
+    );
+    assert_eq!(
+        output["stdout"], "tool-ok|appcontainer=1",
+        "sealed tool must execute without breaking out of AppContainer: {output}"
+    );
+    assert_eq!(
+        output["read_ok"], false,
+        "Host-mediated sealed tools must not expose a direct executable path to the driver: {output}"
+    );
+    assert_eq!(output["execute_open_ok"], false);
+    assert_eq!(output["self_spawn_ok"], false);
+    assert_eq!(output["null_spawn_ok"], false);
+    assert_eq!(output["write_ok"], false);
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("sealed tool Driver Host shutdown");
+}
+
+#[tokio::test]
+async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let owner_tool = binary_dir.path().join("owner-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &owner_tool).expect("copy tool fixture");
+    harden_fixture(&executable);
+    harden_fixture(&owner_tool);
+
+    let mut candidate = manifest(executable);
+    candidate.protocol = 4;
+    candidate.interfaces.host_tools = true;
+    candidate.tools = vec![DriverToolMount {
+        root: "fixture-tool-root".into(),
+        name: "probe".into(),
+        sha256: "0".repeat(64),
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-tool-root".into(),
+        path: owner_tool,
+        read: true,
+        write: false,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let error = match DriverProvider::connect(candidate, state.path(), &helper, &roots, false).await
+    {
+        Ok(provider) => {
+            let _ = Provider::shutdown(provider.as_ref()).await;
+            panic!("sealed tool digest mismatch must fail before child launch");
+        }
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::PermissionDenied);
 }
 
 fn free_loopback_port() -> u16 {

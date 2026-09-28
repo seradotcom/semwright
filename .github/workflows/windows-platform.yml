@@ -131,6 +131,8 @@ jobs:
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_workspace --nocapture
       - name: Secure Windows Driver secret grants
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_secret --nocapture
+      - name: Secure Windows Driver sealed tools
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_sealed_tool --nocapture
       - name: Secure Windows Driver loopback bridge
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_loopback --nocapture
       - name: Secure Windows Plugin Host round-trip
@@ -167,3 +169,60 @@ jobs:
           name: windows-${{ matrix.arch }}-evidence
           path: verification/platform-ci/
           retention-days: 14
+
+  sealed-tool-compat:
+    name: sealed-tool compat ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server2022-x64
+            runs_on: windows-2022
+            toolchain: "1.98.1"
+            tool_target: ""
+            address_space_bytes: "536870912"
+          - name: win11-arm-native-host-x64tool
+            runs_on: windows-11-arm
+            toolchain: "1.98.1"
+            tool_target: "x86_64-pc-windows-msvc"
+            # Diagnostic-only probe budget: if Prism still fails with STATUS_NO_MEMORY at 4 GiB,
+            # do not expand production authority; investigate LPAC/emulation compatibility instead.
+            address_space_bytes: "4294967296"
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install diagnostic Rust toolchain
+        run: |
+          set -euo pipefail
+          rustup toolchain install "${{ matrix.toolchain }}" --profile minimal --force-non-host
+      - name: Record compatibility environment
+        run: |
+          set -euo pipefail
+          echo "RUNNER_ARCH=$RUNNER_ARCH"
+          echo "PROCESSOR_ARCHITECTURE=${PROCESSOR_ARCHITECTURE:-unknown}"
+          rustc +${{ matrix.toolchain }} -vV
+      - name: Build emulated sealed tool fixture
+        if: matrix.tool_target != ''
+        run: |
+          set -euo pipefail
+          rustup target add --toolchain "${{ matrix.toolchain }}" "${{ matrix.tool_target }}"
+          cargo +${{ matrix.toolchain }} build --locked \
+            -p semwright-driver-host \
+            --bin semwright-tool-fixture \
+            --target "${{ matrix.tool_target }}"
+          echo "SEMWRIGHT_TEST_TOOL_FIXTURE=$PWD/target/${{ matrix.tool_target }}/debug/semwright-tool-fixture.exe" >> "$GITHUB_ENV"
+      - name: Sealed tool nested execution probe
+        env:
+          SEMWRIGHT_TEST_ADDRESS_SPACE_BYTES: ${{ matrix.address_space_bytes }}
+        run: >-
+          cargo +${{ matrix.toolchain }} test --locked
+          -p semwright-driver-host
+          --test windows_secure_host
+          -- secure_windows_driver_sealed_tool_is_staged_immutable_and_executable
+          --nocapture

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
     Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, secret_mount,
-    serve, system_config_mount, workspace_mount,
+    serve, system_config_mount, tool_path, workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -77,6 +77,45 @@ fn mount_capability() -> Capability {
         },
         aliases: vec!["mount_probe".into()],
         tags: vec!["fixture".into(), "conformance".into(), "filesystem".into()],
+        object_types: vec![],
+    }
+}
+
+fn tool_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.tool_probe".into(),
+            version: "1".into(),
+            description: "Execute one Host-sealed fixture tool and probe mutation authority".into(),
+            input_schema: json!({"type":"object","additionalProperties":false}),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "stdout":{"type":"string"},
+                    "read_ok":{"type":"boolean"},
+                    "execute_open_ok":{"type":"boolean"},
+                    "self_spawn_ok":{"type":"boolean"},
+                    "self_spawn_errno":{"type":"integer"},
+                    "null_spawn_ok":{"type":"boolean"},
+                    "null_spawn_errno":{"type":"integer"},
+                    "write_ok":{"type":"boolean"},
+                    "spawn_error_kind":{"type":"string"},
+                    "spawn_errno":{"type":"integer"},
+                    "exit_code":{"type":"integer"}
+                },
+                "required":["stdout","read_ok","execute_open_ok","self_spawn_ok","self_spawn_errno","null_spawn_ok","null_spawn_errno","write_ok","spawn_error_kind","spawn_errno","exit_code"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 2_000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["tool_probe".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "tool".into()],
         object_types: vec![],
     }
 }
@@ -216,12 +255,14 @@ impl Driver for Fixture {
             artifacts: true,
             health: true,
             native_refs: false,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
         }
     }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
         Ok(vec![
             capability(),
             mount_capability(),
+            tool_capability(),
             config_capability(),
             secret_capability(),
             long_capability(),
@@ -232,6 +273,7 @@ impl Driver for Fixture {
         let capability = match command {
             "driver.fixture.ping" => capability(),
             "driver.fixture.mount_probe" => mount_capability(),
+            "driver.fixture.tool_probe" => tool_capability(),
             "driver.fixture.config_probe" => config_capability(),
             "driver.fixture.secret_probe" => secret_capability(),
             "driver.fixture.disconnect" => disconnect_capability(),
@@ -258,6 +300,109 @@ impl Driver for Fixture {
             let read = std::fs::read_to_string(root.join("input.txt"))?;
             let write_ok = std::fs::write(root.join("child.txt"), b"written").is_ok();
             return Ok(json!({"read":read,"write_ok":write_ok}));
+        }
+        if command == "driver.fixture.tool_probe" {
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid("fixture tool probe accepts an empty object"));
+            }
+            let tool = tool_path("probe")?;
+            let read_ok = std::fs::File::open(&tool).is_ok();
+            #[cfg(windows)]
+            let execute_open_ok = {
+                use std::os::windows::fs::OpenOptionsExt;
+                std::fs::OpenOptions::new()
+                    .access_mode(0x0012_00A0)
+                    .share_mode(0x7)
+                    .open(&tool)
+                    .is_ok()
+            };
+            #[cfg(not(windows))]
+            let execute_open_ok = read_ok;
+            #[cfg(windows)]
+            let (self_spawn_ok, self_spawn_errno) = match std::env::current_exe() {
+                Ok(executable) => match std::process::Command::new(executable)
+                    .env("SEMWRIGHT_FIXTURE_SELF_PROBE", "1")
+                    .output()
+                {
+                    Ok(output) => (
+                        output.status.success() && output.stdout.starts_with(b"self-ok"),
+                        -1,
+                    ),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                },
+                Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+            };
+            #[cfg(not(windows))]
+            let (self_spawn_ok, self_spawn_errno) = (true, -1);
+            #[cfg(windows)]
+            let (null_spawn_ok, null_spawn_errno) = {
+                use std::process::Stdio;
+                match std::process::Command::new(&tool)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status()
+                {
+                    Ok(status) => (status.success(), -1),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                }
+            };
+            #[cfg(not(windows))]
+            let (null_spawn_ok, null_spawn_errno) = (true, -1);
+            let write_ok = std::fs::OpenOptions::new().write(true).open(&tool).is_ok();
+            let output = match std::process::Command::new(&tool).output() {
+                Ok(output) => output,
+                Err(error) => {
+                    return Ok(json!({
+                        "stdout":"",
+                        "read_ok":read_ok,
+                        "execute_open_ok":execute_open_ok,
+                        "self_spawn_ok":self_spawn_ok,
+                        "self_spawn_errno":self_spawn_errno,
+                        "null_spawn_ok":null_spawn_ok,
+                        "null_spawn_errno":null_spawn_errno,
+                        "write_ok":write_ok,
+                        "spawn_error_kind":format!("{:?}", error.kind()),
+                        "spawn_errno":error.raw_os_error().unwrap_or(-1),
+                        "exit_code":-1
+                    }));
+                }
+            };
+            let exit_code = output.status.code().unwrap_or(-1);
+            if !output.status.success() {
+                return Ok(json!({
+                    "stdout":"",
+                    "read_ok":read_ok,
+                    "execute_open_ok":execute_open_ok,
+                    "self_spawn_ok":self_spawn_ok,
+                    "self_spawn_errno":self_spawn_errno,
+                    "null_spawn_ok":null_spawn_ok,
+                    "null_spawn_errno":null_spawn_errno,
+                    "write_ok":write_ok,
+                    "spawn_error_kind":"",
+                    "spawn_errno":-1,
+                    "exit_code":exit_code
+                }));
+            }
+            let stdout = String::from_utf8(output.stdout).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "fixture tool output was not UTF-8",
+                )
+            })?;
+            return Ok(json!({
+                "stdout":stdout,
+                "read_ok":read_ok,
+                "execute_open_ok":execute_open_ok,
+                "self_spawn_ok":self_spawn_ok,
+                "self_spawn_errno":self_spawn_errno,
+                "null_spawn_ok":null_spawn_ok,
+                "null_spawn_errno":null_spawn_errno,
+                "write_ok":write_ok,
+                "spawn_error_kind":"",
+                "spawn_errno":-1,
+                "exit_code":exit_code
+            }));
         }
         if command == "driver.fixture.config_probe" {
             if args.as_object().is_none_or(|args| !args.is_empty()) {
@@ -321,6 +466,67 @@ impl Driver for Fixture {
         args: Value,
         context: DriverExecutionContext,
     ) -> Result<Value> {
+        if command == "driver.fixture.tool_probe"
+            && std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some()
+        {
+            let capability = tool_capability();
+            if descriptor_digest(&capability.descriptor)? != pinned_digest {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Driver descriptor is not the pinned capability",
+                ));
+            }
+            if args.as_object().is_none_or(|args| !args.is_empty()) {
+                return Err(Error::invalid("fixture tool probe accepts an empty object"));
+            }
+
+            let direct_path_visible = tool_path("probe").is_ok();
+            #[cfg(windows)]
+            let (self_spawn_ok, self_spawn_errno) = match std::env::current_exe() {
+                Ok(executable) => match std::process::Command::new(executable)
+                    .env("SEMWRIGHT_FIXTURE_SELF_PROBE", "1")
+                    .output()
+                {
+                    Ok(output) => (
+                        output.status.success() && output.stdout.starts_with(b"self-ok"),
+                        -1,
+                    ),
+                    Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+                },
+                Err(error) => (false, error.raw_os_error().unwrap_or(-1)),
+            };
+            #[cfg(not(windows))]
+            let (self_spawn_ok, self_spawn_errno) = (false, -1);
+
+            let output = context
+                .execute_tool(
+                    "probe",
+                    Vec::new(),
+                    Vec::new(),
+                    std::time::Duration::from_millis(1_500),
+                )
+                .await?;
+            let stdout = String::from_utf8(output.stdout).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "fixture Host-tool output was not UTF-8",
+                )
+            })?;
+            return Ok(json!({
+                "stdout":stdout,
+                "read_ok":direct_path_visible,
+                "execute_open_ok":false,
+                "self_spawn_ok":self_spawn_ok,
+                "self_spawn_errno":self_spawn_errno,
+                "null_spawn_ok":false,
+                "null_spawn_errno":-1,
+                "write_ok":false,
+                "spawn_error_kind":"",
+                "spawn_errno":-1,
+                "exit_code":output.exit_code
+            }));
+        }
+
         if command != "driver.fixture.long" {
             return self.execute(command, pinned_digest, args).await;
         }
@@ -421,6 +627,10 @@ async fn loopback_echo_task(path: String) {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    if std::env::var_os("SEMWRIGHT_FIXTURE_SELF_PROBE").is_some() {
+        println!("self-ok");
+        return;
+    }
     #[cfg(windows)]
     if let Ok(path) = std::env::var("SEMWRIGHT_DRIVER_LOOPBACK_PIPE") {
         tokio::spawn(loopback_echo_task(path));

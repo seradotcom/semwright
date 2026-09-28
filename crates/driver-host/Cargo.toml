@@ -25,6 +25,13 @@ tokio-util.workspace = true
 async-trait.workspace = true
 libc.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+] }
+
 [dev-dependencies]
 tempfile.workspace = true
 
@@ -34,6 +41,10 @@ workspace = true
 [[bin]]
 name = "semwright-driver-fixture"
 path = "src/bin/fixture.rs"
+
+[[bin]]
+name = "semwright-tool-fixture"
+path = "src/bin/tool_fixture.rs"
 
 [[bin]]
 name = "semwright-adversarial-driver-fixture"

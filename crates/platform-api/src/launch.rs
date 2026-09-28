@@ -77,6 +77,9 @@ impl Mount {
 }
 
 pub const SANDBOX_MOUNTS_ENV: &str = "SEMWRIGHT_SANDBOX_MOUNTS_V1";
+/// Internal host-only marker for a short-lived sealed tool child. Platform launchers may
+/// consume this for compatibility policy, but must not forward it into the child environment.
+pub const SANDBOX_HOST_TOOL_CHILD_ENV: &str = "SEMWRIGHT_HOST_TOOL_CHILD";
 const MAX_MATERIALIZED_MOUNTS: usize = 32;
 const MAX_MOUNT_ENV_BYTES: usize = 16 * 1024;
 
@@ -154,26 +157,110 @@ pub fn decode_materialized_mounts(encoded: &str) -> Result<Vec<MaterializedMount
     Ok(mounts)
 }
 
+fn valid_tool_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with("semwright-internal-")
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
+#[derive(Clone, Debug)]
+pub enum SealedToolSource {
+    /// Linux/Bubblewrap immutable descriptor materialization.
+    UnixFd(i32),
+    /// Host-staged executable that the platform must re-verify before materializing.
+    VerifiedFile { path: PathBuf, sha256: String },
+}
+impl SealedToolSource {
+    fn validate(&self) -> Result<()> {
+        match self {
+            Self::UnixFd(fd) if *fd >= 3 => Ok(()),
+            Self::VerifiedFile { path, sha256 }
+                if path.is_absolute()
+                    && sha256.len() == 64
+                    && sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) =>
+            {
+                Ok(())
+            }
+            _ => Err(Error::invalid("Invalid sealed sandbox tool source")),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SealedToolMount {
-    pub fd: i32,
+    pub source: SealedToolSource,
     pub name: String,
 }
 impl SealedToolMount {
     pub fn validate(&self) -> Result<()> {
-        if self.fd < 3
-            || self.name.is_empty()
-            || self.name.len() > 64
-            || self.name.starts_with("semwright-internal-")
-            || !self
-                .name
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
-        {
+        self.source.validate()?;
+        if !valid_tool_name(&self.name) {
             return Err(Error::invalid("Invalid sealed sandbox tool mount"));
         }
         Ok(())
     }
+}
+
+pub const SANDBOX_TOOLS_ENV: &str = "SEMWRIGHT_SANDBOX_TOOLS_V1";
+const MAX_TOOL_ENV_BYTES: usize = 8 * 1024;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MaterializedTool {
+    pub name: String,
+    pub path: String,
+}
+impl MaterializedTool {
+    pub fn validate(&self) -> Result<()> {
+        if !valid_tool_name(&self.name)
+            || self.path.is_empty()
+            || self.path.len() > 4096
+            || self.path.contains('\0')
+            || !Path::new(&self.path).is_absolute()
+        {
+            return Err(Error::invalid("Invalid materialized sandbox tool"));
+        }
+        Ok(())
+    }
+}
+
+pub fn encode_materialized_tools(tools: &[MaterializedTool]) -> Result<String> {
+    if tools.len() > 8 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized sandbox tool count exceeds budget",
+        ));
+    }
+    let mut names = std::collections::BTreeSet::new();
+    for tool in tools {
+        tool.validate()?;
+        if !names.insert(&tool.name) {
+            return Err(Error::invalid("Duplicate materialized sandbox tool"));
+        }
+    }
+    let encoded = serde_json::to_string(tools)?;
+    if encoded.len() > MAX_TOOL_ENV_BYTES {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized sandbox tool table exceeds environment budget",
+        ));
+    }
+    Ok(encoded)
+}
+
+pub fn decode_materialized_tools(encoded: &str) -> Result<Vec<MaterializedTool>> {
+    if encoded.len() > MAX_TOOL_ENV_BYTES {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Materialized sandbox tool table exceeds environment budget",
+        ));
+    }
+    let tools: Vec<MaterializedTool> = serde_json::from_str(encoded)?;
+    encode_materialized_tools(&tools)?;
+    Ok(tools)
 }
 
 #[derive(Clone, Debug)]
@@ -235,10 +322,18 @@ impl SandboxSpec {
         }
         let mut tool_names = std::collections::BTreeSet::new();
         let mut tool_fds = std::collections::BTreeSet::new();
+        let mut tool_files = std::collections::BTreeSet::new();
         for tool in &self.sealed_tools {
             tool.validate()?;
-            if !tool_names.insert(&tool.name) || !tool_fds.insert(tool.fd) {
+            if !tool_names.insert(&tool.name) {
                 return Err(Error::invalid("Duplicate sealed sandbox tool mount"));
+            }
+            let unique = match &tool.source {
+                SealedToolSource::UnixFd(fd) => tool_fds.insert(*fd),
+                SealedToolSource::VerifiedFile { path, .. } => tool_files.insert(path.clone()),
+            };
+            if !unique {
+                return Err(Error::invalid("Duplicate sealed sandbox tool source"));
             }
         }
         let mut environment_names = std::collections::BTreeSet::new();
@@ -282,10 +377,14 @@ pub trait SandboxChildControl: Send {
     fn id(&self) -> Option<u32>;
     async fn kill(&mut self) -> Result<()>;
     async fn wait(&mut self) -> Result<()>;
+    fn exit_code(&self) -> Option<i32> {
+        None
+    }
 }
 
 struct TokioSandboxChild {
     child: Child,
+    exit_code: Option<i32>,
 }
 
 #[async_trait]
@@ -299,7 +398,13 @@ impl SandboxChildControl for TokioSandboxChild {
     }
 
     async fn wait(&mut self) -> Result<()> {
-        self.child.wait().await.map(|_| ()).map_err(Into::into)
+        let status = self.child.wait().await?;
+        self.exit_code = status.code();
+        Ok(())
+    }
+
+    fn exit_code(&self) -> Option<i32> {
+        self.exit_code
     }
 }
 
@@ -365,7 +470,10 @@ impl SandboxProcess {
         Ok(Self {
             stdin: Some(stdin),
             stdout: Some(stdout),
-            control: Box::new(TokioSandboxChild { child }),
+            control: Box::new(TokioSandboxChild {
+                child,
+                exit_code: None,
+            }),
             cpu_accounting: None,
         })
     }
@@ -402,6 +510,11 @@ impl SandboxProcess {
 
     pub async fn wait(&mut self) -> Result<()> {
         self.control.wait().await
+    }
+
+    pub async fn wait_exit_code(&mut self) -> Result<Option<i32>> {
+        self.control.wait().await?;
+        Ok(self.control.exit_code())
     }
 }
 
@@ -476,5 +589,58 @@ mod tests {
             .map(|index| materialized(&format!("mount-{index}"), path))
             .collect::<Vec<_>>();
         assert!(encode_materialized_mounts(&mounts).is_err());
+    }
+
+    #[test]
+    fn materialized_tool_table_roundtrips_and_rejects_duplicates() {
+        #[cfg(unix)]
+        let path = "/plugin/tools/probe";
+        #[cfg(windows)]
+        let path = r"C:\Users\owner\AppData\Local\Semwright\tools\probe.exe";
+        let tool = MaterializedTool {
+            name: "probe".into(),
+            path: path.into(),
+        };
+        let encoded = encode_materialized_tools(std::slice::from_ref(&tool)).unwrap();
+        assert_eq!(
+            decode_materialized_tools(&encoded).unwrap(),
+            vec![tool.clone()]
+        );
+        assert!(encode_materialized_tools(&[tool.clone(), tool]).is_err());
+    }
+
+    #[test]
+    fn sealed_tool_sources_are_explicit_and_bounded() {
+        assert!(
+            SealedToolMount {
+                source: SealedToolSource::UnixFd(3),
+                name: "probe".into(),
+            }
+            .validate()
+            .is_ok()
+        );
+        #[cfg(windows)]
+        let path = PathBuf::from(r"C:\Semwright\probe.exe");
+        #[cfg(not(windows))]
+        let path = PathBuf::from("/tmp/probe");
+        assert!(
+            SealedToolMount {
+                source: SealedToolSource::VerifiedFile {
+                    path,
+                    sha256: "a".repeat(64),
+                },
+                name: "probe".into(),
+            }
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            SealedToolMount {
+                source: SealedToolSource::UnixFd(2),
+                name: "probe".into(),
+            }
+            .validate()
+            .is_err()
+        );
     }
 }

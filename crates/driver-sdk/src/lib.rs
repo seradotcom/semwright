@@ -2,12 +2,15 @@
 
 pub mod continuity;
 use async_trait::async_trait;
-use semwright_platform_api::launch::{MountClass, SANDBOX_MOUNTS_ENV, decode_materialized_mounts};
+use semwright_platform_api::launch::{
+    MountClass, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, decode_materialized_mounts,
+    decode_materialized_tools,
+};
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::provider::canonical_slug;
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, JobArtifact, JobProgress, NativeTarget, ProviderIdentity,
-    Result, SourceKind,
+    Result, SourceKind, unique_id,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,12 +20,18 @@ use std::{
     path::{Component, Path, PathBuf},
     sync::Arc,
 };
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 3;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 4;
+
+const MAX_TOOL_ARGS: usize = 32;
+const MAX_TOOL_ARG_BYTES: usize = 4 * 1024;
+const MAX_TOOL_STDIN_BYTES: usize = 64 * 1024;
+const MAX_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
+const MAX_TOOL_TIMEOUT_MS: u64 = 30_000;
 
 fn runtime_mount(class: MountClass, logical_name: &str) -> Result<PathBuf> {
     if logical_name.is_empty()
@@ -75,6 +84,39 @@ pub fn system_config_mount(logical_name: &str) -> Result<PathBuf> {
     runtime_mount(MountClass::SystemConfig, logical_name)
 }
 
+fn valid_tool_name(name: &str) -> bool {
+    canonical_slug(name) && name.len() <= 64 && !name.starts_with("semwright-internal-")
+}
+
+/// Resolve one Host-verified executable tool as materialized by the current platform sandbox.
+pub fn tool_path(name: &str) -> Result<PathBuf> {
+    if !valid_tool_name(name) {
+        return Err(Error::invalid("Invalid sandbox tool name"));
+    }
+    match std::env::var(SANDBOX_TOOLS_ENV) {
+        Ok(encoded) => decode_materialized_tools(&encoded)?
+            .into_iter()
+            .find(|tool| tool.name == name)
+            .map(|tool| PathBuf::from(tool.path))
+            .ok_or_else(|| Error::unavailable("Requested sandbox tool was not materialized")),
+        Err(std::env::VarError::NotPresent) => {
+            #[cfg(unix)]
+            {
+                Ok(Path::new("/plugin/tools").join(name))
+            }
+            #[cfg(not(unix))]
+            {
+                Err(Error::unavailable(
+                    "Sandbox tool table is required on this platform",
+                ))
+            }
+        }
+        Err(std::env::VarError::NotUnicode(_)) => Err(Error::invalid(
+            "Sandbox tool table must be valid UTF-8 JSON",
+        )),
+    }
+}
+
 /// Resolve an owner-granted secret file as materialized by the current platform sandbox.
 pub fn secret_mount(logical_name: &str) -> Result<PathBuf> {
     runtime_mount(MountClass::Secret, logical_name)
@@ -104,6 +146,9 @@ pub struct DriverInterfaces {
     /// Protocol v3: driver can emit and validate provider-owned native references.
     #[serde(default)]
     pub native_refs: bool,
+    /// Protocol v4: driver may request Host-mediated execution of owner-pinned sealed tools.
+    #[serde(default)]
+    pub host_tools: bool,
 }
 fn default_health() -> bool {
     true
@@ -195,9 +240,7 @@ impl DriverToolMount {
     fn validate(&self) -> Result<()> {
         if !canonical_slug(&self.root)
             || self.root.starts_with("semwright-internal-")
-            || !canonical_slug(&self.name)
-            || self.name.len() > 64
-            || self.name.starts_with("semwright-internal-")
+            || !valid_tool_name(&self.name)
             || self.sha256.len() != 64
             || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
         {
@@ -384,6 +427,17 @@ impl Manifest {
             return Err(Error::new(
                 ErrorCode::Unsupported,
                 "Driver native-reference validation requires protocol v3",
+            ));
+        }
+        if self.protocol < 4 && self.interfaces.host_tools {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Host-mediated sealed tools require driver protocol v4",
+            ));
+        }
+        if self.interfaces.host_tools && self.tools.is_empty() {
+            return Err(Error::invalid(
+                "Host-mediated sealed tools require at least one owner-pinned tool",
             ));
         }
         if self.publisher.is_empty()
@@ -596,6 +650,50 @@ fn validate_native_target(target: &NativeTarget) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolExecutionOutput {
+    pub exit_code: i32,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+}
+
+impl ToolExecutionOutput {
+    pub fn validate(&self) -> Result<()> {
+        if self.stdout.len() > MAX_TOOL_OUTPUT_BYTES || self.stderr.len() > MAX_TOOL_OUTPUT_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Host-mediated tool output exceeds protocol bounds",
+            ));
+        }
+        Ok(())
+    }
+}
+
+pub fn validate_tool_execute_request(
+    name: &str,
+    args: &[String],
+    stdin: &[u8],
+    timeout_ms: u64,
+) -> Result<()> {
+    if !valid_tool_name(name)
+        || args.len() > MAX_TOOL_ARGS
+        || args
+            .iter()
+            .any(|arg| arg.len() > MAX_TOOL_ARG_BYTES || arg.contains('\0'))
+        || stdin.len() > MAX_TOOL_STDIN_BYTES
+        || timeout_ms == 0
+        || timeout_ms > MAX_TOOL_TIMEOUT_MS
+    {
+        return Err(Error::invalid(
+            "Host-mediated tool request exceeds bounded contract",
+        ));
+    }
+    Ok(())
+}
+
+type ToolCallWaiters = Arc<Mutex<BTreeMap<String, oneshot::Sender<Result<ToolExecutionOutput>>>>>;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Request {
@@ -617,6 +715,14 @@ pub enum Request {
         args: Value,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         context: Option<DriverRequestContext>,
+    },
+    ToolResult {
+        id: String,
+        output: ToolExecutionOutput,
+    },
+    ToolFailure {
+        id: String,
+        error: Error,
     },
     Validate {
         id: String,
@@ -654,6 +760,14 @@ pub enum Response {
     Result {
         id: String,
         value: Value,
+    },
+    ToolExecute {
+        id: String,
+        parent: String,
+        name: String,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout_ms: u64,
     },
     Failure {
         id: String,
@@ -701,6 +815,8 @@ pub struct DriverExecutionContext {
     cancellation: CancellationToken,
     output: mpsc::UnboundedSender<Response>,
     interfaces: DriverInterfaces,
+    protocol: u32,
+    tool_calls: ToolCallWaiters,
 }
 impl DriverExecutionContext {
     pub fn request_id(&self) -> &str {
@@ -725,6 +841,81 @@ impl DriverExecutionContext {
             Ok(())
         }
     }
+
+    pub async fn execute_tool(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+    ) -> Result<ToolExecutionOutput> {
+        if self.protocol < 4 || !self.interfaces.host_tools {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Driver did not negotiate Host-mediated sealed tools",
+            ));
+        }
+        let timeout_ms = u64::try_from(timeout.as_millis()).map_err(|_| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Host-mediated tool timeout exceeds protocol bounds",
+            )
+        })?;
+        validate_tool_execute_request(name, &args, &stdin, timeout_ms)?;
+        self.check_cancelled()?;
+
+        let id = unique_id();
+        let (sender, receiver) = oneshot::channel();
+        {
+            let mut pending = self.tool_calls.lock().await;
+            if pending.len() >= 64 || pending.insert(id.clone(), sender).is_some() {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Driver has too many pending Host-mediated tool calls",
+                ));
+            }
+        }
+        if self
+            .output
+            .send(Response::ToolExecute {
+                id: id.clone(),
+                parent: self.request_id.clone(),
+                name: name.to_owned(),
+                args,
+                stdin,
+                timeout_ms,
+            })
+            .is_err()
+        {
+            self.tool_calls.lock().await.remove(&id);
+            return Err(Error::unavailable("Driver protocol writer is closed"));
+        }
+
+        tokio::select! {
+            biased;
+            _ = self.cancellation.cancelled() => {
+                self.tool_calls.lock().await.remove(&id);
+                Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Host-mediated tool execution cancelled",
+                ))
+            }
+            result = tokio::time::timeout(timeout + std::time::Duration::from_secs(2), receiver) => {
+                match result {
+                    Ok(Ok(result)) => result,
+                    Ok(Err(_)) => Err(Error::unavailable("Host-mediated tool response channel closed")),
+                    Err(_) => {
+                        self.tool_calls.lock().await.remove(&id);
+                        Err(Error::new(
+                            ErrorCode::Timeout,
+                            "Host-mediated tool execution timed out",
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
     pub fn report_progress(
         &self,
         progress: JobProgress,
@@ -898,7 +1089,9 @@ async fn serve_v1<D: Driver>(
             Request::Hello { .. }
             | Request::Interfaces { .. }
             | Request::Cancel { .. }
-            | Request::Validate { .. } => {
+            | Request::Validate { .. }
+            | Request::ToolResult { .. }
+            | Request::ToolFailure { .. } => {
                 return Err(Error::new(
                     ErrorCode::ProtocolMismatch,
                     "Driver protocol v1 received a v2-only or duplicate request",
@@ -919,6 +1112,7 @@ async fn serve_v2<D: Driver>(
     let mut child_events = driver.take_events();
     let driver = Arc::new(Mutex::new(driver));
     let active = Arc::new(Mutex::new(BTreeMap::<String, CancellationToken>::new()));
+    let tool_calls: ToolCallWaiters = Arc::new(Mutex::new(BTreeMap::new()));
     let (responses, mut response_rx) = mpsc::unbounded_channel::<Response>();
 
     let writer = tokio::spawn(async move {
@@ -1075,6 +1269,7 @@ async fn serve_v2<D: Driver>(
                 let driver = driver.clone();
                 let active = active.clone();
                 let responses = responses.clone();
+                let tool_calls = tool_calls.clone();
                 tasks.spawn(async move {
                     let context = DriverExecutionContext {
                         request_id: id.clone(),
@@ -1083,6 +1278,8 @@ async fn serve_v2<D: Driver>(
                         cancellation: token,
                         output: responses.clone(),
                         interfaces,
+                        protocol,
+                        tool_calls: tool_calls.clone(),
                     };
                     let result = {
                         let mut driver = driver.lock().await;
@@ -1097,6 +1294,32 @@ async fn serve_v2<D: Driver>(
                     };
                     let _ = responses.send(response);
                 });
+            }
+            Request::ToolResult { id, output } => {
+                if protocol < 4 || !interfaces.host_tools {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver received an unnegotiated Host-mediated tool result",
+                    ));
+                }
+                output.validate()?;
+                if let Some(sender) = tool_calls.lock().await.remove(&id) {
+                    let _ = sender.send(Ok(output));
+                }
+            }
+            Request::ToolFailure { id, error } => {
+                if protocol < 4 || !interfaces.host_tools {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver received an unnegotiated Host-mediated tool failure",
+                    ));
+                }
+                if let Some(sender) = tool_calls.lock().await.remove(&id) {
+                    let _ = sender.send(Err(Error::new(
+                        error.code,
+                        "Host-mediated sealed tool failed",
+                    )));
+                }
             }
             Request::Validate { id, target } => {
                 if protocol < 3 || !interfaces.native_refs {
@@ -1421,6 +1644,50 @@ mod tests {
             sha256: "not-a-digest".into(),
         }];
         assert!(bad_digest.validate().is_err());
+    }
+
+    #[test]
+    fn host_tool_protocol_requires_v4_tools_and_bounded_requests() {
+        let mut candidate = manifest();
+        candidate.protocol = 3;
+        candidate.interfaces.host_tools = true;
+        assert!(candidate.validate().is_err());
+
+        candidate.protocol = 4;
+        assert!(candidate.validate().is_err());
+
+        candidate.tools = vec![DriverToolMount {
+            root: "tool-root".into(),
+            name: "probe".into(),
+            sha256: "a".repeat(64),
+        }];
+        candidate.validate().unwrap();
+
+        assert!(
+            validate_tool_execute_request("probe", &[], &[], 1_000).is_ok(),
+            "a bounded Host-tool request should validate"
+        );
+        assert!(validate_tool_execute_request("../probe", &[], &[], 1_000).is_err());
+        assert!(
+            validate_tool_execute_request(
+                "probe",
+                &vec!["x".into(); MAX_TOOL_ARGS + 1],
+                &[],
+                1_000
+            )
+            .is_err()
+        );
+        assert!(
+            validate_tool_execute_request(
+                "probe",
+                &[],
+                &vec![0u8; MAX_TOOL_STDIN_BYTES + 1],
+                1_000
+            )
+            .is_err()
+        );
+        assert!(validate_tool_execute_request("probe", &[], &[], 0).is_err());
+        assert!(validate_tool_execute_request("probe", &[], &[], MAX_TOOL_TIMEOUT_MS + 1).is_err());
     }
 
     #[test]

@@ -10,7 +10,7 @@ A generic future tool-dependency/package primitive could remove this manual runt
 
 ## 2. Protocol-v3 adoption for long-running child jobs
 
-The current Driver SDK exposes Protocol v3 progress, artifacts and request cancellation. Motion Canvas negotiates Driver Protocol v3 for cooperative cancellation, progress and artifact reporting. The asynchronous `render.start/status/cancel/result` API remains available, while `render.execute` maps the same renderer onto one protocol-owned request lifecycle. Native refs remain disabled because Motion Canvas refs are managed semantic refs rather than broker-native application references.
+The current Driver SDK supports through Protocol v4. Motion Canvas deliberately negotiates Driver Protocol v3 for cooperative cancellation, progress and artifact reporting because it does not require the v4 Host-mediated sealed-tool interface. The asynchronous `render.start/status/cancel/result` API remains available, while `render.execute` maps the same renderer onto one protocol-owned request lifecycle. Native refs remain disabled because Motion Canvas refs are managed semantic refs rather than broker-native application references.
 
 The protocol-v3 path reuses the existing bounded job registry; it does not introduce a second render authority or duplicate renderer implementation.
 
