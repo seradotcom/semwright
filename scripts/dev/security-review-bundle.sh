@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
 
 BASELINE_INPUT=${1:-HEAD}
-BASELINE_SHA=$(git rev-parse "${BASELINE_INPUT}^{commit}")
+BASELINE_SHA=$(git rev-parse --verify --end-of-options "${BASELINE_INPUT}^{commit}")
 SHORT_SHA=${BASELINE_SHA:0:12}
 OUT=${2:-"/tmp/semwright-security-review-${SHORT_SHA}"}
 
@@ -27,8 +28,30 @@ for path in "${required_paths[@]}"; do
   }
 done
 
-rm -rf "$OUT"
-mkdir -p "$OUT/reference"
+# Never delete or reuse caller-selected output. A bundle is immutable after hashing.
+# mkdir is exclusive: existing directories, files and dangling symlinks all fail.
+# Resolve the parent before comparing against this worktree and shared Git metadata.
+OUT=$(python3 - "$OUT" "$ROOT" "$(git rev-parse --path-format=absolute --git-common-dir)" <<'PYOUT'
+import os
+from pathlib import Path
+import sys
+
+requested = sys.argv[1]
+if not requested or any(ord(char) < 32 or ord(char) == 127 for char in requested):
+    raise SystemExit("security review bundle: invalid output path")
+output = Path(os.path.abspath(requested))
+try:
+    output = output.parent.resolve(strict=True) / output.name
+    protected = [Path(value).resolve(strict=True) for value in sys.argv[2:]]
+    if any(output == path or path in output.parents for path in protected):
+        raise ValueError("output must be outside the worktree and Git metadata")
+    output.mkdir(mode=0o700)
+except (OSError, ValueError) as error:
+    raise SystemExit(f"security review bundle: refusing output: {error}") from error
+print(output)
+PYOUT
+)
+mkdir "$OUT/reference"
 
 git archive --format=tar --prefix="semwright-${SHORT_SHA}/" "$BASELINE_SHA" | gzip -n -9 > "$OUT/semwright-source-${SHORT_SHA}.tar.gz"
 
@@ -132,9 +155,11 @@ with open(sys.argv[1], "w", encoding="utf-8") as f:
     f.write("\n")
 PY
 
+printf "%s\n" "$BASELINE_SHA" > "$OUT/BASELINE_SHA"
 (
   cd "$OUT"
   sha256sum \
+    BASELINE_SHA \
     "$SOURCE_ARCHIVE" \
     manifest.json \
     REVIEWER_REPORT_TEMPLATE.md \
@@ -149,7 +174,6 @@ PY
     > SHA256SUMS
 )
 
-printf "%s\n" "$BASELINE_SHA" > "$OUT/BASELINE_SHA"
 printf "security review bundle: %s\n" "$OUT"
 printf "baseline: %s\n" "$BASELINE_SHA"
 printf "source sha256: %s\n" "$SOURCE_SHA256"

@@ -180,7 +180,16 @@ impl semwright_backend_api::Backend for DualRefBrowser {
 async fn doctor_labels_fixture_not_live_desktop() {
     let f = Fixture::new(Profile::Observe);
     let r = f.call("doctor", json!({})).await;
-    assert_eq!(r.data.unwrap()["fake"], true);
+    assert_eq!(r.data.as_ref().unwrap()["fake"], true);
+    let data = r.data.as_ref().unwrap();
+    assert_eq!(data["unimplemented"], json!([]));
+    assert!(data["features"].is_array());
+    assert!(
+        data["verification"]
+            .as_str()
+            .unwrap()
+            .contains("not a live desktop")
+    );
 }
 #[tokio::test]
 async fn semantic_hit_test_materializes_a_ref_without_input_side_effects() {
@@ -1070,6 +1079,42 @@ async fn record_clipboard_trace(fixture: &Fixture, text: &str) -> String {
         .as_str()
         .unwrap()
         .to_owned()
+}
+
+#[tokio::test]
+async fn revoked_broker_sessions_do_not_exhaust_workflow_recording_capacity() {
+    let fixture = workflow_fixture();
+    for index in 0..64 {
+        let session = unique_id();
+        let started = fixture
+            .broker
+            .clone()
+            .execute(
+                session.clone(),
+                unique_id(),
+                ExecuteRequest {
+                    command: "workflow.record.start".into(),
+                    args: json!({"name":"discarded","capture_values":true}),
+                    dry_run: false,
+                    backend: None,
+                },
+                CancellationToken::new(),
+            )
+            .await;
+        assert!(started.ok, "iteration {index}: {started:?}");
+        fixture.broker.revoke_session(&session);
+    }
+    let traces = fixture.call("workflow.traces.list", json!({})).await;
+    assert!(traces.ok, "{traces:?}");
+    assert_eq!(traces.data.unwrap()["traces"], json!([]));
+    // The normal broker path can still record and finish a new authorized session.
+    let completed = record_clipboard_trace(&fixture, "retained-owner-library").await;
+    fixture.broker.revoke_session(&fixture.session);
+    let traces = fixture.call("workflow.traces.list", json!({})).await;
+    assert!(traces.ok, "{traces:?}");
+    let data = traces.data.unwrap();
+    assert_eq!(data["traces"].as_array().unwrap().len(), 1);
+    assert_eq!(data["traces"][0]["id"], completed);
 }
 
 #[tokio::test]

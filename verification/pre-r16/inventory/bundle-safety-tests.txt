@@ -1,0 +1,17 @@
+test_baseline_file_tampering_is_detected (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_baseline_file_tampering_is_detected) ... ok
+test_control_characters_and_missing_parent_are_rejected (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_control_characters_and_missing_parent_are_rejected) ... ok
+test_existing_and_dangling_symlinks_are_preserved (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_existing_and_dangling_symlinks_are_preserved) ... ok
+test_existing_directory_is_preserved (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_existing_directory_is_preserved) ... ok
+test_existing_file_is_preserved (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_existing_file_is_preserved) ... ok
+test_invalid_baseline_does_not_create_output (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_invalid_baseline_does_not_create_output) ... ok
+test_missing_reference_does_not_create_output (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_missing_reference_does_not_create_output) ... ok
+test_second_generation_cannot_replace_a_hashed_bundle (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_second_generation_cannot_replace_a_hashed_bundle) ... ok
+test_source_archive_is_reproducible (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_source_archive_is_reproducible) ... ok
+test_success_is_private_commit_scoped_and_unreviewed (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_success_is_private_commit_scoped_and_unreviewed) ... ok
+test_symlinked_parent_cannot_enter_worktree (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_symlinked_parent_cannot_enter_worktree) ... ok
+test_worktree_and_git_metadata_are_not_output_destinations (test_security_review_bundle_safety.SecurityReviewBundleSafetyTests.test_worktree_and_git_metadata_are_not_output_destinations) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 1.969s
+
+OK

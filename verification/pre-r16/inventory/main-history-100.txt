@@ -1,0 +1,100 @@
+241000c (origin/main, feat/blender-gltf-export, docs/windows-authority-closeout, audit/pre-r16-forensic) Merge pull request #152 from seradotcom/feat/windows-plugin-mounts
+21c9142 (origin/feat/windows-plugin-mounts, feat/windows-plugin-mounts) chore: refresh lockfile for Plugin mount SDK
+9c3b5b2 feat(windows): support Plugin workspace mounts
+fc9e9f7 Merge pull request #151 from seradotcom/feat/windows-network-authority
+459d8f0 (origin/feat/windows-network-authority, feat/windows-network-authority) test(mcp): bound denied LPAC network probes
+04ae7d1 test(plugin): bound denied LPAC network probes
+a8423d2 diag(plugin): serialize Windows authority test
+2e6f417 diag(plugin): label Windows network probe failures
+fb95f77 diag(windows): grant registryRead to network LPAC
+7f847bc diag(windows): classify AppContainer network failures
+9883212 fix(windows): register network capability on AppContainer profile
+33a162e Merge pull request #150 from seradotcom/feat/figma-semantic-authoring-final-chatgpt
+12ae23c test(windows): isolate network probe stalls
+8542497 test(windows): bound ambient network probes
+2d0b99f feat(windows): enable owner-gated ambient network authority
+74f110d Merge pull request #144 from seradotcom/feat/windows-sealed-tools
+5bda684 (origin/feat/windows-sealed-tools, feat/windows-sealed-tools) Merge current main into Windows sealed tools
+b1a9698 fix(windows): keep Prism sealed tools inside LPAC
+9ecf35f Merge pull request #149 from seradotcom/fix/godot-schema-budget
+960bb65 test(windows): isolate LPAC impact on Prism
+1d70d3c test(windows): isolate Prism memory-cap diagnosis
+fb40463 fix(windows): scope x64 emulation query to ARM64
+6343177 (origin/feat/figma-semantic-authoring-final-chatgpt) test(figma): preserve semantic IDs across edits
+d8d2d15 fix(windows): let Prism select x64 tool emulation
+00387e7 docs(skills): teach Figma semantic authoring loop
+af94578 (feat/figma-semantic-authoring-final-chatgpt) Merge current main into Figma semantic authoring closeout
+3048699 fix(windows): budget one x64 emulation helper process
+d4703c5 (origin/fix/godot-schema-budget, fix/godot-schema-budget) Merge remote-tracking branch 'origin/main' into fix/godot-schema-budget
+d1ca6db fix(windows): pin x64 sealed tool machine type on ARM64
+7bcad97 ci(godot): document sealed-tool preflight coverage
+7f285bd ci(figma): run semantic convergence benchmark
+db384f3 ci(godot): permit sealed tools in scoped AppArmor profile
+0cd4690 Merge pull request #148 from seradotcom/fix/daemon-driver-file-grants
+a1802ba test(windows): restore x64 emulation memory budget
+1039a46 test(godot): align host conformance resource envelope
+06883ee test(figma): gate semantic mutation with existing consent policy
+7c509d2 fix(windows): run sealed x64 tools from native ARM host
+f0347ba ci(godot): use hardened Driver Host sandbox preflight
+ebce71a fix(windows): make emulation memory budget explicit
+bdbbe4c Merge remote-tracking branch 'origin/main' into fix/godot-schema-budget
+71e4362 fix(driver-host): preserve short loopback state paths
+3c5ec0e fix(windows): budget x64-on-arm64 emulation overhead
+0dbaf95 docs(figma): fix structural benchmark config reference
+ed3e230 docs(figma): separate structural benchmark fixture
+8127bba fix(figma): satisfy authoring driver clippy
+5a38a03 diag(driver-host): report pre-Hello child exit code
+70a63c6 test(figma): prove broker authority boundary
+849e253 Merge pull request #147 from seradotcom/feat/agent-skills-layer
+9e99435 fix(driver-host): scope Host-tool code to active platforms
+05055a9 fix(godot): make full broker route conformant
+0f74467 fix(figma): satisfy semantic authoring clippy gates
+ae70c13 test(figma): add structural semantic benchmark
+1e8238a fix(driver-host): write Host tool replies through boxed transport
+195fa3d fix(figma): apply sizing in native parent context
+615b968 feat(figma): support revision-bound semantic edits
+b17a994 fix(driver-sdk): centralize sealed tool name validation
+bd1a578 feat(windows): mediate sealed tools through Driver Host
+c470a0e (origin/feat/agent-skills-layer, feat/agent-skills-layer) fix(ci): grant workflow scopes to skill smoke
+c7170ea (origin/feat/figma-semantic-authoring-closeout-chatgpt, feat/figma-semantic-authoring-closeout-chatgpt) docs(figma): define semantic authoring production contract
+5542070 feat(figma): add semantic landing dogfood fixture
+278d22e fix(figma): harden semantic authoring contracts
+6e22315 test(figma): close semantic authoring protocol loop
+df0a21d fix(ci): stream Blender smoke JSON through files
+7771589 fix(skills): align requirement queries with catalog
+9010163 fix(windows): keep sealed tool children in AppContainer
+d966540 (fix/sealed-tool-budget, fix/daemon-driver-file-grants) fix(daemon): isolate driver file grants from directory backends
+378dd4f ci(windows): isolate sealed tool host compatibility
+29e234f (origin/feat/figma-semantic-authoring) feat(figma): add semantic authoring and bounded repair
+d032e58 security(skills): recheck package file containment
+e8186fd test(windows): isolate sealed tool stdio spawn failure
+db7ff8b fix(skills): lock broker Semwright version
+0dff777 fix(skills): refine policy preview decisions
+4fbaa96 security(windows): verify sealed-tool child process policy
+edaeab0 fix(skills): serialize native paths portably
+32bfb4d security(windows): keep sealed tool children inside LPAC tree
+30b555b security(skills): close parser and package edge cases
+9dffd4d fix(skills): tighten published catalog contract
+f184844 test(windows): diagnose sealed tool child creation
+be297d7 fix(skills): unify versioned conformance reports
+cbf83d7 security(skills): harden package file identity
+ef6185f fix(windows): drop obsolete sealed-tool ACL import
+4895586 security(skills): reject portable zip traversal
+b8102f2 Merge current main into Windows sealed tools
+1750504 fix(windows): allow sealed tool directory reads
+a04f664 (fix/file-grants-driver-host, feat/windows-driver-package-parity-chatgpt) Merge pull request #146 from seradotcom/feat/driver-loopback-authority-chatgpt
+397e45c fix(skills): publish policy preview schema
+545a6f6 feat(skills): report broker policy previews
+f03b769 fix(windows): clean sealed tool ACL imports
+28b8099 security(windows): protect sealed tool profile ACLs
+9e8a97d feat: add Agent Skills interoperability layer
+1fbc90b security(windows): narrow inherited sealed tool authority
+5cffdd7 fix(windows): scope sealed tool write trait
+6ebe82a fix(windows): import Write for sealed tool staging
+5a2f161 Merge current main and preserve Windows sealed tools
+7631675 (feat/driver-loopback-authority-chatgpt) Merge current main and fix Windows loopback namespace
+ae7efc4 fix(windows): materialize sealed tools inside LPAC profile
+7eceb25 Merge pull request #145 from seradotcom/feat/windows-secret-parity
+a410774 fix(windows): use named pipe open-mode constants
+40bdfa3 fix(windows): anchor LPAC cwd in private profile
+0882f39 fix(windows): reserve loopback pipe with WRITE_DAC

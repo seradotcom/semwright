@@ -1,0 +1,21 @@
+{
+  "audit_version": "1.0",
+  "started_at": "2026-09-28T08:27:14.139181+00:00",
+  "start_sha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+  "candidate_sha": null,
+  "repo_url": "https://github.com/seradotcom/semwright.git",
+  "canonical_head": "110c87d1c19a3c3a51dbac976e29c73e5774bc15",
+  "canonical_status": "## feat/blender-deep-driver...origin/feat/blender-deep-driver [behind 1]\n?? verification/one-pass/actions-3be28a/",
+  "heavy_tests": "GitHub Actions only",
+  "protected_owner_work": [
+    "Windows",
+    "Blender/Godot"
+  ],
+  "r16": "OPEN",
+  "r16_ready": false,
+  "git": "git version 2.43.0",
+  "rust": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+  "os": "Linux 6.8.0-142-generic x86_64 GNU/Linux",
+  "disk": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda4        38G   32G  3.8G  90% /\n/dev/sda6       134G  116G   11G  92% /home"
+}

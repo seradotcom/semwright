@@ -1,0 +1,517 @@
+{
+  "baseRefName": "main",
+  "body": "## Summary\n- add fail-closed unlocked-desktop Windows certification harness and self-hosted workflow\n- add ignored UIA/input/pointer/clipboard and WGC picker interactive tests\n- parse the PowerShell harness in hosted Windows CI without executing interactive claims\n- update Windows authority docs and release blockers to match merged native CI evidence\n\n## Claim discipline\nHosted Actions remain PASS_WINDOWS_NATIVE_CI only. The new workflow requires a self-hosted Windows runner labeled semwright-interactive. Unexecuted rows remain WINDOWS_INTERACTIVE_PENDING; external MCP filesystem mounts remain BLOCKED_PORTABLE_PATH_VIRTUALIZATION.\n\n## Local validation\n- cargo fmt --all -- --check\n- git diff --check\n- workflow YAML parse\n- release-readiness.json parse\n\nHeavy/native validation is delegated to GitHub Actions.",
+  "comments": [
+    {
+      "id": "IC_kwDOUkU25s8AAAABXauVpQ",
+      "author": {
+        "login": "seradotcom"
+      },
+      "authorAssociation": "OWNER",
+      "body": "Pre-R16 maintainer preflight coordination (audit branch only; your worktree/branch is untouched):\n\n1. Exact current-main SHA 241000c268d1bf1dc29d4e91a913097ac0d020cb is not green: Windows ARM64 job 108839165329 in run 36394993424 fails real_win32_fixture_exercises_uia_without_pixel_fallback at exact UIA inspection with StaleReference after BLOCKED_NONINTERACTIVE_OCCLUSION. x64 and both sealed-tool compatibility jobs pass. Please reconcile the fixture lifecycle/root cause; the occlusion message alone does not explain away the later failed assertion. https://github.com/seradotcom/semwright/actions/runs/36394993424/job/108839165329\n\n2. In the reviewed run-interactive-certification.ps1 diff, Invoke-CargoRow and the secure_spawn_authority loop mark PASS from cargo exit code alone. A stale/misspelled test filter can select zero tests and still exit 0. Please require positive executed-test counts (and no ignored-only success), with a regression for a zero-selected run, before accepting PASS_WINDOWS_INTERACTIVE.\n\n3. The workflow diff currently uses runs-on: [self-hosted, Windows], although the PR description requires a dedicated semwright-interactive label. Please retain explicit disposable-runner targeting and operator approval; do not dispatch interactive tests to a generic connected Windows machine.\n\nI am correcting the review-bundle destructive-output behavior and reconciling root README/VERIFY/compatibility/changelog claims separately. R16 remains OPEN. No independent-review claim is being made.",
+      "createdAt": "2026-09-28T08:42:00Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/seradotcom/semwright/pull/153#issuecomment-5866493349",
+      "viewerDidAuthor": true
+    }
+  ],
+  "commits": [
+    {
+      "authoredDate": "2026-09-28T08:22:09Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:22:09Z",
+      "messageBody": "",
+      "messageHeadline": "feat(windows): add interactive certification harness",
+      "oid": "88c096666219f89d05911d6645fc9675bcb38b2f"
+    },
+    {
+      "authoredDate": "2026-09-28T08:27:28Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:27:28Z",
+      "messageBody": "",
+      "messageHeadline": "fix(ci): keep interactive harness within workflow contracts",
+      "oid": "d9f80531910839d8ca5f533b5c4f3cb8dcd0701b"
+    },
+    {
+      "authoredDate": "2026-09-28T08:31:37Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:31:37Z",
+      "messageBody": "",
+      "messageHeadline": "fix(windows): import synthetic focus API",
+      "oid": "c7ca999dea53886b5dbcccf47203881f505ec2c1"
+    },
+    {
+      "authoredDate": "2026-09-28T08:44:12Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:44:12Z",
+      "messageBody": "",
+      "messageHeadline": "fix(ci): validate interactive harness via PowerShell file",
+      "oid": "ab5b4f95d2193a7e1070fc5158c037c0b8f3a281"
+    }
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/windows-interactive.yml",
+      "additions": 63,
+      "deletions": 0
+    },
+    {
+      "path": ".github/workflows/windows-platform.yml",
+      "additions": 4,
+      "deletions": 0
+    },
+    {
+      "path": ".gitignore",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "RELEASE_BLOCKERS.md",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "crates/platform-windows/tests/capture_interactive.rs",
+      "additions": 95,
+      "deletions": 0
+    },
+    {
+      "path": "crates/platform-windows/tests/uia_native_fixture.rs",
+      "additions": 227,
+      "deletions": 0
+    },
+    {
+      "path": "docs/windows/DRIVER_PORTABILITY.md",
+      "additions": 7,
+      "deletions": 7
+    },
+    {
+      "path": "docs/windows/LIVE_WINDOWS_TEST_MATRIX.md",
+      "additions": 32,
+      "deletions": 19
+    },
+    {
+      "path": "docs/windows/README.md",
+      "additions": 8,
+      "deletions": 4
+    },
+    {
+      "path": "docs/windows/WINDOWS_API_RESEARCH.md",
+      "additions": 12,
+      "deletions": 10
+    },
+    {
+      "path": "docs/windows/WINDOWS_DRIVER_SANDBOX.md",
+      "additions": 7,
+      "deletions": 3
+    },
+    {
+      "path": "docs/windows/WINDOWS_SECURITY_BOUNDARIES.md",
+      "additions": 18,
+      "deletions": 10
+    },
+    {
+      "path": "docs/windows/WINDOWS_UIA_MAPPING.md",
+      "additions": 1,
+      "deletions": 1
+    },
+    {
+      "path": "docs/windows/WINDOWS_VERIFY.md",
+      "additions": 20,
+      "deletions": 15
+    },
+    {
+      "path": "scripts/windows/run-interactive-certification.ps1",
+      "additions": 192,
+      "deletions": 0
+    },
+    {
+      "path": "scripts/windows/validate-interactive-certification.ps1",
+      "additions": 18,
+      "deletions": 0
+    }
+  ],
+  "headRefName": "feat/windows-interactive-harness",
+  "headRefOid": "ab5b4f95d2193a7e1070fc5158c037c0b8f3a281",
+  "isDraft": true,
+  "mergeStateStatus": "UNSTABLE",
+  "mergeable": "MERGEABLE",
+  "number": 153,
+  "state": "OPEN",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151369/job/108852884998",
+      "name": "source-contracts",
+      "startedAt": "2026-09-28T08:45:08Z",
+      "status": "QUEUED",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151326/job/108852623849",
+      "name": "nix-package",
+      "startedAt": "2026-09-28T08:46:30Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Supply-chain certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:55:54Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151177/job/108852714505",
+      "name": "dependencies",
+      "startedAt": "2026-09-28T08:55:31Z",
+      "status": "COMPLETED",
+      "workflowName": "Dependency, coverage and fuzz gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:55:29Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151308/job/108852618439",
+      "name": "openbox-ewmh",
+      "startedAt": "2026-09-28T08:54:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Native X11 EWMH live"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:53:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725609",
+      "name": "chromium",
+      "startedAt": "2026-09-28T08:51:31Z",
+      "status": "COMPLETED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:48:02Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151213/job/108852617951",
+      "name": "native-package (ubuntu-24.04, x86_64)",
+      "startedAt": "2026-09-28T08:44:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Packaging certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:50:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151434/job/108852618462",
+      "name": "plasma-wayland",
+      "startedAt": "2026-09-28T08:45:44Z",
+      "status": "COMPLETED",
+      "workflowName": "Plasma Wayland live"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:52:28Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151201/job/108852618115",
+      "name": "windows-x64 native noninteractive",
+      "startedAt": "2026-09-28T08:44:28Z",
+      "status": "COMPLETED",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:54:32Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151183/job/108852767215",
+      "name": "linux-regression",
+      "startedAt": "2026-09-28T08:48:03Z",
+      "status": "COMPLETED",
+      "workflowName": "Platformization and macOS"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:47:26Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151213/job/108852617479",
+      "name": "native-package (ubuntu-24.04-arm, aarch64)",
+      "startedAt": "2026-09-28T08:44:33Z",
+      "status": "COMPLETED",
+      "workflowName": "Packaging certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:53:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151201/job/108852618238",
+      "name": "windows-arm64 native noninteractive",
+      "startedAt": "2026-09-28T08:45:28Z",
+      "status": "COMPLETED",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725747",
+      "name": "driver-conformance",
+      "startedAt": "2026-09-28T08:58:43Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:56:21Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151177/job/108852714528",
+      "name": "coverage",
+      "startedAt": "2026-09-28T08:53:53Z",
+      "status": "COMPLETED",
+      "workflowName": "Dependency, coverage and fuzz gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:48:31Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151201/job/108852618105",
+      "name": "sealed-tool compat server2022-x64",
+      "startedAt": "2026-09-28T08:46:35Z",
+      "status": "COMPLETED",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:52:50Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151183/job/108852767084",
+      "name": "macos-native (macos-15, aarch64-apple-darwin, x86_64-apple-darwin, arm64)",
+      "startedAt": "2026-09-28T08:46:41Z",
+      "status": "COMPLETED",
+      "workflowName": "Platformization and macOS"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:54:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151369/job/108852884834",
+      "name": "static-lints",
+      "startedAt": "2026-09-28T08:54:36Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:50:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151326/job/108852623989",
+      "name": "release-bundle (ubuntu-24.04, x86_64)",
+      "startedAt": "2026-09-28T08:46:35Z",
+      "status": "COMPLETED",
+      "workflowName": "Supply-chain certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151183/job/108852766754",
+      "name": "macos-native (macos-15-intel, x86_64-apple-darwin, aarch64-apple-darwin, x86_64)",
+      "startedAt": "2026-09-28T08:48:01Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Platformization and macOS"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:47:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151201/job/108852617902",
+      "name": "sealed-tool compat win11-arm-native-host-x64tool",
+      "startedAt": "2026-09-28T08:44:44Z",
+      "status": "COMPLETED",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:49:31Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151326/job/108852624053",
+      "name": "release-bundle (ubuntu-24.04-arm, aarch64)",
+      "startedAt": "2026-09-28T08:46:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Supply-chain certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151369/job/108852884533",
+      "name": "msrv",
+      "startedAt": "2026-09-28T08:53:50Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:57:10Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151177/job/108852714232",
+      "name": "fuzz",
+      "startedAt": "2026-09-28T08:50:30Z",
+      "status": "COMPLETED",
+      "workflowName": "Dependency, coverage and fuzz gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:55:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725625",
+      "name": "driver-distribution",
+      "startedAt": "2026-09-28T08:55:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725711",
+      "name": "libreoffice-driver",
+      "startedAt": "2026-09-28T08:57:11Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151369/job/108852884874",
+      "name": "rust (ubuntu-24.04)",
+      "startedAt": "2026-09-28T08:57:57Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:53:48Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151369/job/108852884758",
+      "name": "rust (ubuntu-24.04-arm)",
+      "startedAt": "2026-09-28T08:45:17Z",
+      "status": "COMPLETED",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:51:28Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725302",
+      "name": "blender-driver",
+      "startedAt": "2026-09-28T08:47:46Z",
+      "status": "COMPLETED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725844",
+      "name": "figma-driver",
+      "startedAt": "2026-09-28T08:58:17Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725893",
+      "name": "kicad-mlt-drivers",
+      "startedAt": "2026-09-28T08:44:39Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:54:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725724",
+      "name": "pipewire-screencast",
+      "startedAt": "2026-09-28T08:53:47Z",
+      "status": "COMPLETED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725756",
+      "name": "x11-backend",
+      "startedAt": "2026-09-28T08:44:39Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725871",
+      "name": "atspi-backend",
+      "startedAt": "2026-09-28T08:44:39Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-09-28T08:54:23Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852725736",
+      "name": "atspi-qt-backend",
+      "startedAt": "2026-09-28T08:52:53Z",
+      "status": "COMPLETED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36399151249/job/108852726024",
+      "name": "sway-backend",
+      "startedAt": "2026-09-28T08:44:39Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    }
+  ],
+  "title": "feat(windows): add interactive certification harness",
+  "updatedAt": "2026-09-28T08:44:15Z",
+  "url": "https://github.com/seradotcom/semwright/pull/153"
+}
