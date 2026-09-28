@@ -88,6 +88,18 @@ jobs:
       - name: Driver Protocol semantic authoring E2E
         run: |
           BIN_DIR="$GITHUB_WORKSPACE/target/debug"             python3 crates/driver-figma/tools/e2e_driver.py             | tee verification/figma-semantic-authoring/e2e.log
+      - name: Semantic convergence demo and structural A/B/C benchmark
+        run: |
+          python3 demos/figma-semantic-authoring/build_demo_spec.py
+          git diff --exit-code -- demos/figma-semantic-authoring/semwright-landing.composition.json
+          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
+            SEMWRIGHT_FIGMA_DEMO_OUT="$GITHUB_WORKSPACE/verification/figma-semantic-authoring/convergence-demo.json" \
+            python3 demos/figma-semantic-authoring/convergence_demo.py \
+            | tee verification/figma-semantic-authoring/convergence-demo.log
+          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
+            SEMWRIGHT_FIGMA_BENCHMARK_OUT="$GITHUB_WORKSPACE/verification/figma-semantic-authoring/benchmark.json" \
+            python3 demos/figma-semantic-authoring/benchmark.py \
+            | tee verification/figma-semantic-authoring/benchmark.log
       - name: Sandboxed DriverProvider semantic authoring
         env:
           SEMWRIGHT_TEST_FIGMA: "1"
