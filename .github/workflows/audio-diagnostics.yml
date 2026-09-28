@@ -1,0 +1,105 @@
+name: Audio diagnostics
+on:
+  push:
+    branches: [feat/audio-completion]
+    paths:
+      - 'crates/audio-domain/**'
+      - 'crates/audio-authoring/**'
+      - 'crates/driver-faust-audio/**'
+      - 'crates/driver-ardour-audio/**'
+      - 'scripts/audio/**'
+      - 'integrations/audio/**'
+      - '.github/workflows/audio-diagnostics.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+  pull_request:
+    paths:
+      - 'crates/audio-domain/**'
+      - 'crates/audio-authoring/**'
+      - 'crates/driver-faust-audio/**'
+      - 'crates/driver-ardour-audio/**'
+      - 'scripts/audio/**'
+      - 'integrations/audio/**'
+      - '.github/workflows/audio-diagnostics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: audio-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  audio-domain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: audio-v1-portable
+      - name: Portable tests and zero-test guard
+        run: python3 scripts/audio/run-suite.py portable
+      - name: Format and lint
+        run: |
+          cargo fmt -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -- --check
+          cargo clippy --locked -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver --all-targets -- -D warnings
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: audio-portable-${{ github.sha }}
+          path: verification/audio
+          retention-days: 7
+          if-no-files-found: error
+  faust-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: audio-v1-faust
+      - name: Install runner-only Faust runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y faust libsndfile1-dev
+          mkdir -p verification/audio
+          dpkg-query -W faust libsndfile1-dev > verification/audio/runtime-packages.txt
+          sha256sum /usr/bin/faust > verification/audio/faust.sha256
+          faust -version > verification/audio/faust-version.txt
+      - name: Real Faust translation acceptance
+        run: python3 scripts/audio/run-suite.py faust
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: audio-faust-${{ github.sha }}
+          path: verification/audio
+          retention-days: 7
+          if-no-files-found: error
+  audio-gate:
+    if: always()
+    needs: [audio-domain, faust-native]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Every selected lane must run and pass
+        env:
+          DOMAIN_RESULT: ${{ needs.audio-domain.result }}
+          FAUST_RESULT: ${{ needs.faust-native.result }}
+        run: test "$DOMAIN_RESULT" = success && test "$FAUST_RESULT" = success
