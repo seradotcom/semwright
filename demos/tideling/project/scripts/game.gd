@@ -40,9 +40,13 @@ func _ready() -> void:
 	super._ready()
 	name = "TidelingReef"
 	setup_input()
-	for id in ["fry", "yellow", "blue", "butterfly", "puffer", "barracuda", "grouper", "blue_gold"]:
-		var data := load("res://species/" + id + ".tres") as TidelingSpecies
-		if data.enabled and data.spawn_weight > 0: species_list.append(data)
+	# New saved species enter the ecosystem without editing gameplay code.
+	var resources := ResourceLoader.list_directory("res://species/")
+	resources.sort()
+	for filename in resources:
+		if not filename.ends_with(".tres"): continue
+		var data := load("res://species/" + filename) as TidelingSpecies
+		if data and data.enabled and data.spawn_weight > 0: species_list.append(data)
 	player = Area3D.new()
 	player.name = "Fish_Player"
 	player.collision_layer = 1

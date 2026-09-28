@@ -25,11 +25,14 @@ def run(work):
     # This isolated baseline has no candidate geometry at all.
     (project/'assets/blue_gold.glb').unlink()
     (project/'assets/blue_gold.glb.import').unlink(missing_ok=True)
+    (project/'species/blue_gold.tres').unlink()
     shutil.copytree(ROOT/'integrations/godot/addons/semwright',project/'addons/semwright')
     with (project/'project.godot').open('a') as f:f.write('\n[editor_plugins]\nenabled=PackedStringArray("res://addons/semwright/plugin.cfg")\n')
     with (EVIDENCE/'baseline-import.log').open('w') as log:
         command([GODOT,'--headless','--editor','--path',project,'--import'],stdout=log,stderr=subprocess.STDOUT)
-    baseline_species_sha=sha(project/'species/blue_gold.tres')
+    baseline_species={p.name:sha(p) for p in sorted((project/'species').glob('*.tres'))}
+    write_json(EVIDENCE/'baseline-species.json',baseline_species)
+    assert 'blue_gold.tres' not in baseline_species
     project_id=hashlib.sha256(str(project).encode()).hexdigest()
     pairing=os.urandom(32).hex();secret=work/'pairing';secret.write_text(pairing);secret.chmod(0o600)
     with socket.socket() as probe:probe.bind(('127.0.0.1',0));port=probe.getsockname()[1]
@@ -160,11 +163,11 @@ def run(work):
             if asset['resource_exists'] and not asset['is_importing']:break
             time.sleep(.25)
         assert asset['resource_exists'] and asset['type']=='PackedScene',asset
-        baseline=g('resource.inspect',{'path':'res://species/blue_gold.tres'})
-        assert baseline['data']['properties']['enabled'] is False,baseline
-        mutate('resource.patch',{'path':'res://species/blue_gold.tres','properties':[{'name':'enabled','value':True},{'name':'spawn_weight','value':4.0},{'name':'edible_stage','value':2},{'name':'size','value':.47}]})
+        mutate('resource.duplicate',{'source':'res://species/yellow.tres','destination':'res://species/blue_gold.tres'})
+        values={'id':'blue_gold','display_name':'Bluegold sailfin','asset_path':'res://assets/blue_gold.glb','enabled':True,'spawn_weight':4.0,'edible_stage':2,'size':.47,'speed':1.9,'nutrition':7,'predator':False,'schooling':True}
+        mutate('resource.patch',{'path':'res://species/blue_gold.tres','properties':[{'name':name,'value':value} for name,value in values.items()]})
         observed=g('resource.inspect',{'path':'res://species/blue_gold.tres'})['data']['properties']
-        assert observed['enabled'] is True and observed['edible_stage']==2 and observed['spawn_weight']>0,observed
+        assert all(observed.get(name)==value for name,value in values.items()),observed
         shutil.copy2(project/'species/blue_gold.tres',EVIDENCE/'BlueGoldFish.tres')
         editor.terminate();editor.wait(timeout=20)
         # Runtime acceptance invokes no driver-independent edits of project resources.
@@ -188,7 +191,7 @@ def run(work):
             command([package/'Tideling.x86_64','--headless','--quit-after','120'],cwd=package,stdout=stream,stderr=subprocess.STDOUT)
         for log_name in ['gameplay.log','proof-export.log','proof-portable-smoke.log']:
             assert not any('SCRIPT ERROR' in line or line.startswith('ERROR:') for line in (EVIDENCE/log_name).read_text().splitlines()),log_name
-        receipt={'classification':'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':os.environ.get('GITHUB_SHA'),'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_species_sha256':baseline_species_sha,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'playable_pack_sha256':sha(package/'Tideling.pck'),'limitations':['Baseline game assets directly authored before proof','Visual golden gate still open','Branch proof is not merged-SHA public proof']}
+        receipt={'classification':'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':os.environ.get('GITHUB_SHA'),'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_candidate_resource_absent':True,'baseline_species_sha256':baseline_species,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'playable_pack_sha256':sha(package/'Tideling.pck'),'limitations':['Baseline game assets directly authored before proof','Visual golden gate still open','Branch proof is not merged-SHA public proof']}
         write_json(EVIDENCE/'RECEIPT.json',receipt)
         shutil.copy2(project/'assets/blue_gold.glb',EVIDENCE/'BlueGoldFish.glb')
         shutil.copy2(project/'species/blue_gold.tres',EVIDENCE/'BlueGoldFish.tres')

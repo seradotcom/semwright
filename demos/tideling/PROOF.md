@@ -6,8 +6,8 @@ drivers, the sandbox helper, CLI and broker from that same revision, and execute
 `automation/cross_app.py`. Compilation and acceptance run on the hosted runner.
 
 The harness installs the directly authored game as an isolated baseline. It deletes
-the reference Bluegold geometry from that copy and records the disabled species
-resource hash. Pairing and owner configuration files are private, temporary, and
+the reference Bluegold geometry and species resource from that copy, then records
+the seven remaining species and their hashes. Pairing and owner configuration files are private, temporary, and
 excluded from uploaded evidence. No unavailable consent-sensitive command is
 reclassified to get a passing result.
 
@@ -21,10 +21,12 @@ After the baseline is frozen, the recorded semantic route performs these steps:
    GLB digest, then use `artifact.handoff` between explicitly granted roots.
 4. Authenticate the Godot EditorPlugin, discover the rescan capability, rescan and
    inspect the imported PackedScene.
-5. Patch the typed species resource through the Godot driver: enable it, assign
-   stage two eligibility and a positive spawn weight. Inspect the saved values.
+5. Create a new typed species resource through `resource.duplicate`, then patch its
+   identity, asset, stage two eligibility, dimensions, behavior and spawn weight.
+   Inspect all saved values. The game discovers saved species resources, so this
+   adds a species without a prewired code entry.
 6. Exercise the resulting game with the external acceptance script. The candidate
-   must come from the real spawn table and have a playing swim animation, tier
+   must come from the real spawn table and have a playing swim animation with observed tail-bone motion, tier
    group and collision layer. An overlap must fail at stage one; consuming ordinary
    prey through physical collisions must grow the player; the candidate must then
    be consumed and increase score.

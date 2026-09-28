@@ -8,3 +8,4 @@
 - Gameplay premise is the generic eat/grow/survive loop; characters, geometry, sounds, title treatment and level composition are original. TIDELING remains a provisional project name, not a trademark clearance claim.
 - The portable checkpoint includes Godot's official engine binary and its MIT license; font license included separately. It is built on GitHub-hosted Actions and contains no Semwright pairing secret or proof harness.
 - Godot 4.7.2 animation import renames loop-hint clips: https://github.com/godotengine/godot/blob/4.7.2-stable/editor/import/3d/resource_importer_scene.cpp . Runtime selection accepts the imported Swim name and explicitly enables its loop.
+- Godot resource discovery preserves source resource names in exported packs: https://docs.godotengine.org/en/stable/classes/class_resourceloader.html#class-resourceloader-method-list-directory . Species are sorted before registration for deterministic ordering.
