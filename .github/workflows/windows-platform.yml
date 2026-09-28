@@ -185,7 +185,9 @@ jobs:
             runs_on: windows-11-arm
             toolchain: "1.98.1"
             tool_target: "x86_64-pc-windows-msvc"
-            address_space_bytes: "2147483648"
+            # Diagnostic-only probe budget: if Prism still fails with STATUS_NO_MEMORY at 4 GiB,
+            # do not expand production authority; investigate LPAC/emulation compatibility instead.
+            address_space_bytes: "4294967296"
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 30
     defaults:

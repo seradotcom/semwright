@@ -1,8 +1,10 @@
+#[cfg(target_arch = "aarch64")]
+use crate::pe::IMAGE_FILE_MACHINE_AMD64;
 use crate::{
     identity::current_user_sid_bytes,
     job::ProcessJob,
     pe::{
-        IMAGE_FILE_MACHINE_AMD64, PeArchitecture, architecture_file, require_native_architecture,
+        PeArchitecture, architecture_file, require_native_architecture,
         require_sealed_tool_architecture,
     },
 };
@@ -2209,6 +2211,8 @@ impl Drop for NativeSandboxChild {
 
 #[cfg(target_arch = "aarch64")]
 fn require_x64_user_mode_support() -> Result<()> {
+    // SAFETY: this is a read-only capability query for a constant machine type and returns
+    // a value by copy; no caller-owned pointers or handles are involved.
     let attributes =
         unsafe { GetMachineTypeAttributes(IMAGE_FILE_MACHINE_AMD64) }.map_err(|_| {
             Error::new(
