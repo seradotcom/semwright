@@ -20,23 +20,23 @@ use windows::{
         Storage::FileSystem::{
             FILE_CREATE as NT_FILE_CREATE, FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE,
             FILE_OPEN as NT_FILE_OPEN, FILE_OPEN_REPARSE_POINT as NT_FILE_OPEN_REPARSE_POINT,
-            FILE_SYNCHRONOUS_IO_NONALERT, NTCREATEFILE_CREATE_DISPOSITION,
-            NTCREATEFILE_CREATE_OPTIONS, NtCreateFile,
+            FILE_RENAME_INFORMATION, FILE_SYNCHRONOUS_IO_NONALERT, FileRenameInformation,
+            NTCREATEFILE_CREATE_DISPOSITION, NTCREATEFILE_CREATE_OPTIONS, NtCreateFile,
+            NtSetInformationFile,
         },
     },
     Win32::{
         Foundation::{
-            GetLastError, HANDLE, OBJ_CASE_INSENSITIVE, STATUS_OBJECT_NAME_COLLISION,
+            HANDLE, OBJ_CASE_INSENSITIVE, STATUS_OBJECT_NAME_COLLISION,
             STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND, UNICODE_STRING,
         },
         Storage::FileSystem::{
             BY_HANDLE_FILE_INFORMATION, DELETE, FILE_ACCESS_RIGHTS, FILE_ADD_FILE,
             FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
             FILE_DISPOSITION_INFO, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
-            FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_RENAME_INFO,
-            FILE_SHARE_DELETE, FILE_SHARE_MODE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE,
-            FileDispositionInfo, FileRenameInfo, GetFileInformationByHandle, SYNCHRONIZE,
-            SetFileInformationByHandle,
+            FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE,
+            FILE_SHARE_MODE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, FileDispositionInfo,
+            GetFileInformationByHandle, SYNCHRONIZE, SetFileInformationByHandle,
         },
         System::IO::IO_STATUS_BLOCK,
     },
@@ -313,7 +313,7 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
         .checked_mul(2)
         .and_then(|value| u32::try_from(value).ok())
         .ok_or_else(|| Error::invalid("Windows rename target exceeds Unicode budget"))?;
-    let header = offset_of!(FILE_RENAME_INFO, FileName);
+    let header = offset_of!(FILE_RENAME_INFORMATION, FileName);
     let payload = header
         .checked_add(wide.len().saturating_mul(2))
         .ok_or_else(|| {
@@ -322,36 +322,34 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
                 "Windows rename buffer overflow",
             )
         })?;
-    let total = payload.max(size_of::<FILE_RENAME_INFO>());
+    let total = payload.max(size_of::<FILE_RENAME_INFORMATION>());
     let words = total.div_ceil(size_of::<usize>());
     let mut storage = vec![0usize; words];
-    let info = storage.as_mut_ptr().cast::<FILE_RENAME_INFO>();
+    let info = storage.as_mut_ptr().cast::<FILE_RENAME_INFORMATION>();
     let total_u32 = u32::try_from(total).map_err(|_| {
         Error::new(
             ErrorCode::ResourceExhausted,
             "Windows rename buffer too large",
         )
     })?;
-    // SAFETY: storage is pointer-aligned and large enough for the fixed prefix plus every UTF-16 unit.
-    let result = unsafe {
+    let mut io_status = IO_STATUS_BLOCK::default();
+    // SAFETY: storage is pointer-aligned and large enough for FILE_RENAME_INFORMATION plus
+    // every UTF-16 unit. The destination parent HANDLE remains live for the synchronous call.
+    let status = unsafe {
         (*info).Anonymous.ReplaceIfExists = true;
         (*info).RootDirectory = handle(parent);
         (*info).FileNameLength = name_bytes;
         std::ptr::copy_nonoverlapping(wide.as_ptr(), (*info).FileName.as_mut_ptr(), wide.len());
-        SetFileInformationByHandle(
+        NtSetInformationFile(
             handle(file),
-            FileRenameInfo,
+            &mut io_status,
             storage.as_ptr().cast(),
             total_u32,
+            FileRenameInformation,
         )
     };
-    if result.is_err() {
-        // SAFETY: SetFileInformationByHandle just failed on this thread.
-        let code = unsafe { GetLastError() }.0;
-        return Err(Error::new(
-            ErrorCode::BackendFailed,
-            format!("Windows root-relative rename failed (Win32 {code})"),
-        ));
+    if status.is_err() {
+        return Err(nt_error(status, "Windows root-relative rename failed"));
     }
     Ok(())
 }
