@@ -60,6 +60,7 @@ func _ready() -> void:
 	player.area_entered.connect(encounter)
 	player.position = Vector3(7, 1, 1)
 	set_hero(1)
+	play_action("Idle_loop")
 	player_model.scale = Vector3.ONE * 1.4
 	for i in range(42): spawn_fish(true)
 	build_ui()
@@ -144,6 +145,10 @@ func start_game() -> void:
 	paused = false
 	finished = false
 	motion = Vector3.ZERO
+	spawn_clock = 0.0
+	stage_pulse = 0.0
+	for effect in effects: effect.node.queue_free()
+	effects.clear()
 	facing = 1
 	invulnerable = 3.0
 	player.position = Vector3(0, 0, 0)
@@ -205,7 +210,9 @@ func _physics_process(delta: float) -> void:
 		invulnerable = maxf(0, invulnerable - delta)
 		var direction := Input.get_vector("swim_left", "swim_right", "swim_up", "swim_down")
 		var target := Vector3(direction.x, -direction.y, 0)
-		if absf(direction.x) > .08: facing = signf(direction.x)
+		if absf(direction.x) > .08 and signf(direction.x) != facing:
+			facing = signf(direction.x)
+			play_action("Turn")
 		if Input.is_action_just_pressed("burst") and rules.dash():
 			if target.length() < .1: target = Vector3(facing, 0, 0)
 			motion = target.normalized() * 17
@@ -215,6 +222,9 @@ func _physics_process(delta: float) -> void:
 			motion = motion.lerp(target * (5.4 + rules.stage * .4), 1 - exp(-delta * (7.5 if target.length() > .1 else 5.0)))
 		elif not reduced_motion and Engine.get_physics_frames() % 3 == 0:
 			particles_at(player.position - Vector3(facing*.3,0,0), Color("8ed9d4"), 1)
+		if player_animation and ("_Swim" in player_animation.current_animation or "_Idle" in player_animation.current_animation):
+			var desired := "Idle_loop" if motion.length() < .2 else "Swim_loop"
+			if not player_animation.current_animation.contains(desired.trim_suffix("_loop")): play_action(desired)
 		player.position += motion * delta
 		player.position.x = clampf(player.position.x, -25, 25)
 		player.position.y = clampf(player.position.y, -5.8, 8.4)

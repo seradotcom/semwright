@@ -17,7 +17,7 @@ func _physics_process(_delta: float) -> bool:
 	if game.finished or frames > 11000:
 		print("TIDELING_PLAYTHROUGH "+JSON.stringify({"kind":"GAME_RUNTIME_BOT", "seconds":game.rules.elapsed, "stage":game.rules.stage,"score":game.rules.score,"survived":game.rules.elapsed>=180,"max_stage":max_stage,"frames":frames,"note":"Deterministic input bot; does not establish human movement feel."}))
 		started = false
-		shutdown.call_deferred(game.rules.elapsed >= 180 and max_stage == 3)
+		shutdown.call_deferred(game.finished and game.rules.elapsed >= 120 and max_stage == 3)
 		return false
 	var nearest = null
 	var dist := INF
