@@ -1,3 +1,5 @@
+> **Historical first-pass report.** Current continuation, owner assignments and admission status are in [R16_HANDOFF_READINESS.md](R16_HANDOFF_READINESS.md), [OWNER_HANDOFF.md](OWNER_HANDOFF.md), [BRANCH_DISPOSITION_CLOSEOUT.md](BRANCH_DISPOSITION_CLOSEOUT.md) and `pre-r16-audit.json`. Earlier snapshots and failed logs below are preserved, not presented as current-head certification.
+
 # Follow-up findings after initial reconstruction
 
 ## Historical Windows network backup

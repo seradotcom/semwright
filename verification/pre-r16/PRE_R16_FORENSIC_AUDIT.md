@@ -1,3 +1,5 @@
+> **Historical first-pass report.** Current continuation, owner assignments and admission status are in [R16_HANDOFF_READINESS.md](R16_HANDOFF_READINESS.md), [OWNER_HANDOFF.md](OWNER_HANDOFF.md), [BRANCH_DISPOSITION_CLOSEOUT.md](BRANCH_DISPOSITION_CLOSEOUT.md) and `pre-r16-audit.json`. Earlier snapshots and failed logs below are preserved, not presented as current-head certification.
+
 # Pre-R16 forensic audit
 
 **Disposition: NOT_READY_FOR_INDEPENDENT_R16_REVIEW. R16: OPEN.**

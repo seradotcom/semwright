@@ -1,71 +1,60 @@
 # R16 Handoff Readiness
 
-**Status: NOT_READY_FOR_INDEPENDENT_R16_REVIEW**
+Global disposition: **NOT_READY_FOR_INDEPENDENT_R16_REVIEW**.
+Candidate baseline: **unset**. R16: **OPEN**.
 
-Candidate baseline: **NONE**.
-Audit start: `241000c268d1bf1dc29d4e91a913097ac0d020cb`.
-Committed audit remediation: `53c5344ec3fea500b7cade8471928a25bb194048`.
-Audit completeness: reconstruction/focused remediation recorded; comprehensive behavioral review
-and final merged-SHA verification are not complete.
+## Audit lane versus global candidate
 
-## Blocking reasons
+PR156 contains the maintainer audit. Head `495df3283f6e591c2db1a2448a7192e41335c580`
+completed 34 successful checks; non-PR attestation was skipped by design. That evidence
+remains valid for that head and is not silently transferred to later commits.
 
-1. Initial-main Windows ARM64 has a real failed native UIA assertion.
-2. PR153's evidence-admission/runner-targeting issues and PR154's runtime-security/failing-check
-   disposition remain owner work. Neither incomplete mixed-scope PR is approved wholesale.
-3. Forty-eight unmerged heads and security-relevant dirty worktree changes still require behavioral
-   comparison. No release-critical change has been declared absent merely from patch/commit IDs.
-4. Audit fixes exist on a branch, not a verified main candidate; new Rust regressions require Actions.
-5. Root documentation is reconciled with the later read-only website observation, but concurrent
-   RELEASE_BLOCKERS.md still needs owner-coordinated reconciliation. Historical public proofs do
-   not remove the current-SHA gate or outstanding branch review requirements.
+The continuation added unfinished workflow-recording cleanup in `1fff19e90df9bc83c3d855ce47d5bf63fab1126b`
+and plugin-runtime codec corrections in `536e8b14bdc7bb0873ee3cd0a65e5f1048342d81`.
+New Rust/plugin regressions require their own final-head checks. Source-only Python
+validation passed 171 tests. No heavy test or dependency install was run on the connected device.
 
-## Remaining release blockers
+## Completed audit accounting
 
-**R06:** physical Hyprland login and physical mixed-scale/multi-monitor when a second physical
-display is available. Historical nested/synthetic/VM evidence is retained and not promoted to these
-physical claims. Missing hardware is not a code defect or an automatic blocker for maintainer preflight.
+The original 63 unmerged heads now have explicit dispositions in
+`inventory/branch-dispositions-v2.json` and `BRANCH_DISPOSITION_CLOSEOUT.md`.
+There are no unassigned heads in that inventory. Nine application heads remain delegated
+to the Blender/Godot owner; they are not declared equivalent or safe to delete.
+This is release-scope accounting, not a promise to chase every new feature branch.
 
-**R16:** OPEN. An independent identified reviewer must examine the eventual exact SHA and provide
-the dated report, environment, executed/blocked areas, findings, remediations and conclusion.
-No maintainer tests, scanner result or green CI can replace that review.
+The hosted secret precheck executed against merge-test SHA
+`7f844d5bf7b5973fd7d8f41d0072f6595dc36903` for PR head `536e8b14...`.
+It scanned 1,033 commits and 1,072 tracked files. The positive self-test passed.
+The result is `PASS_WITH_TRIAGED_NON_SECRETS`, not zero findings. Three exact non-secret
+source lines and their historical introductions remain visible; changed values, rules,
+paths or multiline matches do not inherit their exceptions. See
+`inventory/secret-precheck-triaged-run.json`, run 36467811671 / job 109082183674.
 
-## Open PR disposition
+## Owner actions before a global freeze
 
-#153: F — BROKEN / INCOMPLETE. #154: F — BROKEN / INCOMPLETE.
-#155: E — POST-RELEASE. Preserve active owner work and resolve overlap without expanding the freeze.
-The audit branch requires its own review and exact-head checks before integration.
+**Windows:** main `be375a12e8afa4d779f9dc0de501b0d4a262a682` failed native ARM64 UIA
+inspection with StaleReference (run 36460484896 / job 109057480347). The owner must resolve
+that lifecycle defect, require positive executed-test counts in every interactive harness
+row and use a dedicated disposable interactive-runner target. These are assigned in
+PR167 comment 5876090544; the audit does not edit the Windows branch or dispatch interactive tests.
 
-## CI and bundle
+**Blender/Godot:** PR154 head `571083bfa995c62638ab4b9145ee2ac7002ad3d2` fixes the earlier
+143/142 provenance discrepancy: current source is 143/143. Exact-head sealed-runtime,
+Driver Host, broker and real-application acceptance still belongs to its owner, as do
+nine historical application heads (PR154 comment 5876090829). TIDELING is not a prerequisite.
 
-Initial SHA: 11 successful workflows and 1 failed Windows workflow. Later PR checks are recorded
-separately and are not inherited by main. See CI_AND_TEST_GAPS.md for positive executed counts.
-No candidate source bundle or candidate hash is issued because no candidate exists. The official
-generator was corrected and verified against disposable commit-scoped fixtures. Once admission
-conditions hold, use it against the frozen main SHA and verify all SHA256SUMS entries.
-The manifest must remain UNREVIEWED, independent_review_required=true, self_attestation=false.
+**Composition/media and dependency expansion:** PR168 and routine version-bump PRs are
+outside this audit freeze unless a separately documented mandatory security fix is identified.
+PR168 comment 5876417178 explains the independent scope and the Figma codec correction.
+New features do not retroactively invalidate the original audit's SHA-scoped evidence.
 
-## Known non-claims
+## Admission remains explicit
 
-Same-UID hostile processes outside the mediated IPC/sandbox assumptions are not isolated tenants.
-Bubblewrap/Landlock is not a formal kernel proof. Recipe redaction is not formal information-flow
-noninterference and recipes are not transactions. Target applications retain ordinary user authority
-unless separately isolated. Browser origin restrictions are not a firewall. OS enforcement models
-are not equivalent. Package SHA-256 does not establish remote publisher identity. Runtime availability
-and hosted tests are not full support certification. Completed owner workflow libraries are not
-separate per-tenant secret stores merely because recording and job events are session-scoped.
+After the audit lane's final checks pass, integrate PR156 without bypassing failed gates.
+A global candidate requires the assigned must-resolve fixes, an immutable commit in main,
+consistent claims and successful relevant main checks. Generate the official review bundle
+only from that admitted SHA; keep `UNREVIEWED`, independent review required and no self-attestation.
 
-## Next admissible step
-
-Resolve required owner fixes, finish behavioral disposition of priority preserved work, complete
-source/evidence reconciliation, run the relevant gates on the resulting main SHA, and only then
-record CANDIDATE_R16_BASELINE_SHA and generate the immutable UNREVIEWED packet.
-
-This repository has completed focused maintainer preflight work only. R16 remains open and requires
-independent review. The full preflight is not falsely declared complete.
-
-## Subsequent reconciliation
-
-See FOLLOWUP_FINDINGS.md: one Windows network backup is behaviorally superseded (47 heads remain),
-the Blender provenance fault is identified, Windows ARM64 failure is reproduced at the audit head,
-and the website public-proof observation is complete. Initial inventories remain historical snapshots.
+R06 retains physical Hyprland login and physical mixed-scale/multi-monitor residuals.
+Missing hardware is not a code defect and synthetic/nested evidence is not physical certification.
+R16 remains open for an identified independent reviewer; this is maintainer preflight only.
