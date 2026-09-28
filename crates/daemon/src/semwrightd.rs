@@ -148,11 +148,10 @@ async fn run(args: Args) -> Result<()> {
         protected.push(parent.to_path_buf());
     }
     config::confine_grants(&config, &protected)?;
-    // Owner grants may also name private files used only as driver secrets or sealed tools.
-    // Public filesystem/browser/artifact surfaces operate on directory roots only; passing
-    // file-backed authorities into them would either fail as NotADirectory or expose a secret
-    // through an unrelated capability namespace.
-    let public_filesystem_grants = config::public_filesystem_grants(&config.policy.filesystem);
+    // Driver secret/tool authorities may be individual files. Generic filesystem,
+    // browser-upload, artifact and plugin roots are directory-scoped and must not
+    // attempt to open those file-backed grants as directories.
+    let directory_filesystem_grants = config::directory_filesystem_grants(&config)?;
     let audit_dir = state.join("audit");
     let audit = Audit::open(&audit_dir, config.audit_max_bytes, config.audit_retention)?;
     let policy = Policy::new(config.policy.clone())?;
@@ -163,7 +162,7 @@ async fn run(args: Args) -> Result<()> {
         &state,
         config.applications.clone(),
         config.browser.clone(),
-        public_filesystem_grants.clone(),
+        directory_filesystem_grants.clone(),
         config.blender_socket.clone(),
     )
     .await?;
@@ -172,9 +171,11 @@ async fn run(args: Args) -> Result<()> {
     // Holds Linux D-Bus ownership (and any future native connection lifetimes)
     // until after the shared broker has shut down.
     let platform_keepalive = platform.keepalive;
-    if !public_filesystem_grants.is_empty() {
-        backends.push(Arc::new(Filesystem::new(&public_filesystem_grants)?));
-        backends.push(Arc::new(ArtifactHandoff::new(&public_filesystem_grants)?));
+    if !directory_filesystem_grants.is_empty() {
+        backends.push(Arc::new(Filesystem::new(&directory_filesystem_grants)?));
+        backends.push(Arc::new(ArtifactHandoff::new(
+            &directory_filesystem_grants,
+        )?));
     }
     let sandbox_helper = std::env::current_exe()?
         .parent()
@@ -186,7 +187,7 @@ async fn run(args: Args) -> Result<()> {
         Some(Arc::new(Host::new(
             state.join("plugins"),
             sandbox_helper.clone(),
-            config.policy.filesystem.clone(),
+            directory_filesystem_grants.clone(),
             config.plugin_network,
         )?))
     };

@@ -3,7 +3,7 @@ use semwright_driver_sdk::Manifest as DriverManifest;
 use semwright_federation::StdioUpstreamConfig;
 use semwright_platform_common::Application;
 use semwright_plugin_sdk::Manifest;
-use semwright_policy::{FilesystemGrant, PolicyConfig};
+use semwright_policy::PolicyConfig;
 #[cfg(unix)]
 use semwright_protocol::current_uid;
 use semwright_protocol::private_directory;
@@ -157,12 +157,17 @@ pub fn state_directory(fake: bool, runtime: &Path) -> Result<PathBuf> {
     private_directory(&directory)?;
     Ok(directory)
 }
-pub fn public_filesystem_grants(grants: &[FilesystemGrant]) -> Vec<FilesystemGrant> {
-    grants
-        .iter()
-        .filter(|grant| grant.path.is_dir())
-        .cloned()
-        .collect()
+/// Grants exposed to generic filesystem consumers must be directory-backed.
+pub fn directory_filesystem_grants(
+    config: &Config,
+) -> Result<Vec<semwright_policy::FilesystemGrant>> {
+    let mut grants = Vec::new();
+    for grant in &config.policy.filesystem {
+        if std::fs::metadata(&grant.path)?.is_dir() {
+            grants.push(grant.clone());
+        }
+    }
+    Ok(grants)
 }
 
 pub fn confine_grants(config: &Config, protected: &[PathBuf]) -> Result<()> {
@@ -258,31 +263,33 @@ trust_driver_everything = true
         );
     }
     #[test]
-    fn public_filesystem_grants_exclude_file_authorities() {
-        let directory = tempfile::tempdir().unwrap();
-        let secret = directory.path().join("pairing");
+    fn driver_file_grants_are_not_exposed_as_directory_filesystem_roots() {
+        let d = tempfile::tempdir().unwrap();
+        let workspace = d.path().join("workspace");
+        std::fs::create_dir(&workspace).unwrap();
+        let secret = d.path().join("pairing");
+        let tool = d.path().join("godot");
         std::fs::write(&secret, b"secret").unwrap();
-        let project = directory.path().join("project");
-        std::fs::create_dir(&project).unwrap();
+        std::fs::write(&tool, b"tool").unwrap();
 
-        let grants = vec![
-            FilesystemGrant {
-                name: "project".into(),
-                path: std::fs::canonicalize(&project).unwrap(),
+        let mut c = Config::default();
+        for (name, path, write) in [
+            ("workspace", workspace, true),
+            ("godot-pairing", secret, false),
+            ("godot-runtime", tool, false),
+        ] {
+            c.policy.filesystem.push(semwright_policy::FilesystemGrant {
+                name: name.into(),
+                path: std::fs::canonicalize(path).unwrap(),
                 read: true,
-                write: true,
-            },
-            FilesystemGrant {
-                name: "pairing".into(),
-                path: std::fs::canonicalize(&secret).unwrap(),
-                read: true,
-                write: false,
-            },
-        ];
+                write,
+            });
+        }
 
-        let public = public_filesystem_grants(&grants);
-        assert_eq!(public.len(), 1);
-        assert_eq!(public[0].name, "project");
+        let grants = directory_filesystem_grants(&c).unwrap();
+        assert_eq!(grants.len(), 1);
+        assert_eq!(grants[0].name, "workspace");
+        assert!(grants[0].path.is_dir());
     }
 
     #[test]
