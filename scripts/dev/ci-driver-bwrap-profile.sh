@@ -42,12 +42,14 @@ nested = "allow pix /** -> &unpriv_bwrap,"
 parent_rules = "\n".join([
     "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
     "  allow ix /plugin/bin,",
+    "  allow ix /plugin/tools/**,",
     "  allow ix /workspace/**,",
     "  allow ix /usr/**,",
     "  allow ix /tmp/**,",
 ])
 child_rules = "\n".join([
     "  allow ix /plugin/bin,",
+    "  allow ix /plugin/tools/**,",
     "  allow ix /workspace/**,",
     "  allow ix /usr/**,",
     "  allow ix /tmp/**,",
@@ -79,16 +81,18 @@ chmod 0755 "$RUNNER_TEMP/semwright-driver-aa-probe/sandbox" \
   "$RUNNER_TEMP/semwright-driver-aa-probe/runtime/tool"
 
 probe=(bwrap --unshare-all --clearenv --proc /proc --dev /dev --tmpfs /tmp
-  --dir /home --dir /workspace --dir /plugin --dir /etc)
+  --dir /home --dir /workspace --dir /plugin --dir /plugin/tools --dir /etc)
 for root in /usr /lib /lib64; do
   [[ ! -e "$root" ]] || probe+=(--ro-bind "$root" "$root")
 done
 [[ ! -f /etc/ld.so.cache ]] || probe+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
 probe+=(--ro-bind "$RUNNER_TEMP/semwright-driver-aa-probe/sandbox" /plugin/sandbox)
 probe+=(--ro-bind "$RUNNER_TEMP/semwright-driver-aa-probe/driver" /plugin/bin)
-probe+=(--ro-bind "$RUNNER_TEMP/semwright-driver-aa-probe/runtime" /workspace/runtime)
+# Exercise the same sealed-tool destination used by Driver Host. If AppArmor
+# cannot execute /plugin/tools/* this preflight must fail before conformance.
+probe+=(--ro-bind "$RUNNER_TEMP/semwright-driver-aa-probe/runtime/tool" /plugin/tools/tool)
 probe+=(--setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8)
-"${probe[@]}" -- /plugin/sandbox --no-new-privs /plugin/bin -c '/workspace/runtime/tool && /usr/bin/true'
+"${probe[@]}" -- /plugin/sandbox --no-new-privs /plugin/bin -c '/plugin/tools/tool && /usr/bin/true'
 
 {
   echo "sandbox_setup=scoped-apparmor-driver-chain"

@@ -12,47 +12,58 @@ use std::{
 };
 use tokio::process::Command;
 
+const MAX_PROVIDER_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_SEALED_TOOL_EXECUTABLE_BYTES: u64 = 256 * 1024 * 1024;
+
+fn verify_executable_bounded(path: &Path, digest: &str, max_bytes: u64) -> Result<Vec<u8>> {
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    let meta = file.metadata()?;
+    // SAFETY: getuid has no pointer arguments or preconditions.
+    let uid = unsafe { libc::getuid() };
+    if !meta.is_file()
+        || meta.len() > max_bytes
+        || meta.mode() & 0o022 != 0
+        || !(meta.uid() == uid || meta.uid() == 0)
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Executable must be owned/root, regular, bounded, and not writable by others",
+        ));
+    }
+    let mut bytes = Vec::new();
+    std::io::Read::by_ref(&mut file)
+        .take(max_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > max_bytes
+        || format!("{:x}", Sha256::digest(&bytes)) != digest.to_ascii_lowercase()
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Executable digest mismatch",
+        ));
+    }
+    // Preserve baseline format semantics; do not newly accept scripts/interpreters.
+    if !bytes.starts_with(b"\x7fELF") {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Pinned ELF binary required",
+        ));
+    }
+    Ok(bytes)
+}
+
 pub struct LinuxVerifier;
 impl ExecutableVerifier for LinuxVerifier {
     fn verify(&self, path: &Path, digest: &str) -> Result<Vec<u8>> {
-        let mut file = std::fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(path)?;
-        let meta = file.metadata()?;
-        // SAFETY: getuid has no pointer arguments or preconditions.
-        let uid = unsafe { libc::getuid() };
-        if !meta.is_file()
-            || meta.len() > 67_108_864
-            || meta.mode() & 0o022 != 0
-            || !(meta.uid() == uid || meta.uid() == 0)
-        {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Executable must be owned/root, regular, bounded, and not writable by others",
-            ));
-        }
-        let mut bytes = Vec::new();
-        std::io::Read::by_ref(&mut file)
-            .take(67_108_865)
-            .read_to_end(&mut bytes)?;
-        if bytes.len() > 67_108_864
-            || format!("{:x}", Sha256::digest(&bytes)) != digest.to_ascii_lowercase()
-        {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Executable digest mismatch",
-            ));
-        }
-        // Preserve baseline format semantics; do not newly accept scripts/interpreters.
-        if !bytes.starts_with(b"\x7fELF") {
-            return Err(Error::new(
-                ErrorCode::Unsupported,
-                "Pinned ELF binary required",
-            ));
-        }
-        Ok(bytes)
+        verify_executable_bounded(path, digest, MAX_PROVIDER_EXECUTABLE_BYTES)
     }
+}
+
+pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
+    verify_executable_bounded(path, digest, MAX_SEALED_TOOL_EXECUTABLE_BYTES)
 }
 fn materialized_destination(mount: &Mount) -> Result<String> {
     mount.validate()?;
@@ -254,5 +265,35 @@ impl SandboxLauncher for LinuxSandbox {
             .stderr(Stdio::null())
             .kill_on_drop(true);
         Ok(p)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn bounded_executable_verifier_honors_requested_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let executable = directory.path().join("fixture");
+        let bytes = b"\x7fELFbounded-verifier-fixture";
+        std::fs::write(&executable, bytes).unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let digest = format!("{:x}", Sha256::digest(bytes));
+
+        assert!(
+            verify_executable_bounded(&executable, &digest, bytes.len() as u64).is_ok(),
+            "exact bounded executable should verify"
+        );
+        let error =
+            verify_executable_bounded(&executable, &digest, bytes.len() as u64 - 1).unwrap_err();
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+    }
+
+    #[test]
+    fn sealed_tool_budget_is_distinct_from_provider_budget() {
+        assert_eq!(MAX_PROVIDER_EXECUTABLE_BYTES, 64 * 1024 * 1024);
+        assert_eq!(MAX_SEALED_TOOL_EXECUTABLE_BYTES, 256 * 1024 * 1024);
     }
 }

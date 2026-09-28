@@ -21,6 +21,24 @@ fn initial_catalog_is_strict_and_digests_are_stable() {
 }
 
 #[test]
+fn all_driver_schemas_fit_external_registry_budget() {
+    let catalog = Catalog::load().unwrap();
+    for capability in catalog.capabilities() {
+        for (side, schema) in [
+            ("input", &capability.descriptor.input_schema),
+            ("output", &capability.descriptor.output_schema),
+        ] {
+            semwright_registry::bounds::schema_budget(schema, true).unwrap_or_else(|error| {
+                panic!(
+                    "{} {} schema exceeds external registry budget: {}",
+                    capability.descriptor.name, side, error
+                )
+            });
+        }
+    }
+}
+
+#[test]
 fn catalog_declares_generic_artifact_ports() {
     let catalog = Catalog::load().unwrap();
     let rescan = catalog.get("driver.godot.assets.rescan").unwrap();

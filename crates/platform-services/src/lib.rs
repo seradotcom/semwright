@@ -118,6 +118,11 @@ pub fn verify_executable(p: &Path, d: &str) -> Result<Vec<u8>> {
     verifier().verify(p, d)
 }
 
+#[cfg(target_os = "linux")]
+pub fn verify_sealed_tool_executable(p: &Path, d: &str) -> Result<Vec<u8>> {
+    semwright_platform_linux_sys::launch::verify_sealed_tool_executable(p, d)
+}
+
 #[cfg(target_os = "windows")]
 pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
     semwright_platform_windows_sys::launch::verify_private_data_file(path, max_bytes)
