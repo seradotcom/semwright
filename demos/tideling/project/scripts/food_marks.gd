@@ -12,7 +12,7 @@ func _draw() -> void:
 			var radius := clampf(fish.species.size * 32, 10, 28)
 			for side in [0.0, PI]:
 				draw_arc(point, radius, side-.55, side+.55, 12, Color(.015,.07,.09,.85),4,true)
-				draw_arc(point, radius, side-.55, side+.55, 12, Color("c9f2de"),1.5,true)
+				draw_arc(point, radius, side-.55, side+.55, 12, Color("e0ffe7"),2.2,true)
 		elif fish.species.predator:
 			var at := point + Vector2(0,-fish.species.size*30-8)
-			draw_polyline(PackedVector2Array([at+Vector2(0,-5),at+Vector2(5,0),at+Vector2(0,5),at+Vector2(-5,0),at+Vector2(0,-5)]),Color("ffbf83"),2,true)
+			draw_polyline(PackedVector2Array([at+Vector2(0,-8),at+Vector2(8,0),at+Vector2(0,8),at+Vector2(-8,0),at+Vector2(0,-8)]),Color("ffbf83"),2,true)

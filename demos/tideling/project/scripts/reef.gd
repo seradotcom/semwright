@@ -74,7 +74,11 @@ func build_reef() -> void:
 			var kind: String = ["coral", "fan", "kelp", "anemone"][rng.randi_range(0, 3)]
 			var item := asset(kind, Vector3(x, -7.5, z - 0.5), rng.randf_range(1.2, 2.8) * (1.3 if layer > 0 else 1.0))
 			item.rotation.y = rng.randf_range(-0.45, 0.45)
-			if kind == "kelp": fronds.append(item)
+			if kind == "kelp":
+				if layer == 0:
+					item.scale *= .62
+					darken(item)
+				fronds.append(item)
 	# Tall distant walls and dark near-edge fronds frame the navigable lagoon.
 	for side in [-1.0, 1.0]:
 		for i in range(4):

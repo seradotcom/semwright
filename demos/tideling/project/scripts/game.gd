@@ -300,7 +300,6 @@ func label(text: String, size: int, at: Vector2, parent: Node, color := Color("f
 func bar(at: Vector2, width: float, parent: Node, color: Color) -> ProgressBar:
 	var node := ProgressBar.new()
 	node.position = at
-	node.size = Vector2(width, 5)
 	node.max_value = 1
 	node.show_percentage = false
 	var bg := StyleBoxFlat.new()
@@ -310,6 +309,7 @@ func bar(at: Vector2, width: float, parent: Node, color: Color) -> ProgressBar:
 	node.add_theme_stylebox_override("background", bg)
 	node.add_theme_stylebox_override("fill", fill)
 	parent.add_child(node)
+	node.size = Vector2(width, 5)
 	return node
 
 func build_ui() -> void:
@@ -370,6 +370,13 @@ func build_ui() -> void:
 	ui.add_child(mute_button)
 	hud = Control.new()
 	ui.add_child(hud)
+	var edge_shade := ColorRect.new()
+	edge_shade.size = Vector2(1280,800)
+	edge_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var edge_material := ShaderMaterial.new()
+	edge_material.shader = load("res://scripts/hud.gdshader")
+	edge_shade.material = edge_material
+	hud.add_child(edge_shade)
 	stage_label = label("Juvenile", 23, Vector2(44,32),hud)
 	growth = bar(Vector2(44,71),270,hud,Color("efbf89"))
 	score_label = label("0",28,Vector2(1060,28),hud)

@@ -11,10 +11,20 @@ func capture(id: String) -> void:
 func run() -> void:
 	game = load("res://reef.tscn").instantiate()
 	root.add_child(game)
-	await capture("title-002")
+	await capture("title-004")
 	game.start_game()
 	game.invulnerable = 10000
-	await capture("game-002")
+	await capture("game-004")
+	game.paused = true
+	for fish in game.population: fish.queue_free()
+	game.population.clear()
+	game.player.position = Vector3.ZERO
+	for id in ["yellow","blue_gold","grouper"]:
+		var fish = game.spawn_fish(false,load("res://species/"+id+".tres"))
+		fish.position = Vector3(-3,0,0) if id=="yellow" else Vector3(3,0,0) if id=="blue_gold" else Vector3(4,2,0)
+		fish.model.rotation.y = PI if id != "yellow" else 0
+	await capture("hierarchy")
+	game.paused = false
 	# Deliberate visual fixture staging, not gameplay evidence.
 	for i in range(35): game.rules.eat(load("res://species/fry.tres"))
 	game.set_hero(2)
