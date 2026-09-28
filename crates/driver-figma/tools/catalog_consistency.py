@@ -6,6 +6,7 @@ import sys
 root = pathlib.Path(__file__).resolve().parents[1]
 rust_sources = [
     root / "src/main.rs",
+    root / "src/semantic_authoring_ops.rs",
     root / "src/semantic_more_ops.rs",
     root / "src/semantic_admin_ops.rs",
     root / "src/semantic_rest_ops.rs",

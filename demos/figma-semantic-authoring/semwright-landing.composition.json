@@ -1,0 +1,3365 @@
+{
+  "budgets": {
+    "max_depth": 12,
+    "max_findings_per_round": 128,
+    "max_iterations": 4,
+    "max_mutations": 48,
+    "max_nodes": 160,
+    "max_relationships": 64,
+    "max_repair_operations": 16
+  },
+  "nodes": [
+    {
+      "id": "desktop",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 0,
+        "padding": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0
+        },
+        "wrap": false
+      },
+      "name": "Semwright / Launch / Desktop",
+      "order": 0,
+      "parent": null,
+      "role": "page",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 4100
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 1440
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9019607843137255,
+          "g": 0.9372549019607843,
+          "kind": "solid",
+          "r": 0.9568627450980393
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-nav",
+      "kind": "row",
+      "layout": {
+        "absolute_children": false,
+        "align": "center",
+        "direction": "horizontal",
+        "distribute": "space_between",
+        "gap": 24,
+        "padding": {
+          "bottom": 32,
+          "left": 72,
+          "right": 72,
+          "top": 32
+        },
+        "wrap": false
+      },
+      "name": "01 / Navigation",
+      "order": 0,
+      "parent": "desktop",
+      "role": "navigation",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 104
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "d-brand",
+      "kind": "text",
+      "name": "Wordmark",
+      "order": 0,
+      "parent": "d-nav",
+      "role": "brand",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "semwright",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 28,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 32,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-nav-note",
+      "kind": "text",
+      "name": "Navigation note",
+      "order": 1,
+      "parent": "d-nav",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "semantic execution / native evidence",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 14,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 20,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-hero",
+      "kind": "row",
+      "layout": {
+        "absolute_children": false,
+        "align": "center",
+        "direction": "horizontal",
+        "distribute": "start",
+        "gap": 72,
+        "padding": {
+          "bottom": 88,
+          "left": 72,
+          "right": 72,
+          "top": 88
+        },
+        "wrap": false
+      },
+      "name": "02 / Hero",
+      "order": 1,
+      "parent": "desktop",
+      "role": "hero",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 880
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "d-hero-copy",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 18,
+        "padding": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0
+        },
+        "wrap": false
+      },
+      "name": "Hero / Editorial copy",
+      "order": 0,
+      "parent": "d-hero",
+      "role": "hero-copy",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 620
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 620
+        }
+      }
+    },
+    {
+      "id": "d-kicker",
+      "kind": "text",
+      "name": "Hero / Kicker",
+      "order": 0,
+      "parent": "d-hero-copy",
+      "role": "eyebrow",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 520
+        }
+      },
+      "text": {
+        "characters": "NATIVE SEMANTIC EXECUTION",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 14,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 20,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-heading",
+      "kind": "text",
+      "name": "Hero / Heading",
+      "order": 1,
+      "parent": "d-hero-copy",
+      "role": "heading",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 610
+        }
+      },
+      "text": {
+        "characters": "Agents should spend intelligence on judgment, not coordinates.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 72,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 78,
+        "max_lines": 4
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-body",
+      "kind": "text",
+      "name": "Hero / Body",
+      "order": 2,
+      "parent": "d-hero-copy",
+      "role": "body",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 570
+        }
+      },
+      "text": {
+        "characters": "Semwright turns structured intent into native Figma objects, measures what actually happened, and converges only through bounded, policy-authorized changes.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 21,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 31,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-cta",
+      "kind": "row",
+      "layout": {
+        "absolute_children": false,
+        "align": "center",
+        "direction": "horizontal",
+        "distribute": "start",
+        "gap": 12,
+        "padding": {
+          "bottom": 18,
+          "left": 24,
+          "right": 24,
+          "top": 18
+        },
+        "wrap": false
+      },
+      "name": "Hero / CTA",
+      "order": 3,
+      "parent": "d-hero-copy",
+      "role": "cta",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 64
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 310
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": 8,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-cta-label",
+      "kind": "text",
+      "name": "CTA / Label",
+      "order": 0,
+      "parent": "d-cta",
+      "role": "label",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "Inspect the execution model \u2192",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 20,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-proof",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 20,
+        "padding": {
+          "bottom": 32,
+          "left": 32,
+          "right": 32,
+          "top": 32
+        },
+        "wrap": false
+      },
+      "name": "Hero / Evidence field",
+      "order": 1,
+      "parent": "d-hero",
+      "role": "evidence",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 620
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 604
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": 12,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-proof-kicker",
+      "kind": "text",
+      "name": "Evidence / Kicker",
+      "order": 0,
+      "parent": "d-proof",
+      "role": "eyebrow",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 500
+        }
+      },
+      "text": {
+        "characters": "OBSERVED, NOT ASSUMED",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 13,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 1.0,
+          "g": 0.7176470588235294,
+          "kind": "solid",
+          "r": 0.615686274509804
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-proof-title",
+      "kind": "text",
+      "name": "Evidence / Title",
+      "order": 1,
+      "parent": "d-proof",
+      "role": "heading",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 520
+        }
+      },
+      "text": {
+        "characters": "Intent \u2192 plan \u2192 native build \u2192 measure \u2192 validate \u2192 repair \u2192 verify",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 32,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 39,
+        "max_lines": 4
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-proof-lines",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 12,
+        "padding": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0
+        },
+        "wrap": false
+      },
+      "name": "Evidence / Contract rows",
+      "order": 2,
+      "parent": "d-proof",
+      "role": "evidence-list",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 280
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "d-proof-1",
+      "kind": "text",
+      "name": "Evidence / 01",
+      "order": 0,
+      "parent": "d-proof-lines",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "01  Text remains TextNode content",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 23,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-proof-2",
+      "kind": "text",
+      "name": "Evidence / 02",
+      "order": 1,
+      "parent": "d-proof-lines",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "02  Auto Layout owns mechanical spacing",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 23,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-proof-3",
+      "kind": "text",
+      "name": "Evidence / 03",
+      "order": 2,
+      "parent": "d-proof-lines",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "03  Revisions invalidate stale plans",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 23,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-proof-4",
+      "kind": "text",
+      "name": "Evidence / 04",
+      "order": 3,
+      "parent": "d-proof-lines",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "04  Visual review is evidence, never object identity",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 23,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-thesis",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 28,
+        "padding": {
+          "bottom": 104,
+          "left": 160,
+          "right": 160,
+          "top": 104
+        },
+        "wrap": false
+      },
+      "name": "03 / Thesis",
+      "order": 2,
+      "parent": "desktop",
+      "role": "section",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 620
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-thesis-num",
+      "kind": "text",
+      "name": "Thesis / Number",
+      "order": 0,
+      "parent": "d-thesis",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 820
+        }
+      },
+      "text": {
+        "characters": "03 / A different execution boundary",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 14,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 20,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-thesis-head",
+      "kind": "text",
+      "name": "Thesis / Heading",
+      "order": 1,
+      "parent": "d-thesis",
+      "role": "heading",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 940
+        }
+      },
+      "text": {
+        "characters": "The model decides what matters. Semwright makes the mechanics inspectable.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 52,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 60,
+        "max_lines": 3
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-thesis-body",
+      "kind": "text",
+      "name": "Thesis / Body",
+      "order": 2,
+      "parent": "d-thesis",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 820
+        }
+      },
+      "text": {
+        "characters": "No hidden JavaScript. No coordinate theater. No screenshot pretending to be a document. The output is still Figma: editable, structured, and addressable by native identity.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 20,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 30,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-flow",
+      "kind": "row",
+      "layout": {
+        "absolute_children": false,
+        "align": "center",
+        "direction": "horizontal",
+        "distribute": "space_between",
+        "gap": 24,
+        "padding": {
+          "bottom": 112,
+          "left": 72,
+          "right": 72,
+          "top": 112
+        },
+        "wrap": false
+      },
+      "name": "04 / Authority flow",
+      "order": 3,
+      "parent": "desktop",
+      "role": "architecture",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 620
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "d-agent",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 10,
+        "padding": {
+          "bottom": 28,
+          "left": 28,
+          "right": 28,
+          "top": 28
+        },
+        "wrap": false
+      },
+      "name": "Flow / Agent",
+      "order": 0,
+      "parent": "d-flow",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 220
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 300
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": 8,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-agent-label",
+      "kind": "text",
+      "name": "Agent / Label",
+      "order": 0,
+      "parent": "d-agent",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "AGENT",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 13,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-agent-copy",
+      "kind": "text",
+      "name": "Agent / Copy",
+      "order": 1,
+      "parent": "d-agent",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 230
+        }
+      },
+      "text": {
+        "characters": "taste\nintent\njudgment",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 28,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 36,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-arrow-1",
+      "kind": "text",
+      "name": "Flow / Arrow 1",
+      "order": 1,
+      "parent": "d-flow",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "\u2192",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 36,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 40,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-sw",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 10,
+        "padding": {
+          "bottom": 28,
+          "left": 28,
+          "right": 28,
+          "top": 28
+        },
+        "wrap": false
+      },
+      "name": "Flow / Semwright",
+      "order": 2,
+      "parent": "d-flow",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 270
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 360
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": 8,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-sw-label",
+      "kind": "text",
+      "name": "Semwright / Label",
+      "order": 0,
+      "parent": "d-sw",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "SEMWRIGHT",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 13,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 1.0,
+          "g": 0.7176470588235294,
+          "kind": "solid",
+          "r": 0.615686274509804
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-sw-copy",
+      "kind": "text",
+      "name": "Semwright / Copy",
+      "order": 1,
+      "parent": "d-sw",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 270
+        }
+      },
+      "text": {
+        "characters": "refs\npolicy\nconstraints\nmeasurement\nevidence",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 24,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 32,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-arrow-2",
+      "kind": "text",
+      "name": "Flow / Arrow 2",
+      "order": 3,
+      "parent": "d-flow",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "\u2192",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 36,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 40,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-figma",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 10,
+        "padding": {
+          "bottom": 28,
+          "left": 28,
+          "right": 28,
+          "top": 28
+        },
+        "wrap": false
+      },
+      "name": "Flow / Figma",
+      "order": 4,
+      "parent": "d-flow",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 220
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 300
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": 8,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-figma-label",
+      "kind": "text",
+      "name": "Figma / Label",
+      "order": 0,
+      "parent": "d-figma",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "FIGMA",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 13,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-figma-copy",
+      "kind": "text",
+      "name": "Figma / Copy",
+      "order": 1,
+      "parent": "d-figma",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 230
+        }
+      },
+      "text": {
+        "characters": "native nodes\neditable structure\nofficial APIs",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 24,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 32,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-verify",
+      "kind": "row",
+      "layout": {
+        "absolute_children": false,
+        "align": "center",
+        "direction": "horizontal",
+        "distribute": "start",
+        "gap": 80,
+        "padding": {
+          "bottom": 112,
+          "left": 96,
+          "right": 96,
+          "top": 112
+        },
+        "wrap": false
+      },
+      "name": "05 / Verification",
+      "order": 4,
+      "parent": "desktop",
+      "role": "verification",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 760
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-verify-copy",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 20,
+        "padding": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0
+        },
+        "wrap": false
+      },
+      "name": "Verification / Copy",
+      "order": 0,
+      "parent": "d-verify",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 460
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 560
+        }
+      }
+    },
+    {
+      "id": "d-verify-kicker",
+      "kind": "text",
+      "name": "Verification / Kicker",
+      "order": 0,
+      "parent": "d-verify-copy",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "PASS / FAIL / UNKNOWN",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 14,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 20,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 1.0,
+          "g": 0.7176470588235294,
+          "kind": "solid",
+          "r": 0.615686274509804
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-verify-head",
+      "kind": "text",
+      "name": "Verification / Heading",
+      "order": 1,
+      "parent": "d-verify-copy",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 540
+        }
+      },
+      "text": {
+        "characters": "A screenshot can support judgment. It cannot replace semantic state.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 46,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 54,
+        "max_lines": 4
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-verify-body",
+      "kind": "text",
+      "name": "Verification / Body",
+      "order": 2,
+      "parent": "d-verify-copy",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 500
+        }
+      },
+      "text": {
+        "characters": "Deterministic findings can fail. Heuristics stay labeled. Aesthetic review stays with the model or human.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 19,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 29,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9098039215686274,
+          "g": 0.8352941176470589,
+          "kind": "solid",
+          "r": 0.8
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-status",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 18,
+        "padding": {
+          "bottom": 32,
+          "left": 32,
+          "right": 32,
+          "top": 32
+        },
+        "wrap": false
+      },
+      "name": "Verification / Status ledger",
+      "order": 1,
+      "parent": "d-verify",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 430
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 560
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.43529411764705883,
+          "g": 0.2196078431372549,
+          "kind": "solid",
+          "r": 0.09019607843137255
+        },
+        "opacity": 1,
+        "radius": 10,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-status-1",
+      "kind": "text",
+      "name": "Status / Deterministic",
+      "order": 0,
+      "parent": "d-status",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "DETERMINISTIC     PASS / FAIL",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 17,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 24,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-status-2",
+      "kind": "text",
+      "name": "Status / Heuristic",
+      "order": 1,
+      "parent": "d-status",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "HEURISTIC         advisory",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 17,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 24,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-status-3",
+      "kind": "text",
+      "name": "Status / Aesthetic",
+      "order": 2,
+      "parent": "d-status",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "AESTHETIC_ASSIST  review artifact",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 17,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 24,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-status-4",
+      "kind": "text",
+      "name": "Status / Revision",
+      "order": 3,
+      "parent": "d-status",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "REVISION           bound before apply",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 17,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 24,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-close",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 24,
+        "padding": {
+          "bottom": 120,
+          "left": 160,
+          "right": 160,
+          "top": 120
+        },
+        "wrap": false
+      },
+      "name": "06 / Closing",
+      "order": 5,
+      "parent": "desktop",
+      "role": "closing",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 760
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "d-close-kicker",
+      "kind": "text",
+      "name": "Closing / Kicker",
+      "order": 0,
+      "parent": "d-close",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 720
+        }
+      },
+      "text": {
+        "characters": "SEMANTICS BEFORE MECHANICS",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 14,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 20,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-close-head",
+      "kind": "text",
+      "name": "Closing / Heading",
+      "order": 1,
+      "parent": "d-close",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 980
+        }
+      },
+      "text": {
+        "characters": "More capable models should make Semwright more useful, not less necessary.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 58,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 66,
+        "max_lines": 3
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "d-close-body",
+      "kind": "text",
+      "name": "Closing / Body",
+      "order": 2,
+      "parent": "d-close",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 760
+        }
+      },
+      "text": {
+        "characters": "Intelligence raises the creative ceiling. A typed execution layer raises the correctness floor.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 21,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 31,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "mobile",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 0,
+        "padding": {
+          "bottom": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0
+        },
+        "wrap": false
+      },
+      "name": "Semwright / Launch / Mobile",
+      "order": 1,
+      "parent": null,
+      "role": "page",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 3300
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 390
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9019607843137255,
+          "g": 0.9372549019607843,
+          "kind": "solid",
+          "r": 0.9568627450980393
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-nav",
+      "kind": "row",
+      "layout": {
+        "absolute_children": false,
+        "align": "center",
+        "direction": "horizontal",
+        "distribute": "space_between",
+        "gap": 12,
+        "padding": {
+          "bottom": 24,
+          "left": 20,
+          "right": 20,
+          "top": 24
+        },
+        "wrap": false
+      },
+      "name": "M / Navigation",
+      "order": 0,
+      "parent": "mobile",
+      "role": "navigation",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 84
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "m-brand",
+      "kind": "text",
+      "name": "M / Wordmark",
+      "order": 0,
+      "parent": "m-nav",
+      "role": "brand",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "semwright",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 24,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 28,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-index",
+      "kind": "text",
+      "name": "M / Index",
+      "order": 1,
+      "parent": "m-nav",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "01\u201406",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 12,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 16,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-hero",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 24,
+        "padding": {
+          "bottom": 56,
+          "left": 20,
+          "right": 20,
+          "top": 56
+        },
+        "wrap": false
+      },
+      "name": "M / Hero",
+      "order": 1,
+      "parent": "mobile",
+      "role": "hero",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 840
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "m-kicker",
+      "kind": "text",
+      "name": "M Hero / Kicker",
+      "order": 0,
+      "parent": "m-hero",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 330
+        }
+      },
+      "text": {
+        "characters": "NATIVE SEMANTIC EXECUTION",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 12,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-heading",
+      "kind": "text",
+      "name": "M Hero / Heading",
+      "order": 1,
+      "parent": "m-hero",
+      "role": "heading",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Meaning before mechanics.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 46,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 50,
+        "max_lines": 3
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-body",
+      "kind": "text",
+      "name": "M Hero / Body",
+      "order": 2,
+      "parent": "m-hero",
+      "role": "body",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Structured intent becomes native Figma, then measured state decides what happens next.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 18,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 27,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-cta",
+      "kind": "row",
+      "layout": {
+        "absolute_children": false,
+        "align": "center",
+        "direction": "horizontal",
+        "distribute": "start",
+        "gap": 8,
+        "padding": {
+          "bottom": 16,
+          "left": 18,
+          "right": 18,
+          "top": 16
+        },
+        "wrap": false
+      },
+      "name": "M Hero / CTA",
+      "order": 3,
+      "parent": "m-hero",
+      "role": "cta",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 58
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 350
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": 8,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-cta-label",
+      "kind": "text",
+      "name": "M CTA / Label",
+      "order": 0,
+      "parent": "m-cta",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        }
+      },
+      "text": {
+        "characters": "Inspect the model \u2192",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 15,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 20,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-proof",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 18,
+        "padding": {
+          "bottom": 32,
+          "left": 20,
+          "right": 20,
+          "top": 32
+        },
+        "wrap": false
+      },
+      "name": "M / Evidence",
+      "order": 2,
+      "parent": "mobile",
+      "role": "evidence",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 610
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-proof-kicker",
+      "kind": "text",
+      "name": "M Evidence / Kicker",
+      "order": 0,
+      "parent": "m-proof",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "OBSERVED, NOT ASSUMED",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 12,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 1.0,
+          "g": 0.7176470588235294,
+          "kind": "solid",
+          "r": 0.615686274509804
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-proof-head",
+      "kind": "text",
+      "name": "M Evidence / Heading",
+      "order": 1,
+      "parent": "m-proof",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Plan. Build. Measure. Validate. Repair. Verify.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 32,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 38,
+        "max_lines": 4
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-proof-1",
+      "kind": "text",
+      "name": "M Evidence / 01",
+      "order": 2,
+      "parent": "m-proof",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Native text stays editable.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 23,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-proof-2",
+      "kind": "text",
+      "name": "M Evidence / 02",
+      "order": 3,
+      "parent": "m-proof",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Stale plans stop instead of replaying.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 23,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-proof-3",
+      "kind": "text",
+      "name": "M Evidence / 03",
+      "order": 4,
+      "parent": "m-proof",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Visual judgment stays explicitly non-deterministic.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 16,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 23,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-thesis",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 24,
+        "padding": {
+          "bottom": 64,
+          "left": 20,
+          "right": 20,
+          "top": 64
+        },
+        "wrap": false
+      },
+      "name": "M / Thesis",
+      "order": 3,
+      "parent": "mobile",
+      "role": "section",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 630
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.9490196078431372,
+          "g": 0.9725490196078431,
+          "kind": "solid",
+          "r": 0.984313725490196
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-thesis-num",
+      "kind": "text",
+      "name": "M Thesis / Number",
+      "order": 0,
+      "parent": "m-thesis",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "03 / EXECUTION BOUNDARY",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 12,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-thesis-head",
+      "kind": "text",
+      "name": "M Thesis / Heading",
+      "order": 1,
+      "parent": "m-thesis",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "The model judges. The runtime proves.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 38,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 44,
+        "max_lines": 3
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-thesis-body",
+      "kind": "text",
+      "name": "M Thesis / Body",
+      "order": 2,
+      "parent": "m-thesis",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Refs, policy, constraints and evidence stay below the prompt layer.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 18,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 27,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-close",
+      "kind": "stack",
+      "layout": {
+        "absolute_children": false,
+        "align": "start",
+        "direction": "vertical",
+        "distribute": "start",
+        "gap": 24,
+        "padding": {
+          "bottom": 72,
+          "left": 20,
+          "right": 20,
+          "top": 72
+        },
+        "wrap": false
+      },
+      "name": "M / Closing",
+      "order": 4,
+      "parent": "mobile",
+      "role": "closing",
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 760
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fill",
+          "value": null
+        }
+      }
+    },
+    {
+      "id": "m-close-kicker",
+      "kind": "text",
+      "name": "M Closing / Kicker",
+      "order": 0,
+      "parent": "m-close",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "SEMANTICS BEFORE MECHANICS",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 12,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 18,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.8392156862745098,
+          "g": 0.3333333333333333,
+          "kind": "solid",
+          "r": 0.1411764705882353
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-close-head",
+      "kind": "text",
+      "name": "M Closing / Heading",
+      "order": 1,
+      "parent": "m-close",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "Better models should widen the design space, not reopen the authority boundary.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 38,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 44,
+        "max_lines": 5
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.33725490196078434,
+          "g": 0.16470588235294117,
+          "kind": "solid",
+          "r": 0.06274509803921569
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    },
+    {
+      "id": "m-close-body",
+      "kind": "text",
+      "name": "M Closing / Body",
+      "order": 2,
+      "parent": "m-close",
+      "role": null,
+      "sizing": {
+        "aspect_ratio": null,
+        "height": {
+          "max": null,
+          "min": null,
+          "mode": "hug",
+          "value": null
+        },
+        "width": {
+          "max": null,
+          "min": null,
+          "mode": "fixed",
+          "value": 340
+        }
+      },
+      "text": {
+        "characters": "The artifact is editable. The evidence is inspectable. The mutation remains policy-controlled.",
+        "fit": "grow_height",
+        "font_family": "Inter",
+        "font_size": 18,
+        "font_style": "Regular",
+        "letter_spacing": 0,
+        "line_height": 27,
+        "max_lines": null
+      },
+      "visual": {
+        "fill": {
+          "a": 1.0,
+          "b": 0.5254901960784314,
+          "g": 0.4392156862745098,
+          "kind": "solid",
+          "r": 0.396078431372549
+        },
+        "opacity": 1,
+        "radius": null,
+        "text_style": null
+      }
+    }
+  ],
+  "profiles": [
+    {
+      "name": "desktop",
+      "root_id": "desktop",
+      "width": 1440
+    },
+    {
+      "name": "mobile",
+      "root_id": "mobile",
+      "width": 390
+    }
+  ],
+  "relationships": [
+    {
+      "kind": "minimum_gap",
+      "object": "d-body",
+      "subject": "d-heading",
+      "tolerance": 0.5,
+      "value": 24
+    },
+    {
+      "kind": "minimum_gap",
+      "object": "m-body",
+      "subject": "m-heading",
+      "tolerance": 0.5,
+      "value": 24
+    }
+  ],
+  "target": {
+    "page_id": null,
+    "parent_node_id": null
+  },
+  "validators": [
+    {
+      "kind": "text_clipping",
+      "severity": "error"
+    },
+    {
+      "kind": "parent_overflow",
+      "severity": "error"
+    },
+    {
+      "kind": "sibling_overlap",
+      "severity": "warning"
+    },
+    {
+      "kind": "declared_spacing",
+      "severity": "warning"
+    },
+    {
+      "kind": "alignment",
+      "severity": "warning"
+    },
+    {
+      "kind": "aspect_ratio",
+      "severity": "warning"
+    },
+    {
+      "kind": "touch_target",
+      "severity": "warning"
+    },
+    {
+      "kind": "contrast",
+      "severity": "warning"
+    },
+    {
+      "kind": "fonts",
+      "severity": "error"
+    },
+    {
+      "kind": "auto_layout",
+      "severity": "error"
+    },
+    {
+      "kind": "responsive_profile",
+      "severity": "error"
+    },
+    {
+      "kind": "prototype_refs",
+      "severity": "error"
+    },
+    {
+      "kind": "required_bindings",
+      "severity": "error"
+    },
+    {
+      "kind": "hidden_overflow",
+      "severity": "warning"
+    },
+    {
+      "kind": "native_text",
+      "severity": "error"
+    }
+  ],
+  "version": 1
+}

@@ -15,7 +15,7 @@ The production route does **not** patch `app.asar`, expose CDP, provide coordina
 
 ## Status
 
-The semantic-completeness branch currently advertises 393 `driver.figma.*` capabilities: 334 typed Plugin API operations, 56 cloud operations (54 pinned official REST operations, one documented semantic discovery helper, plus `cloud.status`), and three local driver/session operations.
+The semantic-completeness branch currently advertises 401 `driver.figma.*` capabilities: 342 typed Plugin API operations, 56 cloud operations (54 pinned official REST operations, one documented semantic discovery helper, plus `cloud.status`), and three local driver/session operations.
 
 The Plugin API coverage compiler is pinned to `@figma/plugin-typings 1.139.0`. Its generated inventory covers 18 global interfaces, 14 auxiliary interfaces, 34 scene-node types, 213 global members, 49 auxiliary method entries, and 3,699 scene-node members with zero unclassified public method names.
 
@@ -50,4 +50,4 @@ The REST transport uses official endpoints only, explicit operation metadata/sco
 
 The repository's automated fake-host and sandbox results are not presented as real-Figma certification. Real Figma Design, FigJam, Slides, Buzz, Motion and collaboration acceptance still require an authorized disposable account/file.
 
-See [API coverage](docs/API_COVERAGE.json), [REST coverage](docs/REST_API_COVERAGE.json), [security](docs/SECURITY.md), [capabilities](docs/CAPABILITIES.md), and [compatibility](docs/COMPATIBILITY.md).
+See [semantic authoring](docs/SEMANTIC_AUTHORING.md), [composition model](docs/COMPOSITION_MODEL.md), [validation and repair](docs/VALIDATION_AND_REPAIR.md), [ChangeSets](docs/CHANGESETS.md), [semantic-authoring security](docs/SEMANTIC_AUTHORING_SECURITY.md), [API coverage](docs/API_COVERAGE.json), [REST coverage](docs/REST_API_COVERAGE.json), [security](docs/SECURITY.md), [capabilities](docs/CAPABILITIES.md), and [compatibility](docs/COMPATIBILITY.md).

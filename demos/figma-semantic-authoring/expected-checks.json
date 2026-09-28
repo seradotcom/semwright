@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "must_hold": [
+    "desktop root width == 1440",
+    "mobile root width == 390",
+    "all UI copy is native TEXT",
+    "desktop/mobile shells use native Auto Layout",
+    "CTA nodes remain INSTANCE nodes",
+    "declared Brand/* fills remain variable-bound",
+    "no whole-page SVG import exists",
+    "verification returns observedRevision and artifact metadata",
+    "stale plan reuse is rejected"
+  ],
+  "seeded_failure": {
+    "kind": "declared_spacing",
+    "desktop_parent": "d-herocopy",
+    "mobile_parent": "m-hero",
+    "initial_gap": 16,
+    "minimum_gap": 24,
+    "expected_repair": "set_auto_layout_gap",
+    "note": "The first validation is expected to fail on a real semantic constraint. Final evidence must come from a repair ChangeSet and fresh validation, not from editing the finished file by hand.",
+    "scope": "desktop and mobile hero parents each begin at gap 16 while declaring minimum gap 24"
+  }
+}

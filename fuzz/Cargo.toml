@@ -189,6 +189,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "figma_composition"
+path = "fuzz_targets/figma_composition.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "godot_bridge_auth"
 path = "fuzz_targets/godot_bridge_auth.rs"
 test = false

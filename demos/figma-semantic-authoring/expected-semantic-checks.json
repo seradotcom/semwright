@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "checks": [
+    {
+      "id": "native-text",
+      "expectation": "declared copy is represented by TextNodes"
+    },
+    {
+      "id": "native-layout",
+      "expectation": "declared stacks/rows compile to Auto Layout"
+    },
+    {
+      "id": "desktop-profile",
+      "expectation": "desktop root measures 1440 px wide"
+    },
+    {
+      "id": "mobile-profile",
+      "expectation": "mobile root measures 390 px wide"
+    },
+    {
+      "id": "real-failure",
+      "expectation": "initial desktop spacing validation returns FAIL"
+    },
+    {
+      "id": "bounded-repair",
+      "expectation": "repair plan contains one deterministic Auto Layout gap repair"
+    },
+    {
+      "id": "revalidation",
+      "expectation": "fresh validation returns PASS after repair"
+    },
+    {
+      "id": "artifact",
+      "expectation": "verify returns image/png artifact metadata"
+    },
+    {
+      "id": "identity",
+      "expectation": "post-creation heading and hero-copy node IDs are preserved"
+    },
+    {
+      "id": "stale-plan",
+      "expectation": "original plan is rejected after revision advances"
+    },
+    {
+      "id": "authority",
+      "expectation": "all composition capabilities retain driver:figma scope"
+    },
+    {
+      "id": "partial-effects",
+      "expectation": "failed multi-step apply reports unknown outcome rather than false atomicity"
+    }
+  ]
+}
+

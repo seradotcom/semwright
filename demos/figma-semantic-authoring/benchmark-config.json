@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "brief": "design-brief.md",
+  "assets": "same design-system requirements; no private credentials or remote image fetch",
+  "iteration_budget": 4,
+  "arms": {
+    "A_code_first": {
+      "allowed": "HTML/CSS/SVG or equivalent code-first representation, transferred through an existing legitimate Figma route if available",
+      "must_not_be_handicapped": true
+    },
+    "B_low_level": {
+      "allowed": "existing driver.figma.* primitives excluding composition.*"
+    },
+    "C_semantic": {
+      "allowed": "composition.inspect/plan/apply/measure/validate/repair/verify plus explicit bootstrap capabilities"
+    }
+  },
+  "metrics": [
+    "visual_result_quality_assist",
+    "native_text_percentage",
+    "native_component_usage",
+    "variable_style_binding",
+    "auto_layout_correctness",
+    "native_semantic_structure",
+    "giant_svg_count",
+    "deterministic_layout_defects",
+    "clipping",
+    "overlap",
+    "out_of_bounds_nodes",
+    "mobile_correctness",
+    "repair_iterations",
+    "tool_call_count",
+    "manual_interventions",
+    "final_unresolved_findings",
+    "semantic_followup_mutation",
+    "specific_node_verification"
+  ],
+  "unknown_policy": "Record unavailable time/token/visual/live metrics as UNEXECUTED or UNKNOWN; never estimate them."
+}

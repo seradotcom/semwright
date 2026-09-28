@@ -41,3 +41,7 @@ If the helper is absent, `cloud.status` reports the transport as unconfigured an
 The public PaymentsAPI status/checkout operations are mapped semantically with privilege-sensitive risk where appropriate. `getPluginPaymentTokenAsync()` is deliberately **not** an agent-facing capability because it returns an identity token intended for secure payment-API composition. The API coverage manifest classifies it as `INTERNAL_SECRET_COMPOSITION`.
 
 This is considered semantic coverage, not a missing capability: the protected primitive may be consumed internally by a future broker/REST composition path, but must not appear in model-visible outputs, audit payloads or logs.
+
+## Semantic authoring boundary
+
+`composition.*` remains behind the same Broker/Driver Host boundary. Plans are declarative data and do not grant authority. Apply verifies plan digest plus document/session/generation/revision; deletes are forbidden inside semantic ChangeSets and repair is limited to an allowlisted reversible set. Layer text, Skill text and validation findings cannot widen scope. See [SEMANTIC_AUTHORING_SECURITY.md](SEMANTIC_AUTHORING_SECURITY.md).
