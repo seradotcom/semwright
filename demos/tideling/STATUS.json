@@ -1,26 +1,27 @@
 {
-  "classification": "DEVELOPMENT_PROTOTYPE",
-  "golden_game": false,
-  "semwright_cross_app_proof": true,
-  "merged_sha_public_proof": false,
-  "completed_evidence": [
-    "Blender rigged animated GLB assets",
-    "Godot import and GPU render",
-    "13 gameplay rule checks",
-    "Real collision stage gate, keyboard, dash and predator end",
-    "Pause, timed ending, retry and mute acceptance",
-    "Hosted Linux pack export and portable launch",
-    "Six hosted visual states reviewed for prototype readability",
-    "Broker-routed Blender rig, animation and scoped GLB export",
-    "Digest-verified handoff and new Godot species resource",
-    "Real spawn, tail animation motion and collision growth gate",
-    "Same acceptance repeated against exported BlueGold game pack"
+  "classification": "TIDELING_DEMO_RELEASE_CONTRACT",
+  "release": "https://github.com/seradotcom/semwright/releases/tag/tideling-demo-v0.1.0",
+  "authoritative_release_result": "https://github.com/seradotcom/semwright/releases/download/tideling-demo-v0.1.0/RELEASE.json",
+  "required_release_gates": [
+    "Independent visual/interface SHIP review",
+    "Fixed-step keyboard, analog-stick, dash and animation acceptance",
+    "Full 180-second input-bot run reaches growth stage three",
+    "Rules, collisions, lifecycle and exported-pack acceptance",
+    "All required PR checks pass before merge",
+    "Clean main checkout matches recorded source SHA",
+    "Broker-routed new species passes source and packaged gameplay",
+    "Public archive, operation trace, receipts and SHA-256 checksums"
   ],
-  "open": [
-    "Golden art, animation and human movement-feel review",
-    "Physical gamepad validation",
-    "Clean merged-SHA public proof"
+  "observed_checkpoints": {
+    "visual_interface": "SHIP: six valid 1280x800 hosted-007 captures, no material fixes",
+    "full_run": "709e586: 180 seconds, stage 3, 53200 points, survived",
+    "cross_app": "437cf04: 332 semantic operations, source and exported-pack acceptance PASS"
+  },
+  "known_limits": [
+    "Baseline art and audio were authored directly before the semantic proof",
+    "Synthetic controller events do not certify physical hardware or human playfeel",
+    "Movie Maker preview is offline rendered and is not a frame-rate benchmark",
+    "Linux x86_64 distribution uses the official editor-capable Godot runtime"
   ],
-  "proof_source_sha": "2bde9f0f9d78460a2b5bbfe9ca3f08688ce33b6c",
-  "proof_run": "https://github.com/seradotcom/semwright/actions/runs/36401772211"
+  "completion_rule": "The published RELEASE.json and matching PASS receipt establish release completion; this source contract does not pre-certify a pending workflow."
 }

@@ -9,3 +9,6 @@
 - The portable checkpoint includes Godot's official engine binary and its MIT license; font license included separately. It is built on GitHub-hosted Actions and contains no Semwright pairing secret or proof harness.
 - Godot 4.7.2 animation import renames loop-hint clips: https://github.com/godotengine/godot/blob/4.7.2-stable/editor/import/3d/resource_importer_scene.cpp . Runtime selection accepts the imported Swim name and explicitly enables its loop.
 - Godot resource discovery preserves source resource names in exported packs: https://docs.godotengine.org/en/stable/classes/class_resourceloader.html#class-resourceloader-method-list-directory . Species are sorted before registration for deterministic ordering.
+
+- Godot Movie Maker: https://docs.godotengine.org/en/stable/tutorials/animation/creating_movies.html (offline-rendered preview, not a real-time performance benchmark).
+- Godot input buffering: https://docs.godotengine.org/en/stable/classes/class_input.html (synthetic input acceptance uses fixed simulation time).

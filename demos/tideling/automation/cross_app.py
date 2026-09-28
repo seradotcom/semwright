@@ -17,6 +17,10 @@ def write_json(path,value):Path(path).write_text(json.dumps(value,indent=2)+'\n'
 def command(argv,**kwargs):return subprocess.run([str(x) for x in argv],check=True,timeout=180,**kwargs)
 
 def run(work):
+    source_sha=command(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True).stdout.strip()
+    assert source_sha==os.environ['GITHUB_SHA'],'Checkout does not match requested proof SHA'
+    assert not command(['git','status','--porcelain','--untracked-files=no'],cwd=ROOT,capture_output=True,text=True).stdout.strip(),'Proof requires clean tracked sources'
+    merged_source=os.environ.get('GITHUB_REF')=='refs/heads/main'
     os.umask(0o077)
     os.chmod(work,0o700)
     project=work/'project'; producer=work/'producer';config=work/'godot-config';out=work/'output'
@@ -194,7 +198,8 @@ def run(work):
         packed_gameplay=json.loads(packed_line.split(' ',1)[1]);assert packed_gameplay['passed'],packed_gameplay
         for log_name in ['gameplay.log','proof-export.log','proof-portable-smoke.log']:
             assert not any('SCRIPT ERROR' in line or line.startswith('ERROR:') for line in (EVIDENCE/log_name).read_text().splitlines()),log_name
-        receipt={'classification':'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':os.environ.get('GITHUB_SHA'),'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_candidate_resource_absent':True,'baseline_species_sha256':baseline_species,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'playable_pack_sha256':sha(package/'Tideling.pck'),'packaged_gameplay':packed_gameplay,'limitations':['Baseline game assets directly authored before proof','Visual golden gate still open','Branch proof is not merged-SHA public proof']}
+        receipt={'classification':'MERGED_SHA_CROSS_APP_PROOF' if merged_source else 'BRANCH_CROSS_APP_PROOF','status':'PASS','source_sha':source_sha,'source_ref':os.environ.get('GITHUB_REF'),'source_tree_clean':True,'route':'CLI → broker/policy → sandboxed Blender driver → artifact.handoff → sandboxed Godot driver → authenticated EditorPlugin → actual game collisions','baseline_candidate_asset_absent':True,'baseline_candidate_resource_absent':True,'baseline_species_sha256':baseline_species,'enabled_species_sha256':sha(project/'species/blue_gold.tres'),'export':exported,'handoff':handoff,'gameplay':gameplay,'operations':len(ops),'playable_pack_sha256':sha(package/'Tideling.pck'),'packaged_gameplay':packed_gameplay,'limitations':['Baseline game assets directly authored before proof','Automated gameplay acceptance does not certify physical controllers or human playfeel']+([] if merged_source else ['Branch proof is not merged-SHA public proof'])}
+        assert not command(['git','status','--porcelain','--untracked-files=no'],cwd=ROOT,capture_output=True,text=True).stdout.strip(),'Proof changed tracked sources'
         write_json(EVIDENCE/'RECEIPT.json',receipt)
         shutil.copy2(project/'assets/blue_gold.glb',EVIDENCE/'BlueGoldFish.glb')
         shutil.copy2(project/'species/blue_gold.tres',EVIDENCE/'BlueGoldFish.tres')

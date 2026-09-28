@@ -58,5 +58,19 @@ Inspect the uploaded `Tideling-cross-app-<SHA>` artifact:
 
 A failed run retains logs but must never be presented as a passing receipt. The
 baseline assets and synthesized audio were authored directly, before this proof.
-A successful branch run proves the cross-app route on that branch. Golden art and
+A successful branch run proves the cross-app route on that branch. Reference-demo acceptance and
 a clean merged-SHA public proof are separate acceptance gates in `ACCEPTANCE.md`.
+
+## Merged-source public proof
+
+After merge, dispatch both `tideling.yml` and `tideling-cross-app.yml` on `main`.
+The harness checks that HEAD equals `GITHUB_SHA` and that tracked sources are clean
+before and after execution. Only a run on `refs/heads/main` produces the
+`MERGED_SHA_CROSS_APP_PROOF` classification.
+
+The release bundle preserves executable permissions inside a tar archive and carries
+the operation trace, receipt and checksums. Publish that bundle only after both
+workflows pass on the same merged SHA. The release's `RELEASE.json` records those
+run URLs, source identity and validation limits. Movie Maker produces the preview
+from ordinary gameplay driven by an input bot; it is offline rendered and provides
+no evidence of real-time rendering performance.
