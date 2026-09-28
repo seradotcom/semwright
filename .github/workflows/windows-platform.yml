@@ -74,6 +74,10 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest tests.python.test_windows_contracts
+      - name: Interactive harness PowerShell parses
+        run: |
+          set -euo pipefail
+          pwsh -NoProfile -NonInteractive -File ./scripts/windows/validate-interactive-certification.ps1
       - name: Native Windows runtime check
         run: >-
           cargo check --locked

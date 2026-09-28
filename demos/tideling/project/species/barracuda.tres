@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TidelingSpecies" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/species.gd" id="1"]
+[resource]
+script = ExtResource("1")
+id = "barracuda"
+display_name = "Needle hunter"
+asset_path = "res://assets/barracuda.glb"
+edible_stage = 3
+size = 0.49
+speed = 3.4
+nutrition = 16
+predator = true
+spawn_weight = 0.7
+enabled = true

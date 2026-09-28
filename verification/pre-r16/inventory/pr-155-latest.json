@@ -1,0 +1,1031 @@
+{
+  "baseRefName": "main",
+  "body": "TIDELING adds an original 2.5D reef survival prototype with Blender-authored rigged assets, three growth stages, seven baseline species, swimming/dash, combo, predators and a three-minute run. A disabled Bluegold species is reserved for the cross-application proof.\n\nThe Blender driver previously lacked a game-ready export operation. `driver.blender.export.glb` now exports one explicit collection to a new GLB, validates collection dependencies, restores selection, refuses overwrite and returns a SHA-256 receipt. A dedicated hosted harness builds a new fish through the real broker and both drivers, transfers its artifact, enables its Godot resource and checks actual gameplay collisions.\n\nValidation completed on earlier branch revisions: Blender semantic CI and native GLB adapter checks; Godot import, 13 rules assertions, keyboard/dash/collision acceptance and exported portable Linux pack smoke. Hosted lifecycle and cross-app runs are in progress. Current game remains a development prototype: final art/movement review, merged-SHA evidence and public release are not claimed. One visual review item remains open: central foliage competes with the swimming corridor.\n",
+  "comments": [],
+  "commits": [
+    {
+      "authoredDate": "2026-09-28T08:16:59Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:16:59Z",
+      "messageBody": "",
+      "messageHeadline": "feat: add Tideling reef prototype and scoped Blender GLB export",
+      "oid": "4afe3c1f43812a725670cfbfe9d92f4c3d4d5b10"
+    },
+    {
+      "authoredDate": "2026-09-28T08:20:46Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:20:46Z",
+      "messageBody": "",
+      "messageHeadline": "fix: clarify reef hierarchy and package Tideling on hosted Actions",
+      "oid": "24c7fe464ff2287bc7cbe281dd616050d6a84e2f"
+    },
+    {
+      "authoredDate": "2026-09-28T08:29:36Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:29:36Z",
+      "messageBody": "",
+      "messageHeadline": "test: exercise new reef species through both semantic drivers",
+      "oid": "fa314494865159c0dfb02c93cdc50eaad3ce0940"
+    },
+    {
+      "authoredDate": "2026-09-28T08:35:18Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:35:18Z",
+      "messageBody": "",
+      "messageHeadline": "feat: add reef schooling and hosted lifecycle acceptance",
+      "oid": "0b5c40a6df55ff2b92f85df55beb312154870375"
+    },
+    {
+      "authoredDate": "2026-09-28T08:37:34Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:37:34Z",
+      "messageBody": "",
+      "messageHeadline": "fix: use owner-only configuration for hosted cross-app proof",
+      "oid": "e868bc87aa41d864f913506555d0199b435f7ab0"
+    },
+    {
+      "authoredDate": "2026-09-28T08:38:45Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:38:45Z",
+      "messageBody": "",
+      "messageHeadline": "fix: clear the swimming corridor and capture hosted visual evidence",
+      "oid": "d21cd1e027bde40545335b36ca9f34bba8845f14"
+    },
+    {
+      "authoredDate": "2026-09-28T08:46:07Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:46:07Z",
+      "messageBody": "",
+      "messageHeadline": "Register GLB builtin provenance and verify bounded export contract",
+      "oid": "0c3184c3747e97aca7494579d73961c6b63e4303"
+    },
+    {
+      "authoredDate": "2026-09-28T08:49:46Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:49:46Z",
+      "messageBody": "",
+      "messageHeadline": "Retain playable cross-app delta and align export checks with CI format",
+      "oid": "a8a3660c9bb4a3db54352f2f427fef2780490738"
+    },
+    {
+      "authoredDate": "2026-09-28T08:58:16Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:58:16Z",
+      "messageBody": "\u2026ss-app proof",
+      "messageHeadline": "Resolve imported animation names and verify actual tail motion in cro\u2026",
+      "oid": "d60b9bceb8b2f609ec79763c53f42d3891bd3ed1"
+    },
+    {
+      "authoredDate": "2026-09-28T08:58:16Z",
+      "authors": [
+        {
+          "email": "semwright@users.noreply.github.com",
+          "id": "",
+          "login": "",
+          "name": "Semwright integration"
+        }
+      ],
+      "committedDate": "2026-09-28T08:58:16Z",
+      "messageBody": "",
+      "messageHeadline": "Merge remote-tracking branch 'origin/main' into feat/tideling",
+      "oid": "9acfa3c4f3c02c340db8cb579277f4754ef8d96d"
+    }
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/blender-semantic.yml",
+      "additions": 12,
+      "deletions": 0
+    },
+    {
+      "path": ".github/workflows/tideling-cross-app.yml",
+      "additions": 67,
+      "deletions": 0
+    },
+    {
+      "path": ".github/workflows/tideling.yml",
+      "additions": 76,
+      "deletions": 0
+    },
+    {
+      "path": "adapters/blender/semwright_blender/commands.json",
+      "additions": 23,
+      "deletions": 0
+    },
+    {
+      "path": "adapters/blender/semwright_blender/commands.py",
+      "additions": 75,
+      "deletions": 0
+    },
+    {
+      "path": "crates/driver-blender/src/main.rs",
+      "additions": 12,
+      "deletions": 1
+    },
+    {
+      "path": "demos/tideling/.gitignore",
+      "additions": 5,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/.impeccable/design.json",
+      "additions": 311,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/ACCEPTANCE.md",
+      "additions": 41,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/DESIGN.md",
+      "additions": 183,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/PACKAGE_README.txt",
+      "additions": 12,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/PRODUCT.md",
+      "additions": 8,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/PROOF.md",
+      "additions": 51,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/README.md",
+      "additions": 29,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/STATUS.json",
+      "additions": 8,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/authoring/build_assets.py",
+      "additions": 231,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/authoring/build_audio.py",
+      "additions": 20,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/cross_app.py",
+      "additions": 205,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/cross_app_runtime.gd",
+      "additions": 50,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/export_contract_test.py",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/playthrough.gd",
+      "additions": 63,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/rules_test.gd",
+      "additions": 41,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/runtime_proof.gd",
+      "additions": 59,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/state_test.gd",
+      "additions": 28,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/automation/visual_matrix.gd",
+      "additions": 40,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/design/ART_DIRECTION.md",
+      "additions": 28,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/design/SOURCES.md",
+      "additions": 10,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/evidence/README.md",
+      "additions": 3,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/FONT-LICENSE.txt",
+      "additions": 93,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/ambience_1.wav",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/ambience_1.wav.import",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/ambience_2.wav",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/ambience_2.wav.import",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/ambience_3.wav",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/ambience_3.wav.import",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/anemone.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/anemone.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/barracuda.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/barracuda.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/blue.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/blue.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/blue_gold.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/blue_gold.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/butterfly.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/butterfly.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/caught.wav",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/caught.wav.import",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/coral.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/coral.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/dash.wav",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/dash.wav.import",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/eat.wav",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/eat.wav.import",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/fan.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/fan.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/fry.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/fry.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/grouper.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/grouper.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/grow.wav",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/grow.wav.import",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/hero_juvenile.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/hero_juvenile.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/hero_mature.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/hero_mature.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/hero_medium.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/hero_medium.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/kelp.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/kelp.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/puffer.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/puffer.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/rock.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/rock.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/shell.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/shell.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/title.ttf",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/title.ttf.import",
+      "additions": 36,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/yellow.glb",
+      "additions": 0,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/assets/yellow.glb.import",
+      "additions": 45,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/export_presets.cfg",
+      "additions": 17,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/project.godot",
+      "additions": 16,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/reef.tscn",
+      "additions": 4,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/fish.gd",
+      "additions": 65,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/fish.gd.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/food_marks.gd",
+      "additions": 18,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/food_marks.gd.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/game.gd",
+      "additions": 409,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/game.gd.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/hud.gdshader",
+      "additions": 2,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/menu.gdshader",
+      "additions": 2,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/menu.gdshader.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/ray.gdshader",
+      "additions": 9,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/ray.gdshader.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/reef.gd",
+      "additions": 146,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/reef.gd.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/rules.gd",
+      "additions": 51,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/rules.gd.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/sand.gdshader",
+      "additions": 9,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/sand.gdshader.uid",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "demos/tideling/project/scripts/species.gd",
+      "additions": 14,
+      "deletions": 0
+    }
+  ],
+  "headRefName": "feat/tideling",
+  "headRefOid": "9acfa3c4f3c02c340db8cb579277f4754ef8d96d",
+  "isDraft": true,
+  "mergeStateStatus": "UNSTABLE",
+  "mergeable": "MERGEABLE",
+  "number": 155,
+  "state": "OPEN",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571829/job/108857176700",
+      "name": "blender-semantic",
+      "startedAt": "2026-09-28T08:58:23Z",
+      "status": "QUEUED",
+      "workflowName": "Blender semantic driver"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571602/job/108857282914",
+      "name": "dependencies",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "QUEUED",
+      "workflowName": "Dependency, coverage and fuzz gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184161",
+      "name": "chromium",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571614/job/108857327541",
+      "name": "linux-regression",
+      "startedAt": "2026-09-28T08:58:50Z",
+      "status": "QUEUED",
+      "workflowName": "Platformization and macOS"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571790/job/108857275160",
+      "name": "source-contracts",
+      "startedAt": "2026-09-28T08:58:41Z",
+      "status": "QUEUED",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571609/job/108857281729",
+      "name": "nix-package",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "QUEUED",
+      "workflowName": "Supply-chain certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400566978/job/108857161268",
+      "name": "game",
+      "startedAt": "2026-09-28T08:58:20Z",
+      "status": "QUEUED",
+      "workflowName": "Tideling game checkpoint"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400566909/job/108857160990",
+      "name": "proof",
+      "startedAt": "2026-09-28T08:58:20Z",
+      "status": "QUEUED",
+      "workflowName": "Tideling real cross-app proof"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571625/job/108857175967",
+      "name": "openbox-ewmh",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Native X11 EWMH live"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571849/job/108857244147",
+      "name": "plasma-wayland",
+      "startedAt": "2026-09-28T08:58:52Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Plasma Wayland live"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571588/job/108857176202",
+      "name": "windows-x64 native noninteractive",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571760/job/108857176187",
+      "name": "game",
+      "startedAt": "2026-09-28T08:58:46Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Tideling game checkpoint"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571588/job/108857176496",
+      "name": "windows-arm64 native noninteractive",
+      "startedAt": "2026-09-28T08:58:23Z",
+      "status": "QUEUED",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571602/job/108857283040",
+      "name": "coverage",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "QUEUED",
+      "workflowName": "Dependency, coverage and fuzz gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184135",
+      "name": "driver-conformance",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571614/job/108857327293",
+      "name": "macos-native (macos-15, aarch64-apple-darwin, x86_64-apple-darwin, arm64)",
+      "startedAt": "2026-09-28T08:58:50Z",
+      "status": "QUEUED",
+      "workflowName": "Platformization and macOS"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571790/job/108857274911",
+      "name": "static-lints",
+      "startedAt": "2026-09-28T08:58:41Z",
+      "status": "QUEUED",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571609/job/108857281313",
+      "name": "release-bundle (ubuntu-24.04, x86_64)",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "QUEUED",
+      "workflowName": "Supply-chain certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571588/job/108857176392",
+      "name": "sealed-tool compat server2022-x64",
+      "startedAt": "2026-09-28T08:58:37Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571614/job/108857327449",
+      "name": "macos-native (macos-15-intel, x86_64-apple-darwin, aarch64-apple-darwin, x86_64)",
+      "startedAt": "2026-09-28T08:58:50Z",
+      "status": "QUEUED",
+      "workflowName": "Platformization and macOS"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571609/job/108857281603",
+      "name": "release-bundle (ubuntu-24.04-arm, aarch64)",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "QUEUED",
+      "workflowName": "Supply-chain certification"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571588/job/108857176407",
+      "name": "sealed-tool compat win11-arm-native-host-x64tool",
+      "startedAt": "2026-09-28T08:58:36Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Platformization and Windows"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571602/job/108857282600",
+      "name": "fuzz",
+      "startedAt": "2026-09-28T08:58:42Z",
+      "status": "QUEUED",
+      "workflowName": "Dependency, coverage and fuzz gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184145",
+      "name": "driver-distribution",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571790/job/108857275077",
+      "name": "msrv",
+      "startedAt": "2026-09-28T08:58:41Z",
+      "status": "QUEUED",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857183982",
+      "name": "libreoffice-driver",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571790/job/108857275058",
+      "name": "rust (ubuntu-24.04)",
+      "startedAt": "2026-09-28T08:58:41Z",
+      "status": "QUEUED",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571790/job/108857275235",
+      "name": "rust (ubuntu-24.04-arm)",
+      "startedAt": "2026-09-28T08:58:46Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Quality gates"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184259",
+      "name": "blender-driver",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184295",
+      "name": "figma-driver",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184051",
+      "name": "kicad-mlt-drivers",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184089",
+      "name": "pipewire-screencast",
+      "startedAt": "2026-09-28T08:58:43Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184243",
+      "name": "x11-backend",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184284",
+      "name": "atspi-backend",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184257",
+      "name": "atspi-qt-backend",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/seradotcom/semwright/actions/runs/36400571603/job/108857184113",
+      "name": "sway-backend",
+      "startedAt": "2026-09-28T08:58:24Z",
+      "status": "QUEUED",
+      "workflowName": "Native application integration"
+    }
+  ],
+  "title": "TIDELING reef prototype and scoped Blender GLB export",
+  "updatedAt": "2026-09-28T08:58:18Z",
+  "url": "https://github.com/seradotcom/semwright/pull/155"
+}

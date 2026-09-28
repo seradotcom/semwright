@@ -130,9 +130,19 @@ jobs:
           cargo test --locked -p semwright-driver-blender \
             real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox \
             -- --ignored --nocapture 2>&1 | tee verification/blender-semantic/live.log
+      - name: Export typed GLB with real Blender
+        run: |
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec --python-exit-code 1 \
+            --python demos/tideling/automation/export_contract_test.py 2>&1 | tee verification/blender-semantic/glb-export.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blender-driver-${{ github.sha }}
+          path: target/debug/semwright-blender-driver
+          retention-days: 7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: blender-semantic-evidence-${{ github.sha }}
           path: verification/blender-semantic
           retention-days: 14
+

@@ -1,0 +1,95 @@
+name: Tideling real cross-app proof
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/tideling]
+    paths: ["demos/tideling/automation/cross_app*", "demos/tideling/project/**", ".github/workflows/tideling-cross-app.yml", "schemas/builtin-provenance.json", "schemas/commands.json", "adapters/blender/**", "crates/driver-blender/**"]
+permissions:
+  contents: read
+env:
+  SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: tideling-cross-app
+      - name: Install pinned applications and sandbox
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap fontconfig xz-utils libpipewire-0.3-dev xvfb libgl1-mesa-dri ffmpeg
+          mkdir -p "$RUNNER_TEMP/godot" verification/tideling-cross-app
+          curl -fL --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz -o "$RUNNER_TEMP/blender.tar.xz"
+          echo "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  $RUNNER_TEMP/blender.tar.xz" | sha256sum -c -
+          sudo tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C /usr/local
+          curl -fL --retry 3 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT_BIN="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT_BIN" | sha256sum -c -
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/LICENSE.txt -o "$RUNNER_TEMP/GODOT-LICENSE.txt"
+          curl -fsSL https://raw.githubusercontent.com/godotengine/godot/4.7.2-stable/COPYRIGHT.txt -o "$RUNNER_TEMP/GODOT-THIRD-PARTY.txt"
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/tideling-cross-app/sandbox-setup.log
+      - name: Build both drivers and the real broker from this revision
+        run: |
+          cargo build --locked -p semwright-cli --bin semwright -p semwright-daemon --bin semwrightd \
+            -p semwright-plugin-host --bin semwright-sandbox \
+            -p semwright-driver-blender --bin semwright-blender-driver \
+            -p semwright-driver-godot --bin semwright-godot-driver
+      - name: New species through broker, export, handoff, Godot and actual collisions
+        run: |
+          set -euo pipefail
+          timeout 480 python3 demos/tideling/automation/cross_app.py 2>&1 | tee verification/tideling-cross-app/harness.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path('verification/tideling-cross-app/RECEIPT.json').read_text())
+          assert receipt['status']=='PASS'
+          assert receipt['gameplay']['passed']
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: Tideling-cross-app-${{ github.sha }}
+          path: verification/tideling-cross-app
+          retention-days: 14
+      - name: Record the packaged BlueGold game
+        run: |
+          set -euo pipefail
+          mkdir -p verification/tideling-release
+          PACKAGE="$GITHUB_WORKSPACE/verification/tideling-cross-app/Tideling-BlueGold"
+          LIBGL_ALWAYS_SOFTWARE=1 timeout 300 xvfb-run -a "$PACKAGE/Tideling.x86_64" \
+            --main-pack "$PACKAGE/Tideling.pck" --resolution 960x600 --fixed-fps 24 \
+            --write-movie "$RUNNER_TEMP/tideling.avi" \
+            --script "$GITHUB_WORKSPACE/demos/tideling/automation/playthrough.gd" -- showcase \
+            2>&1 | tee verification/tideling-release/preview.log
+          if rg 'SCRIPT ERROR|^ERROR:' verification/tideling-release/preview.log; then exit 1; fi
+          ffmpeg -y -i "$RUNNER_TEMP/tideling.avi" -c:v libx264 -crf 20 -pix_fmt yuv420p -c:a aac -movflags +faststart verification/tideling-release/Tideling-preview.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1 verification/tideling-release/Tideling-preview.mp4 > verification/tideling-release/preview-duration.txt
+      - name: Assemble distributable proof bundle
+        run: |
+          set -euo pipefail
+          mkdir -p verification/tideling-release
+          tar -czf verification/tideling-release/Tideling-BlueGold-Linux.tar.gz -C verification/tideling-cross-app Tideling-BlueGold
+          cp verification/tideling-cross-app/{RECEIPT.json,operations.jsonl,descriptors.jsonl,glb-inspection.json} verification/tideling-release/
+          printf '%s\n' "$GITHUB_SHA" > verification/tideling-release/SOURCE_SHA.txt
+          cd verification/tideling-release
+          sha256sum Tideling-BlueGold-Linux.tar.gz Tideling-preview.mp4 preview.log preview-duration.txt RECEIPT.json operations.jsonl descriptors.jsonl glb-inspection.json SOURCE_SHA.txt > SHA256SUMS.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Tideling-release-${{ github.sha }}
+          path: verification/tideling-release
+          retention-days: 30

@@ -2,11 +2,11 @@
 
 | integration | domain logic | Windows app | key assumption / status |
 |---|---|---|---|
-| Chromium / Playwright | high portability | yes | browser process/profile paths and native launch need Windows path review; good first proof |
-| Blender | high portability | yes | localhost/app discovery and executable verification need Windows composition; domain protocol portable |
-| LibreOffice | high portability | yes | UNO/process launch/path syntax need Windows fixture; domain semantics portable |
-| KiCad | high portability | yes | CLI/process/path and packaged executable discovery need native verification |
-| MLT video | high portability | binaries vary | melt/Kdenlive/Shotcut binary discovery and codecs are packaging concerns; timeline semantics portable |
-| OBS | high portability | yes | websocket protocol portable; AppContainer loopback/network grants must never be globally relaxed |
+| Chromium / Playwright | high portability | yes | browser process/profile paths and native launch need real Windows app evidence; domain protocol portable |
+| Blender | high portability | yes | localhost/app discovery and executable verification compose with the Windows secure-spawn boundary; real Windows Blender evidence still required |
+| LibreOffice | high portability | yes | UNO/process launch/path syntax need a Windows fixture; domain semantics portable |
+| KiCad | high portability | yes | CLI/process/path and packaged executable discovery need native Windows verification |
+| MLT video | high portability | binaries vary | melt/Kdenlive/Shotcut discovery and codecs are packaging concerns; timeline semantics portable |
+| OBS | high portability | yes | websocket protocol portable; Host-mediated loopback and owner-gated ambient network are separate Windows authorities and must remain explicit |
 
-Live Windows portability for each application integration requires separate native evidence. Recommended proofs after platform CI include the Chromium noninteractive profile fixture and OBS driver verification with network policy denied unless explicitly granted.
+The Windows platform can now securely spawn Driver, Plugin and governed stdio MCP children and provide the proven Driver/Plugin authority profiles. This does not certify individual Windows application integrations. Each integration still needs real app/version/path/process evidence before it can be labeled live on Windows.

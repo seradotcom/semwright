@@ -301,6 +301,13 @@ impl WorkflowManager {
         );
         Ok(id)
     }
+    /// Forget only the unfinished recording of an expired/revoked broker session.
+    /// Completed owner-library traces and promotions remain intact. Revocation must
+    /// never turn an interrupted recording into successful learning evidence.
+    pub fn revoke_session(&mut self, session: &str) -> bool {
+        self.active.remove(session).is_some()
+    }
+
     pub fn active_capture_values(&self, session: &str) -> Option<bool> {
         self.active.get(session).map(|v| v.capture_values)
     }
@@ -789,6 +796,77 @@ mod tests {
         manager.start("session", "demo", "test", true).unwrap();
         manager.record("session", step()).unwrap();
         manager.stop("session", true).unwrap()
+    }
+
+    #[test]
+    fn session_revocation_drops_only_its_unfinished_recording() {
+        let mut manager = WorkflowManager::default();
+        manager.start("owner", "discarded", "", true).unwrap();
+        manager.record("owner", step()).unwrap();
+        manager.start("other", "retained", "", false).unwrap();
+        manager.record("other", step()).unwrap();
+        assert!(!manager.revoke_session("unknown"));
+        assert!(manager.revoke_session("owner"));
+        assert!(!manager.revoke_session("owner"));
+        assert_eq!(manager.active_capture_values("owner"), None);
+        assert_eq!(manager.active_capture_values("other"), Some(false));
+        // A late completion cannot recreate the discarded recording.
+        manager.record("owner", step()).unwrap();
+        assert_eq!(
+            manager.stop("owner", true).unwrap_err().code,
+            ErrorCode::NotFound
+        );
+        assert!(manager.list_traces().is_empty());
+        assert!(!manager.stop("other", true).unwrap().capture_values);
+        assert_eq!(manager.list_traces().len(), 1);
+    }
+
+    #[test]
+    fn repeated_session_revocation_reclaims_recording_slots() {
+        let mut manager = WorkflowManager::default();
+        for index in 0..256 {
+            let session = format!("expired-{index}");
+            manager.start(&session, "discarded", "", true).unwrap();
+            manager.record(&session, step()).unwrap();
+            assert!(manager.revoke_session(&session));
+            assert!(manager.active.is_empty());
+        }
+        assert!(manager.list_traces().is_empty());
+        // Reclamation does not weaken the concurrent recording limit.
+        for index in 0..32 {
+            manager
+                .start(&format!("active-{index}"), "bounded", "", false)
+                .unwrap();
+        }
+        assert_eq!(
+            manager
+                .start("overflow", "bounded", "", false)
+                .unwrap_err()
+                .code,
+            ErrorCode::ResourceExhausted
+        );
+        assert!(manager.revoke_session("active-0"));
+        manager.start("replacement", "bounded", "", false).unwrap();
+        assert_eq!(manager.active.len(), 32);
+    }
+
+    #[test]
+    fn revocation_does_not_persist_partial_traces_or_remove_completed_library() {
+        let temp = tempdir().unwrap();
+        let directory = temp.path().join("workflows");
+        let mut manager = WorkflowManager::default();
+        manager.configure_persistence(&directory).unwrap();
+        let completed = persisted_trace(&mut manager);
+        let before = fs::read(directory.join("workflows.json")).unwrap();
+        manager.start("session", "partial", "", true).unwrap();
+        manager.record("session", step()).unwrap();
+        assert!(manager.revoke_session("session"));
+        assert_eq!(fs::read(directory.join("workflows.json")).unwrap(), before);
+        assert_eq!(manager.trace(&completed.id).unwrap().id, completed.id);
+        let mut restored = WorkflowManager::default();
+        restored.configure_persistence(&directory).unwrap();
+        assert_eq!(restored.list_traces().len(), 1);
+        assert!(restored.active.is_empty());
     }
 
     #[test]

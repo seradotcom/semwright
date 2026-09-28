@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='tideling-glb-') as work:
     assert Path(work,'fish.glb').read_bytes()==before
     assert not list(Path(work).glob('.semwright-export-*'))
     print('SEMWRIGHT_BLENDER_EXPORT_CONTRACT '+json.dumps({'kind':'REAL_BLENDER_ADAPTER','passed':True,'result':result}))
-# Test named collection closure and atomic no-clobber under a competing output.
+# Test named collection closure and rejection of symbolic output paths.
 with tempfile.TemporaryDirectory(prefix='tideling-glb-denials-') as work:
     calls=Commands(bpy,work)
     cube=bpy.data.objects['Cube']
@@ -42,4 +42,24 @@ with tempfile.TemporaryDirectory(prefix='tideling-glb-denials-') as work:
     except CommandError as e:assert e.code=='PolicyDenied'
     else:raise AssertionError('accepted symbolic output')
     assert not Path(work,'closed.glb').exists()
+    # The native exporter recursively expands collection/vertex instances, which
+    # could escape the named collection and its object budget.
+    outside=bpy.data.collections.new('OutsideInstances')
+    outside.objects.link(bpy.data.objects.new('OutsideGeometry',cube.data.copy()))
+    instance=bpy.data.objects.new('ExternalCollectionInstance',None)
+    bpy.data.collections['ExportTest'].objects.link(instance)
+    instance.instance_type='COLLECTION'
+    instance.instance_collection=outside
+    try:calls('blender.export.glb',{'collection':'ExportTest','path':'instances.glb'})
+    except CommandError as e:assert e.code=='Unsupported'
+    else:raise AssertionError('accepted collection instancing outside export boundary')
+    bpy.data.objects.remove(instance,do_unlink=True)
+    cube.instance_type='VERTS'
+    try:calls('blender.export.glb',{'collection':'ExportTest','path':'vertices.glb'})
+    except CommandError as e:assert e.code=='Unsupported'
+    else:raise AssertionError('accepted vertex instancing')
+    cube.instance_type='NONE'
+    assert not Path(work,'instances.glb').exists()
+    assert not Path(work,'vertices.glb').exists()
+    assert not list(Path(work).glob('.semwright-export-*'))
     print('SEMWRIGHT_BLENDER_EXPORT_DENIALS passed')

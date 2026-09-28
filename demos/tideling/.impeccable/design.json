@@ -1,0 +1,323 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-28T17:49:24Z",
+  "title": "Design System: TIDELING",
+  "extensions": {
+    "colorMeta": {
+      "reef-water": {
+        "role": "neutral",
+        "displayName": "Reef Water",
+        "canonical": "#083c50"
+      },
+      "reef-fog": {
+        "role": "neutral",
+        "displayName": "Reef Fog",
+        "canonical": "#0d4257"
+      },
+      "reef-ambient": {
+        "role": "neutral",
+        "displayName": "Ambient Water Light",
+        "canonical": "#648a94"
+      },
+      "surface-sun": {
+        "role": "secondary",
+        "displayName": "Surface Sun",
+        "canonical": "#ffe1ac"
+      },
+      "reef-fill": {
+        "role": "secondary",
+        "displayName": "Reef Fill Light",
+        "canonical": "#8fe0d6"
+      },
+      "foreground-frond": {
+        "role": "neutral",
+        "displayName": "Near Frond",
+        "canonical": "#073f42"
+      },
+      "suspended-mote": {
+        "role": "secondary",
+        "displayName": "Suspended Mote",
+        "canonical": "#b5e2d6"
+      },
+      "warm-text": {
+        "role": "neutral",
+        "displayName": "Warm Text",
+        "canonical": "#f4ecd9"
+      },
+      "quiet-text": {
+        "role": "neutral",
+        "displayName": "Quiet Text",
+        "canonical": "#b7dad6"
+      },
+      "sand-action": {
+        "role": "primary",
+        "displayName": "Sand Action",
+        "canonical": "#efbf89"
+      },
+      "sand-action-hover": {
+        "role": "primary",
+        "displayName": "Lifted Sand Action",
+        "canonical": "#ffdda6"
+      },
+      "action-ink": {
+        "role": "neutral",
+        "displayName": "Action Ink",
+        "canonical": "#183847"
+      },
+      "combo-gold": {
+        "role": "secondary",
+        "displayName": "Combo Gold",
+        "canonical": "#ffce89"
+      },
+      "burst-seaglass": {
+        "role": "secondary",
+        "displayName": "Burst Sea Glass",
+        "canonical": "#a6dcd4"
+      },
+      "meal-mark": {
+        "role": "secondary",
+        "displayName": "Meal Mark",
+        "canonical": "#e0ffe7"
+      },
+      "hunter-mark": {
+        "role": "secondary",
+        "displayName": "Hunter Mark",
+        "canonical": "#ffbf83"
+      },
+      "bar-track": {
+        "role": "neutral",
+        "displayName": "Submerged Track",
+        "canonical": "rgba(2%, 12%, 16%, 0.8)"
+      },
+      "label-shadow": {
+        "role": "neutral",
+        "displayName": "Label Shadow",
+        "canonical": "rgba(1.5%, 7%, 9%, 0.9)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Opening title",
+        "purpose": "Bundled Fraunces title; native theme fallback if missing."
+      },
+      "ending": {
+        "displayName": "Ending title",
+        "purpose": "Same title label at the smaller ending size."
+      },
+      "score": {
+        "displayName": "Score",
+        "purpose": "Largest play readout."
+      },
+      "stage": {
+        "displayName": "Stage and combo",
+        "purpose": "Growth stage and active multiplier."
+      },
+      "introduction": {
+        "displayName": "Introduction",
+        "purpose": "Opening and ending subtitle."
+      },
+      "action": {
+        "displayName": "Dive action",
+        "purpose": "Dive in and Dive again label."
+      },
+      "body": {
+        "displayName": "Play hint",
+        "purpose": "Food-chain and pause hints."
+      },
+      "controls": {
+        "displayName": "Controls and timer",
+        "purpose": "Menu instructions and time remaining."
+      },
+      "caption": {
+        "displayName": "Burst caption",
+        "purpose": "Burst input instruction."
+      }
+    },
+    "shadows": [
+      {
+        "name": "native-label-shadow",
+        "value": "offset (1, 2) logical px; {colors.label-shadow}",
+        "purpose": "Godot Label theme overrides, not CSS box-shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "growth-pulse",
+        "value": "1.0 to 0.0 at delta per frame; tint alpha = pulse * 0.07",
+        "purpose": "Growth response; tint disabled by reduced effects."
+      },
+      {
+        "name": "camera-breath",
+        "value": "stage target + pulse * 0.8; lerp weight 1 - exp(-delta * 1.2)",
+        "purpose": "Orthographic camera growth response; remains with reduced effects."
+      },
+      {
+        "name": "camera-follow",
+        "value": "lerp weight 1 - exp(-delta * 1.6)",
+        "purpose": "Damped following during active play."
+      },
+      {
+        "name": "effect-particle",
+        "value": "0.7 seconds",
+        "purpose": "Transient bite, growth and dash particles; suppressed by reduced effects."
+      },
+      {
+        "name": "frond-sway",
+        "value": "sin(clock * 0.6 + index) * 0.045 radians",
+        "purpose": "Ambient reef movement; remains with reduced effects."
+      },
+      {
+        "name": "hero-animation-state",
+        "value": "Opening: Idle_loop; ordinary idle/swim selection: Idle_loop below movement speed 0.2, Swim_loop otherwise; horizontal reversal: Turn.",
+        "purpose": "Source-observed hero state selection; animation timing and human movement feel are not certified by the visual review."
+      }
+    ],
+    "breakpoints": [],
+    "native": {
+      "platform": "Godot 4 desktop / CanvasLayer over Node3D",
+      "status": "Small native demo; SHIP for the six reviewed hosted-007 visual/interface states, not commercial-quality certification or driver proof.",
+      "sources": [
+        "project/scripts/game.gd",
+        "project/scripts/reef.gd",
+        "project/scripts/food_marks.gd",
+        "project/scripts/menu.gdshader",
+        "project/scripts/hud.gdshader",
+        "project/project.godot"
+      ],
+      "viewport": {
+        "width": 1280,
+        "height": 800,
+        "stretch": "canvas_items",
+        "layout": "Explicit logical pixel coordinates; no authored responsive breakpoints."
+      },
+      "camera": {
+        "projection": "orthogonal",
+        "openingSize": 23,
+        "stageTargetSizes": [
+          18.5,
+          20.8,
+          23.1
+        ]
+      },
+      "componentSource": [
+        {
+          "name": "Dive action",
+          "node": "Button",
+          "refersTo": "dive-action",
+          "source": "project/scripts/game.gd::build_ui",
+          "position": [
+            70,
+            418
+          ],
+          "states": "Normal sand fill; hover and pressed lighter fill; focus style inherited from native theme."
+        },
+        {
+          "name": "Growth meter",
+          "node": "ProgressBar",
+          "refersTo": "growth-track",
+          "source": "project/scripts/game.gd::bar",
+          "position": [
+            44,
+            71
+          ],
+          "fillRef": "growth-fill",
+          "percentageVisible": false
+        },
+        {
+          "name": "Burst meter",
+          "node": "ProgressBar",
+          "refersTo": "burst-track",
+          "source": "project/scripts/game.gd::bar",
+          "position": [
+            44,
+            753
+          ],
+          "fillRef": "burst-fill",
+          "percentageVisible": false
+        },
+        {
+          "name": "Food-chain marks",
+          "node": "Control custom drawing",
+          "source": "project/scripts/food_marks.gd::_draw",
+          "colors": [
+            "meal-mark",
+            "hunter-mark"
+          ],
+          "shapes": "Opposed arcs for edible fish; diamond for predators; within five world units during active play."
+        },
+        {
+          "name": "Reduced effects",
+          "node": "CheckButton",
+          "source": "project/scripts/game.gd::build_ui",
+          "position": [
+            62,
+            590
+          ],
+          "theme": "Inherited Godot theme."
+        },
+        {
+          "name": "Sound toggle",
+          "node": "Button",
+          "source": "project/scripts/game.gd::build_ui",
+          "position": [
+            1080,
+            734
+          ],
+          "size": [
+            150,
+            36
+          ],
+          "theme": "Inherited Godot theme."
+        }
+      ],
+      "previewPolicy": "Native source references replace HTML/CSS previews. No browser detector applies. Tonal ramps are omitted because no runtime scale is authored.",
+      "openVisualIssues": [],
+      "evidenceLimits": [
+        "Hosted visual fixtures are staged, not organic gameplay.",
+        "Visual/interface SHIP is not commercial-quality, animation-timing or complete accessibility certification.",
+        "Physical gamepad and human movement feel remain unverified by this visual review.",
+        "Idle, Turn and retry-reset behavior are documented from source; these captures do not independently verify their runtime timing or transitions.",
+        "Reduced effects does not suppress camera movement or ambient reef motion.",
+        "This documentation does not establish Semwright driver proof or claim later hosted controls runs, recording or merged-SHA publication have passed."
+      ],
+      "visualReview": "Final review: SHIP for all six hosted-007 valid1280x800 states (title, gameplay, hierarchy, stage two, stage three and ending). No material fixes required; cohesive small demo at its current visual ceiling. Disposition covers these captures only.",
+      "retryReset": {
+        "source": "project/scripts/game.gd::start_game",
+        "behavior": "Reset spawn_clock and stage_pulse to zero; queue existing transient effect nodes for removal and clear effects.",
+        "evidence": "Source inspection only; captured states do not independently verify reset behavior."
+      }
+    }
+  },
+  "components": [],
+  "narrative": {
+    "northStar": "A small life in a vast reef",
+    "overview": "The original modeled fish and reef carry the experience. A warm hero moves through cool water, framed by layered coral, rock and kelp. The interface is a sparse native Godot CanvasLayer over the living scene; opening and ending copy use an editorial serif while play information stays compact.\n\nThis document records the implemented sources: `project/scripts/game.gd`, `reef.gd`, `food_marks.gd`, the menu and HUD shaders, and `project/project.godot`. Final visual/interface review of the six `hosted-007` `valid1280x800` states (title, gameplay, hierarchy, stage two, stage three and ending) returned SHIP with no material fixes required. The hero is unobstructed, growth stages are distinct, and HUD, instructions and actions are legible. The review found a cohesive small demo at its current visual ceiling; its disposition is limited to those captured states and is not commercial-quality certification. These staged fixtures do not establish organic progression, animation timing, human movement feel, complete accessibility or Semwright driver proof. The source behavior documented below does not claim a later hosted run or publication has passed. Asset silhouette and material intent remain in `design/ART_DIRECTION.md`; their directional palette is not a substitute for the runtime UI tokens above.",
+    "keyCharacteristics": [
+      "Warm fish and action accents against cool, layered water.",
+      "A live reef behind the opening and ending overlay.",
+      "Small edge-aligned HUD labels and thin progress tracks.",
+      "Food-chain marks distinguished by geometry as well as color.",
+      "Gentle camera movement and a reduced-effects option with limited scope."
+    ],
+    "rules": [
+      {
+        "name": "The Source Color Rule",
+        "body": "Treat runtime UI colors and authored asset palette colors as separate roles. Do not replace an observed button or atmosphere value with a similar art-direction swatch.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do keep the original fish and reef as the main visual content.",
+      "Do preserve geometry and gameplay eligibility alongside food-chain colors.",
+      "Do use runtime source values for UI tokens and identify inherited native theme behavior.",
+      "Do keep authoring and proof controls outside the shipping game interface.",
+      "Do describe this implementation as a prototype until its visual and functional gates have observed evidence."
+    ],
+    "donts": [
+      "Don't turn growth into a level-up dialog or the reef into a card grid.",
+      "Don't claim responsive reflow, comprehensive reduced motion or approved golden visuals from source inspection.",
+      "Don't treat this documentation or its native sidecar as Semwright driver proof.",
+      "Don't replace original fish silhouettes with borrowed character designs."
+    ]
+  }
+}

@@ -1,10 +1,7 @@
 function moreDecodeBase64(value: unknown): Uint8Array {
   const text = String(value ?? "");
   if (text.length > 300_000) throw new Error("artifact_chunk_too_large");
-  const binary = atob(text);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  return extraDecodeBase64(text);
 }
 function moreArtifact(token: unknown): Uint8Array {
   const bytes = extraArtifacts.get(String(token));

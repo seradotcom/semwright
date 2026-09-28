@@ -1,0 +1,24 @@
+[
+  {
+    "branch": "backup/pr132-pre-rebase",
+    "head_sha": "3f087430aa006889a9206a5121efa654f32118af",
+    "baseline_sha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+    "classification": "C \u2014 SUPERSEDED",
+    "scope": "Compared all three changed paths and the native network capability regression; not a full Windows security conclusion",
+    "evidence": [
+      {
+        "path": "crates/platform-windows-sys/src/launch.rs",
+        "detail": "Main retains spec.network-gated internetClient token capabilities and extends profile registration plus narrowly scoped LPAC registry access."
+      },
+      {
+        "path": "crates/platform-windows-sys/tests/secure_spawn.rs",
+        "detail": "Main retains network=false stdio assertion and network_authority_materializes_only_internet_client_capability with network=true assertion."
+      },
+      {
+        "path": "crates/platform-windows-sys/src/bin/windows_sandbox_fixture.rs",
+        "detail": "Main retains token capability inspection/output and strengthens token-buffer validation."
+      }
+    ],
+    "cleanup": "KEEP; behavioral supersession does not prove absence of unique worktree evidence or owner activity"
+  }
+]

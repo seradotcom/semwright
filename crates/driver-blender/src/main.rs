@@ -83,7 +83,7 @@ fn curated_capabilities() -> Result<Vec<Capability>> {
             .unwrap_or_default();
         let mut tags = vec!["blender".into(), "native".into(), "curated".into()];
         match descriptor.name.as_str() {
-            "driver.blender.export.glb" | "driver.blender.file.save" => {
+            "driver.blender.file.save" | "driver.blender.export.glb" => {
                 tags.push(semwright_driver_sdk::artifact_output_tag("model/3d")?)
             }
             "driver.blender.render" => {
@@ -1703,11 +1703,16 @@ mod tests {
             .find(|capability| capability.descriptor.name == "driver.blender.file.save")
             .unwrap();
         assert!(saved.tags.iter().any(|tag| tag == "artifact-out:model/3d"));
-        let glb = capabilities
+        let exported = capabilities
             .iter()
             .find(|capability| capability.descriptor.name == "driver.blender.export.glb")
             .unwrap();
-        assert!(glb.tags.iter().any(|tag| tag == "artifact-out:model/3d"));
+        assert!(
+            exported
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-out:model/3d")
+        );
         let render = capabilities
             .iter()
             .find(|capability| capability.descriptor.name == "driver.blender.render")

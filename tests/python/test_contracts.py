@@ -20,6 +20,21 @@ class ContractTests(unittest.TestCase):
                 with self.subTest(command=command["name"], kind=key):
                     jsonschema.Draft202012Validator.check_schema(command[key])
 
+    def test_blender_glb_export_is_registered_and_bounded(self):
+        export = REGISTRY["blender.export.glb"]
+        self.assertEqual(set(export["input_schema"]["required"]), {"collection", "path"})
+        self.assertFalse(export["input_schema"]["additionalProperties"])
+        self.assertEqual(set(export["input_schema"]["properties"]), {"collection", "path", "animations"})
+        output = export["output_schema"]["properties"]
+        self.assertEqual(output["format"]["const"], "glb")
+        self.assertEqual(output["bytes"]["maximum"], 268435456)
+        self.assertEqual(output["objects"]["maximum"], 2048)
+        self.assertIn("sha256", export["output_schema"]["required"])
+        provenance = json.loads((ROOT / "schemas/builtin-provenance.json").read_text())
+        self.assertEqual(set(provenance), set(REGISTRY))
+        self.assertEqual(provenance[export["name"]]["provider"], "blender-native")
+        self.assertIn("artifact-out:model/3d", provenance[export["name"]]["tags"])
+
     def test_unique_command_names(self):
         self.assertEqual(len(COMMANDS), len(REGISTRY))
 

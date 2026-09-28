@@ -3,20 +3,15 @@
 **A cross-platform semantic capability broker that turns applications and desktops into typed commands—not a stream of guessed clicks.**
 
 > **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
-> The accepted development line has a committed `Cargo.lock`, uses Rust 1.98.1 as the
-> development toolchain, and declares Rust 1.88 as its minimum supported Rust version (MSRV).
-> Hosted CI separately verifies the MSRV and current development toolchain. The line has passed
-> x86_64/ARM64 format, check, build, Clippy, workspace tests, doctests,
-> rustdoc, fake end-to-end, dependency, coverage, bounded-fuzz and real Rust Chromium gates.
-> Provider Runtime, governed stdio MCP federation, the persistent App Driver SDK with
-> sandboxed conformance tooling, and non-executing static/local driver distribution are merged
-> after exact-head green CI. A real LibreOffice/UNO
-> deep driver now exercises that SDK through the normal CLI/broker/policy path, while Chromium
-> has a hosted real-browser integration with bounded handling of transient target metadata. Live
-> desktops, real Blender, broader driver coverage, packaging and independent security review
-> remain incomplete. Read
-> [VERIFY.md](VERIFY.md) and [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md) before granting
-> desktop access.
+> The repository includes a committed `Cargo.lock`, Rust 1.98.1 as the development pin,
+> and Rust 1.88 as its declared minimum supported Rust version. Hosted workflows exercise
+> the core, native application integrations, platform hosts, packaging and supply chain.
+> A workflow's existence or an older successful run is not evidence for a new commit.
+> The pre-R16 observation of `241000c268d1bf1dc29d4e91a913097ac0d020cb` found 11 successful
+> workflows and a failing Windows ARM64 native fixture. Independent security review remains
+> **R16 OPEN**; physical Hyprland/mixed-display evidence remains limited under R06.
+> Read [VERIFY.md](VERIFY.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md), and the
+> [pre-R16 state map](verification/pre-r16/PRE_R16_STATE_MAP.md) before granting desktop access.
 
 ```text
 Agent intent                 Semwright authority                 Linux / application
@@ -30,9 +25,10 @@ The project contains source implementations of a Rust daemon, CLI, MCP frontend,
 terminal inspector, command registry, Provider Runtime, MCP federation client, persistent
 App Driver SDK/host, reference store, policy engine, metadata audit, recipe runner,
 sandboxed plugin host, desktop backends, and application adapters. The runtime is now split
-behind explicit platform contracts: Linux remains the verified host, while the macOS host
-foundation is experimental and requires native Apple-SDK/TCC evidence before it can be
-advertised as supported.
+behind explicit platform contracts with Linux, macOS and Windows host implementations.
+Linux has hosted native application/compositor evidence. Native macOS and Windows hosted
+checks are distinct from interactive, consented desktop certification; their isolation
+models and tested feature coverage are not interchangeable.
 No model, cloud account, default shell, remote desktop service, arbitrary Python/JS
 command, telemetry client, or root daemon is part of the product.
 
@@ -151,27 +147,25 @@ responds on the daemon's own terminal—not through an agent-accessible confirma
 
 ## Components and evidence
 
-| Component | Delivered | Evidence |
+| Component | Delivered | Evidence boundary |
 |---|---|---|
-| Rust core, broker, CLI, MCP, inspector | Source + Rust unit/property/integration tests | Hosted development line compiles and executes on x86_64 + ARM64 under the exact-SHA quality matrix |
-| Platform boundary | `platform-api` + shared services + per-OS hosts | Linux workspace gates plus Darwin cross-checks for Rust-only portable crates |
-| macOS host foundation | AX/CoreGraphics/ScreenCaptureKit/NSPasteboard + Darwin filesystem/Mach-O/service source | Native ARM64 + Intel CI compiles/links and passes noninteractive smoke; TCC/live acceptance remains separate |
-| AT-SPI, Sway, Hyprland, X11, GNOME/KWin clients | Native backend source + Rust tests | Compiled/tested in hosted baseline; no live compositor matrix |
-| GNOME/KWin bridges | JavaScript source + shared-contract tests | Node contract tests; not a live shell/runtime test |
-| RemoteDesktop portal, interactive screenshot | Native D-Bus source + Rust lifecycle tests | Compiled/tested; no accepted live portal/EIS session |
-| EIS/libei, PipeWire pixel stream, AT-SPI delta snapshots | Incomplete/deferred paths | Explicit release blockers; not relabelled as live-only evidence |
-| Blender | Python add-on + Rust client | Mocked host coverage; no accepted real Blender/RNA/addon run |
-| Chromium | Isolated-profile Rust CDP adapter | Real Rust hosted integration passes on this development line, including close/stale-ref invalidation and owned-profile cleanup |
-| Scoped filesystem | Rust scoped implementation + native harness | Rust tests plus native openat2 checks in hosted baseline |
-| Plugins | SDK, digest pinning, bubblewrap + Landlock source | Compiled/unit-tested; hostile sandbox conformance still open |
-| MCP federation | Governed stdio provider + owner-only upstream registry | Merged after green x86_64/ARM64 CI with real fixture handshake/tool import, policy mediation, cancellation, dynamic refresh, crash invalidation and lifecycle smoke; same-UID upstream sandboxing remains open |
-| App Driver SDK | Versioned persistent driver protocol + sandbox host + developer CLI | Merged after hosted driver-conformance: pinned fixture handshake/catalog/health/execute/shutdown, broker smoke and generated-driver compile |
-| Driver distribution | Non-executing `.swdp` packages + static/local index | Hosted package/index tests and install/update/remove smoke; SHA-256 integrity/compatibility only, not publisher signatures or a marketplace |
-| LibreOffice | Sandboxed persistent UNO DriverProvider | Real hosted Writer create/read, Calc create/get/set and PDF export through CLI -> daemon -> broker -> driver; curated seven-capability surface, not full UNO |
-| MLT video | Sandboxed persistent semantic timeline DriverProvider | 68-capability MLT backend differentially checked against the backend-neutral semantic video domain, plus host-sandbox conformance; real MLT/Kdenlive/Shotcut round-trip certification remains pending |
-| KiCad | Separately licensed GPL IPC DriverProvider integration | Rust/Go build, native protocol tests and fake IPC host-sandbox conformance; real KiCad interoperability remains pending |
-| Figma | Authenticated loopback DriverProvider + official Figma Plugin API bridge | 91 typed capabilities, fake-Figma production-protocol E2E, plugin runtime tests and host-sandbox CI; real disposable-file Figma acceptance remains pending |
-| Events/jobs | Provenance-aware event stream + bounded session-scoped jobs | Job execution re-enters normal policy/audit; cancellation, session privacy and revocation are integration-tested; generic progress/artifact/task mapping remains follow-on work |
+| Core, CLI, MCP, inspector, policy and refs | Typed broker and common authority path | Linux x86_64/ARM64 unit/property/integration gates; exact-SHA outcomes are recorded separately |
+| Platform contracts | Portable API, shared services and Linux/macOS/Windows hosts | Cross-compilation is not native acceptance; native hosted runs are not interactive certification |
+| macOS | AX/CoreGraphics/ScreenCaptureKit/NSPasteboard and native host services | Intel/Apple Silicon hosted build and noninteractive checks; authorized TCC/live acceptance remains separate |
+| Windows | UIA, input/capture/IPC and restricted process-launch implementation | Native x64/ARM64 and compatibility jobs exist; the preflight snapshot has an ARM64 UIA failure, and interactive certification is not claimed |
+| AT-SPI, X11, Sway, GNOME/KWin, Hyprland | Native semantic and compositor backends, revisioned refs and recovery | Hosted GTK/Qt, Xvfb/Openbox, headless Sway and Plasma jobs; historical real-login/nested evidence has explicit environment/SHA limits |
+| Portal, EIS and PipeWire | Consented sessions, restore tokens, clipboard, input sender and bounded frame capture | Private D-Bus/EIS fixtures and a real synthetic PipeWire stream; historical isolated GNOME/Plasma VM keyboard evidence is not physical multi-display certification |
+| Filesystem and artifact handoff | Explicit source/destination grants, platform confinement and bounded binary transfer | Linux openat2 and grant/digest regressions; no claim that every OS implements the same confinement mechanism |
+| Plugins and Driver Host | Pinned identities/descriptors, resource limits and platform sandbox admission | Executed Linux hostile fixtures; Windows has separate native authority tests and limitations; neither is independent security review |
+| MCP federation | Sandboxed stdio upstreams and owner-only registry | Executed real protocol fixtures, central policy, cancellation and catalog/crash tests; launch fails closed without the required sandbox |
+| Driver distribution | Non-executing packages, static indexes and bounded companion files | Integrity/compatibility and install/update/remove checks; package hashes do not establish remote publisher identity |
+| Blender | Sandboxed deep DriverProvider plus legacy main-thread add-on | Real Blender hosted smoke, typed operations/RNA inspection and render/save; active owner-runtime/export changes are not part of the observed baseline |
+| Chromium | Private-profile CDP adapter and semantic browser surface | Real browser navigation, multi-frame/ref/download limits and cleanup fixtures; origin restrictions are not a firewall |
+| LibreOffice, MLT, KiCad and OBS | Application-specific DriverProviders | Separate curated/native/fake-protocol matrices; consult each driver's verification record rather than inferring complete native-API coverage |
+| Figma | Authenticated loopback bridge to the official Plugin API | Typed/plugin/fake-host evidence plus a historical Figma 126.5.6 driver-protocol public proof; the latter does not certify the full CLI/broker route or all Figma surfaces |
+| Godot and Motion Canvas | Typed application/project providers | Driver-specific conformance and real-runtime workflows; no generic arbitrary-code execution or blanket application certification claim |
+| Events, jobs and Workflow Distillation | Session-scoped jobs/events, progress/artifacts, MCP Tasks and gated learned recipes | Broker re-entry, privacy, cancellation, drift and promotion tests; recipes are not transactions and do not grant permissions |
+| Packaging and supply chain | Reproducible native tar/deb, Nix, SBOMs and scoped attestations | Executed hosted jobs; release admission remains blocked by independent/live evidence requirements |
 
 Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
 [acceptance resolution](ACCEPTANCE.md), [verification](VERIFY.md).
@@ -201,8 +195,10 @@ Owner-configured stdio servers are imported into the same capability registry an
 subject to normal broker policy, operator approval, provenance and audit. Operators manage
 definitions locally with `semwright mcp upstream ...`; those local commands never add a
 policy grant, so registering a server is distinct from authorizing its tools. The initial
-launcher is digest-pinned and environment-scrubbed but is **not** a sandbox against a
-malicious same-UID executable.
+launcher stages digest-verified bytes, scrubs inherited environment and requires the platform
+sandbox. Network and filesystem authority are separate owner grants; unavailable isolation
+fails closed. This does not protect the broker from an unrelated hostile process already
+running outside the sandbox with the same UID, nor make the OS sandbox a formal kernel proof.
 
 ## Install, extend, inspect
 
@@ -244,7 +240,8 @@ Semwright is a working name; namespace/trademark clearance and publication are u
 This archive does not represent an existing public GitHub release or a promised popularity
 outcome. Original core source is dual-licensed **MIT OR Apache-2.0**. The isolated
 `integrations/kicad-driver` subtree is **GPL-3.0-or-later** and carries its own notices; it is
-not relicensed as core source. Dependency license resolution is not complete without a lockfile.
+not relicensed as core source. `Cargo.lock` and `deny.toml` anchor the dependency/license checks;
+their successful execution does not close R16.
 [Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md),
 [changelog](CHANGELOG.md), and [the original requirements](docs/requirements/START_HERE.md)
 make the requested scope and unfinished work explicit.

@@ -1,0 +1,27 @@
+# Bounded edited-scene readback
+
+These observations describe objects in the Godot editor's edited scene. They do not inspect the separately running game. No mutation, arbitrary method invocation, script evaluation, or resource loading route is added.
+
+`node.inspect` retains its existing request and stored `properties`. New `data.observed` includes scoped `owner_path`/`parent_path` (root `.`, null if absent/outside the edited scene), Node3D local `position`, Euler-radian `rotation`, `scale`, `global_position`, and integer `rotation_order`. AnimationPlayer adds `is_playing` from its actual typed getter. Light3D adds finite numeric `light_size` from its inherited native getter, including DirectionalLight3D whose stored property is `light_angular_distance`; no photometric conversion is applied. The native fixture compares directional, omni and spot observations with `get_param(Light3D.PARAM_SIZE)` and the directional angular-distance alias.
+
+`node.inspect` accepts optional boolean `include_vertex_bounds`, default false. Ordinary inspection stays lightweight even for large meshes. Explicit true on MeshInstance3D adds `vertex_bounds`: global_min/global_max computed by transforming every exposed vertex of every base-mesh surface, vertex_count, surface_count, complete:true, space:global, geometry:base_mesh_vertices. No mesh or zero vertices gives null extrema and count0. These are base mesh bounds, not shader-displaced/skinned vertices or a transformed local AABB. Limits: 64 surfaces, 250000 vertices, 1000ms. ArrayMesh size is checked before array expansion. Native getters of other Mesh implementations cannot be preempted during allocation; deadline is checked immediately after and during traversal. Exceeding a budget is an explicit ResourceExhausted error, with no partial bounds success.
+
+Optional `resource_properties:["attributes"]` accepts at most8 unique exact direct stored Resource property names. `observed.resource_properties.attributes` is null or `{class,path,properties}` read from the currently attached instance; no ResourceLoader lookup of `scene.tscn::id` occurs. The `script` selector and Script objects are rejected. Nested/indexed property paths and arbitrary methods are unavailable. All stored fields except script are encoded; any opaque/truncated encoding or nonfinite numeric component fails the call. At most256 total resource fields and1000ms. Resource-valued fields use existing codec identity descriptors; this is one direct resource level, not recursive resource expansion.
+
+`animation.inspect` accepts optional integer `keys_offset` (0..1000000, default0) and `keys_limit` (0..64, default16), applied independently to each track. Existing request fields remain valid. **Default output is now a bounded page**, not an implicit claim of every key. Metadata includes all libraries/animations/tracks or the call fails. Each track retains prior fields and reports total `key_count`, page parameters, key `index`, `next_offset`, and `keys_complete` (true only when this page alone contains the entire track). `keys_limit:0` is metadata-only; next_offset is null in that mode, so request a positive page size to retrieve keys. Limits:32 libraries,128 animations,128 tracks,256 returned keys across the response,1000ms. A six-track animation should use limit32 or smaller; limit64 would exceed256 and fail. Values that the codec cannot represent completely, including nested nonfinite components, fail instead of truncating. Clients assembling pages must verify unchanged source stamp between calls, but this is not snapshot isolation: the scene stamp does not detect every in-place Animation resource edit made outside Semwright. Keep exclusive writer access during collection and, when possible, compare independent resource identities before/after. A matching stamp alone cannot prove that pages span one resource version.
+
+New output fields are optional in schemas for legacy bounded responses, but the patched plugin emits them. Strict typed schemas reject malformed observations/pages. The bridge now maps explicit `resource_exhausted` to ResourceExhausted.
+
+## Regression tests
+
+The Godot integration workflow runs the Rust driver suite and both native fixtures against pinned Godot4.7.2. These fixtures test synthetic objects and never stand in for an application-level acceptance run.
+
+- `cargo test --locked -p semwright-driver-godot --test contracts` checks schema bounds, legacy input, invalid selectors/pages and incomplete bounds rejection.
+- Copy the addon to a disposable project's `addons/semwright`, copy `readback_contract.gd` to `tests/`, and run `godot --headless --path FIXTURE --script res://tests/readback_contract.gd`. Require exit0 and `READBACK_FIXTURE_TESTS PASS`, and reject engine/script errors. The fixture checks all-surface world bounds, relations, live camera attributes, Light3D aliases, budget failures, pagination of3240 keys and absence of mutation.
+
+
+## JSON numeric boundary
+
+Godot JSON.parse_string supplies numeric arguments as floats. A native-dictionary-only fixture misses that transport boundary. The helper accepts integer Variants and finite, integral floats within the exact bounds, then converts to int. Fractions, booleans, strings, null, NaN and infinities are rejected before conversion. The public Rust integer schema and bounds are unchanged.
+
+The fixture now serializes/parses arguments before traversing all3240synthetic keys, and checks parsed fractional/boolean failures plus nonfinite/type/range negatives.
