@@ -4,7 +4,6 @@ import os from 'node:os';
 import process from 'node:process';
 import {build} from 'vite';
 import motionCanvasModule from '@motion-canvas/vite-plugin';
-import {firefox} from 'playwright';
 
 const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
 function fail(message) { throw new Error(message); }
@@ -93,6 +92,10 @@ function contentType(file) {
 async function main() {
   const a = args();
   const runtimeRoot = await fs.realpath(process.cwd());
+  // Driver Host intentionally clears ambient environment. Pin Playwright's
+  // browser registry to this owner-granted runtime bundle before importing it.
+  process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+  const {firefox} = await import('playwright');
   const config = JSON.parse(Buffer.from(a.config, 'base64url').toString('utf8'));
   const {target: project} = await childOf(a['project-root'], a['project-relative'], 'project');
   const {target: output} = await childOf(a['output-root'], a['output-relative'], 'output');
