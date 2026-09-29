@@ -109,7 +109,7 @@ jobs:
           test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip
           test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip.sha256
           python3 -m json.tool evidence/blender-authoring/source-package.json >/dev/null
-          sha256sum --check --strict evidence/blender-authoring/semwright-blender-authoring-E-source.zip.sha256
+          (cd evidence/blender-authoring &&             sha256sum --check --strict semwright-blender-authoring-E-source.zip.sha256)
           python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output /tmp/semwright-blender-authoring-E-source-second.zip             >/tmp/source-package-second.json
           cmp evidence/blender-authoring/semwright-blender-authoring-E-source.zip             /tmp/semwright-blender-authoring-E-source-second.zip
           rm -f /tmp/semwright-blender-authoring-E-source-second.zip             /tmp/semwright-blender-authoring-E-source-second.zip.sha256             /tmp/source-package-second.json
