@@ -95,7 +95,8 @@ fn tool_capability() -> Capability {
                     "cwd_relative":{"type":"string","maxLength":1024},
                     "path_mount":{"type":"string","minLength":1,"maxLength":64},
                     "path_relative":{"type":"string","maxLength":0},
-                    "dependency":{"type":"string","minLength":1,"maxLength":64}
+                    "dependency":{"type":"string","minLength":1,"maxLength":64},
+                    "system_config":{"enum":["allowed","other","table"]}
                 },
                 "additionalProperties":false
             }),
@@ -761,7 +762,12 @@ impl Driver for Fixture {
             if args.keys().any(|key| {
                 !matches!(
                     key.as_str(),
-                    "cwd_mount" | "cwd_relative" | "path_mount" | "path_relative" | "dependency"
+                    "cwd_mount"
+                        | "cwd_relative"
+                        | "path_mount"
+                        | "path_relative"
+                        | "dependency"
+                        | "system_config"
                 )
             }) {
                 return Err(Error::invalid(
@@ -804,6 +810,13 @@ impl Driver for Fixture {
                     tool: tool.to_owned(),
                 }
             });
+            let system_config_arg = match args.get("system_config").and_then(Value::as_str) {
+                None => None,
+                Some("allowed") => Some("--read-system-config"),
+                Some("other") => Some("--read-other-system-config"),
+                Some("table") => Some("--print-mount-table"),
+                Some(_) => return Err(Error::invalid("fixture system_config mode is invalid")),
+            };
             let typed = path_ref.is_some() || dependency.is_some();
 
             let direct_path_visible = tool_path("probe").is_ok();
@@ -842,6 +855,11 @@ impl Driver for Fixture {
                     });
                     runtime_args.push(dependency);
                 }
+                if let Some(system_config_arg) = system_config_arg {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: system_config_arg.into(),
+                    });
+                }
                 if cwd.is_some() {
                     runtime_args.push(RuntimeToolArg::Literal {
                         value: "--print-cwd".into(),
@@ -857,12 +875,17 @@ impl Driver for Fixture {
                     )
                     .await?
             } else {
+                let mut raw_args = Vec::new();
+                if let Some(system_config_arg) = system_config_arg {
+                    raw_args.push(system_config_arg.into());
+                }
                 match cwd {
                     Some(cwd) => {
+                        raw_args.push("--print-cwd".into());
                         context
                             .execute_runtime_tool_with_cwd(
                                 "probe",
-                                vec!["--print-cwd".into()],
+                                raw_args,
                                 Vec::new(),
                                 std::time::Duration::from_millis(1_500),
                                 cwd,
@@ -873,7 +896,7 @@ impl Driver for Fixture {
                         context
                             .execute_tool(
                                 "probe",
-                                Vec::new(),
+                                raw_args,
                                 Vec::new(),
                                 std::time::Duration::from_millis(1_500),
                             )

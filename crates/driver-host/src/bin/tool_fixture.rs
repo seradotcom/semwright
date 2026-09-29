@@ -33,6 +33,7 @@ fn is_appcontainer() -> bool {
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let print_cwd = args.iter().any(|arg| arg == "--print-cwd");
+    let print_mount_table = args.iter().any(|arg| arg == "--print-mount-table");
     let lifecycle_marker = args.iter().any(|arg| arg == "--lifecycle-marker");
     if lifecycle_marker && std::fs::write("started.marker", b"started").is_err() {
         eprintln!("failed to write started.marker");
@@ -84,6 +85,23 @@ fn main() {
                 }
             }
         }
+        None => None,
+    };
+    let system_config_path = if args.iter().any(|arg| arg == "--read-system-config") {
+        Some("/etc/runtime-config")
+    } else if args.iter().any(|arg| arg == "--read-other-system-config") {
+        Some("/etc/other-config")
+    } else {
+        None
+    };
+    let system_config_output = match system_config_path {
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(value) => Some(value),
+            Err(error) => {
+                eprintln!("failed to read delegated system config: {error}");
+                std::process::exit(12);
+            }
+        },
         None => None,
     };
     let dependency_output = match (dependency_path, dependency_probe_path) {
@@ -141,6 +159,18 @@ fn main() {
     }
     if let Some(value) = dependency_output {
         print!("|dependency={}", value.trim_end());
+    }
+    if let Some(value) = system_config_output {
+        print!("|system-config={}", value.trim_end());
+    }
+    if print_mount_table {
+        match std::env::var("SEMWRIGHT_SANDBOX_MOUNTS_V1") {
+            Ok(value) => print!("|mount-table={value}"),
+            Err(_) => {
+                eprintln!("materialized mount table is unavailable");
+                std::process::exit(13);
+            }
+        }
     }
     if print_cwd {
         match std::env::current_dir() {

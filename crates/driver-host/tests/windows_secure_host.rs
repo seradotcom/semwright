@@ -317,6 +317,7 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec![],
+        system_config: vec![],
         dependencies: vec![],
     }];
     let roots = vec![FilesystemGrant {
@@ -424,6 +425,7 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec!["tool-workspace".into()],
+        system_config: vec![],
         dependencies: vec![],
     }];
     let roots = vec![
@@ -547,6 +549,7 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
             name: "probe".into(),
             sha256: digest(&probe_tool),
             mounts: vec!["tool-workspace".into()],
+            system_config: vec![],
             dependencies: vec!["helper".into()],
         },
         DriverToolMount {
@@ -554,6 +557,7 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
             name: "helper".into(),
             sha256: digest(&helper_tool),
             mounts: vec![],
+            system_config: vec![],
             dependencies: vec![],
         },
     ];
@@ -656,6 +660,127 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
 }
 
 #[tokio::test]
+async fn secure_windows_v8_runtime_tool_receives_only_declared_system_config() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let probe_tool = binary_dir.path().join("probe-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &probe_tool).expect("copy probe fixture");
+    harden_fixture(&executable);
+    harden_fixture(&probe_tool);
+
+    let configs = tempfile::tempdir().expect("system config directory");
+    let allowed_config = configs.path().join("runtime-config");
+    let other_config = configs.path().join("other-config");
+    std::fs::write(&allowed_config, b"delegated-config").unwrap();
+    std::fs::write(&other_config, b"driver-only-config").unwrap();
+    harden_fixture(&allowed_config);
+    harden_fixture(&other_config);
+
+    let mut candidate = manifest(executable);
+    candidate.protocol = 8;
+    candidate.interfaces.host_tools = true;
+    candidate.system_config = vec![
+        SystemConfigMount {
+            root: "tool-config-root".into(),
+            destination: "/etc/runtime-config".into(),
+        },
+        SystemConfigMount {
+            root: "other-config-root".into(),
+            destination: "/etc/other-config".into(),
+        },
+    ];
+    candidate.tools = vec![DriverToolMount {
+        root: "fixture-tool-root".into(),
+        name: "probe".into(),
+        sha256: digest(&probe_tool),
+        mounts: vec![],
+        system_config: vec!["tool-config-root".into()],
+        dependencies: vec![],
+    }];
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: probe_tool,
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-config-root".into(),
+            path: allowed_config.clone(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "other-config-root".into(),
+            path: other_config,
+            read: true,
+            write: false,
+        },
+    ];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows v8 runtime-tool Driver Host");
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_probe")
+        .expect("fixture tool capability")
+        .descriptor
+        .clone();
+
+    let output = Provider::execute(
+        provider.as_ref(),
+        &Context {
+            session: "windows-v8-system-config".into(),
+            request_id: "windows-v8-system-config-table".into(),
+            cancellation: CancellationToken::new(),
+        },
+        &probe,
+        &serde_json::json!({"system_config":"table"}),
+    )
+    .await
+    .expect("v8 tool should receive its materialized mount table");
+    assert_eq!(output["exit_code"], 0);
+    let stdout = output["stdout"].as_str().expect("tool stdout");
+    let encoded = stdout
+        .split("|mount-table=")
+        .nth(1)
+        .expect("materialized mount table receipt");
+    let mounts: serde_json::Value =
+        serde_json::from_str(encoded).expect("valid materialized mount JSON");
+    let mounts = mounts.as_array().expect("materialized mount array");
+    assert_eq!(
+        mounts.len(),
+        1,
+        "tool child must receive only one config mount"
+    );
+    assert_eq!(mounts[0]["class"], "system_config");
+    assert_eq!(mounts[0]["logical_name"], "runtime-config");
+    assert_eq!(mounts[0]["read_only"], true);
+    assert_eq!(
+        PathBuf::from(
+            mounts[0]["path"]
+                .as_str()
+                .expect("materialized config path")
+        ),
+        allowed_config
+    );
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("v8 Windows runtime-tool Driver Host shutdown");
+}
+
+#[tokio::test]
 async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancellable() {
     let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
     let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
@@ -682,6 +807,7 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec!["tool-workspace".into()],
+        system_config: vec![],
         dependencies: vec![],
     }];
     let roots = vec![
@@ -870,6 +996,7 @@ async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
         name: "probe".into(),
         sha256: "0".repeat(64),
         mounts: vec![],
+        system_config: vec![],
         dependencies: vec![],
     }];
     let roots = vec![FilesystemGrant {

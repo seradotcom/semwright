@@ -29,7 +29,7 @@ use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 7;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 8;
 
 const MAX_TOOL_ARGS: usize = 32;
 const MAX_TOOL_ARG_BYTES: usize = 4 * 1024;
@@ -373,6 +373,9 @@ pub struct DriverToolMount {
     /// Empty preserves the v4 zero-mount tool-child contract.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mounts: Vec<String>,
+    /// Read-only system-config mounts this tool may receive at their manifest destinations.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub system_config: Vec<String>,
     /// Other owner-pinned tools that may be exposed read-only+execute to this tool child.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<String>,
@@ -380,6 +383,7 @@ pub struct DriverToolMount {
 impl DriverToolMount {
     fn validate(&self) -> Result<()> {
         let unique_mounts = self.mounts.iter().collect::<BTreeSet<_>>();
+        let unique_system_config = self.system_config.iter().collect::<BTreeSet<_>>();
         let unique_dependencies = self.dependencies.iter().collect::<BTreeSet<_>>();
         if !canonical_slug(&self.root)
             || self.root.starts_with("semwright-internal-")
@@ -392,6 +396,12 @@ impl DriverToolMount {
                 .mounts
                 .iter()
                 .any(|mount| !canonical_slug(mount) || mount.starts_with("semwright-internal-"))
+            || self.system_config.len() > 8
+            || unique_system_config.len() != self.system_config.len()
+            || self
+                .system_config
+                .iter()
+                .any(|root| !canonical_slug(root) || root.starts_with("semwright-internal-"))
             || self.dependencies.len() > 8
             || unique_dependencies.len() != self.dependencies.len()
             || self.dependencies.iter().any(|dependency| {
@@ -401,7 +411,7 @@ impl DriverToolMount {
             })
         {
             return Err(Error::invalid(
-                "Driver tools require canonical grant/name/mounts/dependencies and SHA-256 digest",
+                "Driver tools require canonical grant/name/mounts/system-config/dependencies and SHA-256 digest",
             ));
         }
         Ok(())
@@ -651,6 +661,11 @@ impl Manifest {
             .iter()
             .map(|mount| mount.root.as_str())
             .collect::<BTreeSet<_>>();
+        let system_config_roots = self
+            .system_config
+            .iter()
+            .map(|mount| mount.root.as_str())
+            .collect::<BTreeSet<_>>();
         let mut tool_names = BTreeSet::new();
         for tool in &self.tools {
             tool.validate()?;
@@ -673,6 +688,23 @@ impl Manifest {
                 return Err(Error::new(
                     ErrorCode::Unsupported,
                     "Per-tool workspace mounts require Driver Protocol v5 Host mediation",
+                ));
+            }
+            if tool
+                .system_config
+                .iter()
+                .any(|root| !system_config_roots.contains(root.as_str()))
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Driver tool may only receive declared system-config mounts",
+                ));
+            }
+            if !tool.system_config.is_empty() && (self.protocol < 8 || !self.interfaces.host_tools)
+            {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Per-tool system-config mounts require Driver Protocol v8 Host mediation",
                 ));
             }
             if !tool.dependencies.is_empty() && (self.protocol < 7 || !self.interfaces.host_tools) {
@@ -2506,6 +2538,7 @@ mod tests {
             name: "godot".into(),
             sha256: "a".repeat(64),
             mounts: vec![],
+            system_config: vec![],
             dependencies: vec![],
         }];
         valid.validate().unwrap();
@@ -2525,6 +2558,7 @@ mod tests {
                 name: "godot".into(),
                 sha256: "a".repeat(64),
                 mounts: vec![],
+                system_config: vec![],
                 dependencies: vec![],
             },
             DriverToolMount {
@@ -2532,6 +2566,7 @@ mod tests {
                 name: "godot".into(),
                 sha256: "b".repeat(64),
                 mounts: vec![],
+                system_config: vec![],
                 dependencies: vec![],
             },
         ];
@@ -2543,6 +2578,7 @@ mod tests {
             name: "godot".into(),
             sha256: "not-a-digest".into(),
             mounts: vec![],
+            system_config: vec![],
             dependencies: vec![],
         }];
         assert!(bad_digest.validate().is_err());
@@ -2563,6 +2599,7 @@ mod tests {
             name: "probe".into(),
             sha256: "a".repeat(64),
             mounts: vec![],
+            system_config: vec![],
             dependencies: vec![],
         }];
         candidate.validate().unwrap();
@@ -2609,6 +2646,7 @@ mod tests {
             name: "godot".into(),
             sha256: "a".repeat(64),
             mounts: vec!["project".into()],
+            system_config: vec![],
             dependencies: vec![],
         }];
         candidate.validate().unwrap();
@@ -2740,6 +2778,7 @@ mod tests {
                 name: "probe".into(),
                 sha256: "a".repeat(64),
                 mounts: vec!["project".into()],
+                system_config: vec![],
                 dependencies: vec!["helper".into()],
             },
             DriverToolMount {
@@ -2747,6 +2786,7 @@ mod tests {
                 name: "helper".into(),
                 sha256: "b".repeat(64),
                 mounts: vec![],
+                system_config: vec![],
                 dependencies: vec![],
             },
         ];
@@ -2816,6 +2856,43 @@ mod tests {
         assert_eq!(wire["type"], "tool_execute_v7");
         assert_eq!(wire["args"][1]["kind"], "mount_path");
         assert_eq!(wire["args"][2]["kind"], "tool_path");
+    }
+
+    #[test]
+    fn v8_runtime_tool_system_config_is_declared_and_version_gated() {
+        let mut candidate = manifest();
+        candidate.protocol = 8;
+        candidate.interfaces.host_tools = true;
+        candidate.system_config = vec![SystemConfigMount {
+            root: "font-config".into(),
+            destination: "/etc/fonts".into(),
+        }];
+        candidate.tools = vec![DriverToolMount {
+            root: "tool-root".into(),
+            name: "probe".into(),
+            sha256: "a".repeat(64),
+            mounts: vec![],
+            system_config: vec!["font-config".into()],
+            dependencies: vec![],
+        }];
+        candidate.validate().unwrap();
+
+        let mut v7 = candidate.clone();
+        v7.protocol = 7;
+        assert!(matches!(
+            v7.validate(),
+            Err(error) if error.code == ErrorCode::Unsupported
+        ));
+
+        let mut undeclared = candidate.clone();
+        undeclared.tools[0].system_config = vec!["missing-config".into()];
+        assert!(matches!(
+            undeclared.validate(),
+            Err(error) if error.code == ErrorCode::PolicyDenied
+        ));
+
+        let encoded = serde_json::to_value(&candidate).unwrap();
+        assert_eq!(encoded["tools"][0]["system_config"][0], "font-config");
     }
 
     #[test]

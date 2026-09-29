@@ -4,7 +4,7 @@ use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
-    Transport,
+    SystemConfigMount, Transport,
 };
 use semwright_policy::FilesystemGrant;
 use semwright_types::ErrorCode;
@@ -68,6 +68,7 @@ fn manifest(executable: PathBuf, tool_digest: String, protocol: u32) -> Manifest
             name: "probe".into(),
             sha256: tool_digest,
             mounts: vec!["tool-workspace".into()],
+            system_config: vec![],
             dependencies: vec![],
         }],
         network: false,
@@ -102,8 +103,25 @@ fn manifest_v7(executable: PathBuf, probe_digest: String, helper_digest: String)
         name: "helper".into(),
         sha256: helper_digest,
         mounts: vec![],
+        system_config: vec![],
         dependencies: vec![],
     });
+    candidate
+}
+
+fn manifest_v8(executable: PathBuf, probe_digest: String) -> Manifest {
+    let mut candidate = manifest(executable, probe_digest, 8);
+    candidate.system_config = vec![
+        SystemConfigMount {
+            root: "tool-config-root".into(),
+            destination: "/etc/runtime-config".into(),
+        },
+        SystemConfigMount {
+            root: "other-config-root".into(),
+            destination: "/etc/other-config".into(),
+        },
+    ];
+    candidate.tools[0].system_config = vec!["tool-config-root".into()];
     candidate
 }
 
@@ -339,6 +357,124 @@ async fn linux_v7_runtime_tool_paths_are_mount_and_dependency_scoped() {
     Provider::shutdown(provider.as_ref())
         .await
         .expect("v7 runtime-tool Driver Host shutdown");
+}
+
+#[tokio::test]
+#[ignore = "requires real Bubblewrap + Landlock support"]
+async fn linux_v8_runtime_tool_receives_only_declared_system_config() {
+    assert!(Path::new("/usr/bin/bwrap").is_file());
+
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let driver = binary_dir.path().join("driver");
+    let tool = binary_dir.path().join("tool");
+    std::fs::copy(&driver_source, &driver).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &tool).expect("copy tool fixture");
+    harden(&driver);
+    harden(&tool);
+
+    let workspace = tempfile::tempdir().expect("tool workspace");
+    let other_workspace = tempfile::tempdir().expect("other workspace");
+    let configs = tempfile::tempdir().expect("system config sources");
+    let allowed_config = configs.path().join("runtime-config");
+    let other_config = configs.path().join("other-config");
+    std::fs::write(&allowed_config, b"delegated-config").unwrap();
+    std::fs::write(&other_config, b"driver-only-config").unwrap();
+
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: tool.canonicalize().expect("canonical tool"),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-workspace".into(),
+            path: workspace
+                .path()
+                .canonicalize()
+                .expect("canonical workspace"),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "other-workspace".into(),
+            path: other_workspace
+                .path()
+                .canonicalize()
+                .expect("canonical other workspace"),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "tool-config-root".into(),
+            path: allowed_config
+                .canonicalize()
+                .expect("canonical allowed config"),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "other-config-root".into(),
+            path: other_config.canonicalize().expect("canonical other config"),
+            read: true,
+            write: false,
+        },
+    ];
+
+    let state = tempfile::tempdir().expect("driver state");
+    std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700))
+        .expect("harden driver state");
+    let provider = DriverProvider::connect(
+        manifest_v8(driver, digest(&tool)),
+        state.path(),
+        &sandbox_helper(),
+        &roots,
+        false,
+    )
+    .await
+    .expect("Linux v8 runtime-tool Driver Host");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_probe")
+        .expect("fixture tool capability")
+        .descriptor
+        .clone();
+    let call = |request_id: &str, mode: &str| {
+        let provider = provider.clone();
+        let probe = probe.clone();
+        let context = Context {
+            session: "linux-v8-system-config".into(),
+            request_id: request_id.into(),
+            cancellation: CancellationToken::new(),
+        };
+        let args = serde_json::json!({"system_config":mode});
+        async move { Provider::execute(provider.as_ref(), &context, &probe, &args).await }
+    };
+
+    let allowed = call("linux-v8-config-allowed", "allowed")
+        .await
+        .expect("delegated system config must be readable");
+    assert_eq!(allowed["exit_code"], 0);
+    assert_eq!(allowed["stdout"], "tool-ok|system-config=delegated-config");
+
+    let denied = call("linux-v8-config-not-delegated", "other")
+        .await
+        .expect("tool failure is returned as bounded execution output");
+    assert_eq!(denied["exit_code"], 12);
+    assert_eq!(
+        denied["stdout"], "",
+        "driver-only system config must not be inherited by the tool child"
+    );
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("v8 runtime-tool Driver Host shutdown");
 }
 
 #[tokio::test]

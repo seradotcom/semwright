@@ -84,6 +84,7 @@ fn manifest(
                 name: "godot".into(),
                 sha256,
                 mounts: vec!["godot-project".into()],
+                system_config: vec![],
                 dependencies: vec![],
             })
             .into_iter()

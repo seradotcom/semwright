@@ -6,14 +6,14 @@ use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
-#[cfg(any(target_os = "linux", target_os = "windows"))]
-use semwright_driver_sdk::DriverToolMount;
 use semwright_driver_sdk::{
     DriverInterfaces, DriverRequestContext, Manifest, Request, Response, RuntimeToolArg,
     RuntimeToolCwd, RuntimeToolJob, RuntimeToolJobStatus, ToolExecutionOutput, capabilities_digest,
     descriptor_digest, validate_runtime_tool_args, validate_runtime_tool_execute_request,
     validate_runtime_tool_job_start,
 };
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+use semwright_driver_sdk::{DriverToolMount, SystemConfigMount};
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_platform_api::launch::{
     HostToolArgRef, Mount, MountClass, ResourceLimits, SANDBOX_HOST_TOOL_CWD_ENV,
@@ -197,11 +197,53 @@ struct HostToolJobEntry {
     status: Arc<Mutex<RuntimeToolJobStatus>>,
 }
 
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn host_tool_system_config_mounts(
+    root_spec: &SandboxSpec,
+    system_config: &[SystemConfigMount],
+) -> Result<BTreeMap<String, Mount>> {
+    let materialized = root_spec
+        .mounts
+        .iter()
+        .filter(|mount| mount.class == MountClass::SystemConfig)
+        .map(|mount| (mount.logical_name.as_str(), mount))
+        .collect::<BTreeMap<_, _>>();
+    let mut by_root = BTreeMap::new();
+    for declared in system_config {
+        let relative = declared.destination.strip_prefix("/etc").map_err(|_| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver system-config destination escaped /etc",
+            )
+        })?;
+        let logical_name = relative
+            .to_str()
+            .ok_or_else(|| Error::invalid("Driver system-config destination must be UTF-8"))?
+            .trim_start_matches('/');
+        let mount = materialized.get(logical_name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver system-config mount disappeared before Host-tool delegation",
+            )
+        })?;
+        if by_root
+            .insert(declared.root.clone(), (*mount).clone())
+            .is_some()
+        {
+            return Err(Error::invalid(
+                "Driver system-config roots must remain unique",
+            ));
+        }
+    }
+    Ok(by_root)
+}
+
 #[cfg(target_os = "windows")]
 struct HostToolBroker {
     tools: BTreeMap<String, SealedTool>,
     contracts: BTreeMap<String, DriverToolMount>,
     workspace_mounts: BTreeMap<String, Mount>,
+    system_config_mounts: BTreeMap<String, Mount>,
     template: SandboxSpec,
     operation_cpu_seconds: u64,
 }
@@ -212,6 +254,7 @@ impl HostToolBroker {
         root_spec: &SandboxSpec,
         tools: &[SealedTool],
         contracts: &[DriverToolMount],
+        system_config: &[SystemConfigMount],
         operation_cpu_seconds: u64,
     ) -> Result<Self> {
         let mut by_name = BTreeMap::new();
@@ -226,6 +269,7 @@ impl HostToolBroker {
             .filter(|mount| mount.class == MountClass::Workspace)
             .map(|mount| (mount.logical_name.clone(), mount.clone()))
             .collect::<BTreeMap<_, _>>();
+        let system_config_mounts = host_tool_system_config_mounts(root_spec, system_config)?;
         let mut contract_by_name = BTreeMap::new();
         for contract in contracts {
             if !by_name.contains_key(&contract.name)
@@ -233,6 +277,10 @@ impl HostToolBroker {
                     .mounts
                     .iter()
                     .any(|mount| !workspace_mounts.contains_key(mount))
+                || contract
+                    .system_config
+                    .iter()
+                    .any(|root| !system_config_mounts.contains_key(root))
                 || contract
                     .dependencies
                     .iter()
@@ -255,14 +303,15 @@ impl HostToolBroker {
         template.mounts.clear();
         template.environment.clear();
         template.sealed_tools.clear();
-        // Tool subprocesses receive no ambient filesystem, secret, system-config, network or
-        // loopback authority. A future per-tool grant contract may opt into narrower authority
-        // explicitly, but the driver root spec is never inherited wholesale.
+        // Tool subprocesses never inherit the driver root spec wholesale. Workspace and
+        // system-config authority are selected explicitly by the tool contract; secrets, network
+        // and loopback authority remain absent.
         template.network = false;
         Ok(Self {
             tools: by_name,
             contracts: contract_by_name,
             workspace_mounts,
+            system_config_mounts,
             template,
             operation_cpu_seconds,
         })
@@ -370,7 +419,7 @@ impl HostToolExecutor for HostToolBroker {
         let mut spec = self.template.clone();
         spec.staged_executable = tool.staged.0.clone();
         spec.args = prepared_args;
-        spec.mounts = contract
+        let mut selected_mounts = contract
             .mounts
             .iter()
             .map(|mount| {
@@ -382,6 +431,21 @@ impl HostToolExecutor for HostToolBroker {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+        selected_mounts.extend(
+            contract
+                .system_config
+                .iter()
+                .map(|root| {
+                    self.system_config_mounts.get(root).cloned().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Host-mediated tool system-config authority disappeared",
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
+        spec.mounts = selected_mounts;
         spec.environment.clear();
         spec.environment.push((
             semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
@@ -567,6 +631,7 @@ struct LinuxHostToolBroker {
     tools: BTreeMap<String, LinuxBrokerTool>,
     contracts: BTreeMap<String, DriverToolMount>,
     workspace_mounts: BTreeMap<String, Mount>,
+    system_config_mounts: BTreeMap<String, Mount>,
     template: SandboxSpec,
     operation_cpu_seconds: u64,
 }
@@ -577,6 +642,7 @@ impl LinuxHostToolBroker {
         root_spec: &SandboxSpec,
         tools: &[LinuxBrokerTool],
         contracts: &[DriverToolMount],
+        system_config: &[SystemConfigMount],
         operation_cpu_seconds: u64,
     ) -> Result<Self> {
         let mut by_name = BTreeMap::new();
@@ -591,6 +657,7 @@ impl LinuxHostToolBroker {
             .filter(|mount| mount.class == MountClass::Workspace)
             .map(|mount| (mount.logical_name.clone(), mount.clone()))
             .collect::<BTreeMap<_, _>>();
+        let system_config_mounts = host_tool_system_config_mounts(root_spec, system_config)?;
         let mut contract_by_name = BTreeMap::new();
         for contract in contracts {
             if !by_name.contains_key(&contract.name)
@@ -598,6 +665,10 @@ impl LinuxHostToolBroker {
                     .mounts
                     .iter()
                     .any(|mount| !workspace_mounts.contains_key(mount))
+                || contract
+                    .system_config
+                    .iter()
+                    .any(|root| !system_config_mounts.contains_key(root))
                 || contract
                     .dependencies
                     .iter()
@@ -626,6 +697,7 @@ impl LinuxHostToolBroker {
             tools: by_name,
             contracts: contract_by_name,
             workspace_mounts,
+            system_config_mounts,
             template,
             operation_cpu_seconds,
         })
@@ -722,7 +794,7 @@ impl HostToolExecutor for LinuxHostToolBroker {
         let mut spec = self.template.clone();
         spec.staged_executable = tool.staged.0.clone();
         spec.args = prepared_args;
-        spec.mounts = contract
+        let mut selected_mounts = contract
             .mounts
             .iter()
             .map(|mount| {
@@ -734,6 +806,21 @@ impl HostToolExecutor for LinuxHostToolBroker {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+        selected_mounts.extend(
+            contract
+                .system_config
+                .iter()
+                .map(|root| {
+                    self.system_config_mounts.get(root).cloned().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Linux Host-tool system-config authority disappeared",
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
+        spec.mounts = selected_mounts;
         spec.environment.clear();
         spec.environment.push((
             semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
@@ -2610,6 +2697,7 @@ impl DriverProvider {
                     &spec,
                     &sealed_tools,
                     &manifest.tools,
+                    &manifest.system_config,
                     manifest.resources.operation_cpu_seconds,
                 )?))
             } else {
@@ -2948,6 +3036,7 @@ impl DriverProvider {
                         &spec,
                         &broker_tools,
                         &manifest.tools,
+                        &manifest.system_config,
                         manifest.resources.operation_cpu_seconds,
                     )?))
                 } else {
