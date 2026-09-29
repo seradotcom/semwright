@@ -6,6 +6,25 @@ use std::{
 };
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.len() == 1 && args[0] == "-version" {
+        println!("melt 7.32.0 (Semwright fixture)");
+        return;
+    }
+    if args.first().map(String::as_str) == Some("-query") {
+        let values: &[&str] = match args.get(1).map(String::as_str) {
+            Some("producers") => &["avformat", "color", "pixbuf"],
+            Some("filters") => &["volume", "brightness"],
+            Some("transitions") => &["mix", "luma"],
+            Some("consumers") => &["avformat"],
+            Some("video_codecs") => &["libx264", "ffv1"],
+            Some("audio_codecs") => &["aac", "pcm_s16le"],
+            _ => std::process::exit(2),
+        };
+        for value in values {
+            println!("- {value}");
+        }
+        return;
+    }
     let mode = args.first().map(String::as_str).unwrap_or("ok");
     match mode {
         "ok" => println!("completed"),
