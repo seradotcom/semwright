@@ -137,7 +137,7 @@
       "id": "E16",
       "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
       "implementation": "exact-SHA model+native workflow; hostile GLB closure; bounded cargo-fuzz blender_authoring target; deterministic source backup; no aesthetic PASS",
-      "test": "model/native suites + disposable-Blender hostile preflight + 20s/64KiB parser fuzz + skill/source package manifests",
+      "test": "model/native suites + 9-case disposable-Blender hostile preflight (driver/constraint/modifier/global-action/script-node/instancer/oversize/linked/symlink) + 20s/64KiB parser fuzz + skill/source package manifests",
       "status": "CI_PENDING",
       "open": "final exact-SHA evidence and cross-app D roundtrip remain before readiness"
     }

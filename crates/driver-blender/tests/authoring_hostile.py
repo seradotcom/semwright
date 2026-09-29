@@ -38,11 +38,11 @@ def fixture():
     return collection, mesh_object(collection)
 
 
-def denied(calls, path, expected="PolicyDenied", animations=True):
+def denied(calls, path, expected="PolicyDenied", animations=True, collection="HostileExport"):
     try:
         calls(
             "blender.export.glb",
-            {"collection": "HostileExport", "path": path, "animations": animations},
+            {"collection": collection, "path": path, "animations": animations},
         )
     except CommandError as error:
         assert error.code == expected, (path, error.code, expected)
@@ -103,6 +103,45 @@ def main():
         denied(calls, "script-shader.glb")
         results.append("script_shader_denied")
 
+        # Collection instancers can expand effective membership outside selection.
+        reset()
+        collection, obj = fixture()
+        instanced = bpy.data.collections.new("InstancedOutside")
+        instancer = bpy.data.objects.new("Instancer", None)
+        collection.objects.link(instancer)
+        instancer.instance_type = "COLLECTION"
+        instancer.instance_collection = instanced
+        calls = Commands(bpy, work)
+        denied(calls, "instancer.glb")
+        results.append("collection_instancer_denied")
+
+        # Oversized collections are rejected before native exporter allocation.
+        reset()
+        collection, obj = fixture()
+        for index in range(2048):
+            collection.objects.link(bpy.data.objects.new(f"Extra{index:04d}", None))
+        calls = Commands(bpy, work)
+        denied(calls, "oversized.glb", expected="InvalidArgument")
+        results.append("oversized_collection_denied")
+
+        # A linked collection remains foreign even when its library file is in workspace.
+        reset()
+        source = bpy.data.collections.new("LinkedSource")
+        bpy.context.scene.collection.children.link(source)
+        mesh_object(source, "LinkedSubject")
+        library_path = Path(work, "linked-source.blend")
+        bpy.data.libraries.write(str(library_path), {source})
+        reset()
+        with bpy.data.libraries.load(str(library_path), link=True) as (available, loaded):
+            assert "LinkedSource" in available.collections
+            loaded.collections = ["LinkedSource"]
+        linked = loaded.collections[0]
+        assert linked.library is not None
+        bpy.context.scene.collection.children.link(linked)
+        calls = Commands(bpy, work)
+        denied(calls, "linked.glb", collection="LinkedSource")
+        results.append("linked_collection_denied")
+
         # Existing symbolic output cannot redirect the fixed artifact publication.
         reset()
         collection, obj = fixture()
@@ -124,7 +163,7 @@ def main():
                 "setup": "direct disposable Blender hostile injection",
                 "product_under_test": "existing GLB exporter plus E dependency preflight",
                 "results": results,
-                "passed": len(results) == 6,
+                "passed": len(results) == 9,
             },
             sort_keys=True,
         )
