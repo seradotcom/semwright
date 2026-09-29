@@ -1661,16 +1661,9 @@ const E_ARTICULATED_GLB_SHA256: &str =
 #[tokio::test]
 #[ignore = "requires pinned E Blender GLB artifact, bubblewrap/Landlock and pinned Godot"]
 async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
-    let Some(glb_path) = std::env::var_os("SEMWRIGHT_TEST_E_GLB") else {
+    if std::env::var_os("SEMWRIGHT_TEST_E_GLB").is_none() {
         return;
-    };
-    let e_glb = PathBuf::from(glb_path).canonicalize().unwrap();
-    assert_eq!(
-        e_glb.file_name().and_then(|name| name.to_str()),
-        Some("articulated.glb")
-    );
-    assert_eq!(digest(&e_glb), E_ARTICULATED_GLB_SHA256);
-    let e_root = e_glb.parent().unwrap().canonicalize().unwrap();
+    }
 
     let fixture = fixture();
     let godot_input = fixture._input.path().canonicalize().unwrap();
@@ -1695,6 +1688,22 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     )
     .await
     .unwrap();
+
+    // Only touch the external E artifact after the provider has completed its
+    // sandboxed protocol handshake. This keeps provider startup identical to
+    // the native/persistence/export lanes and prevents cross-app preflight
+    // state from entering the launch boundary.
+    let e_glb = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_E_GLB").expect("cross-app GLB path disappeared"),
+    )
+    .canonicalize()
+    .unwrap();
+    assert_eq!(
+        e_glb.file_name().and_then(|name| name.to_str()),
+        Some("articulated.glb")
+    );
+    assert_eq!(digest(&e_glb), E_ARTICULATED_GLB_SHA256);
+    let e_root = e_glb.parent().unwrap().canonicalize().unwrap();
 
     let handoff_grants = vec![
         FilesystemGrant {
