@@ -671,62 +671,6 @@ close_session()
         })
     }
 
-    async fn run_probe_lua_capture(
-        &self,
-        context: Option<&DriverExecutionContext>,
-        session_dir: &Path,
-        state: &str,
-        operation_args: &[String],
-    ) -> Result<ToolRun> {
-        let temp = TempDir::new()?;
-        let script_path = temp.path().join("semwright-ardour.lua");
-        fs::write(&script_path, script::source())?;
-        let args = lua_tool_args(
-            &script_path,
-            [
-                vec![
-                    session_dir.to_string_lossy().into_owned(),
-                    state.into(),
-                    self.config.ardour_version.clone(),
-                ],
-                operation_args.to_vec(),
-            ]
-            .concat(),
-        );
-        self.run_tool_capture(context, &self.lua_tool, &args).await
-    }
-
-    async fn probe_adapter_step(
-        &self,
-        context: Option<&DriverExecutionContext>,
-        session_dir: &Path,
-        state: &str,
-        operation_args: &[String],
-    ) -> std::result::Result<ArdourSnapshot, (String, String)> {
-        let run = self
-            .run_probe_lua_capture(context, session_dir, state, operation_args)
-            .await
-            .map_err(|error| {
-                (
-                    format!("{:?}", error.code),
-                    bounded_text_diagnostic(&error.message),
-                )
-            })?;
-        if run.exit_code != 0 {
-            let classified = classify_tool_failure(&run.stdout, &run.stderr);
-            return Err((
-                format!("{:?}", classified.code),
-                bounded_text_diagnostic(&bounded_diagnostic(&run.stdout, &run.stderr)),
-            ));
-        }
-        parse_snapshot(&run.stdout).map_err(|error| {
-            (
-                format!("{:?}", error.code),
-                bounded_text_diagnostic(&error.message),
-            )
-        })
-    }
-
     async fn run_lua(
         &self,
         context: Option<&DriverExecutionContext>,
