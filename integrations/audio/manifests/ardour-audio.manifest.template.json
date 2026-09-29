@@ -71,7 +71,7 @@
   ],
   "interfaces": {
     "dynamic_capabilities": false,
-    "cooperative_cancellation": false,
+    "cooperative_cancellation": true,
     "events": false,
     "progress": false,
     "artifacts": false,

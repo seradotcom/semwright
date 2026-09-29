@@ -32,6 +32,28 @@ fn required_path(name: &str) -> PathBuf {
     assert!(path.is_file(), "native prerequisite is not a file: {name}");
     path.canonicalize().unwrap()
 }
+async fn call_with_token(
+    broker: &Arc<Broker>,
+    command: &str,
+    args: Value,
+    cancellation: CancellationToken,
+) -> Envelope {
+    broker
+        .clone()
+        .execute(
+            "ardour-host-conformance".into(),
+            unique_id(),
+            ExecuteRequest {
+                command: format!("driver.ardour-audio.{command}"),
+                args,
+                dry_run: false,
+                backend: None,
+            },
+            cancellation,
+        )
+        .await
+}
+
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
     broker
         .clone()
@@ -211,6 +233,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         },
         request_timeout_ms: 30_000,
         interfaces: DriverInterfaces {
+            cooperative_cancellation: true,
             health: true,
             ..Default::default()
         },
@@ -284,6 +307,18 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     )
     .unwrap();
     broker.mount_provider(provider.clone()).await.unwrap();
+
+    let cancelled_token = CancellationToken::new();
+    cancelled_token.cancel();
+    let cancelled = call_with_token(
+        &broker,
+        "session.deep.runtime.probe",
+        json!({}),
+        cancelled_token,
+    )
+    .await;
+    assert!(!cancelled.ok, "{cancelled:?}");
+    assert_eq!(cancelled.error.unwrap().code, ErrorCode::Cancelled);
 
     let runtime_probe = call(&broker, "session.deep.runtime.probe", json!({})).await;
     assert!(runtime_probe.ok, "{runtime_probe:?}");
@@ -810,6 +845,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
             "route":"broker-policy-driver-host-sealed-ardour-8.4",
             "ardour_version":"8.4.0",
             "runtime_probe":true,
+            "cooperative_cancellation_preflight":true,
             "create_reopen":true,
             "native_bus_create":true,
             "native_internal_send_create_and_gain":true,

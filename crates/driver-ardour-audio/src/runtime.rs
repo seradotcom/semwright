@@ -3,7 +3,7 @@ use crate::{
     script::{self, NativeMutation, RESULT_PREFIX},
 };
 use semwright_audio_domain::wav::WaveReader;
-use semwright_driver_sdk::{tool_path, workspace_mount};
+use semwright_driver_sdk::{DriverExecutionContext, tool_path, workspace_mount};
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -198,10 +198,19 @@ impl DeepRuntime {
             .collect()
     }
 
-    pub async fn probe(&self) -> Result<ArdourRuntimeProbe> {
-        let lua = self.run_tool(&self.lua_tool, &["-V".into()]).await?;
-        let create = self.run_tool(&self.create_tool, &["-V".into()]).await?;
-        let export = self.run_tool(&self.export_tool, &["-V".into()]).await?;
+    pub async fn probe(
+        &self,
+        context: Option<&DriverExecutionContext>,
+    ) -> Result<ArdourRuntimeProbe> {
+        let lua = self
+            .run_tool(context, &self.lua_tool, &["-V".into()])
+            .await?;
+        let create = self
+            .run_tool(context, &self.create_tool, &["-V".into()])
+            .await?;
+        let export = self
+            .run_tool(context, &self.export_tool, &["-V".into()])
+            .await?;
         let lua_banner = version_banner(&lua.stdout, "ardour-lua")?;
         let create_banner = version_banner(&create.stdout, "ardour-utils")?;
         let export_banner = version_banner(&export.stdout, "ardour-utils")?;
@@ -224,7 +233,7 @@ impl DeepRuntime {
             probe_state.into(),
         ];
         let probe_run = self
-            .run_tool_capture(&self.create_tool, &probe_args)
+            .run_tool_capture(context, &self.create_tool, &probe_args)
             .await?;
         let probe_state_file = probe_root.path().join(format!("{probe_state}.ardour"));
         let (create_self_test, create_diagnostic_class, create_diagnostic_prefix) = if probe_run
@@ -260,17 +269,27 @@ impl DeepRuntime {
         })
     }
 
-    pub async fn inspect(&self, state: &str) -> Result<ArdourSnapshot> {
-        self.run_lua(state, &["inspect".to_string()]).await
+    pub async fn inspect(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        state: &str,
+    ) -> Result<ArdourSnapshot> {
+        self.run_lua(context, state, &["inspect".to_string()]).await
     }
 
-    pub async fn mutate(&self, state: &str, mutation: &NativeMutation) -> Result<ArdourSnapshot> {
+    pub async fn mutate(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        state: &str,
+        mutation: &NativeMutation,
+    ) -> Result<ArdourSnapshot> {
         let args = mutation.argv().map_err(domain_error)?;
-        self.run_lua(state, &args).await
+        self.run_lua(context, state, &args).await
     }
 
     pub async fn create(
         &self,
+        context: Option<&DriverExecutionContext>,
         state: &str,
         sample_rate: u32,
         master_channels: u16,
@@ -295,14 +314,14 @@ impl DeepRuntime {
             self.session_root.to_string_lossy().into_owned(),
             state.into(),
         ];
-        let creation = self.run_tool(&self.create_tool, &args).await?;
+        let creation = self.run_tool(context, &self.create_tool, &args).await?;
         // Ardour 8.4's utility has internal error paths that still return zero.
         // The native state artifact and a clean reopen are the acceptance signal.
         if !state_file.try_exists()? {
             return Err(classify_create_failure(&creation.stdout, &creation.stderr));
         }
         regular(&state_file, 64 * 1024 * 1024)?;
-        let snapshot = self.inspect(state).await?;
+        let snapshot = self.inspect(context, state).await?;
         let stereo_master = snapshot
             .routes
             .iter()
@@ -318,6 +337,7 @@ impl DeepRuntime {
 
     pub async fn save_as(
         &self,
+        context: Option<&DriverExecutionContext>,
         source_state: &str,
         candidate_state: &str,
     ) -> Result<ArdourSnapshot> {
@@ -336,6 +356,7 @@ impl DeepRuntime {
             ));
         }
         self.mutate(
+            context,
             source_state,
             &NativeMutation::SaveAs {
                 state: candidate_state.into(),
@@ -344,11 +365,12 @@ impl DeepRuntime {
         .await?;
         regular(&candidate, 64 * 1024 * 1024)?;
         // Reopen the candidate independently; success is not inferred from Lua return alone.
-        self.inspect(candidate_state).await
+        self.inspect(context, candidate_state).await
     }
 
     pub async fn export_wav(
         &self,
+        context: Option<&DriverExecutionContext>,
         state: &str,
         file_name: &str,
         sample_rate: u32,
@@ -376,7 +398,7 @@ impl DeepRuntime {
             self.session_root.to_string_lossy().into_owned(),
             state.into(),
         ];
-        let export_run = self.run_tool(&self.export_tool, &args).await?;
+        let export_run = self.run_tool(context, &self.export_tool, &args).await?;
         // export.cc in Ardour 8.4 does not propagate export_session() failure through main().
         if !output.try_exists()? {
             return Err(classify_export_failure(
@@ -414,7 +436,12 @@ impl DeepRuntime {
         })
     }
 
-    async fn run_lua(&self, state: &str, operation_args: &[String]) -> Result<ArdourSnapshot> {
+    async fn run_lua(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        state: &str,
+        operation_args: &[String],
+    ) -> Result<ArdourSnapshot> {
         validate_state(state)?;
         if operation_args.is_empty() || operation_args.len() > 8 {
             return Err(Error::invalid("Invalid Ardour adapter argument count"));
@@ -432,19 +459,32 @@ impl DeepRuntime {
             operation_args.to_vec(),
         ]
         .concat();
-        let run = self.run_tool(&self.lua_tool, &args).await?;
+        let run = self.run_tool(context, &self.lua_tool, &args).await?;
         parse_snapshot(&run.stdout)
     }
 
-    async fn run_tool(&self, tool: &Path, args: &[String]) -> Result<ToolRun> {
-        let run = self.run_tool_capture(tool, args).await?;
+    async fn run_tool(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        tool: &Path,
+        args: &[String],
+    ) -> Result<ToolRun> {
+        let run = self.run_tool_capture(context, tool, args).await?;
         if run.exit_code != 0 {
             return Err(classify_tool_failure(&run.stdout, &run.stderr));
         }
         Ok(run)
     }
 
-    async fn run_tool_capture(&self, tool: &Path, args: &[String]) -> Result<ToolRun> {
+    async fn run_tool_capture(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        tool: &Path,
+        args: &[String],
+    ) -> Result<ToolRun> {
+        if let Some(context) = context {
+            context.check_cancelled()?;
+        }
         let temp_home = TempDir::new()?;
         let mut command = Command::new(tool);
         command
@@ -503,12 +543,34 @@ impl DeepRuntime {
                 exit_code: status.code().unwrap_or(-1),
             })
         };
-        timeout(RUN_TIMEOUT, execution).await.map_err(|_| {
-            Error::new(
-                ErrorCode::Timeout,
-                "Ardour native tool exceeded runtime budget",
-            )
-        })?
+        let result = if let Some(context) = context {
+            let cancellation = context.cancellation();
+            tokio::select! {
+                _ = cancellation.cancelled() => {
+                    Err(Error::new(ErrorCode::Cancelled, "Ardour native operation cancelled"))
+                }
+                result = timeout(RUN_TIMEOUT, execution) => {
+                    result.map_err(|_| {
+                        Error::new(
+                            ErrorCode::Timeout,
+                            "Ardour native tool exceeded runtime budget",
+                        )
+                    })?
+                }
+            }
+        } else {
+            timeout(RUN_TIMEOUT, execution).await.map_err(|_| {
+                Error::new(
+                    ErrorCode::Timeout,
+                    "Ardour native tool exceeded runtime budget",
+                )
+            })?
+        };
+        if result.is_err() {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+        }
+        result
     }
 
     fn state_path(&self, state: &str) -> PathBuf {

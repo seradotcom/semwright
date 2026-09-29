@@ -14,7 +14,9 @@ use semwright_audio_domain::{
     refs::RefStore,
     units::MilliDb,
 };
-use semwright_driver_sdk::{Capability, Driver, DriverInterfaces, descriptor_digest};
+use semwright_driver_sdk::{
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest,
+};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -345,7 +347,11 @@ impl ArdourAudioDriver {
         }))
     }
 
-    async fn deep_inspect(&self, args: &Value) -> Result<Value> {
+    async fn deep_inspect(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        args: &Value,
+    ) -> Result<Value> {
         let state = text_arg(args, "state", 255)?;
         let runtime = self.deep_runtime.as_ref().ok_or_else(|| {
             Error::new(
@@ -353,7 +359,7 @@ impl ArdourAudioDriver {
                 "Pinned Ardour Lua runtime is unavailable",
             )
         })?;
-        let native = runtime.inspect(state).await?;
+        let native = runtime.inspect(context, state).await?;
         let report = ArdourProjection
             .project(&native)
             .map_err(map_domain_error)?;
@@ -380,10 +386,14 @@ impl ArdourAudioDriver {
         }))
     }
 
-    async fn deep_plugins_inspect(&self, args: &Value) -> Result<Value> {
+    async fn deep_plugins_inspect(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        args: &Value,
+    ) -> Result<Value> {
         let state = text_arg(args, "state", 128)?;
         let runtime = self.deep_runtime()?;
-        let native = runtime.inspect(state).await?;
+        let native = runtime.inspect(context, state).await?;
         let revision = native_revision(&native)?;
         let mut plugins = Vec::new();
         for route in &native.routes {
@@ -436,18 +446,22 @@ impl ArdourAudioDriver {
         })
     }
 
-    async fn deep_runtime_probe(&self) -> Result<Value> {
-        let probe = self.deep_runtime()?.probe().await?;
+    async fn deep_runtime_probe(&self, context: Option<&DriverExecutionContext>) -> Result<Value> {
+        let probe = self.deep_runtime()?.probe(context).await?;
         Ok(serde_json::to_value(probe)?)
     }
 
-    async fn deep_create(&self, args: &Value) -> Result<Value> {
+    async fn deep_create(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        args: &Value,
+    ) -> Result<Value> {
         let state = text_arg(args, "state", 128)?;
         let sample_rate = u64_arg(args, "sample_rate", 8_000, 192_000)? as u32;
         let master_channels = u64_arg(args, "master_channels", 0, 64)? as u16;
         let native = self
             .deep_runtime()?
-            .create(state, sample_rate, master_channels)
+            .create(context, state, sample_rate, master_channels)
             .await?;
         let revision = native_revision(&native)?;
         let report = ArdourProjection
@@ -464,12 +478,16 @@ impl ArdourAudioDriver {
         }))
     }
 
-    async fn deep_save_as(&self, args: &Value) -> Result<Value> {
+    async fn deep_save_as(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        args: &Value,
+    ) -> Result<Value> {
         let source_state = text_arg(args, "source_state", 128)?;
         let candidate_state = text_arg(args, "candidate_state", 128)?;
         let expected = text_arg(args, "expected_revision", 64)?;
         let runtime = self.deep_runtime()?;
-        let before = runtime.inspect(source_state).await?;
+        let before = runtime.inspect(context, source_state).await?;
         let previous_revision = native_revision(&before)?;
         if previous_revision != expected {
             return Err(Error::new(
@@ -477,8 +495,10 @@ impl ArdourAudioDriver {
                 "Ardour deep snapshot revision is stale",
             ));
         }
-        let candidate = runtime.save_as(source_state, candidate_state).await?;
-        let source_after = runtime.inspect(source_state).await?;
+        let candidate = runtime
+            .save_as(context, source_state, candidate_state)
+            .await?;
+        let source_after = runtime.inspect(context, source_state).await?;
         if native_revision(&source_after)? != previous_revision {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -496,7 +516,11 @@ impl ArdourAudioDriver {
         }))
     }
 
-    async fn deep_export(&self, args: &Value) -> Result<Value> {
+    async fn deep_export(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        args: &Value,
+    ) -> Result<Value> {
         let state = text_arg(args, "state", 128)?;
         let expected = text_arg(args, "expected_revision", 64)?;
         let file_name = text_arg(args, "file_name", 200)?;
@@ -508,7 +532,7 @@ impl ArdourAudioDriver {
             ));
         }
         let runtime = self.deep_runtime()?;
-        let before = runtime.inspect(state).await?;
+        let before = runtime.inspect(context, state).await?;
         let previous_revision = native_revision(&before)?;
         if previous_revision != expected {
             return Err(Error::new(
@@ -517,9 +541,9 @@ impl ArdourAudioDriver {
             ));
         }
         let receipt = runtime
-            .export_wav(state, file_name, sample_rate, bit_depth)
+            .export_wav(context, state, file_name, sample_rate, bit_depth)
             .await?;
-        let after = runtime.inspect(state).await?;
+        let after = runtime.inspect(context, state).await?;
         if native_revision(&after)? != previous_revision {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -535,11 +559,16 @@ impl ArdourAudioDriver {
         }))
     }
 
-    async fn deep_mutate(&self, command: &str, args: &Value) -> Result<Value> {
+    async fn deep_mutate(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        command: &str,
+        args: &Value,
+    ) -> Result<Value> {
         let state = text_arg(args, "state", 128)?;
         let expected = text_arg(args, "expected_revision", 64)?;
         let runtime = self.deep_runtime()?;
-        let before = runtime.inspect(state).await?;
+        let before = runtime.inspect(context, state).await?;
         let previous_revision = native_revision(&before)?;
         if previous_revision != expected {
             return Err(Error::new(
@@ -561,7 +590,7 @@ impl ArdourAudioDriver {
                 ));
             }
         }
-        let after = runtime.mutate(state, &mutation).await?;
+        let after = runtime.mutate(context, state, &mutation).await?;
         if !native_effect_verified(&before, &after, &mutation) {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -577,7 +606,15 @@ impl ArdourAudioDriver {
         }))
     }
 
-    async fn execute_inner(&mut self, command: &str, args: &Value) -> Result<Value> {
+    async fn execute_inner(
+        &mut self,
+        context: Option<&DriverExecutionContext>,
+        command: &str,
+        args: &Value,
+    ) -> Result<Value> {
+        if let Some(context) = context {
+            context.check_cancelled()?;
+        }
         match command {
             "driver.ardour-audio.doctor" => {
                 let reachable = self.query().await.is_ok();
@@ -593,14 +630,16 @@ impl ArdourAudioDriver {
                 }))
             }
             "driver.ardour-audio.session.inspect" => self.inspect().await,
-            "driver.ardour-audio.session.deep.inspect" => self.deep_inspect(args).await,
-            "driver.ardour-audio.session.deep.runtime.probe" => self.deep_runtime_probe().await,
-            "driver.ardour-audio.session.deep.plugins.inspect" => {
-                self.deep_plugins_inspect(args).await
+            "driver.ardour-audio.session.deep.inspect" => self.deep_inspect(context, args).await,
+            "driver.ardour-audio.session.deep.runtime.probe" => {
+                self.deep_runtime_probe(context).await
             }
-            "driver.ardour-audio.session.deep.create" => self.deep_create(args).await,
-            "driver.ardour-audio.session.deep.save-as" => self.deep_save_as(args).await,
-            "driver.ardour-audio.session.deep.export" => self.deep_export(args).await,
+            "driver.ardour-audio.session.deep.plugins.inspect" => {
+                self.deep_plugins_inspect(context, args).await
+            }
+            "driver.ardour-audio.session.deep.create" => self.deep_create(context, args).await,
+            "driver.ardour-audio.session.deep.save-as" => self.deep_save_as(context, args).await,
+            "driver.ardour-audio.session.deep.export" => self.deep_export(context, args).await,
             "driver.ardour-audio.session.deep.stem.create"
             | "driver.ardour-audio.session.deep.bus.create"
             | "driver.ardour-audio.session.deep.route.remove"
@@ -624,7 +663,9 @@ impl ArdourAudioDriver {
             | "driver.ardour-audio.session.deep.plugin.remove"
             | "driver.ardour-audio.session.deep.plugin.parameter.set"
             | "driver.ardour-audio.session.deep.plugin.automation.point.add"
-            | "driver.ardour-audio.session.deep.range.set" => self.deep_mutate(command, args).await,
+            | "driver.ardour-audio.session.deep.range.set" => {
+                self.deep_mutate(context, command, args).await
+            }
             "driver.ardour-audio.session.project" => {
                 self.inspect().await?;
                 let cache = self.cache.as_ref().expect("installed snapshot");
@@ -691,6 +732,7 @@ impl Driver for ArdourAudioDriver {
     }
     fn interfaces(&self) -> DriverInterfaces {
         DriverInterfaces {
+            cooperative_cancellation: true,
             health: true,
             ..Default::default()
         }
@@ -705,8 +747,20 @@ impl Driver for ArdourAudioDriver {
         args: Value,
     ) -> Result<Value> {
         self.verify_digest(command, descriptor_sha256)?;
-        self.execute_inner(command, &args).await
+        self.execute_inner(None, command, &args).await
     }
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        descriptor_sha256: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> Result<Value> {
+        self.verify_digest(command, descriptor_sha256)?;
+        context.check_cancelled()?;
+        self.execute_inner(Some(&context), command, &args).await
+    }
+
     async fn health(&mut self) -> Result<Value> {
         let reachable = self.query().await.is_ok();
         Ok(json!({
