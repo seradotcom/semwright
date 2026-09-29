@@ -234,8 +234,36 @@ impl Runtime {
     }
     pub async fn probe(&self, context: &DriverExecutionContext) -> Result<serde_json::Value> {
         context.check_cancelled()?;
-        self.verify_libraries()?;
-        let output = run_sealed_tool(
+        let base = |sealed_helper_executed: bool,
+                    library_mount: bool,
+                    stdlib_regular: bool,
+                    stdlib_compile: bool,
+                    diagnostic_class: String,
+                    diagnostic_prefix: String| {
+            serde_json::json!({
+                "schema_version":1,
+                "engine":"faust-interpreter",
+                "compiler_version":self.config.compiler_version,
+                "runtime_available":true,
+                "sealed_helper_executed":sealed_helper_executed,
+                "library_mount":library_mount,
+                "stdlib_regular":stdlib_regular,
+                "stdlib_compile":stdlib_compile,
+                "diagnostic_class":diagnostic_class,
+                "diagnostic_prefix":diagnostic_prefix
+            })
+        };
+        if let Err(error) = self.verify_libraries() {
+            return Ok(base(
+                false,
+                false,
+                false,
+                false,
+                format!("{:?}", error.code),
+                bounded_diagnostic(&error.message),
+            ));
+        }
+        let output = match run_sealed_tool(
             context,
             vec![
                 "probe".into(),
@@ -243,11 +271,44 @@ impl Runtime {
             ],
             &[],
         )
-        .await?;
+        .await
+        {
+            Ok(output) => output,
+            Err(error) => {
+                return Ok(base(
+                    false,
+                    true,
+                    true,
+                    false,
+                    format!("{:?}", error.code),
+                    bounded_diagnostic(&error.message),
+                ));
+            }
+        };
         if output.exit_code != 0 {
-            return Err(classify_tool_exit(&output.stderr));
+            let classified = classify_tool_exit(&output.stderr);
+            return Ok(base(
+                true,
+                true,
+                true,
+                false,
+                format!("{:?}", classified.code),
+                bounded_diagnostic(&String::from_utf8_lossy(&output.stderr)),
+            ));
         }
-        let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        let value: serde_json::Value = match serde_json::from_slice(&output.stdout) {
+            Ok(value) => value,
+            Err(_) => {
+                return Ok(base(
+                    true,
+                    true,
+                    true,
+                    false,
+                    "ProtocolMismatch".into(),
+                    "helper_stdout_not_typed_json".into(),
+                ));
+            }
+        };
         if value["schema_version"] != 1
             || value["engine"] != "faust-interpreter"
             || value["compiler_version"] != self.config.compiler_version
@@ -257,13 +318,29 @@ impl Runtime {
             || value["diagnostic_class"].as_str().is_none()
             || value["diagnostic_prefix"].as_str().is_none()
         {
-            return Err(Error::new(
-                ErrorCode::ProtocolMismatch,
-                "Faust runtime probe receipt differs from the pinned runtime",
+            return Ok(base(
+                true,
+                true,
+                true,
+                false,
+                "ProtocolMismatch".into(),
+                "helper_probe_receipt_shape_mismatch".into(),
             ));
         }
-        Ok(value)
+        Ok(serde_json::json!({
+            "schema_version":1,
+            "engine":"faust-interpreter",
+            "compiler_version":self.config.compiler_version,
+            "runtime_available":true,
+            "sealed_helper_executed":true,
+            "library_mount":value["library_mount"],
+            "stdlib_regular":value["stdlib_regular"],
+            "stdlib_compile":value["stdlib_compile"],
+            "diagnostic_class":value["diagnostic_class"],
+            "diagnostic_prefix":value["diagnostic_prefix"]
+        }))
     }
+
     fn verify_libraries(&self) -> Result<()> {
         let metadata = fs::symlink_metadata(&self.library_root)?;
         if !metadata.is_dir() || metadata.file_type().is_symlink() {
@@ -1003,6 +1080,20 @@ fn validate_file_name(value: &str, format: AudioFormat) -> Result<()> {
     Ok(())
 }
 
+fn bounded_diagnostic(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_control() && ch != '\n' && ch != '\t' {
+                '?'
+            } else {
+                ch
+            }
+        })
+        .take(512)
+        .collect()
+}
+
 fn classify_tool_exit(stderr: &[u8]) -> Error {
     let text = String::from_utf8_lossy(stderr);
     if text.contains("Permission denied") || text.contains("Operation not permitted") {
@@ -1059,11 +1150,26 @@ async fn run_sealed_tool(
     // Fixed tool identity, materialized and made immutable by the real Driver Host.
     // No input field can select an executable, environment, shell or script.
     let library_env = args.get(1).cloned();
+    let operation = args.first().map(String::as_str).unwrap_or_default();
+    let wall_timeout = if matches!(operation, "render" | "render-sample" | "render-poly") {
+        Duration::from_secs(180)
+    } else {
+        Duration::from_secs(30)
+    };
+    let private_home = tempfile::Builder::new()
+        .prefix("semwright-faust-home-")
+        .tempdir()?;
+    for relative in [".cache", ".config", ".local/share"] {
+        fs::create_dir_all(private_home.path().join(relative))?;
+    }
     let mut command = Command::new(tool_path(HELPER_NAME)?);
     command
         .args(args)
         .env_clear()
-        .env("HOME", "/home")
+        .env("HOME", private_home.path())
+        .env("XDG_CACHE_HOME", private_home.path().join(".cache"))
+        .env("XDG_CONFIG_HOME", private_home.path().join(".config"))
+        .env("XDG_DATA_HOME", private_home.path().join(".local/share"))
         .env("PATH", "/usr/bin:/bin")
         .env("LANG", "C.UTF-8")
         .env("LC_ALL", "C.UTF-8")
@@ -1127,7 +1233,7 @@ async fn run_sealed_tool(
         };
         tokio::select! {
             _ = cancellation.cancelled() => Err(Error::new(ErrorCode::Cancelled, "Native tool cancelled")),
-            result = tokio::time::timeout(Duration::from_secs(30), execution) =>
+            result = tokio::time::timeout(wall_timeout, execution) =>
                 result.unwrap_or_else(|_| Err(Error::new(ErrorCode::Timeout, "Native tool timed out"))),
         }
     };

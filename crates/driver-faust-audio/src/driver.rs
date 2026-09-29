@@ -383,9 +383,9 @@ impl FaustAudioDriver {
                 })?;
                 let probe = runtime.probe(context).await?;
                 Ok(json!({
-                    "runtime_available": true,
+                    "runtime_available": probe["runtime_available"],
                     "compiler_version": probe["compiler_version"],
-                    "sealed_helper_executed": true,
+                    "sealed_helper_executed": probe["sealed_helper_executed"],
                     "library_mount": probe["library_mount"],
                     "stdlib_regular": probe["stdlib_regular"],
                     "stdlib_compile": probe["stdlib_compile"],
@@ -1307,9 +1307,9 @@ fn runtime_probe_schema() -> Value {
     json!({
         "type":"object",
         "properties":{
-            "runtime_available":{"const":true},
+            "runtime_available":{"type":"boolean"},
             "compiler_version":{"type":"string","minLength":1,"maxLength":128},
-            "sealed_helper_executed":{"const":true},
+            "sealed_helper_executed":{"type":"boolean"},
             "library_mount":{"type":"boolean"},
             "stdlib_regular":{"type":"boolean"},
             "stdlib_compile":{"type":"boolean"},
