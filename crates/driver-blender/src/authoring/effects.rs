@@ -4,7 +4,6 @@ use super::*;
 use semwright_effect_conformance as effects;
 use semwright_semantic_composition::*;
 use serde_json::Value;
-use std::collections::BTreeSet;
 
 pub const READBACK_RULE: &str = "blender.plan-native-readback.v1";
 pub const PRESERVATION_RULE: &str = "blender.unmanaged-preservation.v1";

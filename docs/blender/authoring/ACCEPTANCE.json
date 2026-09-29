@@ -21,7 +21,9 @@
     "f_run_id": 36504224825,
     "f_job_id": 109201878358,
     "f_outcome": "FAIL",
-    "f_reason": "Clippy non_snake_case lint in F-owned test name; E must not call this head CI-certified."
+    "f_reason": "Clippy non_snake_case lint in F-owned test name; E must not call this head CI-certified.",
+    "f_newer_consumed_source": "5ed7d0ff8016d76031ec33846f27a237f196835c",
+    "f_note": "42204ac contract tests passed before its lint failure; E later merged F source through 5ed7d0f. F release certification remains independently owned."
   },
   "requirements": [
     {
@@ -99,17 +101,17 @@
     {
       "id": "E11",
       "condition": "GLB roundtrip Blender and Godot",
-      "implementation": "Blender GLB creation/read header only",
+      "implementation": "E exports with the existing GLB capability; D SHA 557ad0b validates self-contained GLB internally but does not yet publish a Broker-facing authoring/import capability consumable by E.",
       "test": null,
-      "status": "OPEN",
-      "open": "fresh Blender import semantic compare and D public Godot import/compare"
+      "status": "BLOCKED_DEPENDENCY",
+      "open": "D must publish its public GLB authoring/import route and native acceptance SHA; then E can run export -> artifact handoff -> D import -> semantic comparison without private store calls."
     },
     {
       "id": "E12",
       "condition": "repair does not destroy art or widen authority",
-      "implementation": "no repair capability published",
-      "test": null,
-      "status": "OPEN"
+      "implementation": "composition.repair.plan/apply is transform-only, parent PlanVault-bound, fresh-fingerprint-bound, shared root budget; create/remesh/material/rig/bake repair is rejected.",
+      "test": "authoring_model repair budget/deny cases + native second-writer drift -> verify FAIL -> repair -> PASS",
+      "status": "CI_PENDING"
     },
     {
       "id": "E13",
@@ -122,25 +124,24 @@
     {
       "id": "E14",
       "condition": "articulated/hard-surface/product fixtures through product route",
-      "implementation": "three typed data fixtures",
-      "test": "model parses all; native currently articulated only",
-      "status": "PARTIAL"
+      "implementation": "three typed fixtures; native lane authors articulated plus hard-surface and product-scene through composition.plan/apply/measure",
+      "test": "authoring_model parses all + authoring_native product-route fixtures",
+      "status": "CI_PENDING"
     },
     {
       "id": "E15",
       "condition": "Skill/package ready for consumer",
-      "implementation": "semwright-blender-production draft Skill",
-      "test": null,
-      "status": "OPEN",
-      "open": "Skill/package conformance and final descriptor lock"
+      "implementation": "semwright-blender-production requirements include inspect/plan/apply/measure/validate/repair/verify/persist/reopen/export",
+      "test": "CI builds real semwright CLI, skill validate and clean skill bundle with SHA-256",
+      "status": "CI_PENDING"
     },
     {
       "id": "E16",
       "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
-      "implementation": "exact-SHA workflow + source security boundaries",
-      "test": "native lane pending",
-      "status": "PARTIAL",
-      "open": "hostile cases, fuzz, packaging and final evidence"
+      "implementation": "exact-SHA model+native workflow; hostile GLB closure cases; no aesthetic PASS",
+      "test": "model/native suites + direct disposable-Blender hostile preflight + skill bundle",
+      "status": "CI_PENDING",
+      "open": "fuzz/package/source backup still required after native lane stabilizes"
     }
   ],
   "blender_authoring_ready": false

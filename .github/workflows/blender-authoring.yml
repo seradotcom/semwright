@@ -64,10 +64,25 @@ jobs:
           test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
           bash scripts/dev/ci-driver-bwrap-profile.sh evidence/blender-authoring/sandbox-setup.log
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
-      - name: Exact-SHA selected suite
+      - name: Exact-SHA model and selected suite
         env:
           SUITE: ${{ steps.selector.outputs.suite }}
-        run: python3 scripts/blender-authoring/run-suite.py --suite "$SUITE"
+        run: |
+          if [ "$SUITE" = "blender-native-authoring" ]; then
+            python3 scripts/blender-authoring/run-suite.py --suite blender-model
+          fi
+          python3 scripts/blender-authoring/run-suite.py --suite "$SUITE"
+      - name: Hostile GLB closure in disposable Blender
+        if: steps.selector.outputs.suite == 'blender-native-authoring'
+        run: |
+          set -o pipefail
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec --python-exit-code 1             --python crates/driver-blender/tests/authoring_hostile.py 2>&1             | tee evidence/blender-authoring/hostile-export.log
+      - name: Skill validate and clean bundle
+        run: |
+          cargo build --locked -p semwright-cli --bin semwright
+          target/debug/semwright --json skill validate skills/semwright-blender-production             | tee evidence/blender-authoring/skill-validate.json
+          target/debug/semwright --json skill bundle skills/semwright-blender-production             evidence/blender-authoring/semwright-blender-production.zip
+          sha256sum evidence/blender-authoring/semwright-blender-production.zip             | tee evidence/blender-authoring/semwright-blender-production.zip.sha256
       - name: Formatting gate
         run: cargo fmt --package semwright-driver-blender -- --check
       - name: Preserve bounded diagnostics

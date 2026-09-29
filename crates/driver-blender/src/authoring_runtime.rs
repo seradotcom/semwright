@@ -21,6 +21,7 @@ struct Record {
     after: Option<NativeSnapshot>,
     global_after: Option<NativeSnapshot>,
     report: Option<composition::VerificationReport>,
+    repair: bool,
 }
 pub(super) struct State {
     vault: composition::PlanVault,
@@ -47,6 +48,11 @@ struct PlanOutput {
     plan_ref: String,
     plan: Plan,
 }
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct RepairPlanInput {
+    parent_plan_ref: String,
+}
 fn common_error(error: composition::ContractError) -> Error {
     let code = match error {
         composition::ContractError::Denied(_) => ErrorCode::PolicyDenied,
@@ -70,6 +76,27 @@ pub(super) fn capabilities() -> Vec<Capability> {
         serde_json::to_value(schemars::schema_for!(NativeSnapshot)).expect("schema serializes");
     let report = serde_json::to_value(schemars::schema_for!(composition::VerificationReport))
         .expect("schema serializes");
+    // Do not publish the entire PreparedPlan generic as an external JSON Schema:
+    // expanding its repeated intent/operation definitions exceeds Registry's bounded
+    // external-schema walk. Rust already constructs and verifies the typed Plan;
+    // the descriptor validates the stable transport envelope and digest shape.
+    let plan_output = json!({
+        "type":"object",
+        "properties":{
+            "plan_ref":id.clone(),
+            "plan":{
+                "type":"object",
+                "properties":{
+                    "body":{"type":"object"},
+                    "digest":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+                },
+                "required":["body","digest"],
+                "additionalProperties":false
+            }
+        },
+        "required":["plan_ref","plan"],
+        "additionalProperties":false
+    });
     let rows = [
         (
             "inspect",
@@ -80,11 +107,26 @@ pub(super) fn capabilities() -> Vec<Capability> {
         (
             "plan",
             serde_json::to_value(schemars::schema_for!(PlanInput)).expect("schema serializes"),
-            serde_json::to_value(schemars::schema_for!(PlanOutput)).expect("schema serializes"),
+            plan_output.clone(),
             Risk::ReadOnly,
         ),
         (
             "apply",
+            reference.clone(),
+            json!({"type":"object","properties":{
+                "plan_ref":id.clone(),"island":id.clone(),
+                "report":{"type":"object"},"snapshot":{"type":"object"}
+            },"required":["plan_ref","island","report","snapshot"],"additionalProperties":false}),
+            Risk::Mutating,
+        ),
+        (
+            "repair.plan",
+            serde_json::to_value(schemars::schema_for!(RepairPlanInput)).expect("schema serializes"),
+            plan_output.clone(),
+            Risk::ReadOnly,
+        ),
+        (
+            "repair.apply",
             reference.clone(),
             json!({"type":"object","properties":{
                 "plan_ref":id.clone(),"island":id.clone(),
@@ -151,6 +193,8 @@ fn profile_bindings() -> Result<Vec<composition::CapabilityBinding>> {
         (composition::Phase::Apply, "apply"),
         (composition::Phase::Measure, "measure"),
         (composition::Phase::Validate, "validate"),
+        (composition::Phase::RepairPlan, "repair.plan"),
+        (composition::Phase::RepairApply, "repair.apply"),
         (composition::Phase::Verify, "verify"),
     ] {
         let capability = capability(&format!("driver.blender.composition.{suffix}"))?;
@@ -165,6 +209,8 @@ fn profile_bindings() -> Result<Vec<composition::CapabilityBinding>> {
                     composition::EffectClass::UpdateOwnedObject,
                 ]
                 .into()
+            } else if phase == composition::Phase::RepairApply {
+                [composition::EffectClass::UpdateOwnedObject].into()
             } else {
                 [composition::EffectClass::Inspect].into()
             },
@@ -289,27 +335,133 @@ pub(super) async fn execute(
                     after: None,
                     global_after: None,
                     report: None,
+                    repair: false,
                 },
             );
             Ok(serde_json::to_value(PlanOutput { plan_ref, plan })?)
         }
-        "apply" => {
+        "repair.plan" => {
+            if state.records.len() >= 32 {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "authoring plan cache is full; reconnect instead of evicting attempt history",
+                ));
+            }
+            let input: RepairPlanInput = serde_json::from_value(args)?;
+            composition::bounded_id(&input.parent_plan_ref).map_err(common_error)?;
+            let parent_key = (owner.clone(), input.parent_plan_ref.clone());
+            let (parent_intent, parent_report) = {
+                let parent = state.records.get(&parent_key).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "repair parent was not issued to this session",
+                    )
+                })?;
+                (
+                    parent.prepared.plan.body.intent.clone(),
+                    parent.report.clone().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::Conflict,
+                            "repair parent has no completed verified native attempt",
+                        )
+                    })?,
+                )
+            };
+            let (island, entity, transform, meters_per_unit) = match parent_intent {
+                AuthoringIntent::Transform {
+                    island,
+                    entity,
+                    transform,
+                    meters_per_unit,
+                    ..
+                } => (island, entity, transform, meters_per_unit),
+                AuthoringIntent::Create { .. } => {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "repair v1 never regenerates a created asset; only an explicit prior transform is repairable",
+                    ));
+                }
+            };
+            let before = snapshot(socket, Some(&island)).await?;
+            let prior_verdict = parent_report.verdict().map_err(common_error)?;
+            if prior_verdict == composition::Verdict::Pass && !before.drift {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "repair refused because current native state has no observed drift or failed required check",
+                ));
+            }
+            let repair_intent = AuthoringIntent::Transform {
+                island,
+                entity,
+                transform,
+                meters_per_unit,
+                expected_fingerprint: before.fingerprint.clone(),
+            };
+            let prepared = prepare_repair(
+                owner.clone(),
+                repair_intent,
+                &before,
+                profile_bindings()?,
+            )
+            .map_err(common_error)?;
+            let plan = prepared.plan.clone();
+            let root_budget = state
+                .vault
+                .root_budget(&owner, &input.parent_plan_ref)
+                .map_err(common_error)?;
+            if plan.body.budget != root_budget {
+                return Err(Error::new(
+                    ErrorCode::Internal,
+                    "repair planner attempted to reset the root convergence budget",
+                ));
+            }
+            let plan_ref = unique_id();
+            state
+                .vault
+                .issue(
+                    &owner,
+                    &plan_ref,
+                    &plan,
+                    plan.body.budget.clone(),
+                    plan.body.changes.operations.len() as u32,
+                    Some(&input.parent_plan_ref),
+                    true,
+                )
+                .map_err(common_error)?;
+            state.records.insert(
+                (owner, plan_ref.clone()),
+                Record {
+                    prepared,
+                    before,
+                    after: None,
+                    global_after: None,
+                    report: None,
+                    repair: true,
+                },
+            );
+            Ok(serde_json::to_value(PlanOutput { plan_ref, plan })?)
+        }
+        "apply" | "repair.apply" => {
             let plan_ref = args["plan_ref"]
                 .as_str()
                 .ok_or_else(|| Error::invalid("plan ref"))?;
             let key = (owner.clone(), plan_ref.to_owned());
-            let plan = state
-                .records
-                .get(&key)
-                .ok_or_else(|| {
+            let (plan, record_is_repair) = {
+                let record = state.records.get(&key).ok_or_else(|| {
                     Error::new(
                         ErrorCode::PolicyDenied,
                         "plan was not issued to this session",
                     )
-                })?
-                .prepared
-                .plan
-                .clone();
+                })?;
+                (record.prepared.plan.clone(), record.repair)
+            };
+            let requested_repair = suffix == "repair.apply";
+            if requested_repair != record_is_repair {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "root and repair plans must use their matching apply capability",
+                ));
+            }
             state
                 .vault
                 .matches(&owner, plan_ref, &plan)
@@ -324,7 +476,8 @@ pub(super) async fn execute(
                 "begin",
                 json!({
                     "island":intent_island(&plan.body.intent),
-                    "fingerprint":before.fingerprint
+                    "fingerprint":before.fingerprint,
+                    "allow_drift":requested_repair
                 }),
             )
             .await?;

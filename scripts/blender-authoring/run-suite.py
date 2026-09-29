@@ -10,8 +10,8 @@ import subprocess
 import time
 
 SUITES = {
-    "blender-model": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--test", "authoring_model", "--", "--test-threads=1"], 30),
-    "blender-native-authoring": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--features", "authoring-native", "--test", "authoring_native", "--", "--test-threads=1", "--nocapture"], 1),
+    "blender-model": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--test", "authoring_model", "--", "--test-threads=1"], 33),
+    "blender-native-authoring": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--features", "authoring-native", "--test", "authoring_native", "--", "--test-threads=1", "--nocapture"], 2),
 }
 
 def main():

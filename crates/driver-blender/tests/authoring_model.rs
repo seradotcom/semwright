@@ -86,6 +86,24 @@ fn transform_prepared(before:&NativeSnapshot) -> PreparedAuthoring {
     let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&after,None,ExecutionStatus::Completed).unwrap();
     assert_eq!(evaluation.verdict().unwrap(),Verdict::Fail);
 }
+#[test] fn root_transform_plan_rejects_observed_drift() {
+    let mut before=transform_snapshot(); before.drift=true;
+    let intent=AuthoringIntent::Transform{island:"island".into(),entity:"part".into(),transform:Transform{translation:[1.,2.,3.],rotation:[0.;3],scale:[1.;3]},meters_per_unit:1.0,expected_fingerprint:before.fingerprint.clone()};
+    assert!(prepare(owner(),intent,&before,"unused".into(),bindings()).is_err());
+}
+#[test] fn repair_plan_is_transform_only_and_inherits_root_budget() {
+    let before=transform_snapshot(); let root=transform_prepared(&before);
+    let mut vault=PlanVault::bounded(16,8,64);
+    vault.issue(&owner(),"root",&root.plan,root.plan.body.budget.clone(),root.plan.body.changes.operations.len() as u32,None,false).unwrap();
+    let permit=vault.begin(&owner(),"root",&root.plan,"root-request").unwrap();
+    vault.finish(permit,ExecutionStatus::Completed,vec![]).unwrap();
+    let mut drifted=before.clone(); drifted.drift=true; drifted.fingerprint=Digest::of_bytes(b"manual-drift");
+    let repair_intent=AuthoringIntent::Transform{island:"island".into(),entity:"part".into(),transform:Transform{translation:[1.,2.,3.],rotation:[0.;3],scale:[1.;3]},meters_per_unit:1.0,expected_fingerprint:drifted.fingerprint.clone()};
+    let child=prepare_repair(owner(),repair_intent,&drifted,bindings()).unwrap();
+    assert_eq!(child.plan.body.budget,root.plan.body.budget);
+    vault.issue(&owner(),"repair",&child.plan,child.plan.body.budget.clone(),child.plan.body.changes.operations.len() as u32,Some("root"),true).unwrap();
+    assert!(prepare_repair(owner(),AuthoringIntent::Create{spec:spec()},&snap(),bindings()).is_err());
+}
 #[test] fn c_receipt_requires_host_owned_ids_and_admission() {
     let before=transform_snapshot(); let prepared=transform_prepared(&before);
     let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&before,None,ExecutionStatus::Completed).unwrap();

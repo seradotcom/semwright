@@ -229,12 +229,13 @@ class AuthoringRuntime:
                 check(constraint.type in {"COPY_LOCATION", "TRACK_TO"} and constraint.target and constraint.target.as_pointer() in pointers, "external constraint target", "PolicyDenied")
         return collection, objects
 
-    def begin(self, expected, island):
+    def begin(self, expected, island, allow_drift=False):
+        check(isinstance(allow_drift, bool), "allow_drift must be boolean")
         check(abs(self.bpy.context.scene.unit_settings.scale_length - 1.0) <= 1e-9, "explicit meter-coordinate profile requires scene unit scale 1", "Unsupported")
         observed = self.snapshot(island)
         check(observed["fingerprint"] == expected, "plan base changed", "StaleReference")
         if island:
-            check(not observed["drift"], "manual edit drift", "StaleReference")
+            check(allow_drift or not observed["drift"], "manual edit drift", "StaleReference")
             self._closed(island)
         return observed
 
@@ -495,7 +496,9 @@ class AuthoringRuntime:
     def dispatch(self, command, args):
         operations = {
             "snapshot": lambda: self.snapshot(args.get("island")),
-            "begin": lambda: self.begin(args["fingerprint"], args.get("island")),
+            "begin": lambda: self.begin(
+                args["fingerprint"], args.get("island"), args.get("allow_drift", False)
+            ),
             "apply": lambda: self.apply(args["operation"]),
             "finish": lambda: self.finish(args["island"]),
             "measure": lambda: self.measure(args["island"], args["evaluated"]),

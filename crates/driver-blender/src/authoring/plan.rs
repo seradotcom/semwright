@@ -74,12 +74,13 @@ pub fn profile(
     p.validate()?;
     Ok(p)
 }
-pub fn prepare(
+fn prepare_internal(
     owner: Owner,
     intent: AuthoringIntent,
     snapshot: &NativeSnapshot,
     new_island: String,
     bindings: Vec<CapabilityBinding>,
+    allow_observed_drift: bool,
 ) -> Result<PreparedAuthoring> {
     let base = snapshot.base(&owner)?;
     let mut payloads = Vec::new();
@@ -168,7 +169,8 @@ pub fn prepare(
             transform.validate()?;
             finite(*meters_per_unit, 0.0001, 100.0)?;
             ensure(
-                snapshot.island.as_deref() == Some(island) && !snapshot.drift,
+                snapshot.island.as_deref() == Some(island)
+                    && (allow_observed_drift || !snapshot.drift),
                 "managed collection identity or manual-edit drift",
             )?;
             ensure(
@@ -236,7 +238,9 @@ pub fn prepare(
     }
     let descriptor = profile(bindings, required_rules.clone())?;
     let budget = ConvergenceBudget {
-        max_iterations: 1,
+        // Root apply plus at most two explicitly requested repair attempts. Child
+        // repairs inherit this root budget in A's PlanVault; no reset is allowed.
+        max_iterations: 3,
         max_operations: MAX_OPERATIONS as u32,
         max_findings: 512,
         max_observations: 64,
@@ -272,7 +276,53 @@ pub fn prepare(
     })
 }
 
-pub fn phases() -> BTreeSet<Phase> { [Phase::Inspect,Phase::Plan,Phase::Apply,Phase::Measure,Phase::Validate,Phase::Verify].into() }
+pub fn prepare(
+    owner: Owner,
+    intent: AuthoringIntent,
+    snapshot: &NativeSnapshot,
+    new_island: String,
+    bindings: Vec<CapabilityBinding>,
+) -> Result<PreparedAuthoring> {
+    prepare_internal(owner, intent, snapshot, new_island, bindings, false)
+}
+
+/// Narrow repair planner. It accepts only a caller-explicit Transform intent over
+/// a fresh exact fingerprint. Observed managed-island drift may be repaired, but
+/// the repair cannot create/delete entities, alter topology/materials/rigs, or
+/// widen the plan's native operation class.
+pub fn prepare_repair(
+    owner: Owner,
+    intent: AuthoringIntent,
+    snapshot: &NativeSnapshot,
+    bindings: Vec<CapabilityBinding>,
+) -> Result<PreparedAuthoring> {
+    ensure(
+        matches!(intent, AuthoringIntent::Transform { .. }),
+        "repair v1 only supports an explicit transform intent",
+    )?;
+    prepare_internal(
+        owner,
+        intent,
+        snapshot,
+        "repair-does-not-create-islands".into(),
+        bindings,
+        true,
+    )
+}
+
+pub fn phases() -> BTreeSet<Phase> {
+    [
+        Phase::Inspect,
+        Phase::Plan,
+        Phase::Apply,
+        Phase::Measure,
+        Phase::Validate,
+        Phase::RepairPlan,
+        Phase::RepairApply,
+        Phase::Verify,
+    ]
+    .into()
+}
 
 fn near(actual: &Value, expected: &[f64]) -> bool {
     actual.as_array().is_some_and(|a| a.len()==expected.len() && a.iter().zip(expected).all(|(x,y)| x.as_f64().is_some_and(|x| (x-y).abs() <= 1e-5 * y.abs().max(1.0))))

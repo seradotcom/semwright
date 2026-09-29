@@ -15,7 +15,7 @@ Call `driver.blender.composition.plan` with a typed intent, review its operation
 
 Use inspect for bounded source-only readback. `composition.measure` explicitly distinguishes source and evaluated state: evaluation has a cost and requires its own mutation-capable authorization. Single-frame evaluation does not establish all-time correctness. Bounds intersection is not mesh collision evidence. Request human/visual review for aesthetics; no automatic beauty verdict exists.
 
-Incremental `transform` intents require the managed island/entity and exact observed fingerprint. On drift, ambiguity, shared-resource surprises or linked/read-only data, stop and reconcile. This draft does not offer automatic repair, copy-on-write, remeshing or topology reduction. Do not invent a repair capability.
+Incremental `transform` intents require the managed island/entity and exact observed fingerprint. On drift, ambiguity, shared-resource surprises or linked/read-only data, stop and reconcile. The only repair surface is `composition.repair.plan` → `composition.repair.apply` for a previously completed **transform** plan: it re-observes the exact current fingerprint, inherits the parent's PlanVault budget, and restores that already-declared transform only after an explicit repair request. It does not regenerate a created asset, copy shared data, remesh, delete parts, change materials/rigs, bake, or broaden authority. Root and repair plan refs are not interchangeable.
 
 ## Persistence and export
 
@@ -25,4 +25,4 @@ Reuse `driver.blender.export.glb`. Review effective membership, parents, armatur
 
 Blender never writes a Godot project. Transfer artifacts through the public artifact route and D's public Godot API, recording distinct export/handoff/import/verification activities. No `send_to_godot` shortcut or hidden `.tscn` write.
 
-`composition.validate` and `composition.verify` preserve required UNKNOWN. The draft's effect-conformance rule remains UNKNOWN until F's trusted native adapter is actually integrated; a structural check is not C/F pipeline acceptance. Read [typed authoring](references/typed-authoring.md) for the implemented draft boundary.
+`composition.validate` and `composition.verify` use F's trusted `EvidenceAdapter`/evaluator over native post-state; request echoes or client-provided evidence cannot mint PASS. C Project Graph admission remains a separate host-owned step: E can form a typed candidate only after host-resolved logical identities, and C's registered `ReceiptAdapter` decides admission. Read [typed authoring](references/typed-authoring.md) for the implemented boundary.

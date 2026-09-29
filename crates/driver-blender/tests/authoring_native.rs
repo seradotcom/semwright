@@ -72,6 +72,34 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let replay=fixture.raw(&fixture.session,"composition.apply",json!({"plan_ref":plan["plan_ref"]})).await;assert!(!replay.ok);
     let island=applied["island"].as_str().unwrap();
     let measured=fixture.call("composition.measure",json!({"island":island,"evaluated":true})).await;assert_eq!(measured["total"],3);assert_eq!(measured["coverage"],"single_frame");
+
+    // Repair is explicit and transform-only. A second authorized writer creates real drift;
+    // verification must fail before the parent-bound repair is planned and applied.
+    let stable=fixture.call("composition.inspect",json!({"island":island})).await;
+    let body=stable["items"].as_array().unwrap().iter().find(|row| row["entity"]=="body").unwrap();
+    let body_name=body["name"].as_str().unwrap().to_owned();
+    let transform_plan=fixture.call("composition.plan",json!({"intent":{
+        "kind":"transform","island":island,"entity":"body",
+        "transform":{"translation":[0.2,0.0,0.5],"rotation":[0.0,0.0,0.0],"scale":[1.0,1.0,1.0]},
+        "meters_per_unit":1.0,"expected_fingerprint":stable["fingerprint"]
+    }})).await;
+    let transformed=fixture.call("composition.apply",json!({"plan_ref":transform_plan["plan_ref"]})).await;
+    let transformed_report:semwright_semantic_composition::VerificationReport=serde_json::from_value(transformed["report"].clone()).unwrap();
+    assert_eq!(transformed_report.verdict().unwrap(),semwright_semantic_composition::Verdict::Pass);
+    fixture.call("object.transform",json!({"name":body_name,"location":[9.0,0.0,0.5]})).await;
+    let drifted=fixture.call("composition.inspect",json!({"island":island})).await;
+    assert_eq!(drifted["drift"],true);
+    let failed=fixture.call("composition.verify",json!({"plan_ref":transform_plan["plan_ref"]})).await;
+    let failed_report:semwright_semantic_composition::VerificationReport=serde_json::from_value(failed).unwrap();
+    assert_eq!(failed_report.verdict().unwrap(),semwright_semantic_composition::Verdict::Fail);
+    let repair=fixture.call("composition.repair.plan",json!({"parent_plan_ref":transform_plan["plan_ref"]})).await;
+    assert!(!fixture.raw(&fixture.session,"composition.apply",json!({"plan_ref":repair["plan_ref"]})).await.ok,
+        "repair child cannot use root apply capability");
+    let repaired=fixture.call("composition.repair.apply",json!({"plan_ref":repair["plan_ref"]})).await;
+    let repaired_report:semwright_semantic_composition::VerificationReport=serde_json::from_value(repaired["report"].clone()).unwrap();
+    assert_eq!(repaired_report.verdict().unwrap(),semwright_semantic_composition::Verdict::Pass);
+    assert_eq!(fixture.call("composition.inspect",json!({"island":island})).await["drift"],false);
+
     // Export uses the pre-existing GLB capability, never a second E exporter.
     let scene=fixture.call("composition.inspect",json!({"island":island})).await;
     let collection=scene["items"][0]["collections"][0].as_str().unwrap();
@@ -92,4 +120,33 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let evidence=PathBuf::from(std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE").expect("evidence path"));
     fs::create_dir_all(&evidence).unwrap();
     fs::write(evidence.join("native-pipeline.json"),serde_json::to_vec_pretty(&json!({"version":1,"route":"Broker -> policy -> Driver Host -> Blender","writer_process":writer,"reader_process":reopened["native_session"],"glb":export,"blend":saved,"native_assertions_completed":true,"godot_reimport_verified":false,"cf_consumers_verified":false,"ready":false})).unwrap()).unwrap();
+}
+
+#[tokio::test]
+async fn hard_surface_and_product_scene_author_through_semwright() {
+    let root=PathBuf::from(std::env::var("SEMWRIGHT_TEST_BLENDER_ROOT").expect("required Blender runtime"));
+    let workspace=tempfile::tempdir().unwrap();
+    let fixture=NativeFixture::start(workspace.path(),&root,true).await;
+    for (label,source) in [
+        ("hard_surface",include_str!("../../../fixtures/blender-authoring/hard_surface.json")),
+        ("product_scene",include_str!("../../../fixtures/blender-authoring/product_scene.json")),
+    ] {
+        let spec:Value=serde_json::from_str(source).unwrap();
+        let expected=spec["entities"].as_array().unwrap().len() as u64;
+        let plan=fixture.call("composition.plan",json!({"intent":{"kind":"create","spec":spec}})).await;
+        let applied=fixture.call("composition.apply",json!({"plan_ref":plan["plan_ref"]})).await;
+        assert_eq!(applied["snapshot"]["total"].as_u64(),Some(expected),"{label}");
+        let report:semwright_semantic_composition::VerificationReport=
+            serde_json::from_value(applied["report"].clone()).unwrap();
+        assert_eq!(
+            report.verdict().unwrap(),
+            semwright_semantic_composition::Verdict::Pass,
+            "{label} native/F verification"
+        );
+        let island=applied["island"].as_str().unwrap();
+        let measured=fixture.call("composition.measure",json!({"island":island,"evaluated":true})).await;
+        assert_eq!(measured["total"].as_u64(),Some(expected),"{label} evaluated count");
+        assert_eq!(measured["coverage"],"single_frame");
+    }
+    fixture.provider.shutdown().await.unwrap();
 }
