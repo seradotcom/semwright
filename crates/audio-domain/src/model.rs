@@ -1068,7 +1068,7 @@ fn unique(ids: &mut BTreeSet<String>, value: &str) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn validate_id(value: &str) -> Result<()> {
+pub fn validate_id(value: &str) -> Result<()> {
     if value.is_empty()
         || value.len() > 256
         || value.contains("..")
