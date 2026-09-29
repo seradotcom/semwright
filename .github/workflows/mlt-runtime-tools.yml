@@ -1,0 +1,72 @@
+name: MLT runtime tools
+on:
+  pull_request:
+    paths:
+      - 'crates/driver-mlt-video/**'
+      - 'crates/driver-host/**'
+      - 'crates/driver-sdk/**'
+      - 'crates/platform-api/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/platform-services/**'
+      - 'scripts/dev/ci-driver-bwrap-profile.sh'
+      - '.github/workflows/mlt-runtime-tools.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: mlt-runtime-tools-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  live-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: mlt-runtime-tools
+      - name: Install MLT runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap python3 melt ffmpeg
+          mkdir -p verification/mlt-runtime-tools
+          melt -version | head -5 | tee verification/mlt-runtime-tools/mlt-version.log
+          ffprobe -version | head -3 | tee verification/mlt-runtime-tools/ffprobe-version.log
+      - name: Enforce Driver Host AppArmor chain
+        run: |
+          scripts/dev/ci-driver-bwrap-profile.sh verification/mlt-runtime-tools/sandbox.log
+      - name: MLT unit and runner contract
+        run: |
+          cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/mlt-runtime-tools/tests.log
+          cargo clippy --locked -p semwright-mlt-video-driver --all-targets --all-features -- -D warnings
+      - name: Real Host-mediated MLT discovery and live driver
+        env:
+          SEMWRIGHT_TEST_MLT_VIDEO: '1'
+          SEMWRIGHT_TEST_MELT: /usr/bin/melt
+          SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
+          SEMWRIGHT_TEST_FFMPEG: /usr/bin/ffmpeg
+          SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox \
+            -p semwright-mlt-video-driver --bin semwright-mlt-video-driver \
+            -p semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
+          cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture \
+            2>&1 | tee verification/mlt-runtime-tools/live.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: mlt-runtime-tools-evidence
+          path: verification/mlt-runtime-tools
+          retention-days: 14
