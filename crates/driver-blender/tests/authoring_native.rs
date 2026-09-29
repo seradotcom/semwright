@@ -616,6 +616,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let scene = fixture
         .call("composition.inspect", json!({"island":island}))
         .await;
+    assert_eq!(scene["drift"], false, "pre-export source must be stable");
     let collection = scene["items"][0]["collections"][0].as_str().unwrap();
     let export = fixture
         .call(
@@ -630,9 +631,16 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let after_export = fixture
         .call("composition.inspect", json!({"island":island}))
         .await;
+    if after_export["drift"] != false {
+        eprintln!(
+            "ARTICULATED_EXPORT_BEFORE={}\nARTICULATED_EXPORT_AFTER={}",
+            serde_json::to_string_pretty(&scene).unwrap(),
+            serde_json::to_string_pretty(&after_export).unwrap()
+        );
+    }
     assert_eq!(
         after_export["drift"], false,
-        "GLB export must restore frame/selection context without invalidating managed source"
+        "GLB export must restore all observable source/context state without invalidating managed source"
     );
     eprintln!("ARTICULATED_STAGE after_export_ok");
     let evidence =
