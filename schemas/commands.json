@@ -19874,5 +19874,71 @@
     "backends": [
       "core"
     ]
+  },
+  {
+    "name": "project.asset.provenance",
+    "version": "1.0",
+    "description": "Explain the active producer, visible dependencies, bounded known/possible direct derivatives and typed stale/unknown reasons without leaking hidden receipt membership.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
   }
 ]

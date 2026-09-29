@@ -13,7 +13,7 @@ After discovering and describing the required routes, follow this sequence:
 
 1. Register or discover the logical resource under an explicit project/root grant. Do not equate a path, matching name, digest or old session ref with persistent identity.
 2. Reconcile through the authorized native observer. Reacquire current refs and record observation scope/time, base, generation, digest method and unknown dependencies. Report “current according to the last reconcile” separately from “verified now.”
-3. Inspect dependencies, derivations and impact. Keep known affected resources, possible impacts, unknown frontier and traversal truncation separate. An absent edge does not establish independence.
+3. Inspect the resource and its provenance before impact: `project.asset.provenance` reports the active visible producer, exact visible inputs, bounded known/possible direct derivatives and typed stale/unknown reasons. Treat `truncated` as incomplete returned derivative coverage and `unknown_frontier` as unresolved visibility/evidence; neither means independence. Then use impact for transitive consequences.
 4. If the installed catalog exposes an authorized typed rebuild-planning route, review its blockers and current bindings before preparation. If it does not, report that gap and stop there. Never substitute shell automation, treat a proposal as a grant, overwrite divergence implicitly or create another scheduler.
 5. Verify required output predicates using the same base/artifact, persist actual receipts and refresh knowledge. Preserve required UNKNOWN/FAIL. Do not infer success from a saved filename or successful store tests.
 

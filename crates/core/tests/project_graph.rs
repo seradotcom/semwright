@@ -439,3 +439,88 @@ async fn project_routes_are_not_recorded_as_workflow_memory() {
             .is_some_and(|c| c.starts_with("project."))
     }));
 }
+
+#[tokio::test]
+async fn project_provenance_route_explains_registered_asset_without_inventing_producer() {
+    let (_temp, root, state) = fixture();
+    std::fs::write(root.join("source.bin"), b"project-provenance-fixture").unwrap();
+    let broker = broker(
+        &root,
+        &state,
+        "audit-provenance",
+        "os-user-v1:fixture:provenance",
+    );
+    let session = unique_id();
+    let created = call(
+        &broker,
+        &session,
+        "project.create",
+        json!({"root":"workspace"}),
+    )
+    .await;
+    assert!(created.ok, "{created:?}");
+    let project = created.data.unwrap()["project"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let registered = call(
+        &broker,
+        &session,
+        "project.asset.register",
+        json!({
+            "root":"workspace",
+            "project":project,
+            "label":"source",
+            "resource_type":"fixture",
+            "path":"source.bin",
+            "max_bytes":4096
+        }),
+    )
+    .await;
+    assert!(registered.ok, "{registered:?}");
+    let asset = registered.data.unwrap()["result"]["asset"]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let provenance = call(
+        &broker,
+        &session,
+        "project.asset.provenance",
+        json!({"root":"workspace","project":project,"asset":asset}),
+    )
+    .await;
+    assert!(provenance.ok, "{provenance:?}");
+    let result = &provenance.data.unwrap()["result"];
+    assert_eq!(result["asset"]["asset"]["id"], asset);
+    assert!(result["producer"].is_null());
+    assert!(result["known_derivatives"].as_array().unwrap().is_empty());
+}
+
+#[cfg(target_os = "windows")]
+#[tokio::test]
+async fn project_store_database_inherits_private_windows_acl() {
+    let (_temp, root, state) = fixture();
+    let broker = broker(
+        &root,
+        &state,
+        "audit-private-data-acl",
+        "os-user-v1:fixture:acl",
+    );
+    let created = call(
+        &broker,
+        &unique_id(),
+        "project.create",
+        json!({"root":"workspace"}),
+    )
+    .await;
+    assert!(created.ok, "{created:?}");
+    let project = created.data.unwrap()["project"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    semwright_platform_services::verify_private_data_file(
+        &state.join(project).join("project.sqlite3"),
+        16 * 1024 * 1024,
+    )
+    .unwrap();
+}

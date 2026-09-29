@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-156 built-in descriptors. A descriptor is not proof of live backend support.
+157 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -167,6 +167,7 @@ for many backends in this development handoff; strengthening them is a release g
 | `project.edge.declare` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
 | `project.manifest.export` | `filesystem.read:root` | read_only | 10000 ms | core |
 | `project.manifest.import` | `filesystem.read:root`, `project.manage` | mutating | 20000 ms | core |
+| `project.asset.provenance` | `filesystem.read:root` | read_only | 10000 ms | core |
 
 ## `doctor`
 
@@ -4804,6 +4805,44 @@ Idempotency: `non_idempotent`. Dry run: `false`.
     "root",
     "project",
     "manifest"
+  ]
+}
+```
+
+## `project.asset.provenance`
+
+Explain the active producer, visible dependencies, bounded known/possible direct derivatives and typed stale/unknown reasons without leaking hidden receipt membership.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset"
   ]
 }
 ```

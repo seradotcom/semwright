@@ -96,20 +96,25 @@
     {
       "requirement": "C06",
       "condition": "Transitive invalidation and unknown frontier",
-      "status": "PASS",
+      "status": "PENDING_CI",
       "implementation": [
         "crates/project-graph/src/graph.rs",
-        "crates/project-graph/src/query.rs"
+        "crates/project-graph/src/query.rs",
+        "crates/project-graph/src/query.rs ProvenanceView/provenance bounded direct-derivative query",
+        "crates/core/src/project_graph.rs project.asset.provenance"
       ],
       "tests": [
         "transitive_stale_preserves_unchanged_output_and_exact_revert",
         "incremental_receipt_index_matches_independent_full_fixed_point",
-        "bounded_impact_reports_truncation_and_cancelled_scope"
+        "bounded_impact_reports_truncation_and_cancelled_scope",
+        "provenance_explains_active_dependencies_direct_derivatives_and_stale_reason",
+        "partial_scope_provenance_hides_receipt_membership_and_hidden_counts",
+        "declared_derivatives_remain_possible_and_provenance_is_bounded"
       ],
       "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
       "run_id": 36600659015,
       "job_id": 109516876942,
-      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+      "evidence": "Prior incremental/full recompute path passed at d7a8b0c run 36600659015. Additive bounded provenance route is prepared locally and must pass a new exact-SHA lane before this row returns to PASS."
     },
     {
       "requirement": "C07",
@@ -167,7 +172,7 @@
       "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
       "run_id": 36600659015,
       "job_id": 109516876942,
-      "evidence": "Graph-state project.* Broker routing is exact-SHA PASS at d7a8b0c (8/8 Broker tests + daemon wiring). Typed rebuild execution remains blocked: RebuildCatalog still needs trusted native capability-to-preparation bindings and there is intentionally no project.rebuild.execute route or second scheduler."
+      "evidence": "Graph-state project.* routing passed 8/8 Broker regressions plus daemon/principal wiring at d7a8b0c. Typed rebuild dispatch remains blocked: Registry Metadata has no registered production-capability -> prepare-capability relation, so C refuses name inference, provider substitution or a second scheduler. There is intentionally no project.rebuild.execute route."
     },
     {
       "requirement": "C10",
@@ -234,9 +239,9 @@
       "condition": "Native Blender GLB Godot pipeline",
       "status": "BLOCKED",
       "implementation": [
-        "C P0 ReceiptAdapter plus fb15f52 RevisionAdapter candidate",
-        "E native Blender source d80471b9ceb828a2a531dfac9eaa4e970ea589a9",
-        "D native Godot source 0db56b88010b7b14b877006eae11a9c56091404b"
+        "C RevisionAdapter/AdmittedRevision published in fb15f52 + 7efa0f0 for read-only native observations",
+        "E PR #175 exact source d80471b9ceb828a2a531dfac9eaa4e970ea589a9",
+        "D PR #176 native source observed at 0db56b88010b7b14b877006eae11a9c56091404b and later heads"
       ],
       "tests": [
         "registered_revision_adapter_assigns_revision_without_creating_activity",
@@ -247,25 +252,26 @@
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": "E exact native run 36543391358 at d80471b9 is PASS. D exact run 36586509462 at 0db56b8 has model/hostile/native-authoring/export PASS, but godot-cross-app-glb job 109468167916 FAILS because the Godot driver exits before protocol Hello (BackendFailed), not because of C evidence. C fb15f52 adds host-only RevisionAdapter/AdmittedRevision so read-only/import readback need not fabricate a derivation receipt; that additive contract still needs exact-SHA C CI and D consumption. Combined Blender\u2192GLB\u2192Godot C activity/evidence remains open."
+      "evidence": "E native Blender run 36543391358 is SUCCESS. D run 36586509462 has model/hostile/native-authoring/export PASS, but godot-cross-app-glb job 109468167916 fails because the Godot provider exits before protocol Hello. Combined Blender\u2192GLB\u2192Godot C evidence is therefore still absent."
     },
     {
       "requirement": "C14",
       "condition": "Native motion/AV/audio integration",
       "status": "BLOCKED",
       "implementation": [
-        "A C1 inspected; A PR #168 currently at 028ae5f5168dfc87bf9fade6c4eebf77f264b0a1"
+        "A PR #168 composition-media source 1278a3aa73c3b6d40a30085b19a7dedd13fba8d2 inspected",
+        "B PR #183 audio-completion source 2e16161e3abc3ebb6e2d2eb7a6b750f0793625fd inspected"
       ],
       "tests": [],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": "No A/B native AV/audio receipt flow has been consumed into C on one integrated tested SHA. Graph-state Broker routing does not close this native media gate."
+      "evidence": "A AUDIO_AV_CONTRACT explicitly states B has not consumed C1 and the combined Broker/Host/Motion/Audio/MLT/decoder E2E is absent. B exposes audio artifacts/receipts but no integrated C ExecutionReceipt/reconcile boundary on one tested SHA. C does not create a competing publication pointer or fabricate that bridge."
     },
     {
       "requirement": "C15",
       "condition": "Usable continuity Skill with real requirements",
-      "status": "PASS",
+      "status": "PENDING_CI",
       "implementation": [
         "skills/semwright-project-continuity",
         "crates/project-graph/tests/skill_package.rs",
@@ -280,7 +286,7 @@
       "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
       "run_id": 36600659015,
       "job_id": 109516876942,
-      "evidence": "Exact d7a8b0c full lane PASS produced the real semwright-project-continuity.swskill (SHA-256 8236e74bd7f4aea105a5e6443354fc31b1e2886893bbb53a03d949792de78bff), all required registered project.* descriptors resolved, 4/4 schema examples passed with zero project operations, and 8/8 Broker route tests passed. Native cross-app/rebuild execution remain separate gates."
+      "evidence": "The real continuity Skill/package and project.* Broker routes passed at d7a8b0c run 36600659015. Local additive project.asset.provenance requirement/example is prepared and must pass exact-SHA package/conformance before final PASS."
     },
     {
       "requirement": "C16",
@@ -300,7 +306,7 @@
       "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
       "run_id": 36600659015,
       "job_id": 109516876942,
-      "evidence": "Exact d7a8b0c full lane PASS: scale 10k resources/50k declared edges (3130 ms build, 167 ms query, 79,696 KiB process peak), fuzz PASS manifest 1,059,589; receipt 476,783; traversal 16,324; store 1,548 executions, plus packaging/Skill and Broker integration. Final fb15f52 RevisionAdapter + Windows lint fixes still require exact-SHA full/global checks before C16 final PASS."
+      "evidence": "d7a8b0c run 36600659015 passed 62/62 graph tests, 8/8 Broker tests, principal/daemon wiring, scale and four fuzz targets. RevisionAdapter and Windows path fixes are on later SHAs with current exact-SHA Windows/Quality/Project Graph gates pending; final package must use the final single tested SHA."
     }
   ],
   "last_full_pass": {

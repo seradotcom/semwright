@@ -8,6 +8,7 @@
       { "id": "project.create", "required": true },
       { "id": "project.asset.register", "required": true },
       { "id": "project.asset.inspect", "required": true },
+      { "id": "project.asset.provenance", "required": true },
       { "id": "project.asset.reconcile", "required": true },
       { "id": "project.query", "required": true },
       { "id": "project.impact", "required": true },

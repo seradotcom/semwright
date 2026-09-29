@@ -210,6 +210,7 @@ impl ProjectGraphs {
             command,
             "project.query"
                 | "project.asset.inspect"
+                | "project.asset.provenance"
                 | "project.revisions"
                 | "project.impact"
                 | "project.manifest.export"
@@ -266,6 +267,17 @@ impl ProjectGraphs {
                     .graph()
                     .map_err(graph_error)?
                     .inspect(&scoped, &asset_id(args)?)
+                    .map_err(graph_error)?,
+            )?,
+            "project.asset.provenance" => serde_json::to_value(
+                store
+                    .graph()
+                    .map_err(graph_error)?
+                    .provenance(
+                        &scoped,
+                        &asset_id(args)?,
+                        args["limit"].as_u64().unwrap_or(64) as usize,
+                    )
                     .map_err(graph_error)?,
             )?,
             "project.asset.rename" => {
@@ -524,6 +536,7 @@ fn reconcile(
         observation.method_version,
     )?;
     let candidate = g::RevisionCandidate {
+        version: g::SCHEMA_VERSION,
         asset: id.clone(),
         fingerprint: g::Fingerprint {
             bytes: Some(digest.clone()),
