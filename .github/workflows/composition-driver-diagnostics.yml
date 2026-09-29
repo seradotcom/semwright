@@ -1,5 +1,6 @@
 name: Composition driver diagnostics
 on:
+  workflow_dispatch:
   push:
     branches: [feat/composition-media]
     paths:
