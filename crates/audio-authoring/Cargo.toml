@@ -1,0 +1,20 @@
+[package]
+name = "semwright-audio-authoring"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "Typed audio authoring profile consuming the shared Composition lifecycle"
+[lints]
+workspace = true
+[dependencies]
+semwright-audio-domain.workspace = true
+semwright-semantic-composition.workspace = true
+semwright-media-time.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+[dev-dependencies]
+proptest.workspace = true

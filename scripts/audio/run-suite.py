@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 SUITES = {
-    "portable": ["-p", "semwright-audio-domain", "-p", "semwright-faust-audio-driver", "-p", "semwright-ardour-audio-driver", "--tests"],
+    "portable": ["-p", "semwright-audio-authoring", "-p", "semwright-audio-domain", "-p", "semwright-faust-audio-driver", "-p", "semwright-ardour-audio-driver", "--tests"],
     "faust": ["-p", "semwright-faust-audio-driver", "--test", "live_faust"],
     "faust-host": ["-p", "semwright-faust-audio-driver", "--test", "host_conformance"],
 }

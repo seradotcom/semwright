@@ -58,7 +58,9 @@ fn decode_i16(path: &Path) -> Vec<i16> {
         assert!(offset + 8 + size <= bytes.len());
         if &bytes[offset..offset + 4] == b"data" {
             return bytes[offset + 8..offset + 8 + size]
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|v| i16::from_le_bytes([v[0], v[1]]))
                 .collect();
         }
@@ -105,7 +107,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     fs::write(
         &config,
         serde_json::to_vec(
-            &json!({"schema_version":1,"compiler_version":"2.70.3","libraries":library_pins}),
+            &json!({"schema_version":1,"compiler_version":std::env::var("SEMWRIGHT_TEST_FAUST_VERSION").expect("explicit pinned runtime version"),"libraries":library_pins}),
         )
         .unwrap(),
     )
@@ -123,7 +125,10 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
         application: ApplicationMatch {
             desktop_id: None,
             process_names: vec!["faust".into()],
-            supported_versions: vec!["2.70.3".into()],
+            supported_versions: vec![
+                std::env::var("SEMWRIGHT_TEST_FAUST_VERSION")
+                    .expect("explicit pinned runtime version"),
+            ],
         },
         transport: Transport::StdioV1,
         mounts: vec![

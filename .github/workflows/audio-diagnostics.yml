@@ -53,8 +53,8 @@ jobs:
         run: python3 scripts/audio/run-suite.py portable
       - name: Format and lint
         run: |
-          cargo fmt -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -- --check
-          cargo clippy --locked -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver --all-targets -- -D warnings
+          cargo fmt -p semwright-audio-authoring -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -- --check
+          cargo clippy --locked -p semwright-audio-authoring -p semwright-audio-domain -p semwright-faust-audio-driver -p semwright-ardour-audio-driver --all-targets -- -D warnings
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -63,7 +63,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   faust-native:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -74,11 +74,11 @@ jobs:
           toolchain: 1.98.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          key: audio-v1-faust
+          key: audio-v2-faust-jammy
       - name: Install runner-only Faust runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y faust=2.70.3+ds-1.1build2 libsndfile1-dev bubblewrap libpipewire-0.3-dev
+          sudo apt-get install -y faust=2.37.3~ds0-1 libsndfile1-dev bubblewrap libpipewire-0.3-dev
           mkdir -p verification/audio
           dpkg-query -W faust libsndfile1-dev > verification/audio/runtime-packages.txt
           sha256sum /usr/bin/faust > verification/audio/faust.sha256
@@ -95,6 +95,7 @@ jobs:
         run: python3 scripts/audio/run-suite.py faust
       - name: Broker to sealed interpreter and independent PCM oracle
         run: |
+          export SEMWRIGHT_TEST_FAUST_VERSION=2.37.3
           export SEMWRIGHT_TEST_FAUST_HELPER="$RUNNER_TEMP/semwright-faust-interpreter"
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
           python3 scripts/audio/run-suite.py faust-host

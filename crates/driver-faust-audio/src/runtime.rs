@@ -70,7 +70,7 @@ impl Runtime {
         let bytes = fs::read(&config_path)?;
         let config: RuntimeConfig = serde_json::from_slice(&bytes)?;
         if config.schema_version != 1
-            || config.compiler_version != "2.70.3"
+            || !matches!(config.compiler_version.as_str(), "2.37.3" | "2.70.3")
             || config.libraries.is_empty()
             || config.libraries.len() > 256
             || !config.libraries.contains_key("stdfaust.lib")

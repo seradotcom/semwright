@@ -741,7 +741,7 @@ fn render_output_schema() -> Value {
             "sample_rate":{"type":"integer","minimum":8000,"maximum":192000},
             "channels":{"type":"integer","minimum":1,"maximum":16},
             "clipped_input_samples":{"type":"integer","minimum":0},
-            "compiler_version":{"const":"2.70.3"},"engine":{"const":"faust-interpreter"},"dither":{"const":"none"}
+            "compiler_version":{"enum":["2.37.3","2.70.3"]},"engine":{"const":"faust-interpreter"},"dither":{"const":"none"}
         },"required":["schema_version","frames","sample_rate","channels","clipped_input_samples","compiler_version","engine","dither"],"additionalProperties":false}
     },"required":["artifact","source_sha256","translator_version","deterministic","native_receipt","libraries_sha256"],"additionalProperties":false})
 }
