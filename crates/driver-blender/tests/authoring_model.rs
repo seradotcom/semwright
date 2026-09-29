@@ -219,6 +219,7 @@ fn duplicate_keys_rejected() {
                 },
             ],
         }],
+        nla_tracks: vec![],
     });
     assert!(s.validate().is_err());
 }
