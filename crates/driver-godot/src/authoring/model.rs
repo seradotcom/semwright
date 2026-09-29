@@ -339,6 +339,7 @@ pub enum Expression {
     Binary { op: BinaryOp, left: u16, right: u16 },
     Not { operand: u16 },
     Clamp { value: u16, min: u16, max: u16 },
+    Lerp { from: u16, to: u16, weight: u16 },
     Vector2 { x: u16, y: u16 },
     Vector3 { x: u16, y: u16, z: u16 },
 }
@@ -400,6 +401,16 @@ pub enum Action {
         velocity: u16,
         max_speed: f64,
     },
+    Accelerate2d {
+        entity: String,
+        acceleration: u16,
+        max_speed: f64,
+    },
+    Accelerate3d {
+        entity: String,
+        acceleration: u16,
+        max_speed: f64,
+    },
     Label {
         entity: String,
         prefix: String,
@@ -412,6 +423,19 @@ pub enum Action {
     Position {
         entity: String,
         value: u16,
+    },
+    Rotation {
+        entity: String,
+        value: u16,
+    },
+    Scale {
+        entity: String,
+        value: u16,
+    },
+    Reparent {
+        entity: String,
+        parent: Option<String>,
+        keep_global: bool,
     },
     Animate {
         entity: String,

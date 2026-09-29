@@ -45,6 +45,293 @@ fn technical_game_compiles_local_audio_cue_into_native_node_and_typed_action() {
 }
 
 #[test]
+fn typed_transform_and_reparent_actions_are_bounded_and_dimension_checked() {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/two_d.json")).unwrap();
+    let expressions = value["scenes"][0]["behavior"]["expressions"]
+        .as_array_mut()
+        .unwrap();
+    expressions.push(serde_json::json!({
+        "kind":"literal",
+        "value":{"kind":"scalar","value":0.25}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"literal",
+        "value":{"kind":"scalar","value":1.5}
+    }));
+    expressions.push(serde_json::json!({"kind":"vector2","x":11,"y":11}));
+
+    let actions = value["scenes"][0]["behavior"]["handlers"][0]["actions"]
+        .as_array_mut()
+        .unwrap();
+    actions.push(serde_json::json!({
+        "kind":"rotation","entity":"player","value":10
+    }));
+    actions.push(serde_json::json!({
+        "kind":"scale","entity":"visual","value":12
+    }));
+    actions.push(serde_json::json!({
+        "kind":"reparent",
+        "entity":"collectible_visual",
+        "parent":"player",
+        "keep_global":true
+    }));
+
+    let spec = decode(&serde_json::to_vec(&value).unwrap()).unwrap();
+    let project = compile(&spec).unwrap();
+    let script = &project.files["scripts/arena.gd"];
+    assert!(script.contains("_sw_rotation(n_player, e[10])"));
+    assert!(script.contains("_sw_scale(n_visual, e[12])"));
+    assert!(script.contains("_sw_reparent(n_collectible_visual, n_player, true)"));
+    let runtime = &project.files["scripts/_sw_runtime.gd"];
+    assert!(runtime.contains("func _sw_rotation(node: Node, value: Variant) -> bool:"));
+    assert!(runtime.contains("func _sw_scale(node: Node, value: Variant) -> bool:"));
+    assert!(
+        runtime.contains("func _sw_reparent(node: Node, parent: Node, keep_global: bool) -> bool:")
+    );
+    assert!(runtime.contains("scale_zero_component"));
+    assert!(runtime.contains("scale_mixed_sign"));
+    assert!(!runtime.contains("set_script("));
+    assert!(!runtime.contains("OS.execute"));
+
+    let mut descendant = value.clone();
+    descendant["scenes"][0]["behavior"]["handlers"][0]["actions"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "kind":"reparent",
+            "entity":"player",
+            "parent":"visual",
+            "keep_global":true
+        }));
+    assert!(decode(&serde_json::to_vec(&descendant).unwrap()).is_err());
+
+    let mut wrong_rotation = value.clone();
+    wrong_rotation["scenes"][0]["behavior"]["handlers"][0]["actions"][3]["value"] =
+        serde_json::json!(12);
+    assert!(decode(&serde_json::to_vec(&wrong_rotation).unwrap()).is_err());
+
+    let mut nonspatial_keep_global = value;
+    nonspatial_keep_global["scenes"][0]["behavior"]["handlers"][0]["actions"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "kind":"reparent",
+            "entity":"hud",
+            "parent":"player",
+            "keep_global":true
+        }));
+    assert!(decode(&serde_json::to_vec(&nonspatial_keep_global).unwrap()).is_err());
+
+    let mut three_d: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
+    let expressions = three_d["scenes"][0]["behavior"]["expressions"]
+        .as_array_mut()
+        .unwrap();
+    expressions.push(serde_json::json!({
+        "kind":"literal","value":{"kind":"scalar","value":0.1}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"literal","value":{"kind":"scalar","value":0.2}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"literal","value":{"kind":"scalar","value":0.3}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"vector3","x":10,"y":11,"z":12
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"literal","value":{"kind":"scalar","value":1.2}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"vector3","x":14,"y":14,"z":14
+    }));
+    let actions = three_d["scenes"][0]["behavior"]["handlers"][0]["actions"]
+        .as_array_mut()
+        .unwrap();
+    actions.push(serde_json::json!({
+        "kind":"rotation","entity":"player","value":13
+    }));
+    actions.push(serde_json::json!({
+        "kind":"scale","entity":"visual","value":15
+    }));
+    let project_3d = compile(&decode(&serde_json::to_vec(&three_d).unwrap()).unwrap()).unwrap();
+    let script_3d = &project_3d.files["scripts/arena.gd"];
+    assert!(script_3d.contains("_sw_rotation(n_player, e[13])"));
+    assert!(script_3d.contains("_sw_scale(n_visual, e[15])"));
+}
+
+#[test]
+fn typed_lerp_expression_is_bounded_and_type_checked() {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/two_d.json")).unwrap();
+    let expressions = value["scenes"][0]["behavior"]["expressions"]
+        .as_array_mut()
+        .unwrap();
+    expressions.push(serde_json::json!({
+        "kind":"literal","value":{"kind":"scalar","value":10.0}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"literal","value":{"kind":"scalar","value":20.0}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"literal","value":{"kind":"scalar","value":0.25}
+    }));
+    expressions.push(serde_json::json!({
+        "kind":"lerp","from":10,"to":11,"weight":12
+    }));
+
+    let spec = decode(&serde_json::to_vec(&value).unwrap()).unwrap();
+    let project = compile(&spec).unwrap();
+    let script = &project.files["scripts/arena.gd"];
+    assert!(script.contains("if e[12] < 0.0 or e[12] > 1.0:"));
+    assert!(script.contains("lerp(e[10], e[11], float(e[12]))"));
+    assert!(script.contains("_sw_fail(\"lerp_weight\")"));
+
+    let mut endpoint_mismatch = value.clone();
+    endpoint_mismatch["scenes"][0]["behavior"]["expressions"][13]["to"] = serde_json::json!(4);
+    assert!(decode(&serde_json::to_vec(&endpoint_mismatch).unwrap()).is_err());
+
+    let mut weight_type = value.clone();
+    weight_type["scenes"][0]["behavior"]["expressions"][13]["weight"] = serde_json::json!(6);
+    assert!(decode(&serde_json::to_vec(&weight_type).unwrap()).is_err());
+
+    let mut out_of_range = value;
+    out_of_range["scenes"][0]["behavior"]["expressions"][12]["value"]["value"] =
+        serde_json::json!(1.25);
+    assert!(decode(&serde_json::to_vec(&out_of_range).unwrap()).is_err());
+}
+
+#[test]
+fn typed_acceleration_actions_are_physics_tick_only_and_dimension_checked() {
+    let mut two_d = fixture();
+    let y = two_d.scenes[0].behavior.expressions.len() as u16;
+    two_d.scenes[0]
+        .behavior
+        .expressions
+        .push(Expression::Literal {
+            value: Literal::Scalar(60.0),
+        });
+    let acceleration = two_d.scenes[0].behavior.expressions.len() as u16;
+    two_d.scenes[0]
+        .behavior
+        .expressions
+        .push(Expression::Vector2 { x: 0, y });
+    let physics = two_d.scenes[0]
+        .behavior
+        .handlers
+        .iter_mut()
+        .find(|handler| matches!(handler.event, Event::PhysicsTick))
+        .expect("2D physics handler");
+    physics.actions.push(Action::Accelerate2d {
+        entity: "player".into(),
+        acceleration,
+        max_speed: 120.0,
+    });
+    validate(&two_d).unwrap();
+    let project = compile(&two_d).unwrap();
+    assert!(project.files["scripts/arena.gd"].contains("Vector2(n_player.velocity) + Vector2(e["));
+    assert!(
+        project.files["scripts/arena.gd"]
+            .contains("get_physics_process_delta_time()).limit_length(120.0)")
+    );
+
+    let mut wrong_event = two_d.clone();
+    let action = wrong_event.scenes[0]
+        .behavior
+        .handlers
+        .iter()
+        .find(|handler| matches!(handler.event, Event::PhysicsTick))
+        .and_then(|handler| {
+            handler
+                .actions
+                .iter()
+                .find(|action| matches!(action, Action::Accelerate2d { .. }))
+        })
+        .cloned()
+        .expect("typed acceleration action");
+    wrong_event.scenes[0]
+        .behavior
+        .handlers
+        .iter_mut()
+        .find(|handler| matches!(handler.event, Event::Ready))
+        .expect("ready handler")
+        .actions
+        .push(action);
+    assert!(validate(&wrong_event).is_err());
+
+    let mut zero_limit = two_d.clone();
+    let action = zero_limit.scenes[0]
+        .behavior
+        .handlers
+        .iter_mut()
+        .flat_map(|handler| handler.actions.iter_mut())
+        .find(|action| matches!(action, Action::Accelerate2d { .. }))
+        .expect("typed acceleration action");
+    let Action::Accelerate2d { max_speed, .. } = action else {
+        unreachable!()
+    };
+    *max_speed = 0.0;
+    assert!(validate(&zero_limit).is_err());
+
+    let mut three_d = decode(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
+    let y = three_d.scenes[0].behavior.expressions.len() as u16;
+    three_d.scenes[0]
+        .behavior
+        .expressions
+        .push(Expression::Literal {
+            value: Literal::Scalar(-9.8),
+        });
+    let acceleration = three_d.scenes[0].behavior.expressions.len() as u16;
+    three_d.scenes[0]
+        .behavior
+        .expressions
+        .push(Expression::Vector3 { x: 0, y, z: 0 });
+    three_d.scenes[0]
+        .behavior
+        .handlers
+        .iter_mut()
+        .find(|handler| matches!(handler.event, Event::PhysicsTick))
+        .expect("3D physics handler")
+        .actions
+        .push(Action::Accelerate3d {
+            entity: "player".into(),
+            acceleration,
+            max_speed: 12.0,
+        });
+    validate(&three_d).unwrap();
+    let project = compile(&three_d).unwrap();
+    assert!(project.files["scripts/arena.gd"].contains("Vector3(n_player.velocity) + Vector3(e["));
+    assert!(
+        project.files["scripts/arena.gd"]
+            .contains("get_physics_process_delta_time()).limit_length(12.0)")
+    );
+
+    let mut wrong_dimension = two_d;
+    let action = wrong_dimension.scenes[0]
+        .behavior
+        .handlers
+        .iter_mut()
+        .flat_map(|handler| handler.actions.iter_mut())
+        .find(|action| matches!(action, Action::Accelerate2d { .. }))
+        .expect("typed acceleration action");
+    let (entity, acceleration, max_speed) = match action {
+        Action::Accelerate2d {
+            entity,
+            acceleration,
+            max_speed,
+        } => (entity.clone(), *acceleration, *max_speed),
+        _ => unreachable!(),
+    };
+    *action = Action::Accelerate3d {
+        entity,
+        acceleration,
+        max_speed,
+    };
+    assert!(validate(&wrong_dimension).is_err());
+}
+
+#[test]
 fn unknown_fields_and_caller_code_are_rejected() {
     let baseline = serde_json::to_value(fixture()).unwrap();
 

@@ -92,7 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           : > verification/godot-authoring/authoring-host.log
-          for test_name in             driver_host_handshake_control_reaches_capabilities             empty_project_authoring_flows_through_broker_driver_host_and_provider             animation_tree_state_machine_and_blend_space_round_trip_natively             shared_and_local_to_scene_materials_are_native_and_isolated
+          for test_name in             driver_host_handshake_control_reaches_capabilities             empty_project_authoring_flows_through_broker_driver_host_and_provider             animation_tree_state_machine_and_blend_space_round_trip_natively             shared_and_local_to_scene_materials_are_native_and_isolated             typed_transform_and_reparent_actions_round_trip_natively
           do
             echo "=== $test_name ===" | tee -a verification/godot-authoring/authoring-host.log
             cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name"               -- --ignored --exact --nocapture --test-threads=1               2>&1 | tee -a verification/godot-authoring/authoring-host.log

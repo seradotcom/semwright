@@ -173,6 +173,12 @@ fn expressions(b: &Behavior) -> String {
                 code.push_str(&format!("    if e[{min}] > e[{max}]:\n        _sw_fail(\"inverted_clamp\")\n        return []\n"));
                 format!("clamp(e[{v}], e[{min}], e[{max}])")
             }
+            Expression::Lerp { from, to, weight } => {
+                code.push_str(&format!(
+                    "    if e[{weight}] < 0.0 or e[{weight}] > 1.0:\n        _sw_fail(\"lerp_weight\")\n        return []\n"
+                ));
+                format!("lerp(e[{from}], e[{to}], float(e[{weight}]))")
+            }
             Expression::Binary { op, left, right } => {
                 if *op == BinaryOp::Divide {
                     code.push_str(&format!("    if e[{right}] == 0:\n        _sw_fail(\"division_by_zero\")\n        return []\n"));
@@ -220,6 +226,22 @@ fn action(a: &Action) -> String {
             "{}        n_{entity}.velocity = Vector3(e[{velocity}]).limit_length({max_speed:?})\n        n_{entity}.move_and_slide()\n",
             binding(entity)
         ),
+        Action::Accelerate2d {
+            entity,
+            acceleration,
+            max_speed,
+        } => format!(
+            "{}        n_{entity}.velocity = (Vector2(n_{entity}.velocity) + Vector2(e[{acceleration}]) * get_physics_process_delta_time()).limit_length({max_speed:?})\n        n_{entity}.move_and_slide()\n",
+            binding(entity)
+        ),
+        Action::Accelerate3d {
+            entity,
+            acceleration,
+            max_speed,
+        } => format!(
+            "{}        n_{entity}.velocity = (Vector3(n_{entity}.velocity) + Vector3(e[{acceleration}]) * get_physics_process_delta_time()).limit_length({max_speed:?})\n        n_{entity}.move_and_slide()\n",
+            binding(entity)
+        ),
         Action::Label {
             entity,
             prefix,
@@ -237,6 +259,29 @@ fn action(a: &Action) -> String {
             "{}        n_{entity}.position = e[{value}]\n",
             binding(entity)
         ),
+        Action::Rotation { entity, value } => format!(
+            "{}        if not _sw_rotation(n_{entity}, e[{value}]): return\n",
+            binding(entity)
+        ),
+        Action::Scale { entity, value } => format!(
+            "{}        if not _sw_scale(n_{entity}, e[{value}]): return\n",
+            binding(entity)
+        ),
+        Action::Reparent {
+            entity,
+            parent,
+            keep_global,
+        } => {
+            let (parent_binding, parent_expression) = parent
+                .as_ref()
+                .map(|parent| (binding(parent), format!("n_{parent}")))
+                .unwrap_or_else(|| (String::new(), "self".into()));
+            format!(
+                "{}{}        if not _sw_reparent(n_{entity}, {parent_expression}, {keep_global}): return\n",
+                binding(entity),
+                parent_binding
+            )
+        }
         Action::Animate { entity, clip } => format!(
             "{}        n_{entity}.play({})\n",
             binding(entity),

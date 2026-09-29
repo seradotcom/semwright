@@ -50,9 +50,10 @@
       "id": "D04",
       "requirement": "typed no-escape IR",
       "state": "SOURCE_PASS_CURRENT_SHA_PENDING",
-      "implementation": "typed Behavior IR, strict decode/validation and deterministic generated GDScript without caller code",
+      "implementation": "typed Behavior IR with arithmetic/comparison/logic/clamp/bounded lerp expressions, strict decode/validation and deterministic generated GDScript without caller code",
       "tests": [
         "model/compiler/security suite",
+        "typed lerp endpoint/weight/range regression",
         "fixed native probe no arbitrary execution"
       ],
       "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
@@ -66,10 +67,13 @@
       "id": "D05",
       "requirement": "composable technical games",
       "state": "IMPLEMENTED_TECHNICAL_GAMES_EVIDENCE_PENDING",
-      "implementation": "2D and 3D technical-game intents with input/objective/score/HUD/start/play/win/lose/restart, local supplied audio cue, camera/interactions and product-route playtest. Product E2E also replans one live managed 2D game to change behavior, HUD and entity count while preserving unaffected animation/audio bytes and existing logical IDs.",
+      "implementation": "2D and 3D technical-game intents with input/objective/score/HUD/start/play/win/lose/restart, local supplied audio cue, camera/interactions and product-route playtest. Typed behavior actions include position/rotation/scale, bounded reparent with explicit keep_global semantics, and physics-tick-only vector acceleration for Body2D/Body3D so gravity can be declared without arbitrary force/method calls; product E2E also replans one live managed 2D game to change behavior, HUD and entity count while preserving unaffected animation/audio bytes and existing logical IDs.",
       "tests": [
         "two_d.json with native AudioStreamPlayer/start cue",
         "three_d.json with imported GLB/follow camera/animation/collision",
+        "typed transform/reparent compiler and hierarchy-denial regression",
+        "typed acceleration physics-tick/dimension/max-speed regression",
+        "native rotation/scale/reparent readback plus gravity acceleration playtest E2E",
         "native play",
         "Broker/Host incremental behavior + HUD + entity-count update",
         "unaffected animation/audio preservation and stable logical bindings"
@@ -83,10 +87,12 @@
       "id": "D06",
       "requirement": "runtime budgets",
       "state": "SOURCE_PASS_NATIVE_RUNTIME_PENDING",
-      "implementation": "tick/event/entity/spawn limits plus native runtime telemetry and bounded inputs",
+      "implementation": "tick/event/entity/spawn limits plus native runtime telemetry and bounded inputs; movement and acceleration are physics-tick-only, dimension-typed and max-speed bounded; runtime transform helpers reject lost bindings, invalid numeric/type values, hierarchy cycles, cross-tree reparent and keep_global dimension mismatch",
       "tests": [
         "budget tests",
-        "native play"
+        "typed transform/reparent fail-closed regression",
+        "typed acceleration event/dimension/max-speed fail-closed regression",
+        "native gravity acceleration playtest"
       ],
       "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
       "run_id": 36521988929,

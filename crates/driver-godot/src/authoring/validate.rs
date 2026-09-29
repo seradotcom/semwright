@@ -154,6 +154,25 @@ fn expression_types(b: &Behavior, inputs: &BTreeSet<String>) -> Result<Vec<Value
                 )?;
                 t
             }
+            Expression::Lerp { from, to, weight } => {
+                let t = operand(*from)?;
+                ensure(
+                    operand(*to)? == t
+                        && matches!(
+                            t,
+                            ValueType::Scalar | ValueType::Vector2 | ValueType::Vector3
+                        )
+                        && operand(*weight)? == ValueType::Scalar,
+                    "lerp endpoints/type or weight",
+                )?;
+                if let Some(Expression::Literal {
+                    value: Literal::Scalar(weight),
+                }) = b.expressions.get(*weight as usize)
+                {
+                    ensure((0.0..=1.0).contains(weight), "lerp literal weight range")?;
+                }
+                t
+            }
             Expression::Binary { op, left, right } => {
                 let a = operand(*left)?;
                 let z = operand(*right)?;
@@ -628,6 +647,32 @@ pub fn validate(spec: &GodotAuthoringSpec) -> Result<Analysis> {
                         typed(*velocity, ValueType::Vector3)?;
                         positive(&[*max_speed])?;
                     }
+                    Action::Accelerate2d {
+                        entity,
+                        acceleration,
+                        max_speed,
+                    } => {
+                        ensure(
+                            matches!(node(entity)?.node, NativeNode::Body2d { .. })
+                                && matches!(h.event, Event::PhysicsTick),
+                            "accelerate2d requires body and physics tick",
+                        )?;
+                        typed(*acceleration, ValueType::Vector2)?;
+                        positive(&[*max_speed])?;
+                    }
+                    Action::Accelerate3d {
+                        entity,
+                        acceleration,
+                        max_speed,
+                    } => {
+                        ensure(
+                            matches!(node(entity)?.node, NativeNode::Body3d { .. })
+                                && matches!(h.event, Event::PhysicsTick),
+                            "accelerate3d requires body and physics tick",
+                        )?;
+                        typed(*acceleration, ValueType::Vector3)?;
+                        positive(&[*max_speed])?;
+                    }
                     Action::Label {
                         entity,
                         prefix,
@@ -657,6 +702,57 @@ pub fn validate(spec: &GodotAuthoringSpec) -> Result<Analysis> {
                                 ValueType::Vector3
                             },
                         )?;
+                    }
+                    Action::Rotation { entity, value } => {
+                        let dim = node(entity)?.node.dimension();
+                        ensure(dim.is_some(), "rotation needs spatial node")?;
+                        typed(
+                            *value,
+                            if dim == Some(Dimension::Two) {
+                                ValueType::Scalar
+                            } else {
+                                ValueType::Vector3
+                            },
+                        )?;
+                    }
+                    Action::Scale { entity, value } => {
+                        let dim = node(entity)?.node.dimension();
+                        ensure(dim.is_some(), "scale needs spatial node")?;
+                        typed(
+                            *value,
+                            if dim == Some(Dimension::Two) {
+                                ValueType::Vector2
+                            } else {
+                                ValueType::Vector3
+                            },
+                        )?;
+                    }
+                    Action::Reparent {
+                        entity,
+                        parent,
+                        keep_global,
+                    } => {
+                        let child = node(entity)?;
+                        if *keep_global {
+                            ensure(
+                                child.node.dimension().is_some(),
+                                "reparent keep_global needs spatial node",
+                            )?;
+                        }
+                        if let Some(parent) = parent {
+                            let target = node(parent)?;
+                            ensure(entity != parent, "reparent target cannot be self")?;
+                            ensure(
+                                !paths[parent].starts_with(&format!("{}/", paths[entity])),
+                                "reparent target cannot be a descendant",
+                            )?;
+                            if let Some(dimension) = child.node.dimension() {
+                                ensure(
+                                    target.node.dimension() == Some(dimension),
+                                    "reparent target dimension mismatch",
+                                )?;
+                            }
+                        }
                     }
                     Action::Animate { entity, clip } => {
                         ensure(

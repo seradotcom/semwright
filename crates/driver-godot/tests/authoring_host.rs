@@ -1678,6 +1678,147 @@ async fn export_lane_builds_and_launches_without_editor_or_semwright() {
     shutdown_hosted(host).await;
 }
 
+#[tokio::test]
+#[ignore = "requires bubblewrap/Landlock sandbox helper and pinned Godot"]
+async fn typed_transform_and_reparent_actions_round_trip_natively() {
+    let host = hosted_authoring("godot-authoring-transforms").await;
+    let mut spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/two_d.json")).unwrap();
+    spec["project"] = json!("transform_actions");
+
+    let expressions = spec["scenes"][0]["behavior"]["expressions"]
+        .as_array_mut()
+        .unwrap();
+    expressions.push(json!({
+        "kind":"literal",
+        "value":{"kind":"scalar","value":0.25}
+    }));
+    expressions.push(json!({
+        "kind":"literal",
+        "value":{"kind":"scalar","value":1.5}
+    }));
+    expressions.push(json!({"kind":"vector2","x":11,"y":11}));
+    expressions.push(json!({
+        "kind":"literal",
+        "value":{"kind":"scalar","value":60.0}
+    }));
+    expressions.push(json!({"kind":"vector2","x":0,"y":13}));
+    spec["scenes"][0]["behavior"]["handlers"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "id":"transform_ready",
+            "event":{"kind":"ready"},
+            "state":"start",
+            "repeat":1,
+            "actions":[
+                {"kind":"rotation","entity":"player","value":10},
+                {"kind":"scale","entity":"visual","value":12},
+                {
+                    "kind":"reparent",
+                    "entity":"collectible_visual",
+                    "parent":"player",
+                    "keep_global":true
+                }
+            ]
+        }));
+    spec["scenes"][0]["behavior"]["handlers"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|handler| handler["event"]["kind"].as_str() == Some("physics_tick"))
+        .expect("physics handler")["actions"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "kind":"accelerate2d",
+            "entity":"player",
+            "acceleration":14,
+            "max_speed":120.0
+        }));
+
+    let plan = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec}),
+    )
+    .await;
+    let plan_id = plan["plan_id"].as_str().unwrap().to_owned();
+    let applied = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan_id}),
+    )
+    .await;
+    assert_eq!(applied["execution_status"], "completed");
+
+    let inspected = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &inspected,
+        "godot.native_readback.arena.v1"
+    ));
+
+    let player = managed_native_node(&inspected, "arena/player");
+    assert_eq!(player["properties"]["rotation"]["type"], "float");
+    assert!((player["properties"]["rotation"]["value"].as_f64().unwrap() - 0.25).abs() < 1.0e-9);
+
+    let visual = managed_native_node(&inspected, "arena/visual");
+    assert_eq!(visual["properties"]["scale"]["type"], "vector2");
+    assert_eq!(visual["properties"]["scale"]["value"], json!([1.5, 1.5]));
+
+    let collectible_visual = managed_native_node(&inspected, "arena/collectible_visual");
+    assert_eq!(collectible_visual["parent"], "player");
+    assert_eq!(inspected["observation"]["failures"], json!([]));
+
+    let played = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{
+                "kind":"play",
+                "ticks":12,
+                "inputs":[
+                    {"tick":1,"action":"start","pressed":true},
+                    {"tick":2,"action":"start","pressed":false}
+                ],
+                "checkpoints":[2,12],
+                "variables":["score"],
+                "capture":false
+            }
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(&played, "godot.native_runtime.arena.v1"));
+    assert_eq!(played["observation"]["inputs_delivered"], 2);
+    let last = played["observation"]["frames"]
+        .as_array()
+        .and_then(|frames| frames.last())
+        .expect("gravity play checkpoint");
+    assert_eq!(last["state"], "play");
+    assert!(last["fault"].is_null());
+    let position = &last["positions"]["arena/player"];
+    assert_eq!(position["type"], "vector2");
+    let y = position["value"][1].as_f64().expect("player y");
+    assert!(y > 160.0, "gravity acceleration did not move player: {y}");
+
+    shutdown_hosted(host).await;
+}
+
 const E_ARTICULATED_GLB_SHA256: &str =
     "f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5";
 

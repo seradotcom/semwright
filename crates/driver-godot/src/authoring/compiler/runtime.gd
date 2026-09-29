@@ -99,3 +99,46 @@ func _sw_animation_blend(tree: AnimationTree, blend: float) -> bool:
     if not _sw_binding(tree) or not _sw_valid(blend): return false
     tree.set("parameters/blend_position", blend)
     return true
+
+func _sw_rotation(node: Node, value: Variant) -> bool:
+    if not _sw_binding(node) or not _sw_valid(value): return false
+    if node is Node2D:
+        if not (value is int or value is float): return _sw_fail("rotation_type")
+        node.rotation = float(value)
+        return true
+    if node is Node3D:
+        if not value is Vector3: return _sw_fail("rotation_type")
+        node.rotation = value
+        return true
+    return _sw_fail("rotation_target")
+
+func _sw_scale(node: Node, value: Variant) -> bool:
+    if not _sw_binding(node) or not _sw_valid(value): return false
+    if node is Node2D:
+        if not value is Vector2: return _sw_fail("scale_type")
+        node.scale = value
+        return true
+    if node is Node3D:
+        if not value is Vector3: return _sw_fail("scale_type")
+        if is_zero_approx(value.x) or is_zero_approx(value.y) or is_zero_approx(value.z):
+            return _sw_fail("scale_zero_component")
+        var all_positive: bool = value.x > 0.0 and value.y > 0.0 and value.z > 0.0
+        var all_negative: bool = value.x < 0.0 and value.y < 0.0 and value.z < 0.0
+        if not (all_positive or all_negative): return _sw_fail("scale_mixed_sign")
+        node.scale = value
+        return true
+    return _sw_fail("scale_target")
+
+func _sw_reparent(node: Node, parent: Node, keep_global: bool) -> bool:
+    if not _sw_binding(node) or not _sw_binding(parent): return false
+    if node == parent or node.is_ancestor_of(parent): return _sw_fail("reparent_cycle")
+    if node.get_tree() != parent.get_tree(): return _sw_fail("reparent_tree")
+    if keep_global:
+        if node is Node2D:
+            if not parent is Node2D: return _sw_fail("reparent_dimension")
+        elif node is Node3D:
+            if not parent is Node3D: return _sw_fail("reparent_dimension")
+        else:
+            return _sw_fail("reparent_keep_global_target")
+    node.reparent(parent, keep_global)
+    return true
