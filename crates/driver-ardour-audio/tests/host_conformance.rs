@@ -346,6 +346,14 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         runtime_probe_data["reopen_diagnostic_class"], "ok",
         "{runtime_probe_data}"
     );
+    assert_eq!(
+        runtime_probe_data["snapshot_self_test"], true,
+        "Ardour fixed semantic snapshot self-test failed: {runtime_probe_data}"
+    );
+    assert_eq!(
+        runtime_probe_data["snapshot_diagnostic_class"], "ok",
+        "{runtime_probe_data}"
+    );
 
     let created = call(
         &broker,

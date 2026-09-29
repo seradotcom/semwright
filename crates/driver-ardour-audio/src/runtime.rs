@@ -72,6 +72,9 @@ pub struct ArdourRuntimeProbe {
     pub reopen_self_test: bool,
     pub reopen_diagnostic_class: String,
     pub reopen_diagnostic_prefix: String,
+    pub snapshot_self_test: bool,
+    pub snapshot_diagnostic_class: String,
+    pub snapshot_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -318,6 +321,57 @@ close_session()
                     String::new(),
                 )
             };
+        let (snapshot_self_test, snapshot_diagnostic_class, snapshot_diagnostic_prefix) =
+            if reopen_self_test {
+                let script_dir = tempfile::Builder::new()
+                    .prefix("semwright-ardour-snapshot-probe-")
+                    .tempdir()?;
+                let script_path = script_dir.path().join("semwright-ardour.lua");
+                fs::write(&script_path, script::source())?;
+                let snapshot_args = vec![
+                    script_path.to_string_lossy().into_owned(),
+                    probe_session.to_string_lossy().into_owned(),
+                    probe_state.into(),
+                    self.config.ardour_version.clone(),
+                    "inspect".into(),
+                ];
+                let snapshot_run = self
+                    .run_tool_capture(context, &self.lua_tool, &snapshot_args)
+                    .await?;
+                if snapshot_run.exit_code != 0 {
+                    let classified =
+                        classify_tool_failure(&snapshot_run.stdout, &snapshot_run.stderr);
+                    (
+                        false,
+                        format!("{:?}", classified.code),
+                        bounded_text_diagnostic(&bounded_diagnostic(
+                            &snapshot_run.stdout,
+                            &snapshot_run.stderr,
+                        )),
+                    )
+                } else {
+                    match parse_snapshot(&snapshot_run.stdout) {
+                        Ok(_) => (
+                            true,
+                            "ok".to_string(),
+                            bounded_text_diagnostic(
+                                "fixed Ardour semantic snapshot parsed and validated",
+                            ),
+                        ),
+                        Err(error) => (
+                            false,
+                            format!("{:?}", error.code),
+                            bounded_text_diagnostic(&error.message),
+                        ),
+                    }
+                }
+            } else {
+                (
+                    false,
+                    "reopen_prerequisite_failed".to_string(),
+                    String::new(),
+                )
+            };
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
             lua_banner,
@@ -329,6 +383,9 @@ close_session()
             reopen_self_test,
             reopen_diagnostic_class,
             reopen_diagnostic_prefix,
+            snapshot_self_test,
+            snapshot_diagnostic_class,
+            snapshot_diagnostic_prefix,
         })
     }
 
