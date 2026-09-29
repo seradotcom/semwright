@@ -97,10 +97,19 @@ impl GraphStore {
     ) -> Result<Self> {
         semwright_platform_services::private_directory(directory)
             .map_err(|_| GraphError::Denied)?;
+        ensure(directory.is_absolute(), "absolute private state directory")?;
+        #[cfg(unix)]
         ensure(
-            directory.is_absolute() && std::fs::canonicalize(directory)? == directory,
+            std::fs::canonicalize(directory)? == directory,
             "canonical private state directory",
         )?;
+        #[cfg(target_os = "windows")]
+        {
+            // Windows canonicalization commonly returns an extended \\?\ spelling.
+            // The private-directory primitive already rejects reparse points; keep
+            // the normal absolute spelling for SQLite and scoped Windows APIs.
+            let _ = std::fs::canonicalize(directory)?;
+        }
         let path = directory.join("project.sqlite3");
         if !path.try_exists()? {
             let mut options = std::fs::OpenOptions::new();
