@@ -914,7 +914,7 @@ local function mutate(command)
   elseif command == "send_remove" then
     local source = require_route(arg[5])
     local processor = require_send(source, arg[6])
-    local status = source:remove_processor(processor)
+    local status = source:remove_processor(processor, nil, true)
     if status ~= 0 then error("send removal failed") end
   elseif command == "group_create" then
     local group = Session:new_route_group(arg[5])
@@ -940,7 +940,7 @@ local function mutate(command)
   elseif command == "plugin_remove" then
     local route = require_route(arg[5])
     local processor = require_plugin(route, arg[6])
-    local status = route:remove_processor(processor)
+    local status = route:remove_processor(processor, nil, true)
     if status ~= 0 then error("plugin removal failed") end
   elseif command == "plugin_param_set" then
     local route = require_route(arg[5])
