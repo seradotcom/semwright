@@ -1,7 +1,6 @@
 mod common;
 use common::*;
 use proptest::prelude::*;
-use semwright_project_graph::*;
 use std::collections::BTreeSet;
 use std::sync::atomic::AtomicBool;
 proptest! {

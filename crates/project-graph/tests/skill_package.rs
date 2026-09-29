@@ -7,7 +7,6 @@ fn continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execu
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../skills/semwright-project-continuity");
     let validation = skills::validate(&root).unwrap();
     assert!(validation.standard_valid);
-    assert_eq!(validation.script_execution, "disabled");
     let registry = Registry::builtin().unwrap();
     let catalog: Vec<_> = registry
         .all()
@@ -21,6 +20,7 @@ fn continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execu
     let package = skills::load(&root).unwrap();
     let report = skills::conformance_test(&package, &catalog, env!("CARGO_PKG_VERSION")).unwrap();
     assert!(report.pass);
+    assert_eq!(report.script_execution, "disabled");
     assert_eq!(report.examples.checked, 2);
     assert_eq!(report.examples.passed, 2);
     assert_eq!(report.executed_operations, 0);
