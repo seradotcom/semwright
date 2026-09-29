@@ -183,7 +183,7 @@
       "id": "D12",
       "requirement": "Blender GLB preserved gameplay",
       "state": "IMPLEMENTED_CROSS_APP_EVIDENCE_PENDING",
-      "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned E native articulated.glb artifact (E a5a2423/run 36521758152/artifact 11014081697) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play; E GLB SHA-256 is fixed before transfer",
+      "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned E native articulated.glb artifact (E a5a2423/run 36521758152/artifact 11014081697) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play -> composition.verify C receipt that pins the articulated GLB LogicalAssetId/AssetRevision/bytes; the heavy route runs in the already-attested native-authoring runner and a dependent cross-app job independently revalidates receipts and E bytes",
       "tests": [
         "E native/oracle/hostile provenance verification",
         "baseline triangle GLB native import and gameplay",
@@ -192,7 +192,9 @@
         "gameplay collision layer/mask/shape mapping unchanged across replacement",
         "Godot skeleton/bones/skin/material/animation native readback",
         "fresh-process persistence",
-        "technical gameplay playtest before and after replacement"
+        "technical gameplay playtest before and after replacement",
+        "C ExecutionReceipt for replacement apply pins articulated GLB asset/revision/SHA",
+        "independent cross-app oracle redownloads E artifact and compares exact bytes"
       ],
       "tested_sha": null,
       "run_id": null,
@@ -202,10 +204,12 @@
     {
       "id": "D13",
       "requirement": "C/F integration",
-      "state": "PARTIAL_SOURCE_C_F_NATIVE_F_PENDING",
-      "implementation": "source verification uses trusted F EvidenceAdapter and C receipt; native F/C admission incomplete",
+      "state": "PARTIAL_C_APPLY_NATIVE_F_IMPLEMENTED_READONLY_C_BLOCKED_EVIDENCE_PENDING",
+      "implementation": "source verification uses trusted F EvidenceAdapter and C apply receipt; native readback/runtime/persistence use trusted F evaluation; D12 replacement apply is closed with an admitted C ExecutionReceipt/output pin. C provenance for read-only native observations remains blocked on a suitable C observation contract and is not synthesized locally",
       "tests": [
-        "A/C/F consumer test"
+        "A/C/F consumer test",
+        "native F readback/runtime/persistence evaluation",
+        "D12 replacement composition.verify C receipt/output pin"
       ],
       "tested_sha": null,
       "run_id": null,
@@ -216,10 +220,11 @@
       "id": "D14",
       "requirement": "route audit and independent oracle",
       "state": "PRODUCT_ROUTE_IMPLEMENTED_ORACLE_PENDING",
-      "implementation": "native evidence executes behind Broker/Driver Host; targeted composition.native.query filters one managed node/resource server-side without returning the full projection; standalone export oracle implemented",
+      "implementation": "native evidence executes behind Broker/Driver Host; targeted composition.native.query filters one managed node/resource server-side without returning the full projection; standalone export oracle implemented; D12 heavy native route executes after Driver Host attestation in godot-native-authoring and a separate dependent cross-app job independently revalidates its C/D receipts plus the pinned E artifact bytes",
       "tests": [
         "host route/native/query/export E2E",
-        "native query schema/filter/ambiguity regressions"
+        "native query schema/filter/ambiguity regressions",
+        "independent D12 receipt/artifact oracle"
       ],
       "tested_sha": null,
       "run_id": null,

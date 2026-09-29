@@ -2088,6 +2088,79 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert_eq!(last["variables"], baseline_last["variables"]);
     assert!(last["fault"].is_null());
 
+    // Close D12's Project Graph side with the actual C receipt emitted by the
+    // product for the replacement apply. This is not a synthetic readback
+    // receipt: it authenticates the mutating Composition apply that introduced
+    // articulated.glb and pins the managed GLB asset revision/bytes.
+    let source_verified = broker_call(
+        &host.broker,
+        &session,
+        "driver.godot.composition.verify",
+        json!({"plan_id":replacement_plan_id}),
+    )
+    .await;
+    let receipt = &source_verified["receipt"];
+    assert_eq!(
+        receipt["operation"]["capability"],
+        "driver.godot.composition.apply"
+    );
+    let receipt_id = receipt["id"]
+        .as_str()
+        .expect("cross-app C receipt id")
+        .to_owned();
+    assert!(receipt_id.starts_with("receipt_"));
+
+    let articulated_file = replacement_snapshot["files"]
+        .as_array()
+        .and_then(|files| {
+            files
+                .iter()
+                .find(|file| file["path"] == "assets/articulated.glb")
+        })
+        .expect("managed articulated GLB file identity");
+    let articulated_asset = articulated_file["asset"]
+        .as_str()
+        .expect("managed articulated GLB asset id");
+    let articulated_revision = articulated_file["revision"]
+        .as_str()
+        .expect("managed articulated GLB revision");
+    let receipt_output = receipt["outputs"]
+        .as_array()
+        .and_then(|outputs| {
+            outputs
+                .iter()
+                .find(|output| output["asset"].as_str() == Some(articulated_asset))
+        })
+        .expect("cross-app C receipt output pin");
+    assert_eq!(receipt_output["revision"], articulated_revision);
+    assert_eq!(
+        receipt_output["fingerprint"]["bytes"],
+        E_ARTICULATED_GLB_SHA256
+    );
+    assert_eq!(receipt["coverage"]["complete"], false);
+
+    if let Some(path) = std::env::var_os("SEMWRIGHT_TEST_D12_C_RECEIPT_OUT") {
+        let path = PathBuf::from(path);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(
+            path,
+            serde_json::to_vec_pretty(&json!({
+                "schema_version":1,
+                "receipt_id":receipt_id,
+                "operation":receipt["operation"]["capability"].clone(),
+                "project":receipt["project"].clone(),
+                "asset":articulated_asset,
+                "revision":articulated_revision,
+                "sha256":E_ARTICULATED_GLB_SHA256,
+                "coverage_complete":receipt["coverage"]["complete"].clone()
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+    }
+
     let validated = broker_call(
         &host.broker,
         &session,
