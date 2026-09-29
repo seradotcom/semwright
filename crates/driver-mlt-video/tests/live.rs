@@ -473,13 +473,16 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "path":"sync-markers.mkv",
             "expected_sha256":sync_digest,
             "window_us":100000,
+            "full_scan":true,
             "cues":[{"id":"technical","expected_us":1000000}]
         }),
     )
     .await
     .unwrap();
     assert_eq!(sync["artifact_sha256"], sync_digest);
-    assert_eq!(sync["coverage"], "cue_windows");
+    assert_eq!(sync["coverage"], "full_scan");
+    assert_eq!(sync["exhaustive_video"], true);
+    assert_eq!(sync["exhaustive_audio"], true);
     assert_eq!(sync["missing_video"], json!([]));
     assert_eq!(sync["missing_audio"], json!([]));
     let flash = &sync["flashes"][0];

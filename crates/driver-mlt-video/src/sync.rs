@@ -5,6 +5,9 @@ use crate::{Error, Result};
 pub const MAX_SYNC_CUES: usize = 16;
 pub const MIN_WINDOW_US: u64 = 10_000;
 pub const MAX_WINDOW_US: u64 = 500_000;
+pub const MAX_FULL_SCAN_US: u64 = 60_000_000;
+pub const MAX_SYNC_METADATA_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_SYNC_ROWS: usize = 8192;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CueWindow {
@@ -26,6 +29,8 @@ pub struct ProbeResult {
     pub impulses: Vec<Detection>,
     pub missing_video: Vec<String>,
     pub missing_audio: Vec<String>,
+    pub exhaustive_video: bool,
+    pub exhaustive_audio: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -60,8 +65,10 @@ fn time_us(frame: &serde_json::Value) -> Option<u64> {
 }
 
 fn rows(bytes: &[u8], tag: &str) -> Result<Vec<(u64, f64)>> {
-    if bytes.is_empty() || bytes.len() > 262_144 {
-        return Err(Error::limit("Sync probe metadata exceeds 256 KiB"));
+    if bytes.is_empty() || bytes.len() > MAX_SYNC_METADATA_BYTES {
+        return Err(Error::limit(
+            "Sync probe metadata exceeds bounded full-scan budget",
+        ));
     }
     let value: serde_json::Value =
         serde_json::from_slice(bytes).map_err(|_| Error::invalid("Malformed ffprobe sync JSON"))?;
@@ -69,7 +76,7 @@ fn rows(bytes: &[u8], tag: &str) -> Result<Vec<(u64, f64)>> {
         .get("frames")
         .and_then(serde_json::Value::as_array)
         .ok_or_else(|| Error::invalid("ffprobe sync result omitted frames"))?;
-    if frames.len() > 8192 {
+    if frames.len() > MAX_SYNC_ROWS {
         return Err(Error::limit("Sync probe returned too many frame records"));
     }
     let mut result = Vec::with_capacity(frames.len());
@@ -124,7 +131,17 @@ fn detection(
     metric: Metric,
     window_us: u64,
 ) -> Result<Option<Detection>> {
-    let rows = rows(bytes, tag)?;
+    let all_rows = rows(bytes, tag)?;
+    let start = cue.expected_us.saturating_sub(window_us);
+    let end = cue
+        .expected_us
+        .checked_add(window_us)
+        .ok_or_else(|| Error::limit("Sync detection window overflow"))?
+        .min(600_000_000);
+    let rows = all_rows
+        .into_iter()
+        .filter(|(time, _)| *time >= start && *time <= end)
+        .collect::<Vec<_>>();
     if rows.is_empty() {
         return Ok(None);
     }
@@ -262,6 +279,43 @@ mod tests {
             .unwrap()
             .is_none()
         );
+    }
+
+    #[test]
+    fn full_scan_dataset_resolves_each_cue_inside_its_own_window() {
+        let tag = "lavfi.signalstats.YAVG";
+        let value = serde_json::json!({"frames":[
+            frame("0.000000",tag,"10"),
+            frame("1.000000",tag,"240"),
+            frame("1.033333",tag,"11"),
+            frame("1.966667",tag,"12"),
+            frame("2.000000",tag,"220"),
+            frame("2.033333",tag,"12"),
+            frame("3.000000",tag,"10")
+        ]});
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let first = flash(
+            &CueWindow {
+                id: "one".into(),
+                expected_us: 1_000_000,
+            },
+            &bytes,
+            100_000,
+        )
+        .unwrap()
+        .unwrap();
+        let second = flash(
+            &CueWindow {
+                id: "two".into(),
+                expected_us: 2_000_000,
+            },
+            &bytes,
+            100_000,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(first.presentation_time_us, 1_000_000);
+        assert_eq!(second.presentation_time_us, 2_000_000);
     }
 
     #[test]

@@ -1756,7 +1756,14 @@ impl App {
 
     fn sync_probe(&self, a: &Value) -> Result<Value> {
         a.strict(
-            &["root", "path", "expected_sha256", "window_us", "cues"],
+            &[
+                "root",
+                "path",
+                "expected_sha256",
+                "window_us",
+                "cues",
+                "full_scan",
+            ],
             &["root", "path", "expected_sha256", "window_us", "cues"],
         )?;
         let root_name = a.str("root")?;
@@ -1772,6 +1779,7 @@ impl App {
             return Err(Error::invalid("Sync artifact SHA-256 is malformed"));
         }
         let window_us = a.uint("window_us")?;
+        let full_scan = a.flag("full_scan", false)?;
         if !(crate::sync::MIN_WINDOW_US..=crate::sync::MAX_WINDOW_US).contains(&window_us) {
             return Err(Error::invalid(
                 "Sync cue window is outside supported bounds",
@@ -1846,6 +1854,7 @@ impl App {
             "sync-media.bin",
             &cues,
             window_us,
+            full_scan,
             &AtomicBool::new(false),
         )?;
         let detection = |value: crate::sync::Detection| {
@@ -1860,7 +1869,17 @@ impl App {
             ("artifact_sha256", actual_sha256.into()),
             ("decoder", "ffprobe-lavfi-sync-v1".into()),
             ("decoder_sha256", runtime.ffprobe.sha256.clone().into()),
-            ("coverage", "cue_windows".into()),
+            (
+                "coverage",
+                if result.exhaustive_video && result.exhaustive_audio {
+                    "full_scan"
+                } else {
+                    "cue_windows"
+                }
+                .into(),
+            ),
+            ("exhaustive_video", result.exhaustive_video.into()),
+            ("exhaustive_audio", result.exhaustive_audio.into()),
             ("window_us", window_us.into()),
             ("flashes", array(result.flashes.into_iter().map(detection))),
             (

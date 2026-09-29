@@ -90,6 +90,8 @@ impl ProcessResult {
 fn capture(
     mut reader: impl Read + Send + 'static,
     overflow: Arc<AtomicBool>,
+    retained_limit: usize,
+    total_limit: usize,
 ) -> thread::JoinHandle<Vec<u8>> {
     thread::spawn(move || {
         let mut retained = Vec::new();
@@ -100,9 +102,9 @@ fn capture(
                 Ok(0) => break,
                 Ok(n) => {
                     bytes = bytes.saturating_add(n);
-                    let keep = n.min(RETAIN_LOG.saturating_sub(retained.len()));
+                    let keep = n.min(retained_limit.saturating_sub(retained.len()));
                     retained.extend_from_slice(&buf[..keep]);
-                    if bytes > TOTAL_LOG {
+                    if bytes > total_limit {
                         overflow.store(true, Ordering::Release);
                     }
                 }
@@ -142,6 +144,18 @@ impl Drop for ChildGuard {
 }
 /// Testable supervisor. Only Runtime builds production specs; no public capability accepts argv.
 pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
+    run_with_output_limits(spec, cancel, RETAIN_LOG, TOTAL_LOG)
+}
+
+fn run_with_output_limits(
+    spec: &ProcessSpec,
+    cancel: &AtomicBool,
+    retained_limit: usize,
+    total_limit: usize,
+) -> Result<ProcessResult> {
+    if retained_limit == 0 || retained_limit > total_limit || total_limit > 8 * 1024 * 1024 {
+        return Err(Error::limit("Process output capture budget is invalid"));
+    }
     if !spec.executable.is_absolute()
         || !spec.cwd.is_absolute()
         || spec.timeout.is_zero()
@@ -218,8 +232,8 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .take()
         .ok_or_else(|| Error::new("Internal", "stderr pipe missing"))?;
     let overflow = Arc::new(AtomicBool::new(false));
-    let a = capture(stdout, overflow.clone());
-    let b = capture(stderr, overflow.clone());
+    let a = capture(stdout, overflow.clone(), retained_limit, total_limit);
+    let b = capture(stderr, overflow.clone(), retained_limit, total_limit);
     let start = Instant::now();
     let mut cancelled = false;
     let mut timed_out = false;
@@ -548,7 +562,7 @@ impl Runtime {
                 // at the same 4 GiB / 300 CPU-second ceilings. These are limits,
                 // not reservations; ffprobe keeps the smaller probe budget.
                 "melt" => (300, 4_294_967_296),
-                "ffprobe" => (30, 1_073_741_824),
+                "ffprobe" => (timeout.as_secs().clamp(30, 120), 1_073_741_824),
                 "ffmpeg" => (300, 4_294_967_296),
                 _ => return Err(Error::invalid("Unknown pinned runtime tool")),
             };
@@ -626,7 +640,7 @@ impl Runtime {
         argv.extend(args);
         let (cpu_seconds, address_space_bytes) = match tool {
             "melt" => (300, 4_294_967_296),
-            "ffprobe" => (30, 1_073_741_824),
+            "ffprobe" => (timeout.as_secs().clamp(30, 120), 1_073_741_824),
             "ffmpeg" => (300, 4_294_967_296),
             _ => return Err(Error::invalid("Unknown pinned runtime tool")),
         };
@@ -746,6 +760,7 @@ impl Runtime {
         name: &str,
         cues: &[CueWindow],
         window_us: u64,
+        full_scan: bool,
         cancel: &AtomicBool,
     ) -> Result<ProbeResult> {
         crate::fs::validate_relative(name)?;
@@ -768,7 +783,7 @@ impl Runtime {
             ));
         }
         let seconds = |micros: u64| format!("{}.{:06}", micros / 1_000_000, micros % 1_000_000);
-        let run_probe = |filter: String, tag: &str| -> Result<Vec<u8>> {
+        let run_probe = |filter: String, tag: &str, retain_full_scan: bool| -> Result<Vec<u8>> {
             let entries = format!("frame=best_effort_timestamp_time,pts_time:frame_tags={tag}");
             let args = vec![
                 "-v".into(),
@@ -783,17 +798,72 @@ impl Runtime {
                 "-of".into(),
                 "json".into(),
             ];
-            let result = run(
-                &self.spec("ffprobe", args, inputs, work, Duration::from_secs(10))?,
-                cancel,
-            )?
+            let spec = self.spec(
+                "ffprobe",
+                args,
+                inputs,
+                work,
+                if retain_full_scan {
+                    Duration::from_secs(120)
+                } else {
+                    Duration::from_secs(10)
+                },
+            )?;
+            let result = if retain_full_scan {
+                run_with_output_limits(
+                    &spec,
+                    cancel,
+                    sync::MAX_SYNC_METADATA_BYTES,
+                    sync::MAX_SYNC_METADATA_BYTES,
+                )?
+            } else {
+                run(&spec, cancel)?
+            }
             .checked()?;
-            if result.stdout.is_empty() || result.stdout.len() >= RETAIN_LOG {
+            let limit = if retain_full_scan {
+                sync::MAX_SYNC_METADATA_BYTES
+            } else {
+                RETAIN_LOG
+            };
+            if result.stdout.is_empty() || result.stdout.len() >= limit {
                 return Err(Error::limit(
                     "Sync probe metadata was empty or reached the retained-output budget",
                 ));
             }
             Ok(result.stdout)
+        };
+
+        let (full_video, full_audio) = if full_scan {
+            let info = self.probe(inputs, work, name, cancel)?;
+            if !info.video || !info.audio || info.duration_num == 0 || info.duration_den == 0 {
+                return Err(Error::unsupported(
+                    "Full sync scan requires measurable audio and video streams",
+                ));
+            }
+            let duration_us = u128::from(info.duration_num) * 1_000_000;
+            let max_us = u128::from(sync::MAX_FULL_SCAN_US) * u128::from(info.duration_den);
+            if duration_us > max_us {
+                return Err(Error::limit(
+                    "Full sync scan is bounded to sixty seconds of decoded media",
+                ));
+            }
+            (
+                Some(run_probe(
+                    format!("movie=filename='{}',signalstats", input_text),
+                    "lavfi.signalstats.YAVG",
+                    true,
+                )?),
+                Some(run_probe(
+                    format!(
+                        "amovie=filename='{}',asetnsamples=n=512:p=0,astats=metadata=1:reset=1",
+                        input_text
+                    ),
+                    "lavfi.astats.Overall.Peak_level",
+                    true,
+                )?),
+            )
+        } else {
+            (None, None)
         };
 
         let mut flashes = Vec::new();
@@ -816,26 +886,38 @@ impl Runtime {
             if end <= start {
                 return Err(Error::invalid("Sync cue window is empty"));
             }
-            let video_filter = format!(
-                "movie=filename='{}',trim=start={}:end={},signalstats",
-                input_text,
-                seconds(start),
-                seconds(end)
-            );
-            let video = run_probe(video_filter, "lavfi.signalstats.YAVG")?;
-            match sync::flash(cue, &video, window_us)? {
+            let video_window;
+            let video = if let Some(video) = &full_video {
+                video.as_slice()
+            } else {
+                let video_filter = format!(
+                    "movie=filename='{}',trim=start={}:end={},signalstats",
+                    input_text,
+                    seconds(start),
+                    seconds(end)
+                );
+                video_window = run_probe(video_filter, "lavfi.signalstats.YAVG", false)?;
+                video_window.as_slice()
+            };
+            match sync::flash(cue, video, window_us)? {
                 Some(value) => flashes.push(value),
                 None => missing_video.push(cue.id.clone()),
             }
 
-            let audio_filter = format!(
-                "amovie=filename='{}',atrim=start={}:end={},asetnsamples=n=512:p=0,astats=metadata=1:reset=1",
-                input_text,
-                seconds(start),
-                seconds(end)
-            );
-            let audio = run_probe(audio_filter, "lavfi.astats.Overall.Peak_level")?;
-            match sync::impulse(cue, &audio, window_us)? {
+            let audio_window;
+            let audio = if let Some(audio) = &full_audio {
+                audio.as_slice()
+            } else {
+                let audio_filter = format!(
+                    "amovie=filename='{}',atrim=start={}:end={},asetnsamples=n=512:p=0,astats=metadata=1:reset=1",
+                    input_text,
+                    seconds(start),
+                    seconds(end)
+                );
+                audio_window = run_probe(audio_filter, "lavfi.astats.Overall.Peak_level", false)?;
+                audio_window.as_slice()
+            };
+            match sync::impulse(cue, audio, window_us)? {
                 Some(value) => impulses.push(value),
                 None => missing_audio.push(cue.id.clone()),
             }
@@ -845,6 +927,8 @@ impl Runtime {
             impulses,
             missing_video,
             missing_audio,
+            exhaustive_video: full_scan,
+            exhaustive_audio: full_scan,
         })
     }
 

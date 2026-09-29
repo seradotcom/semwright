@@ -738,6 +738,7 @@ impl AgentAStageAdapter {
                     "path":locator.path,
                     "expected_sha256":artifact.sha256.as_str(),
                     "window_us":window_us,
+                    "full_scan":spec.require_full_scan,
                     "cues":cues
                 }),
                 cancellation,
@@ -748,10 +749,29 @@ impl AgentAStageAdapter {
             Self::digest_field(&value, "artifact_sha256")? == artifact.sha256,
             "sync probe artifact digest mismatch",
         )?;
+        let exhaustive_video = value
+            .get("exhaustive_video")
+            .and_then(Value::as_bool)
+            .ok_or_else(|| Error::Invalid("sync exhaustive_video missing".into()))?;
+        let exhaustive_audio = value
+            .get("exhaustive_audio")
+            .and_then(Value::as_bool)
+            .ok_or_else(|| Error::Invalid("sync exhaustive_audio missing".into()))?;
+        let expected_coverage = if exhaustive_video && exhaustive_audio {
+            "full_scan"
+        } else {
+            "cue_windows"
+        };
         ensure(
-            value.get("coverage").and_then(Value::as_str) == Some("cue_windows"),
-            "unexpected sync probe coverage",
+            value.get("coverage").and_then(Value::as_str) == Some(expected_coverage),
+            "sync coverage label/exhaustiveness mismatch",
         )?;
+        if spec.require_full_scan {
+            ensure(
+                exhaustive_video && exhaustive_audio,
+                "sync specification requires a full decoded master scan",
+            )?;
+        }
         let decode = |rows: Option<&Vec<Value>>| -> Result<Vec<crate::Detection>> {
             rows.ok_or_else(|| Error::Invalid("sync probe detection list missing".into()))?
                 .iter()
@@ -813,10 +833,8 @@ impl AgentAStageAdapter {
                 decoder_method,
                 decoder_digest,
                 source: EvidenceSource::DecodedMedia,
-                // The provider exhaustively scans each originally declared cue
-                // window; it does not claim full-frame inspection outside scope.
-                exhaustive_video: missing_video.len() <= spec.cues.len(),
-                exhaustive_audio: missing_audio.len() <= spec.cues.len(),
+                exhaustive_video,
+                exhaustive_audio,
                 flashes: decode(value.get("flashes").and_then(Value::as_array))?,
                 impulses: decode(value.get("impulses").and_then(Value::as_array))?,
             },
