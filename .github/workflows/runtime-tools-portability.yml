@@ -1,0 +1,40 @@
+name: Runtime tools portability
+on:
+  push:
+    branches: [feat/runtime-tools-portability]
+    paths:
+      - 'crates/driver-sdk/**'
+      - 'crates/driver-host/**'
+      - 'crates/platform-*/**'
+      - 'scripts/verify-driver-runtime-tools.py'
+      - '.github/workflows/runtime-tools-portability.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  pull_request:
+    paths:
+      - 'crates/driver-sdk/**'
+      - 'crates/driver-host/**'
+      - 'crates/platform-*/**'
+      - 'scripts/verify-driver-runtime-tools.py'
+permissions:
+  contents: read
+jobs:
+  source-boundary:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: python3 scripts/verify-driver-runtime-tools.py
+  sdk:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - run: cargo test --locked -p semwright-driver-sdk
+      - run: cargo clippy --locked -p semwright-driver-sdk --all-targets -- -D warnings

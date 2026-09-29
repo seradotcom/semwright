@@ -18,9 +18,13 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Component, Path, PathBuf},
+    process::Stdio,
     sync::Arc,
 };
-use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    sync::{Mutex, mpsc, oneshot},
+};
 use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
@@ -114,6 +118,106 @@ pub fn tool_path(name: &str) -> Result<PathBuf> {
         Err(std::env::VarError::NotUnicode(_)) => Err(Error::invalid(
             "Sandbox tool table must be valid UTF-8 JSON",
         )),
+    }
+}
+
+/// Platform-independent execution strategy for an owner-pinned secondary runtime tool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeToolMode {
+    /// The Host materialized the verified executable inside the driver sandbox.
+    Materialized,
+    /// The driver must ask Driver Host to execute the verified tool on its behalf.
+    HostMediated,
+}
+
+async fn execute_materialized_tool(
+    name: &str,
+    args: Vec<String>,
+    stdin: Vec<u8>,
+    timeout: std::time::Duration,
+    cancellation: CancellationToken,
+) -> Result<ToolExecutionOutput> {
+    let timeout_ms = u64::try_from(timeout.as_millis()).map_err(|_| {
+        Error::new(
+            ErrorCode::ResourceExhausted,
+            "Runtime tool timeout exceeds protocol bounds",
+        )
+    })?;
+    validate_tool_execute_request(name, &args, &stdin, timeout_ms)?;
+    let path = tool_path(name)?;
+
+    let mut command = tokio::process::Command::new(path);
+    command
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let mut child = command
+        .spawn()
+        .map_err(|_| Error::unavailable("Materialized runtime tool could not be launched"))?;
+    let mut child_stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| Error::unavailable("Runtime tool stdin is unavailable"))?;
+    let child_stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| Error::unavailable("Runtime tool stdout is unavailable"))?;
+    let child_stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| Error::unavailable("Runtime tool stderr is unavailable"))?;
+
+    let execution = async move {
+        if !stdin.is_empty() {
+            child_stdin.write_all(&stdin).await?;
+        }
+        child_stdin.shutdown().await?;
+        drop(child_stdin);
+
+        let read_stdout = async move {
+            let mut bytes = Vec::new();
+            child_stdout
+                .take((MAX_TOOL_OUTPUT_BYTES + 1) as u64)
+                .read_to_end(&mut bytes)
+                .await?;
+            Ok::<_, std::io::Error>(bytes)
+        };
+        let read_stderr = async move {
+            let mut bytes = Vec::new();
+            child_stderr
+                .take((MAX_TOOL_OUTPUT_BYTES + 1) as u64)
+                .read_to_end(&mut bytes)
+                .await?;
+            Ok::<_, std::io::Error>(bytes)
+        };
+        let (stdout, stderr, status) = tokio::try_join!(read_stdout, read_stderr, child.wait())?;
+        if stdout.len() > MAX_TOOL_OUTPUT_BYTES || stderr.len() > MAX_TOOL_OUTPUT_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Materialized runtime tool output exceeds protocol bounds",
+            ));
+        }
+        let output = ToolExecutionOutput {
+            exit_code: status.code().unwrap_or(-1),
+            stdout,
+            stderr,
+        };
+        output.validate()?;
+        Ok(output)
+    };
+
+    tokio::select! {
+        biased;
+        _ = cancellation.cancelled() => Err(Error::new(
+            ErrorCode::Cancelled,
+            "Runtime tool execution cancelled",
+        )),
+        result = tokio::time::timeout(timeout, execution) => match result {
+            Ok(result) => result,
+            Err(_) => Err(Error::new(ErrorCode::Timeout, "Runtime tool execution timed out")),
+        },
     }
 }
 
@@ -839,6 +943,59 @@ impl DriverExecutionContext {
             ))
         } else {
             Ok(())
+        }
+    }
+
+    /// Select the platform-safe execution route for a declared secondary runtime tool.
+    ///
+    /// Callers do not branch on filesystem conventions. Linux drivers consume the
+    /// Host-materialized sealed executable; Windows requires protocol-v4 Host mediation.
+    /// macOS remains fail-closed at the platform sandbox boundary until arbitrary driver
+    /// isolation is implemented.
+    pub fn runtime_tool_mode(&self, name: &str) -> Result<RuntimeToolMode> {
+        if !valid_tool_name(name) {
+            return Err(Error::invalid("Invalid runtime tool name"));
+        }
+        #[cfg(target_os = "windows")]
+        {
+            if self.protocol >= 4 && self.interfaces.host_tools {
+                Ok(RuntimeToolMode::HostMediated)
+            } else {
+                Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Windows runtime tools require Driver Protocol v4 Host mediation",
+                ))
+            }
+        }
+        #[cfg(target_os = "linux")]
+        {
+            tool_path(name)?;
+            Ok(RuntimeToolMode::Materialized)
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+        {
+            Err(Error::new(
+                ErrorCode::Unsupported,
+                "Secondary runtime tools are not implemented by this platform Host",
+            ))
+        }
+    }
+
+    /// Execute an owner-pinned secondary runtime tool without exposing platform-specific
+    /// executable discovery to the driver.
+    pub async fn execute_runtime_tool(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+    ) -> Result<ToolExecutionOutput> {
+        match self.runtime_tool_mode(name)? {
+            RuntimeToolMode::HostMediated => self.execute_tool(name, args, stdin, timeout).await,
+            RuntimeToolMode::Materialized => {
+                execute_materialized_tool(name, args, stdin, timeout, self.cancellation.clone())
+                    .await
+            }
         }
     }
 
@@ -1688,6 +1845,42 @@ mod tests {
         );
         assert!(validate_tool_execute_request("probe", &[], &[], 0).is_err());
         assert!(validate_tool_execute_request("probe", &[], &[], MAX_TOOL_TIMEOUT_MS + 1).is_err());
+    }
+
+    #[test]
+    fn runtime_tool_mode_hides_platform_specific_execution() {
+        let (output, _receiver) = mpsc::unbounded_channel();
+        let context = DriverExecutionContext {
+            request_id: "runtime-tool-test".into(),
+            session: "owner-session".into(),
+            native_target: None,
+            cancellation: CancellationToken::new(),
+            output,
+            interfaces: DriverInterfaces {
+                host_tools: true,
+                ..Default::default()
+            },
+            protocol: 4,
+            tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
+        };
+
+        #[cfg(target_os = "windows")]
+        assert_eq!(
+            context.runtime_tool_mode("probe").unwrap(),
+            RuntimeToolMode::HostMediated
+        );
+        #[cfg(target_os = "linux")]
+        assert_eq!(
+            context.runtime_tool_mode("probe").unwrap(),
+            RuntimeToolMode::Materialized
+        );
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+        assert!(matches!(
+            context.runtime_tool_mode("probe"),
+            Err(error) if error.code == ErrorCode::Unsupported
+        ));
+
+        assert!(context.runtime_tool_mode("../probe").is_err());
     }
 
     #[test]
