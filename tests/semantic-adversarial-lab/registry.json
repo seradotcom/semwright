@@ -3582,6 +3582,231 @@
       "expected": {
         "arbitrary_expression_predicate_rejected": true
       }
+    },
+    {
+      "id": "G-PACK-001",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive parent traversal rejected",
+      "expected": {
+        "parent_traversal_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-002",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive absolute path rejected",
+      "expected": {
+        "absolute_path_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-003",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive Windows drive prefix rejected",
+      "expected": {
+        "windows_drive_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-004",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "portable backslash ambiguity rejected",
+      "expected": {
+        "backslash_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-005",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive NUL rejected",
+      "expected": {
+        "nul_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-006",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "portable relative path positive control",
+      "expected": {
+        "portable_positive": true
+      }
+    },
+    {
+      "id": "G-PACK-007",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "duplicate top-level YAML field rejected",
+      "expected": {
+        "duplicate_frontmatter_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-008",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "custom YAML tag rejected",
+      "expected": {
+        "yaml_tag_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-009",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "unknown authority metadata rejected",
+      "expected": {
+        "unknown_authority_field_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-010",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "symlink package resource rejected",
+      "expected": {
+        "symlink_resource_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-011",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "hardlinked package resource rejected",
+      "expected": {
+        "hardlink_resource_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-012",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "executable script is described but never run by loader",
+      "expected": {
+        "script_listed": true,
+        "script_executed": false
+      }
+    },
+    {
+      "id": "G-PACK-013",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "symlink package root rejected",
+      "expected": {
+        "symlink_root_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-014",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "directory depth budget",
+      "expected": {
+        "depth_budget_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-015",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "allowed-tools metadata does not become Broker permission",
+      "expected": {
+        "metadata_retained": true,
+        "permission_warning": true,
+        "scripts": 0
+      }
+    },
+    {
+      "id": "G-PACK-016",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "directory and manifest identity must agree",
+      "expected": {
+        "directory_manifest_name_mismatch_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-017",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "healthy bounded package positive control",
+      "expected": {
+        "name": "g-skill",
+        "resources": 1,
+        "total_positive": true
+      }
+    },
+    {
+      "id": "G-PACK-018",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "missing YAML frontmatter rejected",
+      "expected": {
+        "missing_frontmatter_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-019",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "YAML anchor rejected",
+      "expected": {
+        "yaml_anchor_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-020",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "noncanonical skill name rejected",
+      "expected": {
+        "noncanonical_name_rejected": true
+      }
     }
   ]
 }
