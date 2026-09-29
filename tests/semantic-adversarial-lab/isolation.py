@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import time
 from typing import Any
-from lab_core import EvidenceError, strict_json
+from lab_core import EvidenceError, digest, strict_json
 
 def require_hosted() -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
@@ -136,20 +136,36 @@ class Enclosure:
 
     def preflight(self) -> dict[str, Any]:
         output = self.run(["/usr/bin/python3", "/lab/isolation_probe.py"])
-        if output["exit_code"] != 0 or output["termination_reason"] or not output["canaries_unchanged"] or not output["outer_process_group_gone"]:
-            detail = output["stderr"][:2048].decode("utf-8", errors="replace")
-            raise EvidenceError("BLOCKED: enclosure preflight failed; enforcement unchanged: " + detail)
-        proof = strict_json(output["stdout"])
-        if set(proof) != {"version", "checks"} or type(proof["version"]) is not int or proof["version"] != 1:
-            raise EvidenceError("BLOCKED: missing enclosure receipt")
+        # Preserve the actual failed control before rejecting a nonzero exit.
+        # This records only the synthetic probe and environment key names, never values.
+        self.proof = {"validated": False, "scope": "test enclosure only; not product sandbox proof",
+                      "execution": {k: v for k, v in output.items() if k not in {"stdout", "stderr"}},
+                      "stdout_sha256": digest(output["stdout"]), "stderr_sha256": digest(output["stderr"]),
+                      "stdout_excerpt": output["stdout"][:4096].decode("utf-8", errors="replace"),
+                      "stderr_excerpt": output["stderr"][:2048].decode("utf-8", errors="replace")}
+        try:
+            proof = strict_json(output["stdout"])
+            self.proof["observed_receipt"] = proof
+        except EvidenceError as error:
+            self.proof["receipt_error"] = str(error)
+            raise EvidenceError("BLOCKED: enclosure receipt invalid; enforcement unchanged") from error
         expected = {"empty_inherited_marker", "private_home", "private_tmp", "only_loopback_interface",
                     "separate_network_namespace", "separate_pid_namespace", "synthetic_unmounted_canary_inaccessible",
                     "readonly_canary_readable", "readonly_canary_write_denied", "no_environment_authority"}
-        if set(proof["checks"]) != expected or any(v is not True for v in proof["checks"].values()):
-            raise EvidenceError("BLOCKED: incomplete enclosure controls")
+        valid_shape = (isinstance(proof, dict) and set(proof) == {"version", "checks", "diagnostics"}
+                       and type(proof.get("version")) is int and proof["version"] == 2
+                       and isinstance(proof.get("checks"), dict) and set(proof["checks"]) == expected)
+        failed = sorted(k for k, v in proof.get("checks", {}).items() if v is not True) if isinstance(proof, dict) and isinstance(proof.get("checks"), dict) else ["receipt_shape"]
+        self.proof["failed_controls"] = failed
+        if output["exit_code"] != 0 or output["termination_reason"] or not output["canaries_unchanged"] or not output["outer_process_group_gone"]:
+            raise EvidenceError("BLOCKED: enclosure preflight exit=" + str(output["exit_code"]) +
+                                " failed_controls=" + repr(failed) + " termination=" + repr(output["termination_reason"]) +
+                                "; enforcement unchanged: " + self.proof["stderr_excerpt"])
+        if not valid_shape or failed:
+            raise EvidenceError("BLOCKED: incomplete enclosure controls; enforcement unchanged")
         self.verified = True
-        self.proof = {**proof, "canaries_unchanged": True, "outer_process_group_gone": True,
-                      "scope": "test enclosure only; not proof of product sandbox enforcement"}
+        self.proof.update(validated=True, version=proof["version"], checks=proof["checks"],
+                          canaries_unchanged=True, outer_process_group_gone=True)
         return self.proof
 
     def close(self) -> bool:

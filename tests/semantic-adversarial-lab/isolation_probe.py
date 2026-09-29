@@ -20,5 +20,5 @@ except OSError:
     checks["readonly_canary_write_denied"] = True
 allowed = {"HOME", "TMPDIR", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "PATH", "LANG", "LC_ALL", "PYTHONDONTWRITEBYTECODE", "G_LAB_HOST_NETNS", "G_LAB_HOST_PIDNS", "G_LAB_TARGET_SHA"}
 checks["no_environment_authority"] = set(os.environ) <= allowed
-print(json.dumps({"version": 1, "checks": checks}, sort_keys=True))
+print(json.dumps({"version": 2, "checks": checks, "diagnostics": {"environment_keys": sorted(os.environ), "cwd": os.getcwd()}}, sort_keys=True))
 raise SystemExit(0 if all(checks.values()) else 1)

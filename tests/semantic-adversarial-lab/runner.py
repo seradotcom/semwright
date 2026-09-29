@@ -88,6 +88,7 @@ def selftest(source_sha: str, suite_sha: str, cases: list[dict], report: dict):
             raise EvidenceError("test enclosure lifecycle failed")
         return results
     finally:
+        report["isolation"] = enclosure.proof
         report["cleanup_verified"] = enclosure.close()
 
 def main():
