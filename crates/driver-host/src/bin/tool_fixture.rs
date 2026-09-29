@@ -33,6 +33,11 @@ fn is_appcontainer() -> bool {
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let print_cwd = args.iter().any(|arg| arg == "--print-cwd");
+    let lifecycle_marker = args.iter().any(|arg| arg == "--lifecycle-marker");
+    if lifecycle_marker && std::fs::write("started.marker", b"started").is_err() {
+        eprintln!("failed to write started.marker");
+        std::process::exit(3);
+    }
     if let Some(index) = args.iter().position(|arg| arg == "--sleep-ms") {
         let sleep_ms = args
             .get(index + 1)
@@ -43,6 +48,10 @@ fn main() {
                 std::process::exit(2);
             });
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+    }
+    if lifecycle_marker && std::fs::write("finished.marker", b"finished").is_err() {
+        eprintln!("failed to write finished.marker");
+        std::process::exit(4);
     }
     #[cfg(windows)]
     {

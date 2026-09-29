@@ -377,7 +377,37 @@ async fn linux_v6_runtime_tool_jobs_are_detached_session_bound_and_cancellable()
     }
     assert!(terminal_cancelled, "detached job should become cancelled");
 
+    let started_marker = workspace.path().join("started.marker");
+    let finished_marker = workspace.path().join("finished.marker");
+    let _shutdown_job = run(
+        "session-a",
+        "linux-tool-job-shutdown-start",
+        serde_json::json!({
+            "action":"start",
+            "sleep_ms":1000,
+            "cwd_mount":"tool-workspace",
+            "lifecycle_marker":true
+        }),
+    )
+    .await
+    .expect("start job that must be killed by provider shutdown");
+    for _ in 0..40 {
+        if started_marker.exists() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert!(
+        started_marker.exists(),
+        "detached tool must start before provider shutdown"
+    );
+
     Provider::shutdown(provider.as_ref())
         .await
         .expect("runtime-tool job Driver Host shutdown");
+    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+    assert!(
+        !finished_marker.exists(),
+        "provider shutdown must reap a detached runtime-tool child"
+    );
 }

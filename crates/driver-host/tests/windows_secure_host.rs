@@ -517,20 +517,34 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
     harden_fixture(&owner_tool);
 
     let mut candidate = manifest(executable);
+    let workspace = tempfile::tempdir().expect("runtime-tool workspace");
     candidate.protocol = 6;
     candidate.interfaces.host_tools = true;
+    candidate.mounts = vec![DriverMount {
+        root: "tool-workspace".into(),
+        read_only: false,
+        execute: false,
+    }];
     candidate.tools = vec![DriverToolMount {
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: digest(&owner_tool),
-        mounts: vec![],
+        mounts: vec!["tool-workspace".into()],
     }];
-    let roots = vec![FilesystemGrant {
-        name: "fixture-tool-root".into(),
-        path: owner_tool,
-        read: true,
-        write: false,
-    }];
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: owner_tool,
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-workspace".into(),
+            path: workspace.path().to_path_buf(),
+            read: true,
+            write: true,
+        },
+    ];
 
     let state = tempfile::tempdir().expect("driver state");
     let helper = std::env::current_exe().expect("current test executable");
@@ -647,9 +661,39 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
         "detached Windows job should become cancelled"
     );
 
+    let started_marker = workspace.path().join("started.marker");
+    let finished_marker = workspace.path().join("finished.marker");
+    let _shutdown_job = run(
+        "session-a",
+        "windows-tool-job-shutdown-start",
+        serde_json::json!({
+            "action":"start",
+            "sleep_ms":1000,
+            "cwd_mount":"tool-workspace",
+            "lifecycle_marker":true
+        }),
+    )
+    .await
+    .expect("start Windows job that must be killed by provider shutdown");
+    for _ in 0..60 {
+        if started_marker.exists() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert!(
+        started_marker.exists(),
+        "Windows detached tool must start before provider shutdown"
+    );
+
     Provider::shutdown(provider.as_ref())
         .await
         .expect("runtime-tool job Driver Host shutdown");
+    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+    assert!(
+        !finished_marker.exists(),
+        "Windows provider shutdown must reap a detached runtime-tool child"
+    );
 }
 
 #[tokio::test]

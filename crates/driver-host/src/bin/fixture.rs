@@ -139,7 +139,9 @@ fn tool_job_capability() -> Capability {
                 "properties":{
                     "action":{"enum":["start","status","cancel"]},
                     "job":{"type":"string","minLength":1,"maxLength":128},
-                    "sleep_ms":{"type":"integer","minimum":1,"maximum":5000}
+                    "sleep_ms":{"type":"integer","minimum":1,"maximum":5000},
+                    "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
+                    "lifecycle_marker":{"type":"boolean"}
                 },
                 "required":["action"],
                 "additionalProperties":false
@@ -660,10 +662,12 @@ impl Driver for Fixture {
             let args = args
                 .as_object()
                 .ok_or_else(|| Error::invalid("fixture tool job accepts an object"))?;
-            if args
-                .keys()
-                .any(|key| !matches!(key.as_str(), "action" | "job" | "sleep_ms"))
-            {
+            if args.keys().any(|key| {
+                !matches!(
+                    key.as_str(),
+                    "action" | "job" | "sleep_ms" | "cwd_mount" | "lifecycle_marker"
+                )
+            }) {
                 return Err(Error::invalid(
                     "fixture tool job received an unknown argument",
                 ));
@@ -685,21 +689,39 @@ impl Driver for Fixture {
                             "fixture tool job sleep_ms exceeds test bounds",
                         ));
                     }
+                    let mut tool_args = vec!["--sleep-ms".into(), sleep_ms.to_string()];
+                    if args
+                        .get("lifecycle_marker")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        tool_args.push("--lifecycle-marker".into());
+                    }
+                    let cwd =
+                        args.get("cwd_mount")
+                            .and_then(Value::as_str)
+                            .map(|mount| RuntimeToolCwd {
+                                mount: mount.to_owned(),
+                                relative: String::new(),
+                            });
                     let job = context
                         .start_runtime_tool_job(
                             "probe",
-                            vec!["--sleep-ms".into(), sleep_ms.to_string()],
+                            tool_args,
                             Vec::new(),
                             std::time::Duration::from_secs(10),
-                            None,
+                            cwd,
                         )
                         .await?;
                     Ok(json!({"job":job.id,"state":"running"}))
                 }
                 "status" | "cancel" => {
-                    if args.get("sleep_ms").is_some() {
+                    if args.get("sleep_ms").is_some()
+                        || args.get("cwd_mount").is_some()
+                        || args.get("lifecycle_marker").is_some()
+                    {
                         return Err(Error::invalid(
-                            "fixture tool job status/cancel does not accept sleep_ms",
+                            "fixture tool job status/cancel accepts only action and job",
                         ));
                     }
                     let job = RuntimeToolJob {
