@@ -397,6 +397,18 @@ impl ServiceCatalog {
         Ok(values)
     }
 }
+pub fn constrained_environment() -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("LC_ALL".into(), "C".into()),
+        ("HOME".into(), "/home".into()),
+        ("PATH".into(), "/usr/bin:/bin".into()),
+        ("QT_QPA_PLATFORM".into(), "offscreen".into()),
+        ("XDG_CONFIG_HOME".into(), "/tmp/config".into()),
+        ("XDG_CACHE_HOME".into(), "/tmp/cache".into()),
+        ("MLT_NO_VDPAU".into(), "1".into()),
+    ])
+}
+
 pub struct Runtime {
     pub melt: Tool,
     pub ffprobe: Tool,
@@ -473,15 +485,7 @@ impl Runtime {
         Ok(runtime)
     }
     fn environment() -> BTreeMap<String, String> {
-        BTreeMap::from([
-            ("LC_ALL".into(), "C".into()),
-            ("HOME".into(), "/home".into()),
-            ("PATH".into(), "/usr/bin:/bin".into()),
-            ("QT_QPA_PLATFORM".into(), "offscreen".into()),
-            ("XDG_CONFIG_HOME".into(), "/tmp/config".into()),
-            ("XDG_CACHE_HOME".into(), "/tmp/cache".into()),
-            ("MLT_NO_VDPAU".into(), "1".into()),
-        ])
+        constrained_environment()
     }
 
     fn input_path(&self, inputs: &Path, name: &str) -> PathBuf {
