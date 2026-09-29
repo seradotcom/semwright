@@ -12,7 +12,7 @@ Collect one explicit experiment (replace the two identifiers together with an ob
 PYTHONDONTWRITEBYTECODE=1 python3 tests/semantic-adversarial-lab/collect_evidence.py \
   --run-id 36506309475 \
   --suite-sha fe78c7b048d1e88f6646f28d7ac28d3b9f84c119 \
-  --output /home/sergio/Documents/Projects/semwright-coordination/semantic-creation/G-evidence/36506309475
+  --output <coordination-evidence-dir>/36506309475
 ```
 
 The collector reads source manifests only from the suite commit, validates exact run/job/attempt metadata, refuses oversized artifacts, verifies artifact SHA-256, and independently recomputes case counts/verdicts. It writes raw receipts plus `EXPERIMENT_INDEX.json`, `JOB_PROVENANCE.json`, `EVIDENCE.md` and private untriaged finding records. A successful collector invocation means collection completed, not that the experiment passed.

@@ -149,11 +149,11 @@ class Enclosure:
         except EvidenceError as error:
             self.proof["receipt_error"] = str(error)
             raise EvidenceError("BLOCKED: enclosure receipt invalid; enforcement unchanged") from error
-        expected = {"empty_inherited_marker", "private_home", "private_tmp", "only_loopback_interface",
+        expected = {"empty_inherited_marker", "private_home", "private_tmp", "private_cwd", "only_loopback_interface",
                     "separate_network_namespace", "separate_pid_namespace", "synthetic_unmounted_canary_inaccessible",
                     "readonly_canary_readable", "readonly_canary_write_denied", "no_environment_authority"}
         valid_shape = (isinstance(proof, dict) and set(proof) == {"version", "checks", "diagnostics"}
-                       and type(proof.get("version")) is int and proof["version"] == 2
+                       and type(proof.get("version")) is int and proof["version"] == 3
                        and isinstance(proof.get("checks"), dict) and set(proof["checks"]) == expected)
         failed = sorted(k for k, v in proof.get("checks", {}).items() if v is not True) if isinstance(proof, dict) and isinstance(proof.get("checks"), dict) else ["receipt_shape"]
         self.proof["failed_controls"] = failed
