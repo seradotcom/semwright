@@ -77,15 +77,20 @@ impl g::CancellationCheck for Cancel {
 }
 impl ProjectGraphs {
     fn new(home: &Path, principal: String) -> Result<Self> {
-        semwright_platform_services::private_directory(home)?;
-        let home = std::fs::canonicalize(home)?;
         if !home.is_absolute() || principal.is_empty() || principal.len() > 256 {
             return Err(Error::invalid(
                 "Canonical private project state and authenticated principal required",
             ));
         }
+        semwright_platform_services::private_directory(home)?;
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if std::fs::canonicalize(home)? != home {
+            return Err(Error::invalid(
+                "Canonical private project state path required",
+            ));
+        }
         Ok(Self {
-            home,
+            home: home.into(),
             principal: PrincipalBinding::Named(principal),
             stores: BTreeMap::new(),
             cursors: g::QueryCursors::default(),
@@ -558,7 +563,15 @@ fn prospective_canonical_directory(directory: &Path) -> Result<PathBuf> {
         return Err(Error::invalid("Project state directory must be absolute"));
     }
     match std::fs::canonicalize(directory) {
-        Ok(resolved) => Ok(resolved),
+        Ok(resolved) => {
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            if resolved != directory {
+                return Err(Error::invalid(
+                    "Project state path must use canonical spelling",
+                ));
+            }
+            Ok(resolved)
+        }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             let parent = directory
                 .parent()
@@ -567,7 +580,14 @@ fn prospective_canonical_directory(directory: &Path) -> Result<PathBuf> {
             let name = directory
                 .file_name()
                 .ok_or_else(|| Error::invalid("Project state directory needs a final component"))?;
-            Ok(parent_resolved.join(name))
+            let candidate = parent_resolved.join(name);
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            if candidate != directory {
+                return Err(Error::invalid(
+                    "Project state parent must use canonical spelling",
+                ));
+            }
+            Ok(candidate)
         }
         Err(error) => Err(error.into()),
     }
