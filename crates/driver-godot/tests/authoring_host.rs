@@ -417,6 +417,28 @@ async fn shutdown_hosted(host: HostedAuthoring) {
 }
 
 #[tokio::test]
+#[ignore = "requires bubblewrap/Landlock sandbox helper and pinned Godot"]
+async fn driver_host_handshake_control_reaches_capabilities() {
+    let host = hosted_authoring("godot-authoring-handshake-control").await;
+    let capabilities = Provider::capabilities(host.provider.as_ref())
+        .await
+        .unwrap();
+    for required in [
+        "driver.godot.composition.plan",
+        "driver.godot.composition.native.verify",
+        "driver.godot.project.validate",
+    ] {
+        assert!(
+            capabilities
+                .iter()
+                .any(|capability| capability.descriptor.name == required),
+            "handshake control missing {required}"
+        );
+    }
+    shutdown_hosted(host).await;
+}
+
+#[tokio::test]
 #[ignore = "requires bubblewrap/Landlock sandbox helper and production driver binary"]
 async fn empty_project_authoring_flows_through_broker_driver_host_and_provider() {
     if std::env::var_os("SEMWRIGHT_TEST_GODOT_AUTHORING_HOST").is_none() {
