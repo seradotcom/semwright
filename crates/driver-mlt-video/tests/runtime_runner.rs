@@ -61,7 +61,14 @@ fn runtime_runner_rejects_unmaterialized_relative_dependencies() {
         .output()
         .expect("run invalid dependency fixture");
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("absolute Host-materialized path"));
+    let value: Value = serde_json::from_slice(&output.stdout).expect("runner error JSON");
+    assert_eq!(value["schema"], 1);
+    assert_eq!(value["operation"], "error");
+    assert!(
+        value["error"]
+            .as_str()
+            .is_some_and(|message| message.contains("absolute Host-materialized path"))
+    );
 }
 
 #[test]
@@ -71,5 +78,12 @@ fn runtime_runner_rejects_unknown_operations() {
         .output()
         .expect("run unsupported runner operation");
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("unsupported"));
+    let value: Value = serde_json::from_slice(&output.stdout).expect("runner error JSON");
+    assert_eq!(value["schema"], 1);
+    assert_eq!(value["operation"], "error");
+    assert!(
+        value["error"]
+            .as_str()
+            .is_some_and(|message| message.contains("unsupported"))
+    );
 }
