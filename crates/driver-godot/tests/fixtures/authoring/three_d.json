@@ -26,7 +26,14 @@
       "key": "r"
     }
   ],
-  "assets": [],
+  "assets": [
+    {
+      "id": "fixture_prop",
+      "kind": "glb",
+      "file": "fixture_prop.glb",
+      "sha256": "eb161ee940c8f1be9ad75437f6de8083a5c6408d8914b05e4fbf73d08175b8d5"
+    }
+  ],
   "scenes": [
     {
       "id": "arena",
@@ -94,6 +101,32 @@
               0.6,
               1
             ]
+          }
+        },
+        {
+          "id": "imported_model",
+          "parent": "player",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [
+            "imported_visual"
+          ],
+          "node": {
+            "kind": "instance",
+            "asset": "hero_model"
           }
         },
         {
@@ -275,9 +308,95 @@
             "text": "Enter to start. R to restart.",
             "size": 24
           }
+        },
+        {
+          "id": "animator",
+          "parent": null,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "animator"
+          }
+        },
+        {
+          "id": "imported_prop",
+          "parent": null,
+          "position": [
+            -3,
+            1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [
+            "imported_fixture"
+          ],
+          "node": {
+            "kind": "instance",
+            "asset": "fixture_prop"
+          }
         }
       ],
-      "animations": [],
+      "animations": [
+        {
+          "id": "prop_pulse",
+          "animator": "animator",
+          "length": 1.0,
+          "looping": true,
+          "tracks": [
+            {
+              "entity": "imported_prop",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector3",
+                    "value": [
+                      1,
+                      1,
+                      1
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector3",
+                    "value": [
+                      1.2,
+                      1.2,
+                      1.2
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
       "behavior": {
         "states": [
           "start",

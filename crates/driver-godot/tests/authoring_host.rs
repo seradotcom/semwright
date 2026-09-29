@@ -83,6 +83,17 @@ fn fixture() -> Fixture {
             .join(".semwright-home/data/godot/export_templates/4.7.2.stable");
         copy_tree(&PathBuf::from(templates), &destination);
     }
+    std::fs::write(
+        input.path().join("triangle.glb"),
+        include_bytes!("fixtures/authoring/triangle.glb"),
+    )
+    .unwrap();
+
+    std::fs::copy(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/authoring/fixture_prop.glb"),
+        input.path().join("fixture_prop.glb"),
+    )
+    .unwrap();
     let config_path = config.path().join("config.json");
     std::fs::write(
         &config_path,
@@ -558,6 +569,225 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     for marker in ["SCRIPT ERROR:", "Parse Error:"] {
         assert!(!launch_log.contains(marker), "{launch_log}");
     }
+
+    let spec3: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
+    let plan3 = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec3}),
+    )
+    .await;
+    let plan3_id = plan3["plan_id"].as_str().unwrap().to_owned();
+    let project3 = spec3["project"].as_str().unwrap();
+    assert!(!fixture.output.path().join(project3).exists());
+
+    let applied3 = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan3_id}),
+    )
+    .await;
+    assert_eq!(applied3["execution_status"], "completed");
+    assert!(
+        fixture
+            .output
+            .path()
+            .join(project3)
+            .join("assets/triangle.glb")
+            .is_file()
+    );
+
+    let native3 = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan3_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    let nodes3 = native3["observation"]["authored"]["nodes"]
+        .as_array()
+        .unwrap();
+    for class in ["MeshInstance3D", "Camera3D", "CollisionShape3D"] {
+        assert!(
+            nodes3.iter().any(|node| node["class"] == class),
+            "3D native readback missing {class}: {nodes3:?}"
+        );
+    }
+    let animations3 = native3["observation"]["authored"]["animations"]
+        .as_array()
+        .unwrap();
+    assert!(
+        animations3
+            .iter()
+            .any(|animation| animation["name"] == "pulse"
+                && animation["tracks"]
+                    .as_array()
+                    .is_some_and(|tracks| !tracks.is_empty())),
+        "3D authored animation was not observed"
+    );
+    assert!(
+        native3["observation"]["dependencies"]
+            .as_array()
+            .is_some_and(|dependencies| dependencies.iter().any(|dependency| {
+                dependency["path"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("triangle.glb"))
+                    && dependency["exists"] == true
+            })),
+        "imported GLB dependency missing from native closure"
+    );
+
+    let persisted3 = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan3_id,
+            "scene":"arena",
+            "verification":{"kind":"persistence"}
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &persisted3,
+        "godot.native_persistence.arena.v1"
+    ));
+    assert_ne!(
+        persisted3["writer"]["process_id"],
+        persisted3["reader"]["process_id"]
+    );
+
+    let played3 = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan3_id,
+            "scene":"arena",
+            "verification":{
+                "kind":"play",
+                "ticks":10,
+                "inputs":[
+                    {"tick":1,"action":"start","pressed":true},
+                    {"tick":2,"action":"start","pressed":false}
+                ],
+                "checkpoints":[1,2,10],
+                "variables":["score"],
+                "capture":false
+            }
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &played3,
+        "godot.native_runtime.arena.v1"
+    ));
+    assert_eq!(
+        played3["observation"]["frames"].as_array().map(Vec::len),
+        Some(3)
+    );
+
+    let validated3 = broker_call(
+        &broker,
+        &session,
+        "driver.godot.project.validate",
+        json!({"managed_project":project3}),
+    )
+    .await;
+    assert_eq!(validated3["success"], true);
+
+    let spec_3d: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
+    let plan_3d = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec_3d}),
+    )
+    .await;
+    let plan_3d_id = plan_3d["plan_id"].as_str().unwrap().to_owned();
+    let applied_3d = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan_3d_id}),
+    )
+    .await;
+    assert_eq!(applied_3d["execution_status"], "completed");
+
+    let native_3d = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_3d_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &native_3d,
+        "godot.native_readback.arena.v1"
+    ));
+    let nodes_3d = native_3d["observation"]["authored"]["nodes"]
+        .as_array()
+        .unwrap();
+    for class in ["CharacterBody3D", "Camera3D", "MeshInstance3D"] {
+        assert!(
+            nodes_3d.iter().any(|node| node["class"] == class),
+            "missing native 3D class {class}: {nodes_3d:?}"
+        );
+    }
+    assert!(
+        native_3d["observation"]["authored"]["animations"]
+            .as_array()
+            .is_some_and(|animations| {
+                animations
+                    .iter()
+                    .any(|animation| animation["name"] == "prop_pulse")
+            }),
+        "3D authored animation was not observed"
+    );
+
+    let played_3d = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_3d_id,
+            "scene":"arena",
+            "verification":{
+                "kind":"play",
+                "ticks":10,
+                "inputs":[
+                    {"tick":1,"action":"start","pressed":true},
+                    {"tick":2,"action":"start","pressed":false}
+                ],
+                "checkpoints":[1,2,10],
+                "variables":["score"],
+                "capture":false
+            }
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &played_3d,
+        "godot.native_runtime.arena.v1"
+    ));
+    assert_eq!(played_3d["observation"]["inputs_delivered"], 2);
+    assert!(
+        played_3d["observation"]["elapsed_physics_frames"]
+            .as_u64()
+            .is_some_and(|frames| frames >= 10)
+    );
 
     let foreign = broker
         .clone()
