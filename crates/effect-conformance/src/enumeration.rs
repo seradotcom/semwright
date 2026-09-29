@@ -59,6 +59,20 @@ pub fn audit_enumeration(
         fail(&mut audit, "missing pages or page budget exceeded");
         return audit;
     }
+    if expected.owner.validate().is_err()
+        || [
+            &expected.resource.provider,
+            &expected.resource.resource,
+            &expected.provider_session,
+            &expected.generation,
+            &expected.universe,
+        ]
+        .iter()
+        .any(|value| bounded_id(value).is_err())
+    {
+        fail(&mut audit, "invalid expected enumeration identity");
+        return audit;
+    }
     let mut last_cursor: Option<String> = None;
     let mut cursors = BTreeSet::new();
     let mut last_item: Option<&str> = None;
