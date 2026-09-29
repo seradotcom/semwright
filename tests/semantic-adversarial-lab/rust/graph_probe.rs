@@ -185,6 +185,34 @@ fn store_access(project: &ProjectId, session: &str) -> ProbeResult<ProjectAccess
 fn cleanup(path: &Path) {
     let _ = std::fs::remove_dir_all(path);
 }
+fn external_intent(
+    graph: &ProjectGraph,
+    historical_owner: Owner,
+    affected: Vec<LogicalAssetId>,
+    request_id: &str,
+    id: ExternalIntentId,
+) -> ExternalIntent {
+    ExternalIntent {
+        version: SCHEMA_VERSION,
+        id,
+        project: graph.project_id().clone(),
+        owner: historical_owner,
+        request_id: request_id.into(),
+        operation: OperationIdentity {
+            capability: "g-capability".into(),
+            descriptor: d("g-descriptor"),
+            runtime: d("g-runtime"),
+            plan: d("g-plan"),
+            parameters: d(request_id),
+            recipe: None,
+        },
+        affected,
+        prepared_unix_ms: 1,
+        observation_epoch: graph.observation_epoch().into(),
+        status: ExecutionStatus::Prepared,
+        receipt: None,
+    }
+}
 
 fn probe(case: &str) -> ProbeResult<Value> {
     Ok(match case {
@@ -651,6 +679,325 @@ fn probe(case: &str) -> ProbeResult<Value> {
             cleanup(&dir);
             json!({"world_readable_store_rejected":denied})
         }
+
+        "G-GRAPH-040" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-040",
+                ExternalIntentId::new(),
+            );
+            let id = intent.id.clone();
+            graph.prepare_external_intent(&access, intent)?;
+            let view = graph.external_intent(&access, &id)?;
+            json!({"status":format!("{:?}",view.status),"receipt":view.receipt.is_some(),"request":view.request_id})
+        }
+        "G-GRAPH-041" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let mut intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-041",
+                ExternalIntentId::new(),
+            );
+            intent.project = ProjectId::new();
+            json!({"wrong_project_rejected":graph.prepare_external_intent(&access,intent).is_err()})
+        }
+        "G-GRAPH-042" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("other-session"),
+                vec![a],
+                "g-request-042",
+                ExternalIntentId::new(),
+            );
+            json!({"session_substitution_rejected":graph.prepare_external_intent(&access,intent).is_err()})
+        }
+        "G-GRAPH-043" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a.clone(), a],
+                "g-request-043",
+                ExternalIntentId::new(),
+            );
+            json!({"duplicate_affected_rejected":graph.prepare_external_intent(&access,intent).is_err()})
+        }
+        "G-GRAPH-044" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let first = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a.clone()],
+                "g-request-044",
+                ExternalIntentId::new(),
+            );
+            graph.prepare_external_intent(&access, first)?;
+            let second = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-044",
+                ExternalIntentId::new(),
+            );
+            json!({"request_identity_collision_rejected":graph.prepare_external_intent(&access,second).is_err()})
+        }
+        "G-GRAPH-045" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-045",
+                ExternalIntentId::new(),
+            );
+            let id = intent.id.clone();
+            graph.prepare_external_intent(&access, intent.clone())?;
+            let idempotent = graph.prepare_external_intent(&access, intent).is_ok();
+            let status = format!("{:?}", graph.external_intent(&access, &id)?.status);
+            json!({"exact_duplicate_idempotent":idempotent,"status":status})
+        }
+        "G-GRAPH-046" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-046",
+                ExternalIntentId::new(),
+            );
+            graph.prepare_external_intent(&access, intent.clone())?;
+            let mut mutated = intent;
+            mutated.prepared_unix_ms = 2;
+            json!({"same_id_mutation_rejected":graph.prepare_external_intent(&access,mutated).is_err()})
+        }
+        "G-GRAPH-047" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-047",
+                ExternalIntentId::new(),
+            );
+            let id = intent.id.clone();
+            graph.prepare_external_intent(&access, intent)?;
+            graph.mark_external_intent_applying(&access, &id)?;
+            let second = graph.mark_external_intent_applying(&access, &id).is_err();
+            let status = format!("{:?}", graph.external_intent(&access, &id)?.status);
+            json!({"double_dispatch_rejected":second,"status":status})
+        }
+        "G-GRAPH-048" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-048",
+                ExternalIntentId::new(),
+            );
+            let id = intent.id.clone();
+            graph.prepare_external_intent(&access, intent)?;
+            graph.mark_external_intent_applying(&access, &id)?;
+            graph.restart_observation_epoch();
+            let status = format!("{:?}", graph.external_intent(&access, &id)?.status);
+            let redispatch = graph.mark_external_intent_applying(&access, &id).is_err();
+            json!({"status_after_restart":status,"redispatch_rejected":redispatch})
+        }
+        "G-GRAPH-049" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-049",
+                ExternalIntentId::new(),
+            );
+            let id = intent.id.clone();
+            graph.prepare_external_intent(&access, intent)?;
+            graph.mark_external_intent_applying(&access, &id)?;
+            graph.restart_observation_epoch();
+            let completed = graph
+                .resolve_external_intent(&access, &id, ExecutionStatus::Completed, None)
+                .is_err();
+            let unknown = graph
+                .resolve_external_intent(&access, &id, ExecutionStatus::Unknown, None)
+                .is_ok();
+            let status = format!("{:?}", graph.external_intent(&access, &id)?.status);
+            json!({"completed_after_restart_rejected":completed,"unknown_resolution_allowed":unknown,"status":status})
+        }
+        "G-GRAPH-050" => {
+            let (mut graph, access) = setup()?;
+            let visible = register(
+                &mut graph,
+                &access,
+                "visible",
+                Some(file("project", "visible.bin")),
+            )?;
+            let hidden = register(
+                &mut graph,
+                &access,
+                "hidden",
+                Some(file("project", "hidden.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![hidden],
+                "g-request-050",
+                ExternalIntentId::new(),
+            );
+            let id = intent.id.clone();
+            graph.prepare_external_intent(&access, intent)?;
+            let scoped = subset(&graph, "g-scoped", BTreeSet::from([visible]), false)?;
+            json!({"hidden_intent_denied":graph.external_intent(&scoped,&id).is_err()})
+        }
+        "G-GRAPH-051" => {
+            let project = ProjectId::new();
+            let principal = owner("g-store").principal;
+            let write_access = store_access(&project, "g-store")?;
+            let dir = private_dir("intent-restart")?;
+            let intent_id = ExternalIntentId::new();
+            {
+                let mut store = GraphStore::open(&dir, project.clone(), principal.clone(), false)?;
+                store.transact(&write_access, |g| {
+                    let a = register_graph(
+                        g,
+                        &write_access,
+                        "durable-intent",
+                        Some(file("project", "intent.bin")),
+                    )?;
+                    let intent = external_intent(
+                        g,
+                        owner("g-store"),
+                        vec![a],
+                        "g-request-051",
+                        intent_id.clone(),
+                    );
+                    g.prepare_external_intent(&write_access, intent)?;
+                    g.mark_external_intent_applying(&write_access, &intent_id)?;
+                    Ok(())
+                })?;
+            }
+            let mut reopened = GraphStore::open(&dir, project.clone(), principal, false)?;
+            let restart_access = store_access(&project, "g-store-restart")?;
+            let status = format!(
+                "{:?}",
+                reopened
+                    .graph()?
+                    .external_intent(&restart_access, &intent_id)?
+                    .status
+            );
+            let redispatch = reopened.transact(&restart_access, |g| {
+                Ok(g.mark_external_intent_applying(&restart_access, &intent_id)
+                    .is_err())
+            })?;
+            let resolved = reopened.transact(&restart_access, |g| {
+                Ok(g.resolve_external_intent(
+                    &restart_access,
+                    &intent_id,
+                    ExecutionStatus::Unknown,
+                    None,
+                )
+                .is_ok())
+            })?;
+            cleanup(&dir);
+            json!({"status_after_reopen":status,"redispatch_rejected":redispatch,"unknown_resolution_allowed":resolved})
+        }
+        "G-GRAPH-052" => {
+            let (mut graph, access) = setup()?;
+            let a = register(
+                &mut graph,
+                &access,
+                "intent",
+                Some(file("project", "intent.bin")),
+            )?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![a],
+                "g-request-052",
+                ExternalIntentId::new(),
+            );
+            let id = intent.id.clone();
+            graph.prepare_external_intent(&access, intent)?;
+            let foreign = ProjectAccess::authorized(
+                Owner {
+                    session: "foreign-session".into(),
+                    principal: PrincipalBinding::Named("foreign-principal".into()),
+                },
+                graph.project_id().clone(),
+                None,
+                false,
+                d("foreign-grants"),
+            )?;
+            json!({"cross_principal_intent_denied":graph.external_intent(&foreign,&id).is_err()})
+        }
         _ => {
             eprintln!("unregistered graph selector");
             std::process::exit(2)
@@ -658,7 +1005,7 @@ fn probe(case: &str) -> ProbeResult<Value> {
     })
 }
 fn cases() -> Vec<String> {
-    (1..=39).map(|i| format!("G-GRAPH-{i:03}")).collect()
+    (1..=52).map(|i| format!("G-GRAPH-{i:03}")).collect()
 }
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();

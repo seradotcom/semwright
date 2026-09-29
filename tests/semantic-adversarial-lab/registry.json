@@ -3807,6 +3807,158 @@
       "expected": {
         "noncanonical_name_rejected": true
       }
+    },
+    {
+      "id": "G-GRAPH-040",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "prepared external intent is visible only as recovery state",
+      "expected": {
+        "status": "Prepared",
+        "receipt": false,
+        "request": "g-request-040"
+      }
+    },
+    {
+      "id": "G-GRAPH-041",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent cannot target a foreign project",
+      "expected": {
+        "wrong_project_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-042",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "live preparation cannot substitute the authenticated owner session",
+      "expected": {
+        "session_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-043",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent affected scope rejects duplicate asset identities",
+      "expected": {
+        "duplicate_affected_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-044",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "same owner request identity cannot allocate a second external intent",
+      "expected": {
+        "request_identity_collision_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-045",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "byte-identical external intent replay is idempotent",
+      "expected": {
+        "exact_duplicate_idempotent": true,
+        "status": "Prepared"
+      }
+    },
+    {
+      "id": "G-GRAPH-046",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "same external intent id with mutated payload conflicts",
+      "expected": {
+        "same_id_mutation_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-047",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent cannot be dispatched twice",
+      "expected": {
+        "double_dispatch_rejected": true,
+        "status": "Applying"
+      }
+    },
+    {
+      "id": "G-GRAPH-048",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "restart converts in-flight apply to UNKNOWN and forbids redispatch",
+      "expected": {
+        "status_after_restart": "Unknown",
+        "redispatch_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-049",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "post-restart in-flight intent can only reconcile to UNKNOWN without receipt",
+      "expected": {
+        "completed_after_restart_rejected": true,
+        "unknown_resolution_allowed": true,
+        "status": "Unknown"
+      }
+    },
+    {
+      "id": "G-GRAPH-050",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "subset visibility cannot observe intent affecting hidden assets",
+      "expected": {
+        "hidden_intent_denied": true
+      }
+    },
+    {
+      "id": "G-GRAPH-051",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "durable store reopen preserves intent but exposes interrupted apply as UNKNOWN",
+      "expected": {
+        "status_after_reopen": "Unknown",
+        "redispatch_rejected": true,
+        "unknown_resolution_allowed": true
+      }
+    },
+    {
+      "id": "G-GRAPH-052",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "foreign principal cannot inspect durable external intent",
+      "expected": {
+        "cross_principal_intent_denied": true
+      }
     }
   ]
 }

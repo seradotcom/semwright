@@ -314,7 +314,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "39 independent graph identity/drift/cursor/watch/manifest/store cases registered against final C delivery SHA; exact-SHA G execution pending.",
+      "blocker": "52 independent graph identity/drift/cursor/watch/manifest/store/external-intent recovery cases registered against final C delivery SHA; exact-SHA G execution pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
