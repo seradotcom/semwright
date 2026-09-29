@@ -12,7 +12,7 @@ Use this Skill only after its requirements pass against the combined live catalo
 3. **APPLY MOTION** through its server-issued Composition plan. Render from frame zero for high-level authoring until checkpoint/seek equivalence is independently certified.
 4. **APPLY AUDIO** only through the public audio Composition lifecycle advertised by the combined catalog. Do not call private Faust/Ardour helpers to stand in for missing authoring capability.
 5. **VERIFY INTERMEDIATES** independently. Motion requires source-bound renderer evidence; audio requires native rendered-artifact analysis. UNKNOWN is not PASS.
-6. **TRANSFER** Motion through the verified lossless mezzanine route and audio through an authorized artifact handoff. Provider locators are not portable filesystem paths.
+6. **TRANSFER** Motion through the verified lossless mezzanine route. For audio, keep `MediaArtifact.reference` path-free; bind the public audio receipt to owner-configured source/delivery roots, then use descriptor-pinned `artifact.handoff` with the exact SHA (current bounded handoff: 64 MiB). The MLT root alias is host configuration, never plan authority.
 7. **MUX** through the pinned MLT delivery capability. The current certified A-side route is H.264/AAC MP4 with a 48 kHz stereo final audio mix and applies no extra gain, ducking or normalization.
 8. **ANALYZE FINAL AUDIO AGAIN.** Encoding can change padding, sample count, duration or peak behavior; pre-encode audio PASS does not certify the encoded master.
 9. **VERIFY SYNC** on the final decoded master using the cue/tolerance specification fixed before rendering. Missing or ambiguous detections remain UNKNOWN/FAIL.

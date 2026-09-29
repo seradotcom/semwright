@@ -290,6 +290,33 @@ impl DeliveryProfile {
         Ok(())
     }
 }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ArtifactHandoffHint {
+    pub version: u32,
+    pub artifact_digest: Digest,
+    pub relative_path: String,
+}
+
+impl ArtifactHandoffHint {
+    pub fn validate(&self) -> Result<()> {
+        ensure(self.version == 1, "artifact handoff hint version")?;
+        ensure(
+            !self.relative_path.is_empty()
+                && self.relative_path.len() <= 4096
+                && !self.relative_path.starts_with('/')
+                && !self.relative_path.contains('\\')
+                && !self.relative_path.contains(':')
+                && !self.relative_path.chars().any(char::is_control)
+                && self
+                    .relative_path
+                    .split('/')
+                    .all(|part| !part.is_empty() && part != "." && part != ".."),
+            "artifact handoff hint path must be bounded and grant-relative",
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AudioConsumerReceipt {
@@ -299,6 +326,8 @@ pub struct AudioConsumerReceipt {
     pub stems: Vec<MediaArtifact>,
     pub verification: VerificationReport,
     pub cue_digest: Digest,
+    #[serde(default)]
+    pub handoff: Option<ArtifactHandoffHint>,
 }
 impl AudioConsumerReceipt {
     pub fn validate(&self) -> Result<()> {
@@ -318,6 +347,13 @@ impl AudioConsumerReceipt {
                 && self.verification.validation.plan_digest == self.project.plan_digest,
             "audio verification/timing binding mismatch",
         )?;
+        if let Some(handoff) = &self.handoff {
+            handoff.validate()?;
+            ensure(
+                handoff.artifact_digest == self.master.sha256,
+                "audio handoff hint refers to a different master artifact",
+            )?;
+        }
         require_verified(
             &self.verification,
             &self.project.required_rules,

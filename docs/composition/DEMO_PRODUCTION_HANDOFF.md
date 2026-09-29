@@ -46,7 +46,7 @@ Use the public audio capabilities/Skill delivered by B. Do not call private Ardo
 
 ### AV delivery
 
-Create one AV plan using the shared cue graph and exact Motion/Audio artifact provenance. Do not silently retime narration or substitute a backend. Transfer artifacts using the existing artifact path, assemble with the MLT/delivery provider, then analyze the encoded audio and decode the final master for sync verification.
+Create one AV plan using the shared cue graph and exact Motion/Audio artifact provenance. Do not silently retime narration or substitute a backend. Keep the audio provider token separate from its owner-configured filesystem locator. Bind that locator only from the verified public audio receipt/integration configuration, copy the final WAV through `artifact.handoff` using its exact SHA into the delivery root (current handoff limit: 64 MiB), and map the MLT `media` alias to that same storage. Then assemble with the MLT/delivery provider, analyze the encoded audio, and decode the final master for sync verification. Never parse a provider token as a pathname.
 
 A successful intermediate render does not make the AV master ready.
 

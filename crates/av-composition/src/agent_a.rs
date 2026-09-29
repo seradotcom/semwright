@@ -22,6 +22,27 @@ struct Locator {
     sha256: Digest,
 }
 
+#[derive(Clone, Debug)]
+pub struct AgentAArtifactRoutes {
+    /// Broker filesystem grant containing B's verified public audio output.
+    pub audio_source_root: String,
+    /// Broker filesystem grant that receives the byte-copy handoff.
+    pub handoff_destination_root: String,
+    /// MLT workspace root alias mapped by owner configuration to that destination.
+    pub mlt_media_root: String,
+}
+
+impl AgentAArtifactRoutes {
+    pub fn validate(&self) -> Result<()> {
+        semwright_semantic_composition::bounded_id(&self.audio_source_root)?;
+        semwright_semantic_composition::bounded_id(&self.handoff_destination_root)?;
+        ensure(
+            matches!(self.mlt_media_root.as_str(), "project" | "media" | "output"),
+            "MLT media root alias is outside the curated driver roots",
+        )
+    }
+}
+
 pub fn agent_a_stage_commands(stage: Stage) -> Option<&'static [&'static str]> {
     Some(match stage {
         Stage::PlanDelivery => &["driver.mlt-video.render.profiles"],
@@ -32,6 +53,7 @@ pub fn agent_a_stage_commands(stage: Stage) -> Option<&'static [&'static str]> {
         ],
         Stage::VerifyMotion => &["driver.motion-canvas.composition.verify"],
         Stage::TransferMotion => &["driver.mlt-video.frames.encode"],
+        Stage::TransferAudio => &["artifact.handoff"],
         Stage::Mux => &["driver.mlt-video.av.mux"],
         Stage::VerifySync => &["driver.mlt-video.sync.probe"],
         _ => return None,
@@ -40,18 +62,32 @@ pub fn agent_a_stage_commands(stage: Stage) -> Option<&'static [&'static str]> {
 
 pub struct AgentAStageAdapter {
     plan: AvPlan,
+    artifact_routes: Option<AgentAArtifactRoutes>,
     motion_fingerprint: Option<String>,
     motion_job_ref: Option<String>,
+    source_locators: BTreeMap<String, Locator>,
     locators: BTreeMap<String, Locator>,
 }
 
 impl AgentAStageAdapter {
     pub fn new(plan: AvPlan) -> Result<Self> {
+        Self::with_artifact_routes(plan, None)
+    }
+
+    pub fn with_artifact_routes(
+        plan: AvPlan,
+        artifact_routes: Option<AgentAArtifactRoutes>,
+    ) -> Result<Self> {
         plan.validate()?;
+        if let Some(routes) = &artifact_routes {
+            routes.validate()?;
+        }
         Ok(Self {
             plan,
+            artifact_routes,
             motion_fingerprint: None,
             motion_job_ref: None,
+            source_locators: BTreeMap::new(),
             locators: BTreeMap::new(),
         })
     }
@@ -144,9 +180,72 @@ impl AgentAStageAdapter {
         Ok(locator)
     }
 
+    /// Bind the filesystem-grant locator reported by the public audio provider/integration.
+    /// The public MediaArtifact token remains path-free. This mapping grants no authority:
+    /// the later copy still traverses Broker policy and validates the expected digest.
+    pub fn bind_audio_source_locator(
+        &mut self,
+        artifact: &MediaArtifact,
+        path: &str,
+    ) -> Result<()> {
+        artifact.validate()?;
+        ensure(
+            artifact.owner == self.plan.body.spec.owner
+                && artifact.source_plan == self.plan.body.audio.plan_digest
+                && artifact.metadata.audio.is_some()
+                && artifact.metadata.video.is_none(),
+            "audio source locator does not describe the planned final audio artifact",
+        )?;
+        let routes = self.artifact_routes.as_ref().ok_or_else(|| {
+            Error::Denied("audio locator binding requires owner-configured artifact routes".into())
+        })?;
+        routes.validate()?;
+        Self::relative(path)?;
+        if let Some(existing) = self.source_locators.get(&artifact.reference) {
+            return ensure(
+                existing.root == routes.audio_source_root
+                    && existing.path == path
+                    && existing.sha256 == artifact.sha256,
+                "audio source locator cannot be rebound after it is pinned",
+            );
+        }
+        self.source_locators.insert(
+            artifact.reference.clone(),
+            Locator {
+                root: routes.audio_source_root.clone(),
+                path: path.into(),
+                sha256: artifact.sha256.clone(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Consume B's common public receipt without coupling AV to Ardour/Faust result shapes.
+    /// The hint contains only a relative path + digest; the Broker root comes from host config.
+    pub fn bind_audio_consumer_receipt(
+        &mut self,
+        receipt: &crate::AudioConsumerReceipt,
+    ) -> Result<()> {
+        receipt.validate()?;
+        ensure(
+            receipt.project.plan_digest == self.plan.body.audio.plan_digest
+                && receipt.project.owner == self.plan.body.spec.owner,
+            "audio consumer receipt belongs to another AV plan/owner",
+        )?;
+        let handoff = receipt.handoff.as_ref().ok_or_else(|| {
+            Error::Unknown(
+                "audio consumer receipt has no artifact handoff hint for AV delivery".into(),
+            )
+        })?;
+        ensure(
+            handoff.artifact_digest == receipt.master.sha256,
+            "audio consumer handoff digest mismatch",
+        )?;
+        self.bind_audio_source_locator(&receipt.master, &handoff.relative_path)
+    }
+
     /// Bind a locator returned by an already-authorized transfer provider.
-    /// This does not grant access: subsequent use still goes through Broker policy
-    /// and the destination driver's scoped-root + expected-SHA checks.
+    /// This remains useful to restore private adapter state after a persisted receipt.
     pub fn bind_transferred_locator(
         &mut self,
         input: &DeliveryInput,
@@ -193,14 +292,14 @@ impl AgentAStageAdapter {
             Stage::RenderMotion => self.render_motion(call, executor, cancellation).await,
             Stage::VerifyMotion => self.verify_motion(call, executor, cancellation).await,
             Stage::TransferMotion => self.transfer_motion(call, executor, cancellation).await,
+            Stage::TransferAudio => self.transfer_audio(call, executor, cancellation).await,
             Stage::Mux => self.mux(call, executor, cancellation).await,
             Stage::VerifySync => self.verify_sync(call, executor, cancellation).await,
             Stage::ApplyAudio
             | Stage::RenderAudio
             | Stage::VerifyAudio
-            | Stage::TransferAudio
             | Stage::VerifyFinalAudio => Err(Error::Unknown(
-                "audio stage requires Agent B's verified public provider handoff".into(),
+                "audio authoring/verification stage requires Agent B's verified public provider handoff".into(),
             )),
             Stage::PreparePublication | Stage::Publish => Err(Error::Invalid(
                 "publication stages use BrokerPublisher with owner-configured roots".into(),
@@ -539,6 +638,109 @@ impl AgentAStageAdapter {
                 owner: self.plan.body.spec.owner.clone(),
                 metadata: artifact.metadata.clone(),
                 operation: TransferKind::LosslessMezzanine,
+                verification: None,
+            },
+        })
+    }
+
+    async fn transfer_audio(
+        &mut self,
+        call: &StageCall,
+        executor: &dyn Executor,
+        cancellation: CancellationToken,
+    ) -> Result<NativeResult> {
+        const MAX_HANDOFF_BYTES: u64 = 64 * 1024 * 1024;
+        Self::commands(call, &["artifact.handoff"])?;
+        let StagePayload::TransferAudio { artifact } = &call.payload else {
+            return Err(Error::Invalid("TransferAudio payload mismatch".into()));
+        };
+        artifact.validate()?;
+        ensure(
+            artifact.owner == self.plan.body.spec.owner
+                && artifact.source_plan == self.plan.body.audio.plan_digest
+                && artifact.metadata.audio.is_some()
+                && artifact.metadata.video.is_none()
+                && matches!(artifact.media_type.as_str(), "audio/wav" | "audio/x-wav"),
+            "audio transfer requires the verified planned WAV final mix",
+        )?;
+        ensure(
+            artifact.bytes <= MAX_HANDOFF_BYTES,
+            "audio artifact exceeds the existing bounded artifact.handoff limit",
+        )?;
+        let routes = self.artifact_routes.as_ref().ok_or_else(|| {
+            Error::Denied(
+                "audio transfer requires owner-configured artifact handoff/delivery roots".into(),
+            )
+        })?;
+        routes.validate()?;
+        let source = self
+            .source_locators
+            .get(&artifact.reference)
+            .ok_or_else(|| {
+                Error::Unknown(
+                    "audio provider locator has not been bound from its public render receipt"
+                        .into(),
+                )
+            })?
+            .clone();
+        ensure(
+            source.sha256 == artifact.sha256,
+            "audio source locator/digest binding changed",
+        )?;
+        let destination_path = format!("av-audio-{}.wav", &artifact.sha256.as_str()[..16]);
+        let mut runner = StageCommandRunner::new(executor, call)?;
+        let value = runner
+            .next(
+                json!({
+                    "source_root":source.root.as_str(),
+                    "source_path":source.path.as_str(),
+                    "destination_root":routes.handoff_destination_root.as_str(),
+                    "destination_path":destination_path.as_str(),
+                    "max_bytes":artifact.bytes,
+                    "expected_sha256":artifact.sha256.as_str(),
+                    "semantic_type":"audio/final-mix",
+                    "media_type":artifact.media_type.as_str()
+                }),
+                cancellation,
+            )
+            .await?;
+        runner.finish()?;
+        ensure(
+            value.get("copied").and_then(Value::as_bool) == Some(true)
+                && value.get("atomic").and_then(Value::as_bool) == Some(true)
+                && value.get("bytes").and_then(Value::as_u64) == Some(artifact.bytes)
+                && value.get("sha256").and_then(Value::as_str) == Some(artifact.sha256.as_str()),
+            "artifact.handoff did not return the expected audio copy receipt",
+        )?;
+        let destination = value
+            .get("destination")
+            .and_then(Value::as_object)
+            .ok_or_else(|| Error::Invalid("artifact.handoff destination receipt missing".into()))?;
+        ensure(
+            destination.get("root").and_then(Value::as_str)
+                == Some(routes.handoff_destination_root.as_str())
+                && destination.get("path").and_then(Value::as_str)
+                    == Some(destination_path.as_str()),
+            "artifact.handoff destination differs from owner-configured AV delivery root",
+        )?;
+
+        let token = Self::token("audio-delivery", &artifact.sha256);
+        self.locators.insert(
+            token.clone(),
+            Locator {
+                root: routes.mlt_media_root.clone(),
+                path: destination_path,
+                sha256: artifact.sha256.clone(),
+            },
+        );
+        Ok(NativeResult::Transferred {
+            input: DeliveryInput {
+                token,
+                source_digest: artifact.sha256.clone(),
+                artifact_digest: artifact.sha256.clone(),
+                owner: artifact.owner.clone(),
+                metadata: artifact.metadata.clone(),
+                operation: TransferKind::ByteCopy,
                 verification: None,
             },
         })

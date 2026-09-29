@@ -91,6 +91,43 @@ fn reusable_artifact(label: &str, dependencies: BTreeMap<String, Digest>) -> t::
     }
 }
 
+fn audio_artifact() -> t::MediaArtifact {
+    t::MediaArtifact {
+        reference: "artifact:audio-final".into(),
+        owner: owner(),
+        sha256: digest("audio-final-bytes"),
+        bytes: 576_044,
+        media_type: "audio/wav".into(),
+        source_plan: digest("audio"),
+        source_state: BaseStateSet(
+            base()
+                .0
+                .into_iter()
+                .filter(|state| state.key.resource == "audio")
+                .collect(),
+        ),
+        metadata: t::MediaMetadata {
+            duration: q(3, 1),
+            encoded_duration: Some(q(3, 1)),
+            video: None,
+            audio: Some(t::AudioMetadata {
+                sample_rate: 48_000,
+                channels: 2,
+                channel_layout: "stereo".into(),
+                sample_frames: 144_000,
+                priming_samples: None,
+                padding_samples: None,
+                latency_samples: None,
+                tail_samples: None,
+            }),
+        },
+        dependencies: BTreeMap::from([("fixture-source".into(), digest("audio"))]),
+        provenance: Some("synthetic final-mix fixture".into()),
+        license: None,
+        retention: t::Retention::PrivateCandidate,
+    }
+}
+
 fn plan() -> AvPlan {
     let proof = |service: Service, name: &str| ServiceProof {
         service,
@@ -600,30 +637,35 @@ fn artifact_reuse_never_crosses_owner_sessions() {
 }
 
 #[test]
-fn agent_a_native_command_inventory_does_not_claim_audio_or_publication() {
+fn agent_a_native_command_inventory_claims_only_delivery_bridge_not_audio_authoring() {
     for stage in [
         Stage::PlanDelivery,
         Stage::ApplyMotion,
         Stage::RenderMotion,
         Stage::VerifyMotion,
         Stage::TransferMotion,
+        Stage::TransferAudio,
         Stage::Mux,
         Stage::VerifySync,
     ] {
         let commands = agent_a_stage_commands(stage).expect("Agent-A stage mapping");
         assert!(!commands.is_empty());
         assert!(
-            commands
-                .iter()
-                .all(|command| command.starts_with("driver."))
+            commands.iter().all(|command| {
+                command.starts_with("driver.") || *command == "artifact.handoff"
+            })
         );
     }
     assert_eq!(Stage::TransferMotion.service(), Service::Delivery);
+    assert_eq!(Stage::TransferAudio.service(), Service::Artifacts);
+    assert_eq!(
+        agent_a_stage_commands(Stage::TransferAudio).unwrap(),
+        ["artifact.handoff"]
+    );
     for stage in [
         Stage::ApplyAudio,
         Stage::RenderAudio,
         Stage::VerifyAudio,
-        Stage::TransferAudio,
         Stage::VerifyFinalAudio,
         Stage::PreparePublication,
         Stage::Publish,
@@ -633,4 +675,91 @@ fn agent_a_native_command_inventory_does_not_claim_audio_or_publication() {
             "Agent A must not silently claim {stage:?}"
         );
     }
+}
+
+#[test]
+fn agent_a_artifact_routes_are_host_configuration_not_arbitrary_mlt_roots() {
+    AgentAArtifactRoutes {
+        audio_source_root: "audio-output".into(),
+        handoff_destination_root: "av-delivery".into(),
+        mlt_media_root: "media".into(),
+    }
+    .validate()
+    .unwrap();
+    assert!(
+        AgentAArtifactRoutes {
+            audio_source_root: "audio-output".into(),
+            handoff_destination_root: "av-delivery".into(),
+            mlt_media_root: "anything".into(),
+        }
+        .validate()
+        .is_err()
+    );
+}
+
+#[test]
+fn audio_source_locator_is_separate_from_provider_artifact_token() {
+    let mut adapter = AgentAStageAdapter::with_artifact_routes(
+        plan(),
+        Some(AgentAArtifactRoutes {
+            audio_source_root: "audio-output".into(),
+            handoff_destination_root: "av-delivery".into(),
+            mlt_media_root: "media".into(),
+        }),
+    )
+    .unwrap();
+    let artifact = audio_artifact();
+    adapter
+        .bind_audio_source_locator(&artifact, "final/master.wav")
+        .unwrap();
+    adapter
+        .bind_audio_source_locator(&artifact, "final/master.wav")
+        .unwrap();
+    assert!(
+        adapter
+            .bind_audio_source_locator(&artifact, "other/master.wav")
+            .is_err()
+    );
+    assert!(
+        adapter
+            .bind_audio_source_locator(&artifact, "../escape.wav")
+            .is_err()
+    );
+    let mut wrong = artifact;
+    wrong.owner.session = "other-session".into();
+    assert!(
+        adapter
+            .bind_audio_source_locator(&wrong, "final/master.wav")
+            .is_err()
+    );
+}
+
+#[test]
+fn audio_handoff_hint_is_path_data_not_authority_and_binds_master_digest() {
+    let artifact = audio_artifact();
+    ArtifactHandoffHint {
+        version: 1,
+        artifact_digest: artifact.sha256.clone(),
+        relative_path: "final/master.wav".into(),
+    }
+    .validate()
+    .unwrap();
+    assert!(
+        ArtifactHandoffHint {
+            version: 1,
+            artifact_digest: artifact.sha256.clone(),
+            relative_path: "../escape.wav".into(),
+        }
+        .validate()
+        .is_err()
+    );
+    assert!(
+        ArtifactHandoffHint {
+            version: 1,
+            artifact_digest: artifact.sha256,
+            relative_path: "file:///tmp/master.wav".into(),
+        }
+        .validate()
+        .is_err()
+    );
 }
