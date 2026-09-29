@@ -311,11 +311,13 @@ print("SEMWRIGHT_ARDOUR_REOPEN_OK")
 close_session()
 "#,
                 )?;
-                let reopen_args = vec![
-                    script.to_string_lossy().into_owned(),
-                    probe_session.to_string_lossy().into_owned(),
-                    probe_state.into(),
-                ];
+                let reopen_args = lua_tool_args(
+                    &script,
+                    vec![
+                        probe_session.to_string_lossy().into_owned(),
+                        probe_state.into(),
+                    ],
+                );
                 let reopen_run = self
                     .run_tool_capture(context, &self.lua_tool, &reopen_args)
                     .await?;
@@ -358,13 +360,15 @@ close_session()
                     .tempdir()?;
                 let script_path = script_dir.path().join("semwright-ardour.lua");
                 fs::write(&script_path, script::source())?;
-                let snapshot_args = vec![
-                    script_path.to_string_lossy().into_owned(),
-                    probe_session.to_string_lossy().into_owned(),
-                    probe_state.into(),
-                    self.config.ardour_version.clone(),
-                    "inspect".into(),
-                ];
+                let snapshot_args = lua_tool_args(
+                    &script_path,
+                    vec![
+                        probe_session.to_string_lossy().into_owned(),
+                        probe_state.into(),
+                        self.config.ardour_version.clone(),
+                        "inspect".into(),
+                    ],
+                );
                 let snapshot_run = self
                     .run_tool_capture(context, &self.lua_tool, &snapshot_args)
                     .await?;
@@ -409,15 +413,17 @@ close_session()
                     .tempdir()?;
                 let script_path = script_dir.path().join("semwright-ardour.lua");
                 fs::write(&script_path, script::source())?;
-                let range_args = vec![
-                    script_path.to_string_lossy().into_owned(),
-                    probe_session.to_string_lossy().into_owned(),
-                    probe_state.into(),
-                    self.config.ardour_version.clone(),
-                    "session_range".into(),
-                    "0".into(),
-                    "48000".into(),
-                ];
+                let range_args = lua_tool_args(
+                    &script_path,
+                    vec![
+                        probe_session.to_string_lossy().into_owned(),
+                        probe_state.into(),
+                        self.config.ardour_version.clone(),
+                        "session_range".into(),
+                        "0".into(),
+                        "48000".into(),
+                    ],
+                );
                 let range_run = self
                     .run_tool_capture(context, &self.lua_tool, &range_args)
                     .await?;
@@ -805,16 +811,18 @@ close_session()
         let temp = TempDir::new()?;
         let script_path = temp.path().join("semwright-ardour.lua");
         fs::write(&script_path, script::source())?;
-        let args = [
-            vec![
-                script_path.to_string_lossy().into_owned(),
-                session_dir.to_string_lossy().into_owned(),
-                state.into(),
-                self.config.ardour_version.clone(),
-            ],
-            operation_args.to_vec(),
-        ]
-        .concat();
+        let args = lua_tool_args(
+            &script_path,
+            [
+                vec![
+                    session_dir.to_string_lossy().into_owned(),
+                    state.into(),
+                    self.config.ardour_version.clone(),
+                ],
+                operation_args.to_vec(),
+            ]
+            .concat(),
+        );
         self.run_tool_capture(context, &self.lua_tool, &args).await
     }
 
@@ -862,16 +870,18 @@ close_session()
         let temp = TempDir::new()?;
         let script_path = temp.path().join("semwright-ardour.lua");
         fs::write(&script_path, script::source())?;
-        let args = [
-            vec![
-                script_path.to_string_lossy().into_owned(),
-                self.managed_session_dir().to_string_lossy().into_owned(),
-                state.into(),
-                self.config.ardour_version.clone(),
-            ],
-            operation_args.to_vec(),
-        ]
-        .concat();
+        let args = lua_tool_args(
+            &script_path,
+            [
+                vec![
+                    self.managed_session_dir().to_string_lossy().into_owned(),
+                    state.into(),
+                    self.config.ardour_version.clone(),
+                ],
+                operation_args.to_vec(),
+            ]
+            .concat(),
+        );
         let run = self.run_tool(context, &self.lua_tool, &args).await?;
         parse_snapshot(&run.stdout)
     }
@@ -997,6 +1007,14 @@ close_session()
     fn state_path(&self, state: &str) -> PathBuf {
         self.managed_session_dir().join(format!("{state}.ardour"))
     }
+}
+
+fn lua_tool_args(script_path: &Path, script_args: Vec<String>) -> Vec<String> {
+    let mut args = Vec::with_capacity(script_args.len().saturating_add(2));
+    args.push("--".into());
+    args.push(script_path.to_string_lossy().into_owned());
+    args.extend(script_args);
+    args
 }
 
 async fn read_bounded(reader: impl tokio::io::AsyncRead + Unpin, max: usize) -> Result<Vec<u8>> {
@@ -1324,6 +1342,23 @@ mod tests {
         let json = serde_json::to_string(&fixture()).unwrap();
         let body = format!("{RESULT_PREFIX}{json}\n{RESULT_PREFIX}{json}\n");
         assert!(parse_snapshot(body.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn lua_tool_args_stop_getopt_before_negative_semantic_values() {
+        let args = lua_tool_args(
+            Path::new("/tmp/semwright-ardour.lua"),
+            vec!["session".into(), "-6000".into()],
+        );
+        assert_eq!(
+            args,
+            vec![
+                "--".to_string(),
+                "/tmp/semwright-ardour.lua".to_string(),
+                "session".to_string(),
+                "-6000".to_string(),
+            ]
+        );
     }
 
     #[test]
