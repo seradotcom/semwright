@@ -30,6 +30,7 @@ struct NativeAdapter {
     owner: Owner,
     session: String,
     measured: BTreeMap<String, ObservedValue>,
+    attribution: Attribution,
 }
 impl EvidenceAdapter for NativeAdapter {
     fn identity(&self, resource: &ResourceKey) -> Option<AdapterIdentity> {
@@ -86,7 +87,7 @@ impl EvidenceAdapter for NativeAdapter {
             coverage: ObservationCoverage {
                 consistent: true,
                 missing: vec![],
-                attribution: Attribution::Isolated,
+                attribution: self.attribution,
                 enumeration,
             },
         })
@@ -279,6 +280,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             owner,
             session: measured.reader_process.clone(),
             measured: measured.values,
+            // Fault injection is an explicitly ordered external writer, not a
+            // claim that the product itself caused the excluded-resource change.
+            attribution: if *case == "baseline" {
+                Attribution::Isolated
+            } else {
+                Attribution::Ordered
+            },
         };
         let evidence = collect(&rules, &ctx, &mut adapter)?;
         let evaluation = evaluate(&rules, &ctx, &evidence)?;
