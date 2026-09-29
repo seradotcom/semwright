@@ -116,14 +116,14 @@ jobs:
       - name: Acquire pinned E Blender GLB evidence for D12
         env:
           GH_TOKEN: ${{ github.token }}
-          E_SOURCE_SHA: a5a242327ed435e9b95dc4921adf055f5391f5d7
-          E_RUN_ID: '36521758152'
-          E_ARTIFACT_ID: '11014081697'
-          E_ARTIFACT_NAME: blender-authoring-a5a242327ed435e9b95dc4921adf055f5391f5d7-blender-native-authoring
-          E_GLB_SHA256: 43c01fb5f32765c502f4ddb5e46bf788b383537a15c00cd1534dff9fc4fab32b
+          E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
+          E_RUN_ID: '36543391358'
+          E_ARTIFACT_ID: '11023505708'
+          E_ARTIFACT_NAME: blender-authoring-d80471b9ceb828a2a531dfac9eaa4e970ea589a9-blender-native-authoring
+          E_GLB_SHA256: f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5
         run: |
           set -euo pipefail
-          E_DIR="$RUNNER_TEMP/e-blender-a5a2423"
+          E_DIR="$RUNNER_TEMP/e-blender-d80471b"
           OUT=verification/godot-authoring/cross-app
           mkdir -p "$E_DIR" "$OUT/e-source"
           gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID" > "$OUT/e-source/artifact-metadata.json"
@@ -169,7 +169,7 @@ jobs:
               "Reproducible E source backup",
           ]:
               assert steps[name] == "success", (name, steps[name])
-          assert steps["Formatting gate"] == "failure"
+          assert steps["Formatting gate"] == "success"
           for name in ["blender-native-authoring.json", "glb-roundtrip-blender.json", "native-pipeline.json"]:
               (evidence / name).write_bytes((root / name).read_bytes())
           PY2
@@ -178,10 +178,10 @@ jobs:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
           SEMWRIGHT_TEST_E_GLB: ${{ github.workspace }}/verification/godot-authoring/cross-app/articulated.glb
           SEMWRIGHT_TEST_D12_C_RECEIPT_OUT: ${{ github.workspace }}/verification/godot-authoring/cross-app/c-receipt.json
-          E_SOURCE_SHA: a5a242327ed435e9b95dc4921adf055f5391f5d7
-          E_RUN_ID: '36521758152'
-          E_ARTIFACT_ID: '11014081697'
-          E_GLB_SHA256: 43c01fb5f32765c502f4ddb5e46bf788b383537a15c00cd1534dff9fc4fab32b
+          E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
+          E_RUN_ID: '36543391358'
+          E_ARTIFACT_ID: '11023505708'
+          E_GLB_SHA256: f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5
         run: |
           set -euo pipefail
           OUT=verification/godot-authoring/cross-app
@@ -477,11 +477,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
-      E_SOURCE_SHA: a5a242327ed435e9b95dc4921adf055f5391f5d7
-      E_RUN_ID: '36521758152'
-      E_ARTIFACT_ID: '11014081697'
-      E_ARTIFACT_NAME: blender-authoring-a5a242327ed435e9b95dc4921adf055f5391f5d7-blender-native-authoring
-      E_GLB_SHA256: 43c01fb5f32765c502f4ddb5e46bf788b383537a15c00cd1534dff9fc4fab32b
+      E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
+      E_RUN_ID: '36543391358'
+      E_ARTIFACT_ID: '11023505708'
+      E_ARTIFACT_NAME: blender-authoring-d80471b9ceb828a2a531dfac9eaa4e970ea589a9-blender-native-authoring
+      E_GLB_SHA256: f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:

@@ -1679,7 +1679,7 @@ async fn export_lane_builds_and_launches_without_editor_or_semwright() {
 }
 
 const E_ARTICULATED_GLB_SHA256: &str =
-    "43c01fb5f32765c502f4ddb5e46bf788b383537a15c00cd1534dff9fc4fab32b";
+    "f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5";
 
 #[tokio::test]
 #[ignore = "requires pinned E Blender GLB artifact, bubblewrap/Landlock and pinned Godot"]
@@ -1739,8 +1739,8 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         None,
         json!({
             "test":"godot-cross-app-artifact-handoff",
-            "e_source_sha":"a5a242327ed435e9b95dc4921adf055f5391f5d7",
-            "e_run_id":36521758152u64,
+            "e_source_sha":"d80471b9ceb828a2a531dfac9eaa4e970ea589a9",
+            "e_run_id":36543391358u64,
             "e_glb_sha256":E_ARTICULATED_GLB_SHA256
         }),
         false,
