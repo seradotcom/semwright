@@ -1,0 +1,21 @@
+# D native observation adapter — proposed integration boundary
+
+Owner of these new files: D-native-observation-557ad0b. Concurrent runtime/profile/catalog edits are being preserved, not overwritten. The `authoring/runtime.rs` implementation is the integration target; do not add the discarded `service.rs` proposal.
+
+## Product path
+
+Authenticated `composition.measure` / `composition.verify` authorize active native parsing/playback in a disposable managed copy. They must carry `CodeExecution` risk and explicit private-artifact effects when invoking an engine; read-only source inspection remains separate. The native helper accepts only a prepared, validated request made by the provider. No command accepts GDScript, arbitrary methods, executable paths, shell fragments or client-supplied evidence.
+
+`NativeRequest` and `NativeObservation` live in `crates/driver-godot/src/authoring/native_observation.rs`. A fixed product-owned helper is packaged at `integrations/godot/authoring/native_observer.gd`. These are not test harness game generators. The target project is created by Semwright; the helper reads the live engine, optionally saves a declared candidate, and emits versioned native observations. Tests may inject external drift only in a separately labelled phase.
+
+## Planned integration call
+
+The native request is built from the authenticated plan, the provider-owned derivation record, per-file hashes and logical C bindings. A copied workspace contains only the exact managed files and declared immutable input assets. Generated source is verified before engine startup; unowned addons, autoloads, edited scripts, undeclared files and client paths are not introduced into the copy. The helper stays outside the project, and is never present in normal exported packages.
+
+Native evidence must bind source fingerprint, probe version/digest, engine version/digest, job nonce, actual process identity and scope. Native node/owner/resource/animation data is read from Godot, never copied from the intent. Returned JSON is evidence data, not permission: no caller can submit it for trusted admission. Missing native runs, missing tracks, changed source revision, failed import, missing required captures or incomplete dependency enumeration preserve FAIL/UNKNOWN.
+
+Save/reopen is two actual native processes; cache bypass inside one process is not sufficient. Reopen compares the native projection of saved candidates and observes external-resource sentinels before/after. The #171 scene-only save implementation remains unchanged. Imported/instanced scenes are tested independently through this managed authoring path.
+
+## Status
+
+The bounded wire, fixed Godot observer source, full animation enumeration, signal/dependency inspection, runtime checkpoints, snapshot-bound paging and save/reopen sentinel comparison are implemented as source on D. Native engine execution for this source SHA is still pending, so this does not establish native acceptance merely by compiling. Product-route E2E, hostile isolation and standalone export remain required gates.

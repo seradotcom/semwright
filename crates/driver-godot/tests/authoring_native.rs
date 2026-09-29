@@ -1,0 +1,293 @@
+use semwright_effect_conformance::Predicate;
+use semwright_godot_driver::authoring::native_observation::*;
+use semwright_semantic_composition::Digest;
+use std::collections::{BTreeMap, BTreeSet};
+
+fn digest(label: &str) -> Digest {
+    Digest::of_bytes(label.as_bytes())
+}
+
+fn resource(path: &str, instance_id: &str) -> NativeResourceRef {
+    NativeResourceRef {
+        class: "StandardMaterial3D".into(),
+        path: path.into(),
+        uid: Some("uid://abc123".into()),
+        instance_id: instance_id.into(),
+        local_to_scene: false,
+    }
+}
+
+fn projection(scene_path: &str, node_id: &str, resource_id: &str) -> NativeProjection {
+    NativeProjection {
+        nodes: vec![NativeNode {
+            path: ".".into(),
+            class: "Node2D".into(),
+            instance_id: node_id.into(),
+            parent: None,
+            owner: None,
+            scene_file: scene_path.into(),
+            logical_id: None,
+            logical_key: Some("scene:arena".into()),
+            groups: vec!["gameplay".into()],
+            properties: BTreeMap::from([(
+                "material".into(),
+                NativeValue::Resource(resource("res://assets/material.tres", resource_id)),
+            )]),
+        }],
+        resources: vec![
+            NativeResource {
+                binding: "root:material".into(),
+                resource: resource("res://assets/material.tres", resource_id),
+                properties: BTreeMap::from([("roughness".into(), NativeValue::Float(0.5))]),
+            },
+            NativeResource {
+                binding: "root:material_alias".into(),
+                resource: resource("res://assets/material.tres", resource_id),
+                properties: BTreeMap::from([("roughness".into(), NativeValue::Float(0.5))]),
+            },
+        ],
+        animations: vec![],
+        connections: vec![],
+        unknown: vec![],
+    }
+}
+
+fn observation(
+    mode: ProbeMode,
+    nonce: &str,
+    process_id: &str,
+    authored: NativeProjection,
+    loaded_scene_sha256: Digest,
+    candidate_sha256: Option<Digest>,
+) -> NativeObservation {
+    NativeObservation {
+        version: NATIVE_VERSION,
+        nonce: nonce.into(),
+        source_fingerprint: digest("source"),
+        mode,
+        engine_version: "4.7.2.stable.official.test".into(),
+        process_id: process_id.into(),
+        loaded_scene: if mode == ProbeMode::ReopenCandidate {
+            "res://__sw_saved/arena.tscn".into()
+        } else {
+            "res://scenes/arena.tscn".into()
+        },
+        loaded_scene_sha256,
+        candidate_sha256,
+        authored,
+        live: None,
+        frames: vec![],
+        dependencies: vec![NativeDependency {
+            source: if mode == ProbeMode::ReopenCandidate {
+                "res://__sw_saved/arena.tscn".into()
+            } else {
+                "res://scenes/arena.tscn".into()
+            },
+            path: "res://assets/material.tres".into(),
+            uid: Some("uid://abc123".into()),
+            sha256: Some(digest("material-bytes")),
+            exists: true,
+        }],
+        dependency_complete: true,
+        inputs_delivered: 0,
+        elapsed_physics_frames: 0,
+        failures: vec![],
+    }
+}
+
+#[test]
+fn native_request_is_typed_bounded_and_action_scoped() {
+    let declared: BTreeSet<String> = ["jump".to_owned()].into();
+    let request = NativeRequest {
+        version: NATIVE_VERSION,
+        nonce: "native_request_0001".into(),
+        source_fingerprint: digest("source"),
+        mode: ProbeMode::Play,
+        scene: "res://scenes/arena.tscn".into(),
+        ticks: 2,
+        inputs: vec![
+            InputStep {
+                tick: 1,
+                action: "jump".into(),
+                pressed: true,
+            },
+            InputStep {
+                tick: 2,
+                action: "jump".into(),
+                pressed: false,
+            },
+        ],
+        checkpoints: vec![1, 2],
+        variables: vec!["score".into()],
+        capture: false,
+    };
+    request.validate(&declared).unwrap();
+
+    let mut undeclared = request.clone();
+    undeclared.inputs[0].action = "shell".into();
+    undeclared.inputs[1].action = "shell".into();
+    assert!(undeclared.validate(&declared).is_err());
+
+    let mut non_play = request;
+    non_play.mode = ProbeMode::Inspect;
+    assert!(non_play.validate(&declared).is_err());
+}
+
+#[test]
+fn projection_digest_removes_process_identity_but_preserves_resource_aliases() {
+    let first = projection("res://scenes/arena.tscn", "11", "21");
+    let second = projection("res://__sw_saved/arena.tscn", "99", "42");
+    assert_eq!(
+        first.stable_digest().unwrap(),
+        second.stable_digest().unwrap()
+    );
+
+    let mut broken_alias = second;
+    broken_alias.resources[1].resource.instance_id = "43".into();
+    assert_ne!(
+        first.stable_digest().unwrap(),
+        broken_alias.stable_digest().unwrap()
+    );
+}
+
+#[test]
+fn observation_decode_rejects_unknown_wire_fields() {
+    let request = NativeRequest {
+        version: NATIVE_VERSION,
+        nonce: "native_request_0002".into(),
+        source_fingerprint: digest("source"),
+        mode: ProbeMode::Inspect,
+        scene: "res://scenes/arena.tscn".into(),
+        ticks: 0,
+        inputs: vec![],
+        checkpoints: vec![],
+        variables: vec![],
+        capture: false,
+    };
+    request.validate(&BTreeSet::new()).unwrap();
+    let observed = observation(
+        ProbeMode::Inspect,
+        &request.nonce,
+        "101",
+        projection("res://scenes/arena.tscn", "11", "21"),
+        digest("scene"),
+        None,
+    );
+    let bytes = serde_json::to_vec(&observed).unwrap();
+    decode_observation(&bytes, &request).unwrap();
+
+    let mut value = serde_json::to_value(observed).unwrap();
+    value["caller_evidence"] = serde_json::json!(true);
+    assert!(decode_observation(&serde_json::to_vec(&value).unwrap(), &request).is_err());
+}
+
+fn tracks(count: u32) -> NativeAnimation {
+    NativeAnimation {
+        player: ".".into(),
+        library: "".into(),
+        name: "walk".into(),
+        root: ".".into(),
+        length: 2.0,
+        loop_mode: 1,
+        resource: NativeResourceRef {
+            class: "Animation".into(),
+            path: "".into(),
+            uid: None,
+            instance_id: "300".into(),
+            local_to_scene: false,
+        },
+        track_count: count,
+        tracks: (0..count)
+            .map(|index| NativeTrack {
+                index,
+                track_type: 0,
+                path: format!("Entity:property_{index}"),
+                enabled: true,
+                interpolation: 1,
+                imported: false,
+                key_count: 0,
+                keys: vec![],
+            })
+            .collect(),
+    }
+}
+
+#[test]
+fn native_track_cursor_is_snapshot_and_source_bound_without_truncation() {
+    let mut authored = projection("res://scenes/arena.tscn", "11", "21");
+    authored.animations.push(tracks(70));
+    let observed = observation(
+        ProbeMode::Inspect,
+        "native_request_0003",
+        "102",
+        authored,
+        digest("scene"),
+        None,
+    );
+    let source = digest("source");
+    let first = track_page(&observed, &source, None, 64).unwrap();
+    assert_eq!(first.total, 70);
+    assert_eq!(first.tracks.len(), 64);
+    assert_eq!(first.tracks.last().unwrap().index, 63);
+    let second = track_page(&observed, &source, first.next_cursor.as_deref(), 64).unwrap();
+    assert_eq!(second.tracks.len(), 6);
+    assert_eq!(second.tracks.last().unwrap().index, 69);
+    assert!(second.next_cursor.is_none());
+    assert!(track_page(&observed, &digest("changed-source"), None, 64).is_err());
+
+    let stale = format!("gtr1.{}.64", digest("other-snapshot").as_str());
+    assert!(track_page(&observed, &source, Some(&stale), 64).is_err());
+}
+
+#[test]
+fn persistence_requires_fresh_process_and_unchanged_external_sentinels() {
+    let candidate = digest("saved-scene");
+    let writer = observation(
+        ProbeMode::SaveCandidate,
+        "native_save_000001",
+        "201",
+        projection("res://scenes/arena.tscn", "11", "21"),
+        digest("source-scene"),
+        Some(candidate.clone()),
+    );
+    let reader = observation(
+        ProbeMode::ReopenCandidate,
+        "native_reopen_0001",
+        "202",
+        projection("res://__sw_saved/arena.tscn", "99", "42"),
+        candidate,
+        None,
+    );
+    let evidence = persistence_value(&writer, &reader).unwrap();
+    assert_eq!(Predicate::Reopened.compare(&evidence).unwrap(), Some(true));
+
+    let mut changed = reader.clone();
+    changed.dependencies[0].sha256 = Some(digest("human-edit"));
+    assert!(persistence_value(&writer, &changed).is_err());
+
+    let mut incomplete = reader.clone();
+    incomplete.dependency_complete = false;
+    assert!(persistence_value(&writer, &incomplete).is_err());
+
+    let mut same_process = reader;
+    same_process.process_id = writer.process_id.clone();
+    assert!(persistence_value(&writer, &same_process).is_err());
+}
+
+#[test]
+fn fixed_native_probe_contains_no_arbitrary_execution_surface() {
+    assert!(PROBE_SOURCE.contains("ResourceLoader.CACHE_MODE_IGNORE_DEEP"));
+    assert!(PROBE_SOURCE.contains("get_signal_connection_list"));
+    assert!(PROBE_SOURCE.contains("track_get_key_count"));
+    assert!(PROBE_SOURCE.contains("save_png_to_buffer"));
+    assert!(PROBE_SOURCE.contains("ResourceLoader.get_dependencies"));
+    for forbidden in [
+        "OS.execute",
+        "Expression.execute",
+        ".callv(",
+        "JavaScriptBridge",
+        "EngineDebugger",
+    ] {
+        assert!(!PROBE_SOURCE.contains(forbidden), "{forbidden}");
+    }
+}
