@@ -1,6 +1,14 @@
+use crate::authoring::{
+    model::GodotAuthoringSpec,
+    profile::{self, GodotOperation},
+};
 use jsonschema::Validator;
 use semwright_driver_sdk::{
     Capability, artifact_input_tag, artifact_output_tag, descriptor_digest,
+};
+use semwright_semantic_composition::{
+    CapabilityBinding, Digest, EffectClass, Phase, ProfileDescriptor, ProfileIdentity,
+    schema_digest,
 };
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk};
 use serde_json::{Map, Value, json};
@@ -11,6 +19,7 @@ pub enum Route {
     Local,
     Plugin,
     Runner,
+    Authoring,
 }
 
 pub struct Entry {
@@ -88,15 +97,110 @@ impl Catalog {
     }
 
     pub fn capabilities(&self) -> Vec<Capability> {
-        self.capabilities_for(true)
+        self.capabilities_for_runtime(true, true)
     }
 
     pub fn capabilities_for(&self, include_runner: bool) -> Vec<Capability> {
+        self.capabilities_for_runtime(include_runner, true)
+    }
+
+    pub fn capabilities_for_runtime(
+        &self,
+        include_runner: bool,
+        include_authoring: bool,
+    ) -> Vec<Capability> {
         self.entries
             .values()
             .filter(|entry| include_runner || entry.route != Route::Runner)
+            .filter(|entry| include_authoring || entry.route != Route::Authoring)
             .map(|entry| entry.capability.clone())
             .collect()
+    }
+
+    pub fn authoring_profile(&self) -> Result<ProfileDescriptor> {
+        let contract = |error: semwright_semantic_composition::ContractError| {
+            Error::invalid(error.to_string())
+        };
+        let identity = ProfileIdentity {
+            id: "godot.semantic-authoring".into(),
+            version: 1,
+            intent_schema: schema_digest::<GodotAuthoringSpec>().map_err(contract)?,
+            operation_schema: schema_digest::<GodotOperation>().map_err(contract)?,
+        };
+        let rows = [
+            (
+                Phase::Inspect,
+                "driver.godot.composition.inspect",
+                [EffectClass::Inspect].into(),
+            ),
+            (
+                Phase::Plan,
+                "driver.godot.composition.plan",
+                [EffectClass::Inspect].into(),
+            ),
+            (
+                Phase::Apply,
+                "driver.godot.composition.apply",
+                [
+                    EffectClass::Inspect,
+                    EffectClass::CreateOwnedObject,
+                    EffectClass::UpdateOwnedObject,
+                ]
+                .into(),
+            ),
+            (
+                Phase::Measure,
+                "driver.godot.composition.measure",
+                [EffectClass::Inspect].into(),
+            ),
+            (
+                Phase::Validate,
+                "driver.godot.composition.validate",
+                [EffectClass::Inspect].into(),
+            ),
+            (
+                Phase::RepairPlan,
+                "driver.godot.composition.repair.plan",
+                [EffectClass::Inspect].into(),
+            ),
+            (
+                Phase::RepairApply,
+                "driver.godot.composition.repair.apply",
+                [EffectClass::Inspect, EffectClass::UpdateOwnedObject].into(),
+            ),
+            (
+                Phase::Verify,
+                "driver.godot.composition.verify",
+                [EffectClass::Inspect].into(),
+            ),
+        ];
+        let mut capabilities = Vec::with_capacity(rows.len());
+        for (phase, command, effects) in rows {
+            let entry = self.get(command)?;
+            capabilities.push(CapabilityBinding {
+                phase,
+                command: command.into(),
+                descriptor: Digest::parse(entry.digest.clone()).map_err(contract)?,
+                effects,
+            });
+        }
+        let profile = ProfileDescriptor {
+            identity,
+            capabilities,
+            required_rules: [
+                profile::RULE_MANAGED_CURRENT.to_owned(),
+                profile::RULE_INTENT_MATCH.to_owned(),
+            ]
+            .into(),
+            allowed_effects: [
+                EffectClass::Inspect,
+                EffectClass::CreateOwnedObject,
+                EffectClass::UpdateOwnedObject,
+            ]
+            .into(),
+        };
+        profile.validate().map_err(contract)?;
+        Ok(profile)
     }
 
     pub fn names_for(&self, route: Route) -> Vec<String> {
@@ -157,6 +261,118 @@ fn specs() -> Vec<Spec> {
     use Idempotency::{NonIdempotent, ReadOnly};
     use Risk::{CodeExecution, Destructive, Mutating, MutatingReversible, ReadOnly as R};
     vec![
+        spec(
+            "composition.inspect",
+            "Inspect provider-owned managed Godot authoring state",
+            "composition",
+            "project",
+            Route::Authoring,
+            R,
+            ReadOnly,
+            10_000,
+            false,
+            false,
+            profile::inspect_in,
+            profile::inspect_out,
+        ),
+        spec(
+            "composition.plan",
+            "Prepare a typed Godot authoring plan without writing target files",
+            "composition",
+            "project",
+            Route::Authoring,
+            R,
+            NonIdempotent,
+            15_000,
+            true,
+            false,
+            profile::plan_in,
+            profile::plan_out,
+        ),
+        spec(
+            "composition.apply",
+            "Apply a previously issued Godot authoring plan within granted roots",
+            "composition",
+            "project",
+            Route::Authoring,
+            Mutating,
+            NonIdempotent,
+            30_000,
+            false,
+            true,
+            profile::apply_in,
+            profile::apply_out,
+        ),
+        spec(
+            "composition.measure",
+            "Read back bounded managed Godot state for an issued plan",
+            "composition",
+            "project",
+            Route::Authoring,
+            R,
+            NonIdempotent,
+            15_000,
+            false,
+            false,
+            profile::measure_in,
+            profile::measure_out,
+        ),
+        spec(
+            "composition.validate",
+            "Evaluate typed Godot authoring effects from persisted readback",
+            "composition",
+            "project",
+            Route::Authoring,
+            R,
+            NonIdempotent,
+            15_000,
+            false,
+            false,
+            profile::validate_in,
+            profile::validate_out,
+        ),
+        spec(
+            "composition.repair.plan",
+            "Prepare one supported repair from validated managed-source evidence",
+            "composition",
+            "project",
+            Route::Authoring,
+            R,
+            NonIdempotent,
+            15_000,
+            true,
+            false,
+            profile::repair_plan_in,
+            profile::repair_plan_out,
+        ),
+        spec(
+            "composition.repair.apply",
+            "Apply a previously issued Godot repair plan within the original budget",
+            "composition",
+            "project",
+            Route::Authoring,
+            Mutating,
+            NonIdempotent,
+            30_000,
+            false,
+            true,
+            profile::repair_apply_in,
+            profile::repair_apply_out,
+        ),
+        spec(
+            "composition.verify",
+            "Verify persisted Godot authoring state and emit typed project evidence",
+            "composition",
+            "project",
+            Route::Authoring,
+            R,
+            NonIdempotent,
+            15_000,
+            false,
+            false,
+            profile::verify_in,
+            profile::verify_out,
+        ),
         spec(
             "doctor",
             "Inspect Godot driver health",

@@ -6,6 +6,8 @@ pub mod model;
 pub mod runner;
 
 use async_trait::async_trait;
+#[cfg(target_os = "linux")]
+use authoring::runtime::AuthoringRuntime;
 use bridge::Bridge;
 use catalog::{Catalog, Route};
 pub use config::Config;
@@ -13,6 +15,8 @@ use runner::Runner;
 use semwright_driver_sdk::{
     Capability, Driver, DriverChildEvent, DriverExecutionContext, DriverInterfaces,
 };
+#[cfg(target_os = "linux")]
+use semwright_semantic_composition::{Owner, PrincipalBinding};
 use semwright_types::{Error, ErrorCode, NativeTarget, Result, target_marker};
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -22,12 +26,28 @@ pub struct GodotDriver {
     catalog: Catalog,
     pub bridge: Bridge,
     runner: Option<Runner>,
+    #[cfg(target_os = "linux")]
+    authoring: Option<AuthoringRuntime>,
     events: Option<mpsc::UnboundedReceiver<DriverChildEvent>>,
 }
 
 impl GodotDriver {
     pub async fn new(config: Config) -> Result<Self> {
         config.validate()?;
+        let catalog = Catalog::load()?;
+        #[cfg(target_os = "linux")]
+        let authoring = config
+            .authoring
+            .clone()
+            .map(|authoring| AuthoringRuntime::new(authoring, catalog.authoring_profile()?))
+            .transpose()?;
+        #[cfg(not(target_os = "linux"))]
+        if config.authoring.is_some() {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Managed Godot authoring is not available on this host platform",
+            ));
+        }
         let runner = config
             .runner
             .clone()
@@ -36,11 +56,24 @@ impl GodotDriver {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let bridge = Bridge::start(config.port, config.projects, event_tx).await?;
         Ok(Self {
-            catalog: Catalog::load()?,
+            catalog,
             bridge,
             runner,
+            #[cfg(target_os = "linux")]
+            authoring,
             events: Some(event_rx),
         })
+    }
+
+    fn authoring_enabled(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            self.authoring.is_some()
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            false
+        }
     }
 }
 
@@ -76,7 +109,9 @@ impl Driver for GodotDriver {
     }
 
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
-        Ok(self.catalog.capabilities_for(self.runner.is_some()))
+        Ok(self
+            .catalog
+            .capabilities_for_runtime(self.runner.is_some(), self.authoring_enabled()))
     }
 
     async fn health(&mut self) -> Result<Value> {
@@ -87,7 +122,8 @@ impl Driver for GodotDriver {
             "connected_sessions": continuity.connected_sessions,
             "reconnecting_sessions": continuity.reconnecting_sessions,
             "reconnects": continuity.reconnects,
-            "reconnect_grace_ms": continuity.reconnect_grace_ms
+            "reconnect_grace_ms": continuity.reconnect_grace_ms,
+            "semantic_authoring": self.authoring_enabled()
         }))
     }
 
@@ -241,19 +277,26 @@ impl GodotDriver {
                 })?;
             args["ref"] = native_target_to_godot_ref(target)?;
         }
-        let entry = self.catalog.get(command)?;
-        if descriptor_sha256 != entry.digest {
-            return Err(Error::new(
-                ErrorCode::ProtocolMismatch,
-                "Godot capability descriptor digest mismatch",
-            ));
-        }
-        entry.validate_input(&args)?;
+        let (route, mutation, timeout_ms) = {
+            let entry = self.catalog.get(command)?;
+            if descriptor_sha256 != entry.digest {
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Godot capability descriptor digest mismatch",
+                ));
+            }
+            entry.validate_input(&args)?;
+            (
+                entry.route,
+                entry.mutation,
+                entry.capability.descriptor.timeout_ms,
+            )
+        };
         if let Some(context) = context {
             context.check_cancelled()?;
         }
 
-        let result = match entry.route {
+        let result = match route {
             Route::Local => self.execute_local(command, &args).await,
             Route::Plugin => {
                 let session = args
@@ -264,7 +307,7 @@ impl GodotDriver {
                     session,
                     command.strip_prefix("driver.godot.").unwrap_or(command),
                     args.clone(),
-                    Duration::from_millis(entry.capability.descriptor.timeout_ms),
+                    Duration::from_millis(timeout_ms),
                 );
                 if let Some(context) = context {
                     let cancellation = context.cancellation();
@@ -275,7 +318,7 @@ impl GodotDriver {
                                 ErrorCode::Cancelled,
                                 "Godot plugin request cancelled while in flight",
                             );
-                            if entry.mutation {
+                            if mutation {
                                 Err(error.uncertain())
                             } else {
                                 Err(error)
@@ -296,11 +339,43 @@ impl GodotDriver {
                     runner.execute(command, &args).await
                 }
             }
+            Route::Authoring => {
+                let context = context.ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Godot semantic authoring requires authenticated Driver Host context",
+                    )
+                })?;
+                #[cfg(target_os = "linux")]
+                {
+                    let owner = Owner {
+                        session: context.session().to_owned(),
+                        principal: PrincipalBinding::HostSession,
+                    };
+                    let authoring = self.authoring.as_mut().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::Unavailable,
+                            "Godot semantic authoring grant is not configured",
+                        )
+                    })?;
+                    authoring.execute(command, &args, owner, context.request_id(), || {
+                        context.check_cancelled()
+                    })
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    let _ = context;
+                    Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Managed Godot authoring is not available on this host platform",
+                    ))
+                }
+            }
         };
 
         let value = match result {
             Err(error)
-                if entry.mutation
+                if mutation
                     && matches!(
                         error.code,
                         ErrorCode::Timeout
@@ -313,7 +388,7 @@ impl GodotDriver {
             }
             other => other?,
         };
-        entry.validate_output(&value)?;
+        self.catalog.get(command)?.validate_output(&value)?;
         let mut promoted = value;
         promote_godot_refs(&mut promoted)?;
         Ok(promoted)
