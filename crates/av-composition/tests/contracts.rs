@@ -420,3 +420,18 @@ fn public_wire_rejects_executable_fields() {
     p["shell"] = serde_json::json!("unexpected");
     assert!(c::strict_decode::<AvPlan>(&serde_json::to_vec(&p).unwrap()).is_err());
 }
+
+#[test]
+fn sync_stage_accepts_raw_decoder_probe_shape_not_a_preverified_report() {
+    let raw = NativeResult::SyncMeasured {
+        probe: probe(Q::ZERO),
+    };
+    let bytes = serde_json::to_vec(&raw).unwrap();
+    assert!(c::strict_decode::<NativeResult>(&bytes).is_ok());
+    assert!(
+        c::strict_decode::<NativeResult>(
+            br#"{"kind":"sync_verified","report":{"verdict":"PASS"}}"#
+        )
+        .is_err()
+    );
+}

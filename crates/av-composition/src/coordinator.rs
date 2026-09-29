@@ -110,8 +110,8 @@ pub enum NativeResult {
     Encoded {
         artifact: MediaArtifact,
     },
-    SyncVerified {
-        report: SyncReport,
+    SyncMeasured {
+        probe: DecodedSyncProbe,
     },
     PublicationPrepared {
         candidate: PublicationCandidate,
@@ -642,27 +642,34 @@ impl AvCoordinator {
                     .audio
                     .as_ref()
                     .ok_or_else(|| Error::Invalid("mux omitted audio".into()))?;
+                let decoded_video_duration = video.frame_rate.at(i64::try_from(video.frames)
+                    .map_err(|_| Error::Limit("decoded video frame count".into()))?)?;
                 ensure(
-                    video.width == b.spec.delivery.width
+                    artifact.metadata.duration == b.spec.delivery.duration
+                        && decoded_video_duration == b.spec.delivery.duration
+                        && video.width == b.spec.delivery.width
                         && video.height == b.spec.delivery.height
                         && video.frame_rate == b.spec.delivery.frame_rate
                         && audio.sample_rate == b.spec.delivery.sample_rate
                         && audio.channels == b.spec.delivery.channels,
-                    "mux stream profile mismatch",
+                    "mux presentation duration or stream profile mismatch",
                 )?;
                 self.outputs.encoded = Some(artifact);
             }
-            (Stage::VerifySync, NativeResult::SyncVerified { report }) => {
+            (Stage::VerifySync, NativeResult::SyncMeasured { probe }) => {
                 let artifact = self
                     .outputs
                     .encoded
                     .as_ref()
                     .ok_or_else(|| Error::Unknown("sync has no encoded artifact".into()))?;
                 ensure(
-                    report.artifact_digest == artifact.sha256
-                        && report.verdict == Verdict::Pass
-                        && report.missing.is_empty(),
-                    "encoded sync is missing, failed or stale",
+                    probe.artifact_digest == artifact.sha256,
+                    "decoded sync probe is bound to a different encoded artifact",
+                )?;
+                let report = verify_sync(&b.spec.sync, &probe)?;
+                ensure(
+                    report.verdict == Verdict::Pass && report.missing.is_empty(),
+                    "encoded sync is missing, failed or uncertain",
                 )?;
                 ensure(
                     report.observations.len() == b.spec.sync.cues.len()

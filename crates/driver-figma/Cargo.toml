@@ -50,7 +50,9 @@ zeroize = "1"
 [dev-dependencies]
 proptest.workspace = true
 semwright-backend-api.workspace = true
+semwright-core.workspace = true
 semwright-driver-host.workspace = true
+semwright-policy.workspace = true
 semwright-skills.workspace = true
 tempfile.workspace = true
 tokio-util.workspace = true

@@ -1,17 +1,20 @@
 #![cfg(unix)]
 
 use semwright_backend_api::{Context, Provider};
+use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DRIVER_MANIFEST_VERSION, DRIVER_PROTOCOL_VERSION, DriverInterfaces,
     DriverResources, Manifest, Transport,
 };
+use semwright_policy::{Policy, PolicyConfig};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::Stdio,
+    sync::Arc,
     time::Duration,
 };
 use tokio::process::{Child, Command};
@@ -47,6 +50,30 @@ async fn call(
         &args,
     )
     .await
+}
+
+const BROKER_SESSION: &str = "figma-composition-native";
+async fn broker_call(broker: &Arc<Broker>, name: &str, args: Value) -> Value {
+    let envelope = broker
+        .clone()
+        .execute(
+            BROKER_SESSION.into(),
+            semwright_types::unique_id(),
+            semwright_types::ExecuteRequest {
+                command: name.into(),
+                args,
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert_eq!(
+        envelope.execution.policy_decision, "allow",
+        "Broker did not authorize {name} through the configured policy: {envelope:#?}"
+    );
+    assert!(envelope.ok, "Broker call {name} failed: {envelope:#?}");
+    envelope.data.expect("successful Broker envelope has data")
 }
 
 struct FakeFigma {
@@ -572,7 +599,106 @@ async fn figma_driver_runs_through_real_driver_host() {
     .unwrap_err();
     assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
 
-    Provider::shutdown(provider.as_ref()).await.unwrap();
+    // Mount the same real DriverProvider into the production Broker. The second
+    // authoring cycle proves that plan/apply/verify still traverse policy and
+    // that server-owned plan binding uses the Broker session, not capability args.
+    let audit = Audit::open(&state.path().join("broker-audit"), 65_536, 2).unwrap();
+    let policy = Policy::new(PolicyConfig {
+        allow: [provider.identity().id.clone()].into(),
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+
+    let broker_spec = json!({
+        "version":1,
+        "target":{"page_id":null,"parent_node_id":null},
+        "nodes":[
+            {
+                "id":"broker-root",
+                "kind":"stack",
+                "name":"Broker semantic root",
+                "parent":null,
+                "order":0,
+                "role":"root",
+                "layout":{"direction":"vertical","gap":12}
+            },
+            {
+                "id":"broker-copy",
+                "kind":"text",
+                "name":"Broker copy",
+                "parent":"broker-root",
+                "order":0,
+                "role":"body",
+                "text":{"characters":"Broker policy still owns native authoring."}
+            }
+        ],
+        "relationships":[],
+        "profiles":[],
+        "validators":[{"kind":"native_text","severity":"error"}],
+        "budgets":{
+            "max_nodes":8,
+            "max_depth":4,
+            "max_relationships":8,
+            "max_findings_per_round":8,
+            "max_repair_operations":4,
+            "max_iterations":2,
+            "max_mutations":8
+        }
+    });
+    let broker_plan = broker_call(
+        &broker,
+        "driver.figma.composition.plan",
+        json!({
+            "session_id":session_id,
+            "expected_revision":5,
+            "spec":broker_spec
+        }),
+    )
+    .await;
+    let broker_apply = broker_call(
+        &broker,
+        "driver.figma.composition.apply",
+        json!({
+            "session_id":session_id,
+            "expected_revision":5,
+            "plan":broker_plan
+        }),
+    )
+    .await;
+    assert_eq!(broker_apply["observedRevision"], 6);
+    let broker_root = broker_apply["rootNodeIds"][0]
+        .as_str()
+        .expect("Broker authoring root")
+        .to_owned();
+    let broker_verify = broker_call(
+        &broker,
+        "driver.figma.composition.verify",
+        json!({
+            "session_id":session_id,
+            "expected_revision":6,
+            "root_node_id":broker_root,
+            "spec":broker_plan["spec"],
+            "scale":1.0,
+            "name":"broker-semantic.png",
+            "max_findings":8
+        }),
+    )
+    .await;
+    assert_eq!(broker_verify["validation"]["status"], "PASS");
+    assert_eq!(broker_verify["mediaType"], "image/png");
+
+    broker.shutdown().await;
     fake.stop().await;
 }
 

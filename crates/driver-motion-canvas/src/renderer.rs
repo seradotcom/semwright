@@ -32,6 +32,7 @@ pub struct RendererRuntime {
     pub node: PathBuf,
     pub helper: PathBuf,
     pub browser: PathBuf,
+    pub dependency_lock_sha256: String,
 }
 
 impl RendererRuntime {
@@ -60,6 +61,7 @@ impl RendererRuntime {
             node: Tool,
             helper: Tool,
             browser: Tool,
+            dependency_lock: Tool,
         }
         let config: Config = serde_json::from_slice(&bytes)?;
         let canonical_root = fs::canonicalize(root)?;
@@ -108,10 +110,23 @@ impl RendererRuntime {
             }
             Ok(canonical)
         };
+        if config.dependency_lock.path != "package-lock.json" {
+            return Err(Error::invalid(
+                "Motion Canvas runtime dependency lock must be package-lock.json",
+            ));
+        }
+        let dependency_lock = resolve(&config.dependency_lock)?;
+        if fs::metadata(&dependency_lock)?.len() > 4 * 1024 * 1024 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Motion Canvas dependency lock exceeds 4 MiB",
+            ));
+        }
         Ok(Self {
             node: resolve(&config.node)?,
             helper: resolve(&config.helper)?,
             browser: resolve(&config.browser)?,
+            dependency_lock_sha256: config.dependency_lock.sha256,
         })
     }
 }
@@ -363,6 +378,7 @@ async fn run_render(
         plan,
         crate::authoring::COMPILER_EXTENSION_VERSION,
         security::sha256(&fs::read(&runtime.helper)?),
+        &runtime.dependency_lock_sha256,
     ))
     .map_err(|e| Error::invalid(e.to_string()))?;
     let config = json!({
