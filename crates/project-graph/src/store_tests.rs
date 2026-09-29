@@ -320,3 +320,36 @@ fn external_applying_intent_reopens_unknown_and_cannot_be_redispatched() {
         composition::ExecutionStatus::Unknown
     );
 }
+
+#[test]
+fn garbage_collection_replays_without_deleting_canonical_journal_history() {
+    let (_tmp, path, project, access) = fixture();
+    let mut store = open(&path, &project, &access);
+    let asset = item("garbage");
+    let id = asset.id.clone();
+    store
+        .transact(&access, |graph| graph.register(&access, asset))
+        .unwrap();
+    store
+        .transact(&access, |graph| graph.tombstone(&access, &id))
+        .unwrap();
+    let preview = store.graph().unwrap().garbage_preview(&access, 16).unwrap();
+    assert_eq!(preview.candidates, vec![id.clone()]);
+    store
+        .transact(&access, |graph| {
+            graph.collect_garbage(&access, vec![id.clone()])
+        })
+        .unwrap();
+    assert!(matches!(
+        store.graph().unwrap().inspect(&access, &id),
+        Err(GraphError::Denied)
+    ));
+    drop(store);
+
+    let reopened = open(&path, &project, &access);
+    assert!(matches!(
+        reopened.graph().unwrap().inspect(&access, &id),
+        Err(GraphError::Denied)
+    ));
+    assert_eq!(reopened.recovery_report().journal_records, 3);
+}

@@ -833,3 +833,133 @@ fn declared_derivatives_remain_possible_and_provenance_is_bounded() {
     );
     assert!(!complete.truncated);
 }
+
+#[test]
+fn garbage_collection_only_removes_history_free_graph_state_and_never_user_files() {
+    let temp = tempfile::tempdir().unwrap();
+    let native = temp.path().join("source.bin");
+    std::fs::write(&native, b"keep-me").unwrap();
+
+    let (mut graph, access) = setup();
+    let id = LogicalAssetId::new();
+    graph
+        .register(
+            &access,
+            Asset {
+                id: id.clone(),
+                resource_type: "source".into(),
+                label: "tombstoned source".into(),
+                locator: Some(DurableLocator::ScopedFile {
+                    root: "workspace".into(),
+                    relative_path: "source.bin".into(),
+                }),
+            },
+        )
+        .unwrap();
+    graph.tombstone(&access, &id).unwrap();
+
+    let preview = graph.garbage_preview(&access, 16).unwrap();
+    assert_eq!(preview.candidates, vec![id.clone()]);
+    assert!(!preview.truncated);
+    assert!(!preview.user_files_deleted);
+
+    graph.collect_garbage(&access, vec![id.clone()]).unwrap();
+    assert!(matches!(
+        graph.inspect(&access, &id),
+        Err(GraphError::Denied)
+    ));
+    assert_eq!(std::fs::read(&native).unwrap(), b"keep-me");
+}
+
+#[test]
+fn garbage_collection_refuses_history_references_and_partial_visibility() {
+    let (mut graph, access) = setup();
+    let with_history = asset(&mut graph, &access, "history");
+    observe(&mut graph, &access, &with_history, "bytes", 1);
+    graph.tombstone(&access, &with_history).unwrap();
+    assert!(
+        !graph
+            .garbage_preview(&access, 16)
+            .unwrap()
+            .candidates
+            .contains(&with_history)
+    );
+    assert!(
+        graph
+            .collect_garbage(&access, vec![with_history.clone()])
+            .is_err()
+    );
+
+    let referenced = asset(&mut graph, &access, "referenced");
+    let referrer = asset(&mut graph, &access, "referrer");
+    graph
+        .declare(
+            &access,
+            Edge {
+                from: Vertex::Asset(referrer),
+                to: Vertex::Asset(referenced.clone()),
+                relation: Relation::References,
+                evidence: EdgeEvidence::Declared {
+                    declaration: ReceiptId::new(),
+                },
+            },
+        )
+        .unwrap();
+    graph.tombstone(&access, &referenced).unwrap();
+    assert!(
+        !graph
+            .garbage_preview(&access, 16)
+            .unwrap()
+            .candidates
+            .contains(&referenced)
+    );
+
+    let pending = asset(&mut graph, &access, "pending-intent");
+    graph.tombstone(&access, &pending).unwrap();
+    let intent = external_intent(&graph, vec![pending.clone()], 9);
+    graph.prepare_external_intent(&access, intent).unwrap();
+    assert!(
+        !graph
+            .garbage_preview(&access, 16)
+            .unwrap()
+            .candidates
+            .contains(&pending)
+    );
+    assert!(
+        graph
+            .collect_garbage(&access, vec![pending.clone()])
+            .is_err()
+    );
+
+    let subset = ProjectAccess::authorized(
+        owner(),
+        graph.project_id().clone(),
+        Some([referenced.clone()].into()),
+        true,
+        digest("subset"),
+    )
+    .unwrap();
+    assert!(matches!(
+        graph.garbage_preview(&subset, 16),
+        Err(GraphError::Denied)
+    ));
+    assert!(matches!(
+        graph.collect_garbage(&subset, vec![referenced]),
+        Err(GraphError::Denied)
+    ));
+}
+
+#[test]
+fn garbage_preview_is_bounded_and_reports_truncation_without_hidden_counts() {
+    let (mut graph, access) = setup();
+    let a = asset(&mut graph, &access, "a");
+    let b = asset(&mut graph, &access, "b");
+    graph.tombstone(&access, &a).unwrap();
+    graph.tombstone(&access, &b).unwrap();
+
+    assert!(graph.garbage_preview(&access, 0).is_err());
+    assert!(graph.garbage_preview(&access, 257).is_err());
+    let page = graph.garbage_preview(&access, 1).unwrap();
+    assert_eq!(page.candidates.len(), 1);
+    assert!(page.truncated);
+}

@@ -7,6 +7,7 @@ fn main() {
         "rebuild_reservation": schemars::schema_for!(RebuildReservation),
         "manifest": schemars::schema_for!(PortableManifest),
         "impact": schemars::schema_for!(ImpactReport),
+        "garbage_collection": schemars::schema_for!(GarbageCollectionPreview),
         "provenance": schemars::schema_for!(ProvenanceView),
         "query": schemars::schema_for!(AssetQuery),
         "receipt": schemars::schema_for!(ExecutionReceipt),

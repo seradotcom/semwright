@@ -64,6 +64,14 @@ pub struct AssetView {
     pub tombstoned: bool,
     pub knowledge: Knowledge,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GarbageCollectionPreview {
+    pub snapshot: u64,
+    pub candidates: Vec<LogicalAssetId>,
+    pub truncated: bool,
+    pub user_files_deleted: bool,
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct AssetState {
@@ -121,6 +129,7 @@ pub(crate) enum GraphEvent {
     Determinants(Vec<Determinant>),
     Gap(Vec<LogicalAssetId>),
     Tombstone(LogicalAssetId),
+    Collect(Vec<LogicalAssetId>),
 }
 #[derive(Clone)]
 pub struct ProjectGraph {
@@ -494,6 +503,85 @@ impl ProjectGraph {
         self.access(access, true)?;
         self.apply(GraphEvent::Tombstone(id.clone()), true)
     }
+    fn garbage_eligible(&self, id: &LogicalAssetId) -> bool {
+        let Some(state) = self.assets.get(id) else {
+            return false;
+        };
+        if !state.tombstoned || state.latest.is_some() || state.producer.is_some() {
+            return false;
+        }
+        if self
+            .revisions
+            .values()
+            .any(|revision| revision.pin.asset == *id)
+            || self.receipts.values().any(|receipt| {
+                receipt
+                    .inputs
+                    .iter()
+                    .chain(&receipt.outputs)
+                    .any(|pin| pin.asset == *id)
+            })
+            || self
+                .external_intents
+                .values()
+                .any(|intent| intent.affected.contains(id))
+            || self.edges.values().any(|edge| {
+                matches!(&edge.from, Vertex::Asset(asset) if asset == id)
+                    || matches!(&edge.to, Vertex::Asset(asset) if asset == id)
+            })
+        {
+            return false;
+        }
+        true
+    }
+    /// Preview graph-private garbage only. User files and immutable journal
+    /// history are never candidates.
+    pub fn garbage_preview(
+        &self,
+        access: &ProjectAccess,
+        limit: usize,
+    ) -> Result<GarbageCollectionPreview> {
+        self.access(access, false)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
+        ensure((1..=256).contains(&limit), "garbage preview limit")?;
+        let mut candidates: Vec<_> = self
+            .assets
+            .keys()
+            .filter(|id| self.garbage_eligible(id))
+            .take(limit + 1)
+            .cloned()
+            .collect();
+        let truncated = candidates.len() > limit;
+        candidates.truncate(limit);
+        Ok(GarbageCollectionPreview {
+            snapshot: self.sequence,
+            candidates,
+            truncated,
+            user_files_deleted: false,
+        })
+    }
+    /// Collect only tombstoned, history-free materialized asset state. This
+    /// cannot unlink native files, revisions, receipts, edges or intent evidence.
+    pub fn collect_garbage(
+        &mut self,
+        access: &ProjectAccess,
+        ids: Vec<LogicalAssetId>,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
+        ensure(!ids.is_empty() && ids.len() <= 256, "garbage collect limit")?;
+        let unique: BTreeSet<_> = ids.iter().cloned().collect();
+        ensure(unique.len() == ids.len(), "duplicate garbage candidate")?;
+        ensure(
+            ids.iter().all(|id| self.garbage_eligible(id)),
+            "garbage candidate retains history or references",
+        )?;
+        self.apply(GraphEvent::Collect(ids), true)
+    }
     pub(crate) fn apply(&mut self, event: GraphEvent, live: bool) -> Result<()> {
         composition::canonical_bytes(&event)?;
         let next = self
@@ -797,6 +885,33 @@ impl ProjectGraph {
                 s.tombstoned = true;
                 s.gap = true;
                 self.seen.remove(id);
+            }
+            GraphEvent::Collect(ids) => {
+                ensure(
+                    !ids.is_empty() && ids.len() <= 256,
+                    "garbage collect event limit",
+                )?;
+                let unique: BTreeSet<_> = ids.iter().cloned().collect();
+                ensure(
+                    unique.len() == ids.len(),
+                    "duplicate garbage event candidate",
+                )?;
+                ensure(
+                    ids.iter().all(|id| self.garbage_eligible(id)),
+                    "garbage event retains history or references",
+                )?;
+                for id in ids {
+                    self.assets.remove(id);
+                    self.seen.remove(id);
+                    self.reverse.remove(id);
+                    self.possible_reverse.remove(id);
+                    for values in self.reverse.values_mut() {
+                        values.remove(id);
+                    }
+                    for values in self.possible_reverse.values_mut() {
+                        values.remove(id);
+                    }
+                }
             }
         }
         self.sequence = next;
