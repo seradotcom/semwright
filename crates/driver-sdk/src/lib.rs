@@ -149,6 +149,7 @@ async fn execute_materialized_tool(
     let mut command = tokio::process::Command::new(path);
     command
         .args(args)
+        .env_clear()
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
