@@ -230,8 +230,35 @@ pub fn filesystem() -> impl semwright_platform_api::filesystem::ScopedFilesystem
     semwright_platform_windows_sys::filesystem::WindowsFilesystem
 }
 
-/// Semantic user identity for non-Unix callers. Do not expose raw token handles.
+/// Stable local-user principal for durable owner-scoped state. This excludes
+/// broker/logon session identifiers and never exposes raw OS token handles.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub fn current_user_principal() -> Result<String> {
+    Ok(format!("os-user-v1:uid:{}", current_uid()))
+}
+#[cfg(target_os = "windows")]
+pub fn current_user_principal() -> Result<String> {
+    Ok(format!(
+        "os-user-v1:sid:{}",
+        semwright_platform_windows_sys::identity::current_user_sid()?
+    ))
+}
+
+/// Session-scoped Windows principal retained for callers that need logon-session
+/// identity rather than durable project ownership.
 #[cfg(target_os = "windows")]
 pub fn current_principal() -> Result<String> {
     semwright_platform_windows_sys::identity::current_principal()
+}
+
+#[cfg(test)]
+mod principal_tests {
+    #[test]
+    fn durable_user_principal_excludes_broker_or_logon_session_identity() {
+        let principal = super::current_user_principal().unwrap();
+        assert!(!principal.is_empty() && principal.len() <= 256);
+        assert!(principal.starts_with("os-user-v1:"));
+        assert!(!principal.contains(";session:"));
+        assert_eq!(principal, super::current_user_principal().unwrap());
+    }
 }
