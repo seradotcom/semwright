@@ -5,7 +5,7 @@
 - resumed main / merged GLB baseline: `7a3bae71144bf2c2278b34fc5743e0ceed6dddd1`
 - A C0 contract: `26602e4b25929be869d69ef28fef4dd9713180d7`
 - C P0 publication: `6ee52b428310370d3ad438a13964086a63f48367`
-- F consumed head: `42204ac6a6f3c66ba66de5adfe689d8633bb7c74`
+- F consumed head: `5ed7d0ff8016d76031ec33846f27a237f196835c`
 - GLB source head from PR #154: `74671c11dda2133ce6af939896c49cdbb6ba47d5`
 
 E dependency reconciliation commit is `995d856968a5f1bf16739d11ca122825bf2b9fc1`. E model source is `4dbee6e462275cb0b97b95f86eff605986a436ec`; native/effects source is `2d87f2f3df6e931090ace10bd268a211f6459ff6`. PR: #175.
