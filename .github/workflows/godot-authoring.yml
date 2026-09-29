@@ -112,7 +112,8 @@ jobs:
           SEMWRIGHT_TEST_GODOT_AUTHORING_HOST: '1'
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
         run: |
-          cargo test --locked -p semwright-driver-godot --test authoring_host -- --ignored --nocapture             2>&1 | tee verification/godot-authoring/authoring-host.log
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-godot --test authoring_host -- --ignored --nocapture --test-threads=1             2>&1 | tee verification/godot-authoring/authoring-host.log
       - name: Acquire pinned E Blender GLB evidence for D12
         env:
           GH_TOKEN: ${{ github.token }}
