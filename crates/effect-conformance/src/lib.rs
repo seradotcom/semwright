@@ -5,3 +5,10 @@ mod predicate;
 pub use contract::*;
 pub use predicate::*;
 pub use semwright_semantic_composition as composition;
+
+mod enumeration;
+mod evidence;
+mod evaluator;
+pub use enumeration::*;
+pub use evidence::*;
+pub use evaluator::*;
