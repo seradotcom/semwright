@@ -317,6 +317,7 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec![],
+        dependencies: vec![],
     }];
     let roots = vec![FilesystemGrant {
         name: "fixture-tool-root".into(),
@@ -423,6 +424,7 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec!["tool-workspace".into()],
+        dependencies: vec![],
     }];
     let roots = vec![
         FilesystemGrant {
@@ -504,6 +506,156 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
 }
 
 #[tokio::test]
+async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let probe_tool = binary_dir.path().join("probe-tool.exe");
+    let helper_tool = binary_dir.path().join("helper-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &probe_tool).expect("copy probe fixture");
+    std::fs::copy(&tool_source, &helper_tool).expect("copy helper fixture");
+    harden_fixture(&executable);
+    harden_fixture(&probe_tool);
+    harden_fixture(&helper_tool);
+
+    let allowed = tempfile::tempdir().expect("typed tool workspace");
+    let denied = tempfile::tempdir().expect("undelegated tool workspace");
+    std::fs::write(allowed.path().join("allowed.txt"), b"allowed").unwrap();
+    std::fs::write(denied.path().join("denied.txt"), b"denied").unwrap();
+
+    let mut candidate = manifest(executable);
+    candidate.protocol = 7;
+    candidate.interfaces.host_tools = true;
+    candidate.mounts = vec![
+        DriverMount {
+            root: "tool-workspace".into(),
+            read_only: false,
+            execute: false,
+        },
+        DriverMount {
+            root: "other-workspace".into(),
+            read_only: false,
+            execute: false,
+        },
+    ];
+    candidate.tools = vec![
+        DriverToolMount {
+            root: "fixture-tool-root".into(),
+            name: "probe".into(),
+            sha256: digest(&probe_tool),
+            mounts: vec!["tool-workspace".into()],
+            dependencies: vec!["helper".into()],
+        },
+        DriverToolMount {
+            root: "helper-tool-root".into(),
+            name: "helper".into(),
+            sha256: digest(&helper_tool),
+            mounts: vec![],
+            dependencies: vec![],
+        },
+    ];
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: probe_tool,
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "helper-tool-root".into(),
+            path: helper_tool,
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-workspace".into(),
+            path: allowed.path().to_path_buf(),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "other-workspace".into(),
+            path: denied.path().to_path_buf(),
+            read: true,
+            write: true,
+        },
+    ];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows v7 runtime-tool Driver Host");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_probe")
+        .expect("fixture tool capability")
+        .descriptor
+        .clone();
+
+    let call = |request_id: &str, args: serde_json::Value| {
+        let provider = provider.clone();
+        let probe = probe.clone();
+        let context = Context {
+            session: "windows-v7-runtime-tools".into(),
+            request_id: request_id.into(),
+            cancellation: CancellationToken::new(),
+        };
+        async move { Provider::execute(provider.as_ref(), &context, &probe, &args).await }
+    };
+
+    let output = call(
+        "windows-v7-typed-success",
+        serde_json::json!({
+            "path_mount":"tool-workspace",
+            "path_relative":"",
+            "dependency":"helper"
+        }),
+    )
+    .await
+    .expect("typed Windows runtime-tool path/dependency should execute");
+    assert_eq!(output["exit_code"], 0);
+    assert_eq!(output["read_ok"], false);
+    assert_eq!(
+        output["stdout"],
+        "tool-ok|appcontainer=1|path=allowed|dependency=tool-ok|appcontainer=1"
+    );
+
+    let mount_error = call(
+        "windows-v7-typed-mount-denied",
+        serde_json::json!({
+            "path_mount":"other-workspace",
+            "path_relative":""
+        }),
+    )
+    .await
+    .expect_err("typed path must not exceed the Windows tool mount allowlist");
+    assert_eq!(mount_error.code, semwright_types::ErrorCode::PolicyDenied);
+
+    let dependency_error = call(
+        "windows-v7-typed-dependency-denied",
+        serde_json::json!({"dependency":"missing"}),
+    )
+    .await
+    .expect_err("typed dependency must be explicitly declared for the Windows tool");
+    assert_eq!(
+        dependency_error.code,
+        semwright_types::ErrorCode::PolicyDenied
+    );
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("v7 Windows runtime-tool Driver Host shutdown");
+}
+
+#[tokio::test]
 async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancellable() {
     let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
     let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
@@ -530,6 +682,7 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec!["tool-workspace".into()],
+        dependencies: vec![],
     }];
     let roots = vec![
         FilesystemGrant {
@@ -717,6 +870,7 @@ async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
         name: "probe".into(),
         sha256: "0".repeat(64),
         mounts: vec![],
+        dependencies: vec![],
     }];
     let roots = vec![FilesystemGrant {
         name: "fixture-tool-root".into(),

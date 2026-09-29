@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
-    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolCwd, RuntimeToolJob,
-    RuntimeToolJobStatus, descriptor_digest, secret_mount, serve, system_config_mount, tool_path,
-    workspace_mount,
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolArg, RuntimeToolCwd,
+    RuntimeToolJob, RuntimeToolJobStatus, descriptor_digest, secret_mount, serve,
+    system_config_mount, tool_path, workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -92,7 +92,10 @@ fn tool_capability() -> Capability {
                 "type":"object",
                 "properties":{
                     "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
-                    "cwd_relative":{"type":"string","maxLength":1024}
+                    "cwd_relative":{"type":"string","maxLength":1024},
+                    "path_mount":{"type":"string","minLength":1,"maxLength":64},
+                    "path_relative":{"type":"string","maxLength":0},
+                    "dependency":{"type":"string","minLength":1,"maxLength":64}
                 },
                 "additionalProperties":false
             }),
@@ -755,10 +758,12 @@ impl Driver for Fixture {
             let args = args
                 .as_object()
                 .ok_or_else(|| Error::invalid("fixture tool probe accepts an object"))?;
-            if args
-                .keys()
-                .any(|key| !matches!(key.as_str(), "cwd_mount" | "cwd_relative"))
-            {
+            if args.keys().any(|key| {
+                !matches!(
+                    key.as_str(),
+                    "cwd_mount" | "cwd_relative" | "path_mount" | "path_relative" | "dependency"
+                )
+            }) {
                 return Err(Error::invalid(
                     "fixture tool probe received an unknown argument",
                 ));
@@ -779,6 +784,28 @@ impl Driver for Fixture {
                 }
             };
 
+            let path_ref = match (
+                args.get("path_mount").and_then(Value::as_str),
+                args.get("path_relative").and_then(Value::as_str),
+            ) {
+                (None, None) => None,
+                (Some(mount), Some(relative)) => Some(RuntimeToolArg::MountPath {
+                    mount: mount.to_owned(),
+                    relative: relative.to_owned(),
+                }),
+                _ => {
+                    return Err(Error::invalid(
+                        "fixture tool probe requires path_mount and path_relative together",
+                    ));
+                }
+            };
+            let dependency = args.get("dependency").and_then(Value::as_str).map(|tool| {
+                RuntimeToolArg::ToolPath {
+                    tool: tool.to_owned(),
+                }
+            });
+            let typed = path_ref.is_some() || dependency.is_some();
+
             let direct_path_visible = tool_path("probe").is_ok();
             #[cfg(windows)]
             let (self_spawn_ok, self_spawn_errno) = match std::env::current_exe() {
@@ -797,27 +824,57 @@ impl Driver for Fixture {
             #[cfg(not(windows))]
             let (self_spawn_ok, self_spawn_errno) = (false, -1);
 
-            let output = match cwd {
-                Some(cwd) => {
-                    context
-                        .execute_runtime_tool_with_cwd(
-                            "probe",
-                            vec!["--print-cwd".into()],
-                            Vec::new(),
-                            std::time::Duration::from_millis(1_500),
-                            cwd,
-                        )
-                        .await?
+            let output = if typed {
+                let mut runtime_args = Vec::new();
+                if let Some(path_ref) = path_ref {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: "--probe-path".into(),
+                    });
+                    runtime_args.push(path_ref);
                 }
-                None => {
-                    context
-                        .execute_tool(
-                            "probe",
-                            Vec::new(),
-                            Vec::new(),
-                            std::time::Duration::from_millis(1_500),
-                        )
-                        .await?
+                if let Some(dependency) = dependency {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: "--run-dependency".into(),
+                    });
+                    runtime_args.push(dependency);
+                }
+                if cwd.is_some() {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: "--print-cwd".into(),
+                    });
+                }
+                context
+                    .execute_runtime_tool_args(
+                        "probe",
+                        runtime_args,
+                        Vec::new(),
+                        std::time::Duration::from_millis(1_500),
+                        cwd,
+                    )
+                    .await?
+            } else {
+                match cwd {
+                    Some(cwd) => {
+                        context
+                            .execute_runtime_tool_with_cwd(
+                                "probe",
+                                vec!["--print-cwd".into()],
+                                Vec::new(),
+                                std::time::Duration::from_millis(1_500),
+                                cwd,
+                            )
+                            .await?
+                    }
+                    None => {
+                        context
+                            .execute_tool(
+                                "probe",
+                                Vec::new(),
+                                Vec::new(),
+                                std::time::Duration::from_millis(1_500),
+                            )
+                            .await?
+                    }
                 }
             };
             let stdout = String::from_utf8(output.stdout).map_err(|_| {

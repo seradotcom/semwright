@@ -68,6 +68,7 @@ fn manifest(executable: PathBuf, tool_digest: String, protocol: u32) -> Manifest
             name: "probe".into(),
             sha256: tool_digest,
             mounts: vec!["tool-workspace".into()],
+            dependencies: vec![],
         }],
         network: false,
         loopback_port: None,
@@ -91,6 +92,19 @@ fn manifest(executable: PathBuf, tool_digest: String, protocol: u32) -> Manifest
             host_tools: true,
         },
     }
+}
+
+fn manifest_v7(executable: PathBuf, probe_digest: String, helper_digest: String) -> Manifest {
+    let mut candidate = manifest(executable, probe_digest, 7);
+    candidate.tools[0].dependencies = vec!["helper".into()];
+    candidate.tools.push(DriverToolMount {
+        root: "helper-tool-root".into(),
+        name: "helper".into(),
+        sha256: helper_digest,
+        mounts: vec![],
+        dependencies: vec![],
+    });
+    candidate
 }
 
 #[tokio::test]
@@ -203,6 +217,128 @@ async fn linux_v5_runtime_tool_is_host_mediated_and_mount_scoped() {
     Provider::shutdown(provider.as_ref())
         .await
         .expect("runtime-tool Driver Host shutdown");
+}
+
+#[tokio::test]
+#[ignore = "requires real Bubblewrap + Landlock support"]
+async fn linux_v7_runtime_tool_paths_are_mount_and_dependency_scoped() {
+    assert!(Path::new("/usr/bin/bwrap").is_file());
+
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let driver = binary_dir.path().join("driver");
+    let probe_tool = binary_dir.path().join("probe-tool");
+    let helper_tool = binary_dir.path().join("helper-tool");
+    std::fs::copy(&driver_source, &driver).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &probe_tool).expect("copy probe fixture");
+    std::fs::copy(&tool_source, &helper_tool).expect("copy helper fixture");
+    harden(&driver);
+    harden(&probe_tool);
+    harden(&helper_tool);
+
+    let allowed = tempfile::tempdir().expect("typed tool workspace");
+    let denied = tempfile::tempdir().expect("undelegated tool workspace");
+    std::fs::write(allowed.path().join("allowed.txt"), b"allowed").unwrap();
+    std::fs::write(denied.path().join("denied.txt"), b"denied").unwrap();
+
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: probe_tool.canonicalize().expect("canonical probe"),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "helper-tool-root".into(),
+            path: helper_tool.canonicalize().expect("canonical helper"),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-workspace".into(),
+            path: allowed.path().canonicalize().expect("canonical workspace"),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "other-workspace".into(),
+            path: denied.path().canonicalize().expect("canonical denied"),
+            read: true,
+            write: true,
+        },
+    ];
+
+    let state = tempfile::tempdir().expect("driver state");
+    std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700))
+        .expect("harden driver state");
+    let provider = DriverProvider::connect(
+        manifest_v7(driver, digest(&probe_tool), digest(&helper_tool)),
+        state.path(),
+        &sandbox_helper(),
+        &roots,
+        false,
+    )
+    .await
+    .expect("Linux v7 runtime-tool Driver Host");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let probe = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_probe")
+        .expect("fixture tool capability")
+        .descriptor
+        .clone();
+
+    let call = |request_id: &str, args: serde_json::Value| {
+        let provider = provider.clone();
+        let probe = probe.clone();
+        let context = Context {
+            session: "linux-v7-runtime-tools".into(),
+            request_id: request_id.into(),
+            cancellation: CancellationToken::new(),
+        };
+        async move { Provider::execute(provider.as_ref(), &context, &probe, &args).await }
+    };
+
+    let output = call(
+        "linux-v7-typed-success",
+        serde_json::json!({
+            "path_mount":"tool-workspace",
+            "path_relative":"",
+            "dependency":"helper"
+        }),
+    )
+    .await
+    .expect("typed Linux runtime-tool path/dependency should execute");
+    assert_eq!(output["exit_code"], 0);
+    assert_eq!(output["read_ok"], false);
+    assert_eq!(output["stdout"], "tool-ok|path=allowed|dependency=tool-ok");
+
+    let mount_error = call(
+        "linux-v7-typed-mount-denied",
+        serde_json::json!({
+            "path_mount":"other-workspace",
+            "path_relative":""
+        }),
+    )
+    .await
+    .expect_err("typed path must not exceed the tool mount allowlist");
+    assert_eq!(mount_error.code, ErrorCode::PolicyDenied);
+
+    let dependency_error = call(
+        "linux-v7-typed-dependency-denied",
+        serde_json::json!({"dependency":"missing"}),
+    )
+    .await
+    .expect_err("typed dependency must be explicitly declared for the primary tool");
+    assert_eq!(dependency_error.code, ErrorCode::PolicyDenied);
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("v7 runtime-tool Driver Host shutdown");
 }
 
 #[tokio::test]

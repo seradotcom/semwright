@@ -137,6 +137,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
             root: "probe-tool".into(),
             name: "probe".into(),
             mounts: vec![],
+            dependencies: vec![],
             sha256: tool_digest,
         }],
         network: false,

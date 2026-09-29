@@ -3,8 +3,8 @@
 pub mod continuity;
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
-    MountClass, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, decode_materialized_mounts,
-    decode_materialized_tools,
+    HOST_TOOL_ARG_PREFIX, MountClass, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV,
+    decode_materialized_mounts, decode_materialized_tools,
 };
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::provider::canonical_slug;
@@ -29,7 +29,7 @@ use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 6;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 7;
 
 const MAX_TOOL_ARGS: usize = 32;
 const MAX_TOOL_ARG_BYTES: usize = 4 * 1024;
@@ -373,10 +373,14 @@ pub struct DriverToolMount {
     /// Empty preserves the v4 zero-mount tool-child contract.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mounts: Vec<String>,
+    /// Other owner-pinned tools that may be exposed read-only+execute to this tool child.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dependencies: Vec<String>,
 }
 impl DriverToolMount {
     fn validate(&self) -> Result<()> {
         let unique_mounts = self.mounts.iter().collect::<BTreeSet<_>>();
+        let unique_dependencies = self.dependencies.iter().collect::<BTreeSet<_>>();
         if !canonical_slug(&self.root)
             || self.root.starts_with("semwright-internal-")
             || !valid_tool_name(&self.name)
@@ -388,9 +392,16 @@ impl DriverToolMount {
                 .mounts
                 .iter()
                 .any(|mount| !canonical_slug(mount) || mount.starts_with("semwright-internal-"))
+            || self.dependencies.len() > 8
+            || unique_dependencies.len() != self.dependencies.len()
+            || self.dependencies.iter().any(|dependency| {
+                !valid_tool_name(dependency)
+                    || dependency == &self.name
+                    || dependency.starts_with("semwright-internal-")
+            })
         {
             return Err(Error::invalid(
-                "Driver tools require canonical grant/name/mounts and SHA-256 digest",
+                "Driver tools require canonical grant/name/mounts/dependencies and SHA-256 digest",
             ));
         }
         Ok(())
@@ -664,6 +675,23 @@ impl Manifest {
                     "Per-tool workspace mounts require Driver Protocol v5 Host mediation",
                 ));
             }
+            if !tool.dependencies.is_empty() && (self.protocol < 7 || !self.interfaces.host_tools) {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Per-tool sealed dependencies require Driver Protocol v7 Host mediation",
+                ));
+            }
+        }
+        if self
+            .tools
+            .iter()
+            .flat_map(|tool| tool.dependencies.iter())
+            .any(|dependency| !tool_names.contains(dependency.as_str()))
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver tool dependency must name another owner-pinned tool",
+            ));
         }
         Ok(())
     }
@@ -903,6 +931,66 @@ impl RuntimeToolCwd {
     }
 }
 
+fn validate_runtime_relative_path(relative: &str) -> Result<()> {
+    if !relative.is_empty() {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Runtime tool mount paths are root-only until handle-relative resolution is portable",
+        ));
+    }
+    Ok(())
+}
+
+/// Protocol-v7 argument whose path-bearing values are resolved by Driver Host.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RuntimeToolArg {
+    Literal {
+        value: String,
+    },
+    MountPath {
+        mount: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        relative: String,
+    },
+    ToolPath {
+        tool: String,
+    },
+}
+impl RuntimeToolArg {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Literal { value }
+                if value.len() <= MAX_TOOL_ARG_BYTES
+                    && !value.contains('\0')
+                    && !value.starts_with(HOST_TOOL_ARG_PREFIX) =>
+            {
+                Ok(())
+            }
+            Self::MountPath { mount, relative }
+                if canonical_slug(mount) && !mount.starts_with("semwright-internal-") =>
+            {
+                validate_runtime_relative_path(relative)
+            }
+            Self::ToolPath { tool } if valid_tool_name(tool) => Ok(()),
+            _ => Err(Error::invalid("Runtime tool argument is invalid")),
+        }
+    }
+}
+
+pub fn validate_runtime_tool_args(args: &[RuntimeToolArg]) -> Result<()> {
+    if args.len() > MAX_TOOL_ARGS {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Runtime tool argument count exceeds bounded contract",
+        ));
+    }
+    for arg in args {
+        arg.validate()?;
+    }
+    Ok(())
+}
+
 fn validate_tool_request_shape(name: &str, args: &[String], stdin: &[u8]) -> Result<()> {
     if !valid_tool_name(name)
         || args.len() > MAX_TOOL_ARGS
@@ -1067,11 +1155,31 @@ pub enum Response {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cwd: Option<RuntimeToolCwd>,
     },
+    ToolExecuteV7 {
+        id: String,
+        parent: String,
+        name: String,
+        args: Vec<RuntimeToolArg>,
+        stdin: Vec<u8>,
+        timeout_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cwd: Option<RuntimeToolCwd>,
+    },
     ToolJobStart {
         id: String,
         parent: String,
         name: String,
         args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cwd: Option<RuntimeToolCwd>,
+    },
+    ToolJobStartV7 {
+        id: String,
+        parent: String,
+        name: String,
+        args: Vec<RuntimeToolArg>,
         stdin: Vec<u8>,
         timeout_ms: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1257,6 +1365,90 @@ impl DriverExecutionContext {
         }
     }
 
+    /// Execute a protocol-v7 Host-mediated runtime tool with logical path arguments.
+    /// Mount/tool paths are resolved only by Driver Host after sandbox materialization.
+    pub async fn execute_runtime_tool_args(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<ToolExecutionOutput> {
+        if self.protocol < 7 || !self.interfaces.host_tools {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Typed runtime-tool arguments require Driver Protocol v7 Host mediation",
+            ));
+        }
+        validate_runtime_tool_args(&args)?;
+        if let Some(cwd) = &cwd {
+            cwd.validate()?;
+        }
+        let timeout_ms = u64::try_from(timeout.as_millis()).map_err(|_| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Host-mediated tool timeout exceeds protocol bounds",
+            )
+        })?;
+        if timeout_ms == 0 || timeout_ms > MAX_TOOL_TIMEOUT_MS {
+            return Err(Error::invalid(
+                "Host-mediated tool timeout exceeds bounded contract",
+            ));
+        }
+        if stdin.len() > MAX_TOOL_STDIN_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Host-mediated tool stdin exceeds bounded contract",
+            ));
+        }
+        self.check_cancelled()?;
+        let id = unique_id();
+        let (sender, receiver) = oneshot::channel();
+        {
+            let mut pending = self.tool_calls.lock().await;
+            if pending.len() >= 64 || pending.insert(id.clone(), sender).is_some() {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Driver has too many pending Host-mediated tool calls",
+                ));
+            }
+        }
+        if self
+            .output
+            .send(Response::ToolExecuteV7 {
+                id: id.clone(),
+                parent: self.request_id.clone(),
+                name: name.to_owned(),
+                args,
+                stdin,
+                timeout_ms,
+                cwd,
+            })
+            .is_err()
+        {
+            self.tool_calls.lock().await.remove(&id);
+            return Err(Error::unavailable("Driver protocol writer is closed"));
+        }
+        tokio::select! {
+            biased;
+            _ = self.cancellation.cancelled() => {
+                self.tool_calls.lock().await.remove(&id);
+                Err(Error::new(ErrorCode::Cancelled, "Host-mediated tool execution cancelled"))
+            }
+            result = tokio::time::timeout(timeout + std::time::Duration::from_secs(2), receiver) => {
+                match result {
+                    Ok(Ok(result)) => result,
+                    Ok(Err(_)) => Err(Error::unavailable("Host-mediated tool response channel closed")),
+                    Err(_) => {
+                        self.tool_calls.lock().await.remove(&id);
+                        Err(Error::new(ErrorCode::Timeout, "Host-mediated tool execution timed out"))
+                    }
+                }
+            }
+        }
+    }
+
     pub async fn execute_tool(
         &self,
         name: &str,
@@ -1414,6 +1606,69 @@ impl DriverExecutionContext {
             .await_tool_job_reply(
                 id.clone(),
                 Response::ToolJobStart {
+                    id,
+                    parent: self.request_id.clone(),
+                    name: name.to_owned(),
+                    args,
+                    stdin,
+                    timeout_ms,
+                    cwd,
+                },
+            )
+            .await?;
+        match reply {
+            ToolJobReply::Started(job) => {
+                job.validate()?;
+                Ok(job)
+            }
+            ToolJobReply::Status { .. } => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Host returned runtime-tool job status instead of start receipt",
+            )),
+        }
+    }
+
+    /// Start a detached protocol-v7 runtime-tool job with Host-resolved path arguments.
+    pub async fn start_runtime_tool_job_args(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<RuntimeToolJob> {
+        if self.protocol < 7 || !self.interfaces.host_tools {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Typed detached runtime-tool jobs require Driver Protocol v7 Host mediation",
+            ));
+        }
+        validate_runtime_tool_args(&args)?;
+        if let Some(cwd) = &cwd {
+            cwd.validate()?;
+        }
+        if stdin.len() > MAX_TOOL_STDIN_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Detached runtime-tool stdin exceeds bounded contract",
+            ));
+        }
+        let timeout_ms = u64::try_from(timeout.as_millis()).map_err(|_| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Detached runtime-tool timeout exceeds protocol bounds",
+            )
+        })?;
+        if timeout_ms == 0 || timeout_ms > MAX_TOOL_JOB_TIMEOUT_MS {
+            return Err(Error::invalid(
+                "Detached runtime-tool timeout exceeds bounded contract",
+            ));
+        }
+        let id = unique_id();
+        let reply = self
+            .await_tool_job_reply(
+                id.clone(),
+                Response::ToolJobStartV7 {
                     id,
                     parent: self.request_id.clone(),
                     name: name.to_owned(),
@@ -2251,6 +2506,7 @@ mod tests {
             name: "godot".into(),
             sha256: "a".repeat(64),
             mounts: vec![],
+            dependencies: vec![],
         }];
         valid.validate().unwrap();
 
@@ -2269,12 +2525,14 @@ mod tests {
                 name: "godot".into(),
                 sha256: "a".repeat(64),
                 mounts: vec![],
+                dependencies: vec![],
             },
             DriverToolMount {
                 root: "tool-b".into(),
                 name: "godot".into(),
                 sha256: "b".repeat(64),
                 mounts: vec![],
+                dependencies: vec![],
             },
         ];
         assert!(duplicate_name.validate().is_err());
@@ -2285,6 +2543,7 @@ mod tests {
             name: "godot".into(),
             sha256: "not-a-digest".into(),
             mounts: vec![],
+            dependencies: vec![],
         }];
         assert!(bad_digest.validate().is_err());
     }
@@ -2304,6 +2563,7 @@ mod tests {
             name: "probe".into(),
             sha256: "a".repeat(64),
             mounts: vec![],
+            dependencies: vec![],
         }];
         candidate.validate().unwrap();
 
@@ -2349,6 +2609,7 @@ mod tests {
             name: "godot".into(),
             sha256: "a".repeat(64),
             mounts: vec!["project".into()],
+            dependencies: vec![],
         }];
         candidate.validate().unwrap();
 
@@ -2461,6 +2722,100 @@ mod tests {
         assert!(state.terminal());
         assert!(!RuntimeToolJobStatus::Running.terminal());
         assert!(!RuntimeToolJobStatus::Cancelling.terminal());
+    }
+
+    #[test]
+    fn v7_runtime_tool_path_refs_are_typed_bounded_and_dependency_scoped() {
+        let mut candidate = manifest();
+        candidate.protocol = 7;
+        candidate.interfaces.host_tools = true;
+        candidate.mounts.push(DriverMount {
+            root: "project".into(),
+            read_only: false,
+            execute: false,
+        });
+        candidate.tools = vec![
+            DriverToolMount {
+                root: "probe-root".into(),
+                name: "probe".into(),
+                sha256: "a".repeat(64),
+                mounts: vec!["project".into()],
+                dependencies: vec!["helper".into()],
+            },
+            DriverToolMount {
+                root: "helper-root".into(),
+                name: "helper".into(),
+                sha256: "b".repeat(64),
+                mounts: vec![],
+                dependencies: vec![],
+            },
+        ];
+        candidate.validate().unwrap();
+
+        let mut v6 = candidate.clone();
+        v6.protocol = 6;
+        assert!(matches!(
+            v6.validate(),
+            Err(error) if error.code == ErrorCode::Unsupported
+        ));
+
+        let mut missing_dependency = candidate.clone();
+        missing_dependency.tools[0].dependencies = vec!["missing".into()];
+        assert!(matches!(
+            missing_dependency.validate(),
+            Err(error) if error.code == ErrorCode::PolicyDenied
+        ));
+
+        let good = vec![
+            RuntimeToolArg::Literal {
+                value: "--project".into(),
+            },
+            RuntimeToolArg::MountPath {
+                mount: "project".into(),
+                relative: String::new(),
+            },
+            RuntimeToolArg::ToolPath {
+                tool: "helper".into(),
+            },
+        ];
+        validate_runtime_tool_args(&good).unwrap();
+
+        for bad in [
+            RuntimeToolArg::MountPath {
+                mount: "project".into(),
+                relative: "scene/main.tscn".into(),
+            },
+            RuntimeToolArg::MountPath {
+                mount: "project".into(),
+                relative: "../escape".into(),
+            },
+            RuntimeToolArg::MountPath {
+                mount: "project".into(),
+                relative: r"windows\escape".into(),
+            },
+            RuntimeToolArg::Literal {
+                value: format!("{HOST_TOOL_ARG_PREFIX}forged"),
+            },
+            RuntimeToolArg::ToolPath {
+                tool: "../helper".into(),
+            },
+        ] {
+            assert!(bad.validate().is_err(), "{bad:?}");
+        }
+
+        let wire = serde_json::to_value(Response::ToolExecuteV7 {
+            id: "typed-1".into(),
+            parent: "request-1".into(),
+            name: "probe".into(),
+            args: good,
+            stdin: vec![],
+            timeout_ms: 1_000,
+            cwd: None,
+        })
+        .unwrap();
+        assert_eq!(wire["type"], "tool_execute_v7");
+        assert_eq!(wire["args"][1]["kind"], "mount_path");
+        assert_eq!(wire["args"][2]["kind"], "tool_path");
     }
 
     #[test]

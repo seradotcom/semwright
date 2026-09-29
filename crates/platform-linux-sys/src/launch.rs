@@ -1,8 +1,9 @@
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
-    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV,
-    SandboxKind, SandboxLauncher, SandboxSpec, SealedToolSource, encode_materialized_mounts,
-    encode_materialized_tools,
+    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_HOST_TOOL_TYPED_ARGS_ENV,
+    SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxKind, SandboxLauncher, SandboxSpec,
+    SealedToolSource, encode_materialized_mounts, encode_materialized_tools,
+    resolve_host_tool_args,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
@@ -198,35 +199,46 @@ impl SandboxLauncher for LinuxSandbox {
             "LANG",
             "C.UTF-8",
         ]);
-        // Only Semwright application drivers consume the logical mount table through
-        // driver-sdk helpers. Do not expose internal mount topology to plugins or
-        // external MCP children that do not need this authority-bearing metadata.
+        let materialized_mounts = s
+            .mounts
+            .iter()
+            .map(|mount| {
+                Ok(MaterializedMount {
+                    class: mount.class,
+                    logical_name: mount.logical_name.clone(),
+                    path: materialized_destination(mount)?,
+                    read_only: mount.read_only,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let materialized_tools = s
+            .sealed_tools
+            .iter()
+            .map(|tool| MaterializedTool {
+                name: tool.name.clone(),
+                path: format!("/plugin/tools/{}", tool.name),
+            })
+            .collect::<Vec<_>>();
+        let typed_args = s
+            .environment
+            .iter()
+            .any(|(name, value)| name == SANDBOX_HOST_TOOL_TYPED_ARGS_ENV && value == "1");
+        let resolved_args = resolve_host_tool_args(
+            &s.args,
+            &materialized_mounts,
+            &materialized_tools,
+            typed_args,
+        )?;
+
+        // Only Semwright application drivers consume the logical mount/tool tables through
+        // driver-sdk helpers. Do not expose internal topology to plugins or external MCP
+        // children that do not need this authority-bearing metadata.
         if s.kind == SandboxKind::Driver {
-            let mount_table = encode_materialized_mounts(
-                &s.mounts
-                    .iter()
-                    .map(|mount| {
-                        Ok(MaterializedMount {
-                            class: mount.class,
-                            logical_name: mount.logical_name.clone(),
-                            path: materialized_destination(mount)?,
-                            read_only: mount.read_only,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?,
-            )?;
+            let mount_table = encode_materialized_mounts(&materialized_mounts)?;
             p.arg("--setenv").arg(SANDBOX_MOUNTS_ENV).arg(mount_table);
 
-            if !s.sealed_tools.is_empty() {
-                let tool_table = encode_materialized_tools(
-                    &s.sealed_tools
-                        .iter()
-                        .map(|tool| MaterializedTool {
-                            name: tool.name.clone(),
-                            path: format!("/plugin/tools/{}", tool.name),
-                        })
-                        .collect::<Vec<_>>(),
-                )?;
+            if !materialized_tools.is_empty() {
+                let tool_table = encode_materialized_tools(&materialized_tools)?;
                 p.arg("--setenv").arg(SANDBOX_TOOLS_ENV).arg(tool_table);
             }
         }
@@ -254,7 +266,9 @@ impl SandboxLauncher for LinuxSandbox {
         for (name, value) in &s.environment {
             if matches!(
                 name.as_str(),
-                SANDBOX_HOST_TOOL_CHILD_ENV | SANDBOX_HOST_TOOL_CWD_ENV
+                SANDBOX_HOST_TOOL_CHILD_ENV
+                    | SANDBOX_HOST_TOOL_CWD_ENV
+                    | SANDBOX_HOST_TOOL_TYPED_ARGS_ENV
             ) {
                 continue;
             }
@@ -311,7 +325,7 @@ impl SandboxLauncher for LinuxSandbox {
                 .arg(format!("/plugin/tools/{}", tool.name));
         }
         p.args(["--", "/plugin/bin"])
-            .args(&s.args)
+            .args(&resolved_args)
             .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

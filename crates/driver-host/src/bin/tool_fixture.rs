@@ -53,6 +53,57 @@ fn main() {
         eprintln!("failed to write finished.marker");
         std::process::exit(4);
     }
+    let probe_path = args
+        .iter()
+        .position(|arg| arg == "--probe-path")
+        .and_then(|index| args.get(index + 1))
+        .cloned();
+    let dependency_path = args
+        .iter()
+        .position(|arg| arg == "--run-dependency")
+        .and_then(|index| args.get(index + 1))
+        .cloned();
+    let probed = match probe_path {
+        Some(path) => {
+            let path = std::path::PathBuf::from(path);
+            let target = if path.is_dir() {
+                path.join("allowed.txt")
+            } else {
+                path
+            };
+            match std::fs::read_to_string(target) {
+                Ok(value) => Some(value),
+                Err(error) => {
+                    eprintln!("failed to read typed mount path: {error}");
+                    std::process::exit(5);
+                }
+            }
+        }
+        None => None,
+    };
+    let dependency_output = match dependency_path {
+        Some(path) => match std::process::Command::new(path).output() {
+            Ok(output) if output.status.success() => match String::from_utf8(output.stdout) {
+                Ok(value) => Some(value),
+                Err(_) => {
+                    eprintln!("dependency output is not UTF-8");
+                    std::process::exit(6);
+                }
+            },
+            Ok(output) => {
+                eprintln!(
+                    "dependency exited unsuccessfully: {:?}",
+                    output.status.code()
+                );
+                std::process::exit(7);
+            }
+            Err(error) => {
+                eprintln!("failed to launch typed dependency: {error}");
+                std::process::exit(8);
+            }
+        },
+        None => None,
+    };
     #[cfg(windows)]
     {
         print!("tool-ok|appcontainer={}", u8::from(is_appcontainer()));
@@ -60,6 +111,12 @@ fn main() {
     #[cfg(not(windows))]
     {
         print!("tool-ok");
+    }
+    if let Some(value) = probed {
+        print!("|path={value}");
+    }
+    if let Some(value) = dependency_output {
+        print!("|dependency={}", value.trim_end());
     }
     if print_cwd {
         match std::env::current_dir() {
