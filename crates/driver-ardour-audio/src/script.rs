@@ -1029,6 +1029,20 @@ mod tests {
     }
 
     #[test]
+    fn master_create_is_fixed_and_bounded() {
+        assert_eq!(
+            NativeMutation::MasterCreate { channels: 2 }.argv().unwrap(),
+            vec!["master_create".to_string(), "2".to_string()]
+        );
+        assert!(NativeMutation::MasterCreate { channels: 0 }.argv().is_err());
+        assert!(
+            NativeMutation::MasterCreate { channels: 65 }
+                .argv()
+                .is_err()
+        );
+    }
+
+    #[test]
     fn mutation_arguments_are_bounded() {
         assert!(
             NativeMutation::RouteRemove {

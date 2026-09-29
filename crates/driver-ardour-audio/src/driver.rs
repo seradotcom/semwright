@@ -1036,9 +1036,12 @@ fn deep_capabilities() -> Vec<Capability> {
                     "reopen_diagnostic_prefix":{"type":"string","maxLength":512},
                     "snapshot_self_test":{"type":"boolean"},
                     "snapshot_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
-                    "snapshot_diagnostic_prefix":{"type":"string","maxLength":512}
+                    "snapshot_diagnostic_prefix":{"type":"string","maxLength":512},
+                    "range_self_test":{"type":"boolean"},
+                    "range_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
+                    "range_diagnostic_prefix":{"type":"string","maxLength":512}
                 },
-                "required":["ardour_version","lua_banner","create_banner","export_banner","create_self_test","create_diagnostic_class","create_diagnostic_prefix","reopen_self_test","reopen_diagnostic_class","reopen_diagnostic_prefix","snapshot_self_test","snapshot_diagnostic_class","snapshot_diagnostic_prefix"],
+                "required":["ardour_version","lua_banner","create_banner","export_banner","create_self_test","create_diagnostic_class","create_diagnostic_prefix","reopen_self_test","reopen_diagnostic_class","reopen_diagnostic_prefix","snapshot_self_test","snapshot_diagnostic_class","snapshot_diagnostic_prefix","range_self_test","range_diagnostic_class","range_diagnostic_prefix"],
                 "additionalProperties":false
             }),
             &["audio-project"],
@@ -2011,14 +2014,16 @@ fn native_effect_verified(
                 && created[0].channels == *channels
                 && created[0].name == *name
         }
-        NativeMutation::MasterCreate { channels } => after
-            .routes
-            .iter()
-            .filter(|route| route.kind == RouteKind::Master)
-            .collect::<Vec<_>>()
-            .as_slice()
-            .first()
-            .is_some_and(|route| route.channels == *channels),
+        NativeMutation::MasterCreate { channels } => {
+            let mut masters = after
+                .routes
+                .iter()
+                .filter(|route| route.kind == RouteKind::Master);
+            masters
+                .next()
+                .is_some_and(|route| route.channels == *channels)
+                && masters.next().is_none()
+        }
         NativeMutation::BusCreate { channels, name } => {
             let old_ids: std::collections::BTreeSet<_> = before
                 .routes

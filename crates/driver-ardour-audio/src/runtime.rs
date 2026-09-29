@@ -75,6 +75,9 @@ pub struct ArdourRuntimeProbe {
     pub snapshot_self_test: bool,
     pub snapshot_diagnostic_class: String,
     pub snapshot_diagnostic_prefix: String,
+    pub range_self_test: bool,
+    pub range_diagnostic_class: String,
+    pub range_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -372,6 +375,70 @@ close_session()
                     String::new(),
                 )
             };
+        let (range_self_test, range_diagnostic_class, range_diagnostic_prefix) =
+            if snapshot_self_test {
+                let script_dir = tempfile::Builder::new()
+                    .prefix("semwright-ardour-range-probe-")
+                    .tempdir()?;
+                let script_path = script_dir.path().join("semwright-ardour.lua");
+                fs::write(&script_path, script::source())?;
+                let range_args = vec![
+                    script_path.to_string_lossy().into_owned(),
+                    probe_session.to_string_lossy().into_owned(),
+                    probe_state.into(),
+                    self.config.ardour_version.clone(),
+                    "session_range".into(),
+                    "0".into(),
+                    "48000".into(),
+                ];
+                let range_run = self
+                    .run_tool_capture(context, &self.lua_tool, &range_args)
+                    .await?;
+                if range_run.exit_code != 0 {
+                    let classified = classify_tool_failure(&range_run.stdout, &range_run.stderr);
+                    (
+                        false,
+                        format!("{:?}", classified.code),
+                        bounded_text_diagnostic(&bounded_diagnostic(
+                            &range_run.stdout,
+                            &range_run.stderr,
+                        )),
+                    )
+                } else {
+                    match parse_snapshot(&range_run.stdout) {
+                        Ok(snapshot)
+                            if snapshot.session_start == 0 && snapshot.session_end == 48_000 =>
+                        {
+                            (
+                                true,
+                                "ok".to_string(),
+                                bounded_text_diagnostic(
+                                    "session range updated and verified by native snapshot",
+                                ),
+                            )
+                        }
+                        Ok(snapshot) => (
+                            false,
+                            "BackendFailed".to_string(),
+                            bounded_text_diagnostic(&format!(
+                                "range_readback_mismatch:{}:{}",
+                                snapshot.session_start, snapshot.session_end
+                            )),
+                        ),
+                        Err(error) => (
+                            false,
+                            format!("{:?}", error.code),
+                            bounded_text_diagnostic(&error.message),
+                        ),
+                    }
+                }
+            } else {
+                (
+                    false,
+                    "snapshot_prerequisite_failed".to_string(),
+                    String::new(),
+                )
+            };
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
             lua_banner,
@@ -386,6 +453,9 @@ close_session()
             snapshot_self_test,
             snapshot_diagnostic_class,
             snapshot_diagnostic_prefix,
+            range_self_test,
+            range_diagnostic_class,
+            range_diagnostic_prefix,
         })
     }
 
