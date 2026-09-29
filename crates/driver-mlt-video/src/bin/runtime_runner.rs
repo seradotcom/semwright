@@ -41,7 +41,7 @@ fn execute(melt: &Path, args: Vec<OsString>) -> Result<(Vec<u8>, Vec<u8>), Strin
             executable: melt.to_path_buf(),
             args,
             cwd: PathBuf::from("/tmp"),
-            timeout: Duration::from_secs(5),
+            timeout: Duration::from_secs(3),
             cpu_seconds: 30,
             address_space_bytes: 1_073_741_824,
             environment: constrained_environment(),
@@ -61,14 +61,12 @@ fn discover(melt: &Path) -> Result<Value, String> {
         String::from_utf8_lossy(&stdout),
         String::from_utf8_lossy(&stderr)
     );
-    let version = version_text
-        .lines()
-        .find(|line| line.to_ascii_lowercase().contains("melt"))
-        .unwrap_or("Version output did not identify melt")
-        .chars()
-        .filter(|ch| !ch.is_control())
-        .take(512)
-        .collect::<String>();
+    let version = semwright_mlt_video::json::display(
+        version_text
+            .lines()
+            .find(|line| line.to_ascii_lowercase().contains("melt"))
+            .unwrap_or("Version output did not identify melt"),
+    );
 
     let mut groups = Map::new();
     for group in GROUPS {
