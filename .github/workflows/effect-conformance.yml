@@ -64,6 +64,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+          fetch-depth: 0
       - name: Validate versioned lane selector
         id: lane
         run: |
@@ -88,6 +89,17 @@ jobs:
           cargo fmt -p semwright-effect-conformance
           git diff -- crates/effect-conformance > verification/effects/format.patch
           if test -s verification/effects/format.patch; then git apply -R verification/effects/format.patch; fi
+      - name: Reconstructive source package and reproducibility
+        run: |
+          python3 scripts/effects/package_source.py --source "$EXPECTED_SHA" --output verification/effects/semwright-effect-conformance-F-source.zip
+          python3 scripts/effects/package_source.py --source "$EXPECTED_SHA" --output "$RUNNER_TEMP/effect-source-repro.zip"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          first=Path('verification/effects/semwright-effect-conformance-F-source.zip').read_bytes()
+          second=(Path(os.environ['RUNNER_TEMP'])/'effect-source-repro.zip').read_bytes()
+          assert first == second, 'source package is not reproducible'
+          PY
       - name: Exact source and executed-test receipts
         run: python3 scripts/effects/run_suite.py effect-contract
       - name: Clippy and rustdoc
