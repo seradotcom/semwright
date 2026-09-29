@@ -67,7 +67,15 @@ fn plan() -> AvPlan {
         commands: Stage::ALL
             .into_iter()
             .filter(|s| s.service() == service)
-            .map(|s| (s, digest(&format!("{s:?}"))))
+            .map(|stage| {
+                (
+                    stage,
+                    vec![CommandProof {
+                        command: format!("fixture.{name}.{stage:?}"),
+                        descriptor: digest(&format!("{stage:?}")),
+                    }],
+                )
+            })
             .collect(),
         available: true,
     };

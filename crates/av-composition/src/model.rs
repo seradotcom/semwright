@@ -82,13 +82,19 @@ impl Stage {
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct CommandProof {
+    pub command: String,
+    pub descriptor: Digest,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ServiceProof {
     pub service: Service,
     pub provider: String,
     pub generation: u64,
     pub catalog_digest: Digest,
     pub runtime_digest: Digest,
-    pub commands: BTreeMap<Stage, Digest>,
+    pub commands: BTreeMap<Stage, Vec<CommandProof>>,
     pub available: bool,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -221,11 +227,31 @@ impl AvPlan {
                 .into_iter()
                 .filter(|s| s.service() == proof.service)
             {
+                let commands = proof.commands.get(&stage).ok_or_else(|| {
+                    c::ContractError::Invalid(
+                        "native service lacks a required stage binding".into(),
+                    )
+                })?;
                 ensure(
-                    proof.commands.contains_key(&stage),
-                    "native service lacks a required operation",
+                    !commands.is_empty() && commands.len() <= 16,
+                    "native stage command binding budget",
                 )?;
+                let mut names = BTreeSet::new();
+                for command in commands {
+                    bounded_id(&command.command)?;
+                    ensure(
+                        names.insert(command.command.as_str()),
+                        "duplicate native command in one AV stage",
+                    )?;
+                }
             }
+            ensure(
+                proof
+                    .commands
+                    .keys()
+                    .all(|stage| stage.service() == proof.service),
+                "native service proof contains a foreign stage",
+            )?;
         }
         ensure(
             b.budget.max_operations >= 14,

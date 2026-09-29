@@ -7,6 +7,9 @@ on:
       - 'crates/media-time/**'
       - 'crates/motion-authoring/**'
       - 'crates/av-composition/**'
+      - 'crates/core/src/lib.rs'
+      - 'crates/core/tests/provider_runtime.rs'
+      - 'crates/recipes/**'
       - 'fixtures/composition/**'
       - 'benchmarks/composition/**'
       - 'scripts/composition/**'
@@ -68,13 +71,32 @@ jobs:
           path: verification/composition
           retention-days: 7
           if-no-files-found: error
+  broker-session:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-broker-session-v1
+      - name: Session executor keeps Broker policy authority
+        run: cargo test --locked -p semwright-core --test provider_runtime session_executor_preserves_broker_policy_before_provider_execution -- --exact --nocapture
+      - name: Core bridge lint
+        run: cargo clippy --locked -p semwright-core --lib -- -D warnings
   contracts-gate:
     if: always()
-    needs: [contracts]
+    needs: [contracts, broker-session]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: All requested platforms must execute successfully
         env:
-          RESULT: ${{ needs.contracts.result }}
-        run: test "$RESULT" = success
+          CONTRACTS: ${{ needs.contracts.result }}
+          BROKER: ${{ needs.broker-session.result }}
+        run: test "$CONTRACTS" = success && test "$BROKER" = success

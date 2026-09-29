@@ -770,7 +770,7 @@ impl Broker {
             audit.backend(selected);
             audit.executed_provider("semwright-core", None);
             let recipe: Recipe = serde_json::from_value(request.args["recipe"].clone())?;
-            let bridge = RecipeBridge {
+            let bridge = BrokerSessionExecutor {
                 broker: self.clone(),
                 session: session.into(),
             };
@@ -1296,7 +1296,7 @@ impl Broker {
             ),
             "recipe.validate" => {
                 let recipe: Recipe = serde_json::from_value(args["recipe"].clone())?;
-                recipe.validate(&RecipeBridge {
+                recipe.validate(&BrokerSessionExecutor {
                     broker: self.clone(),
                     session: session.into(),
                 })
@@ -1369,6 +1369,13 @@ impl Broker {
         *registry = candidate;
         Ok(())
     }
+    pub fn session_executor(self: &Arc<Self>, session: impl Into<String>) -> BrokerSessionExecutor {
+        BrokerSessionExecutor {
+            broker: self.clone(),
+            session: session.into(),
+        }
+    }
+
     pub async fn shutdown(&self) {
         self.runtime_stop.cancel();
         self.job_tasks.close();
@@ -1388,12 +1395,16 @@ fn event_time() -> u64 {
         .min(u64::MAX as u128) as u64
 }
 
-struct RecipeBridge {
+/// Session-bound adapter into the existing Broker execution channel.
+/// Controllers may describe and invoke capabilities through this value, but it
+/// grants no authority: every operation still enters Broker policy/audit and the
+/// selected provider with the original session identity.
+pub struct BrokerSessionExecutor {
     broker: Arc<Broker>,
     session: String,
 }
 #[async_trait]
-impl Executor for RecipeBridge {
+impl Executor for BrokerSessionExecutor {
     fn describe(&self, command: &str) -> Result<CommandDescriptor> {
         self.broker.describe(command)
     }

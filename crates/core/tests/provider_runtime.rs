@@ -5,6 +5,7 @@ use semwright_backend_api::{
 };
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_policy::{Policy, PolicyConfig, Profile};
+use semwright_recipes::Executor;
 use semwright_registry::{CatalogQuery, catalog::descriptor_digest};
 use semwright_types::*;
 use serde_json::{Value, json};
@@ -1196,4 +1197,51 @@ async fn revoking_a_session_cancels_and_removes_its_running_job() {
         )
         .await;
     assert_eq!(lookup.error.unwrap().code, ErrorCode::NotFound);
+}
+
+#[tokio::test]
+async fn session_executor_preserves_broker_policy_before_provider_execution() {
+    let denied = Fixture::new(false);
+    denied.mount().await;
+    let executor = denied.broker.session_executor("av-denied-session");
+    let error = executor
+        .execute(
+            ExecuteRequest {
+                command: "driver.fixture.count".into(),
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::PolicyDenied);
+    assert_eq!(
+        denied.provider.calls.load(Ordering::SeqCst),
+        0,
+        "session executor must not bypass Broker policy"
+    );
+    denied.broker.shutdown().await;
+
+    let allowed = Fixture::new(true);
+    allowed.mount().await;
+    let executor = allowed.broker.session_executor("av-allowed-session");
+    let descriptor = executor.describe("driver.fixture.count").unwrap();
+    assert_eq!(descriptor.name, "driver.fixture.count");
+    let output = executor
+        .execute(
+            ExecuteRequest {
+                command: descriptor.name,
+                args: json!({}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(output["value"], 1);
+    assert_eq!(allowed.provider.calls.load(Ordering::SeqCst), 1);
+    allowed.broker.shutdown().await;
 }
