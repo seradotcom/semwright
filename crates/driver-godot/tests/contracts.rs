@@ -337,7 +337,9 @@ fn catalog_routes_partition_the_full_surface() {
     assert_eq!(catalog.names_for(Route::Local).len(), 3);
     assert_eq!(catalog.names_for(Route::Plugin).len(), 179);
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
-    assert_eq!(catalog.capabilities().len(), 188);
+    assert_eq!(catalog.names_for(Route::Authoring).len(), 8);
+    assert_eq!(catalog.names_for(Route::AuthoringRunner).len(), 1);
+    assert_eq!(catalog.capabilities().len(), 197);
 }
 
 #[test]
