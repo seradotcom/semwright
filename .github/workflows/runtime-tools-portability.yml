@@ -43,5 +43,17 @@ jobs:
       - if: runner.os == 'Linux'
         run: cargo test --locked -p semwright-driver-sdk
       - if: runner.os != 'Linux'
-        run: cargo test --locked -p semwright-driver-sdk tests::runtime_tool_mode_hides_platform_specific_execution -- --exact
+        run: |
+          cargo test --locked -p semwright-driver-sdk tests::runtime_tool_mode_hides_platform_specific_execution -- --exact
+          cargo test --locked -p semwright-driver-sdk tests::v5_runtime_tool_mounts_and_cwd_are_bounded -- --exact
       - run: cargo clippy --locked -p semwright-driver-sdk --all-targets --no-deps -- -D warnings
+
+  windows-v5-host:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - run: cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts -- --exact

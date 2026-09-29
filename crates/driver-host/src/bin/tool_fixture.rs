@@ -31,6 +31,7 @@ fn is_appcontainer() -> bool {
 }
 
 fn main() {
+    let print_cwd = std::env::args().skip(1).any(|arg| arg == "--print-cwd");
     #[cfg(windows)]
     {
         print!("tool-ok|appcontainer={}", u8::from(is_appcontainer()));
@@ -38,5 +39,11 @@ fn main() {
     #[cfg(not(windows))]
     {
         print!("tool-ok");
+    }
+    if print_cwd {
+        match std::env::current_dir() {
+            Ok(path) => print!("|cwd={}", path.display()),
+            Err(_) => print!("|cwd=<unavailable>"),
+        }
     }
 }

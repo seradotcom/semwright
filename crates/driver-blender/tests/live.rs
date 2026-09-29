@@ -122,6 +122,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         tools: vec![DriverToolMount {
             root: "blender-executable".into(),
             name: "blender".into(),
+            mounts: vec![],
             sha256: digest(&blender_tool),
         }],
         network: false,

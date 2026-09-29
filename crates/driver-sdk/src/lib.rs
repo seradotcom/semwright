@@ -29,7 +29,7 @@ use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 4;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 5;
 
 const MAX_TOOL_ARGS: usize = 32;
 const MAX_TOOL_ARG_BYTES: usize = 4 * 1024;
@@ -135,6 +135,7 @@ async fn execute_materialized_tool(
     args: Vec<String>,
     stdin: Vec<u8>,
     timeout: std::time::Duration,
+    cwd: Option<&RuntimeToolCwd>,
     cancellation: CancellationToken,
 ) -> Result<ToolExecutionOutput> {
     let timeout_ms = u64::try_from(timeout.as_millis()).map_err(|_| {
@@ -145,6 +146,23 @@ async fn execute_materialized_tool(
     })?;
     validate_tool_execute_request(name, &args, &stdin, timeout_ms)?;
     let path = tool_path(name)?;
+    let working_directory = if let Some(cwd) = cwd {
+        cwd.validate()?;
+        let mut directory = workspace_mount(&cwd.mount)?;
+        if !cwd.relative.is_empty() {
+            directory.push(&cwd.relative);
+        }
+        let metadata = std::fs::metadata(&directory)
+            .map_err(|_| Error::unavailable("Runtime tool working directory is unavailable"))?;
+        if !metadata.is_dir() {
+            return Err(Error::invalid(
+                "Runtime tool working directory is not a directory",
+            ));
+        }
+        Some(directory)
+    } else {
+        None
+    };
 
     let mut command = tokio::process::Command::new(path);
     command
@@ -154,6 +172,9 @@ async fn execute_materialized_tool(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
+    if let Some(directory) = working_directory {
+        command.current_dir(directory);
+    }
     let mut child = command
         .spawn()
         .map_err(|_| Error::unavailable("Materialized runtime tool could not be launched"))?;
@@ -340,17 +361,28 @@ pub struct DriverToolMount {
     pub root: String,
     pub name: String,
     pub sha256: String,
+    /// Workspace mounts this tool may receive when Host-mediated.
+    /// Empty preserves the v4 zero-mount tool-child contract.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mounts: Vec<String>,
 }
 impl DriverToolMount {
     fn validate(&self) -> Result<()> {
+        let unique_mounts = self.mounts.iter().collect::<BTreeSet<_>>();
         if !canonical_slug(&self.root)
             || self.root.starts_with("semwright-internal-")
             || !valid_tool_name(&self.name)
             || self.sha256.len() != 64
             || !self.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+            || self.mounts.len() > 8
+            || unique_mounts.len() != self.mounts.len()
+            || self
+                .mounts
+                .iter()
+                .any(|mount| !canonical_slug(mount) || mount.starts_with("semwright-internal-"))
         {
             return Err(Error::invalid(
-                "Driver tools require canonical grant/name and SHA-256 digest",
+                "Driver tools require canonical grant/name/mounts and SHA-256 digest",
             ));
         }
         Ok(())
@@ -595,12 +627,33 @@ impl Manifest {
                 ));
             }
         }
+        let workspace_roots = self
+            .mounts
+            .iter()
+            .map(|mount| mount.root.as_str())
+            .collect::<BTreeSet<_>>();
         let mut tool_names = BTreeSet::new();
         for tool in &self.tools {
             tool.validate()?;
             if !roots.insert(&tool.root) || !tool_names.insert(&tool.name) {
                 return Err(Error::invalid(
                     "Driver tool roots and names must be unique and non-overlapping",
+                ));
+            }
+            if tool
+                .mounts
+                .iter()
+                .any(|mount| !workspace_roots.contains(mount.as_str()))
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Driver tool may only receive declared workspace mounts",
+                ));
+            }
+            if !tool.mounts.is_empty() && (self.protocol < 5 || !self.interfaces.host_tools) {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Per-tool workspace mounts require Driver Protocol v5 Host mediation",
                 ));
             }
         }
@@ -775,6 +828,30 @@ impl ToolExecutionOutput {
     }
 }
 
+/// Working directory for a runtime-tool invocation, expressed only as the root
+/// of an already-authorized workspace mount. Nested paths are intentionally deferred
+/// until platform hosts can resolve them without reparse/symlink races.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeToolCwd {
+    pub mount: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub relative: String,
+}
+impl RuntimeToolCwd {
+    pub fn validate(&self) -> Result<()> {
+        if !canonical_slug(&self.mount)
+            || self.mount.starts_with("semwright-internal-")
+            || !self.relative.is_empty()
+        {
+            return Err(Error::invalid(
+                "Runtime tool working directory must be the root of a declared workspace mount",
+            ));
+        }
+        Ok(())
+    }
+}
+
 pub fn validate_tool_execute_request(
     name: &str,
     args: &[String],
@@ -793,6 +870,20 @@ pub fn validate_tool_execute_request(
         return Err(Error::invalid(
             "Host-mediated tool request exceeds bounded contract",
         ));
+    }
+    Ok(())
+}
+
+pub fn validate_runtime_tool_execute_request(
+    name: &str,
+    args: &[String],
+    stdin: &[u8],
+    timeout_ms: u64,
+    cwd: Option<&RuntimeToolCwd>,
+) -> Result<()> {
+    validate_tool_execute_request(name, args, stdin, timeout_ms)?;
+    if let Some(cwd) = cwd {
+        cwd.validate()?;
     }
     Ok(())
 }
@@ -873,6 +964,8 @@ pub enum Response {
         args: Vec<String>,
         stdin: Vec<u8>,
         timeout_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cwd: Option<RuntimeToolCwd>,
     },
     Failure {
         id: String,
@@ -992,10 +1085,50 @@ impl DriverExecutionContext {
         timeout: std::time::Duration,
     ) -> Result<ToolExecutionOutput> {
         match self.runtime_tool_mode(name)? {
-            RuntimeToolMode::HostMediated => self.execute_tool(name, args, stdin, timeout).await,
-            RuntimeToolMode::Materialized => {
-                execute_materialized_tool(name, args, stdin, timeout, self.cancellation.clone())
+            RuntimeToolMode::HostMediated => {
+                self.execute_host_tool(name, args, stdin, timeout, None)
                     .await
+            }
+            RuntimeToolMode::Materialized => {
+                execute_materialized_tool(
+                    name,
+                    args,
+                    stdin,
+                    timeout,
+                    None,
+                    self.cancellation.clone(),
+                )
+                .await
+            }
+        }
+    }
+
+    /// Execute a runtime tool from a logical workspace-relative working directory.
+    /// Protocol v5 is required only when Host mediation is necessary.
+    pub async fn execute_runtime_tool_with_cwd(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+        cwd: RuntimeToolCwd,
+    ) -> Result<ToolExecutionOutput> {
+        cwd.validate()?;
+        match self.runtime_tool_mode(name)? {
+            RuntimeToolMode::HostMediated => {
+                self.execute_host_tool(name, args, stdin, timeout, Some(cwd))
+                    .await
+            }
+            RuntimeToolMode::Materialized => {
+                execute_materialized_tool(
+                    name,
+                    args,
+                    stdin,
+                    timeout,
+                    Some(&cwd),
+                    self.cancellation.clone(),
+                )
+                .await
             }
         }
     }
@@ -1007,7 +1140,20 @@ impl DriverExecutionContext {
         stdin: Vec<u8>,
         timeout: std::time::Duration,
     ) -> Result<ToolExecutionOutput> {
-        if self.protocol < 4 || !self.interfaces.host_tools {
+        self.execute_host_tool(name, args, stdin, timeout, None)
+            .await
+    }
+
+    async fn execute_host_tool(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<ToolExecutionOutput> {
+        let required_protocol = if cwd.is_some() { 5 } else { 4 };
+        if self.protocol < required_protocol || !self.interfaces.host_tools {
             return Err(Error::new(
                 ErrorCode::Unsupported,
                 "Driver did not negotiate Host-mediated sealed tools",
@@ -1019,7 +1165,7 @@ impl DriverExecutionContext {
                 "Host-mediated tool timeout exceeds protocol bounds",
             )
         })?;
-        validate_tool_execute_request(name, &args, &stdin, timeout_ms)?;
+        validate_runtime_tool_execute_request(name, &args, &stdin, timeout_ms, cwd.as_ref())?;
         self.check_cancelled()?;
 
         let id = unique_id();
@@ -1042,6 +1188,7 @@ impl DriverExecutionContext {
                 args,
                 stdin,
                 timeout_ms,
+                cwd,
             })
             .is_err()
         {
@@ -1769,6 +1916,7 @@ mod tests {
             root: "godot-runtime".into(),
             name: "godot".into(),
             sha256: "a".repeat(64),
+            mounts: vec![],
         }];
         valid.validate().unwrap();
 
@@ -1786,11 +1934,13 @@ mod tests {
                 root: "tool-a".into(),
                 name: "godot".into(),
                 sha256: "a".repeat(64),
+                mounts: vec![],
             },
             DriverToolMount {
                 root: "tool-b".into(),
                 name: "godot".into(),
                 sha256: "b".repeat(64),
+                mounts: vec![],
             },
         ];
         assert!(duplicate_name.validate().is_err());
@@ -1800,6 +1950,7 @@ mod tests {
             root: "tool".into(),
             name: "godot".into(),
             sha256: "not-a-digest".into(),
+            mounts: vec![],
         }];
         assert!(bad_digest.validate().is_err());
     }
@@ -1818,6 +1969,7 @@ mod tests {
             root: "tool-root".into(),
             name: "probe".into(),
             sha256: "a".repeat(64),
+            mounts: vec![],
         }];
         candidate.validate().unwrap();
 
@@ -1846,6 +1998,74 @@ mod tests {
         );
         assert!(validate_tool_execute_request("probe", &[], &[], 0).is_err());
         assert!(validate_tool_execute_request("probe", &[], &[], MAX_TOOL_TIMEOUT_MS + 1).is_err());
+    }
+
+    #[test]
+    fn v5_runtime_tool_mounts_and_cwd_are_bounded() {
+        let mut candidate = manifest();
+        candidate.protocol = 5;
+        candidate.interfaces.host_tools = true;
+        candidate.mounts.push(DriverMount {
+            root: "project".into(),
+            read_only: false,
+            execute: false,
+        });
+        candidate.tools = vec![DriverToolMount {
+            root: "godot-runtime".into(),
+            name: "godot".into(),
+            sha256: "a".repeat(64),
+            mounts: vec!["project".into()],
+        }];
+        candidate.validate().unwrap();
+
+        let mut v4 = candidate.clone();
+        v4.protocol = 4;
+        assert!(v4.validate().is_err());
+
+        let mut undeclared = candidate.clone();
+        undeclared.tools[0].mounts = vec!["other".into()];
+        assert!(undeclared.validate().is_err());
+
+        let cwd = RuntimeToolCwd {
+            mount: "project".into(),
+            relative: String::new(),
+        };
+        assert!(cwd.validate().is_ok());
+        assert!(
+            validate_runtime_tool_execute_request("godot", &[], &[], 1_000, Some(&cwd)).is_ok()
+        );
+        for relative in ["nested", "../escape", "./dot", r"windows\path"] {
+            let invalid = RuntimeToolCwd {
+                mount: "project".into(),
+                relative: relative.into(),
+            };
+            assert!(invalid.validate().is_err(), "{relative}");
+        }
+
+        let v4_wire = serde_json::to_value(Response::ToolExecute {
+            id: "tool-1".into(),
+            parent: "request-1".into(),
+            name: "godot".into(),
+            args: vec![],
+            stdin: vec![],
+            timeout_ms: 1_000,
+            cwd: None,
+        })
+        .unwrap();
+        assert!(v4_wire.get("cwd").is_none());
+
+        let v5_wire = serde_json::to_value(Response::ToolExecute {
+            id: "tool-2".into(),
+            parent: "request-1".into(),
+            name: "godot".into(),
+            args: vec![],
+            stdin: vec![],
+            timeout_ms: 1_000,
+            cwd: Some(cwd),
+        })
+        .unwrap();
+        assert_eq!(v5_wire["cwd"]["mount"], "project");
+        assert!(v5_wire["cwd"].get("relative").is_none());
     }
 
     #[test]

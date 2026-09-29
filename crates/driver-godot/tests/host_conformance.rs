@@ -82,6 +82,7 @@ fn manifest(
                 root: "godot-runtime".into(),
                 name: "godot".into(),
                 sha256,
+                mounts: vec![],
             })
             .into_iter()
             .collect(),

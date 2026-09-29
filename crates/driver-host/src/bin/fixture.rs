@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
-    Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, secret_mount,
-    serve, system_config_mount, tool_path, workspace_mount,
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolCwd,
+    descriptor_digest, secret_mount, serve, system_config_mount, tool_path, workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -87,7 +87,14 @@ fn tool_capability() -> Capability {
             name: "driver.fixture.tool_probe".into(),
             version: "1".into(),
             description: "Execute one Host-sealed fixture tool and probe mutation authority".into(),
-            input_schema: json!({"type":"object","additionalProperties":false}),
+            input_schema: json!({
+                "type":"object",
+                "properties":{
+                    "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
+                    "cwd_relative":{"type":"string","maxLength":1024}
+                },
+                "additionalProperties":false
+            }),
             output_schema: json!({
                 "type":"object",
                 "properties":{
@@ -567,9 +574,32 @@ impl Driver for Fixture {
                     "Driver descriptor is not the pinned capability",
                 ));
             }
-            if args.as_object().is_none_or(|args| !args.is_empty()) {
-                return Err(Error::invalid("fixture tool probe accepts an empty object"));
+            let args = args
+                .as_object()
+                .ok_or_else(|| Error::invalid("fixture tool probe accepts an object"))?;
+            if args
+                .keys()
+                .any(|key| !matches!(key.as_str(), "cwd_mount" | "cwd_relative"))
+            {
+                return Err(Error::invalid(
+                    "fixture tool probe received an unknown argument",
+                ));
             }
+            let cwd = match (
+                args.get("cwd_mount").and_then(Value::as_str),
+                args.get("cwd_relative").and_then(Value::as_str),
+            ) {
+                (None, None) => None,
+                (Some(mount), Some(relative)) => Some(RuntimeToolCwd {
+                    mount: mount.into(),
+                    relative: relative.into(),
+                }),
+                _ => {
+                    return Err(Error::invalid(
+                        "fixture tool probe requires cwd_mount and cwd_relative together",
+                    ));
+                }
+            };
 
             let direct_path_visible = tool_path("probe").is_ok();
             #[cfg(windows)]
@@ -589,14 +619,29 @@ impl Driver for Fixture {
             #[cfg(not(windows))]
             let (self_spawn_ok, self_spawn_errno) = (false, -1);
 
-            let output = context
-                .execute_tool(
-                    "probe",
-                    Vec::new(),
-                    Vec::new(),
-                    std::time::Duration::from_millis(1_500),
-                )
-                .await?;
+            let output = match cwd {
+                Some(cwd) => {
+                    context
+                        .execute_runtime_tool_with_cwd(
+                            "probe",
+                            vec!["--print-cwd".into()],
+                            Vec::new(),
+                            std::time::Duration::from_millis(1_500),
+                            cwd,
+                        )
+                        .await?
+                }
+                None => {
+                    context
+                        .execute_tool(
+                            "probe",
+                            Vec::new(),
+                            Vec::new(),
+                            std::time::Duration::from_millis(1_500),
+                        )
+                        .await?
+                }
+            };
             let stdout = String::from_utf8(output.stdout).map_err(|_| {
                 Error::new(
                     ErrorCode::BackendFailed,

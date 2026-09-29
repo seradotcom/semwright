@@ -6,12 +6,17 @@ use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
+#[cfg(target_os = "windows")]
+use semwright_driver_sdk::DriverToolMount;
 use semwright_driver_sdk::{
-    DriverInterfaces, DriverRequestContext, Manifest, Request, Response, ToolExecutionOutput,
-    capabilities_digest, descriptor_digest, validate_tool_execute_request,
+    DriverInterfaces, DriverRequestContext, Manifest, Request, Response, RuntimeToolCwd,
+    ToolExecutionOutput, capabilities_digest, descriptor_digest,
+    validate_runtime_tool_execute_request,
 };
 #[cfg(target_os = "windows")]
-use semwright_platform_api::launch::{ResourceLimits, SandboxSpec};
+use semwright_platform_api::launch::{
+    Mount, MountClass, ResourceLimits, SANDBOX_HOST_TOOL_CWD_ENV, SandboxSpec,
+};
 use semwright_platform_api::launch::{SandboxCpuAccounting, SandboxStdin, SandboxStdout};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
@@ -89,6 +94,7 @@ trait HostToolExecutor: Send + Sync {
         args: Vec<String>,
         stdin: Vec<u8>,
         timeout_ms: u64,
+        cwd: Option<RuntimeToolCwd>,
         charged_cpu_seconds: Arc<Mutex<u64>>,
     ) -> Result<ToolExecutionOutput>;
 }
@@ -100,6 +106,8 @@ const MAX_HOST_TOOL_CALLS: usize = 8;
 #[cfg(target_os = "windows")]
 struct HostToolBroker {
     tools: BTreeMap<String, SealedTool>,
+    contracts: BTreeMap<String, DriverToolMount>,
+    workspace_mounts: BTreeMap<String, Mount>,
     template: SandboxSpec,
     operation_cpu_seconds: u64,
 }
@@ -109,6 +117,7 @@ impl HostToolBroker {
     fn new(
         root_spec: &SandboxSpec,
         tools: &[SealedTool],
+        contracts: &[DriverToolMount],
         operation_cpu_seconds: u64,
     ) -> Result<Self> {
         let mut by_name = BTreeMap::new();
@@ -116,6 +125,33 @@ impl HostToolBroker {
             if by_name.insert(tool.name.clone(), tool.clone()).is_some() {
                 return Err(Error::invalid("Duplicate Host-mediated sealed tool"));
             }
+        }
+        let workspace_mounts = root_spec
+            .mounts
+            .iter()
+            .filter(|mount| mount.class == MountClass::Workspace)
+            .map(|mount| (mount.logical_name.clone(), mount.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let mut contract_by_name = BTreeMap::new();
+        for contract in contracts {
+            if !by_name.contains_key(&contract.name)
+                || contract
+                    .mounts
+                    .iter()
+                    .any(|mount| !workspace_mounts.contains_key(mount))
+                || contract_by_name
+                    .insert(contract.name.clone(), contract.clone())
+                    .is_some()
+            {
+                return Err(Error::invalid(
+                    "Host-mediated tool contract does not match sealed tool/mount authority",
+                ));
+            }
+        }
+        if contract_by_name.len() != by_name.len() {
+            return Err(Error::invalid(
+                "Every sealed Host tool requires one matching manifest contract",
+            ));
         }
         let mut template = root_spec.clone();
         template.mounts.clear();
@@ -127,6 +163,8 @@ impl HostToolBroker {
         template.network = false;
         Ok(Self {
             tools: by_name,
+            contracts: contract_by_name,
+            workspace_mounts,
             template,
             operation_cpu_seconds,
         })
@@ -142,9 +180,10 @@ impl HostToolExecutor for HostToolBroker {
         args: Vec<String>,
         stdin_bytes: Vec<u8>,
         timeout_ms: u64,
+        cwd: Option<RuntimeToolCwd>,
         charged_cpu_seconds: Arc<Mutex<u64>>,
     ) -> Result<ToolExecutionOutput> {
-        validate_tool_execute_request(name, &args, &stdin_bytes, timeout_ms)?;
+        validate_runtime_tool_execute_request(name, &args, &stdin_bytes, timeout_ms, cwd.as_ref())?;
         let tool = self.tools.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
@@ -175,14 +214,65 @@ impl HostToolExecutor for HostToolBroker {
             )
         };
 
+        let contract = self.contracts.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested a sealed tool without a manifest contract",
+            )
+        })?;
         let mut spec = self.template.clone();
         spec.staged_executable = tool.staged.0.clone();
         spec.args = args;
+        spec.mounts = contract
+            .mounts
+            .iter()
+            .map(|mount| {
+                self.workspace_mounts.get(mount).cloned().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Host-mediated tool mount authority disappeared",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
         spec.environment.clear();
         spec.environment.push((
             semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
             "1".into(),
         ));
+        if let Some(cwd) = cwd {
+            if !contract.mounts.contains(&cwd.mount) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime tool working directory is outside the tool mount allowlist",
+                ));
+            }
+            let mount = self.workspace_mounts.get(&cwd.mount).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime tool working-directory mount disappeared",
+                )
+            })?;
+            let mut directory = mount.source.clone();
+            if !cwd.relative.is_empty() {
+                directory.push(&cwd.relative);
+            }
+            let metadata = std::fs::metadata(&directory).map_err(|_| {
+                Error::new(
+                    ErrorCode::NotFound,
+                    "Runtime tool working directory is unavailable",
+                )
+            })?;
+            if !metadata.is_dir() {
+                return Err(Error::invalid(
+                    "Runtime tool working directory is not a directory",
+                ));
+            }
+            spec.environment.push((
+                SANDBOX_HOST_TOOL_CWD_ENV.into(),
+                directory.to_string_lossy().into_owned(),
+            ));
+        }
         spec.sealed_tools.clear();
         let timeout = Duration::from_millis(timeout_ms);
         let timeout_cpu_seconds = timeout
@@ -968,14 +1058,22 @@ fn spawn_v2_reader(
                     args,
                     stdin,
                     timeout_ms,
+                    cwd,
                 } => {
                     let parent_state = {
                         let pending = pending.lock().await;
                         host_tool_parent(&pending, &id, &parent)
                     };
-                    let valid = protocol >= 4
+                    let valid = protocol >= if cwd.is_some() { 5 } else { 4 }
                         && interfaces.host_tools
-                        && validate_tool_execute_request(&name, &args, &stdin, timeout_ms).is_ok()
+                        && validate_runtime_tool_execute_request(
+                            &name,
+                            &args,
+                            &stdin,
+                            timeout_ms,
+                            cwd.as_ref(),
+                        )
+                        .is_ok()
                         && parent_state.is_some();
                     let registered = if valid {
                         let mut calls = tool_calls.lock().await;
@@ -1009,6 +1107,7 @@ fn spawn_v2_reader(
                                             args,
                                             stdin,
                                             timeout_ms,
+                                            cwd,
                                             charged_cpu_seconds,
                                         )
                                         .await
@@ -1410,6 +1509,7 @@ impl DriverProvider {
                 Some(Arc::new(HostToolBroker::new(
                     &spec,
                     &sealed_tools,
+                    &manifest.tools,
                     manifest.resources.operation_cpu_seconds,
                 )?))
             } else {

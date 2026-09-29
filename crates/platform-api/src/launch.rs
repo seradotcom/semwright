@@ -80,6 +80,9 @@ pub const SANDBOX_MOUNTS_ENV: &str = "SEMWRIGHT_SANDBOX_MOUNTS_V1";
 /// Internal host-only marker for a short-lived sealed tool child. Platform launchers may
 /// consume this for compatibility policy, but must not forward it into the child environment.
 pub const SANDBOX_HOST_TOOL_CHILD_ENV: &str = "SEMWRIGHT_HOST_TOOL_CHILD";
+/// Internal host-only absolute working directory for a Host-mediated tool child.
+/// It is derived from an already-authorized logical mount and never forwarded to the child.
+pub const SANDBOX_HOST_TOOL_CWD_ENV: &str = "SEMWRIGHT_HOST_TOOL_CWD";
 const MAX_MATERIALIZED_MOUNTS: usize = 32;
 const MAX_MOUNT_ENV_BYTES: usize = 16 * 1024;
 
@@ -350,6 +353,18 @@ impl SandboxSpec {
                 return Err(Error::invalid("Sandbox environment entry is invalid"));
             }
         }
+        let has_host_tool_cwd = environment_names
+            .iter()
+            .any(|name| name.as_str() == SANDBOX_HOST_TOOL_CWD_ENV);
+        let has_host_tool_child = environment_names
+            .iter()
+            .any(|name| name.as_str() == SANDBOX_HOST_TOOL_CHILD_ENV);
+        if has_host_tool_cwd && !has_host_tool_child {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Host-tool working directory marker requires a Host-tool child",
+            ));
+        }
         if matches!(self.kind, SandboxKind::Driver | SandboxKind::ExternalMcp)
             && self.limits.is_none()
         {
@@ -607,6 +622,43 @@ mod tests {
             vec![tool.clone()]
         );
         assert!(encode_materialized_tools(&[tool.clone(), tool]).is_err());
+    }
+
+    #[test]
+    fn host_tool_cwd_marker_requires_host_tool_child_marker() {
+        #[cfg(windows)]
+        let executable = PathBuf::from(r"C:\Semwright\driver.exe");
+        #[cfg(not(windows))]
+        let executable = PathBuf::from("/tmp/driver");
+        #[cfg(windows)]
+        let helper = PathBuf::from(r"C:\Semwright\sandbox.exe");
+        #[cfg(not(windows))]
+        let helper = PathBuf::from("/tmp/sandbox");
+
+        let base = SandboxSpec {
+            kind: SandboxKind::Driver,
+            staged_executable: executable,
+            helper,
+            mounts: vec![],
+            args: vec![],
+            environment: vec![(SANDBOX_HOST_TOOL_CWD_ENV.into(), "host-only".into())],
+            sealed_tools: vec![],
+            network: false,
+            limits: Some(ResourceLimits {
+                open_files: 32,
+                processes: 8,
+                cpu_seconds: 5,
+                address_space_bytes: 134_217_728,
+                file_size_bytes: 1_048_576,
+            }),
+        };
+        assert!(base.validate().is_err());
+
+        let mut valid = base;
+        valid
+            .environment
+            .push((SANDBOX_HOST_TOOL_CHILD_ENV.into(), "1".into()));
+        assert!(valid.validate().is_ok());
     }
 
     #[test]

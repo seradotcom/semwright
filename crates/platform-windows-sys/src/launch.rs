@@ -11,9 +11,9 @@ use crate::{
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
-    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl,
-    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, SealedToolSource,
-    encode_materialized_mounts, encode_materialized_tools,
+    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV,
+    SandboxChildControl, SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec,
+    SealedToolSource, encode_materialized_mounts, encode_materialized_tools,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -2019,7 +2019,9 @@ fn environment_block(
     let mut entries = spec
         .environment
         .iter()
-        .filter(|(name, _)| name != SANDBOX_HOST_TOOL_CHILD_ENV)
+        .filter(|(name, _)| {
+            name != SANDBOX_HOST_TOOL_CHILD_ENV && name != SANDBOX_HOST_TOOL_CWD_ENV
+        })
         .cloned()
         .collect::<Vec<_>>();
     if entries
@@ -2312,17 +2314,26 @@ fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
     if markers.is_empty() {
         return Ok(false);
     }
+    let cwd_markers = spec
+        .environment
+        .iter()
+        .filter(|(name, _)| name == SANDBOX_HOST_TOOL_CWD_ENV)
+        .collect::<Vec<_>>();
+    let environment_is_internal = spec
+        .environment
+        .iter()
+        .all(|(name, _)| name == SANDBOX_HOST_TOOL_CHILD_ENV || name == SANDBOX_HOST_TOOL_CWD_ENV);
     if markers.len() != 1
         || markers[0].1 != "1"
+        || cwd_markers.len() > 1
+        || !environment_is_internal
         || spec.kind != semwright_platform_api::launch::SandboxKind::Driver
-        || !spec.mounts.is_empty()
         || !spec.sealed_tools.is_empty()
         || spec.network
-        || spec.environment.len() != 1
     {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows sealed-tool compatibility marker is only valid for isolated Host-mediated tool children",
+            "Windows Host-tool marker is only valid for isolated Host-mediated tool children",
         ));
     }
     let architecture = architecture_file(&spec.staged_executable)?;
@@ -2464,8 +2475,8 @@ impl SandboxLauncher for WindowsSandbox {
                 if cross_arch_host_tool {
                     // x64-on-ARM64 emulation may require one runtime-support process. This
                     // extra Job slot is platform overhead, not delegated driver authority:
-                    // the LPAC child remains without mounts/network and the compatibility
-                    // probe still requires ordinary descendant spawn attempts to fail.
+                    // the LPAC child remains network-denied and sees only Host-selected
+                    // per-tool mounts; ordinary descendant spawn attempts must still fail.
                     limit.saturating_add(1)
                 } else {
                     limit
@@ -2484,7 +2495,20 @@ impl SandboxLauncher for WindowsSandbox {
         let job = Arc::new(ProcessJob::new(process_limit, memory_limit, cpu_seconds)?);
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
-        let current_directory = wide_null(OsStr::new(&profile.local_app_data))?;
+        let requested_directory = spec
+            .environment
+            .iter()
+            .find(|(name, _)| name == SANDBOX_HOST_TOOL_CWD_ENV)
+            .map(|(_, value)| value.as_str())
+            .unwrap_or(&profile.local_app_data);
+        let requested_directory_path = Path::new(requested_directory);
+        if !requested_directory_path.is_absolute() || !requested_directory_path.is_dir() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox working directory must be an existing absolute directory",
+            ));
+        }
+        let current_directory = wide_null(requested_directory_path.as_os_str())?;
         let mut command = command_line(spec)?;
         let environment = environment_block(
             spec,
