@@ -6,7 +6,7 @@ The workspace gains `semwright-project-graph`; its default surface is the portab
 
 A C0 is consumed unchanged. The generic ScopedRoot trait receives an additive object-safe observation method with a conservative default Unsupported implementation. Linux implements bounded native instance observation. Existing scoped read/write methods are unchanged. Rust consumers should rebuild coherently from the integrated SHA; this is not a binary-ABI compatibility promise.
 
-Private graph schema 1 is new. No application files or existing workflow stores are migrated. The event journal preserves revisions/activities and allows explicit index reconstruction; unrecognized schema versions fail closed. Portable imports never acquire local owner identity, trusted receipts, locators or CURRENT state.
+Private graph schema 1 is new. No application files or existing workflow stores are migrated. The event journal preserves revisions/activities and allows explicit index reconstruction; unrecognized schema versions fail closed. The additive `revision_candidate` wire schema introduces no stored authority: AssetRevision/Owner/ProjectId are supplied by trusted admission, not candidate JSON. Portable imports never acquire local owner identity, trusted receipts/revisions, locators or CURRENT state.
 
 The candidate adds 13 bounded `project.*` core descriptors. Generic CLI/MCP execution gateways reach them through the same Broker as existing built-ins; no second API authority is added. Mutations require explicit `project.manage` and a named filesystem read grant. The daemon binds private stores to a versioned OS-user principal rather than a client session. The continuity Skill now requires the actual graph descriptors; its examples still execute zero project operations.
 

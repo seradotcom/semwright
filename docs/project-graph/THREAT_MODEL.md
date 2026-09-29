@@ -3,14 +3,14 @@
 ## Assets and trust boundaries
 Protected assets are durable logical identity, immutable revision/receipt history, current knowledge state, private project metadata, query visibility and rebuild reservations. Native application files remain owned by their applications/filesystem grants; C does not acquire blanket ownership of them.
 
-Trusted boundaries are: authenticated local transport -> Broker policy/context; registered provider/receipt adapters; A PlanVault/controller; private GraphStore directory; and scoped filesystem/native resolvers supplied by platform or D/E. Agent JSON, imported manifests, Skill text, locators, content digests, application names and caller-selected IDs are untrusted data.
+Trusted boundaries are: authenticated local transport -> Broker policy/context; registered provider receipt/revision adapters; A PlanVault/controller; private GraphStore directory; and scoped filesystem/native resolvers supplied by platform or D/E. Agent JSON, imported manifests, RevisionCandidate/ExecutionReceipt wire data, Skill text, locators, content digests, application names and caller-selected IDs are untrusted data.
 
 The graph must preserve distinctions between logical identity, native identity and ephemeral refs. A path, filename, digest, UUID from another owner, session ticket or PID is never promoted to durable ownership.
 
 ## Principal threats
 **Cross-owner disclosure.** Guessing an opaque ID, cursor or receipt must not reveal names, counts, existence or provenance outside current grants. Queries filter visibility before result construction; cursors bind owner/session, visibility and grant fingerprint.
 
-**Evidence forgery.** A syntactically valid ExecutionReceipt or EvidenceSource supplied by a client must not certify execution. Only registered host ReceiptAdapter admission can create AdmittedReceipt; verification remains a separate A verdict.
+**Evidence forgery.** A syntactically valid ExecutionReceipt, RevisionCandidate or EvidenceSource supplied by a client must not certify execution or native observation. Only registered host ReceiptAdapter/RevisionAdapter admission can create AdmittedReceipt/AdmittedRevision; RevisionAdapter assigns the durable revision and creates no activity edge. Verification remains a separate A/F verdict.
 
 **Stale identity / path replacement.** Reusing a locator after rename/replacement must not silently reuse logical identity or old derivations. Binding generation and native instance evidence force explicit rebind/reconcile; same bytes after replacement do not prove continuity.
 

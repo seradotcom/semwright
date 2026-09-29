@@ -12,6 +12,8 @@ C owns its crate, tests, workflow, scripts, documentation and continuity package
 
 The source defines `RebuildCatalog` and the P1 rebuild handoff separately. Native execution must be delegated through the existing Broker/controller with current descriptor/grant checks and cancellation; a passing catalog test double is not a Broker trace. Do not execute serialized strings or turn a proposal into a permission.
 
+For native read-only/import/readback evidence, use the separate host-only revision admission boundary. `RevisionCandidate` carries LogicalAssetId, fingerprint/equivalence, binding generation, ObservationRef and Coverage but deliberately omits ProjectId, Owner and AssetRevision. A trusted `RevisionAdapter` is registered for the exact ResourceKey + EvidenceSource + method/version; admission binds authenticated Owner, ProjectId, current asset/generation and allocates the AssetRevision. `accept_revision` records an observation only and never creates a production activity. Raw `RevisionRecord` promotion and a public `project.revision.admit` route do not exist. The built-in scoped-file reconcile path uses the same adapter.
+
 ## Broker runtime route
 The candidate registers bounded `project.*` built-ins through the existing core execution path. They receive the normal schema validation, policy check, audit, execution gate, cancellation/timeout handling and output validation before Project Graph code runs. Read routes require the named `filesystem.read:root` grant. Mutating private graph-state routes additionally require explicit `project.manage`; a filesystem read grant alone cannot create, rebind, tombstone or import project state.
 
