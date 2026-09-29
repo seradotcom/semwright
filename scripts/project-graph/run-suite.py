@@ -86,7 +86,7 @@ try:
             )
             broker_expected = len(re.findall(r"^.+: test$", broker_inventory, re.MULTILINE))
             report["broker_requested_tests"] = broker_expected
-            if broker_expected < 7:
+            if broker_expected < 8:
                 raise RuntimeError("missing Broker Project Graph test inventory")
             broker_tests = run(
                 "broker-tests",

@@ -1,3 +1,4 @@
+use semwright_backends::fake::FakeDesktop;
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_types::{Envelope, ErrorCode, ExecuteRequest, unique_id};
@@ -10,7 +11,10 @@ use tokio_util::sync::CancellationToken;
 
 fn broker(root: &Path, state: &Path, audit_name: &str, principal: &str) -> Arc<Broker> {
     let config = PolicyConfig {
-        allow: ["project.manage"].into_iter().map(String::from).collect(),
+        allow: ["project.manage", "workflow.record"]
+            .into_iter()
+            .map(String::from)
+            .collect(),
         filesystem: vec![FilesystemGrant {
             name: "workspace".into(),
             path: root.to_owned(),
@@ -22,7 +26,7 @@ fn broker(root: &Path, state: &Path, audit_name: &str, principal: &str) -> Arc<B
     let audit = Audit::open(&state.parent().unwrap().join(audit_name), 65_536, 2).unwrap();
     let broker = Broker::new(
         Policy::new(config).unwrap(),
-        vec![],
+        vec![Arc::new(FakeDesktop::new())],
         audit,
         Arc::new(NoApprover),
         None,
@@ -364,4 +368,73 @@ async fn project_root_symlink_retarget_invalidates_the_persistent_boundary() {
     )
     .await;
     assert_eq!(denied.error.unwrap().code, ErrorCode::PolicyDenied);
+}
+
+#[tokio::test]
+async fn project_routes_are_not_recorded_as_workflow_memory() {
+    let (_temp, root, state) = fixture();
+    let broker = broker(
+        &root,
+        &state,
+        "audit-workflow-boundary",
+        "os-user-v1:fixture:workflow",
+    );
+    let session = unique_id();
+    let created = call(
+        &broker,
+        &session,
+        "project.create",
+        json!({"root":"workspace"}),
+    )
+    .await;
+    assert!(created.ok, "{created:?}");
+    let project = created.data.unwrap()["project"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let started = call(
+        &broker,
+        &session,
+        "workflow.record.start",
+        json!({
+            "name":"project-graph-boundary",
+            "intent":"Project Graph commands are durable project state, not workflow memory",
+            "capture_values":false
+        }),
+    )
+    .await;
+    assert!(started.ok, "{started:?}");
+
+    let graph_read = call(
+        &broker,
+        &session,
+        "project.query",
+        json!({"root":"workspace","project":project}),
+    )
+    .await;
+    assert!(graph_read.ok, "{graph_read:?}");
+
+    let app_read = call(&broker, &session, "app.list", json!({})).await;
+    assert!(app_read.ok, "{app_read:?}");
+
+    let stopped = call(
+        &broker,
+        &session,
+        "workflow.record.stop",
+        json!({"successful":true}),
+    )
+    .await;
+    assert!(stopped.ok, "{stopped:?}");
+    let steps = stopped.data.unwrap()["trace"]["steps"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(steps.len(), 1, "{steps:?}");
+    assert_eq!(steps[0]["command"], "app.list");
+    assert!(!steps.iter().any(|step| {
+        step["command"]
+            .as_str()
+            .is_some_and(|c| c.starts_with("project."))
+    }));
 }

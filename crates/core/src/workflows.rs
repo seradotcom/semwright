@@ -37,6 +37,7 @@ fn recording_command(command: &str) -> bool {
         "jobs.",
         "events.",
         "plugin.",
+        "project.",
     ]
     .iter()
     .any(|prefix| command.starts_with(prefix))
