@@ -126,7 +126,7 @@
           ],
           "node": {
             "kind": "instance",
-            "asset": "hero_model"
+            "asset": "fixture_prop"
           }
         },
         {

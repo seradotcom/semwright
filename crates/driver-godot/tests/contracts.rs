@@ -1,7 +1,7 @@
 use semwright_driver_sdk::{Driver, descriptor_digest};
 use semwright_godot_driver::{
     GodotDriver,
-    catalog::Catalog,
+    catalog::{Catalog, Route},
     config::{Config, ProjectConfig},
     model::semantic_diff,
 };
@@ -332,7 +332,6 @@ fn catalog_plugin_routes_have_editor_handlers() {
 
 #[test]
 fn catalog_routes_partition_the_full_surface() {
-    use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     assert_eq!(catalog.names_for(Route::Local).len(), 3);
     assert_eq!(catalog.names_for(Route::Plugin).len(), 179);
