@@ -11,7 +11,8 @@
     "F": "c1507c163c85675ba067911f8713a52677497e6d"
   },
   "selected_lanes": [
-    "selftest"
+    "selftest",
+    "graph"
   ],
   "pins": {
     "os": "ubuntu-24.04",
