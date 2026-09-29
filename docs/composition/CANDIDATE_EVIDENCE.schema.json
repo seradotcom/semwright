@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "description": "Semwright Composition/AV combined-candidate evidence manifest. This is a contract template, not evidence by itself.",
+  "required_fields": [
+    "candidate_sha",
+    "a_sha",
+    "b_sha",
+    "c0_sha",
+    "combined_candidate",
+    "b_audio_ready_for_integration",
+    "ready_for_demo_production",
+    "ready_for",
+    "not_ready_for",
+    "required_gates",
+    "workflow_evidence",
+    "figma_required_for_workflow",
+    "r16_closed",
+    "promotional_video_created"
+  ],
+  "gate_states": [
+    "PASS",
+    "FAIL",
+    "UNKNOWN",
+    "PENDING",
+    "NOT_APPLICABLE"
+  ],
+  "required_gate_ids": [
+    "common_contracts",
+    "figma_regression",
+    "motion_native",
+    "audio_native",
+    "av_native_mux_decode_sync",
+    "security_targeted",
+    "skill_packages",
+    "development_package",
+    "required_repository_checks"
+  ]
+}

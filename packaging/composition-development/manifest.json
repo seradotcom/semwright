@@ -24,6 +24,8 @@
     "scripts/composition/run-suite.py",
     "scripts/composition/package-dev.py",
     "scripts/composition/test-package-dev.py",
+    "scripts/composition/candidate-evidence.py",
+    "scripts/composition/test-candidate-evidence.py",
     "packaging/composition-development/manifest.json",
     "scripts/motion-canvas/runtime-manifest.py",
     "benchmarks/composition",

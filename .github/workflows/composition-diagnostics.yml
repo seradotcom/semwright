@@ -105,8 +105,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Development package unit tests
-        run: python scripts/composition/test-package-dev.py
+      - name: Development package and candidate evidence unit tests
+        run: |
+          python scripts/composition/test-package-dev.py
+          python scripts/composition/test-candidate-evidence.py
       - name: Build and verify Agent-A source handoff
         run: |
           mkdir -p verification/composition-package
