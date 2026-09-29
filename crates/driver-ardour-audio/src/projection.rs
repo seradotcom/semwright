@@ -14,7 +14,7 @@ use semwright_audio_domain::{
     time::{SampleFrame, SampleRange, SampleRate},
     units::MilliDb,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub struct ArdourProjection;
 
@@ -155,9 +155,28 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                 .cloned()
                 .unwrap_or_else(|| "master".into());
             let mut sends = Vec::new();
+            let mut send_targets = BTreeSet::new();
             for send in &route.sends {
                 if let Some(target) = route_to_bus.get(&send.target_route) {
-                    if target != &owner {
+                    if target == &owner {
+                        loss(
+                            &mut losses,
+                            ProjectionLossKind::UnsupportedSemantic,
+                            ProjectionLossImpact::ReadOnly,
+                            "ardour.self_send_not_projected",
+                            Some(format!("bus/{owner}")),
+                            "Ardour self-send requires feedback/delay semantics absent from the native snapshot",
+                        );
+                    } else if !send_targets.insert(target.clone()) {
+                        loss(
+                            &mut losses,
+                            ProjectionLossKind::RoundTripRisk,
+                            ProjectionLossImpact::ReadOnly,
+                            "ardour.duplicate_send_target",
+                            Some(format!("bus/{owner}")),
+                            "Multiple Ardour sends target one bus; the neutral model preserves only the first",
+                        );
+                    } else {
                         sends.push(BusSend {
                             target_bus: target.clone(),
                             gain: MilliDb(send.gain_millidb),
@@ -203,16 +222,28 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                 }
             }
             let mut sends = Vec::new();
+            let mut send_targets = BTreeSet::new();
             for send in &route.sends {
                 if let Some(target) = route_to_bus.get(&send.target_route) {
-                    sends.push(BusSend {
-                        target_bus: target.clone(),
-                        gain: MilliDb(send.gain_millidb),
-                        enabled: send.enabled,
-                        pre_fader: send.pre_fader,
-                        role: semwright_audio_domain::model::SendRole::Audio,
-                        delay_frames: 0,
-                    });
+                    if !send_targets.insert(target.clone()) {
+                        loss(
+                            &mut losses,
+                            ProjectionLossKind::RoundTripRisk,
+                            ProjectionLossImpact::ReadOnly,
+                            "ardour.duplicate_track_send_target",
+                            Some(format!("stem/{stem_id}")),
+                            "Multiple Ardour track sends target one bus; the neutral model preserves only the first",
+                        );
+                    } else {
+                        sends.push(BusSend {
+                            target_bus: target.clone(),
+                            gain: MilliDb(send.gain_millidb),
+                            enabled: send.enabled,
+                            pre_fader: send.pre_fader,
+                            role: semwright_audio_domain::model::SendRole::Audio,
+                            delay_frames: 0,
+                        });
+                    }
                 } else {
                     loss(
                         &mut losses,
@@ -513,6 +544,62 @@ mod tests {
             contract.support(AudioOperation::EffectAdd),
             OperationSupport::Unsupported
         );
+    }
+
+    #[test]
+    fn duplicate_and_self_sends_degrade_without_invalidating_the_neutral_model() {
+        let mut native = snapshot();
+        native.routes.push(NativeRoute {
+            id: "bus1".into(),
+            name: "FX".into(),
+            kind: RouteKind::Bus,
+            channels: 2,
+            muted: false,
+            soloed: false,
+            gain_millidb: 0,
+            pan_milli: 0,
+            regions: vec![],
+            sends: vec![NativeSend {
+                target_route: "bus1".into(),
+                gain_millidb: -3_000,
+                enabled: true,
+                pre_fader: false,
+            }],
+            plugins: vec![],
+            routing_complete: true,
+            sends_complete: true,
+            plugins_complete: true,
+        });
+        native.routes[1].sends = vec![
+            NativeSend {
+                target_route: "bus1".into(),
+                gain_millidb: -6_000,
+                enabled: true,
+                pre_fader: false,
+            },
+            NativeSend {
+                target_route: "bus1".into(),
+                gain_millidb: -12_000,
+                enabled: true,
+                pre_fader: true,
+            },
+        ];
+        let report = ArdourProjection.project(&native).unwrap();
+        report.project.validate().unwrap();
+        assert_eq!(report.project.stems[0].sends.len(), 1);
+        assert!(
+            report
+                .losses
+                .iter()
+                .any(|loss| loss.code == "ardour.duplicate_track_send_target")
+        );
+        assert!(
+            report
+                .losses
+                .iter()
+                .any(|loss| loss.code == "ardour.self_send_not_projected")
+        );
+        assert_eq!(report.fidelity, ProjectionFidelity::LossyReadOnly);
     }
 
     #[test]

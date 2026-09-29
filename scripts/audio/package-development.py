@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "integrations" / "audio" / "manifests"
@@ -24,6 +25,93 @@ def run(argv):
     if result.returncode:
         raise RuntimeError("command failed: " + " ".join(map(str, argv)))
     return result.stdout
+
+SOURCE_BUNDLE_PATHS = [
+    Path(".github/workflows/audio-diagnostics.yml"),
+    Path("Cargo.toml"),
+    Path("Cargo.lock"),
+    Path("LICENSE-MIT"),
+    Path("LICENSE-APACHE"),
+    Path("NOTICE"),
+    Path("rust-toolchain.toml"),
+    Path("crates/audio-authoring"),
+    Path("crates/audio-domain"),
+    Path("crates/driver-ardour-audio"),
+    Path("crates/driver-faust-audio"),
+    Path("docs/audio"),
+    Path("docs/audio-domain.md"),
+    Path("fixtures/audio"),
+    Path("integrations/audio"),
+    Path("scripts/audio"),
+    Path("skills/semwright-audio-production"),
+    Path("fuzz/Cargo.toml"),
+    Path("fuzz/fuzz_targets/audio_domain_edit.rs"),
+    Path("fuzz/fuzz_targets/audio_domain_model.rs"),
+    Path("fuzz/fuzz_targets/audio_wav.rs"),
+    Path("fuzz/corpus/audio_domain_edit"),
+    Path("fuzz/corpus/audio_domain_model"),
+    Path("fuzz/corpus/audio_wav"),
+]
+
+def source_files():
+    files = set()
+    for item in SOURCE_BUNDLE_PATHS:
+        path = ROOT / item
+        if not path.exists():
+            raise RuntimeError(f"source bundle input is missing: {item}")
+        candidates = [path] if path.is_file() else path.rglob("*")
+        for candidate in candidates:
+            if candidate.is_symlink():
+                raise RuntimeError(f"source bundle rejects symlink: {candidate}")
+            if candidate.is_file():
+                relative = candidate.relative_to(ROOT)
+                if any(part in {".git", "target", "__pycache__"} for part in relative.parts):
+                    continue
+                files.add(relative)
+    return sorted(files)
+
+def build_source_bundle(output: Path, tested_sha: str):
+    entries = []
+    files = source_files()
+    total = 0
+    for relative in files:
+        path = ROOT / relative
+        size = path.stat().st_size
+        if size > 8 * 1024 * 1024:
+            raise RuntimeError(f"source bundle file exceeds budget: {relative}")
+        total += size
+        if total > 64 * 1024 * 1024:
+            raise RuntimeError("source bundle exceeds aggregate budget")
+        entries.append({
+            "path": relative.as_posix(),
+            "bytes": size,
+            "sha256": digest(path),
+        })
+    manifest_bytes = (json.dumps({
+        "schema_version": 1,
+        "tested_source_sha": tested_sha,
+        "file_count": len(entries),
+        "source_bytes": total,
+        "files": entries,
+    }, sort_keys=True, indent=2) + "\n").encode()
+    with zipfile.ZipFile(output, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        for relative in files:
+            path = ROOT / relative
+            info = zipfile.ZipInfo(relative.as_posix(), (1980, 1, 1, 0, 0, 0))
+            info.external_attr = (0o755 if path.stat().st_mode & 0o111 else 0o644) << 16
+            info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(info, path.read_bytes())
+        info = zipfile.ZipInfo("SOURCE_BUNDLE_MANIFEST.json", (1980, 1, 1, 0, 0, 0))
+        info.external_attr = 0o644 << 16
+        info.compress_type = zipfile.ZIP_DEFLATED
+        archive.writestr(info, manifest_bytes)
+    return {
+        "id": "semwright-audio-agent-b-source",
+        "package_sha256": digest(output),
+        "package_bytes": output.stat().st_size,
+        "source_file_count": len(entries),
+        "runtime_model": "deterministic_source_backup_non_authoritative",
+    }
 
 def manifest(template: str, executable: Path, tools: dict[str, Path], output: Path):
     value = json.loads((TEMPLATES / template).read_text())
@@ -58,7 +146,7 @@ def main():
         if not path.is_file():
             continue
         relative = path.relative_to(args.faust_libraries).as_posix()
-        if len(relative) > 512 or len(Path(relative).parts) > 9:
+        if len(relative) > 512 or len(Path(relative).parts) > 33:
             raise RuntimeError(f"Faust library path exceeds runtime bounds: {relative}")
         total_library_bytes += path.stat().st_size
         if total_library_bytes > 256 * 1024 * 1024:
@@ -93,6 +181,7 @@ def main():
          {"ardour-lua": args.ardour_lua, "ardour-new-session": args.ardour_create,
           "ardour-export": args.ardour_export}, "ardour-audio", ardour_runtime),
     ]
+    tested_sha = run(["git", "rev-parse", "HEAD"]).strip()
     receipts = []
     for template, executable, tools, name, runtime_manifest in specs:
         mf = out / f"{name}.manifest.json"
@@ -128,9 +217,11 @@ def main():
         "package_bytes": bundle.stat().st_size,
         "runtime_model": "skill_bundle_non_authoritative",
     })
+    source_bundle = out / "semwright-audio-agent-b-source.zip"
+    receipts.append(build_source_bundle(source_bundle, tested_sha))
     (out / "PACKAGES.json").write_text(json.dumps({
         "schema_version": 1,
-        "tested_source_sha": run(["git", "rev-parse", "HEAD"]).strip(),
+        "tested_source_sha": tested_sha,
         "packages": receipts,
         "note": "SWDP installs drivers/data companions; sealed executable tools remain explicit owner runtime grants."
     }, indent=2) + "\n")

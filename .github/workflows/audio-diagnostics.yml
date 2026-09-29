@@ -225,6 +225,13 @@ jobs:
           echo "SEMWRIGHT_TEST_ARDOUR_EXPORT=$EXPORT" >> "$GITHUB_ENV"
           sha256sum "$LUA" "$CREATE" "$EXPORT" > verification/audio/ardour-tools.sha256
           echo "runtime=ardour 8.4.0; ubuntu_package=1:8.4.0+ds1-2ubuntu8" > verification/audio/ardour-tool-baseline.txt
+      - name: Direct Ardour managed-create control
+        run: |
+          DIRECT_HOME="$RUNNER_TEMP/ardour-direct-home"
+          DIRECT_SESSION="$RUNNER_TEMP/ardour-direct-session"
+          mkdir -p "$DIRECT_HOME"
+          env -i             HOME="$DIRECT_HOME"             LANG=C.UTF-8             LC_ALL=C.UTF-8             PATH=/usr/bin:/bin             LD_LIBRARY_PATH=/usr/lib/ardour8             ARDOUR_DATA_PATH=/usr/share/ardour8             ARDOUR_CONFIG_PATH=/etc/ardour8             ARDOUR_DLL_PATH=/usr/lib/ardour8             VAMP_PATH=/usr/lib/ardour8/vamp             "$SEMWRIGHT_TEST_ARDOUR_CREATE" -s 48000 "$DIRECT_SESSION" Direct             > verification/audio/ardour-direct-create.stdout             2> verification/audio/ardour-direct-create.stderr
+          test -s "$DIRECT_SESSION/Direct.ardour"
       - name: Install scoped Driver Host sandbox profile
         run: |
           bash scripts/dev/ci-driver-bwrap-profile.sh verification/audio/ardour-sandbox-setup.log

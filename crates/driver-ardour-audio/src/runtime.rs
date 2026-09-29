@@ -56,6 +56,11 @@ pub struct ArdourRuntimeProbe {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
+struct ToolRun {
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
 pub struct ExportReceipt {
     pub file_name: String,
     pub sha256: String,
@@ -133,18 +138,12 @@ impl DeepRuntime {
     }
 
     pub async fn probe(&self) -> Result<ArdourRuntimeProbe> {
-        let lua_banner = version_banner(
-            &self.run_tool(&self.lua_tool, &["-V".into()]).await?,
-            "ardour-lua",
-        )?;
-        let create_banner = version_banner(
-            &self.run_tool(&self.create_tool, &["-V".into()]).await?,
-            "ardour-utils",
-        )?;
-        let export_banner = version_banner(
-            &self.run_tool(&self.export_tool, &["-V".into()]).await?,
-            "ardour-utils",
-        )?;
+        let lua = self.run_tool(&self.lua_tool, &["-V".into()]).await?;
+        let create = self.run_tool(&self.create_tool, &["-V".into()]).await?;
+        let export = self.run_tool(&self.export_tool, &["-V".into()]).await?;
+        let lua_banner = version_banner(&lua.stdout, "ardour-lua")?;
+        let create_banner = version_banner(&create.stdout, "ardour-utils")?;
+        let export_banner = version_banner(&export.stdout, "ardour-utils")?;
         for banner in [&lua_banner, &create_banner, &export_banner] {
             if !banner.contains("8.4") {
                 return Err(Error::new(
@@ -196,9 +195,12 @@ impl DeepRuntime {
             self.session_root.to_string_lossy().into_owned(),
             state.into(),
         ];
-        self.run_tool(&self.create_tool, &args).await?;
+        let creation = self.run_tool(&self.create_tool, &args).await?;
         // Ardour 8.4's utility has internal error paths that still return zero.
         // The native state artifact and a clean reopen are the acceptance signal.
+        if !state_file.try_exists()? {
+            return Err(classify_create_failure(&creation.stdout, &creation.stderr));
+        }
         regular(&state_file, 64 * 1024 * 1024)?;
         let snapshot = self.inspect(state).await?;
         let stereo_master = snapshot
@@ -274,8 +276,14 @@ impl DeepRuntime {
             self.session_root.to_string_lossy().into_owned(),
             state.into(),
         ];
-        self.run_tool(&self.export_tool, &args).await?;
+        let export_run = self.run_tool(&self.export_tool, &args).await?;
         // export.cc in Ardour 8.4 does not propagate export_session() failure through main().
+        if !output.try_exists()? {
+            return Err(classify_export_failure(
+                &export_run.stdout,
+                &export_run.stderr,
+            ));
+        }
         regular(&output, MAX_ARTIFACT_BYTES)?;
         let sha256 = file_sha256(&output, MAX_ARTIFACT_BYTES)?;
         let bytes = fs::metadata(&output)?.len();
@@ -324,11 +332,11 @@ impl DeepRuntime {
             operation_args.to_vec(),
         ]
         .concat();
-        let stdout = self.run_tool(&self.lua_tool, &args).await?;
-        parse_snapshot(&stdout)
+        let run = self.run_tool(&self.lua_tool, &args).await?;
+        parse_snapshot(&run.stdout)
     }
 
-    async fn run_tool(&self, tool: &Path, args: &[String]) -> Result<Vec<u8>> {
+    async fn run_tool(&self, tool: &Path, args: &[String]) -> Result<ToolRun> {
         let temp_home = TempDir::new()?;
         let mut command = Command::new(tool);
         command
@@ -363,15 +371,9 @@ impl DeepRuntime {
                 async { child.wait().await.map_err(Error::from) }
             )?;
             if !status.success() {
-                return Err(Error::new(
-                    ErrorCode::BackendFailed,
-                    format!(
-                        "Pinned Ardour tool exited unsuccessfully ({} stderr bytes)",
-                        stderr.len()
-                    ),
-                ));
+                return Err(classify_tool_failure(&stdout, &stderr));
             }
-            Ok::<Vec<u8>, Error>(stdout)
+            Ok::<ToolRun, Error>(ToolRun { stdout, stderr })
         };
         timeout(RUN_TIMEOUT, execution).await.map_err(|_| {
             Error::new(
@@ -399,6 +401,93 @@ async fn read_bounded(reader: impl tokio::io::AsyncRead + Unpin, max: usize) -> 
         ));
     }
     Ok(bytes)
+}
+
+fn bounded_diagnostic(stdout: &[u8], stderr: &[u8]) -> String {
+    let mut text = String::from_utf8_lossy(stderr).into_owned();
+    if !stdout.is_empty() {
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        text.push_str(&String::from_utf8_lossy(stdout));
+    }
+    text.truncate(4096);
+    text
+}
+
+fn classify_tool_failure(stdout: &[u8], stderr: &[u8]) -> Error {
+    let text = bounded_diagnostic(stdout, stderr);
+    if text.contains("Permission denied") || text.contains("Read-only file system") {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Ardour utility was denied required sandbox filesystem access",
+        )
+    } else if text.contains("error while loading shared libraries")
+        || text.contains("cannot open shared object file")
+        || text.contains("No such file or directory")
+    {
+        Error::new(
+            ErrorCode::Unavailable,
+            "Pinned Ardour runtime dependency is unavailable",
+        )
+    } else if text.contains("Cannot create Audio/MIDI engine")
+        || text.contains("Cannot start Audio/MIDI engine")
+        || text.contains("Cannot set session's samplerate")
+    {
+        Error::new(
+            ErrorCode::Unavailable,
+            "Ardour Dummy audio engine could not initialize inside the managed runtime",
+        )
+    } else if text.contains("Session file exists") {
+        Error::new(ErrorCode::Conflict, "Ardour session state already exists")
+    } else {
+        Error::new(ErrorCode::BackendFailed, "Pinned Ardour utility failed")
+    }
+}
+
+fn classify_create_failure(stdout: &[u8], stderr: &[u8]) -> Error {
+    let text = bounded_diagnostic(stdout, stderr);
+    if text.contains("Cannot create Audio/MIDI engine")
+        || text.contains("Cannot start Audio/MIDI engine")
+        || text.contains("Cannot set session's samplerate")
+    {
+        Error::new(
+            ErrorCode::Unavailable,
+            "Ardour managed-session engine initialization failed",
+        )
+    } else if text.contains("Permission denied") || text.contains("Read-only file system") {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Ardour managed-session creation was denied by confinement",
+        )
+    } else if text.contains("Session file exists") {
+        Error::new(ErrorCode::Conflict, "Ardour session state already exists")
+    } else {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Ardour create utility returned without a native session artifact",
+        )
+    }
+}
+
+fn classify_export_failure(stdout: &[u8], stderr: &[u8]) -> Error {
+    let text = bounded_diagnostic(stdout, stderr);
+    if text.contains("Permission denied") || text.contains("Read-only file system") {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Ardour export was denied by confinement",
+        )
+    } else if text.contains("Cannot") || text.contains("failed") || text.contains("error") {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Ardour export utility reported failure",
+        )
+    } else {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Ardour export utility returned without an artifact",
+        )
+    }
 }
 
 fn parse_snapshot(stdout: &[u8]) -> Result<ArdourSnapshot> {

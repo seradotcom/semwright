@@ -297,6 +297,49 @@ fn stem_send_is_typed_and_protects_referenced_bus() {
 }
 
 #[test]
+fn send_targets_are_unique_and_send_automation_requires_a_real_send() {
+    let mut project = empty_project();
+    project.buses.push(bus("fx"));
+    let mut dialogue = stem("dialogue", "master");
+    dialogue.sends.push(BusSend {
+        target_bus: "fx".into(),
+        gain: MilliDb(-6_000),
+        enabled: true,
+        pre_fader: false,
+        role: SendRole::Audio,
+        delay_frames: 0,
+    });
+    dialogue.automations.push(Automation {
+        id: "fx-send-gain".into(),
+        target: AutomationTarget::StemSendGain {
+            target_bus: "fx".into(),
+        },
+        points: vec![AutomationPoint {
+            frame: SampleFrame(0),
+            value_milli: -6_000,
+            curve: AutomationCurve::Linear,
+        }],
+    });
+    project.stems.push(dialogue);
+    project.validate().unwrap();
+
+    let mut duplicate = project.clone();
+    duplicate.stems[0].sends.push(BusSend {
+        target_bus: "fx".into(),
+        gain: MilliDb(-12_000),
+        enabled: true,
+        pre_fader: true,
+        role: SendRole::Sidechain,
+        delay_frames: 0,
+    });
+    assert!(duplicate.validate().is_err());
+
+    let mut missing_send = project;
+    missing_send.stems[0].sends.clear();
+    assert!(missing_send.validate().is_err());
+}
+
+#[test]
 fn professional_portable_edit_workflow_covers_groups_timeline_midi_and_clip_edits() {
     let mut project = empty_project();
     project.samples.insert(

@@ -45,7 +45,7 @@ fn materialize_libraries(
     pins: &mut BTreeMap<String, String>,
 ) {
     assert!(
-        depth <= 8,
+        depth <= 32,
         "Faust library source tree exceeded fixture depth"
     );
     for entry in fs::read_dir(source_root).unwrap() {
@@ -63,6 +63,11 @@ fn materialize_libraries(
         // Trusted runner package inputs may use file symlinks. fs::copy follows
         // the source target and materializes ordinary private bytes in the fixture.
         if source.extension().is_some_and(|ext| ext == "lib") && source.is_file() {
+            assert!(
+                relative.components().count() <= 33,
+                "Faust .lib relative path exceeds runtime depth: {}",
+                relative.display()
+            );
             fs::create_dir_all(destination.parent().unwrap()).unwrap();
             fs::copy(&source, &destination).unwrap();
             fs::set_permissions(&destination, fs::Permissions::from_mode(0o400)).unwrap();

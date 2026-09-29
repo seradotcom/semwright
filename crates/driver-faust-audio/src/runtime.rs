@@ -24,7 +24,7 @@ pub const HELPER_NAME: &str = "faust-interpreter";
 const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_RUNTIME_CONFIG_BYTES: u64 = 512 * 1024;
 const MAX_LIBRARY_FILES: usize = 2048;
-const MAX_LIBRARY_DEPTH: usize = 8;
+const MAX_LIBRARY_DEPTH: usize = 32;
 const MAX_LIBRARY_TOTAL_BYTES: u64 = 256 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

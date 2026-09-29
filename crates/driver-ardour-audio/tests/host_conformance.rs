@@ -192,7 +192,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         loopback_port: None,
         resources: DriverResources {
             open_files: 512,
-            processes: 32,
+            processes: 128,
             cpu_seconds: 180,
             operation_cpu_seconds: 30,
             address_space_bytes: 3_221_225_472,

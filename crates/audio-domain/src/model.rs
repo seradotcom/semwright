@@ -871,8 +871,12 @@ impl Bus {
         if self.sends.len() > 256 {
             return Err(Error::limit("Bus send count exceeds limit"));
         }
+        let mut send_targets = BTreeSet::new();
         for send in &self.sends {
             send.validate()?;
+            if !send_targets.insert(send.target_bus.as_str()) {
+                return Err(Error::invalid("Bus has duplicate send target"));
+            }
         }
         validate_automations(&self.automations)
     }
@@ -908,8 +912,12 @@ impl Stem {
         if self.sends.len() > 256 {
             return Err(Error::limit("Stem send count exceeds limit"));
         }
+        let mut send_targets = BTreeSet::new();
         for send in &self.sends {
             send.validate()?;
+            if !send_targets.insert(send.target_bus.as_str()) {
+                return Err(Error::invalid("Stem has duplicate send target"));
+            }
         }
         if self.clips.len() > MAX_CLIPS {
             return Err(Error::limit("Stem clip count exceeds limit"));
@@ -1280,8 +1288,8 @@ impl AudioProject {
             validate_automation_targets(
                 &bus.automations,
                 &bus.effects,
+                &bus.sends,
                 true,
-                &bus.id,
                 &self.synths,
                 &bus_ids,
             )?;
@@ -1311,8 +1319,8 @@ impl AudioProject {
             validate_automation_targets(
                 &stem.automations,
                 &stem.effects,
+                &stem.sends,
                 false,
-                &stem.id,
                 &self.synths,
                 &bus_ids,
             )?;
@@ -1563,8 +1571,8 @@ fn validate_text(label: &str, value: &str, max: usize) -> Result<()> {
 fn validate_automation_targets(
     values: &[Automation],
     effects: &EffectChain,
+    sends: &[BusSend],
     owner_is_bus: bool,
-    owner_id: &str,
     synths: &BTreeMap<String, Synth>,
     bus_ids: &BTreeSet<&str>,
 ) -> Result<()> {
@@ -1577,12 +1585,17 @@ fn validate_automation_targets(
                 return Err(Error::invalid("Bus automation cannot belong to a stem"));
             }
             AutomationTarget::StemSendGain { target_bus } => {
-                if owner_is_bus || !bus_ids.contains(target_bus.as_str()) {
+                if owner_is_bus
+                    || !bus_ids.contains(target_bus.as_str())
+                    || !sends.iter().any(|send| send.target_bus == *target_bus)
+                {
                     return Err(Error::invalid("Invalid stem-send automation target"));
                 }
             }
             AutomationTarget::BusSendGain { target_bus } => {
-                if !owner_is_bus || target_bus == owner_id || !bus_ids.contains(target_bus.as_str())
+                if !owner_is_bus
+                    || !bus_ids.contains(target_bus.as_str())
+                    || !sends.iter().any(|send| send.target_bus == *target_bus)
                 {
                     return Err(Error::invalid("Invalid bus-send automation target"));
                 }
