@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: platformization-macos-${{ github.ref }}
+  group: platformization-macos-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 defaults:
@@ -24,6 +24,7 @@ env:
 
 jobs:
   linux-regression:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -49,6 +50,7 @@ jobs:
           python3 scripts/verify-source.py
 
   macos-native:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     strategy:
       fail-fast: false
       matrix:
