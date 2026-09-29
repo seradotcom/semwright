@@ -471,7 +471,7 @@ async fn godot_driver_network_requires_owner_opt_in() {
     let fixture = fixture();
 
     let error = match DriverProvider::connect(
-        manifest(executable, true, None, None),
+        manifest(executable, true, None, Some(fixture.tool_sha256.clone())),
         state.path(),
         &helper,
         &fixture.roots,
