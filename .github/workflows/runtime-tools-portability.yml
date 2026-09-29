@@ -47,4 +47,6 @@ jobs:
         run: cargo test --locked -p semwright-driver-sdk
       - if: runner.os != 'Linux'
         run: cargo test --locked -p semwright-driver-sdk tests::runtime_tool_mode_hides_platform_specific_execution -- --exact
+      - if: runner.os == 'macOS'
+        run: cargo test --locked -p semwright-platform-macos-sys
       - run: cargo clippy --locked -p semwright-driver-sdk --all-targets --no-deps -- -D warnings

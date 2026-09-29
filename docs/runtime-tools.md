@@ -6,7 +6,7 @@ For one-shot tools, drivers should call `DriverExecutionContext::execute_runtime
 
 Portable runtimes may also require a read-only runtime directory for libraries/resources. That directory remains a separately named mount; executable authority stays in `Manifest.tools` and is SHA-256 pinned.
 
-Linux currently materializes sealed tools inside the driver sandbox. Windows executes them through Driver Host and does not expose a direct executable path to the driver. macOS executable verification exists, but arbitrary driver/plugin sandbox execution remains fail-closed, so this document does not claim macOS runtime-tool acceptance.
+Linux currently materializes sealed tools inside the driver sandbox. Windows executes them through Driver Host and does not expose a direct executable path to the driver. macOS now exposes the same digest/ownership/native-architecture verification entry point for secondary tools, with a distinct 256 MiB tool budget, but arbitrary driver/plugin sandbox execution remains fail-closed. Verification alone is not runtime-tool acceptance on macOS.
 
 Blender already avoids ambient discovery but still needs a persistent runtime session; it therefore remains on `tool_path("blender")` until a Host-managed session primitive exists. Godot, MLT/ffprobe and other one-shot runtime consumers should migrate to `execute_runtime_tool` as their invocation requirements are normalized.
 
