@@ -29,13 +29,14 @@ use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 5;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 6;
 
 const MAX_TOOL_ARGS: usize = 32;
 const MAX_TOOL_ARG_BYTES: usize = 4 * 1024;
 const MAX_TOOL_STDIN_BYTES: usize = 64 * 1024;
 const MAX_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
 const MAX_TOOL_TIMEOUT_MS: u64 = 30_000;
+const MAX_TOOL_JOB_TIMEOUT_MS: u64 = 3_600_000;
 
 fn runtime_mount(class: MountClass, logical_name: &str) -> Result<PathBuf> {
     if logical_name.is_empty()
@@ -835,6 +836,49 @@ impl ToolExecutionOutput {
     }
 }
 
+/// Opaque Host-owned identifier for a detached runtime-tool job.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeToolJob {
+    pub id: String,
+}
+impl RuntimeToolJob {
+    pub fn validate(&self) -> Result<()> {
+        if self.id.is_empty()
+            || self.id.len() > 128
+            || !self
+                .id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        {
+            return Err(Error::invalid("Runtime tool job identifier is invalid"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RuntimeToolJobStatus {
+    Running,
+    Cancelling,
+    Succeeded { output: ToolExecutionOutput },
+    Failed { error: Error },
+    Cancelled,
+}
+impl RuntimeToolJobStatus {
+    pub fn validate(&self) -> Result<()> {
+        if let Self::Succeeded { output } = self {
+            output.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn terminal(&self) -> bool {
+        !matches!(self, Self::Running | Self::Cancelling)
+    }
+}
+
 /// Working directory for a runtime-tool invocation, expressed only as the root
 /// of an already-authorized workspace mount. Nested paths are intentionally deferred
 /// until platform hosts can resolve them without reparse/symlink races.
@@ -859,23 +903,31 @@ impl RuntimeToolCwd {
     }
 }
 
-pub fn validate_tool_execute_request(
-    name: &str,
-    args: &[String],
-    stdin: &[u8],
-    timeout_ms: u64,
-) -> Result<()> {
+fn validate_tool_request_shape(name: &str, args: &[String], stdin: &[u8]) -> Result<()> {
     if !valid_tool_name(name)
         || args.len() > MAX_TOOL_ARGS
         || args
             .iter()
             .any(|arg| arg.len() > MAX_TOOL_ARG_BYTES || arg.contains('\0'))
         || stdin.len() > MAX_TOOL_STDIN_BYTES
-        || timeout_ms == 0
-        || timeout_ms > MAX_TOOL_TIMEOUT_MS
     {
         return Err(Error::invalid(
             "Host-mediated tool request exceeds bounded contract",
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_tool_execute_request(
+    name: &str,
+    args: &[String],
+    stdin: &[u8],
+    timeout_ms: u64,
+) -> Result<()> {
+    validate_tool_request_shape(name, args, stdin)?;
+    if timeout_ms == 0 || timeout_ms > MAX_TOOL_TIMEOUT_MS {
+        return Err(Error::invalid(
+            "Host-mediated tool timeout exceeds bounded contract",
         ));
     }
     Ok(())
@@ -895,7 +947,35 @@ pub fn validate_runtime_tool_execute_request(
     Ok(())
 }
 
+pub fn validate_runtime_tool_job_start(
+    name: &str,
+    args: &[String],
+    stdin: &[u8],
+    timeout_ms: u64,
+    cwd: Option<&RuntimeToolCwd>,
+) -> Result<()> {
+    validate_tool_request_shape(name, args, stdin)?;
+    if timeout_ms == 0 || timeout_ms > MAX_TOOL_JOB_TIMEOUT_MS {
+        return Err(Error::invalid(
+            "Detached runtime-tool timeout exceeds bounded contract",
+        ));
+    }
+    if let Some(cwd) = cwd {
+        cwd.validate()?;
+    }
+    Ok(())
+}
+
 type ToolCallWaiters = Arc<Mutex<BTreeMap<String, oneshot::Sender<Result<ToolExecutionOutput>>>>>;
+#[derive(Debug)]
+enum ToolJobReply {
+    Started(RuntimeToolJob),
+    Status {
+        job: RuntimeToolJob,
+        status: RuntimeToolJobStatus,
+    },
+}
+type ToolJobWaiters = Arc<Mutex<BTreeMap<String, oneshot::Sender<Result<ToolJobReply>>>>>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
@@ -924,6 +1004,19 @@ pub enum Request {
         output: ToolExecutionOutput,
     },
     ToolFailure {
+        id: String,
+        error: Error,
+    },
+    ToolJobStarted {
+        id: String,
+        job: RuntimeToolJob,
+    },
+    ToolJobState {
+        id: String,
+        job: RuntimeToolJob,
+        status: RuntimeToolJobStatus,
+    },
+    ToolJobFailure {
         id: String,
         error: Error,
     },
@@ -974,6 +1067,26 @@ pub enum Response {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         cwd: Option<RuntimeToolCwd>,
     },
+    ToolJobStart {
+        id: String,
+        parent: String,
+        name: String,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cwd: Option<RuntimeToolCwd>,
+    },
+    ToolJobStatus {
+        id: String,
+        parent: String,
+        job: RuntimeToolJob,
+    },
+    ToolJobCancel {
+        id: String,
+        parent: String,
+        job: RuntimeToolJob,
+    },
     Failure {
         id: String,
         error: Error,
@@ -1022,6 +1135,7 @@ pub struct DriverExecutionContext {
     interfaces: DriverInterfaces,
     protocol: u32,
     tool_calls: ToolCallWaiters,
+    tool_jobs: ToolJobWaiters,
 }
 impl DriverExecutionContext {
     pub fn request_id(&self) -> &str {
@@ -1231,6 +1345,167 @@ impl DriverExecutionContext {
         }
     }
 
+    async fn await_tool_job_reply(&self, id: String, response: Response) -> Result<ToolJobReply> {
+        if self.protocol < 6 || !self.interfaces.host_tools {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Detached runtime-tool jobs require Driver Protocol v6 Host mediation",
+            ));
+        }
+        self.check_cancelled()?;
+        let (sender, receiver) = oneshot::channel();
+        {
+            let mut pending = self.tool_jobs.lock().await;
+            if pending.len() >= 64 || pending.insert(id.clone(), sender).is_some() {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Driver has too many pending runtime-tool job controls",
+                ));
+            }
+        }
+        if self.output.send(response).is_err() {
+            self.tool_jobs.lock().await.remove(&id);
+            return Err(Error::unavailable("Driver protocol writer is closed"));
+        }
+        tokio::select! {
+            biased;
+            _ = self.cancellation.cancelled() => {
+                self.tool_jobs.lock().await.remove(&id);
+                Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Runtime-tool job control cancelled",
+                ))
+            }
+            result = tokio::time::timeout(std::time::Duration::from_secs(5), receiver) => {
+                match result {
+                    Ok(Ok(result)) => result,
+                    Ok(Err(_)) => Err(Error::unavailable(
+                        "Runtime-tool job response channel closed",
+                    )),
+                    Err(_) => {
+                        self.tool_jobs.lock().await.remove(&id);
+                        Err(Error::new(
+                            ErrorCode::Timeout,
+                            "Runtime-tool job control timed out",
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
+    pub async fn start_runtime_tool_job(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<RuntimeToolJob> {
+        let timeout_ms = u64::try_from(timeout.as_millis()).map_err(|_| {
+            Error::new(
+                ErrorCode::ResourceExhausted,
+                "Detached runtime-tool timeout exceeds protocol bounds",
+            )
+        })?;
+        validate_runtime_tool_job_start(name, &args, &stdin, timeout_ms, cwd.as_ref())?;
+        let id = unique_id();
+        let reply = self
+            .await_tool_job_reply(
+                id.clone(),
+                Response::ToolJobStart {
+                    id,
+                    parent: self.request_id.clone(),
+                    name: name.to_owned(),
+                    args,
+                    stdin,
+                    timeout_ms,
+                    cwd,
+                },
+            )
+            .await?;
+        match reply {
+            ToolJobReply::Started(job) => {
+                job.validate()?;
+                Ok(job)
+            }
+            ToolJobReply::Status { .. } => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Host returned runtime-tool job status instead of start receipt",
+            )),
+        }
+    }
+
+    pub async fn runtime_tool_job_status(
+        &self,
+        job: &RuntimeToolJob,
+    ) -> Result<RuntimeToolJobStatus> {
+        job.validate()?;
+        let id = unique_id();
+        let reply = self
+            .await_tool_job_reply(
+                id.clone(),
+                Response::ToolJobStatus {
+                    id,
+                    parent: self.request_id.clone(),
+                    job: job.clone(),
+                },
+            )
+            .await?;
+        match reply {
+            ToolJobReply::Status {
+                job: returned_job,
+                status,
+            } if returned_job == *job => {
+                status.validate()?;
+                Ok(status)
+            }
+            ToolJobReply::Status { .. } => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Host returned status for a different runtime-tool job",
+            )),
+            ToolJobReply::Started(_) => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Host returned runtime-tool start receipt instead of status",
+            )),
+        }
+    }
+
+    pub async fn cancel_runtime_tool_job(
+        &self,
+        job: &RuntimeToolJob,
+    ) -> Result<RuntimeToolJobStatus> {
+        job.validate()?;
+        let id = unique_id();
+        let reply = self
+            .await_tool_job_reply(
+                id.clone(),
+                Response::ToolJobCancel {
+                    id,
+                    parent: self.request_id.clone(),
+                    job: job.clone(),
+                },
+            )
+            .await?;
+        match reply {
+            ToolJobReply::Status {
+                job: returned_job,
+                status,
+            } if returned_job == *job => {
+                status.validate()?;
+                Ok(status)
+            }
+            ToolJobReply::Status { .. } => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Host returned cancel state for a different runtime-tool job",
+            )),
+            ToolJobReply::Started(_) => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Host returned runtime-tool start receipt instead of cancel status",
+            )),
+        }
+    }
+
     pub fn report_progress(
         &self,
         progress: JobProgress,
@@ -1406,7 +1681,10 @@ async fn serve_v1<D: Driver>(
             | Request::Cancel { .. }
             | Request::Validate { .. }
             | Request::ToolResult { .. }
-            | Request::ToolFailure { .. } => {
+            | Request::ToolFailure { .. }
+            | Request::ToolJobStarted { .. }
+            | Request::ToolJobState { .. }
+            | Request::ToolJobFailure { .. } => {
                 return Err(Error::new(
                     ErrorCode::ProtocolMismatch,
                     "Driver protocol v1 received a v2-only or duplicate request",
@@ -1428,6 +1706,7 @@ async fn serve_v2<D: Driver>(
     let driver = Arc::new(Mutex::new(driver));
     let active = Arc::new(Mutex::new(BTreeMap::<String, CancellationToken>::new()));
     let tool_calls: ToolCallWaiters = Arc::new(Mutex::new(BTreeMap::new()));
+    let tool_jobs: ToolJobWaiters = Arc::new(Mutex::new(BTreeMap::new()));
     let (responses, mut response_rx) = mpsc::unbounded_channel::<Response>();
 
     let writer = tokio::spawn(async move {
@@ -1585,6 +1864,7 @@ async fn serve_v2<D: Driver>(
                 let active = active.clone();
                 let responses = responses.clone();
                 let tool_calls = tool_calls.clone();
+                let tool_jobs = tool_jobs.clone();
                 tasks.spawn(async move {
                     let context = DriverExecutionContext {
                         request_id: id.clone(),
@@ -1595,6 +1875,7 @@ async fn serve_v2<D: Driver>(
                         interfaces,
                         protocol,
                         tool_calls: tool_calls.clone(),
+                        tool_jobs: tool_jobs.clone(),
                     };
                     let result = {
                         let mut driver = driver.lock().await;
@@ -1633,6 +1914,45 @@ async fn serve_v2<D: Driver>(
                     let _ = sender.send(Err(Error::new(
                         error.code,
                         "Host-mediated sealed tool failed",
+                    )));
+                }
+            }
+            Request::ToolJobStarted { id, job } => {
+                if protocol < 6 || !interfaces.host_tools {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver received an unnegotiated runtime-tool job start receipt",
+                    ));
+                }
+                job.validate()?;
+                if let Some(sender) = tool_jobs.lock().await.remove(&id) {
+                    let _ = sender.send(Ok(ToolJobReply::Started(job)));
+                }
+            }
+            Request::ToolJobState { id, job, status } => {
+                if protocol < 6 || !interfaces.host_tools {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver received an unnegotiated runtime-tool job state",
+                    ));
+                }
+                job.validate()?;
+                status.validate()?;
+                if let Some(sender) = tool_jobs.lock().await.remove(&id) {
+                    let _ = sender.send(Ok(ToolJobReply::Status { job, status }));
+                }
+            }
+            Request::ToolJobFailure { id, error } => {
+                if protocol < 6 || !interfaces.host_tools {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Driver received an unnegotiated runtime-tool job failure",
+                    ));
+                }
+                if let Some(sender) = tool_jobs.lock().await.remove(&id) {
+                    let _ = sender.send(Err(Error::new(
+                        error.code,
+                        "Host-mediated runtime-tool job control failed",
                     )));
                 }
             }
@@ -2083,6 +2403,67 @@ mod tests {
     }
 
     #[test]
+    fn v6_detached_runtime_tool_jobs_are_bounded_and_versioned() {
+        let job = RuntimeToolJob {
+            id: "tool-job-abc123".into(),
+        };
+        assert!(job.validate().is_ok());
+        for bad in ["", "../job", "job_with_underscore", "job id"] {
+            assert!(
+                RuntimeToolJob { id: bad.into() }.validate().is_err(),
+                "{bad}"
+            );
+        }
+
+        assert!(
+            validate_runtime_tool_job_start(
+                "probe",
+                &[],
+                &[],
+                60_000,
+                Some(&RuntimeToolCwd {
+                    mount: "project".into(),
+                    relative: String::new(),
+                }),
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_runtime_tool_execute_request("probe", &[], &[], 60_000, None).is_err(),
+            "one-shot calls keep the shorter timeout budget"
+        );
+        assert!(
+            validate_runtime_tool_job_start("probe", &[], &[], MAX_TOOL_JOB_TIMEOUT_MS + 1, None,)
+                .is_err()
+        );
+
+        let wire = serde_json::to_value(Response::ToolJobStart {
+            id: "control-1".into(),
+            parent: "request-1".into(),
+            name: "probe".into(),
+            args: vec!["--sleep-ms".into(), "500".into()],
+            stdin: vec![],
+            timeout_ms: 10_000,
+            cwd: None,
+        })
+        .unwrap();
+        assert_eq!(wire["type"], "tool_job_start");
+        assert!(wire.get("cwd").is_none());
+
+        let state = RuntimeToolJobStatus::Succeeded {
+            output: ToolExecutionOutput {
+                exit_code: 0,
+                stdout: b"ok".to_vec(),
+                stderr: vec![],
+            },
+        };
+        state.validate().unwrap();
+        assert!(state.terminal());
+        assert!(!RuntimeToolJobStatus::Running.terminal());
+        assert!(!RuntimeToolJobStatus::Cancelling.terminal());
+    }
+
+    #[test]
     fn runtime_tool_mode_hides_platform_specific_execution() {
         let (output, _receiver) = mpsc::unbounded_channel();
         let context = DriverExecutionContext {
@@ -2097,6 +2478,7 @@ mod tests {
             },
             protocol: 4,
             tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
+            tool_jobs: Arc::new(Mutex::new(BTreeMap::new())),
         };
 
         #[cfg(target_os = "windows")]

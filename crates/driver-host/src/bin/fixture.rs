@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
-    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolCwd,
-    descriptor_digest, secret_mount, serve, system_config_mount, tool_path, workspace_mount,
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolCwd, RuntimeToolJob,
+    RuntimeToolJobStatus, descriptor_digest, secret_mount, serve, system_config_mount, tool_path,
+    workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Result, Risk,
@@ -125,6 +126,80 @@ fn tool_capability() -> Capability {
         tags: vec!["fixture".into(), "conformance".into(), "tool".into()],
         object_types: vec![],
     }
+}
+
+fn tool_job_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.tool_job".into(),
+            version: "1".into(),
+            description: "Exercise detached Host-owned runtime-tool job lifecycle".into(),
+            input_schema: json!({
+                "type":"object",
+                "properties":{
+                    "action":{"enum":["start","status","cancel"]},
+                    "job":{"type":"string","minLength":1,"maxLength":128},
+                    "sleep_ms":{"type":"integer","minimum":1,"maximum":5000}
+                },
+                "required":["action"],
+                "additionalProperties":false
+            }),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "job":{"type":"string"},
+                    "state":{"enum":["running","cancelling","succeeded","failed","cancelled"]},
+                    "exit_code":{"type":"integer"},
+                    "stdout":{"type":"string"},
+                    "error_code":{"type":"string"}
+                },
+                "required":["job","state"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::NonIdempotent,
+            timeout_ms: 5_000,
+            dry_run: false,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["tool_job".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "tool-job".into()],
+        object_types: vec![],
+    }
+}
+
+fn tool_job_result(job: &RuntimeToolJob, status: RuntimeToolJobStatus) -> Result<Value> {
+    let mut value = serde_json::Map::new();
+    value.insert("job".into(), job.id.clone().into());
+    match status {
+        RuntimeToolJobStatus::Running => {
+            value.insert("state".into(), "running".into());
+        }
+        RuntimeToolJobStatus::Cancelling => {
+            value.insert("state".into(), "cancelling".into());
+        }
+        RuntimeToolJobStatus::Succeeded { output } => {
+            let stdout = String::from_utf8(output.stdout).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "fixture detached tool output was not UTF-8",
+                )
+            })?;
+            value.insert("state".into(), "succeeded".into());
+            value.insert("exit_code".into(), output.exit_code.into());
+            value.insert("stdout".into(), stdout.into());
+        }
+        RuntimeToolJobStatus::Failed { error } => {
+            value.insert("state".into(), "failed".into());
+            value.insert("error_code".into(), format!("{:?}", error.code).into());
+        }
+        RuntimeToolJobStatus::Cancelled => {
+            value.insert("state".into(), "cancelled".into());
+        }
+    }
+    Ok(Value::Object(value))
 }
 
 fn config_capability() -> Capability {
@@ -310,6 +385,7 @@ impl Driver for Fixture {
             capability(),
             mount_capability(),
             tool_capability(),
+            tool_job_capability(),
             config_capability(),
             secret_capability(),
             network_capability(),
@@ -322,6 +398,7 @@ impl Driver for Fixture {
             "driver.fixture.ping" => capability(),
             "driver.fixture.mount_probe" => mount_capability(),
             "driver.fixture.tool_probe" => tool_capability(),
+            "driver.fixture.tool_job" => tool_job_capability(),
             "driver.fixture.config_probe" => config_capability(),
             "driver.fixture.secret_probe" => secret_capability(),
             "driver.fixture.network_probe" => network_capability(),
@@ -337,6 +414,12 @@ impl Driver for Fixture {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Driver descriptor is not the pinned capability",
+            ));
+        }
+        if command == "driver.fixture.tool_job" {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "fixture detached tool jobs require DriverExecutionContext",
             ));
         }
         if command == "driver.fixture.mount_probe" {
@@ -564,6 +647,79 @@ impl Driver for Fixture {
         args: Value,
         context: DriverExecutionContext,
     ) -> Result<Value> {
+        if command == "driver.fixture.tool_job"
+            && std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some()
+        {
+            let capability = tool_job_capability();
+            if descriptor_digest(&capability.descriptor)? != pinned_digest {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Driver descriptor is not the pinned capability",
+                ));
+            }
+            let args = args
+                .as_object()
+                .ok_or_else(|| Error::invalid("fixture tool job accepts an object"))?;
+            if args
+                .keys()
+                .any(|key| !matches!(key.as_str(), "action" | "job" | "sleep_ms"))
+            {
+                return Err(Error::invalid(
+                    "fixture tool job received an unknown argument",
+                ));
+            }
+            let action = args
+                .get("action")
+                .and_then(Value::as_str)
+                .ok_or_else(|| Error::invalid("fixture tool job action is required"))?;
+            return match action {
+                "start" => {
+                    if args.get("job").is_some() {
+                        return Err(Error::invalid(
+                            "fixture tool job start does not accept a job id",
+                        ));
+                    }
+                    let sleep_ms = args.get("sleep_ms").and_then(Value::as_u64).unwrap_or(500);
+                    if !(1..=5_000).contains(&sleep_ms) {
+                        return Err(Error::invalid(
+                            "fixture tool job sleep_ms exceeds test bounds",
+                        ));
+                    }
+                    let job = context
+                        .start_runtime_tool_job(
+                            "probe",
+                            vec!["--sleep-ms".into(), sleep_ms.to_string()],
+                            Vec::new(),
+                            std::time::Duration::from_secs(10),
+                            None,
+                        )
+                        .await?;
+                    Ok(json!({"job":job.id,"state":"running"}))
+                }
+                "status" | "cancel" => {
+                    if args.get("sleep_ms").is_some() {
+                        return Err(Error::invalid(
+                            "fixture tool job status/cancel does not accept sleep_ms",
+                        ));
+                    }
+                    let job = RuntimeToolJob {
+                        id: args
+                            .get("job")
+                            .and_then(Value::as_str)
+                            .ok_or_else(|| Error::invalid("fixture tool job id is required"))?
+                            .to_owned(),
+                    };
+                    let status = if action == "status" {
+                        context.runtime_tool_job_status(&job).await?
+                    } else {
+                        context.cancel_runtime_tool_job(&job).await?
+                    };
+                    tool_job_result(&job, status)
+                }
+                _ => Err(Error::invalid("fixture tool job action is invalid")),
+            };
+        }
+
         if command == "driver.fixture.tool_probe"
             && std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some()
         {

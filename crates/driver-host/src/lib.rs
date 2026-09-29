@@ -10,8 +10,8 @@ use semwright_backend_api::{
 use semwright_driver_sdk::DriverToolMount;
 use semwright_driver_sdk::{
     DriverInterfaces, DriverRequestContext, Manifest, Request, Response, RuntimeToolCwd,
-    ToolExecutionOutput, capabilities_digest, descriptor_digest,
-    validate_runtime_tool_execute_request,
+    RuntimeToolJob, RuntimeToolJobStatus, ToolExecutionOutput, capabilities_digest,
+    descriptor_digest, validate_runtime_tool_execute_request, validate_runtime_tool_job_start,
 };
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_platform_api::launch::{
@@ -104,6 +104,8 @@ trait HostToolExecutor: Send + Sync {
         stdin: Vec<u8>,
         timeout_ms: u64,
         cwd: Option<RuntimeToolCwd>,
+        detached: bool,
+        cancellation: CancellationToken,
         charged_cpu_seconds: Arc<Mutex<u64>>,
     ) -> Result<ToolExecutionOutput>;
 }
@@ -111,6 +113,14 @@ trait HostToolExecutor: Send + Sync {
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 const MAX_HOST_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
 const MAX_HOST_TOOL_CALLS: usize = 8;
+const MAX_HOST_TOOL_JOBS: usize = 8;
+
+#[derive(Clone)]
+struct HostToolJobEntry {
+    owner_session: String,
+    cancellation: CancellationToken,
+    status: Arc<Mutex<RuntimeToolJobStatus>>,
+}
 
 #[cfg(target_os = "windows")]
 struct HostToolBroker {
@@ -190,9 +200,27 @@ impl HostToolExecutor for HostToolBroker {
         stdin_bytes: Vec<u8>,
         timeout_ms: u64,
         cwd: Option<RuntimeToolCwd>,
+        detached: bool,
+        cancellation: CancellationToken,
         charged_cpu_seconds: Arc<Mutex<u64>>,
     ) -> Result<ToolExecutionOutput> {
-        validate_runtime_tool_execute_request(name, &args, &stdin_bytes, timeout_ms, cwd.as_ref())?;
+        if detached {
+            validate_runtime_tool_job_start(name, &args, &stdin_bytes, timeout_ms, cwd.as_ref())?;
+        } else {
+            validate_runtime_tool_execute_request(
+                name,
+                &args,
+                &stdin_bytes,
+                timeout_ms,
+                cwd.as_ref(),
+            )?;
+        }
+        if detached && self.operation_cpu_seconds != 0 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Detached runtime-tool jobs do not yet provide aggregate per-operation CPU accounting",
+            ));
+        }
         let tool = self.tools.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
@@ -345,13 +373,31 @@ impl HostToolExecutor for HostToolBroker {
             Ok(output)
         };
 
-        let result = match tokio::time::timeout(timeout, execution).await {
-            Ok(Ok(output)) => Ok(output),
-            Ok(Err(error)) => {
+        enum ToolCompletion {
+            Finished(Result<ToolExecutionOutput>),
+            Cancelled,
+            TimedOut,
+        }
+        let completion = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => ToolCompletion::Cancelled,
+            result = execution => ToolCompletion::Finished(result),
+            _ = tokio::time::sleep(timeout) => ToolCompletion::TimedOut,
+        };
+        let result = match completion {
+            ToolCompletion::Finished(Ok(output)) => Ok(output),
+            ToolCompletion::Finished(Err(error)) => {
                 let _ = child.kill().await;
                 Err(error)
             }
-            Err(_) => {
+            ToolCompletion::Cancelled => {
+                let _ = child.kill().await;
+                Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Host-mediated sealed tool was cancelled",
+                ))
+            }
+            ToolCompletion::TimedOut => {
                 let _ = child.kill().await;
                 Err(Error::new(
                     ErrorCode::Timeout,
@@ -461,9 +507,21 @@ impl HostToolExecutor for LinuxHostToolBroker {
         stdin_bytes: Vec<u8>,
         timeout_ms: u64,
         cwd: Option<RuntimeToolCwd>,
+        detached: bool,
+        cancellation: CancellationToken,
         _charged_cpu_seconds: Arc<Mutex<u64>>,
     ) -> Result<ToolExecutionOutput> {
-        validate_runtime_tool_execute_request(name, &args, &stdin_bytes, timeout_ms, cwd.as_ref())?;
+        if detached {
+            validate_runtime_tool_job_start(name, &args, &stdin_bytes, timeout_ms, cwd.as_ref())?;
+        } else {
+            validate_runtime_tool_execute_request(
+                name,
+                &args,
+                &stdin_bytes,
+                timeout_ms,
+                cwd.as_ref(),
+            )?;
+        }
         if self.operation_cpu_seconds != 0 {
             return Err(Error::new(
                 ErrorCode::Unsupported,
@@ -577,13 +635,31 @@ impl HostToolExecutor for LinuxHostToolBroker {
             Ok(output)
         };
 
-        match tokio::time::timeout(timeout, execution).await {
-            Ok(Ok(output)) => Ok(output),
-            Ok(Err(error)) => {
+        enum ToolCompletion {
+            Finished(Result<ToolExecutionOutput>),
+            Cancelled,
+            TimedOut,
+        }
+        let completion = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => ToolCompletion::Cancelled,
+            result = execution => ToolCompletion::Finished(result),
+            _ = tokio::time::sleep(timeout) => ToolCompletion::TimedOut,
+        };
+        match completion {
+            ToolCompletion::Finished(Ok(output)) => Ok(output),
+            ToolCompletion::Finished(Err(error)) => {
                 let _ = child.kill().await;
                 Err(error)
             }
-            Err(_) => {
+            ToolCompletion::Cancelled => {
+                let _ = child.kill().await;
+                Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Linux Host-mediated sealed tool was cancelled",
+                ))
+            }
+            ToolCompletion::TimedOut => {
                 let _ = child.kill().await;
                 Err(Error::new(
                     ErrorCode::Timeout,
@@ -1094,6 +1170,7 @@ struct Io {
 struct PendingResponse {
     sender: oneshot::Sender<Response>,
     allows_host_tools: bool,
+    session: Option<String>,
     cancellation: CancellationToken,
     charged_tool_cpu_seconds: Arc<Mutex<u64>>,
 }
@@ -1113,7 +1190,13 @@ impl V2Io {
     async fn begin(&self, request: &Request, id: &str) -> Result<oneshot::Receiver<Response>> {
         let (sender, receiver) = oneshot::channel();
         let cancellation = CancellationToken::new();
-        let allows_host_tools = matches!(request, Request::Execute { .. });
+        let (allows_host_tools, session) = match request {
+            Request::Execute { context, .. } => (
+                true,
+                context.as_ref().map(|context| context.session.clone()),
+            ),
+            _ => (false, None),
+        };
         {
             let mut pending = self.pending.lock().await;
             if pending.len() >= 256 {
@@ -1128,6 +1211,7 @@ impl V2Io {
                     PendingResponse {
                         sender,
                         allows_host_tools,
+                        session,
                         cancellation,
                         charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
                     },
@@ -1199,7 +1283,10 @@ fn response_id(response: &Response) -> Option<&str> {
         | Response::Event { .. }
         | Response::CapabilitiesChanged
         | Response::Progress { .. }
-        | Response::ToolExecute { .. } => None,
+        | Response::ToolExecute { .. }
+        | Response::ToolJobStart { .. }
+        | Response::ToolJobStatus { .. }
+        | Response::ToolJobCancel { .. } => None,
     }
 }
 
@@ -1207,7 +1294,7 @@ fn host_tool_parent(
     pending: &BTreeMap<String, PendingResponse>,
     tool_id: &str,
     parent: &str,
-) -> Option<(CancellationToken, Arc<Mutex<u64>>)> {
+) -> Option<(CancellationToken, Arc<Mutex<u64>>, Option<String>)> {
     if pending.contains_key(tool_id) {
         return None;
     }
@@ -1216,6 +1303,7 @@ fn host_tool_parent(
             (
                 entry.cancellation.clone(),
                 entry.charged_tool_cpu_seconds.clone(),
+                entry.session.clone(),
             )
         })
     })
@@ -1248,6 +1336,7 @@ fn spawn_v2_reader(
 ) {
     let tool_calls = Arc::new(Mutex::new(BTreeSet::<String>::new()));
     let tool_parents = Arc::new(Mutex::new(BTreeSet::<String>::new()));
+    let host_tool_jobs = Arc::new(Mutex::new(BTreeMap::<String, HostToolJobEntry>::new()));
     tokio::spawn(async move {
         loop {
             let response = match read_frame::<_, Response>(&mut output).await {
@@ -1333,7 +1422,7 @@ fn spawn_v2_reader(
                         break;
                     }
 
-                    let (parent_cancellation, charged_cpu_seconds) =
+                    let (parent_cancellation, charged_cpu_seconds, _parent_session) =
                         parent_state.expect("validated Host-tool parent");
                     let input = input.clone();
                     let pending = pending.clone();
@@ -1343,6 +1432,7 @@ fn spawn_v2_reader(
                     let terminate_call = terminate.clone();
                     let closed_call = closed.clone();
                     tokio::spawn(async move {
+                        let execution_cancellation = CancellationToken::new();
                         let execution = async {
                             match broker {
                                 Some(broker) => {
@@ -1353,6 +1443,8 @@ fn spawn_v2_reader(
                                             stdin,
                                             timeout_ms,
                                             cwd,
+                                            false,
+                                            execution_cancellation.clone(),
                                             charged_cpu_seconds,
                                         )
                                         .await
@@ -1363,15 +1455,21 @@ fn spawn_v2_reader(
                                 )),
                             }
                         };
+                        tokio::pin!(execution);
                         let result = tokio::select! {
-                            _ = parent_cancellation.cancelled() => Err(Error::new(
-                                ErrorCode::Cancelled,
-                                "Host-mediated sealed tool parent request ended",
-                            )),
-                            _ = closed_call.cancelled() => Err(Error::unavailable(
-                                "Driver connection closed during Host-mediated tool execution",
-                            )),
-                            result = execution => result,
+                            biased;
+                            result = &mut execution => result,
+                            _ = parent_cancellation.cancelled() => {
+                                execution_cancellation.cancel();
+                                execution.await
+                            },
+                            _ = closed_call.cancelled() => {
+                                execution_cancellation.cancel();
+                                let _ = execution.await;
+                                Err(Error::unavailable(
+                                    "Driver connection closed during Host-mediated tool execution",
+                                ))
+                            },
                         };
                         tool_calls.lock().await.remove(&id);
                         tool_parents.lock().await.remove(&parent);
@@ -1400,6 +1498,288 @@ fn spawn_v2_reader(
                         }
                     });
                 }
+                Response::ToolJobStart {
+                    id,
+                    parent,
+                    name,
+                    args,
+                    stdin,
+                    timeout_ms,
+                    cwd,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let parent_session = parent_state
+                        .as_ref()
+                        .and_then(|(_, _, session)| session.clone());
+                    let valid = protocol >= 6
+                        && interfaces.host_tools
+                        && validate_runtime_tool_job_start(
+                            &name,
+                            &args,
+                            &stdin,
+                            timeout_ms,
+                            cwd.as_ref(),
+                        )
+                        .is_ok()
+                        && parent_session.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let owner_session =
+                        parent_session.expect("validated runtime-tool job parent session");
+                    let input = input.clone();
+                    let pending = pending.clone();
+                    let broker = tool_broker.clone();
+                    let tool_calls = tool_calls.clone();
+                    let tool_parents = tool_parents.clone();
+                    let host_tool_jobs = host_tool_jobs.clone();
+                    let terminate_call = terminate.clone();
+                    let closed_call = closed.clone();
+                    tokio::spawn(async move {
+                        let request = match broker {
+                            None => Request::ToolJobFailure {
+                                id: id.clone(),
+                                error: Error::new(
+                                    ErrorCode::Unsupported,
+                                    "Detached runtime-tool jobs are unavailable on this platform",
+                                ),
+                            },
+                            Some(broker) => {
+                                let job = RuntimeToolJob {
+                                    id: format!("tool-job-{}", unique_id()),
+                                };
+                                let cancellation = CancellationToken::new();
+                                let status = Arc::new(Mutex::new(RuntimeToolJobStatus::Running));
+                                let inserted = {
+                                    let mut jobs = host_tool_jobs.lock().await;
+                                    if jobs.len() >= MAX_HOST_TOOL_JOBS {
+                                        false
+                                    } else {
+                                        jobs.insert(
+                                            job.id.clone(),
+                                            HostToolJobEntry {
+                                                owner_session: owner_session.clone(),
+                                                cancellation: cancellation.clone(),
+                                                status: status.clone(),
+                                            },
+                                        )
+                                        .is_none()
+                                    }
+                                };
+                                if !inserted {
+                                    Request::ToolJobFailure {
+                                        id: id.clone(),
+                                        error: Error::new(
+                                            ErrorCode::ResourceExhausted,
+                                            "Driver Host has too many detached runtime-tool jobs",
+                                        ),
+                                    }
+                                } else {
+                                    let status_task = status.clone();
+                                    let cancellation_task = cancellation.clone();
+                                    tokio::spawn(async move {
+                                        let result = broker
+                                            .execute(
+                                                &name,
+                                                args,
+                                                stdin,
+                                                timeout_ms,
+                                                cwd,
+                                                true,
+                                                cancellation_task,
+                                                Arc::new(Mutex::new(0)),
+                                            )
+                                            .await;
+                                        let next = match result {
+                                            Ok(output) => {
+                                                RuntimeToolJobStatus::Succeeded { output }
+                                            }
+                                            Err(error) if error.code == ErrorCode::Cancelled => {
+                                                RuntimeToolJobStatus::Cancelled
+                                            }
+                                            Err(error) => RuntimeToolJobStatus::Failed {
+                                                error: Error::new(
+                                                    error.code,
+                                                    "Host-mediated detached runtime-tool job failed",
+                                                ),
+                                            },
+                                        };
+                                        *status_task.lock().await = next;
+                                    });
+                                    Request::ToolJobStarted {
+                                        id: id.clone(),
+                                        job,
+                                    }
+                                }
+                            }
+                        };
+
+                        tool_calls.lock().await.remove(&id);
+                        tool_parents.lock().await.remove(&parent);
+                        let parent_active = {
+                            let pending = pending.lock().await;
+                            pending.get(&parent).is_some_and(|entry| {
+                                entry.allows_host_tools && !entry.cancellation.is_cancelled()
+                            })
+                        };
+                        if !parent_active {
+                            if let Request::ToolJobStarted { job, .. } = &request
+                                && let Some(entry) = host_tool_jobs.lock().await.remove(&job.id)
+                            {
+                                entry.cancellation.cancel();
+                            }
+                            return;
+                        }
+
+                        let mut input = input.lock().await;
+                        if write_frame(&mut *input, &request).await.is_err() {
+                            terminate_call.cancel();
+                            closed_call.cancel();
+                        }
+                    });
+                }
+                Response::ToolJobStatus { id, parent, job } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let caller_session = parent_state
+                        .as_ref()
+                        .and_then(|(_, _, session)| session.clone());
+                    let valid = protocol >= 6
+                        && interfaces.host_tools
+                        && job.validate().is_ok()
+                        && caller_session.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let caller_session =
+                        caller_session.expect("validated runtime-tool job caller session");
+                    let entry = host_tool_jobs.lock().await.get(&job.id).cloned();
+                    let request = match entry {
+                        Some(entry) if entry.owner_session == caller_session => {
+                            let status = entry.status.lock().await.clone();
+                            if status.terminal() {
+                                host_tool_jobs.lock().await.remove(&job.id);
+                            }
+                            Request::ToolJobState {
+                                id: id.clone(),
+                                job,
+                                status,
+                            }
+                        }
+                        Some(_) => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::PolicyDenied,
+                                "Detached runtime-tool job belongs to another driver session",
+                            ),
+                        },
+                        None => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::NotFound,
+                                "Detached runtime-tool job is unknown or already collected",
+                            ),
+                        },
+                    };
+                    tool_calls.lock().await.remove(&id);
+                    tool_parents.lock().await.remove(&parent);
+                    let mut input = input.lock().await;
+                    if write_frame(&mut *input, &request).await.is_err() {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                }
+                Response::ToolJobCancel { id, parent, job } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let caller_session = parent_state
+                        .as_ref()
+                        .and_then(|(_, _, session)| session.clone());
+                    let valid = protocol >= 6
+                        && interfaces.host_tools
+                        && job.validate().is_ok()
+                        && caller_session.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let caller_session =
+                        caller_session.expect("validated runtime-tool job caller session");
+                    let entry = host_tool_jobs.lock().await.get(&job.id).cloned();
+                    let request = match entry {
+                        Some(entry) if entry.owner_session == caller_session => {
+                            let mut status = entry.status.lock().await;
+                            if matches!(*status, RuntimeToolJobStatus::Running) {
+                                *status = RuntimeToolJobStatus::Cancelling;
+                                entry.cancellation.cancel();
+                            }
+                            Request::ToolJobState {
+                                id: id.clone(),
+                                job,
+                                status: status.clone(),
+                            }
+                        }
+                        Some(_) => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::PolicyDenied,
+                                "Detached runtime-tool job belongs to another driver session",
+                            ),
+                        },
+                        None => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::NotFound,
+                                "Detached runtime-tool job is unknown or already collected",
+                            ),
+                        },
+                    };
+                    tool_calls.lock().await.remove(&id);
+                    tool_parents.lock().await.remove(&parent);
+                    let mut input = input.lock().await;
+                    if write_frame(&mut *input, &request).await.is_err() {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                }
                 other => {
                     let Some(id) = response_id(&other).map(str::to_owned) else {
                         terminate.cancel();
@@ -1425,6 +1805,13 @@ fn spawn_v2_reader(
         };
         for (_, pending_response) in pending_responses {
             pending_response.cancellation.cancel();
+        }
+        let jobs = {
+            let mut jobs = host_tool_jobs.lock().await;
+            std::mem::take(&mut *jobs)
+        };
+        for (_, job) in jobs {
+            job.cancellation.cancel();
         }
         let _ = signals.send(ProviderSignal::Disconnected);
     });
@@ -2860,6 +3247,7 @@ mod host_tool_protocol_tests {
         PendingResponse {
             sender,
             allows_host_tools,
+            session: allows_host_tools.then(|| "session-a".into()),
             cancellation: CancellationToken::new(),
             charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
         }
@@ -2871,10 +3259,9 @@ mod host_tool_protocol_tests {
         pending.insert("execute-parent".into(), pending_entry(true));
         pending.insert("health-parent".into(), pending_entry(false));
 
-        assert!(
-            host_tool_parent(&pending, "tool-1", "execute-parent").is_some(),
-            "an active Execute request may own a Host-mediated tool call"
-        );
+        let execute_parent = host_tool_parent(&pending, "tool-1", "execute-parent")
+            .expect("an active Execute request may own a Host-mediated tool call");
+        assert_eq!(execute_parent.2.as_deref(), Some("session-a"));
         assert!(
             host_tool_parent(&pending, "tool-2", "health-parent").is_none(),
             "non-Execute requests may not gain Host-tool authority"

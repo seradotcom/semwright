@@ -504,6 +504,155 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
 }
 
 #[tokio::test]
+async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancellable() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let owner_tool = binary_dir.path().join("owner-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &owner_tool).expect("copy tool fixture");
+    harden_fixture(&executable);
+    harden_fixture(&owner_tool);
+
+    let mut candidate = manifest(executable);
+    candidate.protocol = 6;
+    candidate.interfaces.host_tools = true;
+    candidate.tools = vec![DriverToolMount {
+        root: "fixture-tool-root".into(),
+        name: "probe".into(),
+        sha256: digest(&owner_tool),
+        mounts: vec![],
+    }];
+    let roots = vec![FilesystemGrant {
+        name: "fixture-tool-root".into(),
+        path: owner_tool,
+        read: true,
+        write: false,
+    }];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows v6 runtime-tool Driver Host");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let job_capability = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_job")
+        .expect("fixture tool-job capability")
+        .descriptor
+        .clone();
+
+    let run = |session: &str, request_id: &str, args: serde_json::Value| {
+        let provider = provider.clone();
+        let capability = job_capability.clone();
+        let context = Context {
+            session: session.into(),
+            request_id: request_id.into(),
+            cancellation: CancellationToken::new(),
+        };
+        async move { Provider::execute(provider.as_ref(), &context, &capability, &args).await }
+    };
+
+    let started = run(
+        "session-a",
+        "windows-tool-job-start",
+        serde_json::json!({"action":"start","sleep_ms":250}),
+    )
+    .await
+    .expect("start detached Windows runtime-tool job");
+    let job = started["job"].as_str().expect("job id").to_owned();
+    assert_eq!(started["state"], "running");
+
+    let cross_session = run(
+        "session-b",
+        "windows-tool-job-cross-session",
+        serde_json::json!({"action":"status","job":job}),
+    )
+    .await
+    .expect_err("another driver session must not observe the detached job");
+    assert_eq!(cross_session.code, semwright_types::ErrorCode::PolicyDenied);
+
+    let mut succeeded = None;
+    for attempt in 0..60u32 {
+        let status = run(
+            "session-a",
+            &format!("windows-tool-job-status-{attempt}"),
+            serde_json::json!({"action":"status","job":job}),
+        )
+        .await
+        .expect("poll detached Windows runtime-tool job");
+        match status["state"].as_str() {
+            Some("succeeded") => {
+                succeeded = Some(status);
+                break;
+            }
+            Some("running" | "cancelling") => {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+            other => panic!("unexpected detached Windows job state: {other:?}"),
+        }
+    }
+    let succeeded = succeeded.expect("detached Windows job should reach success");
+    assert_eq!(succeeded["exit_code"], 0);
+    assert_eq!(succeeded["stdout"], "tool-ok|appcontainer=1");
+
+    let started = run(
+        "session-a",
+        "windows-tool-job-cancel-start",
+        serde_json::json!({"action":"start","sleep_ms":5000}),
+    )
+    .await
+    .expect("start cancellable Windows runtime-tool job");
+    let cancel_job = started["job"].as_str().expect("cancel job id").to_owned();
+    let cancelled = run(
+        "session-a",
+        "windows-tool-job-cancel",
+        serde_json::json!({"action":"cancel","job":cancel_job}),
+    )
+    .await
+    .expect("request detached Windows job cancellation");
+    assert!(matches!(
+        cancelled["state"].as_str(),
+        Some("cancelling" | "cancelled")
+    ));
+
+    let mut terminal_cancelled = false;
+    for attempt in 0..60u32 {
+        let status = run(
+            "session-a",
+            &format!("windows-tool-job-cancel-status-{attempt}"),
+            serde_json::json!({"action":"status","job":cancel_job}),
+        )
+        .await
+        .expect("poll cancelled Windows runtime-tool job");
+        match status["state"].as_str() {
+            Some("cancelled") => {
+                terminal_cancelled = true;
+                break;
+            }
+            Some("running" | "cancelling") => {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+            other => panic!("unexpected cancelled Windows job state: {other:?}"),
+        }
+    }
+    assert!(
+        terminal_cancelled,
+        "detached Windows job should become cancelled"
+    );
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("runtime-tool job Driver Host shutdown");
+}
+
+#[tokio::test]
 async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
     let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
     let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));

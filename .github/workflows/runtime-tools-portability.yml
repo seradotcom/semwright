@@ -49,6 +49,7 @@ jobs:
         run: |
           cargo test --locked -p semwright-driver-sdk tests::runtime_tool_mode_hides_platform_specific_execution -- --exact
           cargo test --locked -p semwright-driver-sdk tests::v5_runtime_tool_mounts_and_cwd_are_bounded -- --exact
+          cargo test --locked -p semwright-driver-sdk tests::v6_detached_runtime_tool_jobs_are_bounded_and_versioned -- --exact
       - run: cargo clippy --locked -p semwright-driver-sdk --all-targets --no-deps -- -D warnings
 
   linux-v5-host:
@@ -90,6 +91,13 @@ jobs:
           cargo test --locked -p semwright-driver-host --features test-tools \
             --test runtime_tools_linux linux_v5_runtime_tool_is_host_mediated_and_mount_scoped \
             -- --ignored --exact --nocapture
+      - name: Linux v6 detached runtime-tool jobs
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-host --features test-tools \
+            --test runtime_tools_linux linux_v6_runtime_tool_jobs_are_detached_session_bound_and_cancellable \
+            -- --ignored --exact --nocapture
 
   windows-v5-host:
     runs-on: windows-2025
@@ -100,3 +108,4 @@ jobs:
         with:
           toolchain: 1.98.1
       - run: cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts -- --exact
+      - run: cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancellable -- --exact

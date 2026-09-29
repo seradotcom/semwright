@@ -12,6 +12,8 @@ Linux protocol v4 keeps the compatibility path that materializes sealed tools in
 
 Godot is the first production consumer of the v5 one-shot boundary: its runner requests the logical `godot` tool through Driver Host and production configuration resolves project/output/secret authority by logical grant names. This demonstrates the generic path without implying that real Godot acceptance has been certified on every host OS.
 
+Protocol v6 adds detached Host-owned runtime-tool jobs for work that intentionally outlives the `Execute` request that starts it. Start returns an opaque Host-generated job ID; status and cancellation are accepted only from the same driver session that created the job. A provider may retain at most eight jobs, terminal results are collected on the first successful status read, and closing the driver transport cancels every retained job. Detached jobs keep the v5 tool/mount allowlist, have a bounded one-hour wall deadline, and remain unsupported when the manifest requests aggregate per-operation CPU accounting that the platform cannot prove. v6 does not yet add runtime bundles, nested relative mount paths, or dependent sealed-tool arguments.
+
 ## Remaining runtime migration classes
 
 | Driver/runtime | Lifetime / shape | Current legacy resolver | Generic primitive required |

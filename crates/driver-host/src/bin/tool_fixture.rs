@@ -31,7 +31,19 @@ fn is_appcontainer() -> bool {
 }
 
 fn main() {
-    let print_cwd = std::env::args().skip(1).any(|arg| arg == "--print-cwd");
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    let print_cwd = args.iter().any(|arg| arg == "--print-cwd");
+    if let Some(index) = args.iter().position(|arg| arg == "--sleep-ms") {
+        let sleep_ms = args
+            .get(index + 1)
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| (1..=10_000).contains(value))
+            .unwrap_or_else(|| {
+                eprintln!("invalid --sleep-ms");
+                std::process::exit(2);
+            });
+        std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+    }
     #[cfg(windows)]
     {
         print!("tool-ok|appcontainer={}", u8::from(is_appcontainer()));

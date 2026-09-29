@@ -34,10 +34,10 @@ fn sandbox_helper() -> PathBuf {
     )
 }
 
-fn manifest(executable: PathBuf, tool_digest: String) -> Manifest {
+fn manifest(executable: PathBuf, tool_digest: String, protocol: u32) -> Manifest {
     Manifest {
         manifest_version: 1,
-        protocol: 5,
+        protocol,
         id: "fixture".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -144,7 +144,7 @@ async fn linux_v5_runtime_tool_is_host_mediated_and_mount_scoped() {
     std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700))
         .expect("harden driver state");
     let provider = DriverProvider::connect(
-        manifest(driver, digest(&tool)),
+        manifest(driver, digest(&tool), 5),
         state.path(),
         &sandbox_helper(),
         &roots,
@@ -203,4 +203,181 @@ async fn linux_v5_runtime_tool_is_host_mediated_and_mount_scoped() {
     Provider::shutdown(provider.as_ref())
         .await
         .expect("runtime-tool Driver Host shutdown");
+}
+
+#[tokio::test]
+#[ignore = "requires real Bubblewrap + Landlock support"]
+async fn linux_v6_runtime_tool_jobs_are_detached_session_bound_and_cancellable() {
+    assert!(Path::new("/usr/bin/bwrap").is_file());
+
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let driver = binary_dir.path().join("driver");
+    let tool = binary_dir.path().join("tool");
+    std::fs::copy(&driver_source, &driver).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &tool).expect("copy tool fixture");
+    harden(&driver);
+    harden(&tool);
+
+    let workspace = tempfile::tempdir().expect("tool workspace");
+    let other_workspace = tempfile::tempdir().expect("unused workspace");
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: tool.canonicalize().expect("canonical tool"),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-workspace".into(),
+            path: workspace
+                .path()
+                .canonicalize()
+                .expect("canonical tool workspace"),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "other-workspace".into(),
+            path: other_workspace
+                .path()
+                .canonicalize()
+                .expect("canonical unused workspace"),
+            read: true,
+            write: true,
+        },
+    ];
+
+    let state = tempfile::tempdir().expect("driver state");
+    std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700))
+        .expect("harden driver state");
+    let provider = DriverProvider::connect(
+        manifest(driver, digest(&tool), 6),
+        state.path(),
+        &sandbox_helper(),
+        &roots,
+        false,
+    )
+    .await
+    .expect("Linux v6 runtime-tool Driver Host");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let job_capability = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_job")
+        .expect("fixture tool-job capability")
+        .descriptor
+        .clone();
+
+    let run = |session: &str, request_id: &str, args: serde_json::Value| {
+        let provider = provider.clone();
+        let capability = job_capability.clone();
+        let context = Context {
+            session: session.into(),
+            request_id: request_id.into(),
+            cancellation: CancellationToken::new(),
+        };
+        async move { Provider::execute(provider.as_ref(), &context, &capability, &args).await }
+    };
+
+    let started = run(
+        "session-a",
+        "linux-tool-job-start",
+        serde_json::json!({"action":"start","sleep_ms":250}),
+    )
+    .await
+    .expect("start detached runtime-tool job");
+    let job = started["job"].as_str().expect("job id").to_owned();
+    assert_eq!(started["state"], "running");
+
+    let cross_session = run(
+        "session-b",
+        "linux-tool-job-cross-session",
+        serde_json::json!({"action":"status","job":job}),
+    )
+    .await
+    .expect_err("another driver session must not observe the detached job");
+    assert_eq!(cross_session.code, ErrorCode::PolicyDenied);
+
+    let mut succeeded = None;
+    for attempt in 0..40u32 {
+        let status = run(
+            "session-a",
+            &format!("linux-tool-job-status-{attempt}"),
+            serde_json::json!({"action":"status","job":job}),
+        )
+        .await
+        .expect("poll detached runtime-tool job");
+        match status["state"].as_str() {
+            Some("succeeded") => {
+                succeeded = Some(status);
+                break;
+            }
+            Some("running" | "cancelling") => {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+            other => panic!("unexpected detached job state: {other:?}"),
+        }
+    }
+    let succeeded = succeeded.expect("detached job should reach success");
+    assert_eq!(succeeded["exit_code"], 0);
+    assert_eq!(succeeded["stdout"], "tool-ok");
+
+    let collected = run(
+        "session-a",
+        "linux-tool-job-collected",
+        serde_json::json!({"action":"status","job":job}),
+    )
+    .await
+    .expect_err("terminal job result is collected exactly once");
+    assert_eq!(collected.code, ErrorCode::NotFound);
+
+    let started = run(
+        "session-a",
+        "linux-tool-job-cancel-start",
+        serde_json::json!({"action":"start","sleep_ms":5000}),
+    )
+    .await
+    .expect("start cancellable runtime-tool job");
+    let cancel_job = started["job"].as_str().expect("cancel job id").to_owned();
+    let cancelled = run(
+        "session-a",
+        "linux-tool-job-cancel",
+        serde_json::json!({"action":"cancel","job":cancel_job}),
+    )
+    .await
+    .expect("request detached job cancellation");
+    assert!(matches!(
+        cancelled["state"].as_str(),
+        Some("cancelling" | "cancelled")
+    ));
+
+    let mut terminal_cancelled = false;
+    for attempt in 0..40u32 {
+        let status = run(
+            "session-a",
+            &format!("linux-tool-job-cancel-status-{attempt}"),
+            serde_json::json!({"action":"status","job":cancel_job}),
+        )
+        .await
+        .expect("poll cancelled detached runtime-tool job");
+        match status["state"].as_str() {
+            Some("cancelled") => {
+                terminal_cancelled = true;
+                break;
+            }
+            Some("running" | "cancelling") => {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+            other => panic!("unexpected cancelled job state: {other:?}"),
+        }
+    }
+    assert!(terminal_cancelled, "detached job should become cancelled");
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("runtime-tool job Driver Host shutdown");
 }
