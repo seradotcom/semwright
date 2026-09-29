@@ -472,20 +472,29 @@ impl GraphStore {
                 GraphEvent::Receipt(r) => {
                     ids.extend(r.outputs.iter().map(|p| p.asset.clone()));
                 }
-                GraphEvent::Gap(values) => ids.extend(values.iter().cloned()),
+                GraphEvent::Gap(values) | GraphEvent::Collect(values) => {
+                    ids.extend(values.iter().cloned())
+                }
                 _ => (),
             }
         }
-        let mut stmt = tx.prepare_cached("INSERT INTO assets(id,digest,payload) VALUES(?1,?2,?3) ON CONFLICT(id) DO UPDATE SET digest=excluded.digest,payload=excluded.payload").map_err(storage_error)?;
-        for id in ids {
-            let state = graph.assets.get(&id).ok_or(GraphError::Corrupt)?;
-            let bytes = canonical_bytes(state)?;
-            stmt.execute(params![
-                id.as_str(),
-                Digest::of_bytes(&bytes).as_str(),
-                bytes
-            ])
+        let mut upsert = tx.prepare_cached("INSERT INTO assets(id,digest,payload) VALUES(?1,?2,?3) ON CONFLICT(id) DO UPDATE SET digest=excluded.digest,payload=excluded.payload").map_err(storage_error)?;
+        let mut delete = tx
+            .prepare_cached("DELETE FROM assets WHERE id=?1")
             .map_err(storage_error)?;
+        for id in ids {
+            if let Some(state) = graph.assets.get(&id) {
+                let bytes = canonical_bytes(state)?;
+                upsert
+                    .execute(params![
+                        id.as_str(),
+                        Digest::of_bytes(&bytes).as_str(),
+                        bytes
+                    ])
+                    .map_err(storage_error)?;
+            } else {
+                delete.execute([id.as_str()]).map_err(storage_error)?;
+            }
         }
         Ok(())
     }
