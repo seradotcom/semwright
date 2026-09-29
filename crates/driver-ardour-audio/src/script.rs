@@ -557,11 +557,12 @@ local function mutate(command)
     end
     local locations = Session:locations()
     local session_range = locations:session_range_location()
-    if not session_range then error("session range is unavailable") end
-    session_range:set(
+    if not session_range or session_range:isnil() then error("session range is unavailable") end
+    local range_status = session_range:set(
       Temporal.timepos_t(start_sample),
       Temporal.timepos_t(end_sample)
     )
+    if range_status ~= 0 then error("Ardour session range update failed") end
   elseif command == "save_as" then
     local state = arg[5]
     local status = Session:save_state(state)
