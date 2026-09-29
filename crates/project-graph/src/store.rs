@@ -421,7 +421,7 @@ impl GraphStore {
             return Err(GraphError::Conflict);
         }
         Self::update_indexes(&tx, &candidate)?;
-        if matches!(fault, Some(Boundary::AfterIndexes | Boundary::BeforeCommit)) {
+        if fault == Some(Boundary::AfterIndexes) || fault == Some(Boundary::BeforeCommit) {
             return Err(GraphError::Conflict);
         }
         if let Err(error) = tx.commit() {
