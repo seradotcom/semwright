@@ -66,6 +66,31 @@ fn method_scope_generation_source_and_revision_substitution_are_unknown() {
     }
 }
 #[test]
+fn normalized_evidence_preserves_validated_observation_scope() {
+    let (c, ctx) = fixture();
+    let extra = c.rules[1].address.clone();
+    let mut adapter = ModelAdapter {
+        mutate: |rule, observation| {
+            if rule.id == "position" {
+                observation.observation.scope.push(Address {
+                    resource: rule.address.resource.clone(),
+                    logical_id: "external-material".into(),
+                    property: "digest".into(),
+                });
+            }
+        },
+        ..Default::default()
+    };
+    let batch = collect(&c, &ctx, &mut adapter).unwrap();
+    let out = evaluate(&c, &ctx, &batch).unwrap();
+    assert_eq!(out.verdict().unwrap(), Verdict::Pass);
+    let scope = &out.report.validation.checks[0].evidence[0].scope;
+    assert_eq!(scope.len(), 2);
+    assert!(scope.contains(&c.rules[0].address));
+    assert!(scope.contains(&extra));
+}
+
+#[test]
 fn observer_is_not_invoked_outside_host_scope() {
     let (c, mut ctx) = fixture();
     ctx.observation_scope.clear();

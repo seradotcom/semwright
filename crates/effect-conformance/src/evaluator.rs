@@ -191,10 +191,12 @@ pub fn evaluate(
                         None => reasons.push("no observation".into()),
                     }
                     if verdict != Verdict::Unknown {
-                        let mut normalized = o.observation.clone();
-                        normalized.scope = vec![rule.address.clone()];
-                        normalized.exhaustive = true; // established by trusted channel + scope + paging guards
-                        evidence.push(normalized);
+                        // Preserve the validated observation scope. Shrinking it to only the
+                        // rule address would erase provenance about additional resources or
+                        // properties that the trusted observer actually read. `guard` already
+                        // proved this scope is unique, bounded, within the trusted invocation
+                        // scope, exhaustive, and contains the rule address.
+                        evidence.push(o.observation.clone());
                         observed.insert(rule.address.clone());
                     }
                 }
