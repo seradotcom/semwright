@@ -361,6 +361,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     assert_eq!(rig_row["nla_tracks"][0]["strips"][0]["repeat"], 2.0);
     assert_eq!(rig_row["nla_tracks"][0]["strips"][0]["scale"], 1.0);
     assert_eq!(rig_row["nla_tracks"][0]["strips"][0]["influence"], 1.0);
+    eprintln!("ARTICULATED_STAGE initial_apply_ok");
 
     let typed_plan: semwright_semantic_composition::PreparedPlan<
         semwright_driver_blender::authoring::AuthoringIntent,
@@ -521,6 +522,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
             json!({"name":body_for_page,"location":[0.0,0.0,0.5]}),
         )
         .await;
+    eprintln!("ARTICULATED_STAGE pagination_ok");
 
     // Repair is explicit and transform-only. A second authorized writer creates real drift;
     // verification must fail before the parent-bound repair is planned and applied.
@@ -608,6 +610,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
             .await["drift"],
         false
     );
+    eprintln!("ARTICULATED_STAGE repair_ok");
 
     // Export uses the pre-existing GLB capability, never a second E exporter.
     let scene = fixture
@@ -620,6 +623,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
             json!({"collection":collection,"path":"articulated.glb","animations":true}),
         )
         .await;
+    eprintln!("ARTICULATED_STAGE export_call_ok");
     let bytes = fs::read(workspace.path().join("articulated.glb")).unwrap();
     assert_eq!(&bytes[0..4], b"glTF");
     assert_eq!(export["sha256"], format!("{:x}", Sha256::digest(&bytes)));
