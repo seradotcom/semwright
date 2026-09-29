@@ -254,7 +254,8 @@ impl Approver for TestApprover {
         }
         Ok(matches!(
             approval.command.as_str(),
-            "driver.godot.composition.native.verify"
+            "artifact.handoff"
+                | "driver.godot.composition.native.verify"
                 | "driver.godot.composition.native.query"
                 | "driver.godot.composition.native.tracks.page"
                 | "driver.godot.composition.native.keys.page"
@@ -1665,34 +1666,13 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         return;
     }
 
-    let fixture = fixture();
-    let godot_input = fixture._input.path().canonicalize().unwrap();
+    // Reuse the exact provider/Broker bootstrap that is independently green in
+    // native, persistence and export acceptance. Cross-app transport gets its
+    // own Broker so no artifact filesystem authority is added to the Godot
+    // provider's policy boundary.
+    let host = hosted_authoring("godot-cross-app-blender-glb").await;
+    let godot_input = host.fixture._input.path().canonicalize().unwrap();
 
-    // Start and attest the Godot provider before opening a writable artifact
-    // handoff handle on the same host input directory. The provider itself
-    // retains the normal read-only input grant; only Broker's artifact backend
-    // receives write authority for the explicit handoff.
-    let (_binary_dir, executable) = staged_driver().await;
-    let helper = PathBuf::from(
-        std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
-            .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
-    );
-    let driver_state = tempfile::tempdir().unwrap();
-    std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-    let provider = DriverProvider::connect(
-        manifest(executable, fixture.runtime_sha256.clone()),
-        driver_state.path(),
-        &helper,
-        &fixture.roots,
-        false,
-    )
-    .await
-    .unwrap();
-
-    // Only touch the external E artifact after the provider has completed its
-    // sandboxed protocol handshake. This keeps provider startup identical to
-    // the native/persistence/export lanes and prevents cross-app preflight
-    // state from entering the launch boundary.
     let e_glb = PathBuf::from(
         std::env::var_os("SEMWRIGHT_TEST_E_GLB").expect("cross-app GLB path disappeared"),
     )
@@ -1722,22 +1702,21 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     let artifact_backend: Arc<dyn Backend> =
         Arc::new(ArtifactHandoff::new(&handoff_grants).unwrap());
 
-    let audit_dir = tempfile::tempdir().unwrap();
-    let audit = Audit::open(&audit_dir.path().join("audit"), 65_536, 2).unwrap();
-    let policy = Policy::new(PolicyConfig {
-        allow: ["driver:godot".into()].into(),
+    let artifact_audit_dir = tempfile::tempdir().unwrap();
+    let artifact_audit = Audit::open(&artifact_audit_dir.path().join("audit"), 65_536, 2).unwrap();
+    let artifact_policy = Policy::new(PolicyConfig {
         filesystem: handoff_grants.clone(),
         ..Default::default()
     })
     .unwrap();
-    let broker = Broker::new(
-        policy,
+    let handoff_broker = Broker::new(
+        artifact_policy,
         vec![artifact_backend],
-        audit,
+        artifact_audit,
         Arc::new(TestApprover),
         None,
         json!({
-            "test":"godot-cross-app-blender-glb",
+            "test":"godot-cross-app-artifact-handoff",
             "e_source_sha":"a5a242327ed435e9b95dc4921adf055f5391f5d7",
             "e_run_id":36521758152u64,
             "e_glb_sha256":E_ARTICULATED_GLB_SHA256
@@ -1746,16 +1725,14 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     )
     .unwrap();
 
-    broker.mount_provider(provider.clone()).await.unwrap();
-
-    let session = unique_id();
+    let session = host.session.clone();
     let mut baseline_spec: Value =
         serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
     baseline_spec["project"] = json!("cross_app_articulated");
     baseline_spec["title"] = json!("Cross-app GLB replacement");
 
     let baseline_plan = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.plan",
         json!({"spec":baseline_spec}),
@@ -1763,7 +1740,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     .await;
     let baseline_plan_id = baseline_plan["plan_id"].as_str().unwrap().to_owned();
     let baseline_apply = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.apply",
         json!({"plan_id":baseline_plan_id}),
@@ -1772,7 +1749,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert_eq!(baseline_apply["execution_status"], "completed");
 
     let baseline_snapshot = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.inspect",
         json!({"project":"cross_app_articulated"}),
@@ -1780,7 +1757,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     .await;
     assert_eq!(baseline_snapshot["status"], "IN_SYNC");
     let baseline_bindings = baseline_snapshot["bindings"].clone();
-    let product_project = fixture.output.path().join("cross_app_articulated");
+    let product_project = host.fixture.output.path().join("cross_app_articulated");
     let behavior_path = product_project.join("scripts/arena.gd");
     let baseline_behavior_sha = digest(&behavior_path);
     let triangle_path = product_project.join("assets/triangle.glb");
@@ -1791,7 +1768,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     );
 
     let baseline_native = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.native.verify",
         json!({
@@ -1818,7 +1795,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     );
 
     let baseline_play = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.native.verify",
         json!({
@@ -1852,7 +1829,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert!(baseline_last["fault"].is_null());
 
     let handoff = broker_call(
-        &broker,
+        &handoff_broker,
         &session,
         "artifact.handoff",
         json!({
@@ -1880,7 +1857,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     replacement_spec["assets"][0]["sha256"] = json!(E_ARTICULATED_GLB_SHA256);
 
     let replacement_plan = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.plan",
         json!({"spec":replacement_spec}),
@@ -1908,7 +1885,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     );
 
     let replacement_apply = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.apply",
         json!({"plan_id":replacement_plan_id}),
@@ -1923,7 +1900,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     );
 
     let replacement_snapshot = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.inspect",
         json!({"project":"cross_app_articulated"}),
@@ -1936,7 +1913,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     );
 
     let inspected = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.native.verify",
         json!({
@@ -2037,7 +2014,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     );
 
     let persisted = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.native.verify",
         json!({
@@ -2058,7 +2035,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     );
 
     let played = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.composition.native.verify",
         json!({
@@ -2090,7 +2067,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert!(last["fault"].is_null());
 
     let validated = broker_call(
-        &broker,
+        &host.broker,
         &session,
         "driver.godot.project.validate",
         json!({"managed_project":"cross_app_articulated"}),
@@ -2098,6 +2075,5 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     .await;
     assert_eq!(validated["success"], true);
 
-    broker.remove_provider("driver:godot").await.unwrap();
-    Provider::shutdown(provider.as_ref()).await.unwrap();
+    shutdown_hosted(host).await;
 }
