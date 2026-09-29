@@ -59,7 +59,7 @@ jobs:
         run: |
           cargo fmt --all -- --check
           git diff --check
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: motion-canvas-domain-evidence
@@ -271,7 +271,7 @@ jobs:
           cat verification/firefox-4g-address-space.log
           test "$rc" -eq 0
           node --input-type=module -e "import fs from 'node:fs'; const v=JSON.parse(fs.readFileSync('evidence/versions.json','utf8')); if(v.browserFamily!=='firefox'||v.canvas!==true||v.browser_probe_error) process.exit(1)"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: motion-canvas-real-render-evidence
@@ -302,7 +302,7 @@ jobs:
           for target in motion_project motion_reference motion_animation motion_path motion_svg motion_codegen motion_semantic; do
             cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=5 -timeout=3 -rss_limit_mb=1024 -max_len=131072 2>&1 | tee "verification/motion-canvas-fuzz/$target.log"
           done
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: motion-canvas-fuzz-evidence

@@ -210,7 +210,7 @@ jobs:
           sha256sum "$RUNNER_TEMP/launch-output/launch-film-1080p.mp4" "$RUNNER_TEMP/launch-output/poster.png" | tee "$RUNNER_TEMP/launch-output/SHA256SUMS.txt"
       - name: Upload lightweight visual review evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: semwright-launch-film-review-${{ github.sha }}
           path: |
@@ -222,7 +222,7 @@ jobs:
             ${{ runner.temp }}/launch-build.log
           retention-days: 30
           if-no-files-found: warn
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: semwright-launch-film-${{ github.sha }}
