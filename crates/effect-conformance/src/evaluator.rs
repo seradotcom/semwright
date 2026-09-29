@@ -192,6 +192,7 @@ pub fn evaluate(
                     }
                     if verdict != Verdict::Unknown {
                         let mut normalized = o.observation.clone();
+                        normalized.scope = vec![rule.address.clone()];
                         normalized.exhaustive = true; // established by trusted channel + scope + paging guards
                         evidence.push(normalized);
                         observed.insert(rule.address.clone());

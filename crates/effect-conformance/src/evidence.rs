@@ -38,6 +38,49 @@ impl EvaluationContext {
         }
         Ok(())
     }
+    /// Bind to A's exact prepared plan. This does not replace the existing
+    /// PlanVault reservation or Broker execution; it rejects divergent consumers.
+    pub fn validate_plan<I: Serialize, O: Serialize>(
+        &self,
+        plan: &PreparedPlan<I, O>,
+        profile: &ProfileDescriptor,
+        contract: &EffectContract,
+    ) -> Result<()> {
+        self.validate()?;
+        plan.verify(profile)?;
+        ensure(
+            self.owner == plan.body.owner
+                && self.plan_digest == plan.digest
+                && self.before == plan.body.base,
+            "evaluation differs from A plan owner/digest/source base",
+        )?;
+        ensure(
+            self.budget == plan.body.budget,
+            "evaluation cannot reset A plan budget",
+        )?;
+        ensure(
+            self.contract_digest == contract.digest()?
+                && plan.body.dependencies.get("effects.contract") == Some(&self.contract_digest),
+            "effect specification not pinned by A plan",
+        )?;
+        ensure(
+            plan.body.required_rules == contract.required_rules(),
+            "A/F required rule coverage differs",
+        )?;
+        ensure(
+            self.operations
+                == plan
+                    .body
+                    .changes
+                    .operations
+                    .iter()
+                    .map(|op| op.id.clone())
+                    .collect()
+                && self.observation_scope == plan.body.observation_scope.iter().cloned().collect(),
+            "A/F operation or observation scope differs",
+        )?;
+        Ok(())
+    }
     pub fn enumeration_binding(&self, rule: &EffectRule) -> Result<EnumerationBinding> {
         let state = self
             .after
@@ -61,7 +104,7 @@ impl EvaluationContext {
     }
 }
 /// The identity comes from the observer's authenticated channel, not the payload.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdapterIdentity {
     pub owner: Owner,
     pub provider: String,
@@ -163,6 +206,13 @@ pub fn collect<A: EvidenceAdapter>(
             ))
         } else {
             adapter.observe(context, rule)
+        };
+        let result = if identity != adapter.identity(&rule.address.resource) {
+            Err(ContractError::Unknown(
+                "observer channel changed during readback".into(),
+            ))
+        } else {
+            result
         };
         observations.push(CollectedObservation {
             rule_id: rule.id.clone(),
