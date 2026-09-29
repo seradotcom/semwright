@@ -452,6 +452,14 @@ impl LinuxHostToolBroker {
 }
 
 #[cfg(target_os = "linux")]
+fn linux_host_tool_cpu_limit(timeout: Duration) -> u64 {
+    timeout
+        .as_secs()
+        .saturating_add(u64::from(timeout.subsec_nanos() != 0))
+        .max(5)
+}
+
+#[cfg(target_os = "linux")]
 #[async_trait]
 impl HostToolExecutor for LinuxHostToolBroker {
     async fn execute(
@@ -522,10 +530,9 @@ impl HostToolExecutor for LinuxHostToolBroker {
         spec.sealed_tools.clear();
 
         let timeout = Duration::from_millis(timeout_ms);
-        let timeout_cpu_seconds = timeout
-            .as_secs()
-            .saturating_add(u64::from(timeout.subsec_nanos() != 0))
-            .max(1);
+        // semwright-sandbox enforces a five-second minimum RLIMIT_CPU.
+        // Wall-clock timeout remains the stricter deadline for shorter tool calls.
+        let timeout_cpu_seconds = linux_host_tool_cpu_limit(timeout);
         spec.limits = Some(match spec.limits.take() {
             Some(limit) => ResourceLimits {
                 open_files: limit.open_files,
@@ -2959,6 +2966,14 @@ mod tests {
             request_timeout_ms: 1000,
             interfaces: semwright_driver_sdk::DriverInterfaces::default(),
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_host_tool_cpu_limit_respects_sandbox_floor_without_changing_wall_deadline() {
+        assert_eq!(linux_host_tool_cpu_limit(Duration::from_millis(1)), 5);
+        assert_eq!(linux_host_tool_cpu_limit(Duration::from_secs(2)), 5);
+        assert_eq!(linux_host_tool_cpu_limit(Duration::from_millis(5_001)), 6);
     }
 
     #[test]
