@@ -4,7 +4,7 @@ use crate::{
     catalog::{self, Capability},
     edit::{self, Edit},
     fs::{PrivateDir, Root},
-    hash::{random_id, reader_hash, sha256},
+    hash::{Sha256, random_id, reader_hash, sha256, valid_digest},
     jobs::{self, Jobs},
     json::{Value, array, display, obj},
     model::*,
@@ -275,6 +275,7 @@ impl App {
                     }),
                 );
             }
+            "sync.probe" => return self.sync_probe(a),
             "render.profiles" => {
                 return Ok(obj([
                     (
@@ -1247,6 +1248,130 @@ impl App {
             opaque: false,
         })
     }
+    fn sync_probe(&self, a: &Value) -> Result<Value> {
+        a.strict(
+            &["root", "path", "expected_sha256", "window_us", "cues"],
+            &["root", "path", "expected_sha256", "window_us", "cues"],
+        )?;
+        let root_name = a.str("root")?;
+        if !matches!(root_name, "project" | "media" | "output") {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Sync media root not granted",
+            ));
+        }
+        let path = a.str("path")?;
+        let expected_sha256 = a.str("expected_sha256")?;
+        if !valid_digest(expected_sha256) {
+            return Err(Error::invalid("Sync artifact SHA-256 is malformed"));
+        }
+        let window_us = a.uint("window_us")?;
+        if !(crate::sync::MIN_WINDOW_US..=crate::sync::MAX_WINDOW_US).contains(&window_us) {
+            return Err(Error::invalid(
+                "Sync cue window is outside supported bounds",
+            ));
+        }
+        let cue_values = a.get("cues")?.as_array()?;
+        if cue_values.is_empty() || cue_values.len() > crate::sync::MAX_SYNC_CUES {
+            return Err(Error::limit("Sync cue count must be 1..16"));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        let mut cues = Vec::with_capacity(cue_values.len());
+        for cue in cue_values {
+            cue.strict(&["id", "expected_us"], &["id", "expected_us"])?;
+            let id = cue.str("id")?;
+            let expected_us = cue.uint("expected_us")?;
+            if !crate::sync::valid_cue_id(id)
+                || expected_us > 600_000_000
+                || !seen.insert(id.to_owned())
+            {
+                return Err(Error::invalid("Sync cue ID/time is invalid or duplicated"));
+            }
+            cues.push(crate::sync::CueWindow {
+                id: id.to_owned(),
+                expected_us,
+            });
+        }
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "Sync probing requires the pinned confined ffprobe runtime",
+            )
+        })?;
+        let mount = self
+            .roots
+            .get(root_name)
+            .ok_or_else(|| Error::new("PermissionDenied", "Sync media mount absent"))?;
+        let mut source = mount.read_file(path, jobs::MAX_MEDIA_BYTES)?;
+        let inputs = PrivateDir::new(Path::new("/tmp"))?;
+        let work = PrivateDir::new(Path::new("/tmp"))?;
+        let mut destination = inputs.create("sync-media.bin")?;
+        let mut hasher = Sha256::new();
+        let mut copied = 0u64;
+        let mut buffer = [0u8; 65_536];
+        loop {
+            let count = source.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            copied = copied
+                .checked_add(count as u64)
+                .ok_or_else(|| Error::limit("Sync media size overflow"))?;
+            if copied > jobs::MAX_MEDIA_BYTES {
+                return Err(Error::limit("Sync media exceeds staging budget"));
+            }
+            hasher.update(&buffer[..count]);
+            destination.write_all(&buffer[..count])?;
+        }
+        destination.flush()?;
+        destination.sync_all()?;
+        drop(destination);
+        let actual_sha256 = hasher.finish();
+        if actual_sha256 != expected_sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Sync media digest changed before decode",
+            ));
+        }
+        inputs.seal("sync-media.bin")?;
+        let result = runtime.sync_probe(
+            inputs.path(),
+            work.path(),
+            "sync-media.bin",
+            &cues,
+            window_us,
+            &AtomicBool::new(false),
+        )?;
+        let detection = |value: crate::sync::Detection| {
+            obj([
+                ("cue_id", value.cue_id.into()),
+                ("presentation_time_us", value.presentation_time_us.into()),
+                ("uncertainty_us", value.uncertainty_us.into()),
+                ("confidence", u64::from(value.confidence).into()),
+            ])
+        };
+        Ok(obj([
+            ("artifact_sha256", actual_sha256.into()),
+            ("decoder", "ffprobe-lavfi-sync-v1".into()),
+            ("decoder_sha256", runtime.ffprobe.sha256.clone().into()),
+            ("coverage", "cue_windows".into()),
+            ("window_us", window_us.into()),
+            ("flashes", array(result.flashes.into_iter().map(detection))),
+            (
+                "impulses",
+                array(result.impulses.into_iter().map(detection)),
+            ),
+            (
+                "missing_video",
+                array(result.missing_video.into_iter().map(Into::into)),
+            ),
+            (
+                "missing_audio",
+                array(result.missing_audio.into_iter().map(Into::into)),
+            ),
+        ]))
+    }
+
     fn probe_resource(&self, root: &str, path: &str) -> Result<crate::runtime::MediaInfo> {
         if !matches!(root, "project" | "media" | "output") {
             return Err(Error::new("PermissionDenied", "Media root not granted"));

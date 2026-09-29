@@ -8748,6 +8748,218 @@
   },
   {
     "descriptor": {
+      "name": "driver.mlt-video.sync.probe",
+      "version": "0.1.0",
+      "description": "Decode bounded technical flash/impulse cue windows with the pinned confined ffprobe runtime; no caller-supplied filter graph or argv.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "expected_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "window_us": {
+            "type": "integer",
+            "minimum": 10000,
+            "maximum": 500000
+          },
+          "cues": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 96
+                },
+                "expected_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000000
+                }
+              },
+              "required": [
+                "id",
+                "expected_us"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "root",
+          "path",
+          "expected_sha256",
+          "window_us",
+          "cues"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "artifact_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "decoder": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "decoder_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "coverage": {
+            "type": "string",
+            "enum": [
+              "cue_windows"
+            ]
+          },
+          "window_us": {
+            "type": "integer",
+            "minimum": 10000,
+            "maximum": 500000
+          },
+          "flashes": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "cue_id": {
+                  "type": "string",
+                  "maxLength": 96
+                },
+                "presentation_time_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000000
+                },
+                "uncertainty_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 500000
+                },
+                "confidence": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "cue_id",
+                "presentation_time_us",
+                "uncertainty_us",
+                "confidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "impulses": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "cue_id": {
+                  "type": "string",
+                  "maxLength": 96
+                },
+                "presentation_time_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000000
+                },
+                "uncertainty_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 500000
+                },
+                "confidence": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "cue_id",
+                "presentation_time_us",
+                "uncertainty_us",
+                "confidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "missing_video": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "maxLength": 96
+            }
+          },
+          "missing_audio": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "maxLength": 96
+            }
+          }
+        },
+        "required": [
+          "artifact_sha256",
+          "decoder",
+          "decoder_sha256",
+          "coverage",
+          "window_us",
+          "flashes",
+          "impulses",
+          "missing_video",
+          "missing_audio"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 180000,
+      "dry_run": true,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "video",
+      "audio",
+      "sync",
+      "offline",
+      "ffprobe"
+    ],
+    "object_types": [
+      "video-artifact"
+    ]
+  },
+  {
+    "descriptor": {
       "name": "driver.mlt-video.track.create",
       "version": "0.1.0",
       "description": "Offline semantic track.create. Application data is untrusted; inspect format-level availability.",

@@ -6,6 +6,7 @@ use crate::{
     hash::{reader_hash, valid_digest},
     json::{self, Value, array, obj},
     model::Profile,
+    sync::{self, CueWindow, ProbeResult},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -718,6 +719,115 @@ impl Runtime {
         .checked()?;
         MediaInfo::parse(&r.stdout)
     }
+    pub fn sync_probe(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        cues: &[CueWindow],
+        window_us: u64,
+        cancel: &AtomicBool,
+    ) -> Result<ProbeResult> {
+        crate::fs::validate_relative(name)?;
+        if name.contains('/')
+            || cues.is_empty()
+            || cues.len() > sync::MAX_SYNC_CUES
+            || !(sync::MIN_WINDOW_US..=sync::MAX_WINDOW_US).contains(&window_us)
+        {
+            return Err(Error::invalid("Invalid bounded sync probe request"));
+        }
+        let input = self.input_path(inputs, name);
+        let input_text = input.to_string_lossy();
+        if !input_text
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'_' | b'-' | b'.'))
+        {
+            return Err(Error::new(
+                "Internal",
+                "Private sync probe path is not safely representable",
+            ));
+        }
+        let seconds = |micros: u64| format!("{}.{:06}", micros / 1_000_000, micros % 1_000_000);
+        let run_probe = |filter: String, tag: &str| -> Result<Vec<u8>> {
+            let entries = format!("frame=best_effort_timestamp_time,pts_time:frame_tags={tag}");
+            let args = vec![
+                "-v".into(),
+                "error".into(),
+                "-f".into(),
+                "lavfi".into(),
+                "-i".into(),
+                filter.into(),
+                "-show_frames".into(),
+                "-show_entries".into(),
+                entries.into(),
+                "-of".into(),
+                "json".into(),
+            ];
+            let result = run(
+                &self.spec("ffprobe", args, inputs, work, Duration::from_secs(10))?,
+                cancel,
+            )?
+            .checked()?;
+            if result.stdout.is_empty() || result.stdout.len() >= RETAIN_LOG {
+                return Err(Error::limit(
+                    "Sync probe metadata was empty or reached the retained-output budget",
+                ));
+            }
+            Ok(result.stdout)
+        };
+
+        let mut flashes = Vec::new();
+        let mut impulses = Vec::new();
+        let mut missing_video = Vec::new();
+        let mut missing_audio = Vec::new();
+        for cue in cues {
+            if !sync::valid_cue_id(&cue.id) || cue.expected_us > 600_000_000 {
+                return Err(Error::invalid("Invalid sync cue"));
+            }
+            if cancel.load(Ordering::Acquire) {
+                return Err(Error::new("Cancelled", "Sync probe cancelled"));
+            }
+            let start = cue.expected_us.saturating_sub(window_us);
+            let end = cue
+                .expected_us
+                .checked_add(window_us)
+                .ok_or_else(|| Error::limit("Sync cue window overflow"))?
+                .min(600_000_000);
+            if end <= start {
+                return Err(Error::invalid("Sync cue window is empty"));
+            }
+            let video_filter = format!(
+                "movie=filename='{}',trim=start={}:end={},signalstats",
+                input_text,
+                seconds(start),
+                seconds(end)
+            );
+            let video = run_probe(video_filter, "lavfi.signalstats.YAVG")?;
+            match sync::flash(cue, &video, window_us)? {
+                Some(value) => flashes.push(value),
+                None => missing_video.push(cue.id.clone()),
+            }
+
+            let audio_filter = format!(
+                "amovie=filename='{}',atrim=start={}:end={},asetnsamples=n=512:p=0,astats=metadata=1:reset=1",
+                input_text,
+                seconds(start),
+                seconds(end)
+            );
+            let audio = run_probe(audio_filter, "lavfi.astats.Overall.Peak_level")?;
+            match sync::impulse(cue, &audio, window_us)? {
+                Some(value) => impulses.push(value),
+                None => missing_audio.push(cue.id.clone()),
+            }
+        }
+        Ok(ProbeResult {
+            flashes,
+            impulses,
+            missing_video,
+            missing_audio,
+        })
+    }
+
     pub fn render(
         &self,
         inputs: &Path,

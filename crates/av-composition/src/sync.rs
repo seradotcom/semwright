@@ -24,7 +24,7 @@ pub struct SyncSpec {
 impl SyncSpec {
     pub fn validate(&self) -> Result<()> {
         ensure(
-            !self.cues.is_empty() && self.cues.len() <= 512 && self.confidence_floor <= 10000,
+            !self.cues.is_empty() && self.cues.len() <= 16 && self.confidence_floor <= 10000,
             "sync cue/confidence budget",
         )?;
         for v in [self.max_offset, self.max_drift, self.max_cue_error] {

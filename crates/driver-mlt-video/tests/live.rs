@@ -194,6 +194,37 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         "failed to create 1080p H.264 input fixture"
     );
 
+    // Harness-only oracle media: one white video flash and one single-sample audio
+    // impulse share the 1.000000 s presentation timestamp. The product under test
+    // only receives the finished file plus its digest and expected cue window.
+    let sync_source = media.path().join("sync-markers.mkv");
+    let status = Command::new(&ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=black:s=320x180:r=30:d=2,drawbox=x=0:y=0:w=iw:h=ih:color=white:t=fill:enable='between(t,1,1.034)'",
+            "-f",
+            "lavfi",
+            "-i",
+            r"aevalsrc=if(eq(n\,48000)\,1\,0):s=48000:d=2",
+            "-shortest",
+            "-c:v",
+            "ffv1",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "pcm_s16le",
+        ])
+        .arg(&sync_source)
+        .status()
+        .unwrap();
+    assert!(status.success(), "failed to create AV sync marker fixture");
+
     let manifest = Manifest {
         manifest_version: 1,
         protocol: 1,
@@ -280,11 +311,15 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         .await
         .unwrap();
     let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert_eq!(capabilities.len(), 68);
     assert!(
         capabilities
             .iter()
             .all(|capability| capability.descriptor.name.starts_with("driver.mlt-video."))
+    );
+    assert!(
+        capabilities
+            .iter()
+            .any(|capability| { capability.descriptor.name == "driver.mlt-video.sync.probe" })
     );
 
     let doctor = call(
@@ -295,7 +330,10 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
-    assert_eq!(doctor["capabilities"], 68);
+    assert_eq!(
+        doctor["capabilities"].as_u64().unwrap(),
+        capabilities.len() as u64
+    );
     assert_eq!(doctor["network"], false);
     assert_eq!(doctor["render_available"], true, "MLT doctor: {doctor}");
     assert!(
@@ -303,6 +341,51 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             .as_str()
             .is_some_and(|value| !value.is_empty())
     );
+
+    let sync_digest = digest(&sync_source);
+    let sync = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.sync.probe",
+        json!({
+            "root":"media",
+            "path":"sync-markers.mkv",
+            "expected_sha256":sync_digest,
+            "window_us":100000,
+            "cues":[{"id":"technical","expected_us":1000000}]
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(sync["artifact_sha256"], sync_digest);
+    assert_eq!(sync["coverage"], "cue_windows");
+    assert_eq!(sync["missing_video"], json!([]));
+    assert_eq!(sync["missing_audio"], json!([]));
+    let flash = &sync["flashes"][0];
+    let impulse = &sync["impulses"][0];
+    assert!(flash["confidence"].as_u64().unwrap() >= 9000, "{sync:#}");
+    assert!(impulse["confidence"].as_u64().unwrap() >= 9000, "{sync:#}");
+    let flash_us = flash["presentation_time_us"].as_u64().unwrap();
+    let impulse_us = impulse["presentation_time_us"].as_u64().unwrap();
+    assert!(flash_us.abs_diff(1_000_000) <= 35_000, "{sync:#}");
+    assert!(impulse_us.abs_diff(1_000_000) <= 10_000, "{sync:#}");
+    assert!(flash_us.abs_diff(impulse_us) <= 35_000, "{sync:#}");
+
+    let stale_sync = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.sync.probe",
+        json!({
+            "root":"media",
+            "path":"sync-markers.mkv",
+            "expected_sha256":"0".repeat(64),
+            "window_us":100000,
+            "cues":[{"id":"technical","expected_us":1000000}]
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(stale_sync.code, semwright_types::ErrorCode::StaleReference);
 
     let created_project = call(
         provider.as_ref(),

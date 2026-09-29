@@ -478,6 +478,8 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -497,7 +499,7 @@ jobs:
           ffprobe -version | head -3 | tee verification/native-ci/ffprobe-version.log
           go version | tee verification/native-ci/go-version.log
           bwrap --version | tee verification/native-ci/bwrap-version.log
-      - name: Preflight unprivileged Bubblewrap
+      - name: Preflight unprivileged Bubblewrap without relaxing AppArmor
         run: |
           current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
           if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
@@ -507,22 +509,54 @@ jobs:
           sandbox_setup=kernel-default
           if [ "$current_apparmor" = "1" ]; then
             sudo apt-get install -y apparmor-profiles apparmor-utils
-            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
-            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
-              sandbox_setup=apparmor-bwrap-profile
-            else
-              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-              sandbox_setup=ephemeral-ci-userns-relaxation
-            fi
+            PROFILE=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            test -f "$PROFILE"
+            cp "$PROFILE" "$RUNNER_TEMP/mlt-bwrap-userns-restrict"
+            python3 - "$RUNNER_TEMP/mlt-bwrap-userns-restrict" <<'PY'
+          from pathlib import Path
+          import sys
+          path=Path(sys.argv[1]); text=path.read_text()
+          old="flags=(attach_disconnected)"
+          if text.count(old)!=2: raise SystemExit("unexpected bwrap AppArmor flag shape")
+          text=text.replace(old,"flags=(attach_disconnected,mediate_deleted)")
+          parent="allow px /** -> bwrap//&unpriv_bwrap,"
+          nested="allow pix /** -> &unpriv_bwrap,"
+          if text.count(parent)!=1 or text.count(nested)!=1:
+              raise SystemExit("unexpected bwrap AppArmor exec-rule shape")
+          text=text.replace("  "+parent,"\n".join([
+              "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
+              "  allow ix /tmp/**,",
+          ]))
+          text=text.replace("  "+nested,"\n".join([
+              "  allow ix /plugin/bin,",
+              "  allow ix /workspace/**,",
+              "  allow ix /usr/**,",
+              "  allow ix /tmp/**,",
+          ]))
+          path.write_text(text)
+          PY
+            sudo install -m 0644 "$RUNNER_TEMP/mlt-bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
+            sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
+            test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = "1"
+            sandbox_setup=apparmor-scoped-semwright-chain
           fi
           echo "sandbox_setup=$sandbox_setup" | tee verification/native-ci/extended-driver-sandbox.log
+          test "$sandbox_setup" != ephemeral-ci-userns-relaxation
           bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home)
           for runtime in /usr /lib /lib64; do
-            if [ -e "$runtime" ]; then
-              bwrap_args+=(--ro-bind "$runtime" "$runtime")
-            fi
+            if [ -e "$runtime" ]; then bwrap_args+=(--ro-bind "$runtime" "$runtime"); fi
           done
           bwrap "${bwrap_args[@]}" -- /usr/bin/true
+      - name: Verify generated MLT catalog evidence
+        run: |
+          python3 scripts/generate-mlt-catalog-fixtures.py | tee verification/native-ci/mlt-catalog-generation.log
+          git diff --exit-code -- \
+            crates/driver-mlt-video/src/catalog.json \
+            crates/driver-mlt-video/fixtures/expected \
+            crates/driver-mlt-video/fixtures/SHA256SUMS.json
       - name: Build and test MLT semantic driver
         run: |
           cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/native-ci/mlt-tests.log
