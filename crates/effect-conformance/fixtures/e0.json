@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "profile": "godot.scene-only",
+  "allowed": [
+    {
+      "operation_id": "save",
+      "effects": [
+        "update_owned_object"
+      ],
+      "writes": [
+        {
+          "resource": {
+            "provider": "driver:godot",
+            "resource": "fixture"
+          },
+          "logical_id": "Root/Hero",
+          "property": "position.x"
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "position",
+      "version": 1,
+      "obligation": "required",
+      "operation_id": "save",
+      "address": {
+        "resource": {
+          "provider": "driver:godot",
+          "resource": "fixture"
+        },
+        "logical_id": "Root/Hero",
+        "property": "position.x"
+      },
+      "predicate": {
+        "kind": "within",
+        "expected": 1.0,
+        "tolerance": 1e-06,
+        "units": "metre"
+      },
+      "method": {
+        "name": "godot.native-property",
+        "version": 1,
+        "source": "native_api"
+      },
+      "universe": null,
+      "artifact": null,
+      "require_causal_attribution": false
+    },
+    {
+      "id": "external-material",
+      "version": 1,
+      "obligation": "forbidden",
+      "operation_id": "save",
+      "address": {
+        "resource": {
+          "provider": "driver:godot",
+          "resource": "fixture"
+        },
+        "logical_id": "external-material",
+        "property": "digest"
+      },
+      "predicate": {
+        "kind": "preserved"
+      },
+      "method": {
+        "name": "root-sentinel-sha256",
+        "version": 1,
+        "source": "file_read"
+      },
+      "universe": null,
+      "artifact": null,
+      "require_causal_attribution": false
+    }
+  ]
+}
