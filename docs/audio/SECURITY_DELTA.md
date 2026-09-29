@@ -23,3 +23,8 @@ A sandboxed driver does not imply a user's normal Ardour process is sandboxed. N
 Native libfaust, libebur128, libsndfile and Ardour remain TCB components. Save/reopen proves observed persistence, not crash consistency. OSC continuity differs from offline deep sessions. R16 must re-evaluate native-tool materialization, hostile media limits, runtime provenance and the managed Ardour boundary.
 
 Ardour deep operations now negotiate Driver Protocol cooperative cancellation: cancellation is propagated to the fixed Lua/create/export child, the child is killed and waited, and Semwright never kills unrelated user Ardour processes.
+
+
+## Merged-usr compatibility inside Linux confinement
+
+The Linux sandbox recreates /bin -> usr/bin only when the host itself uses that exact merged-usr alias. This does not add a new executable authority tree: /usr was already the system read/execute root admitted by Bubblewrap and Landlock. The alias restores the POSIX /bin/sh path required by libc popen() and similar libraries while keeping arbitrary host /bin directories unmounted on non-merged-usr systems.

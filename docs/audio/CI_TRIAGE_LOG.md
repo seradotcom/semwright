@@ -10,3 +10,6 @@ This is diagnostic history, not evidence for later SHAs.
 - Run 36530198461 at 6e073f7: analysis-native remained green. Portable reached clippy and failed only on a complex tuple type in the expanded Ardour capability table; d1d35df replaced it with a named DeepMutationSpec. Faust failed in a diagnostic control that incorrectly mounted the helper as /plugin/bin instead of reproducing Driver Host driver-plus-sealed-tool topology; 17a1083 removed that invalid control. Ardour direct new_empty_session succeeded outside the sandbox but Broker deep.create still failed; d1d35df added a raw DriverProvider diagnostic before Broker redaction and expanded fixed-Lua sends/groups/allowlisted-plugin coverage.
 
 Rerunning those exact SHAs cannot prove later code changes.
+
+
+- Faust confinement differential on f909f47: direct full environment, clean environment, and no_new_privs all compiled the interpreter probe. Every tested Bubblewrap profile without /bin terminated the helper with SIGSEGV 11 before factory completion. Upstream libfaust resolves hard-coded argv0 faust with exepath::get, which uses popen("which faust"); POSIX popen requires /bin/sh. The Semwright Linux profile exposed /usr/bin but omitted the host merged-usr /bin -> usr/bin alias. The fix recreates only that alias and retains /usr as the Landlock execute authority.

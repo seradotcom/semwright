@@ -45,16 +45,14 @@ else
   printf '%s\n' "setpriv unavailable" >"$out/no-new-privs-clean-env.stderr"
 fi
 
-# Landlock-only differential: no mount/user/pid/network namespaces.
 record landlock-host-fs "$sandbox" \
   --limit-nofile 256 --limit-nproc 16 --limit-cpu 120 \
   --limit-as 2147483648 --limit-fsize 536870912 \
   --read-root "$libs" --exec-root "$helper" \
   -- "$helper" probe "$libs"
 
-bwrap_mounts=(
+base_mounts=(
   --die-with-parent
-  --new-session
   --clearenv
   --cap-drop ALL
   --proc /proc
@@ -70,12 +68,12 @@ bwrap_mounts=(
   --ro-bind /lib /lib
 )
 if [ -e /lib64 ]; then
-  bwrap_mounts+=(--ro-bind /lib64 /lib64)
+  base_mounts+=(--ro-bind /lib64 /lib64)
 fi
 if [ -e /etc/ld.so.cache ]; then
-  bwrap_mounts+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+  base_mounts+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
 fi
-bwrap_mounts+=(
+base_mounts+=(
   --ro-bind "$helper" /plugin/tools/faust-interpreter
   --ro-bind "$libs" /workspace/libs
   --setenv HOME /tmp
@@ -90,26 +88,84 @@ bwrap_mounts+=(
   --chdir /tmp
 )
 
-run_bwrap() {
+run_minimal() {
   local name="$1"
   shift
-  record "$name" bwrap "$@" "${bwrap_mounts[@]}" -- /plugin/tools/faust-interpreter probe /workspace/libs
+  record "$name" bwrap "$@" "${base_mounts[@]}" -- /plugin/tools/faust-interpreter probe /workspace/libs
 }
 
-# Bubblewrap necessarily creates a mount namespace. Everything below isolates
-# additional namespace flags relative to that baseline.
-run_bwrap bwrap-mount-only
-run_bwrap bwrap-unshare-user --unshare-user
-run_bwrap bwrap-unshare-ipc --unshare-ipc
-run_bwrap bwrap-unshare-pid --unshare-pid
-run_bwrap bwrap-unshare-net --unshare-net
-run_bwrap bwrap-unshare-uts --unshare-uts
-run_bwrap bwrap-unshare-cgroup --unshare-cgroup-try
-run_bwrap bwrap-unshare-all --unshare-all
-run_bwrap bwrap-unshare-all-share-net --unshare-all --share-net
+run_minimal bwrap-mount-only-no-session
+run_minimal bwrap-new-session-only --new-session
+run_minimal bwrap-unshare-user --unshare-user
+run_minimal bwrap-unshare-ipc --unshare-ipc
+run_minimal bwrap-unshare-pid --unshare-pid
+run_minimal bwrap-unshare-net --unshare-net
+run_minimal bwrap-unshare-uts --unshare-uts
+run_minimal bwrap-unshare-cgroup --unshare-cgroup-try
+run_minimal bwrap-unshare-all --unshare-all
+run_minimal bwrap-unshare-all-share-net --unshare-all --share-net
 
-# Product-like chain: Bubblewrap namespaces + Landlock helper.
-record bwrap-landlock bwrap --unshare-all "${bwrap_mounts[@]}" \
+# libfaust resolves argv[0] with popen("which faust"); POSIX popen invokes /bin/sh.
+# The product profile exposes /usr/bin but not /bin, so test that dependency alone.
+if [ -L /bin ] && [ "$(readlink /bin)" = "usr/bin" ]; then
+  run_minimal bwrap-with-bin --symlink usr/bin /bin
+elif [ -d /bin ]; then
+  run_minimal bwrap-with-bin --ro-bind /bin /bin
+fi
+
+if [ -e /sys ]; then
+  run_minimal bwrap-with-sys --ro-bind /sys /sys
+fi
+if [ -e /run ]; then
+  run_minimal bwrap-with-run --ro-bind /run /run
+fi
+if [ -e /sys ] && [ -e /run ]; then
+  run_minimal bwrap-with-sys-run --ro-bind /sys /sys --ro-bind /run /run
+fi
+
+record bwrap-root-ro-no-session bwrap \
+  --die-with-parent --clearenv --cap-drop ALL \
+  --ro-bind / / \
+  --tmpfs /tmp --tmpfs /dev/shm \
+  --setenv HOME /tmp --setenv TMPDIR /tmp \
+  --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config \
+  --setenv XDG_DATA_HOME /tmp/data --setenv FAUST_LIB_PATH "$libs" \
+  --setenv LANG C.UTF-8 --setenv LC_ALL C.UTF-8 --setenv PATH /usr/bin:/bin \
+  --chdir /tmp -- "$helper" probe "$libs"
+
+record bwrap-root-ro-new-session bwrap \
+  --die-with-parent --new-session --clearenv --cap-drop ALL \
+  --ro-bind / / \
+  --tmpfs /tmp --tmpfs /dev/shm \
+  --setenv HOME /tmp --setenv TMPDIR /tmp \
+  --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config \
+  --setenv XDG_DATA_HOME /tmp/data --setenv FAUST_LIB_PATH "$libs" \
+  --setenv LANG C.UTF-8 --setenv LC_ALL C.UTF-8 --setenv PATH /usr/bin:/bin \
+  --chdir /tmp -- "$helper" probe "$libs"
+
+if command -v strace >/dev/null 2>&1; then
+  trace_dir="$out/strace"
+  mkdir -p "$trace_dir"
+  trace_mounts=("${base_mounts[@]}")
+  trace_mounts+=(--bind "$trace_dir" /trace)
+  record strace-bwrap bwrap "${trace_mounts[@]}" -- \
+    /usr/bin/strace -ff -qq -s 160 -o /trace/faust.strace \
+    /plugin/tools/faust-interpreter probe /workspace/libs
+  for trace in "$trace_dir"/faust.strace*; do
+    [ -f "$trace" ] || continue
+    tail -n 160 "$trace" >"$trace.tail"
+    rm -f "$trace"
+  done
+else
+  printf '%s\n' 127 >"$out/strace-bwrap.exit"
+  printf '%s\n' "strace unavailable" >"$out/strace-bwrap.stderr"
+fi
+
+product_alias=()
+if [ -L /bin ] && [ "$(readlink /bin)" = "usr/bin" ]; then
+  product_alias=(--symlink usr/bin /bin)
+fi
+record bwrap-landlock bwrap --unshare-all "${product_alias[@]}" "${base_mounts[@]}" \
   --ro-bind "$sandbox" /plugin/sandbox \
   -- /plugin/sandbox \
   --limit-nofile 256 --limit-nproc 16 --limit-cpu 120 \
@@ -124,5 +180,4 @@ record bwrap-landlock bwrap --unshare-all "${bwrap_mounts[@]}" \
   done
 } | sort | tee "$out/summary.txt"
 
-# Diagnostics are evidence only; the real Host conformance test decides PASS.
 exit 0
