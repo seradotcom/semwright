@@ -272,26 +272,41 @@ pub fn native_verify_out() -> Value {
         "type":"object",
         "additionalProperties":false,
         "required":[
-            "owner","request_id","project","slug","plan_digest",
+            "owner","request_id","project","slug","scene","plan_digest",
             "intent_digest","source_fingerprint"
         ],
         "properties":{
-            "owner":{"type":"object"},
+            "owner":{"type":"object","maxProperties":4},
             "request_id":{"type":"string","minLength":1,"maxLength":256},
             "project":{"type":"string","pattern":"^prj_[0-9a-f]{32}$"},
             "slug":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,47}$"},
+            "scene":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,47}$"},
             "plan_digest":digest.clone(),
             "intent_digest":digest.clone(),
             "source_fingerprint":digest
         }
     });
+    let effects = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["report","contract_digest","owner","request_id","coverage","vacuous"],
+        "properties":{
+            "report":{"type":"object","maxProperties":8},
+            "contract_digest":digest.clone(),
+            "owner":{"type":"object","maxProperties":4},
+            "request_id":{"type":"string","minLength":1,"maxLength":256},
+            "coverage":{"type":"array","maxItems":64,"items":{"type":"object","maxProperties":8}},
+            "vacuous":{"type":"boolean"}
+        }
+    });
     json!({
         "type":"object",
         "additionalProperties":false,
-        "required":["kind","binding"],
+        "required":["kind","binding","effects"],
         "properties":{
             "kind":{"enum":["inspect","persistence","play"]},
             "binding":binding,
+            "effects":effects,
             "observation":{"type":"object"},
             "writer":{"type":"object"},
             "reader":{"type":"object"},

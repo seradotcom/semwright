@@ -269,6 +269,19 @@ async fn broker_call(broker: &Arc<Broker>, session: &str, command: &str, args: V
     envelope.data.unwrap()
 }
 
+fn effect_rule_verdict<'a>(response: &'a Value, rule: &str) -> Option<&'a str> {
+    response["effects"]["report"]["validation"]["checks"]
+        .as_array()?
+        .iter()
+        .find(|check| check["rule"] == rule)?
+        .get("verdict")?
+        .as_str()
+}
+
+fn effect_rule_passes(response: &Value, rule: &str) -> bool {
+    effect_rule_verdict(response, rule) == Some("PASS")
+}
+
 #[tokio::test]
 #[ignore = "requires bubblewrap/Landlock sandbox helper and production driver binary"]
 async fn empty_project_authoring_flows_through_broker_driver_host_and_provider() {
@@ -391,7 +404,15 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         plan["plan_digest"]
     );
     assert_eq!(native_inspect["binding"]["slug"], project_slug);
+    assert_eq!(native_inspect["binding"]["scene"], "arena");
+    let readback_verdict =
+        effect_rule_verdict(&native_inspect, "godot.native_readback.arena.v1").unwrap();
+    assert!(matches!(readback_verdict, "PASS" | "UNKNOWN"));
     assert_eq!(native_inspect["observation"]["dependency_complete"], true);
+    let has_unknown = native_inspect["observation"]["authored"]["unknown"]
+        .as_array()
+        .is_some_and(|unknown| !unknown.is_empty());
+    assert_eq!(readback_verdict == "UNKNOWN", has_unknown);
     assert!(
         native_inspect["observation"]["authored"]["nodes"]
             .as_array()
@@ -415,6 +436,10 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     )
     .await;
     assert_eq!(native_persistence["kind"], "persistence");
+    assert!(effect_rule_passes(
+        &native_persistence,
+        "godot.native_persistence.arena.v1"
+    ));
     assert_eq!(native_persistence["evidence"]["kind"], "reopened");
     assert_ne!(
         native_persistence["writer"]["process_id"],
@@ -443,6 +468,10 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     )
     .await;
     assert_eq!(native_play["kind"], "play");
+    assert!(effect_rule_passes(
+        &native_play,
+        "godot.native_runtime.arena.v1"
+    ));
     assert_eq!(native_play["observation"]["inputs_delivered"], 2);
     assert_eq!(
         native_play["observation"]["frames"]

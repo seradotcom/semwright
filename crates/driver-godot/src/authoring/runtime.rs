@@ -1,6 +1,7 @@
 //! Broker-routed Godot authoring orchestration over A/C/F contracts.
 use super::{
     model::{GENERATOR_VERSION, GodotAuthoringSpec},
+    native_observation::NativeVerifyResult,
     profile::*,
     store::{PreparedFiles, Snapshot, Store, WriteReceipt},
     validate,
@@ -33,6 +34,9 @@ use std::{
 
 const MAX_PLANS: usize = 64;
 const OPERATION_ID: &str = "publish_managed_project";
+const NATIVE_READBACK_PROPERTY: &str = "native_readback";
+const NATIVE_RUNTIME_PROPERTY: &str = "native_runtime";
+const NATIVE_PERSISTENCE_PROPERTY: &str = "native_persistence";
 
 struct StoredPlan {
     plan: PreparedPlan<GodotAuthoringSpec, GodotOperation>,
@@ -151,6 +155,94 @@ impl AuthoringRuntime {
             }
         };
         Ok(value)
+    }
+
+    pub fn evaluate_native(
+        &mut self,
+        owner: &Owner,
+        plan_id: &str,
+        request_id: &str,
+        scene: &str,
+        result: &NativeVerifyResult,
+    ) -> Result<EffectEvaluation> {
+        let (plan, effects, project) = {
+            let stored = self.stored_plan(owner, plan_id)?;
+            (
+                stored.plan.clone(),
+                stored.effects.clone(),
+                stored.plan.body.intent.project.clone(),
+            )
+        };
+        self.vault
+            .matches(owner, plan_id, &plan)
+            .map_err(composition_error)?;
+        let snapshot = self.store.snapshot(&project)?;
+        let record = snapshot.record().ok_or_else(|| {
+            Error::new(
+                ErrorCode::Conflict,
+                "Native effect evaluation requires provider derivation state",
+            )
+        })?;
+        let binding = result.binding();
+        if binding.owner != *owner
+            || binding.request_id != request_id
+            || binding.project != record.project
+            || binding.slug != project
+            || binding.scene != scene
+            || binding.plan_digest != plan.digest
+            || binding.intent_digest != plan.body.intent_digest
+            || binding.source_fingerprint != snapshot.fingerprint
+        {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Native evidence binding differs from authenticated plan/state",
+            ));
+        }
+        let current_base = base_state(owner, &project, &snapshot)?;
+        let context = EvaluationContext {
+            owner: owner.clone(),
+            request_id: request_id.into(),
+            plan_digest: plan.digest.clone(),
+            contract_digest: effects.digest().map_err(composition_error)?,
+            before: plan.body.base.clone(),
+            after: current_base,
+            operations: plan
+                .body
+                .changes
+                .operations
+                .iter()
+                .map(|operation| operation.id.clone())
+                .collect(),
+            observation_scope: plan.body.observation_scope.iter().cloned().collect(),
+            execution_status: ExecutionStatus::Completed,
+            support_level: SupportLevel::Native,
+            budget: plan.body.budget.clone(),
+        };
+        context
+            .validate_plan(&plan, &self.profile, &effects)
+            .map_err(composition_error)?;
+        let store = StoreEvidenceAdapter {
+            owner,
+            project: &project,
+            snapshot: &snapshot,
+            post_base: &context.after,
+        };
+        let mut adapter = NativeEffectAdapter {
+            store,
+            scene,
+            result,
+        };
+        let batch = collect(&effects, &context, &mut adapter).map_err(composition_error)?;
+        let evaluation = evaluate(&effects, &context, &batch).map_err(composition_error)?;
+        let findings = evaluation
+            .coverage
+            .iter()
+            .filter(|coverage| coverage.required && !coverage.sufficient)
+            .count() as u32;
+        self.vault
+            .record_observation(owner, plan_id, findings)
+            .map_err(composition_error)?;
+        Ok(evaluation)
     }
 
     pub fn inspect(&self, project: &str) -> Result<SnapshotView> {
@@ -349,7 +441,7 @@ impl AuthoringRuntime {
                 .into_iter()
                 .collect(),
         };
-        let contract = effect_contract(&self.profile, &spec.project, &intent_digest, &operation)?;
+        let contract = effect_contract(&self.profile, &spec, &intent_digest, &operation)?;
         let required_rules = contract.required_rules();
         if required_rules != self.profile.required_rules {
             return Err(Error::new(
@@ -372,18 +464,19 @@ impl AuthoringRuntime {
             Digest::of_bytes(format!("project-graph-v{SCHEMA_VERSION}").as_bytes()),
         );
         dependencies.insert("effects.contract".into(), effect_contract_digest.clone());
-        let observation_scope = vec![
+        let mut observation_scope = vec![
             Address {
                 resource: resource.clone(),
                 logical_id: spec.project.clone(),
                 property: "managed_files".into(),
             },
             Address {
-                resource,
+                resource: resource.clone(),
                 logical_id: spec.project.clone(),
                 property: "intent_digest".into(),
             },
         ];
+        observation_scope.extend(native_addresses(&resource, &spec));
         let body = PlanBody {
             contract_version: semwright_semantic_composition::CONTRACT_VERSION,
             profile: self.profile.identity.clone(),
@@ -646,7 +739,9 @@ impl AuthoringRuntime {
         let findings = report
             .checks
             .iter()
-            .filter(|check| check.verdict != Verdict::Pass)
+            .filter(|check| {
+                report.required_rules.contains(&check.rule) && check.verdict != Verdict::Pass
+            })
             .count() as u32;
         self.vault
             .record_observation(owner, plan_id, findings)
@@ -703,7 +798,10 @@ impl AuthoringRuntime {
                 report
                     .checks
                     .iter()
-                    .filter(|check| check.verdict != Verdict::Pass)
+                    .filter(|check| {
+                        report.required_rules.contains(&check.rule)
+                            && check.verdict != Verdict::Pass
+                    })
                     .count() as u32,
             )
             .map_err(composition_error)?;
@@ -960,13 +1058,126 @@ fn base_state(owner: &Owner, project: &str, snapshot: &Snapshot) -> Result<BaseS
     Ok(base)
 }
 
+fn native_addresses(resource: &ResourceKey, spec: &GodotAuthoringSpec) -> Vec<Address> {
+    spec.scenes
+        .iter()
+        .flat_map(|scene| {
+            [
+                NATIVE_READBACK_PROPERTY,
+                NATIVE_RUNTIME_PROPERTY,
+                NATIVE_PERSISTENCE_PROPERTY,
+            ]
+            .into_iter()
+            .map(|property| Address {
+                resource: resource.clone(),
+                logical_id: scene.id.clone(),
+                property: property.into(),
+            })
+        })
+        .collect()
+}
+
+fn native_rule_id(scene: &str, property: &str) -> String {
+    format!("godot.{property}.{scene}.v1")
+}
+
 fn effect_contract(
     profile: &ProfileDescriptor,
-    project: &str,
+    spec: &GodotAuthoringSpec,
     intent_digest: &Digest,
     operation: &TypedOperation<GodotOperation>,
 ) -> Result<EffectContract> {
-    let resource = project_resource(project);
+    let resource = project_resource(&spec.project);
+    let mut rules = vec![
+        EffectRule {
+            id: RULE_MANAGED_CURRENT.into(),
+            version: 1,
+            obligation: Obligation::Required,
+            operation_id: operation.id.clone(),
+            address: Address {
+                resource: resource.clone(),
+                logical_id: spec.project.clone(),
+                property: "managed_files".into(),
+            },
+            predicate: Predicate::Equals {
+                expected: ObservedValue::Bool { value: true },
+            },
+            method: ObservationMethod {
+                name: "godot_managed_source_hash".into(),
+                version: 1,
+                source: EvidenceSource::FileRead,
+            },
+            universe: None,
+            artifact: None,
+            require_causal_attribution: false,
+        },
+        EffectRule {
+            id: RULE_INTENT_MATCH.into(),
+            version: 1,
+            obligation: Obligation::Required,
+            operation_id: operation.id.clone(),
+            address: Address {
+                resource: resource.clone(),
+                logical_id: spec.project.clone(),
+                property: "intent_digest".into(),
+            },
+            predicate: Predicate::DigestEquals {
+                expected: intent_digest.clone(),
+            },
+            method: ObservationMethod {
+                name: "godot_derivation_manifest".into(),
+                version: 1,
+                source: EvidenceSource::FileRead,
+            },
+            universe: None,
+            artifact: None,
+            require_causal_attribution: false,
+        },
+    ];
+    for scene in &spec.scenes {
+        for (property, predicate, method) in [
+            (
+                NATIVE_READBACK_PROPERTY,
+                Predicate::Equals {
+                    expected: ObservedValue::Bool { value: true },
+                },
+                "godot_native_scene_readback",
+            ),
+            (
+                NATIVE_RUNTIME_PROPERTY,
+                Predicate::Equals {
+                    expected: ObservedValue::Bool { value: true },
+                },
+                "godot_native_runtime_readback",
+            ),
+            (
+                NATIVE_PERSISTENCE_PROPERTY,
+                Predicate::Reopened,
+                "godot_native_fresh_reopen",
+            ),
+        ] {
+            rules.push(EffectRule {
+                id: native_rule_id(&scene.id, property),
+                version: 1,
+                obligation: Obligation::Preference,
+                operation_id: operation.id.clone(),
+                address: Address {
+                    resource: resource.clone(),
+                    logical_id: scene.id.clone(),
+                    property: property.into(),
+                },
+                predicate,
+                method: ObservationMethod {
+                    name: method.into(),
+                    version: 1,
+                    source: EvidenceSource::NativeApi,
+                },
+                universe: None,
+                artifact: None,
+                require_causal_attribution: false,
+            });
+        }
+    }
     let contract = EffectContract {
         version: EFFECT_CONTRACT_VERSION,
         profile: profile.identity.id.clone(),
@@ -975,52 +1186,7 @@ fn effect_contract(
             effects: operation.effects.clone(),
             writes: operation.writes.iter().cloned().collect(),
         }],
-        rules: vec![
-            EffectRule {
-                id: RULE_MANAGED_CURRENT.into(),
-                version: 1,
-                obligation: Obligation::Required,
-                operation_id: operation.id.clone(),
-                address: Address {
-                    resource: resource.clone(),
-                    logical_id: project.into(),
-                    property: "managed_files".into(),
-                },
-                predicate: Predicate::Equals {
-                    expected: ObservedValue::Bool { value: true },
-                },
-                method: ObservationMethod {
-                    name: "godot_managed_source_hash".into(),
-                    version: 1,
-                    source: EvidenceSource::FileRead,
-                },
-                universe: None,
-                artifact: None,
-                require_causal_attribution: false,
-            },
-            EffectRule {
-                id: RULE_INTENT_MATCH.into(),
-                version: 1,
-                obligation: Obligation::Required,
-                operation_id: operation.id.clone(),
-                address: Address {
-                    resource,
-                    logical_id: project.into(),
-                    property: "intent_digest".into(),
-                },
-                predicate: Predicate::DigestEquals {
-                    expected: intent_digest.clone(),
-                },
-                method: ObservationMethod {
-                    name: "godot_derivation_manifest".into(),
-                    version: 1,
-                    source: EvidenceSource::FileRead,
-                },
-                universe: None,
-                artifact: None,
-                require_causal_attribution: false,
-            },
-        ],
+        rules,
     };
     contract.validate().map_err(composition_error)?;
     Ok(contract)
@@ -1099,6 +1265,114 @@ impl EvidenceAdapter for StoreEvidenceAdapter<'_> {
                 consistent: true,
                 missing: vec![],
                 attribution: Attribution::Ordered,
+                enumeration: None,
+            },
+        })
+    }
+}
+
+struct NativeEffectAdapter<'a> {
+    store: StoreEvidenceAdapter<'a>,
+    scene: &'a str,
+    result: &'a NativeVerifyResult,
+}
+
+impl NativeEffectAdapter<'_> {
+    fn native_observation(&self) -> &super::native_observation::NativeObservation {
+        match self.result {
+            NativeVerifyResult::Inspect { observation, .. }
+            | NativeVerifyResult::Play { observation, .. } => observation,
+            NativeVerifyResult::Persistence { reader, .. } => reader,
+        }
+    }
+
+    fn native_value(
+        &self,
+        property: &str,
+    ) -> semwright_semantic_composition::Result<(ObservedValue, bool)> {
+        match property {
+            NATIVE_READBACK_PROPERTY => {
+                let observation = self.native_observation();
+                let live_complete = observation
+                    .live
+                    .as_ref()
+                    .is_none_or(|projection| projection.unknown.is_empty());
+                let complete = observation.dependency_complete
+                    && observation.authored.unknown.is_empty()
+                    && live_complete;
+                Ok((ObservedValue::Bool { value: complete }, complete))
+            }
+            NATIVE_RUNTIME_PROPERTY => match self.result {
+                NativeVerifyResult::Play { observation, .. } => {
+                    let complete = observation.live.is_some() && !observation.frames.is_empty();
+                    let fault_free =
+                        complete && observation.frames.iter().all(|frame| frame.fault.is_none());
+                    Ok((ObservedValue::Bool { value: fault_free }, complete))
+                }
+                _ => Err(ContractError::Unknown(
+                    "native runtime rule requires a play observation".into(),
+                )),
+            },
+            NATIVE_PERSISTENCE_PROPERTY => match self.result {
+                NativeVerifyResult::Persistence { evidence, .. } => Ok((evidence.clone(), true)),
+                _ => Err(ContractError::Unknown(
+                    "native persistence rule requires save/reopen evidence".into(),
+                )),
+            },
+            _ => Err(ContractError::Unknown(
+                "native rule property has no registered observer".into(),
+            )),
+        }
+    }
+}
+
+impl EvidenceAdapter for NativeEffectAdapter<'_> {
+    fn identity(&self, resource: &ResourceKey) -> Option<AdapterIdentity> {
+        self.store.identity(resource)
+    }
+
+    fn observe(
+        &mut self,
+        context: &EvaluationContext,
+        rule: &EffectRule,
+    ) -> semwright_semantic_composition::Result<AdapterObservation> {
+        if matches!(rule.id.as_str(), RULE_MANAGED_CURRENT | RULE_INTENT_MATCH) {
+            return self.store.observe(context, rule);
+        }
+        if rule.address.logical_id != self.scene {
+            return Err(ContractError::Unknown(
+                "native scene was not observed in this invocation".into(),
+            ));
+        }
+        let (value, exhaustive) = self.native_value(&rule.address.property)?;
+        Ok(AdapterObservation {
+            binding: EvidenceBinding {
+                owner: context.owner.clone(),
+                request_id: context.request_id.clone(),
+                operation_id: rule.operation_id.clone(),
+                plan_digest: context.plan_digest.clone(),
+                contract_digest: context.contract_digest.clone(),
+            },
+            observation: semwright_semantic_composition::ObservationRef {
+                id: format!("godot_native_effect_obs_{}", unique_id()),
+                base: context.after.clone(),
+                source: rule.method.source,
+                method: rule.method.name.clone(),
+                method_version: rule.method.version,
+                scope: context.observation_scope.iter().cloned().collect(),
+                artifact: rule.artifact.clone(),
+                exhaustive,
+            },
+            readback: ReadbackState::Observed,
+            value: Some(value),
+            coverage: ObservationCoverage {
+                consistent: exhaustive,
+                missing: if exhaustive {
+                    vec![]
+                } else {
+                    vec![rule.address.clone()]
+                },
+                attribution: Attribution::Isolated,
                 enumeration: None,
             },
         })

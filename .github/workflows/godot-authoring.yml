@@ -103,3 +103,85 @@ jobs:
           path: verification/godot-authoring/
           if-no-files-found: error
           retention-days: 7
+
+  godot-hostile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      PROPTEST_CASES: '2048'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-hostile-v1
+      - name: Property fuzz IR plan native wire and cursors
+        run: |
+          mkdir -p verification/godot-authoring-hostile
+          cargo test --locked -p semwright-driver-godot --test authoring_fuzz -- --nocapture             2>&1 | tee verification/godot-authoring-hostile/property-fuzz.log
+      - name: Focused hostile regressions
+        run: |
+          set -euo pipefail
+          mkdir -p verification/godot-authoring-hostile
+          tests=(
+            "authoring unknown_fields_and_caller_code_are_rejected"
+            "authoring duplicate_keys_and_excessive_payload_are_rejected"
+            "authoring nonfinite_values_and_event_budgets_fail_closed"
+            "authoring recursive_spawn_and_nonterminal_scene_changes_are_rejected"
+            "authoring unicode_copy_cannot_terminate_native_literals"
+            "authoring runtime_contains_no_authoring_credentials_or_listener"
+            "authoring_store stale_plan_cannot_overwrite_a_changed_source"
+            "authoring_store existing_directory_and_symlink_roots_are_never_adopted_implicitly"
+            "authoring_store symlink_and_hardlink_managed_files_fail_closed"
+            "authoring_store private_state_grant_must_be_separate_and_owner_only"
+            "authoring_profile plan_authority_is_owner_bound_and_single_attempt"
+            "authoring_native native_request_is_typed_bounded_and_action_scoped"
+            "authoring_native observation_decode_rejects_unknown_wire_fields"
+            "authoring_native fixed_native_probe_contains_no_arbitrary_execution_surface"
+            "contracts runner_capabilities_accept_owned_managed_projects_without_accepting_paths"
+            "contracts native_authoring_verification_is_code_execution_and_not_a_plain_runner"
+          )
+          for entry in "${tests[@]}"; do
+            binary="${entry%% *}"
+            test_name="${entry#* }"
+            cargo test --locked -p semwright-driver-godot --test "$binary" "$test_name" -- --exact --nocapture
+          done 2>&1 | tee verification/godot-authoring-hostile/focused-hostile.log
+      - name: Hostile evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-authoring-hostile
+          path: verification/godot-authoring-hostile/
+          if-no-files-found: error
+          retention-days: 7
+
+  godot-source-package:
+    needs: [godot-model, godot-native-authoring, godot-hostile]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Exact source package
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          mkdir -p verification/godot-authoring/package
+          python3 scripts/godot-authoring/package_source.py             --source "$GITHUB_SHA"             --output verification/godot-authoring/package/semwright-godot-authoring-source.zip
+      - name: Upload source backup
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-authoring-source-${{ github.sha }}
+          path: verification/godot-authoring/package/
+          if-no-files-found: error
+          retention-days: 30

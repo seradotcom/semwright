@@ -7,9 +7,11 @@
     {
       "id": "D01",
       "requirement": "Cn production consumer",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "IMPLEMENTED_CURRENT_SHA_PENDING",
+      "implementation": "A PreparedPlan/PlanVault + C ProjectId/LogicalAssetId/ExecutionReceipt + F EffectContract consumer",
+      "tests": [
+        "authoring_profile empty-root A/C/F consumer"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -18,9 +20,11 @@
     {
       "id": "D02",
       "requirement": "empty-root bootstrap by Broker",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "IMPLEMENTED_NATIVE_EVIDENCE_QUEUED",
+      "implementation": "Broker to Driver Host to composition.plan/apply on an empty granted output root",
+      "tests": [
+        "authoring_host empty-root E2E"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -29,9 +33,12 @@
     {
       "id": "D03",
       "requirement": "2D/3D owner/readback",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "PARTIAL_2D_3D_MODEL_NATIVE_PENDING",
+      "implementation": "typed 2D/3D scenes plus native owner/resource readback on private copy",
+      "tests": [
+        "typed 2D/3D fixture compile",
+        "native inspect"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -40,20 +47,29 @@
     {
       "id": "D04",
       "requirement": "typed no-escape IR",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "state": "SOURCE_PASS_CURRENT_SHA_PENDING",
+      "implementation": "typed Behavior IR, strict decode/validation and deterministic generated GDScript without caller code",
+      "tests": [
+        "model/compiler/security suite",
+        "fixed native probe no arbitrary execution"
+      ],
+      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
+      "run_id": 36521988929,
+      "job_id": 109256656257,
+      "evidence": [
+        "godot-model exact-SHA PASS; native=false"
+      ]
     },
     {
       "id": "D05",
       "requirement": "composable technical games",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "PARTIAL_TECHNICAL_FIXTURES_NATIVE_PENDING",
+      "implementation": "2D and 3D technical-game intents with start/play/win/lose/restart; product-route playtest implemented",
+      "tests": [
+        "two_d.json",
+        "three_d.json",
+        "native play"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -62,42 +78,59 @@
     {
       "id": "D06",
       "requirement": "runtime budgets",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "state": "SOURCE_PASS_NATIVE_RUNTIME_PENDING",
+      "implementation": "tick/event/entity/spawn limits plus native runtime telemetry and bounded inputs",
+      "tests": [
+        "budget tests",
+        "native play"
+      ],
+      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
+      "run_id": 36521988929,
+      "job_id": 109256656257,
+      "evidence": [
+        "godot-model exact-SHA PASS; native=false"
+      ]
     },
     {
       "id": "D07",
       "requirement": "full animation paging",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "state": "SOURCE_PASS_NATIVE_PAGING_PENDING",
+      "implementation": "complete native animation/library/track/key observation and snapshot-bound paging",
+      "tests": [
+        "native track cursor regression"
+      ],
+      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
+      "run_id": 36521988929,
+      "job_id": 109256656257,
+      "evidence": [
+        "godot-model exact-SHA PASS; native=false"
+      ]
     },
     {
       "id": "D08",
       "requirement": "external persistence sentinels",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "state": "SOURCE_PASS_NATIVE_REOPEN_PENDING",
+      "implementation": "external dependency sentinels plus save and fresh-process reopen",
+      "tests": [
+        "persistence sentinel regression",
+        "native persistence"
+      ],
+      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
+      "run_id": 36521988929,
+      "job_id": 109256656257,
+      "evidence": [
+        "godot-model exact-SHA PASS; native=false"
+      ]
     },
     {
       "id": "D09",
       "requirement": "codegen/export provenance",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "IMPLEMENTED_EXPORT_GATE_PENDING",
+      "implementation": "generated-source provenance, private-copy execution and export filtering",
+      "tests": [
+        "runtime secret/listener regression",
+        "export inspection"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -106,9 +139,11 @@
     {
       "id": "D10",
       "requirement": "standalone export run",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "IMPLEMENTED_STANDALONE_RUN_PENDING",
+      "implementation": "managed project through existing export.build then executable run without editor/Semwright",
+      "tests": [
+        "standalone exported-game E2E"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -117,9 +152,12 @@
     {
       "id": "D11",
       "requirement": "authorized repair/no overwrite",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "SOURCE_PASS_HOST_GATE_PENDING",
+      "implementation": "owner-bound one-shot apply, bounded missing-source repair and DIVERGED no-overwrite",
+      "tests": [
+        "owner/repair tests",
+        "runner drift denial"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -128,9 +166,13 @@
     {
       "id": "D12",
       "requirement": "Blender GLB preserved gameplay",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "BOUNDARY_IMPLEMENTED_CROSS_APP_PENDING",
+      "implementation": "generic model/3d artifact port + bounded GLB intake + native private-copy import/readback; E artifact run pending",
+      "tests": [
+        "artifact port contract",
+        "GLB validation",
+        "native verify"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -139,9 +181,11 @@
     {
       "id": "D13",
       "requirement": "C/F integration",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "PARTIAL_SOURCE_C_F_NATIVE_F_PENDING",
+      "implementation": "source verification uses trusted F EvidenceAdapter and C receipt; native F/C admission incomplete",
+      "tests": [
+        "A/C/F consumer test"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -150,9 +194,11 @@
     {
       "id": "D14",
       "requirement": "route audit and independent oracle",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "PRODUCT_ROUTE_IMPLEMENTED_ORACLE_PENDING",
+      "implementation": "native evidence executes behind Broker/Driver Host; standalone export oracle implemented",
+      "tests": [
+        "host route/native/export E2E"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -161,9 +207,12 @@
     {
       "id": "D15",
       "requirement": "Skill/install/packages",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
+      "state": "SKILL_DONE_PACKAGE_PREPARED_PENDING",
+      "implementation": "production Skill committed; deterministic source package prepared locally pending current CI",
+      "tests": [
+        "Skill requirements",
+        "package_source.py"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
@@ -172,13 +221,19 @@
     {
       "id": "D16",
       "requirement": "171 regression/hostile/gates",
-      "state": "OPEN",
-      "implementation": null,
-      "tests": [],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "state": "PARTIAL_171_GREEN_HOSTILE_PENDING",
+      "implementation": "#171 real-Godot readback/scene-save remained green; D hostile/fuzz/final gates open",
+      "tests": [
+        "Godot driver integration real-godot"
+      ],
+      "tested_sha": "9a7a0ce7ba67dc92d06f4e656cc3e5b9002f3140",
+      "run_id": 36525334763,
+      "job_id": 109267005569,
+      "evidence": [
+        "real-godot PASS including #171 readback and scene-only save; hostile/final D gates open"
+      ]
     }
-  ]
+  ],
+  "candidate_sha": null,
+  "current_run_id": null
 }

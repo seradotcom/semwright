@@ -364,13 +364,31 @@ impl GodotDriver {
                             )
                         })?
                         .native_plan_context(&owner, &request.plan_id, &request.scene)?;
-                    self.runner
+                    let plan_id = request.plan_id.clone();
+                    let scene = request.scene.clone();
+                    let result = self
+                        .runner
                         .as_ref()
                         .ok_or_else(|| {
                             Error::new(ErrorCode::Unavailable, "Godot runner is not configured")
                         })?
                         .execute_native_verification(request, binding, context)
-                        .await
+                        .await?;
+                    let effects = self
+                        .authoring
+                        .as_mut()
+                        .ok_or_else(|| {
+                            Error::new(
+                                ErrorCode::Unavailable,
+                                "Godot semantic authoring grant is not configured",
+                            )
+                        })?
+                        .evaluate_native(&owner, &plan_id, context.request_id(), &scene, &result)?;
+                    serde_json::to_value(authoring::native_observation::NativeVerifyResponse {
+                        result,
+                        effects,
+                    })
+                    .map_err(Into::into)
                 }
                 #[cfg(not(target_os = "linux"))]
                 {

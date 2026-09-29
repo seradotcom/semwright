@@ -130,7 +130,7 @@ impl Runner {
         request: NativeVerifyRequest,
         binding: NativePlanContext,
         context: &DriverExecutionContext,
-    ) -> Result<Value> {
+    ) -> Result<NativeVerifyResult> {
         context.check_cancelled()?;
         self.native_verify(
             request,
@@ -429,7 +429,7 @@ impl Runner {
         binding: NativePlanContext,
         request_id: String,
         cancellation: Option<CancellationToken>,
-    ) -> Result<Value> {
+    ) -> Result<NativeVerifyResult> {
         validate::id(&request.scene).map_err(|error| Error::invalid(error.to_string()))?;
         let staged = self.stage_managed_project(&binding.project)?;
         let record = staged.snapshot.record().ok_or_else(|| {
@@ -450,13 +450,15 @@ impl Runner {
             .iter()
             .map(|input| input.id.clone())
             .collect();
-        let scene = format!("res://scenes/{}.tscn", request.scene);
+        let scene_id = request.scene.clone();
+        let scene = format!("res://scenes/{scene_id}.tscn");
         let source = staged.snapshot.fingerprint.clone();
         let evidence_binding = NativeEvidenceBinding {
             owner: binding.owner,
             request_id,
             project: binding.project_id,
             slug: binding.project,
+            scene: scene_id,
             plan_digest: binding.plan_digest,
             intent_digest: binding.intent_digest,
             source_fingerprint: source.clone(),
@@ -507,11 +509,10 @@ impl Runner {
                     let observation = self
                         .run_native_probe(&staged, &private, &helper, &native, cancellation)
                         .await?;
-                    serde_json::to_value(NativeVerifyResult::Inspect {
+                    Ok(NativeVerifyResult::Inspect {
                         binding: evidence_binding,
                         observation,
                     })
-                    .map_err(Into::into)
                 }
                 NativeVerification::Persistence => {
                     let writer_request = NativeRequest {
@@ -553,13 +554,12 @@ impl Runner {
                         .run_native_probe(&staged, &private, &helper, &reader_request, cancellation)
                         .await?;
                     let evidence = persistence_value(&writer, &reader)?;
-                    serde_json::to_value(NativeVerifyResult::Persistence {
+                    Ok(NativeVerifyResult::Persistence {
                         binding: evidence_binding,
                         writer,
                         reader,
                         evidence,
                     })
-                    .map_err(Into::into)
                 }
                 NativeVerification::Play {
                     ticks,
@@ -584,11 +584,10 @@ impl Runner {
                     let observation = self
                         .run_native_probe(&staged, &private, &helper, &native, cancellation)
                         .await?;
-                    serde_json::to_value(NativeVerifyResult::Play {
+                    Ok(NativeVerifyResult::Play {
                         binding: evidence_binding,
                         observation,
                     })
-                    .map_err(Into::into)
                 }
             }
         }

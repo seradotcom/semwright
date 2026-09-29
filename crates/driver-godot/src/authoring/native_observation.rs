@@ -2,6 +2,7 @@
 //! Parsing this data does not establish authority: only the provider's isolated
 //! process runner may admit it as native evidence for an authenticated plan.
 use schemars::JsonSchema;
+use semwright_effect_conformance::EffectEvaluation;
 use semwright_project_graph::ProjectId;
 use semwright_semantic_composition::{Digest, Owner, canonical_digest, strict_decode};
 use serde::{Deserialize, Serialize};
@@ -73,6 +74,7 @@ pub struct NativeEvidenceBinding {
     pub request_id: String,
     pub project: ProjectId,
     pub slug: String,
+    pub scene: String,
     pub plan_digest: Digest,
     pub intent_digest: Digest,
     pub source_fingerprint: Digest,
@@ -95,6 +97,24 @@ pub enum NativeVerifyResult {
         binding: NativeEvidenceBinding,
         observation: NativeObservation,
     },
+}
+
+impl NativeVerifyResult {
+    pub fn binding(&self) -> &NativeEvidenceBinding {
+        match self {
+            Self::Inspect { binding, .. }
+            | Self::Persistence { binding, .. }
+            | Self::Play { binding, .. } => binding,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeVerifyResponse {
+    #[serde(flatten)]
+    pub result: NativeVerifyResult,
+    pub effects: EffectEvaluation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
