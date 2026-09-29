@@ -19,6 +19,9 @@
 #include <unistd.h>
 #include <vector>
 
+std::list<GUI*> GUI::fGuiList;
+ztimedmap GUI::gTimedZoneMap;
+
 namespace {
 constexpr std::size_t max_source = 60000;
 constexpr int block_frames = 1024;
