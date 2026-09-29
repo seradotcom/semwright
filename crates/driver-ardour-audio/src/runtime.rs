@@ -498,7 +498,12 @@ close_session()
         mutation: &NativeMutation,
     ) -> Result<ArdourSnapshot> {
         let args = mutation.argv().map_err(domain_error)?;
-        self.run_lua(context, state, &args).await
+        // The mutation adapter saves before it reports a snapshot, but some Ardour
+        // state settles only across close/reopen (IDs/order/derived processor state).
+        // Never expose that in-process snapshot as the next compare-and-swap revision.
+        // A successful mutation is accepted only after an independent reopen.
+        self.run_lua(context, state, &args).await?;
+        self.inspect(context, state).await
     }
 
     pub async fn create(
