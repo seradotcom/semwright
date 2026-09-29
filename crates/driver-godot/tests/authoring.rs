@@ -29,21 +29,50 @@ fn technical_game_compiles_local_audio_cue_into_native_node_and_typed_action() {
     let project = compile(&fixture()).unwrap();
     assert!(project.files["scenes/arena.tscn"].contains("type=\"AudioStreamPlayer\""));
     assert!(project.files["scenes/arena.tscn"].contains("assets/start_cue.wav"));
+    let script = &project.files["scripts/arena.gd"];
     assert!(
-        project.files["scripts/arena.gd"].contains("n_start_sfx.play()"),
+        script.contains("n_start_sfx.play()"),
         "start handler must realize typed PlayAudio through native AudioStreamPlayer"
+    );
+    assert!(
+        script.contains("sw_state = &\"play\""),
+        "typed start transition must compile to the expected native state"
+    );
+    assert!(
+        script.contains("var v_score: int = 0"),
+        "typed initial score must compile deterministically"
     );
 }
 
 #[test]
 fn unknown_fields_and_caller_code_are_rejected() {
-    let mut v = serde_json::to_value(fixture()).unwrap();
-    v["script"] = serde_json::json!("arbitrary GDScript");
-    assert!(decode(&serde_json::to_vec(&v).unwrap()).is_err());
-    v.as_object_mut().unwrap().remove("script");
-    v["scenes"][0]["behavior"]["handlers"][0]["actions"][0] =
+    let baseline = serde_json::to_value(fixture()).unwrap();
+
+    let mut script = baseline.clone();
+    script["script"] = serde_json::json!("arbitrary GDScript");
+    assert!(decode(&serde_json::to_vec(&script).unwrap()).is_err());
+
+    let mut run_code = baseline.clone();
+    run_code["scenes"][0]["behavior"]["handlers"][0]["actions"][0] =
         serde_json::json!({"kind":"run_code","source":"print(1)"});
-    assert!(decode(&serde_json::to_vec(&v).unwrap()).is_err());
+    assert!(decode(&serde_json::to_vec(&run_code).unwrap()).is_err());
+
+    let mut method = baseline.clone();
+    method["scenes"][0]["behavior"]["handlers"][0]["actions"][0] = serde_json::json!({
+        "kind":"call_method","entity":"player","method":"_notification","args":[1001]
+    });
+    assert!(decode(&serde_json::to_vec(&method).unwrap()).is_err());
+
+    let mut callback = baseline.clone();
+    callback["scenes"][0]["behavior"]["handlers"][0]["callback"] =
+        serde_json::json!("res://evil.gd::_ready");
+    assert!(decode(&serde_json::to_vec(&callback).unwrap()).is_err());
+
+    let mut plugin = baseline;
+    plugin["plugins"] = serde_json::json!([
+        {"url":"https://example.invalid/addon.zip","autoload":"Remote"}
+    ]);
+    assert!(decode(&serde_json::to_vec(&plugin).unwrap()).is_err());
 }
 #[test]
 fn duplicate_keys_and_excessive_payload_are_rejected() {

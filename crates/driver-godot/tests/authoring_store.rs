@@ -3,6 +3,7 @@ use semwright_godot_driver::{
     authoring::{store::Store, *},
     config::AuthoringConfig,
 };
+use semwright_semantic_composition::Digest;
 use semwright_types::{Error, ErrorCode};
 use std::{
     cell::Cell,
@@ -12,6 +13,23 @@ use std::{
 fn fixture() -> GodotAuthoringSpec {
     validate::decode(include_bytes!("fixtures/authoring/two_d.json")).unwrap()
 }
+
+fn glb_json_only(value: serde_json::Value) -> Vec<u8> {
+    let mut json = serde_json::to_vec(&value).unwrap();
+    while json.len() % 4 != 0 {
+        json.push(b' ');
+    }
+    let total = 20 + json.len();
+    let mut bytes = Vec::with_capacity(total);
+    bytes.extend_from_slice(b"glTF");
+    bytes.extend_from_slice(&2u32.to_le_bytes());
+    bytes.extend_from_slice(&(total as u32).to_le_bytes());
+    bytes.extend_from_slice(&(json.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(b"JSON");
+    bytes.extend_from_slice(&json);
+    bytes
+}
+
 fn environment() -> (tempfile::TempDir, AuthoringConfig) {
     let root = tempfile::tempdir().unwrap();
     for name in ["output", "state", "input"] {
@@ -139,8 +157,8 @@ fn material_and_animation_graph_bindings_are_persistent_project_identities() {
         material_snapshot.record().unwrap().bindings["material:arena/bronze"],
         first_material
     );
-    let material_file = &material_snapshot.record().unwrap().files
-        ["resources/arena_material_bronze.tres"];
+    let material_file =
+        &material_snapshot.record().unwrap().files["resources/arena_material_bronze.tres"];
     assert_eq!(material_file.logical_key, "material:arena/bronze");
     assert_eq!(material_file.kind, "material_shared");
     assert!(material_file.active);
@@ -297,6 +315,31 @@ fn missing_owned_source_can_be_repaired_without_changing_intent() {
     store.apply(&repair, || Ok(())).unwrap();
     assert_eq!(fs::read(path).unwrap(), bytes);
 }
+#[test]
+fn crafted_glb_assets_fail_before_any_managed_write() {
+    let (root, config) = environment();
+    let store = Store::new(config.clone()).unwrap();
+    let mut spec = validate::decode(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
+
+    let truncated = b"glTF\x02\0\0\0\x0c\0\0\0".to_vec();
+    fs::write(root.path().join("input/crafted.glb"), &truncated).unwrap();
+    spec.assets[0].file = "crafted.glb".into();
+    spec.assets[0].sha256 = Digest::of_bytes(&truncated);
+    assert!(store.prepare(&spec, false, false).is_err());
+    assert!(!config.output_root.join(&spec.project).exists());
+
+    let external = glb_json_only(serde_json::json!({
+        "asset":{"version":"2.0"},
+        "buffers":[{"uri":"https://example.invalid/evil.bin","byteLength":4}]
+    }));
+    fs::write(root.path().join("input/external.glb"), &external).unwrap();
+    spec.assets[0].file = "external.glb".into();
+    spec.assets[0].sha256 = Digest::of_bytes(&external);
+    let error = store.prepare(&spec, false, false).unwrap_err();
+    assert_eq!(error.code, ErrorCode::PermissionDenied);
+    assert!(!config.output_root.join(&spec.project).exists());
+}
+
 #[test]
 fn existing_directory_and_symlink_roots_are_never_adopted_implicitly() {
     let (root, config) = environment();

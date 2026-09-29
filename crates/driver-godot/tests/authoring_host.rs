@@ -631,12 +631,18 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         "godot.native_runtime.arena.v1"
     ));
     assert_eq!(native_play["observation"]["inputs_delivered"], 2);
+    let native_frames = native_play["observation"]["frames"].as_array().unwrap();
+    assert_eq!(native_frames.len(), 3);
+    let final_frame = native_frames.last().unwrap();
     assert_eq!(
-        native_play["observation"]["frames"]
-            .as_array()
-            .map(Vec::len),
-        Some(3)
+        final_frame["state"], "play",
+        "native GDScript state diverged from typed Rust start->play intent"
     );
+    assert_eq!(
+        final_frame["variables"]["score"]["value"], "0",
+        "native GDScript score diverged from typed Rust initial value"
+    );
+    assert!(final_frame["fault"].is_null());
     assert!(
         native_play["observation"]["elapsed_physics_frames"]
             .as_u64()

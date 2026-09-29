@@ -6,7 +6,7 @@ D adds semantic project authoring and native verification. `composition.native.v
 
 ## Enforced boundaries
 
-Intent decoding rejects unknown fields, oversized collections, invalid IDs, non-finite values, arbitrary scripts/plugins/executable paths and caller GDScript. Behavior is a closed typed IR and generated GDScript comes from fixed templates. Event/tick/entity/spawn limits bound generated behavior but are not represented as a sandbox for arbitrary external Godot code.
+Intent decoding rejects unknown fields, oversized collections, invalid IDs, non-finite values, arbitrary scripts/plugins/executable paths, reflective method/callback payloads and caller GDScript. Behavior is a closed typed IR and generated GDScript comes from fixed templates. Event/tick/entity/spawn limits bound generated behavior but are not represented as a sandbox for arbitrary external Godot code. Supplied assets are hash-pinned and structurally validated before planning writes; GLB accepts only bounded version-2 self-contained JSON/BIN chunks and rejects any external or data URI even when the caller supplies the matching digest.
 
 Output, state, input and artifact roots are owner configuration. Managed source I/O rejects traversal, symlinks, hardlinks/special files and implicit adoption of non-empty directories. Store hashes turn external edits into DIVERGED; partial publication requires explicit reconciliation. Native run/export requires IN_SYNC and executes from a verified disposable copy so import caches do not alter canonical managed sources.
 
