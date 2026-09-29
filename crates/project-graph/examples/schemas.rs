@@ -1,0 +1,15 @@
+use semwright_project_graph::*;
+fn main() {
+    let schemas = serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "receipt": schemars::schema_for!(ExecutionReceipt),
+        "asset": schemars::schema_for!(Asset),
+        "edge": schemars::schema_for!(Edge),
+        "knowledge": schemars::schema_for!(Knowledge),
+        "revision": schemars::schema_for!(RevisionRecord)
+    });
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&schemas).expect("schemas serialize")
+    );
+}
