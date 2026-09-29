@@ -304,7 +304,7 @@ impl DeepRuntime {
             .env("ARDOUR_DATA_PATH", "/usr/share/ardour8")
             .env("ARDOUR_CONFIG_PATH", "/etc/ardour8")
             .env("ARDOUR_DLL_PATH", "/usr/lib/ardour8")
-            .env("VAMP_PATH", "/usr/lib/ardour8")
+            .env("VAMP_PATH", "/usr/lib/ardour8/vamp")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
