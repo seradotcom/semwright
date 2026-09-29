@@ -654,7 +654,7 @@ impl Manifest {
         let mut tool_names = BTreeSet::new();
         for tool in &self.tools {
             tool.validate()?;
-            if !roots.insert(&tool.root) || !tool_names.insert(&tool.name) {
+            if !roots.insert(&tool.root) || !tool_names.insert(tool.name.as_str()) {
                 return Err(Error::invalid(
                     "Driver tool roots and names must be unique and non-overlapping",
                 ));
