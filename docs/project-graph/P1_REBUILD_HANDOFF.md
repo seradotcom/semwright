@@ -32,6 +32,8 @@ There is no scheduler or background process in this module. Replanning after con
 
 `tests/rebuild.rs` covers dependency ordering, exact cache reuse versus restart UNKNOWN, production SCCs, hidden receipts, subset determinant writes, cancellation, node/edge budgets, unavailable catalogs, external-output divergence, canonical-plan substitution, session/grant/snapshot/epoch binding, runtime drift and replay rejection.
 
+`tests/rebuild_differential.rs` additionally compares production SCCs against independent pairwise reachability over 48 generated graphs, including self-cycles and disconnected components. It does not call the production SCC helper.
+
 These tests use synthetic host-side model observations and are NOT Blender/Godot/AV native evidence. The diagnostic script inventories and runs all crate tests on the exact pushed SHA; a queued run, passing test step followed by failed Clippy, or the earlier P0 PASS is not a P1 release PASS. The normal source lane is `cargo test --locked -p semwright-project-graph --features store --all-targets`, in GitHub Actions only, followed by strict Clippy, generated schemas and rustdoc.
 
 ## Integration request to the concurrent C runtime work
