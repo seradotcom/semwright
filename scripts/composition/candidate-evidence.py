@@ -50,7 +50,11 @@ def validate(value:dict)->dict:
     if value["ready_for_demo_production"]:
         need(value["combined_candidate"],"READY requires a combined A+B candidate")
         need(value["b_audio_ready_for_integration"],"READY requires B's formal audio handoff")
-        need(all(state=="PASS" for state in gates.values()),"READY requires every required gate PASS")
+        for gate, state in gates.items():
+            if gate == "figma_regression" and not value["figma_required_for_workflow"]:
+                need(state in {"PASS","NOT_APPLICABLE"},"non-Figma workflow may only mark Figma PASS or NOT_APPLICABLE")
+            else:
+                need(state=="PASS",f"READY requires {gate} PASS")
         need(evidence,"READY requires exact-SHA workflow evidence")
         need(value["ready_for"],"READY requires an explicit workflow scope")
         need(not value["not_ready_for"],"READY cannot retain required workflow blockers")
@@ -65,7 +69,14 @@ def validate(value:dict)->dict:
       "ready_for_demo_production":value["ready_for_demo_production"],
       "combined_candidate":value["combined_candidate"],
       "b_audio_ready_for_integration":value["b_audio_ready_for_integration"],
-      "all_required_gates_pass":all(state=="PASS" for state in gates.values()),
+      "all_required_gates_pass":all(
+          state=="PASS" or (
+              gate=="figma_regression"
+              and not value["figma_required_for_workflow"]
+              and state=="NOT_APPLICABLE"
+          )
+          for gate,state in gates.items()
+      ),
       "workflow_evidence_rows":len(evidence)
     }
 

@@ -32,4 +32,23 @@ class Tests(unittest.TestCase):
         v["workflow_evidence"]=[{"workflow":"combined","run_id":1,"job_ids":[2],"tested_sha":"a"*40,
           "status":"PASS","artifacts":[],"limitations":[]}]
         with self.assertRaises(mod.Invalid):mod.validate(v)
+    def test_non_figma_workflow_may_mark_figma_not_applicable(self):
+        v=base();v.update(combined_candidate=True,b_audio_ready_for_integration=True,
+            ready_for_demo_production=True,ready_for=["verified-rendered-av-v1"],
+            not_ready_for=[],figma_required_for_workflow=False)
+        v["required_gates"]={key:"PASS" for key in mod.REQUIRED}
+        v["required_gates"]["figma_regression"]="NOT_APPLICABLE"
+        v["workflow_evidence"]=[{"workflow":"combined","run_id":1,"job_ids":[2],"tested_sha":"a"*40,
+          "status":"PASS","artifacts":[],"limitations":[]}]
+        out=mod.validate(v)
+        self.assertTrue(out["ready_for_demo_production"])
+        self.assertTrue(out["all_required_gates_pass"])
+    def test_figma_required_workflow_cannot_mark_figma_not_applicable(self):
+        v=base();v.update(combined_candidate=True,b_audio_ready_for_integration=True,
+            ready_for_demo_production=True,ready_for=["verified-rendered-av-v1"],not_ready_for=[])
+        v["required_gates"]={key:"PASS" for key in mod.REQUIRED}
+        v["required_gates"]["figma_regression"]="NOT_APPLICABLE"
+        v["workflow_evidence"]=[{"workflow":"combined","run_id":1,"job_ids":[2],"tested_sha":"a"*40,
+          "status":"PASS","artifacts":[],"limitations":[]}]
+        with self.assertRaises(mod.Invalid):mod.validate(v)
 if __name__=="__main__":unittest.main()
