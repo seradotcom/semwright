@@ -1,7 +1,8 @@
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, Transport,
+    ApplicationMatch, DRIVER_PROTOCOL_VERSION, DriverInterfaces, DriverMount, DriverResources,
+    DriverToolMount, Manifest, Transport,
 };
 use semwright_policy::FilesystemGrant;
 use serde_json::{Value, json};
@@ -103,11 +104,16 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     }
 
     let cargo_executable = PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-video-driver"));
+    let cargo_runtime_runner = PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-runtime-runner"));
     let binary_dir = tempfile::tempdir().unwrap();
     std::fs::set_permissions(binary_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let executable = binary_dir.path().join("semwright-mlt-video-driver");
+    let runtime_runner = binary_dir.path().join("semwright-mlt-runtime-runner");
     std::fs::copy(&cargo_executable, &executable).unwrap();
-    std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::copy(&cargo_runtime_runner, &runtime_runner).unwrap();
+    for binary in [&executable, &runtime_runner] {
+        std::fs::set_permissions(binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
 
     let helper = PathBuf::from(
         std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
@@ -196,7 +202,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
 
     let manifest = Manifest {
         manifest_version: 1,
-        protocol: 1,
+        protocol: DRIVER_PROTOCOL_VERSION,
         id: "mlt-video".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -232,7 +238,22 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         ],
         system_config: vec![],
         secrets: vec![],
-        tools: vec![],
+        tools: vec![
+            DriverToolMount {
+                root: "mlt-runner-root".into(),
+                name: "mlt-runner".into(),
+                sha256: digest(&runtime_runner),
+                mounts: vec![],
+                dependencies: vec!["melt".into()],
+            },
+            DriverToolMount {
+                root: "melt-root".into(),
+                name: "melt".into(),
+                sha256: digest(&melt),
+                mounts: vec![],
+                dependencies: vec![],
+            },
+        ],
         network: false,
         loopback_port: None,
         // Match the launch-film production sandbox budget. These are ceilings,
@@ -247,7 +268,11 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             open_files: 512,
         },
         request_timeout_ms: 300_000,
-        interfaces: DriverInterfaces::default(),
+        interfaces: DriverInterfaces {
+            health: true,
+            host_tools: true,
+            ..DriverInterfaces::default()
+        },
     };
     let grants = vec![
         FilesystemGrant {
@@ -271,6 +296,18 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         FilesystemGrant {
             name: "runtime".into(),
             path: runtime.path().canonicalize().unwrap(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "mlt-runner-root".into(),
+            path: runtime_runner.canonicalize().unwrap(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "melt-root".into(),
+            path: melt.clone(),
             read: true,
             write: false,
         },

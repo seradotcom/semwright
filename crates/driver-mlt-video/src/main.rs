@@ -1,11 +1,16 @@
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, artifact_input_tag, artifact_output_tag, serve};
-use semwright_mlt_video::{app::App, catalog};
+use semwright_driver_sdk::{
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolArg,
+    artifact_input_tag, artifact_output_tag, serve,
+};
+use semwright_mlt_video::{app::App, catalog, runtime::ServiceCatalog};
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
 
 struct MltVideoDriver {
     app: App,
+    host_catalog_verified: bool,
 }
 
 fn map_error(error: semwright_mlt_video::Error) -> Error {
@@ -74,6 +79,167 @@ fn sdk_capabilities() -> Result<Vec<Capability>> {
         .collect()
 }
 
+fn host_catalog(bytes: &[u8]) -> Result<ServiceCatalog> {
+    const GROUPS: [&str; 6] = [
+        "producers",
+        "filters",
+        "transitions",
+        "consumers",
+        "video_codecs",
+        "audio_codecs",
+    ];
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| {
+        Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner returned invalid JSON",
+        )
+    })?;
+    let object = value.as_object().ok_or_else(|| {
+        Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner result must be an object",
+        )
+    })?;
+    if object.len() != 4
+        || object.get("schema").and_then(Value::as_u64) != Some(1)
+        || object.get("operation").and_then(Value::as_str) != Some("discover")
+    {
+        return Err(Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner discovery envelope is invalid",
+        ));
+    }
+    let version = object
+        .get("version")
+        .and_then(Value::as_str)
+        .filter(|version| !version.is_empty() && version.len() <= 512)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::PluginProtocolError,
+                "MLT runtime runner version is invalid",
+            )
+        })?
+        .to_owned();
+    let raw_groups = object
+        .get("groups")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::PluginProtocolError,
+                "MLT runtime runner groups are invalid",
+            )
+        })?;
+    if raw_groups.len() != GROUPS.len()
+        || GROUPS.iter().any(|group| !raw_groups.contains_key(*group))
+    {
+        return Err(Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner returned an unexpected service group set",
+        ));
+    }
+
+    let mut groups = BTreeMap::new();
+    for group in GROUPS {
+        let values = raw_groups[group].as_array().ok_or_else(|| {
+            Error::new(
+                ErrorCode::PluginProtocolError,
+                "MLT runtime runner service group is not an array",
+            )
+        })?;
+        if values.len() > 2048 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "MLT runtime runner service group exceeds its bound",
+            ));
+        }
+        let mut services = BTreeSet::new();
+        for value in values {
+            let service = value
+                .as_str()
+                .filter(|service| {
+                    !service.is_empty()
+                        && service.len() <= 128
+                        && service.bytes().all(|byte| {
+                            byte.is_ascii_alphanumeric()
+                                || matches!(byte, b'_' | b'-' | b'.' | b':')
+                        })
+                })
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PluginProtocolError,
+                        "MLT runtime runner service token is invalid",
+                    )
+                })?;
+            if !services.insert(service.to_owned()) {
+                return Err(Error::new(
+                    ErrorCode::PluginProtocolError,
+                    "MLT runtime runner returned a duplicate service",
+                ));
+            }
+        }
+        groups.insert(group.to_owned(), services);
+    }
+    Ok(ServiceCatalog { version, groups })
+}
+
+impl MltVideoDriver {
+    async fn ensure_host_catalog(&mut self, context: &DriverExecutionContext) -> Result<()> {
+        if self.host_catalog_verified || std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_none() {
+            return Ok(());
+        }
+        let (legacy_version, legacy_groups) = self
+            .app
+            .runtime
+            .as_ref()
+            .map(|runtime| {
+                (
+                    runtime.catalog.version.clone(),
+                    runtime.catalog.groups.clone(),
+                )
+            })
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unavailable,
+                    "Host-mediated MLT discovery requires the legacy runtime during migration",
+                )
+            })?;
+        let output = context
+            .execute_runtime_tool_args(
+                "mlt-runner",
+                vec![
+                    RuntimeToolArg::Literal {
+                        value: "discover".into(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: "--melt".into(),
+                    },
+                    RuntimeToolArg::ToolPath {
+                        tool: "melt".into(),
+                    },
+                ],
+                Vec::new(),
+                std::time::Duration::from_secs(30),
+                None,
+            )
+            .await?;
+        if output.exit_code != 0 {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Host-mediated MLT discovery runner failed",
+            ));
+        }
+        let observed = host_catalog(&output.stdout)?;
+        if observed.version != legacy_version || observed.groups != legacy_groups {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Host-mediated and legacy MLT discovery catalogs diverged",
+            ));
+        }
+        self.host_catalog_verified = true;
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl Driver for MltVideoDriver {
     fn id(&self) -> &str {
@@ -82,6 +248,14 @@ impl Driver for MltVideoDriver {
 
     fn version(&self) -> &str {
         env!("CARGO_PKG_VERSION")
+    }
+
+    fn interfaces(&self) -> DriverInterfaces {
+        DriverInterfaces {
+            health: true,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
+            ..DriverInterfaces::default()
+        }
     }
 
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
@@ -101,6 +275,18 @@ impl Driver for MltVideoDriver {
         from_internal(value)
     }
 
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        descriptor_sha256: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        self.ensure_host_catalog(&context).await?;
+        self.execute(command, descriptor_sha256, args).await
+    }
+
     async fn health(&mut self) -> Result<Value> {
         from_internal(self.app.doctor())
     }
@@ -109,7 +295,10 @@ impl Driver for MltVideoDriver {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let result = App::production()
-        .map(|app| MltVideoDriver { app })
+        .map(|app| MltVideoDriver {
+            app,
+            host_catalog_verified: false,
+        })
         .map_err(map_error);
     let result = match result {
         Ok(driver) => serve(driver).await,
@@ -124,6 +313,34 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn host_catalog_parser_is_strict_and_bounded() {
+        let valid = serde_json::json!({
+            "schema": 1,
+            "operation": "discover",
+            "version": "melt 7.32.0",
+            "groups": {
+                "producers": ["avformat"],
+                "filters": ["volume"],
+                "transitions": ["mix"],
+                "consumers": ["avformat"],
+                "video_codecs": ["libx264"],
+                "audio_codecs": ["aac"]
+            }
+        });
+        let parsed = host_catalog(&serde_json::to_vec(&valid).unwrap()).unwrap();
+        assert_eq!(parsed.version, "melt 7.32.0");
+        assert!(parsed.has("filters", "volume"));
+
+        let mut missing = valid.clone();
+        missing["groups"].as_object_mut().unwrap().remove("filters");
+        assert!(host_catalog(&serde_json::to_vec(&missing).unwrap()).is_err());
+
+        let mut duplicate = valid;
+        duplicate["groups"]["filters"] = serde_json::json!(["volume", "volume"]);
+        assert!(host_catalog(&serde_json::to_vec(&duplicate).unwrap()).is_err());
+    }
 
     #[test]
     fn sdk_catalog_declares_generic_artifact_ports() {
