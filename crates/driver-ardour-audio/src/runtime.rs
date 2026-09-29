@@ -100,6 +100,9 @@ pub struct ArdourRuntimeProbe {
     pub range_self_test: bool,
     pub range_diagnostic_class: String,
     pub range_diagnostic_prefix: String,
+    pub send_gain_self_test: bool,
+    pub send_gain_diagnostic_class: String,
+    pub send_gain_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -463,6 +466,131 @@ close_session()
                     String::new(),
                 )
             };
+        let (send_gain_self_test, send_gain_diagnostic_class, send_gain_diagnostic_prefix) =
+            if range_self_test {
+                let result: std::result::Result<(), (String, String)> = async {
+                    self.probe_adapter_step(
+                        context,
+                        &probe_session,
+                        probe_state,
+                        &["master_create".into(), "2".into()],
+                    )
+                    .await?;
+                    let stem_snapshot = self
+                        .probe_adapter_step(
+                            context,
+                            &probe_session,
+                            probe_state,
+                            &["stem_create".into(), "2".into(), "Probe Stem".into()],
+                        )
+                        .await?;
+                    let stem_id = stem_snapshot
+                        .routes
+                        .iter()
+                        .find(|route| {
+                            route.kind == crate::native::RouteKind::Track
+                                && route.name == "Probe Stem"
+                        })
+                        .map(|route| route.id.clone())
+                        .ok_or_else(|| {
+                            (
+                                "BackendFailed".to_string(),
+                                "probe stem was absent after native creation".to_string(),
+                            )
+                        })?;
+                    let bus_snapshot = self
+                        .probe_adapter_step(
+                            context,
+                            &probe_session,
+                            probe_state,
+                            &["bus_create".into(), "2".into(), "Probe Bus".into()],
+                        )
+                        .await?;
+                    let bus_id = bus_snapshot
+                        .routes
+                        .iter()
+                        .find(|route| {
+                            route.kind == crate::native::RouteKind::Bus && route.name == "Probe Bus"
+                        })
+                        .map(|route| route.id.clone())
+                        .ok_or_else(|| {
+                            (
+                                "BackendFailed".to_string(),
+                                "probe bus was absent after native creation".to_string(),
+                            )
+                        })?;
+                    self.probe_adapter_step(
+                        context,
+                        &probe_session,
+                        probe_state,
+                        &[
+                            "send_create".into(),
+                            stem_id.clone(),
+                            bus_id.clone(),
+                            "0".into(),
+                        ],
+                    )
+                    .await?;
+                    self.probe_adapter_step(
+                        context,
+                        &probe_session,
+                        probe_state,
+                        &[
+                            "send_gain".into(),
+                            stem_id.clone(),
+                            bus_id.clone(),
+                            "-6000".into(),
+                        ],
+                    )
+                    .await?;
+                    let gain_snapshot = self
+                        .probe_adapter_step(
+                            context,
+                            &probe_session,
+                            probe_state,
+                            &["inspect".into()],
+                        )
+                        .await?;
+                    let send = gain_snapshot
+                        .routes
+                        .iter()
+                        .find(|route| route.id == stem_id)
+                        .and_then(|route| {
+                            route.sends.iter().find(|send| send.target_route == bus_id)
+                        })
+                        .ok_or_else(|| {
+                            (
+                                "BackendFailed".to_string(),
+                                "probe send disappeared after gain mutation".to_string(),
+                            )
+                        })?;
+                    if send.gain_millidb.abs_diff(-6_000) > 1 {
+                        return Err((
+                            "BackendFailed".to_string(),
+                            format!("probe send gain readback mismatch:{}", send.gain_millidb),
+                        ));
+                    }
+                    Ok(())
+                }
+                .await;
+                match result {
+                    Ok(()) => (
+                        true,
+                        "ok".to_string(),
+                        bounded_text_diagnostic(
+                            "native internal-send gain write persisted through reopen/readback",
+                        ),
+                    ),
+                    Err((class, detail)) => (false, class, bounded_text_diagnostic(&detail)),
+                }
+            } else {
+                (
+                    false,
+                    "range_prerequisite_failed".to_string(),
+                    String::new(),
+                )
+            };
+
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
             lua_banner,
@@ -480,6 +608,9 @@ close_session()
             range_self_test,
             range_diagnostic_class,
             range_diagnostic_prefix,
+            send_gain_self_test,
+            send_gain_diagnostic_class,
+            send_gain_diagnostic_prefix,
         })
     }
 
@@ -661,6 +792,60 @@ close_session()
             bit_depth,
             source_state: state.into(),
             ardour_version: self.config.ardour_version.clone(),
+        })
+    }
+
+    async fn run_probe_lua_capture(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        session_dir: &Path,
+        state: &str,
+        operation_args: &[String],
+    ) -> Result<ToolRun> {
+        let temp = TempDir::new()?;
+        let script_path = temp.path().join("semwright-ardour.lua");
+        fs::write(&script_path, script::source())?;
+        let args = [
+            vec![
+                script_path.to_string_lossy().into_owned(),
+                session_dir.to_string_lossy().into_owned(),
+                state.into(),
+                self.config.ardour_version.clone(),
+            ],
+            operation_args.to_vec(),
+        ]
+        .concat();
+        self.run_tool_capture(context, &self.lua_tool, &args).await
+    }
+
+    async fn probe_adapter_step(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        session_dir: &Path,
+        state: &str,
+        operation_args: &[String],
+    ) -> std::result::Result<ArdourSnapshot, (String, String)> {
+        let run = self
+            .run_probe_lua_capture(context, session_dir, state, operation_args)
+            .await
+            .map_err(|error| {
+                (
+                    format!("{:?}", error.code),
+                    bounded_text_diagnostic(&error.message),
+                )
+            })?;
+        if run.exit_code != 0 {
+            let classified = classify_tool_failure(&run.stdout, &run.stderr);
+            return Err((
+                format!("{:?}", classified.code),
+                bounded_text_diagnostic(&bounded_diagnostic(&run.stdout, &run.stderr)),
+            ));
+        }
+        parse_snapshot(&run.stdout).map_err(|error| {
+            (
+                format!("{:?}", error.code),
+                bounded_text_diagnostic(&error.message),
+            )
         })
     }
 
