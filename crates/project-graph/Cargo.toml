@@ -1,0 +1,21 @@
+[package]
+name = "semwright-project-graph"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Evidence-scoped persistent project identity, provenance and impact queries"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+semwright-semantic-composition.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

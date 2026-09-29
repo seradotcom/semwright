@@ -3177,6 +3177,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-effect-conformance"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "schemars",
+ "semwright-project-graph",
+ "semwright-semantic-composition",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "semwright-federation"
 version = "0.9.0-dev.1"
 dependencies = [
@@ -3503,6 +3515,19 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+ "uuid",
+]
+
+[[package]]
+name = "semwright-project-graph"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "schemars",
+ "semwright-semantic-composition",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
  "uuid",
 ]
 

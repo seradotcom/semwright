@@ -1,0 +1,411 @@
+use crate::composition::{
+    BaseStateSet, Digest, ObservationRef, Owner, ResourceKey, VerificationReport, canonical_digest,
+};
+use crate::{
+    AssetRevision, DerivationId, LogicalAssetId, MAX_DEPENDENCIES, ProjectId, ReceiptId, Result,
+    SCHEMA_VERSION, ensure, name,
+};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+/// A locator is a re-resolution hint, never a reusable session ref or a grant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum DurableLocator {
+    ScopedFile {
+        root: String,
+        relative_path: String,
+    },
+    Native {
+        resource: ResourceKey,
+        stable_id: String,
+        resolver: String,
+        resolver_version: u32,
+    },
+}
+impl DurableLocator {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::ScopedFile {
+                root,
+                relative_path,
+            } => {
+                name(root)?;
+                ensure(
+                    root.bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_')),
+                    "root namespace",
+                )?;
+                ensure(
+                    !relative_path.is_empty() && relative_path.len() <= 4096,
+                    "locator length",
+                )?;
+                for part in relative_path.split('/') {
+                    ensure(
+                        !part.is_empty()
+                            && part != "."
+                            && part != ".."
+                            && !part.ends_with(['.', ' ']),
+                        "relative locator component",
+                    )?;
+                    ensure(
+                        !part.chars().any(|c| {
+                            c.is_control()
+                                || matches!(c, '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+                        }),
+                        "portable locator character",
+                    )?;
+                    let stem = part.split('.').next().unwrap_or("").to_ascii_uppercase();
+                    ensure(
+                        !matches!(
+                            stem.as_str(),
+                            "CON"
+                                | "PRN"
+                                | "AUX"
+                                | "NUL"
+                                | "COM1"
+                                | "COM2"
+                                | "COM3"
+                                | "COM4"
+                                | "COM5"
+                                | "COM6"
+                                | "COM7"
+                                | "COM8"
+                                | "COM9"
+                                | "LPT1"
+                                | "LPT2"
+                                | "LPT3"
+                                | "LPT4"
+                                | "LPT5"
+                                | "LPT6"
+                                | "LPT7"
+                                | "LPT8"
+                                | "LPT9"
+                        ),
+                        "device locator",
+                    )?;
+                }
+                Ok(())
+            }
+            Self::Native {
+                resource,
+                stable_id,
+                resolver,
+                resolver_version,
+            } => {
+                for v in [&resource.provider, &resource.resource, stable_id, resolver] {
+                    name(v)?;
+                }
+                ensure(*resolver_version > 0, "native resolver version")
+            }
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectionDigest {
+    pub digest: Digest,
+    pub method: String,
+    pub method_version: u32,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Fingerprint {
+    pub bytes: Option<Digest>,
+    pub projection: Option<ProjectionDigest>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Equivalence {
+    ExactBytes,
+    Projection,
+    BytesAndProjection,
+}
+impl Fingerprint {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(p) = &self.projection {
+            name(&p.method)?;
+            ensure(p.method_version > 0, "projection method version")?;
+        }
+        Ok(())
+    }
+    /// None is unobserved or incomparable, not equality and not a proved change.
+    pub fn equivalent(&self, other: &Self, policy: Equivalence) -> Option<bool> {
+        let bytes = self
+            .bytes
+            .as_ref()
+            .zip(other.bytes.as_ref())
+            .map(|(a, b)| a == b);
+        let projection = self
+            .projection
+            .as_ref()
+            .zip(other.projection.as_ref())
+            .and_then(|(a, b)| {
+                (a.method == b.method && a.method_version == b.method_version)
+                    .then_some(a.digest == b.digest)
+            });
+        match policy {
+            Equivalence::ExactBytes => bytes,
+            Equivalence::Projection => projection,
+            Equivalence::BytesAndProjection => match (bytes, projection) {
+                (Some(false), _) | (_, Some(false)) => Some(false),
+                (Some(true), Some(true)) => Some(true),
+                _ => None,
+            },
+        }
+    }
+}
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum DependencyClass {
+    Bytes,
+    Projection,
+    Parameters,
+    Runtime,
+    Descriptor,
+    Recipe,
+    ImportSettings,
+    Font,
+    Texture,
+    Plugin,
+    Contract,
+    External,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Determinant {
+    pub class: DependencyClass,
+    pub key: String,
+    pub digest: Digest,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Coverage {
+    pub complete: bool,
+    pub unknown_frontier: BTreeSet<DependencyClass>,
+}
+impl Coverage {
+    pub fn complete() -> Self {
+        Self {
+            complete: true,
+            unknown_frontier: BTreeSet::new(),
+        }
+    }
+    pub fn unknown() -> Self {
+        Self {
+            complete: false,
+            unknown_frontier: [DependencyClass::External].into(),
+        }
+    }
+    pub fn validate(&self) -> Result<()> {
+        ensure(
+            !self.complete || self.unknown_frontier.is_empty(),
+            "complete coverage cannot have unknown dependencies",
+        )
+    }
+    pub fn cache_safe(&self) -> bool {
+        self.complete && self.unknown_frontier.is_empty()
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Asset {
+    pub id: LogicalAssetId,
+    pub resource_type: String,
+    pub label: String,
+    pub locator: Option<DurableLocator>,
+}
+impl Asset {
+    pub fn validate(&self) -> Result<()> {
+        name(&self.resource_type)?;
+        name(&self.label)?;
+        if let Some(locator) = &self.locator {
+            locator.validate()?;
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RevisionPin {
+    pub asset: LogicalAssetId,
+    pub revision: AssetRevision,
+    pub fingerprint: Fingerprint,
+    pub equivalence: Equivalence,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RevisionRecord {
+    pub pin: RevisionPin,
+    pub observed_unix_ms: u64,
+    pub binding_generation: u64,
+    pub observation: ObservationRef,
+    pub coverage: Coverage,
+}
+impl RevisionRecord {
+    pub fn validate(&self) -> Result<()> {
+        self.pin.fingerprint.validate()?;
+        self.coverage.validate()?;
+        self.observation.base.validate()?;
+        name(&self.observation.id)?;
+        name(&self.observation.method)?;
+        ensure(
+            self.observed_unix_ms > 0
+                && self.binding_generation > 0
+                && self.observation.method_version > 0,
+            "revision observation version/time",
+        )
+    }
+}
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Relation {
+    Contains,
+    References,
+    DerivedFrom,
+    ProducedBy,
+    ConsumedBy,
+    Realizes,
+    PublishedAs,
+    VerifiedBy,
+}
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(
+    tag = "kind",
+    content = "id",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum Vertex {
+    Asset(LogicalAssetId),
+    Revision(AssetRevision),
+    Activity(DerivationId),
+    Receipt(ReceiptId),
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum EdgeEvidence {
+    Declared { declaration: ReceiptId },
+    Observed { observation: ObservationRef },
+    Executed { receipt: ReceiptId },
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Edge {
+    pub from: Vertex,
+    pub to: Vertex,
+    pub relation: Relation,
+    pub evidence: EdgeEvidence,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OperationIdentity {
+    pub capability: String,
+    pub descriptor: Digest,
+    pub runtime: Digest,
+    pub plan: Digest,
+    pub parameters: Digest,
+    pub recipe: Option<Digest>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionReceipt {
+    pub version: u32,
+    pub id: ReceiptId,
+    pub derivation: DerivationId,
+    pub project: ProjectId,
+    /// Historical authenticated execution owner, NOT a restart credential.
+    pub owner: Owner,
+    pub request_id: String,
+    pub operation: OperationIdentity,
+    pub source_base: BaseStateSet,
+    pub inputs: Vec<RevisionPin>,
+    pub outputs: Vec<RevisionPin>,
+    pub determinants: Vec<Determinant>,
+    pub coverage: Coverage,
+    pub verification: VerificationReport,
+    pub completed_unix_ms: u64,
+}
+impl ExecutionReceipt {
+    pub fn validate(&self) -> Result<()> {
+        ensure(self.version == SCHEMA_VERSION, "receipt version")?;
+        self.owner.validate()?;
+        self.source_base.validate()?;
+        self.coverage.validate()?;
+        name(&self.request_id)?;
+        name(&self.operation.capability)?;
+        ensure(self.completed_unix_ms > 0, "receipt observation time")?;
+        ensure(
+            self.inputs.len() <= MAX_DEPENDENCIES
+                && !self.outputs.is_empty()
+                && self.outputs.len() <= MAX_DEPENDENCIES
+                && self.determinants.len() <= MAX_DEPENDENCIES,
+            "receipt dependency count",
+        )?;
+        for pins in [&self.inputs, &self.outputs] {
+            let mut seen = BTreeSet::new();
+            for pin in pins {
+                pin.fingerprint.validate()?;
+                ensure(seen.insert(&pin.asset), "duplicate receipt asset")?;
+            }
+        }
+        let mut seen = BTreeSet::new();
+        for d in &self.determinants {
+            name(&d.key)?;
+            ensure(seen.insert((d.class, &d.key)), "duplicate determinant")?;
+        }
+        ensure(
+            self.verification.validation.plan_digest == self.operation.plan,
+            "receipt/report plan substitution",
+        )?;
+        self.verification.verdict()?;
+        canonical_digest(self)?;
+        Ok(())
+    }
+}
+/// Public wire data never carries acquired authority. Only trusted host code may
+/// instantiate an adapter and call admit after a Broker/Driver Host result.
+/// No public graph route accepts an ExecutionReceipt for promotion to this type.
+#[derive(Debug, Clone)]
+pub struct AdmittedReceipt(pub(crate) ExecutionReceipt);
+impl AdmittedReceipt {
+    pub fn record(&self) -> &ExecutionReceipt {
+        &self.0
+    }
+}
+pub struct ReceiptAdapter {
+    capability: String,
+    descriptor: Digest,
+    runtime: Digest,
+}
+impl ReceiptAdapter {
+    pub fn registered(capability: String, descriptor: Digest, runtime: Digest) -> Result<Self> {
+        name(&capability)?;
+        Ok(Self {
+            capability,
+            descriptor,
+            runtime,
+        })
+    }
+    pub fn admit(
+        &self,
+        authenticated: &Owner,
+        request_id: &str,
+        receipt: ExecutionReceipt,
+    ) -> Result<AdmittedReceipt> {
+        receipt.validate()?;
+        if &receipt.owner != authenticated
+            || receipt.request_id != request_id
+            || receipt.operation.capability != self.capability
+            || receipt.operation.descriptor != self.descriptor
+            || receipt.operation.runtime != self.runtime
+        {
+            return Err(crate::GraphError::Denied);
+        }
+        Ok(AdmittedReceipt(receipt))
+    }
+}
