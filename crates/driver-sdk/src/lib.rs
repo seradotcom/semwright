@@ -1073,7 +1073,6 @@ impl DriverExecutionContext {
             if self.protocol >= 5 && self.interfaces.host_tools {
                 Ok(RuntimeToolMode::HostMediated)
             } else {
-                tool_path(name)?;
                 Ok(RuntimeToolMode::Materialized)
             }
         }
