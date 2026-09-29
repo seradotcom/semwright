@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "role": "D",
+  "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+  "ready": false,
+  "requirements": [
+    {
+      "id": "D01",
+      "requirement": "Cn production consumer",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D02",
+      "requirement": "empty-root bootstrap by Broker",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D03",
+      "requirement": "2D/3D owner/readback",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D04",
+      "requirement": "typed no-escape IR",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D05",
+      "requirement": "composable technical games",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D06",
+      "requirement": "runtime budgets",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D07",
+      "requirement": "full animation paging",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D08",
+      "requirement": "external persistence sentinels",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D09",
+      "requirement": "codegen/export provenance",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D10",
+      "requirement": "standalone export run",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D11",
+      "requirement": "authorized repair/no overwrite",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D12",
+      "requirement": "Blender GLB preserved gameplay",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D13",
+      "requirement": "C/F integration",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D14",
+      "requirement": "route audit and independent oracle",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D15",
+      "requirement": "Skill/install/packages",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    },
+    {
+      "id": "D16",
+      "requirement": "171 regression/hostile/gates",
+      "state": "OPEN",
+      "implementation": null,
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": []
+    }
+  ]
+}

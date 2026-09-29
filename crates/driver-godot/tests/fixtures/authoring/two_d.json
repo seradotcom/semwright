@@ -1,0 +1,552 @@
+{
+  "version": 1,
+  "project": "technical_two",
+  "title": "Technical 2D fixture",
+  "main_scene": "arena",
+  "settings": {
+    "width": 640,
+    "height": 360,
+    "physics_ticks": 60
+  },
+  "inputs": [
+    {
+      "id": "left",
+      "key": "left"
+    },
+    {
+      "id": "right",
+      "key": "right"
+    },
+    {
+      "id": "start",
+      "key": "enter"
+    },
+    {
+      "id": "restart",
+      "key": "r"
+    }
+  ],
+  "assets": [],
+  "scenes": [
+    {
+      "id": "arena",
+      "dimension": "two",
+      "entities": [
+        {
+          "id": "player",
+          "parent": null,
+          "position": [
+            64,
+            160,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "body2d",
+            "shape": {
+              "kind": "rectangle",
+              "size": [
+                16,
+                16
+              ]
+            },
+            "layer": 1,
+            "mask": 2
+          }
+        },
+        {
+          "id": "visual",
+          "parent": "player",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              16,
+              16
+            ],
+            "color": [
+              0.2,
+              0.8,
+              0.6,
+              1
+            ]
+          }
+        },
+        {
+          "id": "collectible",
+          "parent": null,
+          "position": [
+            190,
+            160,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "area2d",
+            "shape": {
+              "kind": "circle",
+              "radius": 14
+            },
+            "layer": 2,
+            "mask": 1
+          }
+        },
+        {
+          "id": "collectible_visual",
+          "parent": "collectible",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              20,
+              20
+            ],
+            "color": [
+              1,
+              0.8,
+              0.2,
+              1
+            ]
+          }
+        },
+        {
+          "id": "obstacle",
+          "parent": null,
+          "position": [
+            300,
+            160,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "area2d",
+            "shape": {
+              "kind": "rectangle",
+              "size": [
+                24,
+                60
+              ]
+            },
+            "layer": 4,
+            "mask": 1
+          }
+        },
+        {
+          "id": "obstacle_visual",
+          "parent": "obstacle",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              24,
+              60
+            ],
+            "color": [
+              1,
+              0.2,
+              0.3,
+              1
+            ]
+          }
+        },
+        {
+          "id": "hud",
+          "parent": null,
+          "position": [
+            16,
+            16,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "label",
+            "text": "Enter to start. R to restart.",
+            "size": 24
+          }
+        },
+        {
+          "id": "animator",
+          "parent": null,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "animator"
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "pulse",
+          "animator": "animator",
+          "length": 1.0,
+          "looping": true,
+          "tracks": [
+            {
+              "entity": "collectible_visual",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1,
+                      1
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.2,
+                      1.2
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "behavior": {
+        "states": [
+          "start",
+          "play",
+          "win",
+          "lose"
+        ],
+        "initial_state": "start",
+        "variables": [
+          {
+            "id": "score",
+            "initial": {
+              "kind": "int",
+              "value": 0
+            }
+          }
+        ],
+        "expressions": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "scalar",
+              "value": 0.0
+            }
+          },
+          {
+            "kind": "axis",
+            "negative": "left",
+            "positive": "right"
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "scalar",
+              "value": 120.0
+            }
+          },
+          {
+            "kind": "binary",
+            "op": "multiply",
+            "left": 1,
+            "right": 2
+          },
+          {
+            "kind": "vector2",
+            "x": 3,
+            "y": 0
+          },
+          {
+            "kind": "read",
+            "variable": "score"
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "int",
+              "value": 1
+            }
+          },
+          {
+            "kind": "binary",
+            "op": "add",
+            "left": 5,
+            "right": 6
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "int",
+              "value": 1
+            }
+          },
+          {
+            "kind": "binary",
+            "op": "equal",
+            "left": 5,
+            "right": 8
+          }
+        ],
+        "timers": [
+          {
+            "id": "deadline",
+            "ticks": 1200,
+            "repeat": false
+          }
+        ],
+        "signals": [],
+        "handlers": [
+          {
+            "id": "begin",
+            "event": {
+              "kind": "input",
+              "action": "start"
+            },
+            "state": "start",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "play"
+              },
+              {
+                "kind": "start_timer",
+                "timer": "deadline"
+              }
+            ]
+          },
+          {
+            "id": "motion",
+            "event": {
+              "kind": "physics_tick"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "move2d",
+                "entity": "player",
+                "velocity": 4,
+                "max_speed": 180.0
+              }
+            ]
+          },
+          {
+            "id": "collect",
+            "event": {
+              "kind": "area_entered",
+              "area": "collectible",
+              "body": "player"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "set",
+                "variable": "score",
+                "value": 7
+              },
+              {
+                "kind": "label",
+                "entity": "hud",
+                "prefix": "Score: ",
+                "variable": "score"
+              },
+              {
+                "kind": "visible",
+                "entity": "collectible",
+                "visible": false
+              }
+            ]
+          },
+          {
+            "id": "win",
+            "event": {
+              "kind": "physics_tick"
+            },
+            "state": "play",
+            "condition": 9,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "win"
+              },
+              {
+                "kind": "label",
+                "entity": "hud",
+                "prefix": "Win. Score: ",
+                "variable": "score"
+              }
+            ]
+          },
+          {
+            "id": "lose",
+            "event": {
+              "kind": "area_entered",
+              "area": "obstacle",
+              "body": "player"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "lose"
+              },
+              {
+                "kind": "label",
+                "entity": "hud",
+                "prefix": "Lose. Score: ",
+                "variable": "score"
+              }
+            ]
+          },
+          {
+            "id": "timeout",
+            "event": {
+              "kind": "timer",
+              "timer": "deadline"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "lose"
+              }
+            ]
+          },
+          {
+            "id": "restart",
+            "event": {
+              "kind": "input",
+              "action": "restart"
+            },
+            "state": null,
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "restart"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "limits": {
+    "actions_per_event": 128,
+    "actions_per_tick": 2048,
+    "events_per_tick": 128,
+    "entities": 1024,
+    "spawns_per_tick": 8
+  }
+}

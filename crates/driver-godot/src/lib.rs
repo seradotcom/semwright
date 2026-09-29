@@ -1,3 +1,4 @@
+pub mod authoring;
 pub mod bridge;
 pub mod catalog;
 pub mod config;
