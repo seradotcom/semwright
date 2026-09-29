@@ -122,6 +122,142 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  godot-persistence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-persistence-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/godot-persistence
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-persistence/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-persistence/godot-version.txt
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+      - name: Native #171 scene-only persistence contract
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/godot-persistence-contract"
+          mkdir -p "$fixture/addons" "$fixture/tests"
+          cp -R integrations/godot/addons/semwright "$fixture/addons/"
+          cp integrations/godot/tests/scene_save_contract.gd "$fixture/tests/"
+          printf '%s\n' 'config_version=5' '[application]' 'config/name="Semwright D Persistence"' > "$fixture/project.godot"
+          timeout 90 "$GODOT_BIN" --headless --path "$fixture" \
+            --script res://tests/scene_save_contract.gd 2>&1 \
+            | tee verification/godot-persistence/scene-save-contract.log
+          grep -q '^SCENE_SAVE_FIXTURE_TESTS PASS:' verification/godot-persistence/scene-save-contract.log
+          if grep -E 'ERROR:|SCRIPT ERROR:|Parse Error:' verification/godot-persistence/scene-save-contract.log; then
+            exit 1
+          fi
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Broker fresh-process save reopen
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-godot --test authoring_host \
+            persistence_lane_reopens_in_fresh_process_and_preserves_dependencies \
+            -- --ignored --exact --nocapture \
+            2>&1 | tee verification/godot-persistence/persistence-host.log
+      - name: Persistence evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-persistence
+          path: verification/godot-persistence/
+          if-no-files-found: error
+          retention-days: 14
+
+  godot-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-export-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/godot-export
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-export/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2 and Linux release template
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/export-templates"
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-export/godot-version.txt
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz" \
+            -o "$RUNNER_TEMP/export-templates.tpz"
+          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/export-templates.tpz" | sha256sum -c -
+          unzip -j -q "$RUNNER_TEMP/export-templates.tpz" \
+            "templates/linux_release.x86_64" -d "$RUNNER_TEMP/export-templates"
+          rm "$RUNNER_TEMP/export-templates.tpz"
+          chmod 0755 "$RUNNER_TEMP/export-templates/linux_release.x86_64"
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/export-templates" >> "$GITHUB_ENV"
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Broker standalone export and launch
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-godot --test authoring_host \
+            export_lane_builds_and_launches_without_editor_or_semwright \
+            -- --ignored --exact --nocapture \
+            2>&1 | tee verification/godot-export/export-host.log
+      - name: Export evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-export
+          path: verification/godot-export/
+          if-no-files-found: error
+          retention-days: 14
+
   godot-hostile:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -183,7 +319,7 @@ jobs:
           retention-days: 7
 
   godot-source-package:
-    needs: [godot-model, godot-native-authoring, godot-hostile, godot-cross-app-glb]
+    needs: [godot-model, godot-native-authoring, godot-persistence, godot-export, godot-hostile, godot-cross-app-glb]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:

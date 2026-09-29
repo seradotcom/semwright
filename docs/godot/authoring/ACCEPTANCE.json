@@ -113,10 +113,11 @@
       "id": "D08",
       "requirement": "external persistence sentinels",
       "state": "IMPLEMENTED_NATIVE_PERSISTENCE_EVIDENCE_PENDING",
-      "implementation": "external dependency sentinels plus save/fresh-process reopen; #171 scene-only contract now checks byte-exact external material and texture preservation, shared external identity, embedded/shared subresource persistence and inherited-scene fail-closed behavior",
+      "implementation": "external dependency sentinels plus save/fresh-process reopen; dedicated godot-persistence lane also executes the #171 scene-only contract for byte-exact external material/texture preservation, shared external identity, embedded/shared subresource persistence and inherited-scene fail-closed behavior",
       "tests": [
-        "persistence sentinel regression",
-        "native save -> distinct-process reopen",
+        "portable persistence sentinel regression",
+        "godot-persistence Broker save -> distinct-process reopen",
+        "godot-persistence unchanged supplied-audio dependency sentinel",
         "#171 native scene-save external material/texture bytes",
         "#171 embedded/shared subresource reload",
         "#171 inherited scene rejection without write"
@@ -145,10 +146,12 @@
     {
       "id": "D10",
       "requirement": "standalone export run",
-      "state": "IMPLEMENTED_STANDALONE_RUN_PENDING",
-      "implementation": "managed project through existing export.build then executable run without editor/Semwright",
+      "state": "IMPLEMENTED_DEDICATED_EXPORT_EVIDENCE_PENDING",
+      "implementation": "dedicated godot-export lane creates a managed project through Broker/Driver Host, validates/runs it, calls existing export.build, scans the release binary for authoring-only markers, then launches it with cleared environment and no editor/Semwright",
       "tests": [
-        "standalone exported-game E2E"
+        "godot-export managed project validate/run",
+        "release export marker/secret scan",
+        "standalone exported-game launch with clean HOME"
       ],
       "tested_sha": null,
       "run_id": null,
@@ -222,8 +225,9 @@
       "id": "D15",
       "requirement": "Skill/install/packages",
       "state": "SKILL_AND_PACKAGES_IMPLEMENTED_EVIDENCE_PENDING",
-      "implementation": "production Skill plus exact-SHA CLI validate/inspect/bundle and deterministic reconstructable source package in the gated delivery job",
+      "implementation": "production Skill plus exact-SHA CLI validate/inspect/bundle and deterministic reconstructable source package; delivery is gated by model/native/persistence/export/hostile/cross-app",
       "tests": [
+        "six prerequisite D acceptance jobs must succeed",
         "semwright skill validate/inspect/bundle",
         "package_source.py reconstruction and checksums"
       ],
@@ -236,11 +240,12 @@
       "id": "D16",
       "requirement": "171 regression/hostile/gates",
       "state": "PARTIAL_171_GREEN_EXPANDED_D_GATE_PENDING",
-      "implementation": "#171 real-Godot readback/scene-save previously green; D native-authoring lane now reruns readback plus expanded scene-save persistence contract on the exact D SHA before Host E2E; hostile/fuzz/final gates remain required",
+      "implementation": "#171 real-Godot readback/scene-save previously green; current D gates rerun readback in godot-native-authoring and the expanded scene-save persistence contract in godot-persistence on the exact D SHA, with hostile/fuzz/cross-app/export/package still independently required",
       "tests": [
         "Godot driver integration real-godot historical regression",
-        "D native #171 readback contract",
-        "D native expanded scene-save persistence contract"
+        "godot-native-authoring #171 readback contract",
+        "godot-persistence expanded #171 scene-save contract",
+        "godot-hostile property/focused adversarial suite"
       ],
       "tested_sha": "9a7a0ce7ba67dc92d06f4e656cc3e5b9002f3140",
       "run_id": 36525334763,

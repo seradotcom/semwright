@@ -342,6 +342,70 @@ fn gameplay_collision_signature(response: &Value) -> Value {
     json!({"bodies":bodies,"shapes":shapes})
 }
 
+struct HostedAuthoring {
+    _binary_dir: tempfile::TempDir,
+    _driver_state: tempfile::TempDir,
+    _audit_dir: tempfile::TempDir,
+    fixture: Fixture,
+    provider: Arc<DriverProvider>,
+    broker: Arc<Broker>,
+    session: String,
+}
+
+async fn hosted_authoring(test_name: &str) -> HostedAuthoring {
+    let (binary_dir, executable) = staged_driver().await;
+    let helper = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
+            .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
+    );
+    let fixture = fixture();
+    let driver_state = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let provider = DriverProvider::connect(
+        manifest(executable, fixture.runtime_sha256.clone()),
+        driver_state.path(),
+        &helper,
+        &fixture.roots,
+        false,
+    )
+    .await
+    .unwrap();
+
+    let audit_dir = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&audit_dir.path().join("audit"), 65_536, 2).unwrap();
+    let policy = Policy::new(PolicyConfig {
+        allow: ["driver:godot".into()].into(),
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![],
+        audit,
+        Arc::new(TestApprover),
+        None,
+        json!({"test":test_name}),
+        false,
+    )
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+
+    HostedAuthoring {
+        _binary_dir: binary_dir,
+        _driver_state: driver_state,
+        _audit_dir: audit_dir,
+        fixture,
+        provider,
+        broker,
+        session: unique_id(),
+    }
+}
+
+async fn shutdown_hosted(host: HostedAuthoring) {
+    host.broker.remove_provider("driver:godot").await.unwrap();
+    Provider::shutdown(host.provider.as_ref()).await.unwrap();
+}
+
 #[tokio::test]
 #[ignore = "requires bubblewrap/Landlock sandbox helper and production driver binary"]
 async fn empty_project_authoring_flows_through_broker_driver_host_and_provider() {
@@ -1072,6 +1136,180 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
 
     broker.remove_provider("driver:godot").await.unwrap();
     Provider::shutdown(provider.as_ref()).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires bubblewrap/Landlock sandbox helper and pinned Godot"]
+async fn persistence_lane_reopens_in_fresh_process_and_preserves_dependencies() {
+    let host = hosted_authoring("godot-authoring-persistence").await;
+    let spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/two_d.json")).unwrap();
+    let plan = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec}),
+    )
+    .await;
+    let plan_id = plan["plan_id"].as_str().unwrap().to_owned();
+    let applied = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan_id}),
+    )
+    .await;
+    assert_eq!(applied["execution_status"], "completed");
+
+    let persisted = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"persistence"}
+        }),
+    )
+    .await;
+    assert_eq!(persisted["kind"], "persistence");
+    assert!(effect_rule_passes(
+        &persisted,
+        "godot.native_persistence.arena.v1"
+    ));
+    assert_eq!(persisted["evidence"]["kind"], "reopened");
+    assert_ne!(
+        persisted["writer"]["process_id"],
+        persisted["reader"]["process_id"]
+    );
+    assert_ne!(persisted["writer"]["nonce"], persisted["reader"]["nonce"]);
+    assert_eq!(persisted["writer"]["dependency_complete"], true);
+    assert_eq!(persisted["reader"]["dependency_complete"], true);
+
+    let cue_sha = digest(&host.fixture._input.path().join("start_cue.wav"));
+    for side in ["writer", "reader"] {
+        assert!(
+            persisted[side]["dependencies"]
+                .as_array()
+                .is_some_and(|dependencies| dependencies.iter().any(|dependency| {
+                    dependency["path"]
+                        .as_str()
+                        .is_some_and(|path| path.ends_with("assets/start_cue.wav"))
+                        && dependency["exists"] == true
+                        && dependency["sha256"] == cue_sha
+                })),
+            "{side} missing unchanged external audio dependency sentinel"
+        );
+    }
+
+    shutdown_hosted(host).await;
+}
+
+#[tokio::test]
+#[ignore = "requires bubblewrap/Landlock sandbox helper, pinned Godot and export template"]
+async fn export_lane_builds_and_launches_without_editor_or_semwright() {
+    assert!(
+        std::env::var_os("SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES").is_some(),
+        "export lane requires pinned Godot export template"
+    );
+    let host = hosted_authoring("godot-authoring-export").await;
+    let spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/two_d.json")).unwrap();
+    let project = spec["project"].as_str().unwrap().to_owned();
+    let plan = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec}),
+    )
+    .await;
+    let plan_id = plan["plan_id"].as_str().unwrap().to_owned();
+    let applied = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan_id}),
+    )
+    .await;
+    assert_eq!(applied["execution_status"], "completed");
+
+    let validated = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.project.validate",
+        json!({"managed_project":project}),
+    )
+    .await;
+    assert_eq!(validated["success"], true);
+    let runtime = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.project.run_test",
+        json!({"managed_project":project,"frames":10}),
+    )
+    .await;
+    assert_eq!(runtime["success"], true);
+
+    let exported = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.export.build",
+        json!({
+            "managed_project":project,
+            "preset":"Linux",
+            "output":"persistence_export_lane.x86_64",
+            "debug":false
+        }),
+    )
+    .await;
+    assert_eq!(exported["success"], true);
+    assert_eq!(exported["artifact"], "persistence_export_lane.x86_64");
+    let binary = host
+        .fixture
+        .artifacts
+        .path()
+        .join("persistence_export_lane.x86_64");
+    assert!(binary.is_file());
+
+    let bytes = std::fs::read(&binary).unwrap();
+    for forbidden in [
+        b"project.semwright.json".as_slice(),
+        b"authoring-spec.json".as_slice(),
+        b"native_observer.gd".as_slice(),
+        b"/workspace/godot-authoring-state".as_slice(),
+        b"SEMWRIGHT_GODOT_PORT".as_slice(),
+        b"GH_TOKEN".as_slice(),
+    ] {
+        assert!(
+            !bytes
+                .windows(forbidden.len())
+                .any(|window| window == forbidden),
+            "standalone export leaked authoring-only marker"
+        );
+    }
+
+    let standalone_home = tempfile::tempdir().unwrap();
+    let launched = Command::new("/usr/bin/timeout")
+        .args(["5", binary.to_str().unwrap(), "--headless"])
+        .env_clear()
+        .env("HOME", standalone_home.path())
+        .output()
+        .unwrap();
+    assert!(
+        launched.status.success() || launched.status.code() == Some(124),
+        "standalone export failed to launch: {}",
+        String::from_utf8_lossy(&launched.stderr)
+    );
+    let launch_log = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&launched.stdout),
+        String::from_utf8_lossy(&launched.stderr)
+    );
+    for marker in ["SCRIPT ERROR:", "Parse Error:"] {
+        assert!(!launch_log.contains(marker), "{launch_log}");
+    }
+
+    shutdown_hosted(host).await;
 }
 
 const E_ARTICULATED_GLB_SHA256: &str =

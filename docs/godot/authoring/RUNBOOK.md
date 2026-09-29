@@ -6,7 +6,7 @@ Use the D worktree for reading/editing, Git/GitHub administration, hashes and li
 
 ## Exact-SHA diagnostics
 
-The owned workflow is .github/workflows/godot-authoring.yml. A source push runs independent godot-model, godot-native-authoring and godot-hostile jobs. godot-source-package depends on all required D lanes; skipped or failed prerequisites do not satisfy delivery.
+The owned workflow is .github/workflows/godot-authoring.yml. A source push runs independent godot-model, godot-native-authoring, godot-persistence, godot-export, godot-hostile and godot-cross-app-glb jobs. godot-source-package depends on all six acceptance lanes; skipped or failed prerequisites do not satisfy delivery.
 
 Inspect runs with:
     gh run list --repo seradotcom/semwright --workflow "Godot semantic authoring diagnostics" --branch feat/godot-semantic-authoring --limit 5 --json databaseId,headSha,status,conclusion,url
