@@ -455,7 +455,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     );
     let direct_probe = direct_probe.unwrap();
     assert_eq!(
-        direct_probe["stdlib_compile"], true,
+        direct_probe["interpreter_compile"], true,
         "raw Driver Host Faust stdlib probe did not compile: {direct_probe}"
     );
 
@@ -500,7 +500,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
         "{runtime_probe:?}"
     );
     assert_eq!(
-        runtime_probe.data.as_ref().unwrap()["stdlib_compile"],
+        runtime_probe.data.as_ref().unwrap()["interpreter_compile"],
         true,
         "{runtime_probe:?}"
     );

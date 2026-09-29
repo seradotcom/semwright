@@ -414,8 +414,19 @@ fn sample_backed_translation_is_explicit_and_keeps_general_translation_closed() 
     assert_eq!(translated.sample_id, sample.id);
     assert!(translated.looped);
     assert_eq!(translated.program.outputs, 2);
-    assert!(translated.program.source.contains("n0 = _;"));
+    assert_eq!(
+        translated
+            .program
+            .source
+            .lines()
+            .filter(|line| line.trim().ends_with("= _;"))
+            .count(),
+        1,
+        "{}",
+        translated.program.source
+    );
     assert!(translated.program.source.contains("* 0.501"));
+    assert!(!translated.program.source.contains("soundfile("));
 
     let wrong = Sample {
         id: "other".into(),

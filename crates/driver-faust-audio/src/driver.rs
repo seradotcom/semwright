@@ -388,7 +388,7 @@ impl FaustAudioDriver {
                     "sealed_helper_executed": probe["sealed_helper_executed"],
                     "library_mount": probe["library_mount"],
                     "stdlib_regular": probe["stdlib_regular"],
-                    "stdlib_compile": probe["stdlib_compile"],
+                    "interpreter_compile": probe["interpreter_compile"],
                     "diagnostic_class": probe["diagnostic_class"],
                     "diagnostic_prefix": probe["diagnostic_prefix"]
                 }))
@@ -1312,11 +1312,11 @@ fn runtime_probe_schema() -> Value {
             "sealed_helper_executed":{"type":"boolean"},
             "library_mount":{"type":"boolean"},
             "stdlib_regular":{"type":"boolean"},
-            "stdlib_compile":{"type":"boolean"},
+            "interpreter_compile":{"type":"boolean"},
             "diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
             "diagnostic_prefix":{"type":"string","maxLength":512}
         },
-        "required":["runtime_available","compiler_version","sealed_helper_executed","library_mount","stdlib_regular","stdlib_compile","diagnostic_class","diagnostic_prefix"],
+        "required":["runtime_available","compiler_version","sealed_helper_executed","library_mount","stdlib_regular","interpreter_compile","diagnostic_class","diagnostic_prefix"],
         "additionalProperties":false
     })
 }

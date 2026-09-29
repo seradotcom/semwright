@@ -226,16 +226,17 @@ impl DeepRuntime {
             .prefix("semwright-ardour-create-probe-")
             .tempdir()?;
         let probe_state = "Probe";
+        let probe_session = probe_root.path().join("managed-session");
         let probe_args = vec![
             "-s".into(),
             "48000".into(),
-            probe_root.path().to_string_lossy().into_owned(),
+            probe_session.to_string_lossy().into_owned(),
             probe_state.into(),
         ];
         let probe_run = self
             .run_tool_capture(context, &self.create_tool, &probe_args)
             .await?;
-        let probe_state_file = probe_root.path().join(format!("{probe_state}.ardour"));
+        let probe_state_file = probe_session.join(format!("{probe_state}.ardour"));
         let (create_self_test, create_diagnostic_class, create_diagnostic_prefix) = if probe_run
             .exit_code
             == 0
@@ -301,17 +302,18 @@ impl DeepRuntime {
                 "Ardour 8.4 new_empty_session does not expose master-channel selection; managed creation is stereo",
             ));
         }
+        let session_dir = self.managed_session_dir();
         let state_file = self.state_path(state);
-        if state_file.try_exists()? {
+        if session_dir.try_exists()? {
             return Err(Error::new(
                 ErrorCode::Conflict,
-                "Ardour session state already exists",
+                "Managed Ardour session directory already exists",
             ));
         }
         let args = vec![
             "-s".into(),
             sample_rate.to_string(),
-            self.session_root.to_string_lossy().into_owned(),
+            session_dir.to_string_lossy().into_owned(),
             state.into(),
         ];
         let creation = self.run_tool(context, &self.create_tool, &args).await?;
@@ -395,7 +397,7 @@ impl DeepRuntime {
             sample_rate.to_string(),
             "-o".into(),
             output.to_string_lossy().into_owned(),
-            self.session_root.to_string_lossy().into_owned(),
+            self.managed_session_dir().to_string_lossy().into_owned(),
             state.into(),
         ];
         let export_run = self.run_tool(context, &self.export_tool, &args).await?;
@@ -452,7 +454,7 @@ impl DeepRuntime {
         let args = [
             vec![
                 script_path.to_string_lossy().into_owned(),
-                self.session_root.to_string_lossy().into_owned(),
+                self.managed_session_dir().to_string_lossy().into_owned(),
                 state.into(),
                 self.config.ardour_version.clone(),
             ],
@@ -573,8 +575,12 @@ impl DeepRuntime {
         result
     }
 
+    fn managed_session_dir(&self) -> PathBuf {
+        self.session_root.join("managed-session")
+    }
+
     fn state_path(&self, state: &str) -> PathBuf {
-        self.session_root.join(format!("{state}.ardour"))
+        self.managed_session_dir().join(format!("{state}.ardour"))
     }
 }
 

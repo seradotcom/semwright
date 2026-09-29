@@ -237,7 +237,7 @@ impl Runtime {
         let base = |sealed_helper_executed: bool,
                     library_mount: bool,
                     stdlib_regular: bool,
-                    stdlib_compile: bool,
+                    interpreter_compile: bool,
                     diagnostic_class: String,
                     diagnostic_prefix: String| {
             serde_json::json!({
@@ -248,7 +248,7 @@ impl Runtime {
                 "sealed_helper_executed":sealed_helper_executed,
                 "library_mount":library_mount,
                 "stdlib_regular":stdlib_regular,
-                "stdlib_compile":stdlib_compile,
+                "interpreter_compile":interpreter_compile,
                 "diagnostic_class":diagnostic_class,
                 "diagnostic_prefix":diagnostic_prefix
             })
@@ -314,7 +314,7 @@ impl Runtime {
             || value["compiler_version"] != self.config.compiler_version
             || !value["library_mount"].is_boolean()
             || !value["stdlib_regular"].is_boolean()
-            || !value["stdlib_compile"].is_boolean()
+            || !value["interpreter_compile"].is_boolean()
             || value["diagnostic_class"].as_str().is_none()
             || value["diagnostic_prefix"].as_str().is_none()
         {
@@ -335,7 +335,7 @@ impl Runtime {
             "sealed_helper_executed":true,
             "library_mount":value["library_mount"],
             "stdlib_regular":value["stdlib_regular"],
-            "stdlib_compile":value["stdlib_compile"],
+            "interpreter_compile":value["interpreter_compile"],
             "diagnostic_class":value["diagnostic_class"],
             "diagnostic_prefix":value["diagnostic_prefix"]
         }))

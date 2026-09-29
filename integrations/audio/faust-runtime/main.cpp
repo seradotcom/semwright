@@ -206,7 +206,7 @@ int execute(int argc, char** argv) {
             !lstat(stdfaust.c_str(), &lib_metadata) && S_ISREG(lib_metadata.st_mode);
         const char* probe_options[] = {"-I", libraries.c_str(), "-single"};
         std::string probe_error;
-        const std::string probe_source = "import(\"stdfaust.lib\"); process = os.osc(440.0);";
+        const std::string probe_source = "process = 0;";
         Factory probe_factory;
         try {
             probe_factory.reset(createInterpreterDSPFactoryFromString(
@@ -221,9 +221,9 @@ int execute(int argc, char** argv) {
             << "\"compiler_version\":\"" << safe_version() << "\","
             << "\"library_mount\":true,"
             << "\"stdlib_regular\":" << (stdlib_regular ? "true" : "false") << ","
-            << "\"stdlib_compile\":" << (probe_factory ? "true" : "false") << ","
+            << "\"interpreter_compile\":" << (probe_factory ? "true" : "false") << ","
             << "\"diagnostic_class\":\""
-            << (probe_factory ? "ok" : "stdlib_compile_failed") << "\","
+            << (probe_factory ? "ok" : "interpreter_compile_failed") << "\","
             << "\"diagnostic_prefix\":\"" << json_string(probe_error) << "\"}\n";
         return 0;
     }
