@@ -1,28 +1,26 @@
-# Owner handoff and independent audit lane
+# Owner handoff after audit merge
 
-The audit's prior green head remains `495df3283f6e591c2db1a2448a7192e41335c580`.
-New commits need their own evidence; they do not erase that historical result.
-The integration observation for the recorded audit is main `be375a12e8afa4d779f9dc0de501b0d4a262a682`.
+The maintainer audit is merged in `main` at `6dc9da507a2fc239a766a6a81a7607fbcc79618d`.
+The audit lane is finished; remaining actions belong to their named owners.
 
 | Owner | Required action | Completion evidence |
 |---|---|---|
-| Windows | Resolve native ARM64 UIA StaleReference after bounded physical-point probing; retain assertion and stale-ref enforcement | Exact fixing SHA; x64 and ARM64 native fixture passes; relevant main checks |
-| Windows | Reject zero-selected, ignored-only, malformed or incomplete test output for each interactive harness row and each authority subcommand | Positive expected-test counts and negative harness regressions |
-| Windows | Replace generic self-hosted Windows targeting with a dedicated disposable interactive runner and owner approval | Workflow/harness source plus actual authorized evidence; no hosted-to-interactive relabeling |
-| Blender/Godot | Complete owner-pinned runtime, sandbox/Driver Host, broker and real Blender acceptance; the 143/143 provenance source defect is already fixed | PR154 exact head and eventual main SHA, nonzero executed tests and no unsandboxed fallback |
-| Blender/Godot | Dispose of the nine historical application heads listed in branch-dispositions-v2.json | Missing release-critical delta fixed or source/test-based supersession; retain unrelated untracked evidence |
-| Composition/media | Keep new shared kernel, media-time, motion/audio and cumulative-plan features outside this audit freeze | Own C0 contract, own integration tests; no inherited audit certification |
+| Windows | Resolve native ARM64 UIA StaleReference while retaining fail-closed stale-ref/focus semantics | Exact fixing SHA; x64 + ARM64 native fixture passes; relevant main checks |
+| Windows | Reject zero-selected, ignored-only, malformed or incomplete interactive test output | Positive expected-test counts plus negative harness regressions |
+| Windows | Use a dedicated disposable interactive runner with explicit owner authorization | Workflow/harness source and actual authorized evidence |
+| Blender/Godot | Complete owner-pinned runtime, sandbox/Driver Host, broker and real Blender acceptance | Exact owner SHA and eventual main SHA; nonzero executed tests; no unsandboxed fallback |
+| Blender/Godot | Dispose of the nine historical application heads in `branch-dispositions-v2.json` | Source/test-based supersession or integration; preserve unrelated evidence |
+| Composition/media | Own its new kernel/media/motion scope independently | Own contracts and integration evidence; no inherited audit certification |
 
-Windows instructions: PR167 comment 5876090544.
-Blender/Godot instructions: PR154 comment 5876090829.
-Composition/media instructions: PR168 comment 5876417178.
+Historical coordination comments remain useful references: Windows `5876090544`, Blender/Godot `5876090829`,
+composition/media `5876417178`.
 
-The composition owner should preserve the existing-runtime codec correction from PR156:
-main-thread plugin code now uses native Figma base64 and bounded UTF-8 rather than test-only
-browser globals. This changes no capabilities or permissions and does not adopt the large
-uncommitted typography/controller draft.
+PR #155 and PR #167 are now merged. PR #167 closed documentation drift only; it did not itself satisfy
+the outstanding native/interactive Windows evidence. TIDELING is now part of `main`, so a future candidate
+includes it, while application-specific validation remains with the owning lane.
 
-Routine dependency version bumps and TIDELING demo expansion are deliberately outside the
-freeze unless a documented mandatory security fix is isolated. No other agent's files,
-worktrees, index or branch were modified, no worktree was deleted, and no generic self-hosted
-interactive workflow was dispatched by the audit. Global readiness remains explicit and separate.
+The Figma codec correction from PR #156 is merged: plugin runtime code uses Figma-native base64 operations
+and bounded UTF-8 byte handling rather than test-only browser globals. It changes no capability or permission surface.
+
+No other agent's worktree is to be edited or deleted by the audit lane. R16 remains a separate independent review
+after an exact main candidate is admitted.

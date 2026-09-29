@@ -11,6 +11,8 @@ EVIDENCE=ROOT/'verification/tideling-cross-app'
 EVIDENCE.mkdir(parents=True,exist_ok=True)
 BIN=ROOT/'target/debug'
 GODOT=Path(os.environ['GODOT_BIN']).resolve()
+BLENDER_RUNTIME=Path(os.environ['SEMWRIGHT_TEST_BLENDER_ROOT']).resolve(strict=True)
+BLENDER=BLENDER_RUNTIME/'blender'
 
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 def write_json(path,value):Path(path).write_text(json.dumps(value,indent=2)+'\n')
@@ -43,11 +45,12 @@ def run(work):
     write_json(config/'config.json',{'port':port,'development_mode':False,'projects':[{'project':project_id,'root':'/workspace/godot-project','secret_file':'/run/secrets/godot-pairing'}],'runner':{'executable':'/plugin/tools/godot','sha256':sha(GODOT),'output_root':'/workspace/godot-output','display':None}})
     blender=json.loads((ROOT/'crates/driver-blender/driver.manifest.example.json').read_text())
     blender.update(executable=str(BIN/'semwright-blender-driver'),sha256=sha(BIN/'semwright-blender-driver'))
+    blender['tools'][0]['sha256']=sha(BLENDER)
     godot=json.loads((ROOT/'crates/driver-godot/driver.manifest.example.json').read_text())
     godot.update(executable=str(BIN/'semwright-godot-driver'),sha256=sha(BIN/'semwright-godot-driver'),loopback_port=port)
     godot['tools'][0]['sha256']=sha(GODOT)
     write_json(work/'blender.json',blender);write_json(work/'godot.json',godot)
-    grants=[('workspace',producer,True),('font-config',Path('/etc/fonts'),False),('godot-config',config,False),('godot-project',project,True),('godot-output',out,True),('godot-pairing',secret,False),('godot-runtime',GODOT,False)]
+    grants=[('blender-runtime',BLENDER_RUNTIME,False),('blender-executable',BLENDER,False),('workspace',producer,True),('font-config',Path('/etc/fonts'),False),('godot-config',config,False),('godot-project',project,True),('godot-output',out,True),('godot-pairing',secret,False),('godot-runtime',GODOT,False)]
     cfg='drivers = '+json.dumps([str(work/'blender.json'),str(work/'godot.json')])+'\ndriver_network = false\n[policy]\nprofile = "workspace"\nallow = ["driver:blender", "driver:godot"]\nconfirm_mutations = false\n'
     for name,path,write in grants:cfg+='\n[[policy.filesystem]]\nname = '+json.dumps(name)+'\npath = '+json.dumps(str(path))+'\nread = true\nwrite = '+str(write).lower()+'\n'
     (work/'semwright.toml').write_text(cfg)

@@ -3,61 +3,50 @@
 Global disposition: **NOT_READY_FOR_INDEPENDENT_R16_REVIEW**.
 Candidate baseline: **unset**. R16: **OPEN**.
 
-## Audit lane versus global candidate
+## Audit lane status
 
-PR156 contains the maintainer audit. Head `495df3283f6e591c2db1a2448a7192e41335c580`
-completed 34 successful checks; non-PR attestation was skipped by design. That evidence
-remains valid for that head and is not silently transferred to later commits.
+PR #156 is merged into `main` at `6dc9da507a2fc239a766a6a81a7607fbcc79618d`.
+All audit commits through `0b8356f6bb7ce3366964150c4378b9ba5b14bdbb` are ancestors of that merge.
+The audit lane itself is complete; this does **not** make the repository a global R16 candidate.
 
-The continuation added unfinished workflow-recording cleanup in `1fff19e90df9bc83c3d855ce47d5bf63fab1126b`
-and plugin-runtime codec corrections in `536e8b14bdc7bb0873ee3cd0a65e5f1048342d81`.
-The four new recording regressions passed the complete ARM64 Quality job 109082539796
-on code head 536e8b14; both new codec regressions passed within 89 plugin tests plus
-typecheck/build in job 109082185324. The final document head still requires its own CI.
-Source-only Python
-validation passed 171 tests. No heavy test or dependency install was run on the connected device.
+The prior green audit head `495df3283f6e591c2db1a2448a7192e41335c580` completed 34 successful checks.
+Later runtime corrections were separately executed: workflow-recording revocation regressions passed
+on `536e8b14bdc7bb0873ee3cd0a65e5f1048342d81`, and the Figma native-codec regressions passed
+inside the hosted plugin suite on that same code head. Those receipts remain SHA-scoped.
+
+At the first exact-main observation after merge, Maintainer secret precheck and Native X11 EWMH
+had succeeded on `6dc9da50...`; remaining exact-SHA workflows were queued or in progress.
+QUEUED/IN_PROGRESS are not PASS, so a global candidate remains unset until relevant main checks finish.
 
 ## Completed audit accounting
 
-The original 63 unmerged heads now have explicit dispositions in
-`inventory/branch-dispositions-v2.json` and `BRANCH_DISPOSITION_CLOSEOUT.md`.
-There are no unassigned heads in that inventory. Nine application heads remain delegated
-to the Blender/Godot owner; they are not declared equivalent or safe to delete.
-This is release-scope accounting, not a promise to chase every new feature branch.
+The original 63 unmerged heads have explicit dispositions in `inventory/branch-dispositions-v2.json`
+and `BRANCH_DISPOSITION_CLOSEOUT.md`. There are no unassigned heads in that inventory.
+Nine application heads remain delegated to the Blender/Godot owner; delegation is not equivalence.
 
-The hosted secret precheck executed against merge-test SHA
-`7f844d5bf7b5973fd7d8f41d0072f6595dc36903` for PR head `536e8b14...`.
-It scanned 1,033 commits and 1,072 tracked files. The positive self-test passed.
-The result is `PASS_WITH_TRIAGED_NON_SECRETS`, not zero findings. Three exact non-secret
-source lines and their historical introductions remain visible; changed values, rules,
-paths or multiline matches do not inherit their exceptions. See
-`inventory/secret-precheck-triaged-run.json`, run 36467811671 / job 109082183674.
+## Post-merge reconciliation
 
-## Owner actions before a global freeze
+PR #155 (TIDELING) and PR #167 (Windows authority documentation) landed before PR #156.
+They are now part of `main` and are no longer current deferred/open PRs.
+TIDELING remains non-essential to the audit objective, but a future frozen baseline includes its merged source.
+PR #167 closed documentation drift; it did not prove the ARM64 UIA or interactive-runner evidence gaps closed.
 
-**Windows:** main `be375a12e8afa4d779f9dc0de501b0d4a262a682` failed native ARM64 UIA
-inspection with StaleReference (run 36460484896 / job 109057480347). The owner must resolve
-that lifecycle defect, require positive executed-test counts in every interactive harness
-row and use a dedicated disposable interactive-runner target. These are assigned in
-PR167 comment 5876090544; the audit does not edit the Windows branch or dispatch interactive tests.
+## Remaining owner actions before a global freeze
 
-**Blender/Godot:** PR154 head `571083bfa995c62638ab4b9145ee2ac7002ad3d2` fixes the earlier
-143/142 provenance discrepancy: current source is 143/143. Exact-head sealed-runtime,
-Driver Host, broker and real-application acceptance still belongs to its owner, as do
-nine historical application heads (PR154 comment 5876090829). TIDELING is not a prerequisite.
+**Windows:** resolve native ARM64 UIA StaleReference on the candidate line, require positive executed-test
+counts for interactive rows/subcommands, and use an explicitly authorized disposable interactive runner.
 
-**Composition/media and dependency expansion:** PR168 and routine version-bump PRs are
-outside this audit freeze unless a separately documented mandatory security fix is identified.
-PR168 comment 5876417178 explains the independent scope and the Figma codec correction.
-New features do not retroactively invalidate the original audit's SHA-scoped evidence.
+**Blender/Godot:** complete owner-pinned runtime/sandbox/Driver Host/broker/real-application acceptance
+and dispose of the nine delegated historical application heads by source/test evidence.
+The earlier 143/142 builtin-provenance mismatch is already corrected to 143/143.
+
+**Composition/media and routine dependency updates:** remain independently owned and do not inherit audit certification.
 
 ## Admission remains explicit
 
-After the audit lane's final checks pass, integrate PR156 without bypassing failed gates.
-A global candidate requires the assigned must-resolve fixes, an immutable commit in main,
-consistent claims and successful relevant main checks. Generate the official review bundle
-only from that admitted SHA; keep `UNREVIEWED`, independent review required and no self-attestation.
+PR #156 no longer needs integration; it is in `main`. A global candidate still requires an immutable main SHA,
+relevant exact-SHA green CI, owner security/runtime findings resolved, claims synchronized to that SHA,
+and successful generation of the official immutable `UNREVIEWED` security-review packet.
 
-R06 retains physical Hyprland login and physical mixed-scale/multi-monitor residuals.
-Missing hardware is not a code defect and synthetic/nested evidence is not physical certification.
-R16 remains open for an identified independent reviewer; this is maintainer preflight only.
+R06 retains its explicitly physical Hyprland/mixed-display residuals. R16 remains open for an identified
+independent reviewer; this repository has completed maintainer preflight only.

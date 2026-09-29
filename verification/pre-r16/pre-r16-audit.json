@@ -1,13 +1,13 @@
 {
-  "audit_version": "1.1.0",
+  "audit_version": "1.2.0",
   "schema_id": "semwright.pre-r16-audit/v1",
   "start_sha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
-  "observed_main_sha": "be375a12e8afa4d779f9dc0de501b0d4a262a682",
+  "observed_main_sha": "6dc9da507a2fc239a766a6a81a7607fbcc79618d",
   "code_head": "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81",
   "candidate_sha": null,
   "date": "2026-09-28",
   "status": "NOT_READY_FOR_INDEPENDENT_R16_REVIEW",
-  "audit_lane_state": "REMEDIATIONS_VERIFIED_FINAL_HEAD_CI_PENDING",
+  "audit_lane_state": "MERGED_TO_MAIN_EXACT_MAIN_CI_RUNNING",
   "audit_complete": false,
   "maintainer_preflight_only": true,
   "independent_review_performed": false,
@@ -27,18 +27,14 @@
     "all_classified": true,
     "classification_scope": "Recorded snapshot only; not perpetual admission of new features"
   },
-  "must_land_prs": [
-    156
-  ],
+  "must_land_prs": [],
   "must_resolve_owner_lanes": [
-    154,
-    167
+    154
   ],
   "superseded_prs": [
     135
   ],
   "deferred_prs": [
-    155,
     157,
     158,
     159,
@@ -186,7 +182,10 @@
       "job": 109082539796,
       "status": "SUCCESS",
       "new_recording_regressions_executed": 4
-    }
+    },
+    "main_merge_sha": "6dc9da507a2fc239a766a6a81a7607fbcc79618d",
+    "main_exact_sha_state_at_first_post_merge_observation": "SECRET_PRECHECK_AND_X11_SUCCESS; OTHER_RELEVANT_WORKFLOWS_QUEUED_OR_IN_PROGRESS",
+    "main_exact_sha_green_claimed": false
   },
   "security_precheck": [
     {
@@ -273,5 +272,16 @@
     "no worktree deletion",
     "no independent R16 conclusion"
   ],
-  "audit_pr": 156
+  "audit_pr": 156,
+  "audit_lane_complete": true,
+  "must_resolve_owner_topics": [
+    "windows_arm64_uia_and_interactive_evidence",
+    "blender_godot_runtime_acceptance"
+  ],
+  "merged_after_classification": {
+    "155": "TIDELING merged before PR156; no longer deferred, application evidence remains owner-scoped",
+    "167": "Windows authority documentation merged before PR156; native/interactive owner findings remain",
+    "156": "6dc9da507a2fc239a766a6a81a7607fbcc79618d"
+  },
+  "post_merge_reconciliation": "POST_MERGE_RECONCILIATION.md"
 }

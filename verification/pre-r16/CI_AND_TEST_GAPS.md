@@ -72,3 +72,11 @@ The added builtin provenance parity test passed (1 test, 0.005s). Together with 
 packet tests, 19 targeted Python cases passed; these are distinct from the hosted Rust suite.
 The source verifier passed again with rust_compiled=false. PR156 dispatches heavy validation.
 Its initial head 4c7c296 reproduced the inherited Windows ARM64 fixture failure; see FOLLOWUP_FINDINGS.md.
+
+## Post-merge status
+
+PR #156 is merged at `6dc9da507a2fc239a766a6a81a7607fbcc79618d`.
+The earlier statements about PR #155 being deferred and PR #167 being an active owner PR are historical only:
+both landed before the audit merge. Their presence in `main` does not convert prior SHA-scoped evidence
+into current certification. Exact-main workflows started automatically; at first observation the secret
+precheck and X11 workflow were successful while other workflows were still running.
