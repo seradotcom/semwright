@@ -55,6 +55,50 @@ impl NativeFixture {
         let out=self.raw(&self.session,command,args).await;assert!(out.ok,"{out:?}");out.data.expect("result data")
     }
 }
+
+async fn enumerate_domain(
+    fixture: &NativeFixture,
+    island: &str,
+    domain: &str,
+) -> (Vec<String>, Option<String>) {
+    let mut cursor: Option<String> = None;
+    let mut first_cursor = None;
+    let mut members = Vec::new();
+    let mut expected_total = None;
+    loop {
+        let mut args = json!({"island":island,"domain":domain,"limit":1});
+        if let Some(token) = &cursor {
+            args["cursor"] = token.clone().into();
+        }
+        let page = fixture.call("composition.inspect.page", args).await;
+        assert_eq!(page["domain"],domain);
+        assert_eq!(page["island"],island);
+        assert_eq!(page["exhaustive"],true);
+        let total = page["total"].as_u64().unwrap();
+        if let Some(previous) = expected_total {
+            assert_eq!(previous,total,"{domain} total changed during paging");
+        } else {
+            expected_total=Some(total);
+        }
+        for item in page["items"].as_array().unwrap() {
+            members.push(item["member"].as_str().unwrap().to_owned());
+        }
+        cursor=page["next_cursor"].as_str().map(str::to_owned);
+        if first_cursor.is_none() {
+            first_cursor=cursor.clone();
+        }
+        if cursor.is_none() {
+            assert_eq!(page["final_page"],true);
+            break;
+        }
+        assert_eq!(page["final_page"],false);
+    }
+    assert_eq!(members.len() as u64,expected_total.unwrap());
+    let unique:std::collections::BTreeSet<_>=members.iter().collect();
+    assert_eq!(unique.len(),members.len(),"{domain} duplicate members");
+    (members,first_cursor)
+}
+
 #[tokio::test]
 async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let root=PathBuf::from(std::env::var("SEMWRIGHT_TEST_BLENDER_ROOT").expect("required Blender runtime"));
@@ -72,6 +116,34 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let replay=fixture.raw(&fixture.session,"composition.apply",json!({"plan_ref":plan["plan_ref"]})).await;assert!(!replay.ok);
     let island=applied["island"].as_str().unwrap();
     let measured=fixture.call("composition.measure",json!({"island":island,"evaluated":true})).await;assert_eq!(measured["total"],3);assert_eq!(measured["coverage"],"single_frame");
+
+    // Provider-owned pagination is bound to the native session + source fingerprint.
+    let mut replay_cursor=None;
+    for domain in ["objects","bones","actions","curves","keyframes","properties"] {
+        let (members,first)=enumerate_domain(&fixture,island,domain).await;
+        assert!(!members.is_empty(),"{domain} must have native evidence in articulated fixture");
+        if domain=="objects" { replay_cursor=first; }
+    }
+    if let Some(cursor)=replay_cursor {
+        let replay=fixture.raw(&fixture.session,"composition.inspect.page",json!({
+            "island":island,"domain":"objects","limit":1,"cursor":cursor
+        })).await;
+        assert!(!replay.ok,"consumed provider cursor must fail closed");
+    }
+    let first=fixture.call("composition.inspect.page",json!({
+        "island":island,"domain":"properties","limit":1
+    })).await;
+    let stale_cursor=first["next_cursor"].as_str().unwrap().to_owned();
+    let body_for_page=fixture.call("composition.inspect",json!({"island":island})).await["items"]
+        .as_array().unwrap().iter().find(|row| row["entity"]=="body").unwrap()["name"]
+        .as_str().unwrap().to_owned();
+    fixture.call("object.transform",json!({"name":body_for_page,"location":[0.01,0.0,0.5]})).await;
+    let stale=fixture.raw(&fixture.session,"composition.inspect.page",json!({
+        "island":island,"domain":"properties","limit":1,"cursor":stale_cursor
+    })).await;
+    assert!(!stale.ok,"cursor must become stale after another authorized writer");
+    // Restore the articulated source state explicitly before the transform/repair scenario.
+    fixture.call("object.transform",json!({"name":body_for_page,"location":[0.0,0.0,0.5]})).await;
 
     // Repair is explicit and transform-only. A second authorized writer creates real drift;
     // verification must fail before the parent-bound repair is planned and applied.

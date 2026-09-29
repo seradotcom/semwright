@@ -23,9 +23,17 @@ struct Record {
     report: Option<composition::VerificationReport>,
     repair: bool,
 }
+struct PageCursor {
+    island: String,
+    domain: String,
+    fingerprint: composition::Digest,
+    native_session: String,
+    offset: usize,
+}
 pub(super) struct State {
     vault: composition::PlanVault,
     records: BTreeMap<(composition::Owner, String), Record>,
+    cursors: BTreeMap<(composition::Owner, String), PageCursor>,
     poisoned: bool,
 }
 impl Default for State {
@@ -33,6 +41,7 @@ impl Default for State {
         Self {
             vault: composition::PlanVault::bounded(32, 32, 128),
             records: BTreeMap::new(),
+            cursors: BTreeMap::new(),
             poisoned: false,
         }
     }
@@ -52,6 +61,19 @@ struct PlanOutput {
 #[serde(deny_unknown_fields)]
 struct RepairPlanInput {
     parent_plan_ref: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PageInput {
+    island: String,
+    domain: String,
+    #[serde(default)]
+    cursor: Option<String>,
+    #[serde(default = "default_page_limit")]
+    limit: u32,
+}
+fn default_page_limit() -> u32 {
+    32
 }
 fn common_error(error: composition::ContractError) -> Error {
     let code = match error {
@@ -97,11 +119,42 @@ pub(super) fn capabilities() -> Vec<Capability> {
         "required":["plan_ref","plan"],
         "additionalProperties":false
     });
+    let page_domain = json!({"type":"string","enum":[
+        "objects","bones","actions","curves","keyframes","properties"
+    ]});
+    let page_output = json!({
+        "type":"object",
+        "properties":{
+            "native_session":{"type":"string","minLength":1,"maxLength":256},
+            "island":id.clone(),
+            "domain":page_domain.clone(),
+            "fingerprint":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+            "offset":{"type":"integer","minimum":0,"maximum":4096},
+            "total":{"type":"integer","minimum":0,"maximum":4096},
+            "items":{"type":"array","maxItems":64,"items":{"type":"object"}},
+            "next_cursor":{"type":["string","null"],"maxLength":64},
+            "final_page":{"type":"boolean"},
+            "exhaustive":{"type":"boolean"}
+        },
+        "required":["native_session","island","domain","fingerprint","offset","total","items","next_cursor","final_page","exhaustive"],
+        "additionalProperties":false
+    });
     let rows = [
         (
             "inspect",
             json!({"type":"object","properties":{"island":id.clone()},"additionalProperties":false}),
             snapshot.clone(),
+            Risk::ReadOnly,
+        ),
+        (
+            "inspect.page",
+            json!({"type":"object","properties":{
+                "island":id.clone(),
+                "domain":page_domain.clone(),
+                "cursor":{"type":"string","minLength":1,"maxLength":64},
+                "limit":{"type":"integer","minimum":1,"maximum":64,"default":32}
+            },"required":["island","domain"],"additionalProperties":false}),
+            page_output,
             Risk::ReadOnly,
         ),
         (
@@ -232,6 +285,260 @@ async fn snapshot(socket: &Path, island: Option<&str>) -> Result<NativeSnapshot>
         native(socket, "snapshot", json!({"island":island})).await?,
     )?)
 }
+
+fn page_member(kind: &str, value: &Value) -> Result<String> {
+    let digest = composition::canonical_digest(value).map_err(common_error)?;
+    Ok(format!("{kind}-{}", digest.as_str()))
+}
+
+fn insert_page_item(
+    values: &mut BTreeMap<String, Value>,
+    member: String,
+    mut value: Value,
+) -> Result<()> {
+    if let Some(object) = value.as_object_mut() {
+        object.insert("member".into(), Value::String(member.clone()));
+    } else {
+        return Err(Error::new(
+            ErrorCode::Internal,
+            "authoring page item must be an object",
+        ));
+    }
+    if values.insert(member, value).is_some() {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "native page identity is ambiguous",
+        ));
+    }
+    if values.len() > 4096 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "authoring page universe exceeds 4096 items",
+        ));
+    }
+    Ok(())
+}
+
+fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
+    let mut values = BTreeMap::<String, Value>::new();
+    for row in &snapshot.items {
+        let entity = row
+            .get("entity")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "managed row lacks entity"))?;
+        match domain {
+            "objects" => {
+                let value = json!({
+                    "entity":entity,
+                    "name":row.get("name").cloned().unwrap_or(Value::Null),
+                    "type":row.get("type").cloned().unwrap_or(Value::Null),
+                    "parent":row.get("parent").cloned().unwrap_or(Value::Null),
+                    "native_island":row.get("native_island").cloned().unwrap_or(Value::Null)
+                });
+                insert_page_item(&mut values, format!("object-{entity}"), value)?;
+            }
+            "bones" => {
+                if let Some(bones) = row.get("bones").and_then(Value::as_array) {
+                    for bone in bones {
+                        let id = bone.get("id").and_then(Value::as_str).ok_or_else(|| {
+                            Error::new(ErrorCode::PluginProtocolError, "bone row lacks ID")
+                        })?;
+                        let value = json!({
+                            "entity":entity,
+                            "bone":id,
+                            "head":bone.get("head").cloned().unwrap_or(Value::Null),
+                            "tail":bone.get("tail").cloned().unwrap_or(Value::Null),
+                            "parent":bone.get("parent").cloned().unwrap_or(Value::Null),
+                            "deform":bone.get("deform").cloned().unwrap_or(Value::Null)
+                        });
+                        insert_page_item(
+                            &mut values,
+                            format!("bone-{entity}-{id}"),
+                            value,
+                        )?;
+                    }
+                }
+            }
+            "actions" | "curves" | "keyframes" => {
+                let Some(action) = row.get("action").filter(|value| !value.is_null()) else {
+                    continue;
+                };
+                let action_name = action
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "action lacks name"))?;
+                if domain == "actions" {
+                    insert_page_item(
+                        &mut values,
+                        page_member("action", &json!([entity, action_name]))?,
+                        json!({
+                            "entity":entity,
+                            "action":action_name,
+                            "slots":action.get("slots").cloned().unwrap_or(Value::Null)
+                        }),
+                    )?;
+                    continue;
+                }
+                let curves = action
+                    .get("curves")
+                    .and_then(Value::as_array)
+                    .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "action lacks curves"))?;
+                for curve in curves {
+                    let path = curve.get("path").and_then(Value::as_str).ok_or_else(|| {
+                        Error::new(ErrorCode::PluginProtocolError, "curve lacks path")
+                    })?;
+                    let index = curve.get("index").and_then(Value::as_u64).ok_or_else(|| {
+                        Error::new(ErrorCode::PluginProtocolError, "curve lacks index")
+                    })?;
+                    let curve_identity = json!([entity, action_name, path, index]);
+                    if domain == "curves" {
+                        insert_page_item(
+                            &mut values,
+                            page_member("curve", &curve_identity)?,
+                            json!({
+                                "entity":entity,
+                                "action":action_name,
+                                "path":path,
+                                "index":index,
+                                "key_count":curve.get("keys").and_then(Value::as_array).map_or(0, Vec::len)
+                            }),
+                        )?;
+                        continue;
+                    }
+                    let keys = curve
+                        .get("keys")
+                        .and_then(Value::as_array)
+                        .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "curve lacks keys"))?;
+                    for (ordinal, key) in keys.iter().enumerate() {
+                        let key_array = key.as_array().ok_or_else(|| {
+                            Error::new(ErrorCode::PluginProtocolError, "keyframe row is malformed")
+                        })?;
+                        if key_array.len() != 3 {
+                            return Err(Error::new(
+                                ErrorCode::PluginProtocolError,
+                                "keyframe row has wrong arity",
+                            ));
+                        }
+                        insert_page_item(
+                            &mut values,
+                            page_member(
+                                "key",
+                                &json!([entity, action_name, path, index, ordinal]),
+                            )?,
+                            json!({
+                                "entity":entity,
+                                "action":action_name,
+                                "path":path,
+                                "index":index,
+                                "ordinal":ordinal,
+                                "frame":key_array[0],
+                                "value":key_array[1],
+                                "interpolation":key_array[2]
+                            }),
+                        )?;
+                    }
+                }
+            }
+            "properties" => {
+                for property in [
+                    "translation","rotation","scale","parent","parent_type","parent_bone",
+                    "hidden_render","hidden_viewport","vertices","polygons","uv_layers",
+                    "data_users","data_name"
+                ] {
+                    let Some(value) = row.get(property) else {
+                        continue;
+                    };
+                    insert_page_item(
+                        &mut values,
+                        format!("property-{entity}-{property}"),
+                        json!({"entity":entity,"property":property,"value":value}),
+                    )?;
+                }
+            }
+            _ => {
+                return Err(Error::invalid(
+                    "authoring page domain is outside the closed enumeration",
+                ));
+            }
+        }
+    }
+    Ok(values.into_values().collect())
+}
+
+async fn inspect_page(
+    state: &mut State,
+    socket: &Path,
+    owner: &composition::Owner,
+    input: PageInput,
+) -> Result<Value> {
+    semwright_driver_blender::authoring::local_id(&input.island).map_err(common_error)?;
+    if !(1..=64).contains(&input.limit) {
+        return Err(Error::invalid("page limit must be 1..64"));
+    }
+    let snapshot = snapshot(socket, Some(&input.island)).await?;
+    let mut offset = 0usize;
+    if let Some(cursor) = input.cursor {
+        composition::bounded_id(&cursor).map_err(common_error)?;
+        let bound = state
+            .cursors
+            .remove(&(owner.clone(), cursor))
+            .ok_or_else(|| Error::new(ErrorCode::StaleReference, "page cursor is unknown, replayed or belongs to another session"))?;
+        if bound.island != input.island
+            || bound.domain != input.domain
+            || bound.fingerprint != snapshot.fingerprint
+            || bound.native_session != snapshot.native_session
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "native state changed between enumeration pages",
+            ));
+        }
+        offset = bound.offset;
+    }
+    let all = flatten_page(&snapshot, &input.domain)?;
+    if offset > all.len() {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "page offset is outside the current snapshot",
+        ));
+    }
+    let end = offset.saturating_add(input.limit as usize).min(all.len());
+    let items = all[offset..end].to_vec();
+    let next_cursor = if end < all.len() {
+        if state.cursors.len() >= 64 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "too many outstanding authoring page cursors",
+            ));
+        }
+        let token = unique_id();
+        state.cursors.insert(
+            (owner.clone(), token.clone()),
+            PageCursor {
+                island: input.island.clone(),
+                domain: input.domain.clone(),
+                fingerprint: snapshot.fingerprint.clone(),
+                native_session: snapshot.native_session.clone(),
+                offset: end,
+            },
+        );
+        Some(token)
+    } else {
+        None
+    };
+    Ok(json!({
+        "native_session":snapshot.native_session,
+        "island":input.island,
+        "domain":input.domain,
+        "fingerprint":snapshot.fingerprint,
+        "offset":offset,
+        "total":all.len(),
+        "items":items,
+        "next_cursor":next_cursor,
+        "final_page":end == all.len(),
+        "exhaustive":snapshot.exhaustive
+    }))
+}
 fn intent_island(intent: &AuthoringIntent) -> Option<&str> {
     match intent {
         AuthoringIntent::Create { .. } => None,
@@ -296,6 +603,10 @@ pub(super) async fn execute(
         "inspect" => Ok(serde_json::to_value(
             snapshot(socket, args["island"].as_str()).await?,
         )?),
+        "inspect.page" => {
+            let input: PageInput = serde_json::from_value(args)?;
+            inspect_page(state, socket, &owner, input).await
+        }
         "plan" => {
             if state.records.len() >= 32 {
                 return Err(Error::new(

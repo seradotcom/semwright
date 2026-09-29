@@ -8,6 +8,10 @@
         "required": true
       },
       {
+        "id": "driver.blender.composition.inspect.page",
+        "required": true
+      },
+      {
         "id": "driver.blender.composition.plan",
         "required": true
       },

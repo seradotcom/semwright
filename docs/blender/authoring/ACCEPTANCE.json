@@ -71,10 +71,9 @@
     {
       "id": "E07",
       "condition": "native rig/actions/keyframes with complete readback/pagination",
-      "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys; bounded full snapshot",
-      "test": "articulated native fixture",
-      "status": "PARTIAL",
-      "open": "provider-owned pagination transcript for bones/actions/curves/properties"
+      "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys plus provider-owned session/fingerprint-bound paging for objects,bones,actions,curves,keyframes,properties",
+      "test": "authoring_native articulated readback; limit=1 pagination across six domains; cursor replay and cursor-after-drift rejection",
+      "status": "CI_PENDING"
     },
     {
       "id": "E08",
