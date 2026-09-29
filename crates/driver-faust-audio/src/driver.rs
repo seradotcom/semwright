@@ -320,10 +320,16 @@ impl FaustAudioDriver {
                         "Driver Host execution context is required",
                     )
                 })?;
+                let probe = runtime.probe(context).await?;
                 Ok(json!({
                     "runtime_available": true,
-                    "compiler_version": runtime.probe(context).await?,
-                    "sealed_helper_executed": true
+                    "compiler_version": probe["compiler_version"],
+                    "sealed_helper_executed": true,
+                    "library_mount": probe["library_mount"],
+                    "stdlib_regular": probe["stdlib_regular"],
+                    "stdlib_compile": probe["stdlib_compile"],
+                    "diagnostic_class": probe["diagnostic_class"],
+                    "diagnostic_prefix": probe["diagnostic_prefix"]
                 }))
             }
             Some("backend.contract") => {
@@ -720,9 +726,14 @@ fn runtime_probe_schema() -> Value {
         "properties":{
             "runtime_available":{"const":true},
             "compiler_version":{"type":"string","minLength":1,"maxLength":128},
-            "sealed_helper_executed":{"const":true}
+            "sealed_helper_executed":{"const":true},
+            "library_mount":{"type":"boolean"},
+            "stdlib_regular":{"type":"boolean"},
+            "stdlib_compile":{"type":"boolean"},
+            "diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
+            "diagnostic_prefix":{"type":"string","maxLength":512}
         },
-        "required":["runtime_available","compiler_version","sealed_helper_executed"],
+        "required":["runtime_available","compiler_version","sealed_helper_executed","library_mount","stdlib_regular","stdlib_compile","diagnostic_class","diagnostic_prefix"],
         "additionalProperties":false
     })
 }

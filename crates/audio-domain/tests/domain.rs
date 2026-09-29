@@ -8,8 +8,8 @@ use semwright_audio_domain::{
     model::{
         AudioClip, AudioProfile, AudioProject, Automation, AutomationCurve, AutomationPoint,
         AutomationTarget, Bus, BusSend, ClipSource, EffectChain, Marker, MidiEvent, MidiPhrase,
-        NamedRange, Oscillator, ProjectMetadata, Sample, SampleOrigin, SampleSource, Signal,
-        SignalNodeKind, Stem, StemGroup, Synth, SynthParameter, TempoChange, Waveform,
+        NamedRange, Oscillator, ProjectMetadata, Sample, SampleOrigin, SampleSource, SendRole,
+        Signal, SignalNodeKind, Stem, StemGroup, Synth, SynthParameter, TempoChange, Waveform,
     },
     presets::{self, SfxPreset},
     provider::{

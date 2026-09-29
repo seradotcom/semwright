@@ -96,10 +96,18 @@ impl Runtime {
     pub fn version(&self) -> &str {
         &self.config.compiler_version
     }
-    pub async fn probe(&self, context: &DriverExecutionContext) -> Result<String> {
+    pub async fn probe(&self, context: &DriverExecutionContext) -> Result<serde_json::Value> {
         context.check_cancelled()?;
         self.verify_libraries()?;
-        let output = run_sealed_tool(context, vec!["version".into()], &[]).await?;
+        let output = run_sealed_tool(
+            context,
+            vec![
+                "probe".into(),
+                self.library_root.to_string_lossy().into_owned(),
+            ],
+            &[],
+        )
+        .await?;
         if output.exit_code != 0 {
             return Err(classify_tool_exit(&output.stderr));
         }
@@ -107,13 +115,18 @@ impl Runtime {
         if value["schema_version"] != 1
             || value["engine"] != "faust-interpreter"
             || value["compiler_version"] != self.config.compiler_version
+            || !value["library_mount"].is_boolean()
+            || !value["stdlib_regular"].is_boolean()
+            || !value["stdlib_compile"].is_boolean()
+            || value["diagnostic_class"].as_str().is_none()
+            || value["diagnostic_prefix"].as_str().is_none()
         {
             return Err(Error::new(
                 ErrorCode::ProtocolMismatch,
                 "Faust runtime probe receipt differs from the pinned runtime",
             ));
         }
-        Ok(self.config.compiler_version.clone())
+        Ok(value)
     }
     fn verify_libraries(&self) -> Result<()> {
         let metadata = fs::symlink_metadata(&self.library_root)?;

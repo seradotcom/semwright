@@ -59,6 +59,20 @@ struct FactoryDelete {
 using Factory = std::unique_ptr<interpreter_dsp_factory, FactoryDelete>;
 struct FileDelete { void operator()(SNDFILE* file) const { if (file) sf_close(file); } };
 using SoundFile = std::unique_ptr<SNDFILE, FileDelete>;
+std::string json_string(std::string value) {
+    if (value.size() > 512) value.resize(512);
+    std::string out;
+    out.reserve(value.size() + 16);
+    for (unsigned char c : value) {
+        if (c == '"' || c == '\\') { out.push_back('\\'); out.push_back(static_cast<char>(c)); }
+        else if (c == '\n') out += "\\n";
+        else if (c == '\r') out += "\\r";
+        else if (c == '\t') out += "\\t";
+        else if (c >= 0x20 && c < 0x7f) out.push_back(static_cast<char>(c));
+        else out.push_back('?');
+    }
+    return out;
+}
 std::string safe_version() {
     const std::string raw(getCLibFaustVersion());
     if (raw.empty() || raw.size() > 128)
@@ -90,9 +104,10 @@ int execute(int argc, char** argv) {
                   << safe_version() << "\"}\n";
         return 0;
     }
+    const bool probe = argc == 3 && std::string(argv[1]) == "probe";
     const bool validate = argc == 3 && std::string(argv[1]) == "validate";
     const bool render = argc == 8 && std::string(argv[1]) == "render";
-    if (!validate && !render) throw std::runtime_error("unsupported fixed helper operation");
+    if (!probe && !validate && !render) throw std::runtime_error("unsupported fixed helper operation");
     const std::string libraries(argv[2]);
     if (libraries.empty() || libraries.front() != '/' || libraries.size() > 4096
         || libraries.find("..") != std::string::npos)
@@ -100,6 +115,27 @@ int execute(int argc, char** argv) {
     struct stat metadata{};
     if (lstat(libraries.c_str(), &metadata) || !S_ISDIR(metadata.st_mode))
         throw std::runtime_error("library mount is not a real directory");
+    if (probe) {
+        const std::string stdfaust = libraries + "/stdfaust.lib";
+        struct stat lib_metadata{};
+        const bool stdlib_regular =
+            !lstat(stdfaust.c_str(), &lib_metadata) && S_ISREG(lib_metadata.st_mode);
+        const char* probe_options[] = {"-I", libraries.c_str(), "-single"};
+        std::string probe_error;
+        const std::string probe_source = "import(\"stdfaust.lib\"); process = os.osc(440.0);";
+        Factory probe_factory(createInterpreterDSPFactoryFromString(
+            "semwright-runtime-probe", probe_source, 3, probe_options, probe_error));
+        std::cout
+            << "{\"schema_version\":1,\"engine\":\"faust-interpreter\","
+            << "\"compiler_version\":\"" << safe_version() << "\","
+            << "\"library_mount\":true,"
+            << "\"stdlib_regular\":" << (stdlib_regular ? "true" : "false") << ","
+            << "\"stdlib_compile\":" << (probe_factory ? "true" : "false") << ","
+            << "\"diagnostic_class\":\""
+            << (probe_factory ? "ok" : "stdlib_compile_failed") << "\","
+            << "\"diagnostic_prefix\":\"" << json_string(probe_error) << "\"}\n";
+        return 0;
+    }
     auto source = read_source();
     const char* options[] = {"-I", libraries.c_str(), "-single"};
     std::string error;

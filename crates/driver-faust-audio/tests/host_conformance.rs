@@ -116,6 +116,128 @@ fn assert_staged_faust_compiles(helper: &Path, libraries: &Path) {
     assert_eq!(receipt["outputs"], 2);
 }
 
+fn assert_staged_faust_compiles_under_confinement(sandbox: &Path, helper: &Path, libraries: &Path) {
+    let mut project = AudioProject::new(AudioProfile::default()).unwrap();
+    project.synths.insert(
+        "sandbox-validate".into(),
+        presets::synth_for(
+            SfxPreset::Notification,
+            "sandbox-validate",
+            SampleRate(48_000),
+            48_000,
+            42,
+        )
+        .unwrap(),
+    );
+    project.validate().unwrap();
+    let program = compile_project_synth(&project, "sandbox-validate", 48_000, 2).unwrap();
+
+    let mut command = Command::new("/usr/bin/bwrap");
+    command.args([
+        "--die-with-parent",
+        "--new-session",
+        "--unshare-all",
+        "--clearenv",
+        "--cap-drop",
+        "ALL",
+        "--proc",
+        "/proc",
+        "--dev",
+        "/dev",
+        "--perms",
+        "1777",
+        "--tmpfs",
+        "/dev/shm",
+        "--tmpfs",
+        "/tmp",
+        "--dir",
+        "/home",
+        "--dir",
+        "/workspace",
+        "--dir",
+        "/plugin",
+        "--dir",
+        "/etc",
+    ]);
+    for root in ["/usr", "/lib", "/lib64"] {
+        if Path::new(root).exists() {
+            command.args(["--ro-bind", root, root]);
+        }
+    }
+    if Path::new("/etc/ld.so.cache").exists() {
+        command.args(["--ro-bind", "/etc/ld.so.cache", "/etc/ld.so.cache"]);
+    }
+    command
+        .arg("--ro-bind")
+        .arg(sandbox)
+        .arg("/plugin/sandbox")
+        .arg("--ro-bind")
+        .arg(helper)
+        .arg("/plugin/bin")
+        .arg("--ro-bind")
+        .arg(libraries)
+        .arg("/workspace/libs")
+        .args([
+            "--setenv",
+            "HOME",
+            "/home",
+            "--setenv",
+            "PATH",
+            "/usr/bin:/bin",
+            "--setenv",
+            "LANG",
+            "C.UTF-8",
+            "--setenv",
+            "LC_ALL",
+            "C.UTF-8",
+            "--setenv",
+            "TMPDIR",
+            "/tmp",
+            "--setenv",
+            "FAUST_LIB_PATH",
+            "/workspace/libs",
+            "--chdir",
+            "/tmp",
+            "--",
+            "/plugin/sandbox",
+            "--limit-nofile",
+            "256",
+            "--limit-nproc",
+            "16",
+            "--limit-cpu",
+            "25",
+            "--limit-as",
+            "2147483648",
+            "--limit-fsize",
+            "536870912",
+            "--read-root",
+            "/workspace/libs",
+            "--",
+            "/plugin/bin",
+            "validate",
+            "/workspace/libs",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command.spawn().expect("spawn confined Faust control");
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(program.source.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "Faust confinement control failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let receipt: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(receipt["valid"], true, "{receipt}");
+    assert_eq!(receipt["outputs"], 2, "{receipt}");
+}
+
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
     broker
         .clone()
@@ -197,6 +319,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     .unwrap();
     fs::set_permissions(&config, fs::Permissions::from_mode(0o400)).unwrap();
     assert_staged_faust_compiles(&tool, &libraries);
+    assert_staged_faust_compiles_under_confinement(&sandbox, &tool, &libraries);
     let output = root.path().join("output");
     let manifest = Manifest {
         manifest_version: 1,
@@ -312,6 +435,21 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     assert_eq!(
         runtime_probe.data.as_ref().unwrap()["sealed_helper_executed"],
         true
+    );
+    assert_eq!(
+        runtime_probe.data.as_ref().unwrap()["library_mount"],
+        true,
+        "{runtime_probe:?}"
+    );
+    assert_eq!(
+        runtime_probe.data.as_ref().unwrap()["stdlib_regular"],
+        true,
+        "{runtime_probe:?}"
+    );
+    assert_eq!(
+        runtime_probe.data.as_ref().unwrap()["stdlib_compile"],
+        true,
+        "{runtime_probe:?}"
     );
     let validation_synth = presets::synth_for(
         SfxPreset::Notification,
