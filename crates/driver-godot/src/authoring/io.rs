@@ -43,11 +43,6 @@ impl Directory {
                 "absolute granted root required",
             ));
         }
-        let file = OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
-            .open("/")?;
-        let mut directory = Self { file };
         for part in path.components() {
             match part {
                 std::path::Component::RootDir => {}
@@ -55,7 +50,7 @@ impl Directory {
                     let name = name.to_str().ok_or_else(|| {
                         io::Error::new(io::ErrorKind::InvalidInput, "UTF-8 granted root required")
                     })?;
-                    directory = directory.child(name, false)?;
+                    component(name)?;
                 }
                 _ => {
                     return Err(io::Error::new(
@@ -65,7 +60,46 @@ impl Directory {
                 }
             }
         }
-        Ok(directory)
+
+        // Driver Host intentionally grants only the exact materialized
+        // /workspace/<logical-root> mount, not ReadDir over its /workspace parent.
+        // Walking from "/" with openat therefore asks Landlock for authority the
+        // driver does not have. AuthoringConfig already requires the owner path to
+        // canonicalize to itself; repeat that invariant here, then open the exact
+        // granted root in one operation while refusing a final symlink.
+        let canonical = std::fs::canonicalize(path)?;
+        if canonical != path {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "granted root must be canonical and non-symlinked",
+            ));
+        }
+        let before = std::fs::symlink_metadata(path)?;
+        if !before.is_dir() {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "granted root must be a directory",
+            ));
+        }
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(path)?;
+        let opened = file.metadata()?;
+        let after = std::fs::symlink_metadata(path)?;
+        if !opened.is_dir()
+            || !after.is_dir()
+            || opened.dev() != before.dev()
+            || opened.ino() != before.ino()
+            || opened.dev() != after.dev()
+            || opened.ino() != after.ino()
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "granted root changed while opening",
+            ));
+        }
+        Ok(Self { file })
     }
     fn clone_dir(&self) -> io::Result<Self> {
         Ok(Self {

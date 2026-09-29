@@ -431,6 +431,18 @@ fn reintroduced_name_gets_a_new_logical_identity() {
     );
 }
 #[test]
+fn authoring_root_aliases_are_rejected_before_descriptor_open() {
+    let (root, mut config) = environment();
+    let output_alias = root.path().join("output_alias");
+    symlink(&config.output_root, &output_alias).unwrap();
+    config.output_root = output_alias;
+    let error = Store::new(config)
+        .err()
+        .expect("symlinked authoring root must be rejected");
+    assert_eq!(error.code, ErrorCode::PermissionDenied);
+}
+
+#[test]
 fn private_state_grant_must_be_separate_and_owner_only() {
     let (_root, mut config) = environment();
     config.state_root = config.output_root.clone();
