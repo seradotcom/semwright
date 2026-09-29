@@ -1,9 +1,10 @@
 use crate::composition::{
-    BaseStateSet, Digest, ObservationRef, Owner, ResourceKey, VerificationReport, canonical_digest,
+    BaseStateSet, Digest, ExecutionStatus, ObservationRef, Owner, ResourceKey, VerificationReport,
+    canonical_digest,
 };
 use crate::{
-    AssetRevision, DerivationId, LogicalAssetId, MAX_DEPENDENCIES, ProjectId, ReceiptId, Result,
-    SCHEMA_VERSION, ensure, name,
+    AssetRevision, DerivationId, ExternalIntentId, LogicalAssetId, MAX_DEPENDENCIES, ProjectId,
+    ReceiptId, Result, SCHEMA_VERSION, ensure, name,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -310,6 +311,61 @@ pub struct OperationIdentity {
     pub plan: Digest,
     pub parameters: Digest,
     pub recipe: Option<Digest>,
+}
+
+/// Durable record of an external operation boundary. It is evidence/recovery
+/// state only: storing one never authorizes or schedules the operation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExternalIntent {
+    pub version: u32,
+    pub id: ExternalIntentId,
+    pub project: ProjectId,
+    /// Historical authenticated owner. The session component is evidence, not
+    /// a restart credential.
+    pub owner: Owner,
+    pub request_id: String,
+    pub operation: OperationIdentity,
+    /// Resources that may be affected by the external operation. This scope is
+    /// used for visibility/reconciliation, not as an authorization grant.
+    pub affected: Vec<LogicalAssetId>,
+    pub prepared_unix_ms: u64,
+    /// The live observation epoch in which the operation was prepared.
+    pub observation_epoch: String,
+    pub status: ExecutionStatus,
+    pub receipt: Option<ReceiptId>,
+}
+impl ExternalIntent {
+    pub fn validate(&self) -> Result<()> {
+        ensure(self.version == SCHEMA_VERSION, "external intent version")?;
+        self.owner.validate()?;
+        name(&self.request_id)?;
+        name(&self.operation.capability)?;
+        name(&self.observation_epoch)?;
+        ensure(self.prepared_unix_ms > 0, "external intent time")?;
+        ensure(
+            !self.affected.is_empty() && self.affected.len() <= MAX_DEPENDENCIES,
+            "external intent affected scope",
+        )?;
+        let mut seen = BTreeSet::new();
+        ensure(
+            self.affected.iter().all(|id| seen.insert(id)),
+            "duplicate external intent asset",
+        )?;
+        ensure(
+            !matches!(
+                self.status,
+                ExecutionStatus::Prepared | ExecutionStatus::Applying
+            ) || self.receipt.is_none(),
+            "in-flight external intent cannot already carry a receipt",
+        )?;
+        ensure(
+            self.status != ExecutionStatus::Completed || self.receipt.is_some(),
+            "completed external intent requires a persisted receipt",
+        )?;
+        canonical_digest(self)?;
+        Ok(())
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

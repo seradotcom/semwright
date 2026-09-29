@@ -1,5 +1,5 @@
 use crate::*;
-use composition::{Digest, Owner, PrincipalBinding, canonical_digest};
+use composition::{Digest, ExecutionStatus, Owner, PrincipalBinding, canonical_digest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -108,6 +108,15 @@ pub(crate) enum GraphEvent {
         outcome: ProbeOutcome,
     },
     Receipt(Box<ExecutionReceipt>),
+    ExternalIntentPrepared(ExternalIntent),
+    ExternalIntentApplying {
+        id: ExternalIntentId,
+    },
+    ExternalIntentResolved {
+        id: ExternalIntentId,
+        status: ExecutionStatus,
+        receipt: Option<ReceiptId>,
+    },
     Declare(Edge),
     Determinants(Vec<Determinant>),
     Gap(Vec<LogicalAssetId>),
@@ -122,6 +131,7 @@ pub struct ProjectGraph {
     pub(crate) assets: BTreeMap<LogicalAssetId, AssetState>,
     pub(crate) revisions: BTreeMap<AssetRevision, RevisionRecord>,
     pub(crate) receipts: BTreeMap<ReceiptId, ExecutionReceipt>,
+    pub(crate) external_intents: BTreeMap<ExternalIntentId, ExternalIntent>,
     pub(crate) edges: BTreeMap<Digest, Edge>,
     pub(crate) determinants: BTreeMap<(DependencyClass, String), Digest>,
     pub(crate) reverse: BTreeMap<LogicalAssetId, BTreeSet<LogicalAssetId>>,
@@ -144,6 +154,7 @@ impl ProjectGraph {
             assets: BTreeMap::new(),
             revisions: BTreeMap::new(),
             receipts: BTreeMap::new(),
+            external_intents: BTreeMap::new(),
             edges: BTreeMap::new(),
             determinants: BTreeMap::new(),
             reverse: BTreeMap::new(),
@@ -155,6 +166,113 @@ impl ProjectGraph {
     }
     pub fn observation_epoch(&self) -> &str {
         &self.epoch
+    }
+    fn intent_visible(&self, access: &ProjectAccess, intent: &ExternalIntent) -> Result<()> {
+        self.access(access, false)?;
+        if intent.owner.principal != access.owner.principal
+            || intent.affected.iter().any(|id| !access.sees(id))
+        {
+            return Err(GraphError::Denied);
+        }
+        Ok(())
+    }
+    /// Persist before any external side effect. This records recovery state only;
+    /// callers must still enter Broker policy for the actual operation.
+    pub fn prepare_external_intent(
+        &mut self,
+        access: &ProjectAccess,
+        intent: ExternalIntent,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        intent.validate()?;
+        if intent.project != self.project
+            || intent.owner != access.owner
+            || intent.observation_epoch != self.epoch
+            || intent.status != ExecutionStatus::Prepared
+            || intent.receipt.is_some()
+        {
+            return Err(GraphError::Denied);
+        }
+        for id in &intent.affected {
+            self.visible(access, id)?;
+        }
+        self.apply(GraphEvent::ExternalIntentPrepared(intent), true)
+    }
+    /// Commit this transition before invoking the external provider. A restart
+    /// after this point turns the visible status into UNKNOWN and forbids retry.
+    pub fn mark_external_intent_applying(
+        &mut self,
+        access: &ProjectAccess,
+        id: &ExternalIntentId,
+    ) -> Result<()> {
+        let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+        self.intent_visible(access, intent)?;
+        self.access(access, true)?;
+        if intent.owner != access.owner
+            || intent.observation_epoch != self.epoch
+            || intent.status != ExecutionStatus::Prepared
+        {
+            return Err(GraphError::Conflict);
+        }
+        self.apply(GraphEvent::ExternalIntentApplying { id: id.clone() }, true)
+    }
+    /// Record a terminal outcome. COMPLETED requires a matching receipt already
+    /// admitted into this graph, so receipt insertion and resolution can share
+    /// one GraphStore transaction. After restart only UNKNOWN may close an old
+    /// in-flight intent; redispatch is never implied.
+    pub fn resolve_external_intent(
+        &mut self,
+        access: &ProjectAccess,
+        id: &ExternalIntentId,
+        status: ExecutionStatus,
+        receipt: Option<ReceiptId>,
+    ) -> Result<()> {
+        if matches!(
+            status,
+            ExecutionStatus::Prepared | ExecutionStatus::Applying
+        ) {
+            return Err(GraphError::Invalid("terminal external intent status"));
+        }
+        let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+        self.intent_visible(access, intent)?;
+        self.access(access, true)?;
+        if intent.observation_epoch == self.epoch && intent.owner != access.owner {
+            return Err(GraphError::Denied);
+        }
+        if intent.observation_epoch != self.epoch
+            && (status != ExecutionStatus::Unknown || receipt.is_some())
+        {
+            return Err(GraphError::Conflict);
+        }
+        if status == ExecutionStatus::Completed && receipt.is_none() {
+            return Err(GraphError::Invalid(
+                "completed external intent requires receipt",
+            ));
+        }
+        self.apply(
+            GraphEvent::ExternalIntentResolved {
+                id: id.clone(),
+                status,
+                receipt,
+            },
+            true,
+        )
+    }
+    /// Read-only recovery view. An Applying attempt from an earlier observation
+    /// epoch is UNKNOWN even if the journal ended before a terminal event.
+    pub fn external_intent(
+        &self,
+        access: &ProjectAccess,
+        id: &ExternalIntentId,
+    ) -> Result<ExternalIntent> {
+        let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+        self.intent_visible(access, intent)?;
+        let mut view = intent.clone();
+        if view.status == ExecutionStatus::Applying && view.observation_epoch != self.epoch {
+            view.status = ExecutionStatus::Unknown;
+            view.receipt = None;
+        }
+        Ok(view)
     }
     pub fn file_scope(&self, access: &ProjectAccess, root: &str) -> Result<ProjectAccess> {
         self.access(access, false)?;
@@ -493,6 +611,111 @@ impl ProjectGraph {
                 if !self.insert_receipt(receipt)? {
                     return Ok(());
                 }
+            }
+            GraphEvent::ExternalIntentPrepared(intent) => {
+                intent.validate()?;
+                ensure(
+                    intent.project == self.project
+                        && intent.owner.principal == self.principal
+                        && intent.status == ExecutionStatus::Prepared
+                        && intent.receipt.is_none(),
+                    "external intent project/owner/state",
+                )?;
+                ensure(
+                    intent
+                        .affected
+                        .iter()
+                        .all(|id| self.assets.contains_key(id)),
+                    "external intent unknown affected asset",
+                )?;
+                if let Some(old) = self.external_intents.get(&intent.id)
+                    && canonical_digest(old)? == canonical_digest(intent)?
+                {
+                    return Ok(());
+                }
+                if self.external_intents.contains_key(&intent.id) {
+                    return Err(GraphError::Conflict);
+                }
+                ensure(
+                    self.external_intents.len() < 20_000,
+                    "external intent history limit",
+                )?;
+                ensure(
+                    !self.external_intents.values().any(|old| {
+                        old.owner == intent.owner && old.request_id == intent.request_id
+                    }),
+                    "external request identity collision",
+                )?;
+                self.external_intents
+                    .insert(intent.id.clone(), intent.clone());
+            }
+            GraphEvent::ExternalIntentApplying { id } => {
+                let intent = self
+                    .external_intents
+                    .get_mut(id)
+                    .ok_or(GraphError::Denied)?;
+                ensure(
+                    intent.status == ExecutionStatus::Prepared,
+                    "external intent cannot be dispatched twice",
+                )?;
+                if live && intent.observation_epoch != self.epoch {
+                    return Err(GraphError::Conflict);
+                }
+                intent.status = ExecutionStatus::Applying;
+            }
+            GraphEvent::ExternalIntentResolved {
+                id,
+                status,
+                receipt,
+            } => {
+                ensure(
+                    !matches!(
+                        status,
+                        ExecutionStatus::Prepared | ExecutionStatus::Applying
+                    ),
+                    "external intent terminal status",
+                )?;
+                let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+                ensure(
+                    matches!(
+                        intent.status,
+                        ExecutionStatus::Prepared | ExecutionStatus::Applying
+                    ),
+                    "external intent already terminal",
+                )?;
+                if live && intent.observation_epoch != self.epoch {
+                    ensure(
+                        *status == ExecutionStatus::Unknown && receipt.is_none(),
+                        "restarted external intent requires UNKNOWN reconciliation",
+                    )?;
+                }
+                if *status == ExecutionStatus::Completed {
+                    ensure(
+                        intent.status == ExecutionStatus::Applying && receipt.is_some(),
+                        "completed external intent needs dispatched state and receipt",
+                    )?;
+                }
+                if let Some(receipt_id) = receipt {
+                    let recorded = self.receipts.get(receipt_id).ok_or(GraphError::Conflict)?;
+                    ensure(
+                        recorded.project == intent.project
+                            && recorded.owner == intent.owner
+                            && recorded.request_id == intent.request_id
+                            && recorded.operation == intent.operation
+                            && recorded
+                                .outputs
+                                .iter()
+                                .all(|pin| intent.affected.contains(&pin.asset)),
+                        "external intent receipt mismatch",
+                    )?;
+                }
+                let intent = self
+                    .external_intents
+                    .get_mut(id)
+                    .ok_or(GraphError::Denied)?;
+                intent.status = *status;
+                intent.receipt = receipt.clone();
+                intent.validate()?;
             }
             GraphEvent::Declare(edge) => {
                 ensure(

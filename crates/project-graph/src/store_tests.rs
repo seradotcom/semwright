@@ -240,3 +240,83 @@ fn partial_project_access_cannot_export_full_private_backup() {
     assert!(matches!(store.backup(&subset), Err(GraphError::Denied)));
     assert!(!path.join("backup.sqlite3").exists());
 }
+
+#[test]
+fn external_applying_intent_reopens_unknown_and_cannot_be_redispatched() {
+    let (_tmp, path, project, access) = fixture();
+    let mut store = open(&path, &project, &access);
+    let output = item("external-output");
+    store
+        .transact(&access, |g| g.register(&access, output.clone()))
+        .unwrap();
+    let intent = ExternalIntent {
+        version: SCHEMA_VERSION,
+        id: ExternalIntentId::new(),
+        project: project.clone(),
+        owner: access.owner.clone(),
+        request_id: "external-request".into(),
+        operation: OperationIdentity {
+            capability: "fixture.external".into(),
+            descriptor: Digest::of_bytes(b"descriptor"),
+            runtime: Digest::of_bytes(b"runtime"),
+            plan: Digest::of_bytes(b"plan"),
+            parameters: Digest::of_bytes(b"parameters"),
+            recipe: None,
+        },
+        affected: vec![output.id.clone()],
+        prepared_unix_ms: 1,
+        observation_epoch: store.graph().unwrap().observation_epoch().into(),
+        status: composition::ExecutionStatus::Prepared,
+        receipt: None,
+    };
+    let intent_id = intent.id.clone();
+    store
+        .transact(&access, |g| g.prepare_external_intent(&access, intent))
+        .unwrap();
+    store
+        .transact(&access, |g| {
+            g.mark_external_intent_applying(&access, &intent_id)
+        })
+        .unwrap();
+    drop(store);
+
+    let mut reopened = open(&path, &project, &access);
+    assert_eq!(
+        reopened
+            .graph()
+            .unwrap()
+            .external_intent(&access, &intent_id)
+            .unwrap()
+            .status,
+        composition::ExecutionStatus::Unknown
+    );
+    assert!(
+        reopened
+            .transact(&access, |g| {
+                g.mark_external_intent_applying(&access, &intent_id)
+            })
+            .is_err()
+    );
+    reopened
+        .transact(&access, |g| {
+            g.resolve_external_intent(
+                &access,
+                &intent_id,
+                composition::ExecutionStatus::Unknown,
+                None,
+            )
+        })
+        .unwrap();
+    drop(reopened);
+
+    let restored = open(&path, &project, &access);
+    assert_eq!(
+        restored
+            .graph()
+            .unwrap()
+            .external_intent(&access, &intent_id)
+            .unwrap()
+            .status,
+        composition::ExecutionStatus::Unknown
+    );
+}

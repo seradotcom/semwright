@@ -160,6 +160,32 @@ pub fn declared(a: &LogicalAssetId, b: &LogicalAssetId, relation: Relation) -> E
         },
     }
 }
+pub fn external_intent(
+    graph: &ProjectGraph,
+    affected: Vec<LogicalAssetId>,
+    tick: u64,
+) -> ExternalIntent {
+    ExternalIntent {
+        version: SCHEMA_VERSION,
+        id: ExternalIntentId::new(),
+        project: graph.project_id().clone(),
+        owner: owner(),
+        request_id: format!("request-{tick}"),
+        operation: OperationIdentity {
+            capability: "fixture.export".into(),
+            descriptor: digest("descriptor"),
+            runtime: digest("runtime"),
+            plan: digest("plan"),
+            parameters: digest("parameters"),
+            recipe: None,
+        },
+        affected,
+        prepared_unix_ms: tick,
+        observation_epoch: graph.observation_epoch().into(),
+        status: ExecutionStatus::Prepared,
+        receipt: None,
+    }
+}
 pub fn budget() -> TraversalBudget {
     TraversalBudget {
         nodes: 20_000,

@@ -390,3 +390,92 @@ fn same_bytes_after_explicit_rebind_do_not_validate_old_derivation() {
             .cache_safe()
     );
 }
+
+#[test]
+fn external_intent_requires_dispatch_and_matching_persisted_receipt() {
+    let (mut g, a) = setup();
+    let source = asset(&mut g, &a, "source");
+    let output = asset(&mut g, &a, "output");
+    let sr = observe(&mut g, &a, &source, "source-v1", 1);
+    let or = observe(&mut g, &a, &output, "output-v1", 2);
+    let intent = external_intent(&g, vec![output.clone()], 3);
+    let intent_id = intent.id.clone();
+
+    g.prepare_external_intent(&a, intent).unwrap();
+    assert_eq!(
+        g.external_intent(&a, &intent_id).unwrap().status,
+        composition::ExecutionStatus::Prepared
+    );
+    assert!(
+        g.resolve_external_intent(
+            &a,
+            &intent_id,
+            composition::ExecutionStatus::Completed,
+            None,
+        )
+        .is_err()
+    );
+
+    g.mark_external_intent_applying(&a, &intent_id).unwrap();
+    assert!(g.mark_external_intent_applying(&a, &intent_id).is_err());
+
+    let r = receipt(g.project_id().clone(), &[sr], &or, 3);
+    let receipt_id = r.id.clone();
+    g.accept_receipt(&a, admit(r)).unwrap();
+    g.resolve_external_intent(
+        &a,
+        &intent_id,
+        composition::ExecutionStatus::Completed,
+        Some(receipt_id.clone()),
+    )
+    .unwrap();
+    let resolved = g.external_intent(&a, &intent_id).unwrap();
+    assert_eq!(resolved.status, composition::ExecutionStatus::Completed);
+    assert_eq!(resolved.receipt, Some(receipt_id));
+}
+
+#[test]
+fn restarted_applying_external_intent_is_unknown_and_never_redispatched() {
+    let (mut g, a) = setup();
+    let output = asset(&mut g, &a, "output");
+    let intent = external_intent(&g, vec![output], 1);
+    let intent_id = intent.id.clone();
+    g.prepare_external_intent(&a, intent).unwrap();
+    g.mark_external_intent_applying(&a, &intent_id).unwrap();
+
+    g.restart_observation_epoch();
+    assert_eq!(
+        g.external_intent(&a, &intent_id).unwrap().status,
+        composition::ExecutionStatus::Unknown
+    );
+    assert!(g.mark_external_intent_applying(&a, &intent_id).is_err());
+    g.resolve_external_intent(&a, &intent_id, composition::ExecutionStatus::Unknown, None)
+        .unwrap();
+    assert_eq!(
+        g.external_intent(&a, &intent_id).unwrap().status,
+        composition::ExecutionStatus::Unknown
+    );
+}
+
+#[test]
+fn external_intent_visibility_does_not_leak_hidden_affected_resources() {
+    let (mut g, full) = setup();
+    let visible = asset(&mut g, &full, "visible");
+    let hidden = asset(&mut g, &full, "hidden");
+    let intent = external_intent(&g, vec![hidden.clone()], 1);
+    let intent_id = intent.id.clone();
+    g.prepare_external_intent(&full, intent).unwrap();
+
+    let subset = ProjectAccess::authorized(
+        owner(),
+        g.project_id().clone(),
+        Some([visible].into()),
+        false,
+        digest("grants"),
+    )
+    .unwrap();
+    assert!(matches!(
+        g.external_intent(&subset, &intent_id),
+        Err(GraphError::Denied)
+    ));
+}

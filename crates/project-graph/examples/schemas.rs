@@ -9,6 +9,7 @@ fn main() {
         "impact": schemars::schema_for!(ImpactReport),
         "query": schemars::schema_for!(AssetQuery),
         "receipt": schemars::schema_for!(ExecutionReceipt),
+        "external_intent": schemars::schema_for!(ExternalIntent),
         "asset": schemars::schema_for!(Asset),
         "edge": schemars::schema_for!(Edge),
         "knowledge": schemars::schema_for!(Knowledge),
