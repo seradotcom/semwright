@@ -335,7 +335,7 @@ fn append_plugin_losses(losses: &mut Vec<ProjectionLoss>, route: &NativeRoute) {
     }
 }
 
-fn semantic_id(prefix: &str, native: &str) -> String {
+pub(crate) fn semantic_id(prefix: &str, native: &str) -> String {
     format!("{prefix}_{}", &sha256(native.as_bytes())[..24])
 }
 
@@ -367,6 +367,8 @@ mod tests {
             ardour_version: "9.0".into(),
             session_name: "fixture".into(),
             sample_rate: 48_000,
+            session_start: 0,
+            session_end: 0,
             routes: vec![
                 NativeRoute {
                     id: "master1".into(),

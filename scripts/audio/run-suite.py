@@ -15,6 +15,7 @@ SUITES = {
     "faust": ["-p", "semwright-faust-audio-driver", "--test", "live_faust"],
     "faust-host": ["-p", "semwright-faust-audio-driver", "--test", "host_conformance"],
     "analysis-host": ["-p", "semwright-faust-audio-driver", "--test", "analysis_host_conformance"],
+    "ardour-host": ["-p", "semwright-ardour-audio-driver", "--test", "host_conformance"],
 }
 
 
@@ -33,7 +34,7 @@ def main():
     out = ROOT / "verification" / "audio"
     out.mkdir(parents=True, exist_ok=True)
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    extra = ["--ignored"] if args.suite in {"faust", "faust-host", "analysis-host"} else []
+    extra = ["--ignored"] if args.suite in {"faust", "faust-host", "analysis-host", "ardour-host"} else []
     command = ["cargo", "test", "--locked", *SUITES[args.suite]]
     receipt = {"schema_version": 1, "tested_sha": sha, "github_sha": os.getenv("GITHUB_SHA"),
                "run_id": os.getenv("GITHUB_RUN_ID"), "run_attempt": os.getenv("GITHUB_RUN_ATTEMPT"),

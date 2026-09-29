@@ -76,6 +76,8 @@ pub struct ArdourSnapshot {
     pub ardour_version: String,
     pub session_name: String,
     pub sample_rate: u32,
+    pub session_start: u64,
+    pub session_end: u64,
     pub routes: Vec<NativeRoute>,
     #[serde(default)]
     pub warnings: Vec<String>,
@@ -88,7 +90,11 @@ impl ArdourSnapshot {
         }
         bounded_text("Ardour version", &self.ardour_version, 256)?;
         bounded_text("session name", &self.session_name, 4096)?;
-        if !(8_000..=384_000).contains(&self.sample_rate) || self.routes.len() > MAX_ROUTES {
+        if !(8_000..=384_000).contains(&self.sample_rate)
+            || self.session_end < self.session_start
+            || self.session_end > i64::MAX as u64
+            || self.routes.len() > MAX_ROUTES
+        {
             return Err(Error::invalid("Invalid Ardour session shape"));
         }
         if self.warnings.len() > 256 {

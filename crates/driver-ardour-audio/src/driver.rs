@@ -1,9 +1,11 @@
 use crate::{
     DRIVER_ID, DRIVER_SCOPE, VERSION,
     live_projection::{ArdourSemanticProjection, ArdourSnapshot},
+    native::{ArdourSnapshot as NativeArdourSnapshot, RouteKind},
     osc::{DEFAULT_ARDOUR_OSC_PORT, OscArg, OscClient, StripList},
-    projection::ArdourProjection,
+    projection::{ArdourProjection, semantic_id},
     runtime::DeepRuntime,
+    script::NativeMutation,
 };
 use async_trait::async_trait;
 use semwright_audio_domain::{
@@ -47,9 +49,7 @@ impl ArdourAudioDriver {
                 .ok_or_else(|| Error::invalid("Invalid SEMWRIGHT_ARDOUR_OSC_PORT"))?,
             Err(_) => DEFAULT_ARDOUR_OSC_PORT,
         };
-        let (deep_runtime, deep_runtime_reason) = match DeepRuntime::load_production()
-            .map_err(map_domain_error)?
-        {
+        let (deep_runtime, deep_runtime_reason) = match DeepRuntime::load_production()? {
             Some(runtime) => (
                 Some(runtime),
                 "owner-pinned Ardour Lua runtime is available".to_string(),
@@ -57,7 +57,7 @@ impl ArdourAudioDriver {
             None => (
                 None,
                 if cfg!(unix) {
-                    "owner-pinned /workspace/runtime/ardour.json is absent".to_string()
+                    "owner-pinned Ardour runtime/project/output grants are absent".to_string()
                 } else {
                     "deep Ardour Lua runtime is disabled until executable pinning is certified on this platform".to_string()
                 },
@@ -344,7 +344,7 @@ impl ArdourAudioDriver {
                 "Pinned Ardour Lua runtime is unavailable",
             )
         })?;
-        let native = runtime.inspect(state).await.map_err(map_domain_error)?;
+        let native = runtime.inspect(state).await?;
         let report = ArdourProjection
             .project(&native)
             .map_err(map_domain_error)?;
@@ -371,6 +371,148 @@ impl ArdourAudioDriver {
         }))
     }
 
+
+    fn deep_runtime(&self) -> Result<&DeepRuntime> {
+        self.deep_runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorCode::Unavailable,
+                "Pinned Ardour deep runtime is unavailable",
+            )
+        })
+    }
+
+    async fn deep_create(&self, args: &Value) -> Result<Value> {
+        let state = text_arg(args, "state", 128)?;
+        let sample_rate = u64_arg(args, "sample_rate", 8_000, 192_000)? as u32;
+        let master_channels = u64_arg(args, "master_channels", 0, 64)? as u16;
+        let native = self
+            .deep_runtime()?
+            .create(state, sample_rate, master_channels)
+            .await?;
+        let revision = native_revision(&native)?;
+        let report = ArdourProjection.project(&native).map_err(map_domain_error)?;
+        Ok(json!({
+            "accepted": true,
+            "verified": true,
+            "state": state,
+            "revision": revision,
+            "project_json": serde_json::to_string(&report.project)?,
+            "fidelity": fidelity_name(report.fidelity),
+            "losses": losses_json(&report.losses)
+        }))
+    }
+
+    async fn deep_save_as(&self, args: &Value) -> Result<Value> {
+        let source_state = text_arg(args, "source_state", 128)?;
+        let candidate_state = text_arg(args, "candidate_state", 128)?;
+        let expected = text_arg(args, "expected_revision", 64)?;
+        let runtime = self.deep_runtime()?;
+        let before = runtime.inspect(source_state).await?;
+        let previous_revision = native_revision(&before)?;
+        if previous_revision != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Ardour deep snapshot revision is stale",
+            ));
+        }
+        let candidate = runtime.save_as(source_state, candidate_state).await?;
+        let source_after = runtime.inspect(source_state).await?;
+        if native_revision(&source_after)? != previous_revision {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Ardour save-as changed the protected source snapshot",
+            ));
+        }
+        Ok(json!({
+            "accepted": true,
+            "verified": true,
+            "source_state": source_state,
+            "candidate_state": candidate_state,
+            "source_revision": previous_revision,
+            "candidate_revision": native_revision(&candidate)?,
+            "source_preserved": true
+        }))
+    }
+
+    async fn deep_export(&self, args: &Value) -> Result<Value> {
+        let state = text_arg(args, "state", 128)?;
+        let expected = text_arg(args, "expected_revision", 64)?;
+        let file_name = text_arg(args, "file_name", 200)?;
+        let sample_rate = u64_arg(args, "sample_rate", 8_000, 192_000)? as u32;
+        let bit_depth = u64_arg(args, "bit_depth", 16, 32)? as u16;
+        if !matches!(bit_depth, 16 | 24 | 32) {
+            return Err(Error::invalid("Ardour export bit depth must be 16, 24 or 32"));
+        }
+        let runtime = self.deep_runtime()?;
+        let before = runtime.inspect(state).await?;
+        let previous_revision = native_revision(&before)?;
+        if previous_revision != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Ardour export source revision is stale",
+            ));
+        }
+        let receipt = runtime
+            .export_wav(state, file_name, sample_rate, bit_depth)
+            .await?;
+        let after = runtime.inspect(state).await?;
+        if native_revision(&after)? != previous_revision {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Ardour export unexpectedly changed source semantic state",
+            ));
+        }
+        Ok(json!({
+            "accepted": true,
+            "verified": true,
+            "source_preserved": true,
+            "source_revision": previous_revision,
+            "artifact": receipt
+        }))
+    }
+
+    async fn deep_mutate(&self, command: &str, args: &Value) -> Result<Value> {
+        let state = text_arg(args, "state", 128)?;
+        let expected = text_arg(args, "expected_revision", 64)?;
+        let runtime = self.deep_runtime()?;
+        let before = runtime.inspect(state).await?;
+        let previous_revision = native_revision(&before)?;
+        if previous_revision != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Ardour deep snapshot revision is stale",
+            ));
+        }
+        let mutation = deep_mutation(command, args, &before)?;
+        if let NativeMutation::RouteRemove { route_id } = &mutation {
+            let route = before
+                .routes
+                .iter()
+                .find(|route| &route.id == route_id)
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "Ardour route does not exist"))?;
+            if route.kind == RouteKind::Master {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Ardour master route removal is outside this capability",
+                ));
+            }
+        }
+        let after = runtime.mutate(state, &mutation).await?;
+        if !native_effect_verified(&before, &after, &mutation) {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Ardour deep mutation did not satisfy its native postcondition",
+            )
+            .uncertain());
+        }
+        Ok(json!({
+            "accepted": true,
+            "verified": true,
+            "previous_revision": previous_revision,
+            "revision": native_revision(&after)?
+        }))
+    }
+
     async fn execute_inner(&mut self, command: &str, args: &Value) -> Result<Value> {
         match command {
             "driver.ardour-audio.doctor" => {
@@ -388,6 +530,20 @@ impl ArdourAudioDriver {
             }
             "driver.ardour-audio.session.inspect" => self.inspect().await,
             "driver.ardour-audio.session.deep.inspect" => self.deep_inspect(args).await,
+            "driver.ardour-audio.session.deep.create" => self.deep_create(args).await,
+            "driver.ardour-audio.session.deep.save-as" => self.deep_save_as(args).await,
+            "driver.ardour-audio.session.deep.export" => self.deep_export(args).await,
+            "driver.ardour-audio.session.deep.stem.create"
+            | "driver.ardour-audio.session.deep.route.remove"
+            | "driver.ardour-audio.session.deep.route.rename"
+            | "driver.ardour-audio.session.deep.route.mute"
+            | "driver.ardour-audio.session.deep.route.solo"
+            | "driver.ardour-audio.session.deep.route.gain.set"
+            | "driver.ardour-audio.session.deep.route.pan.set"
+            | "driver.ardour-audio.session.deep.clip.move"
+            | "driver.ardour-audio.session.deep.clip.trim"
+            | "driver.ardour-audio.session.deep.clip.remove"
+            | "driver.ardour-audio.session.deep.range.set" => self.deep_mutate(command, args).await,
             "driver.ardour-audio.session.project" => {
                 self.inspect().await?;
                 let cache = self.cache.as_ref().expect("installed snapshot");
@@ -544,7 +700,7 @@ fn capabilities() -> Vec<Capability> {
             }),
             Risk::ReadOnly,
             Idempotency::ReadOnly,
-            45_000,
+            30_000,
             &[
                 "audio-project",
                 "audio-session",
@@ -703,7 +859,285 @@ fn capabilities() -> Vec<Capability> {
             &["audio-transport"],
         ),
     ]);
+    values.extend(deep_capabilities());
     values
+}
+
+fn deep_capabilities() -> Vec<Capability> {
+    let state = json!({
+        "type":"string",
+        "minLength":1,
+        "maxLength":128,
+        "pattern":"^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    });
+    let revision = json!({"type":"string","pattern":"^[0-9a-f]{64}$"});
+    let verified = json!({
+        "type":"object",
+        "properties":{
+            "accepted":{"const":true},
+            "verified":{"const":true},
+            "previous_revision":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+            "revision":{"type":"string","pattern":"^[0-9a-f]{64}$"}
+        },
+        "required":["accepted","verified","previous_revision","revision"],
+        "additionalProperties":false
+    });
+    let mut values = vec![
+        deep_descriptor(
+            "driver.ardour-audio.session.deep.create",
+            "Create and reopen a managed Ardour 8.4 candidate using the official Dummy-backend session utility",
+            json!({
+                "type":"object",
+                "properties":{
+                    "state":state.clone(),
+                    "sample_rate":{"type":"integer","minimum":8000,"maximum":192000},
+                    "master_channels":{"type":"integer","minimum":0,"maximum":64}
+                },
+                "required":["state","sample_rate","master_channels"],
+                "additionalProperties":false
+            }),
+            json!({
+                "type":"object",
+                "properties":{
+                    "accepted":{"const":true},
+                    "verified":{"const":true},
+                    "state":state.clone(),
+                    "revision":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+                    "project_json":{"type":"string","maxLength":900000},
+                    "fidelity":{"type":"string"},
+                    "losses":{"type":"array","maxItems":4096}
+                },
+                "required":["accepted","verified","state","revision","project_json","fidelity","losses"],
+                "additionalProperties":false
+            }),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-project"],
+            &[],
+        ),
+        deep_descriptor(
+            "driver.ardour-audio.session.deep.save-as",
+            "Save an Ardour session as a distinct snapshot, reopen it, and reobserve the protected source",
+            json!({
+                "type":"object",
+                "properties":{
+                    "source_state":state.clone(),
+                    "candidate_state":state.clone(),
+                    "expected_revision":revision.clone()
+                },
+                "required":["source_state","candidate_state","expected_revision"],
+                "additionalProperties":false
+            }),
+            json!({
+                "type":"object",
+                "properties":{
+                    "accepted":{"const":true},
+                    "verified":{"const":true},
+                    "source_state":state.clone(),
+                    "candidate_state":state.clone(),
+                    "source_revision":revision.clone(),
+                    "candidate_revision":revision.clone(),
+                    "source_preserved":{"const":true}
+                },
+                "required":["accepted","verified","source_state","candidate_state","source_revision","candidate_revision","source_preserved"],
+                "additionalProperties":false
+            }),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-project"],
+            &[],
+        ),
+        deep_descriptor(
+            "driver.ardour-audio.session.deep.export",
+            "Export the Ardour session range through the native master bus and verify the resulting WAV container",
+            json!({
+                "type":"object",
+                "properties":{
+                    "state":state.clone(),
+                    "expected_revision":revision.clone(),
+                    "file_name":{"type":"string","minLength":5,"maxLength":200,"pattern":"^[A-Za-z0-9][A-Za-z0-9._-]*\.wav$"},
+                    "sample_rate":{"type":"integer","minimum":8000,"maximum":192000},
+                    "bit_depth":{"type":"integer","enum":[16,24,32]}
+                },
+                "required":["state","expected_revision","file_name","sample_rate","bit_depth"],
+                "additionalProperties":false
+            }),
+            json!({
+                "type":"object",
+                "properties":{
+                    "accepted":{"const":true},
+                    "verified":{"const":true},
+                    "source_preserved":{"const":true},
+                    "source_revision":revision.clone(),
+                    "artifact":{"type":"object"}
+                },
+                "required":["accepted","verified","source_preserved","source_revision","artifact"],
+                "additionalProperties":false
+            }),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-project","audio-artifact"],
+            &["artifact-out:audio/wav"],
+        ),
+    ];
+
+    let mutation_specs: [(&str, Value, Risk, Idempotency, bool, &[&str]); 11] = [
+        (
+            "driver.ardour-audio.session.deep.stem.create",
+            json!({"channels":{"type":"integer","minimum":1,"maximum":64},"name":{"type":"string","minLength":1,"maxLength":4096}}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-stem"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.route.remove",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+            true,
+            &["audio-stem","audio-bus"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.route.rename",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256},"name":{"type":"string","minLength":1,"maxLength":4096}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-stem","audio-bus"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.route.mute",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256},"value":{"type":"boolean"}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-stem","audio-bus"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.route.solo",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256},"value":{"type":"boolean"}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-stem","audio-bus"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.route.gain.set",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256},"gain_millidb":{"type":"integer","minimum":-120000,"maximum":24000}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-stem","audio-bus"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.route.pan.set",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256},"pan_milli":{"type":"integer","minimum":-1000,"maximum":1000}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-stem","audio-bus"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.clip.move",
+            json!({"region_id":{"type":"string","minLength":1,"maxLength":256},"start":{"type":"integer","minimum":0,"maximum":9223372036854775807u64}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-clip"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.clip.trim",
+            json!({"region_id":{"type":"string","minLength":1,"maxLength":256},"source_start":{"type":"integer","minimum":0,"maximum":9223372036854775807u64},"length":{"type":"integer","minimum":1,"maximum":9223372036854775807u64}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-clip"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.clip.remove",
+            json!({"region_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+            true,
+            &["audio-clip"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.range.set",
+            json!({"start":{"type":"integer","minimum":0,"maximum":9223372036854775806u64},"end":{"type":"integer","minimum":1,"maximum":9223372036854775807u64}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-range"],
+        ),
+    ];
+    for (name, fields, risk, idempotency, consent, objects) in mutation_specs {
+        let mut properties = fields.as_object().cloned().expect("object fields");
+        properties.insert("state".into(), state.clone());
+        properties.insert("expected_revision".into(), revision.clone());
+        let mut required = vec!["state".to_string(), "expected_revision".to_string()];
+        required.extend(
+            properties
+                .keys()
+                .filter(|key| key.as_str() != "state" && key.as_str() != "expected_revision")
+                .cloned(),
+        );
+        required.sort();
+        values.push(deep_descriptor(
+            name,
+            "Apply one typed fixed Ardour Lua operation to semantic project IDs and verify it through native readback",
+            json!({
+                "type":"object",
+                "properties":properties,
+                "required":required,
+                "additionalProperties":false
+            }),
+            verified.clone(),
+            risk,
+            idempotency,
+            consent,
+            objects,
+            &[],
+        ));
+    }
+    values
+}
+
+fn deep_descriptor(
+    name: &str,
+    description: &str,
+    input_schema: Value,
+    output_schema: Value,
+    risk: Risk,
+    idempotency: Idempotency,
+    interactive_consent: bool,
+    object_types: &[&str],
+    extra_tags: &[&str],
+) -> Capability {
+    let mut tags = vec!["audio".into(), "ardour".into(), "native-session".into()];
+    tags.extend(extra_tags.iter().map(|value| (*value).to_owned()));
+    Capability {
+        descriptor: CommandDescriptor {
+            name: name.into(),
+            version: "1".into(),
+            description: description.into(),
+            input_schema,
+            output_schema,
+            requires: vec![DRIVER_SCOPE.into()],
+            risk,
+            idempotency,
+            timeout_ms: 30_000,
+            dry_run: false,
+            interactive_consent,
+            backends: vec![DRIVER_SCOPE.into()],
+        },
+        aliases: vec![],
+        tags,
+        object_types: object_types.iter().map(|value| (*value).into()).collect(),
+    }
 }
 
 fn descriptor(
@@ -833,6 +1267,179 @@ fn inspect_schema() -> Value {
         "required":["project","revision","sample_rate","last_frame","monitor_present","stems","buses","fidelity","losses"],
         "additionalProperties":false
     })
+}
+
+
+fn native_revision(snapshot: &NativeArdourSnapshot) -> Result<String> {
+    snapshot.validate().map_err(map_domain_error)?;
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(snapshot)?)
+    ))
+}
+
+fn deep_mutation(
+    command: &str,
+    args: &Value,
+    snapshot: &NativeArdourSnapshot,
+) -> Result<NativeMutation> {
+    let route_id = || {
+        let semantic = text_arg(args, "route_id", 256)?;
+        resolve_native_route_id(snapshot, semantic)
+    };
+    let region_id = || {
+        let semantic = text_arg(args, "region_id", 256)?;
+        resolve_native_region_id(snapshot, semantic)
+    };
+    match command {
+        "driver.ardour-audio.session.deep.stem.create" => Ok(NativeMutation::StemCreate {
+            channels: u64_arg(args, "channels", 1, 64)? as u16,
+            name: text_arg(args, "name", 4096)?.to_owned(),
+        }),
+        "driver.ardour-audio.session.deep.route.remove" => Ok(NativeMutation::RouteRemove {
+            route_id: route_id()?,
+        }),
+        "driver.ardour-audio.session.deep.route.rename" => Ok(NativeMutation::RouteRename {
+            route_id: route_id()?,
+            name: text_arg(args, "name", 4096)?.to_owned(),
+        }),
+        "driver.ardour-audio.session.deep.route.mute" => Ok(NativeMutation::RouteMute {
+            route_id: route_id()?,
+            value: bool_arg(args, "value")?,
+        }),
+        "driver.ardour-audio.session.deep.route.solo" => Ok(NativeMutation::RouteSolo {
+            route_id: route_id()?,
+            value: bool_arg(args, "value")?,
+        }),
+        "driver.ardour-audio.session.deep.route.gain.set" => Ok(NativeMutation::RouteGain {
+            route_id: route_id()?,
+            gain_millidb: i32_arg(args, "gain_millidb", -120_000, 24_000)?,
+        }),
+        "driver.ardour-audio.session.deep.route.pan.set" => Ok(NativeMutation::RoutePan {
+            route_id: route_id()?,
+            pan_milli: i32_arg(args, "pan_milli", -1_000, 1_000)? as i16,
+        }),
+        "driver.ardour-audio.session.deep.clip.move" => Ok(NativeMutation::ClipMove {
+            region_id: region_id()?,
+            start: u64_arg(args, "start", 0, i64::MAX as u64)?,
+        }),
+        "driver.ardour-audio.session.deep.clip.trim" => Ok(NativeMutation::ClipTrim {
+            region_id: region_id()?,
+            source_start: u64_arg(args, "source_start", 0, i64::MAX as u64)?,
+            length: u64_arg(args, "length", 1, i64::MAX as u64)?,
+        }),
+        "driver.ardour-audio.session.deep.clip.remove" => Ok(NativeMutation::ClipRemove {
+            region_id: region_id()?,
+        }),
+        "driver.ardour-audio.session.deep.range.set" => Ok(NativeMutation::SessionRange {
+            start: u64_arg(args, "start", 0, i64::MAX as u64 - 1)?,
+            end: u64_arg(args, "end", 1, i64::MAX as u64)?,
+        }),
+        _ => Err(Error::new(
+            ErrorCode::Internal,
+            "Unknown typed Ardour deep mutation",
+        )),
+    }
+}
+
+
+fn resolve_native_route_id(snapshot: &NativeArdourSnapshot, semantic: &str) -> Result<String> {
+    snapshot
+        .routes
+        .iter()
+        .find(|route| match route.kind {
+            RouteKind::Master => semantic == "master",
+            RouteKind::Track => semantic_id("stem", &route.id) == semantic,
+            RouteKind::Bus => semantic_id("bus", &route.id) == semantic,
+            RouteKind::Other => false,
+        })
+        .map(|route| route.id.clone())
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "Semantic Ardour route does not exist"))
+}
+
+fn resolve_native_region_id(snapshot: &NativeArdourSnapshot, semantic: &str) -> Result<String> {
+    snapshot
+        .routes
+        .iter()
+        .flat_map(|route| route.regions.iter())
+        .find(|region| semantic_id("clip", &region.id) == semantic)
+        .map(|region| region.id.clone())
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "Semantic Ardour clip does not exist"))
+}
+
+fn native_effect_verified(
+    before: &NativeArdourSnapshot,
+    after: &NativeArdourSnapshot,
+    mutation: &NativeMutation,
+) -> bool {
+    let route_after = |id: &str| after.routes.iter().find(|route| route.id == id);
+    let region_after = |id: &str| {
+        after
+            .routes
+            .iter()
+            .flat_map(|route| route.regions.iter())
+            .find(|region| region.id == id)
+    };
+    match mutation {
+        NativeMutation::StemCreate { channels, name } => {
+            let old_ids: std::collections::BTreeSet<_> =
+                before.routes.iter().map(|route| route.id.as_str()).collect();
+            let created: Vec<_> = after
+                .routes
+                .iter()
+                .filter(|route| !old_ids.contains(route.id.as_str()))
+                .collect();
+            created.len() == 1
+                && created[0].kind == RouteKind::Track
+                && created[0].channels == *channels
+                && created[0].name == *name
+        }
+        NativeMutation::RouteRemove { route_id } => {
+            before.routes.iter().any(|route| route.id == *route_id)
+                && route_after(route_id).is_none()
+        }
+        NativeMutation::RouteRename { route_id, name } => {
+            route_after(route_id).is_some_and(|route| route.name == *name)
+        }
+        NativeMutation::RouteMute { route_id, value } => {
+            route_after(route_id).is_some_and(|route| route.muted == *value)
+        }
+        NativeMutation::RouteSolo { route_id, value } => {
+            route_after(route_id).is_some_and(|route| route.soloed == *value)
+        }
+        NativeMutation::RouteGain {
+            route_id,
+            gain_millidb,
+        } => route_after(route_id)
+            .is_some_and(|route| route.gain_millidb.abs_diff(*gain_millidb) <= 1),
+        NativeMutation::RoutePan {
+            route_id,
+            pan_milli,
+        } => route_after(route_id)
+            .is_some_and(|route| route.pan_milli.abs_diff(*pan_milli) <= 1),
+        NativeMutation::ClipMove { region_id, start } => {
+            region_after(region_id).is_some_and(|region| region.position == *start)
+        }
+        NativeMutation::ClipTrim {
+            region_id,
+            source_start,
+            length,
+        } => region_after(region_id).is_some_and(|region| {
+            region.source_start == *source_start && region.length == *length
+        }),
+        NativeMutation::ClipRemove { region_id } => {
+            before
+                .routes
+                .iter()
+                .flat_map(|route| route.regions.iter())
+                .any(|region| region.id == *region_id)
+                && region_after(region_id).is_none()
+        }
+        NativeMutation::SessionRange { start, end } => {
+            after.session_start == *start && after.session_end == *end
+        }
+        NativeMutation::SaveAs { .. } => false,
+    }
 }
 
 fn fidelity_name(value: ProjectionFidelity) -> &'static str {

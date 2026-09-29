@@ -146,9 +146,61 @@ jobs:
           path: verification/audio
           retention-days: 7
           if-no-files-found: error
+  ardour-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: audio-v1-ardour84-noble
+      - name: Install pinned Ardour runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y 'ardour=1:8.4.0+ds1-2ubuntu8' 'ardour-data=1:8.4.0+ds1-2ubuntu8' bubblewrap libpipewire-0.3-dev
+          mkdir -p verification/audio
+          dpkg-query -W ardour ardour-data > verification/audio/ardour-runtime-packages.txt
+      - name: Locate exact internal Ardour utilities
+        run: |
+          LUA="$(find /usr/lib -type f -path '*ardour8*' -name 'luasession' -perm /111 -print -quit)"
+          CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_empty_session' -perm /111 -print -quit)"
+          EXPORT="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-export' -perm /111 -print -quit)"
+          test -n "$LUA" && test -n "$CREATE" && test -n "$EXPORT"
+          printf 'SEMWRIGHT_TEST_ARDOUR_LUA=%s
+' "$LUA" >> "$GITHUB_ENV"
+          printf 'SEMWRIGHT_TEST_ARDOUR_CREATE=%s
+' "$CREATE" >> "$GITHUB_ENV"
+          printf 'SEMWRIGHT_TEST_ARDOUR_EXPORT=%s
+' "$EXPORT" >> "$GITHUB_ENV"
+          sha256sum "$LUA" "$CREATE" "$EXPORT" > verification/audio/ardour-tools.sha256
+          "$LUA" --version > verification/audio/ardour-lua-version.txt
+          "$CREATE" --version > verification/audio/ardour-create-version.txt
+          "$EXPORT" --version > verification/audio/ardour-export-version.txt
+      - name: Check namespace prerequisite without changing host security policy
+        run: |
+          bwrap --die-with-parent --unshare-all --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev -- /usr/bin/true
+      - name: Build Ardour driver and Driver Host sandbox
+        run: |
+          cargo build --locked -p semwright-plugin-host -p semwright-ardour-audio-driver --bins
+      - name: Broker to sealed Ardour create edit save reopen export
+        run: |
+          export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
+          python3 scripts/audio/run-suite.py ardour-host
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: audio-ardour-${{ github.sha }}
+          path: verification/audio
+          retention-days: 7
+          if-no-files-found: error
   audio-gate:
     if: always()
-    needs: [audio-domain, faust-native, analysis-native]
+    needs: [audio-domain, faust-native, analysis-native, ardour-native]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -157,4 +209,5 @@ jobs:
           DOMAIN_RESULT: ${{ needs.audio-domain.result }}
           FAUST_RESULT: ${{ needs.faust-native.result }}
           ANALYSIS_RESULT: ${{ needs.analysis-native.result }}
-        run: test "$DOMAIN_RESULT" = success && test "$FAUST_RESULT" = success && test "$ANALYSIS_RESULT" = success
+          ARDOUR_RESULT: ${{ needs.ardour-native.result }}
+        run: test "$DOMAIN_RESULT" = success && test "$FAUST_RESULT" = success && test "$ANALYSIS_RESULT" = success && test "$ARDOUR_RESULT" = success

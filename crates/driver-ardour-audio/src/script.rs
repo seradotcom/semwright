@@ -44,6 +44,13 @@ pub enum NativeMutation {
     ClipRemove {
         region_id: String,
     },
+    SessionRange {
+        start: u64,
+        end: u64,
+    },
+    SaveAs {
+        state: String,
+    },
 }
 
 impl NativeMutation {
@@ -133,6 +140,20 @@ impl NativeMutation {
             Self::ClipRemove { region_id } => {
                 validate_id(region_id)?;
                 Ok(vec!["clip_remove".into(), region_id.clone()])
+            }
+            Self::SessionRange { start, end } => {
+                if end <= start || *end > i64::MAX as u64 {
+                    return Err(Error::invalid("Invalid Ardour session range"));
+                }
+                Ok(vec![
+                    "session_range".into(),
+                    start.to_string(),
+                    end.to_string(),
+                ])
+            }
+            Self::SaveAs { state } => {
+                validate_id(state)?;
+                Ok(vec!["save_as".into(), state.clone()])
             }
         }
     }
@@ -344,6 +365,8 @@ local function snapshot(version)
     field("ardour_version", q(version)),
     field("session_name", q(Session:name())),
     field("sample_rate", tostring(Session:nominal_sample_rate())),
+    field("session_start", tostring(Session:current_start_sample())),
+    field("session_end", tostring(Session:current_end_sample())),
     field("routes", arr(routes)),
     field("warnings", "[]")
   })
@@ -431,6 +454,21 @@ local function mutate(command)
   elseif command == "clip_remove" then
     local region, playlist = require_region(arg[5])
     playlist:remove_region(region)
+  elseif command == "session_range" then
+    local start_sample = tonumber(arg[5])
+    local end_sample = tonumber(arg[6])
+    if not start_sample or not end_sample or end_sample <= start_sample then
+      error("invalid session range")
+    end
+    Session:set_session_extents(
+      Temporal.timepos_t(start_sample),
+      Temporal.timepos_t(end_sample)
+    )
+  elseif command == "save_as" then
+    local state = arg[5]
+    local status = Session:save_state(state)
+    if status ~= 0 then error("Ardour save-as failed") end
+    return
   else
     error("unsupported Semwright Ardour command")
   end
