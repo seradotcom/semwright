@@ -945,7 +945,7 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                     json!({"root":"worlds","name":"SemwrightProductWorld"}),
                 )
                 .await;
-            fixture
+            let world = fixture
                 .call(
                     "semantic.property.set",
                     json!({
@@ -955,7 +955,18 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                     }),
                 )
                 .await;
-            fixture
+            // Every semantic mutation rotates the generation. Re-resolve the Scene
+            // rather than reusing a deliberately stale ref from the camera mutation.
+            let scenes = fixture
+                .call("semantic.objects", json!({"root":"scenes","limit":8}))
+                .await;
+            let scene_ref = scenes["items"]
+                .as_array()
+                .and_then(|rows| rows.first())
+                .and_then(|row| row["ref"].as_str())
+                .unwrap()
+                .to_owned();
+            let world_relation = fixture
                 .call(
                     "semantic.relation.set",
                     json!({"ref":scene_ref,"property":"world","target_ref":world["ref"]}),
@@ -964,7 +975,7 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             let world_color = fixture
                 .call(
                     "semantic.property.get",
-                    json!({"ref":world["ref"],"property":"color"}),
+                    json!({"ref":world_relation["target_ref"],"property":"color"}),
                 )
                 .await;
             let world_color = world_color["value"].as_array().unwrap();
