@@ -3184,6 +3184,7 @@ dependencies = [
  "schemars",
  "semwright-project-graph",
  "semwright-semantic-composition",
+ "semwright-types",
  "serde",
  "serde_json",
 ]

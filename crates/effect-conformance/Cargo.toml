@@ -7,6 +7,7 @@ license.workspace = true
 description = "Typed effect predicates and driver observation conformance over Composition"
 
 [dependencies]
+semwright-types.workspace = true
 semwright-semantic-composition.workspace = true
 serde.workspace = true
 serde_json.workspace = true
