@@ -12,7 +12,7 @@ Faust and analysis use Driver Host digest-pinned tool mounts. Ardour deep execut
 
 Production paths resolve named owner grants. Output names are bounded relative names and existing artifacts are not overwritten. Analysis binds an expected SHA-256, snapshots input bytes before metering and rejects unsafe file shapes. WAV parsing has explicit byte/frame/chunk budgets and rejects truncation and inconsistent alignment. Faust sample playback uses a separate read-only audio-assets grant; only normalized relative WAV/FLAC paths are accepted, every path component is rejected if symlinked, bytes are copied to an immutable private scratch file, and the caller must bind the expected SHA-256 before libsndfile/Faust sees the sample.
 
-Ardour runtime, project and output roots are separate grants. Save-as reopens the candidate and reobserves the protected source. Export reobserves source state and decodes the resulting WAV because Ardour 8.4 utility exit zero alone is not trusted as proof.
+Ardour runtime, project and output roots are separate grants. Managed creation provisions a constant Semwright session-template XML only inside a private disposable runtime data path; agent input cannot alter the template or inject session XML. Ardour itself materializes the native session, after which all acceptance uses native save/reopen/readback. Save-as reopens the candidate and reobserves the protected source. Export reobserves source state and decodes the resulting WAV because Ardour 8.4 utility exit zero alone is not trusted as proof.
 
 ## Native boundary
 
