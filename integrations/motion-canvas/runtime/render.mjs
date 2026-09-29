@@ -176,4 +176,10 @@ async function main() {
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
   } finally { await cleanup(); }
 }
-main().catch(error => { process.stderr.write(String(error?.stack || error) + '\n'); process.exitCode = 1; });
+main().catch(error => {
+  const message = String(error?.message || error)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .slice(0, 1024);
+  process.stdout.write(JSON.stringify({ok:false,error:message}) + '\n');
+  process.exitCode = 1;
+});
