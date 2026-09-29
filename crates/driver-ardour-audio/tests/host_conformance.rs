@@ -4,7 +4,7 @@ use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
-    Transport,
+    SystemConfigMount, Transport,
 };
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_types::{Envelope, ErrorCode, ExecuteRequest, unique_id};
@@ -159,7 +159,10 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 execute: false,
             },
         ],
-        system_config: vec![],
+        system_config: vec![SystemConfigMount {
+            root: "ardour-config".into(),
+            destination: "/etc/ardour8".into(),
+        }],
         secrets: vec![],
         tools: vec![
             DriverToolMount {
@@ -198,6 +201,12 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         FilesystemGrant {
             name: "ardour-runtime".into(),
             path: runtime.canonicalize().unwrap(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "ardour-config".into(),
+            path: PathBuf::from("/etc/ardour8").canonicalize().unwrap(),
             read: true,
             write: false,
         },

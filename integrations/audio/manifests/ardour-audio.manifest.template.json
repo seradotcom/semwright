@@ -4,7 +4,12 @@
   "version": "0.9.0-dev.1",
   "publisher": "semwright-development",
   "transport": "stdio_v1",
-  "system_config": [],
+  "system_config": [
+    {
+      "root": "ardour-config",
+      "destination": "/etc/ardour8"
+    }
+  ],
   "secrets": [],
   "network": false,
   "loopback_port": 3819,

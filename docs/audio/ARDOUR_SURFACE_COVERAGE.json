@@ -33,8 +33,8 @@
     {
       "surface": "new managed session",
       "status": "implemented",
-      "route": "official ardour8-new_empty_session Dummy backend utility",
-      "evidence": "state artifact + clean reopen required"
+      "route": "official ardour8-new_empty_session Dummy backend utility; sample-rate selectable, stereo master fixed by upstream 8.4 utility",
+      "evidence": "state artifact + clean reopen required; non-stereo request is unsupported"
     },
     {
       "surface": "route create/remove/rename/mute/solo/gain/pan",

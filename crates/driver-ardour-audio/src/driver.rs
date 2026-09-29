@@ -891,7 +891,7 @@ fn deep_capabilities() -> Vec<Capability> {
                 "properties":{
                     "state":state.clone(),
                     "sample_rate":{"type":"integer","minimum":8000,"maximum":192000},
-                    "master_channels":{"type":"integer","minimum":0,"maximum":64}
+                    "master_channels":{"const":2}
                 },
                 "required":["state","sample_rate","master_channels"],
                 "additionalProperties":false

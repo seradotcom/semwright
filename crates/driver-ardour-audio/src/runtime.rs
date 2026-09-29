@@ -139,8 +139,11 @@ impl DeepRuntime {
         master_channels: u16,
     ) -> Result<ArdourSnapshot> {
         validate_state(state)?;
-        if !(8_000..=192_000).contains(&sample_rate) || master_channels > 64 {
-            return Err(Error::invalid("Invalid Ardour session creation parameters"));
+        if !(8_000..=192_000).contains(&sample_rate) || master_channels != 2 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Ardour 8.4 new_empty_session does not expose master-channel selection; managed creation is stereo",
+            ));
         }
         let state_file = self.state_path(state);
         if state_file.try_exists()? {
@@ -152,8 +155,6 @@ impl DeepRuntime {
         let args = vec![
             "-s".into(),
             sample_rate.to_string(),
-            "-m".into(),
-            master_channels.to_string(),
             self.session_root.to_string_lossy().into_owned(),
             state.into(),
         ];
