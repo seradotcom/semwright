@@ -1851,7 +1851,7 @@ mod driver_tests {
     }
 
     #[test]
-    fn protocol_v3_render_execute_contract_is_explicit() {
+    fn protocol_v7_host_managed_render_contract_is_explicit() {
         let temp = tempfile::tempdir().unwrap();
         let driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
@@ -1878,12 +1878,19 @@ mod driver_tests {
 
         let manifest: semwright_driver_sdk::Manifest =
             serde_json::from_slice(include_bytes!("../driver.manifest.example.json")).unwrap();
-        assert_eq!(manifest.protocol, 3);
+        assert_eq!(manifest.protocol, 7);
         assert_eq!(manifest.request_timeout_ms, 300_000);
         assert!(manifest.interfaces.cooperative_cancellation);
         assert!(manifest.interfaces.progress);
         assert!(manifest.interfaces.artifacts);
+        assert!(manifest.interfaces.host_tools);
         assert!(!manifest.interfaces.native_refs);
+        assert_eq!(manifest.tools.len(), 1);
+        assert_eq!(manifest.tools[0].name, "motion-node");
+        assert_eq!(
+            manifest.tools[0].mounts,
+            ["project", "output", "runtime", "fontconfig"]
+        );
         manifest.validate().unwrap();
     }
 

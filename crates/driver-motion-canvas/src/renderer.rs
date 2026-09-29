@@ -452,35 +452,53 @@ fn host_timeout(plan: &RenderPlan) -> Duration {
 }
 
 fn validate_host_result(output: &ToolExecutionOutput) -> Result<()> {
-    if output.exit_code != 0 {
-        return Err(Error::new(
-            ErrorCode::BackendFailed,
-            format!(
-                "Motion Canvas renderer exited with code {}",
-                output.exit_code
-            ),
-        ));
-    }
     let stdout = String::from_utf8(output.stdout.clone()).map_err(|_| {
         Error::new(
             ErrorCode::BackendFailed,
             "Renderer returned non-UTF8 output",
         )
     })?;
-    let result_line = stdout
-        .lines()
-        .rev()
-        .find(|line| line.starts_with('{'))
-        .ok_or_else(|| {
+    let result_line = stdout.lines().rev().find(|line| line.starts_with('{'));
+    let value = result_line
+        .map(serde_json::from_str::<serde_json::Value>)
+        .transpose()
+        .map_err(|_| {
             Error::new(
                 ErrorCode::BackendFailed,
-                "Renderer returned no structured result",
+                "Renderer returned malformed result",
             )
         })?;
-    let value: serde_json::Value = serde_json::from_str(result_line).map_err(|_| {
+
+    if output.exit_code != 0 {
+        let detail = value
+            .as_ref()
+            .filter(|value| value.get("ok") == Some(&serde_json::Value::Bool(false)))
+            .and_then(|value| value.get("error"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|message| {
+                !message.is_empty()
+                    && message.len() <= 1024
+                    && !message.chars().any(char::is_control)
+            });
+        return Err(Error::new(
+            ErrorCode::BackendFailed,
+            match detail {
+                Some(detail) => format!(
+                    "Motion Canvas renderer exited with code {}: {detail}",
+                    output.exit_code
+                ),
+                None => format!(
+                    "Motion Canvas renderer exited with code {}",
+                    output.exit_code
+                ),
+            },
+        ));
+    }
+
+    let value = value.ok_or_else(|| {
         Error::new(
             ErrorCode::BackendFailed,
-            "Renderer returned malformed result",
+            "Renderer returned no structured result",
         )
     })?;
     if value.get("ok") != Some(&serde_json::Value::Bool(true)) {
@@ -610,4 +628,36 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
         last_png: format!("{directory}/frames/{last}"),
         manifest_sha256: security::sha256(&manifest_bytes),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_result_accepts_success_and_preserves_bounded_structured_failure() {
+        let success = ToolExecutionOutput {
+            exit_code: 0,
+            stdout: br#"{"ok":true}"#.to_vec(),
+            stderr: vec![],
+        };
+        assert!(validate_host_result(&success).is_ok());
+
+        let failure = ToolExecutionOutput {
+            exit_code: 1,
+            stdout: br#"{"ok":false,"error":"runtime bundle resolution failed"}"#.to_vec(),
+            stderr: vec![],
+        };
+        let error = validate_host_result(&failure).unwrap_err();
+        assert_eq!(error.code, ErrorCode::BackendFailed);
+        assert!(error.message.contains("runtime bundle resolution failed"));
+
+        let unstructured = ToolExecutionOutput {
+            exit_code: 1,
+            stdout: b"not-json".to_vec(),
+            stderr: vec![],
+        };
+        let error = validate_host_result(&unstructured).unwrap_err();
+        assert_eq!(error.message, "Motion Canvas renderer exited with code 1");
+    }
 }
