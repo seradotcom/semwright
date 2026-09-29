@@ -9,7 +9,8 @@
     "main": "b736d41b61c4a4146c9e75c16796e251b025e69f"
   },
   "selected_lanes": [
-    "selftest"
+    "selftest",
+    "composition"
   ],
   "pins": {
     "os": "ubuntu-24.04",

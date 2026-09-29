@@ -330,6 +330,868 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-PLAN-001",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "reservation before receipt",
+      "expected": {
+        "reserved_before_effect": true,
+        "attempts": 1,
+        "receipt": [
+          "synthetic-write:a"
+        ]
+      }
+    },
+    {
+      "id": "G-PLAN-002",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "rehash expanded write set",
+      "expected": {
+        "rehashed_structural_plan_valid": true,
+        "vault_denied": true,
+        "attempts": 0
+      }
+    },
+    {
+      "id": "G-PLAN-003",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "principal substitution",
+      "expected": {
+        "begin_denied": true,
+        "ledger_denied": true,
+        "owner_unmodified": true
+      }
+    },
+    {
+      "id": "G-PLAN-004",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "session substitution",
+      "expected": {
+        "begin_denied": true,
+        "ledger_denied": true,
+        "owner_unmodified": true
+      }
+    },
+    {
+      "id": "G-PLAN-005",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unissued plan",
+      "expected": {
+        "unissued_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-006",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "six canonical bindings",
+      "expected": {
+        "bound_fields_denied": 6
+      }
+    },
+    {
+      "id": "G-PLAN-007",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "required suppression",
+      "expected": {
+        "required_suppression_rejected": true
+      }
+    },
+    {
+      "id": "G-PLAN-008",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "four profile substitutions",
+      "expected": {
+        "profile_substitutions_rejected": 4
+      }
+    },
+    {
+      "id": "G-PLAN-009",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "effect escalation",
+      "expected": {
+        "effect_escalation_rejected": true
+      }
+    },
+    {
+      "id": "G-PLAN-010",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "logical address transplant",
+      "expected": {
+        "structurally_valid": true,
+        "transplant_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-011",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "request replay across repair",
+      "expected": {
+        "root_request_replay_denied": true,
+        "fresh_request_still_possible": true,
+        "attempts": 2
+      }
+    },
+    {
+      "id": "G-PLAN-012",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unsafe terminal outcome retry and repair",
+      "expected": {
+        "unsafe_retries_denied": 5,
+        "unsafe_repairs_denied": 5
+      }
+    },
+    {
+      "id": "G-PLAN-013",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "lost dispatch leaves reservation",
+      "expected": {
+        "still_applying": true,
+        "retry_denied": true,
+        "repair_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-014",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "reissue not a refund",
+      "expected": {
+        "reissue_did_not_reset": true,
+        "attempts": 1
+      }
+    },
+    {
+      "id": "G-PLAN-015",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "cumulative operations",
+      "expected": {
+        "aggregate_limit": "LIMIT",
+        "attempts": 1
+      }
+    },
+    {
+      "id": "G-PLAN-016",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "five budget dimensions",
+      "expected": {
+        "budget_dimensions_bound": 5
+      }
+    },
+    {
+      "id": "G-PLAN-017",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "root observation budget",
+      "expected": {
+        "findings_limit": true,
+        "shared_observation_limit": true
+      }
+    },
+    {
+      "id": "G-PLAN-018",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "independent root positive control",
+      "expected": {
+        "independent_root_allowed": true
+      }
+    },
+    {
+      "id": "G-PLAN-019",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "revocation scope",
+      "expected": {
+        "revoked_denied": true,
+        "other_unchanged": true
+      }
+    },
+    {
+      "id": "G-PLAN-020",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "restart loses issued authority",
+      "expected": {
+        "restart_loses_authority": true
+      }
+    },
+    {
+      "id": "G-PLAN-021",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "revoked completion rejected",
+      "expected": {
+        "completion_after_revoke_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-022",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "late receipt after root replacement",
+      "expected": {
+        "old_epoch_completion_accepted": false,
+        "new_attempt_still_applying": true
+      }
+    },
+    {
+      "id": "G-PLAN-023",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "cross-vault permit isolation",
+      "expected": {
+        "foreign_vault_completion_accepted": false
+      }
+    },
+    {
+      "id": "G-PLAN-024",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "expired epoch completion",
+      "expected": {
+        "expired_epoch_completion_accepted": false
+      }
+    },
+    {
+      "id": "G-PLAN-025",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "expired begin",
+      "expected": {
+        "expired_begin": "STALE"
+      }
+    },
+    {
+      "id": "G-PLAN-026",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "invalid terminal receipt retains reservation",
+      "expected": {
+        "nonterminal_finish_rejected": true,
+        "still_applying": true,
+        "reservation_not_refunded": true
+      }
+    },
+    {
+      "id": "G-PLAN-027",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unobserved parent repair",
+      "expected": {
+        "unobserved_parent_denied": true,
+        "unclassified_child_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-028",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "server capacity budgets",
+      "expected": {
+        "root_capacity": "LIMIT",
+        "attempt_capacity": "LIMIT",
+        "plan_capacity": "LIMIT"
+      }
+    },
+    {
+      "id": "G-PLAN-029",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "empty cyclic and undeclared plans",
+      "expected": {
+        "invalid_structures_rejected": 3
+      }
+    },
+    {
+      "id": "G-PLAN-030",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "stale candidate receipt",
+      "expected": {
+        "old_candidate_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-031",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "controller required-set binding",
+      "expected": {
+        "scope_suppression_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-032",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "healthy controller",
+      "expected": {
+        "positive_complete": true,
+        "verified_state": true
+      }
+    },
+    {
+      "id": "G-PLAN-033",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "no progress terminates repair",
+      "expected": {
+        "repair_initially_allowed": true,
+        "stopped_without_progress": true
+      }
+    },
+    {
+      "id": "G-PLAN-034",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "ambiguous repair stops",
+      "expected": {
+        "ambiguous_repair_stopped": true
+      }
+    },
+    {
+      "id": "G-PLAN-035",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "partial controller cannot retry",
+      "expected": {
+        "partial_state": true,
+        "unsafe_retry_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-036",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "cancelled controller cannot certify",
+      "expected": {
+        "cancelled_state": true,
+        "apply_after_cancel_denied": true,
+        "ready_after_cancel_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-037",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "native identity replacement",
+      "expected": {
+        "identity_changes_rejected": 3
+      }
+    },
+    {
+      "id": "G-PLAN-038",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unordered base set positive control",
+      "expected": {
+        "same_resource_set_fresh": true
+      }
+    },
+    {
+      "id": "G-PLAN-039",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unknown vs stale membership",
+      "expected": {
+        "unobservable": "UNKNOWN",
+        "missing_membership": "STALE"
+      }
+    },
+    {
+      "id": "G-PLAN-040",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "best effort is not native CAS",
+      "expected": {
+        "best_effort_is_not_cas": "DENIED",
+        "declared_cas_contract_accepted": true
+      }
+    },
+    {
+      "id": "G-VERIFY-001",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "healthy synthetic-labelled evidence",
+      "expected": {
+        "verdict": "PASS"
+      }
+    },
+    {
+      "id": "G-VERIFY-002",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "27 required-verdict combinations",
+      "expected": {
+        "truth_table": [
+          "PASS",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-003",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "missing final check",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-VERIFY-004",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "duplicate result",
+      "expected": {
+        "duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-005",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "nonexhaustive evidence each position",
+      "expected": {
+        "verdicts": [
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-006",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "fixture and simulation",
+      "expected": {
+        "verdicts": [
+          "UNKNOWN",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-007",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "heuristic and aesthetic class",
+      "expected": {
+        "verdicts": [
+          "UNKNOWN",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-008",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "stale observation base",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-VERIFY-009",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "invalid measurement method version",
+      "expected": {
+        "invalid_method_can_pass": false
+      }
+    },
+    {
+      "id": "G-VERIFY-010",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "foreign observation scope",
+      "expected": {
+        "foreign_scope_can_pass": false
+      }
+    },
+    {
+      "id": "G-VERIFY-011",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unobservable relevant effects",
+      "expected": {
+        "unobservable_required_effect_can_pass": false
+      }
+    },
+    {
+      "id": "G-VERIFY-012",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "execution status vs verdict",
+      "expected": {
+        "positive_validation": [
+          "UNKNOWN",
+          "UNKNOWN",
+          "PASS",
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN"
+        ],
+        "failed_validation": [
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-013",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "explicit optional failure outside required scope",
+      "expected": {
+        "required_scope_verdict": "PASS"
+      }
+    },
+    {
+      "id": "G-VERIFY-014",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "FAIL dominates missing",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-VERIFY-015",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "missing readback",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-VERIFY-016",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "invalid rule version",
+      "expected": {
+        "invalid_rule_version_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-017",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "ambiguous base",
+      "expected": {
+        "ambiguous_base_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-018",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "check count limit",
+      "expected": {
+        "check_budget_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-019",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "empty required scope",
+      "expected": {
+        "vacuous_pass_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-020",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "warning cannot hide required unknown",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-CODEC-001",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "escaped duplicate",
+      "expected": {
+        "escaped_duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-002",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "entry limit",
+      "expected": {
+        "entry_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-003",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "depth limit",
+      "expected": {
+        "depth_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-004",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "trailing data",
+      "expected": {
+        "trailing_data_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-005",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "invalid UTF8",
+      "expected": {
+        "invalid_utf8_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-006",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "nonfinite number",
+      "expected": {
+        "nonfinite_number_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-007",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "Unicode/null/array order",
+      "expected": {
+        "roundtrip": true,
+        "array_order_preserved": true
+      }
+    },
+    {
+      "id": "G-CODEC-008",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "canonical key order but no implicit Unicode normalization",
+      "expected": {
+        "key_order_canonical": true,
+        "unicode_forms_not_silently_normalized": true
+      }
+    },
+    {
+      "id": "G-CODEC-009",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "seeded small JSON corpus",
+      "expected": {
+        "seeded_roundtrips": 64
+      }
+    },
+    {
+      "id": "G-CODEC-010",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unknown authority metadata",
+      "expected": {
+        "unknown_authority_field_rejected": true
+      }
     }
   ]
 }
