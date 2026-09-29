@@ -91,6 +91,7 @@ async fn local_driver_routes_work() {
         projects: vec![ProjectConfig {
             project: "a".repeat(64),
             root: dir.path().canonicalize().unwrap(),
+            mount: None,
             secret: "b".repeat(64),
         }],
         runner: None,

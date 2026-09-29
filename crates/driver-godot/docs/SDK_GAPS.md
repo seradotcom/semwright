@@ -21,12 +21,12 @@ The Host conformance test exercises this exact path.
 Pairing material no longer needs to live inline in production driver configuration.
 
 Driver manifests support first-class secret mounts. Driver Host requires the secret source to be
-a canonical, small, regular, owner-only, single-linked file and exposes it read-only and
-non-executable beneath `/run/secrets/<name>`. Landlock admits only direct secret-file read
-roots, not the whole directory or nested/traversal paths.
+a canonical, small, regular owner-approved file and exposes only the named materialized secret to
+the driver. The concrete path is platform-owned; Linux currently materializes it beneath
+`/run/secrets/<name>`, while callers and production config use the logical secret name.
 
-Godot production config uses `secret_file`; inline secrets are accepted only in explicit
-development mode.
+Godot production config uses `secret_name`; inline secrets require explicit development mode.
+The historical `secret_file` form remains a Linux compatibility path, not the portable contract.
 
 ## Non-goal — caller authorization inside the driver
 
@@ -65,12 +65,15 @@ Hosts without an equivalent bounded accounting primitive reject the opt-in per-o
 Godot runner operations require an owner-approved Godot executable in addition to the driver
 binary.
 
-Driver manifests now support digest-pinned secondary tools. Driver Host verifies the executable,
-copies verified bytes into a sealed Linux memfd, and Bubblewrap materializes the sealed payload
-under `/plugin/tools/<name>`. Landlock grants Execute only to the explicitly declared tool file.
+Driver manifests now support digest-pinned secondary tools. Protocol v5 lets the driver request
+the logical `godot` tool through Driver Host with only the workspace mounts declared for that
+tool. Linux and Windows both use Host-mediated invocation; the driver does not receive the owner
+installation path. Linux v4 materialized-tool compatibility remains for older drivers.
 
-The source path may disappear after Host staging; execution does not reopen the mutable owner
-path.
+Production Godot config likewise names project/output mounts rather than embedding
+`/workspace/...`, Windows paths or a duplicate executable path/digest. Direct executable paths
+remain available only in explicit development mode. The owner source may disappear after Host
+staging; execution stays bound to the verified staged bytes.
 
 ## Resolved — companion EditorPlugin distribution
 

@@ -1,4 +1,5 @@
-use semwright_types::{Error, ErrorCode, Result};
+use semwright_driver_sdk::{secret_mount, workspace_mount};
+use semwright_types::{Error, ErrorCode, Result, provider::canonical_slug};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -11,6 +12,8 @@ use zeroize::Zeroize;
 pub struct ProjectConfig {
     pub project: String,
     pub root: PathBuf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mount: Option<String>,
     #[serde(skip_serializing)]
     pub secret: String,
 }
@@ -21,6 +24,10 @@ impl Drop for ProjectConfig {
     }
 }
 
+fn valid_logical_name(value: &str) -> bool {
+    canonical_slug(value) && !value.starts_with("semwright-internal-")
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RunnerConfig {
@@ -29,6 +36,8 @@ pub struct RunnerConfig {
     #[serde(default)]
     pub sha256: Option<String>,
     pub output_root: PathBuf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_mount: Option<String>,
     #[serde(default)]
     pub display: Option<String>,
 }
@@ -47,11 +56,31 @@ pub struct Config {
 #[serde(deny_unknown_fields)]
 struct StoredProjectConfig {
     project: String,
-    root: PathBuf,
+    #[serde(default)]
+    root: Option<PathBuf>,
+    #[serde(default)]
+    mount: Option<String>,
     #[serde(default)]
     secret: Option<String>,
     #[serde(default)]
     secret_file: Option<PathBuf>,
+    #[serde(default)]
+    secret_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StoredRunnerConfig {
+    #[serde(default)]
+    executable: Option<PathBuf>,
+    #[serde(default)]
+    sha256: Option<String>,
+    #[serde(default)]
+    output_root: Option<PathBuf>,
+    #[serde(default)]
+    output_mount: Option<String>,
+    #[serde(default)]
+    display: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -61,7 +90,7 @@ struct StoredConfig {
     #[serde(default)]
     development_mode: bool,
     projects: Vec<StoredProjectConfig>,
-    runner: Option<RunnerConfig>,
+    runner: Option<StoredRunnerConfig>,
 }
 
 impl Config {
@@ -91,39 +120,95 @@ impl Config {
         let stored: StoredConfig = parsed?;
         let mut projects = Vec::with_capacity(stored.projects.len());
         for project in stored.projects {
-            let secret = match (project.secret, project.secret_file) {
-                (Some(secret), None) if stored.development_mode => secret,
-                (Some(mut secret), None) => {
+            let secret = match (project.secret, project.secret_file, project.secret_name) {
+                (Some(secret), None, None) if stored.development_mode => secret,
+                (Some(mut secret), None, None) => {
                     secret.zeroize();
                     return Err(Error::new(
                         ErrorCode::PermissionDenied,
                         "Inline Godot pairing secrets require development_mode",
                     ));
                 }
-                (None, Some(secret_file)) => load_secret_file(&secret_file)?,
-                (Some(mut secret), Some(_)) => {
+                (None, Some(secret_file), None) => load_secret_file(&secret_file)?,
+                (None, None, Some(secret_name)) => load_secret_mount(&secret_name)?,
+                (Some(mut secret), _, _) => {
                     secret.zeroize();
                     return Err(Error::invalid(
                         "Godot project config requires exactly one secret source",
                     ));
                 }
-                (None, None) => {
+                _ => {
                     return Err(Error::invalid(
                         "Godot project config requires exactly one secret source",
                     ));
                 }
             };
+            let (root, mount) = match (project.root, project.mount) {
+                (Some(root), None) if stored.development_mode => (root.canonicalize()?, None),
+                (Some(_), None) => {
+                    return Err(Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Production Godot projects must use an owner-granted logical mount",
+                    ));
+                }
+                (None, Some(mount)) if valid_logical_name(&mount) => {
+                    (workspace_mount(&mount)?, Some(mount))
+                }
+                (None, Some(_)) => {
+                    return Err(Error::invalid("Godot project mount name is not canonical"));
+                }
+                (Some(_), Some(_)) | (None, None) => {
+                    return Err(Error::invalid(
+                        "Godot project config requires exactly one root or mount",
+                    ));
+                }
+            };
             projects.push(ProjectConfig {
                 project: project.project,
-                root: project.root,
+                root,
+                mount,
                 secret,
             });
         }
+        let runner = stored
+            .runner
+            .map(|runner| {
+                let (output_root, output_mount) = match (runner.output_root, runner.output_mount) {
+                    (Some(root), None) if stored.development_mode => (root.canonicalize()?, None),
+                    (Some(_), None) => {
+                        return Err(Error::new(
+                            ErrorCode::PermissionDenied,
+                            "Production Godot runner output must use a logical mount",
+                        ));
+                    }
+                    (None, Some(mount)) if valid_logical_name(&mount) => {
+                        (workspace_mount(&mount)?, Some(mount))
+                    }
+                    (None, Some(_)) => {
+                        return Err(Error::invalid(
+                            "Godot runner output mount name is not canonical",
+                        ));
+                    }
+                    (Some(_), Some(_)) | (None, None) => {
+                        return Err(Error::invalid(
+                            "Godot runner requires exactly one output_root or output_mount",
+                        ));
+                    }
+                };
+                Ok(RunnerConfig {
+                    executable: runner.executable,
+                    sha256: runner.sha256,
+                    output_root,
+                    output_mount,
+                    display: runner.display,
+                })
+            })
+            .transpose()?;
         let config = Self {
             port: stored.port,
             development_mode: stored.development_mode,
             projects,
-            runner: stored.runner,
+            runner,
         };
         config.validate()?;
         Ok(config)
@@ -145,10 +230,16 @@ impl Config {
                     "Godot project identity must be unique 256-bit hex",
                 ));
             }
-            if !project.root.is_absolute() || project.root.canonicalize()? != project.root {
+            if !project.root.is_absolute()
+                || (project.mount.is_none() && project.root.canonicalize()? != project.root)
+                || project
+                    .mount
+                    .as_ref()
+                    .is_some_and(|mount| !valid_logical_name(mount))
+            {
                 return Err(Error::new(
                     ErrorCode::PermissionDenied,
-                    "Godot project root must be canonical",
+                    "Godot project root/mount binding is invalid",
                 ));
             }
             if !project.root.join("project.godot").is_file() {
@@ -180,9 +271,24 @@ impl Config {
                     ));
                 }
             }
+            let host_managed = runner.executable.is_none();
+            if host_managed
+                && (runner.output_mount.is_none()
+                    || self.projects.iter().any(|project| project.mount.is_none()))
+            {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Host-managed Godot runners require logical project/output mounts",
+                ));
+            }
             if !runner.output_root.is_absolute()
-                || runner.output_root.canonicalize()? != runner.output_root
+                || (runner.output_mount.is_none()
+                    && runner.output_root.canonicalize()? != runner.output_root)
                 || !runner.output_root.is_dir()
+                || runner
+                    .output_mount
+                    .as_ref()
+                    .is_some_and(|mount| !valid_logical_name(mount))
                 || runner.display.as_ref().is_some_and(|display| {
                     display.len() > 32
                         || !display.starts_with(':')
@@ -201,6 +307,14 @@ impl Config {
     }
 }
 
+fn load_secret_mount(name: &str) -> Result<String> {
+    if !valid_logical_name(name) {
+        return Err(Error::invalid("Godot pairing secret name is not canonical"));
+    }
+    let path = secret_mount(name)?;
+    load_secret_contents(&path)
+}
+
 fn load_secret_file(path: &Path) -> Result<String> {
     if !path.is_absolute()
         || path.parent() != Some(Path::new("/run/secrets"))
@@ -208,7 +322,17 @@ fn load_secret_file(path: &Path) -> Result<String> {
     {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
-            "Godot pairing secret must come from /run/secrets",
+            "Legacy Godot pairing secret path must come from /run/secrets",
+        ));
+    }
+    load_secret_contents(path)
+}
+
+fn load_secret_contents(path: &Path) -> Result<String> {
+    if !path.is_absolute() || path.file_name().is_none() {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Godot pairing secret path must be absolute and file-backed",
         ));
     }
     let metadata = std::fs::symlink_metadata(path)?;
@@ -338,12 +462,14 @@ mod tests {
             projects: vec![ProjectConfig {
                 project: "a".repeat(64),
                 root: project.path().canonicalize().unwrap(),
+                mount: Some("godot-project".into()),
                 secret: "b".repeat(64),
             }],
             runner: Some(RunnerConfig {
                 executable: None,
                 sha256: None,
                 output_root: output.path().canonicalize().unwrap(),
+                output_mount: Some("godot-output".into()),
                 display: None,
             }),
         };
@@ -367,12 +493,14 @@ mod tests {
             projects: vec![ProjectConfig {
                 project: "a".repeat(64),
                 root: project.path().canonicalize().unwrap(),
+                mount: None,
                 secret: "b".repeat(64),
             }],
             runner: Some(RunnerConfig {
                 executable: Some(binary.clone()),
                 sha256: Some("c".repeat(64)),
                 output_root: output.path().canonicalize().unwrap(),
+                output_mount: None,
                 display: None,
             }),
         };
@@ -384,7 +512,25 @@ mod tests {
     }
 
     #[test]
-    fn secret_file_must_live_under_run_secrets() {
+    fn logical_mount_and_secret_names_are_canonical() {
+        for good in ["godot-project", "godot-output", "godot-pairing"] {
+            assert!(valid_logical_name(good), "{good}");
+        }
+        for bad in [
+            "",
+            "../project",
+            "Godot-Project",
+            "godot/project",
+            "semwright-internal-secret",
+        ] {
+            assert!(!valid_logical_name(bad), "{bad}");
+        }
+        let error = load_secret_mount("../pairing").unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+    }
+
+    #[test]
+    fn legacy_secret_file_must_live_under_run_secrets() {
         let error = load_secret_file(Path::new("/tmp/not-a-secret")).unwrap_err();
         assert_eq!(error.code, ErrorCode::PermissionDenied);
     }

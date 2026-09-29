@@ -10,17 +10,19 @@ The driver is a policy-mediated application provider, not an arbitrary Godot scr
   proxied to a private Unix socket inside the sandbox. The driver does not need ambient network
   authority.
 - The bridge requires bounded HMAC-SHA256 challenge/response pairing before a session is usable.
-- Production pairing material is delivered through first-class read-only, non-executable secret
-  mounts beneath `/run/secrets/<name>`. Inline secrets require explicit development mode.
+- Production pairing material is addressed by a logical secret name and delivered through a
+  first-class read-only, non-executable Host secret mount. Concrete materialization paths are
+  platform-owned. Inline secrets require explicit development mode.
 - Capability descriptors and outputs are schema-validated; mutations support
   revision/fingerprint preconditions.
 - Provider-owned Godot refs are materialized by the Broker RefStore as opaque IDs and are
   validated by the provider before reuse.
 - Managed script writes are confined to canonical `res://` paths and reject `@tool`.
 - The primary driver executable is digest-verified and staged by Driver Host.
-- Secondary Godot runner executables are digest-pinned, verified from a stable file descriptor
-  and staged as sealed executable payloads. Runner arguments are built from an allowlist; no
-  shell is involved.
+- Secondary Godot runner executables are digest-pinned and invoked by logical tool identity.
+  Under protocol v5 Driver Host stages verified bytes and grants each invocation only its declared
+  project/output mounts. Runner arguments are built from an allowlist; no shell or ambient
+  executable discovery is involved.
 - Linux confinement uses bubblewrap plus Landlock and has no unsandboxed fallback.
 - Persistent drivers retain hard lifetime resource limits; optional per-operation CPU accounting
   bounds CPU consumed by the provider process tree.

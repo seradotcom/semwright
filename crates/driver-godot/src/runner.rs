@@ -19,7 +19,7 @@ const MAX_LOG: usize = 64 * 1024;
 #[derive(Clone)]
 pub struct Runner {
     config: RunnerConfig,
-    projects: HashMap<String, PathBuf>,
+    projects: HashMap<String, (PathBuf, Option<String>)>,
 }
 
 impl Runner {
@@ -29,7 +29,7 @@ impl Runner {
         }
         let projects = projects
             .iter()
-            .map(|p| (p.project.clone(), p.root.clone()))
+            .map(|p| (p.project.clone(), (p.root.clone(), p.mount.clone())))
             .collect();
         Ok(Self { config, projects })
     }
@@ -82,7 +82,7 @@ impl Runner {
             .get("project")
             .and_then(Value::as_str)
             .ok_or_else(|| Error::invalid("Godot runner operation requires project"))?;
-        let root = self
+        let (root, project_mount) = self
             .projects
             .get(project_id)
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Godot project is not configured"))?;
@@ -218,7 +218,9 @@ impl Runner {
             }
         };
 
-        let process = self.run(root, &argv, timeout, context).await?;
+        let process = self
+            .run(root, project_mount.as_deref(), &argv, timeout, context)
+            .await?;
         let artifact = artifact
             .filter(|path| path.is_file())
             .map(|path| {
@@ -272,6 +274,7 @@ impl Runner {
     async fn run(
         &self,
         root: &Path,
+        project_mount: Option<&str>,
         argv: &[String],
         timeout: Duration,
         context: Option<&DriverExecutionContext>,
@@ -296,7 +299,14 @@ impl Runner {
                     Vec::new(),
                     timeout,
                     RuntimeToolCwd {
-                        mount: "godot-project".into(),
+                        mount: project_mount
+                            .ok_or_else(|| {
+                                Error::new(
+                                    ErrorCode::PermissionDenied,
+                                    "Host-managed Godot project is missing logical mount identity",
+                                )
+                            })?
+                            .to_owned(),
                         relative: String::new(),
                     },
                 )

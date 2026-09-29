@@ -162,11 +162,11 @@ fn fixture() -> Fixture {
             "development_mode": false,
             "projects": [{
                 "project": project_id,
-                "root": "/workspace/godot-project",
-                "secret_file": "/run/secrets/godot-pairing"
+                "mount": "godot-project",
+                "secret_name": "godot-pairing"
             }],
             "runner": {
-                "output_root": "/workspace/godot-project",
+                "output_mount": "godot-project",
                 "display": null
             }
         }))
