@@ -5,7 +5,10 @@ use semwright_faust_audio::{
     driver::capability_catalog as faust_catalog,
 };
 use semwright_registry::Metadata;
-use semwright_skills::{CatalogCapability, CatalogRoute, PolicyPreview, doctor, load};
+use semwright_skills::{
+    CatalogCapability, CatalogRoute, PolicyPreview, conformance_test, doctor, load,
+    lock as skill_lock,
+};
 use semwright_types::SourceKind;
 use std::path::PathBuf;
 
@@ -87,6 +90,44 @@ fn audio_skill_resolves_against_real_audio_catalog_without_grant_escalation() {
             .required_scopes
             .contains(&"driver:ardour-audio".to_string())
     );
+}
+
+#[test]
+fn audio_skill_examples_are_schema_checked_and_do_not_execute_operations() {
+    let skill = load(&skill_root()).unwrap();
+    let report = conformance_test(&skill, &audio_catalog(), env!("CARGO_PKG_VERSION")).unwrap();
+    assert!(report.pass, "{report:?}");
+    assert_eq!(report.examples.checked, 3, "{report:?}");
+    assert_eq!(report.examples.passed, 3, "{report:?}");
+    assert!(report.examples.failures.is_empty());
+    assert_eq!(report.executed_operations, 0);
+    assert_eq!(report.script_execution, "disabled");
+}
+
+#[test]
+fn audio_skill_lock_detects_descriptor_drift() {
+    let skill = load(&skill_root()).unwrap();
+    let mut catalog = audio_catalog();
+    let generated = skill_lock(&skill, &catalog, env!("CARGO_PKG_VERSION")).unwrap();
+    assert!(!generated.entries.is_empty());
+
+    let mut locked_skill = skill.clone();
+    locked_skill.lock = Some(generated);
+    let current = doctor(&locked_skill, &catalog, env!("CARGO_PKG_VERSION")).unwrap();
+    assert!(current.semwright_compatible, "{current:?}");
+    assert!(current.drift.is_empty());
+
+    let target = catalog
+        .iter_mut()
+        .find(|capability| capability.descriptor.name == "driver.faust-audio.synth.render")
+        .unwrap();
+    target.descriptor.version = "2".into();
+    let drifted = doctor(&locked_skill, &catalog, env!("CARGO_PKG_VERSION")).unwrap();
+    assert!(!drifted.semwright_compatible, "{drifted:?}");
+    assert!(drifted.drift.iter().any(|drift| {
+        drift.capability_id == "driver.faust-audio.synth.render"
+            && drift.field == "capability_version"
+    }));
 }
 
 #[test]
