@@ -656,9 +656,11 @@ local function inspect_sends(route)
     if not target or target:isnil() then return sends, false end
     local send_index, complete = processor_index(route, object_id(processor))
     if not complete or send_index == nil then return sends, false end
+    local level = route:send_level_controllable(index)
+    if not level or level:isnil() then return sends, false end
     table.insert(sends, obj({
       field("target_route", q(route_id(target))),
-      field("gain_millidb", tostring(db_milli_from_coeff(internal:gain_control():get_value()))),
+      field("gain_millidb", tostring(db_milli_from_coeff(level:get_value()))),
       field("enabled", bool(internal:active())),
       field("pre_fader", bool(send_index < amp_index))
     }))
@@ -780,6 +782,7 @@ end
 
 local function require_send(source, target_id)
   local found = nil
+  local found_index = nil
   for index = 0, 255 do
     local processor = source:nth_send(index)
     if not processor or processor:isnil() then break end
@@ -789,11 +792,12 @@ local function require_send(source, target_id)
       if target and not target:isnil() and route_id(target) == target_id then
         if found then error("multiple sends to target are ambiguous") end
         found = processor
+        found_index = index
       end
     end
   end
-  if not found then error("send not found") end
-  return found, found:to_internalsend()
+  if not found or found_index == nil then error("send not found") end
+  return found, found:to_internalsend(), found_index
 end
 
 local function mutate(command)
@@ -901,10 +905,12 @@ local function mutate(command)
     Session:add_internal_sends(target, placement, tracks)
   elseif command == "send_gain" then
     local source = require_route(arg[5])
-    local _, internal = require_send(source, arg[6])
+    local _, _, send_index = require_send(source, arg[6])
     local db_milli = tonumber(arg[7])
     if not db_milli then error("invalid send gain") end
-    internal:gain_control():set_value(10.0 ^ (db_milli / 20000.0), no_group())
+    local level = source:send_level_controllable(send_index)
+    if not level or level:isnil() then error("send level control is unavailable") end
+    level:set_value(10.0 ^ (db_milli / 20000.0), no_group())
   elseif command == "send_remove" then
     local source = require_route(arg[5])
     local processor = require_send(source, arg[6])
