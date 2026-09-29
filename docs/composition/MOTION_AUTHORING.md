@@ -20,4 +20,8 @@ Each invocation uses one coherent native starting snapshot. Overlapping writes t
 
 The streaming verifier consumes typed observed frame rows, not reserialized intent. Reports retain actual range, sample/exhaustive coverage, observation/render/artifact digests, units and common ValidationReport. Safe-area, native text, font readiness, truncation and ratio checks use native readback. An overlap failure is deterministic only for the explicit no-overlap constraint with compatible observed rectangle geometry; ambiguous intersections remain UNKNOWN. A draw with alpha is not proof of visible pixel contribution; minimum pixel-visible time remains UNKNOWN when the native probe cannot establish it. Motion/geometry measurements do not certify good taste, comprehension or speech intelligibility.
 
-A partial range cannot validate a whole Film. Native acceptance, compositing and final AV master verification remain separate gates.
+A partial range cannot validate a whole Film. Authoring projects currently use a conservative replay policy: a render range must begin at frame zero because arbitrary seek/checkpoint equivalence for stateful generators has not been independently proven. Legacy low-level projects retain their existing bounded range behavior. This is the M08 fallback, not a claim that partial rendering is impossible upstream.
+
+Native Broker/Driver Host acceptance includes one logical Film re-planned and rendered at 16:9, 9:16 and 1:1. The test keeps subject IDs and cues stable, checks the actual artifact manifest dimensions, and requires fresh Composition verification for each profile. Those results belong to the exact CI SHA that runs the native test; this document alone is not evidence.
+
+Native acceptance, compositing and final AV master verification remain separate gates.

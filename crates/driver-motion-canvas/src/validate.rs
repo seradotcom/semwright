@@ -792,6 +792,12 @@ pub fn render_plan(project: &Project, profile: &RenderProfile) -> Result<RenderP
             && profile.end_frame_exclusive - profile.first_frame <= MAX_FRAMES,
         "Invalid render frame range",
     )?;
+    if project.authoring.is_some() {
+        ensure(
+            profile.first_frame == 0,
+            "Authoring renders must replay from frame zero until checkpoint/seek equivalence is independently proven",
+        )?;
+    }
     ensure(
         (1000..=300_000).contains(&profile.timeout_ms),
         "Render timeout exceeds bounds",

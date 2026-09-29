@@ -57,6 +57,40 @@ fn sync() -> SyncSpec {
 fn cues() -> t::CueGraph {
     c::strict_decode(br#"{"version":1,"cues":[{"id":"cue-a","anchor":{"kind":"absolute","time":{"num":"1","den":"1"}},"duration":{"num":"1","den":"10"},"source":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","method":"fixture","version":1,"confidence":10000},{"id":"cue-b","anchor":{"kind":"absolute","time":{"num":"2","den":"1"}},"duration":{"num":"1","den":"10"},"source":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","method":"fixture","version":1,"confidence":10000}]}"#).unwrap()
 }
+fn reusable_artifact(label: &str, dependencies: BTreeMap<String, Digest>) -> t::MediaArtifact {
+    t::MediaArtifact {
+        reference: format!("artifact:{label}"),
+        owner: owner(),
+        sha256: digest(&format!("artifact-{label}")),
+        bytes: 1024,
+        media_type: "video/x-matroska".into(),
+        source_plan: digest(label),
+        source_state: BaseStateSet(
+            base()
+                .0
+                .into_iter()
+                .filter(|state| state.key.resource == "motion")
+                .collect(),
+        ),
+        metadata: t::MediaMetadata {
+            duration: q(3, 1),
+            encoded_duration: Some(q(3, 1)),
+            video: Some(t::VideoMetadata {
+                width: 640,
+                height: 360,
+                frame_rate: Rate::new(30, 1).unwrap(),
+                frames: 90,
+                alpha: false,
+            }),
+            audio: None,
+        },
+        dependencies,
+        provenance: Some("synthetic contract fixture".into()),
+        license: None,
+        retention: t::Retention::PrivateCandidate,
+    }
+}
+
 fn plan() -> AvPlan {
     let proof = |service: Service, name: &str| ServiceProof {
         service,
@@ -439,6 +473,127 @@ fn sync_stage_accepts_raw_decoder_probe_shape_not_a_preverified_report() {
     assert!(
         c::strict_decode::<NativeResult>(
             br#"{"kind":"sync_verified","report":{"verdict":"PASS"}}"#
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn visual_dependency_change_rebuilds_motion_but_reuses_independent_audio() {
+    let cue = digest("cue-v1");
+    let motion = reusable_artifact(
+        "motion",
+        BTreeMap::from([
+            ("visual".into(), digest("visual-v1")),
+            ("cue".into(), cue.clone()),
+        ]),
+    );
+    let audio = reusable_artifact(
+        "audio",
+        BTreeMap::from([
+            ("audio".into(), digest("audio-v1")),
+            ("cue".into(), cue.clone()),
+        ]),
+    );
+    let current = BTreeMap::from([
+        ("visual".into(), digest("visual-v2")),
+        ("audio".into(), digest("audio-v1")),
+        ("cue".into(), cue),
+    ]);
+
+    assert_eq!(
+        classify_reuse(&motion, &owner(), &current).unwrap(),
+        ReuseDecision::Rebuild {
+            invalidated: vec!["visual".into()]
+        }
+    );
+    assert!(matches!(
+        classify_reuse(&audio, &owner(), &current).unwrap(),
+        ReuseDecision::Reuse { .. }
+    ));
+}
+
+#[test]
+fn cue_or_timing_change_invalidates_both_motion_and_audio_dependents() {
+    let old_cue = digest("cue-v1");
+    let motion = reusable_artifact(
+        "motion",
+        BTreeMap::from([
+            ("visual".into(), digest("visual-v1")),
+            ("cue".into(), old_cue.clone()),
+        ]),
+    );
+    let audio = reusable_artifact(
+        "audio",
+        BTreeMap::from([
+            ("audio".into(), digest("audio-v1")),
+            ("cue".into(), old_cue),
+        ]),
+    );
+    let current = BTreeMap::from([
+        ("visual".into(), digest("visual-v1")),
+        ("audio".into(), digest("audio-v1")),
+        ("cue".into(), digest("cue-v2")),
+    ]);
+
+    for artifact in [&motion, &audio] {
+        assert_eq!(
+            classify_reuse(artifact, &owner(), &current).unwrap(),
+            ReuseDecision::Rebuild {
+                invalidated: vec!["cue".into()]
+            }
+        );
+    }
+}
+
+#[test]
+fn audio_only_change_keeps_motion_intermediate_but_fixed_graph_still_rebuilds_master() {
+    let cue = digest("cue-v1");
+    let motion = reusable_artifact(
+        "motion",
+        BTreeMap::from([
+            ("visual".into(), digest("visual-v1")),
+            ("cue".into(), cue.clone()),
+        ]),
+    );
+    let current = BTreeMap::from([
+        ("visual".into(), digest("visual-v1")),
+        ("audio".into(), digest("audio-v2")),
+        ("cue".into(), cue),
+    ]);
+    assert!(matches!(
+        classify_reuse(&motion, &owner(), &current).unwrap(),
+        ReuseDecision::Reuse { .. }
+    ));
+
+    let mux = Stage::ALL
+        .iter()
+        .position(|stage| *stage == Stage::Mux)
+        .unwrap();
+    let final_audio = Stage::ALL
+        .iter()
+        .position(|stage| *stage == Stage::VerifyFinalAudio)
+        .unwrap();
+    let sync = Stage::ALL
+        .iter()
+        .position(|stage| *stage == Stage::VerifySync)
+        .unwrap();
+    assert!(mux < final_audio && final_audio < sync);
+}
+
+#[test]
+fn artifact_reuse_never_crosses_owner_sessions() {
+    let artifact = reusable_artifact(
+        "motion",
+        BTreeMap::from([("visual".into(), digest("visual-v1"))]),
+    );
+    let mut other = owner();
+    other.session = "another-owner-session".into();
+    assert!(
+        classify_reuse(
+            &artifact,
+            &other,
+            &BTreeMap::from([("visual".into(), digest("visual-v1"))])
         )
         .is_err()
     );

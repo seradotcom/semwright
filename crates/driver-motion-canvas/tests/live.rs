@@ -435,12 +435,15 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
     // Native pipeline proof is intentionally taste-neutral: keep lifecycle/cue/
     // transition checks and omit the fixture's optional geometry rule.
     film["sequences"][0]["beats"][0]["shots"][0]["constraints"] = json!([]);
+    film["output"]["width"] = json!(640);
+    film["output"]["height"] = json!(360);
+    film["output"]["aspect"] = json!("landscape");
 
     let planned = broker_call(
         &broker,
         "driver.motion-canvas.composition.plan",
         json!({
-            "film": film,
+            "film": film.clone(),
             "budget": {
                 "max_iterations": 4,
                 "max_operations": 64,
@@ -522,6 +525,18 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
     )
     .await;
     assert_eq!(rendered["state"], "succeeded");
+    let first_manifest: Value = serde_json::from_slice(
+        &std::fs::read(
+            h.output
+                .path()
+                .join(rendered["artifact"]["directory"].as_str().unwrap())
+                .join("artifact-manifest.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(first_manifest["plan"]["width"], 640);
+    assert_eq!(first_manifest["plan"]["height"], 360);
 
     let verified = broker_call(
         &broker,
@@ -556,6 +571,142 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
         "native verification did not fully pass: {verified:#}"
     );
 
+    let expected_subject_ids = film["sequences"][0]["beats"][0]["shots"][0]["subjects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|subject| subject["id"].as_str().unwrap().to_owned())
+        .collect::<Vec<_>>();
+    let mut reflow_evidence = vec![json!({
+        "aspect":"landscape",
+        "width":640,
+        "height":360,
+        "source_fingerprint":fingerprint.clone(),
+        "render":rendered.clone(),
+        "verification":verified.clone()
+    })];
+
+    for (aspect, width, height) in [("portrait", 360u64, 640u64), ("square", 480, 480)] {
+        film["output"]["width"] = json!(width);
+        film["output"]["height"] = json!(height);
+        film["output"]["aspect"] = json!(aspect);
+        let replan = broker_call(
+            &broker,
+            "driver.motion-canvas.composition.plan",
+            json!({
+                "film": film.clone(),
+                "budget": {
+                    "max_iterations": 4,
+                    "max_operations": 64,
+                    "max_findings": 64,
+                    "max_observations": 8,
+                    "max_elapsed_ms": 120000
+                }
+            }),
+        )
+        .await;
+        let replan_ref = replan["plan_ref"].as_str().unwrap().to_owned();
+        let reapplied = broker_call(
+            &broker,
+            "driver.motion-canvas.composition.apply",
+            json!({"plan_ref":replan_ref,"dry_run":false}),
+        )
+        .await;
+        assert_eq!(reapplied["execution_status"], "completed");
+        let reflow_fingerprint = reapplied["fingerprint"].as_str().unwrap().to_owned();
+
+        let reinspection = broker_call(
+            &broker,
+            "driver.motion-canvas.composition.inspect",
+            json!({}),
+        )
+        .await;
+        let observed_ids = reinspection["film"]["sequences"][0]["beats"][0]["shots"][0]["subjects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|subject| subject["id"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            observed_ids, expected_subject_ids,
+            "logical identity changed during reflow"
+        );
+        assert_eq!(reinspection["film"]["cues"], film["cues"]);
+
+        let reflow_started = broker_call(
+            &broker,
+            "driver.motion-canvas.render.start",
+            json!({
+                "expected_fingerprint":reflow_fingerprint,
+                "profile":{
+                    "first_frame":0,
+                    "end_frame_exclusive":90,
+                    "scale":"full",
+                    "transparent":false,
+                    "timeout_ms":120000
+                }
+            }),
+        )
+        .await;
+        let reflow_job = reflow_started["job_ref"].as_str().unwrap().to_owned();
+        let reflow_terminal = loop {
+            let status = broker_call(
+                &broker,
+                "driver.motion-canvas.render.status",
+                json!({"job_ref":reflow_job}),
+            )
+            .await;
+            match status["state"].as_str().unwrap() {
+                "succeeded" | "failed" | "cancelled" => break status,
+                _ => tokio::time::sleep(Duration::from_millis(100)).await,
+            }
+        };
+        assert_eq!(
+            reflow_terminal["state"], "succeeded",
+            "reflow render: {reflow_terminal:#}"
+        );
+        let reflow_rendered = broker_call(
+            &broker,
+            "driver.motion-canvas.render.result",
+            json!({"job_ref":reflow_job}),
+        )
+        .await;
+        let manifest: Value = serde_json::from_slice(
+            &std::fs::read(
+                h.output
+                    .path()
+                    .join(reflow_rendered["artifact"]["directory"].as_str().unwrap())
+                    .join("artifact-manifest.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(manifest["plan"]["width"], width);
+        assert_eq!(manifest["plan"]["height"], height);
+        let reflow_verified = broker_call(
+            &broker,
+            "driver.motion-canvas.composition.verify",
+            json!({"plan_ref":replan_ref,"job_ref":reflow_job}),
+        )
+        .await;
+        assert!(
+            reflow_verified["measurement"]["validation"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|check| check["verdict"].as_str() == Some("PASS")),
+            "native reflow verification failed: {reflow_verified:#}"
+        );
+        reflow_evidence.push(json!({
+            "aspect":aspect,
+            "width":width,
+            "height":height,
+            "source_fingerprint":reflow_fingerprint,
+            "render":reflow_rendered,
+            "verification":reflow_verified
+        }));
+    }
+
     if let Some(evidence) = std::env::var_os("SEMWRIGHT_TEST_MOTION_EVIDENCE").map(PathBuf::from) {
         std::fs::create_dir_all(&evidence).unwrap();
         std::fs::write(
@@ -568,7 +719,8 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
                 "source_fingerprint": fingerprint,
                 "render": rendered,
                 "verification": verified,
-                "claim_scope": "Broker -> Driver Host -> Motion Canvas native render observations"
+                "reflows": reflow_evidence,
+                "claim_scope": "Broker -> Driver Host -> Motion Canvas native render observations; native 16:9/9:16/1:1 reflow"
             }))
             .unwrap(),
         )

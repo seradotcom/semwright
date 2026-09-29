@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 SUITES = {
-    "av": (["semwright-av-composition"], 28),
+    "av": (["semwright-av-composition"], 38),
     "motion": (["semwright-motion-authoring"], 20),
     "contracts": (["semwright-semantic-composition", "semwright-media-time"], 43),
 }
