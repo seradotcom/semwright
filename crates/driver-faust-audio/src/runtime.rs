@@ -491,9 +491,20 @@ async fn run_sealed_tool(
     context.check_cancelled()?;
     // Fixed tool identity, materialized and made immutable by the real Driver Host.
     // No input field can select an executable, environment, shell or script.
-    let mut child = Command::new(tool_path(HELPER_NAME)?)
+    let library_env = args.get(1).cloned();
+    let mut command = Command::new(tool_path(HELPER_NAME)?);
+    command
         .args(args)
         .env_clear()
+        .env("HOME", "/home")
+        .env("PATH", "/usr/bin:/bin")
+        .env("LANG", "C.UTF-8")
+        .env("LC_ALL", "C.UTF-8")
+        .env("TMPDIR", "/tmp");
+    if let Some(library_root) = library_env {
+        command.env("FAUST_LIB_PATH", library_root);
+    }
+    let mut child = command
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

@@ -61,6 +61,8 @@ struct ToolRun {
     stderr: Vec<u8>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExportReceipt {
     pub file_name: String,
     pub sha256: String,
