@@ -18,11 +18,12 @@ pub struct EvaluationContext {
     pub observation_scope: BTreeSet<Address>,
     pub execution_status: ExecutionStatus,
     pub support_level: SupportLevel,
+    pub budget: ConvergenceBudget,
 }
 impl EvaluationContext {
     pub fn validate(&self) -> Result<()> {
         self.owner.validate()?; bounded_id(&self.request_id)?;
-        self.before.validate()?; self.after.validate()?;
+        self.before.validate()?; self.after.validate()?; self.budget.validate()?;
         ensure(!self.operations.is_empty() && self.operations.len() <= 4096 && self.observation_scope.len() <= 4096, "evaluation context budget")?;
         for op in &self.operations { bounded_id(op)?; }
         Ok(())
@@ -98,6 +99,7 @@ pub struct EvidenceBatch {
 }
 pub fn collect<A: EvidenceAdapter>(contract: &EffectContract, context: &EvaluationContext, adapter: &mut A) -> Result<EvidenceBatch> {
     contract.validate()?; context.validate()?;
+    ensure(contract.rules.len() <= context.budget.max_observations as usize, "observation budget must be reserved before any observer I/O")?;
     ensure(contract.digest()? == context.contract_digest, "effect contract changed after plan was pinned")?;
     let mut observations = Vec::new();
     for rule in &contract.rules {

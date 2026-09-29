@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 pub fn fixture() -> (EffectContract, EvaluationContext) {
     let contract: EffectContract = strict_decode(include_bytes!("../../fixtures/e0.json")).unwrap();
     let base = BaseStateSet(vec![BaseState { key: contract.rules[0].address.resource.clone(), document_id: "fixture-document".into(), provider_session: "native-session".into(), generation: "1".into(), revision: Revision::Counter(2), concurrency: Concurrency::BestEffortRevalidate }]);
-    let context = EvaluationContext { owner: Owner { session: "host-session".into(), principal: PrincipalBinding::HostSession }, request_id: "request-1".into(), plan_digest: Digest::of_bytes(b"plan-1"), contract_digest: contract.digest().unwrap(), before: base.clone(), after: base, operations: BTreeSet::from(["save".into()]), observation_scope: contract.rules.iter().map(|r| r.address.clone()).collect(), execution_status: ExecutionStatus::Completed, support_level: SupportLevel::Native };
+    let context = EvaluationContext { owner: Owner { session: "host-session".into(), principal: PrincipalBinding::HostSession }, request_id: "request-1".into(), plan_digest: Digest::of_bytes(b"plan-1"), contract_digest: contract.digest().unwrap(), before: base.clone(), after: base, operations: BTreeSet::from(["save".into()]), observation_scope: contract.rules.iter().map(|r| r.address.clone()).collect(), execution_status: ExecutionStatus::Completed, support_level: SupportLevel::Native, budget: ConvergenceBudget { max_iterations: 1, max_operations: 4, max_findings: 32, max_observations: 32, max_elapsed_ms: 30000 } };
     (contract, context)
 }
 pub fn observation(ctx: &EvaluationContext, rule: &EffectRule) -> AdapterObservation {

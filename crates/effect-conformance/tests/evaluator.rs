@@ -131,3 +131,11 @@ fn truth_table_288_execution_and_required_combinations() {
     } } }
     assert_eq!(cases, 288);
 }
+
+#[test]
+fn observation_budget_is_checked_before_native_io() {
+    let (c, mut ctx) = fixture(); ctx.budget.max_observations = 1;
+    let mut adapter = ModelAdapter::default();
+    assert!(collect(&c, &ctx, &mut adapter).is_err());
+    assert_eq!(adapter.calls, 0);
+}
