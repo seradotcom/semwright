@@ -387,6 +387,30 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           shared-key: godot-authoring-cross-app-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-cross-app/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl -fL --retry 4 --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"             -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-cross-app/godot-version.txt
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Cross-app Driver Host handshake control
+        env:
+          SEMWRIGHT_TEST_GODOT_AUTHORING_HOST: '1'
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-godot --test authoring_host             driver_host_handshake_control_reaches_capabilities             -- --ignored --exact --nocapture             2>&1 | tee verification/godot-cross-app/provider-handshake-control.log
       - name: Acquire and verify pinned E Blender GLB evidence
         env:
           GH_TOKEN: ${{ github.token }}
@@ -441,30 +465,6 @@ jobs:
               (evidence / name).write_bytes((root / name).read_bytes())
           PY
           echo "SEMWRIGHT_TEST_E_GLB=$E_DIR/articulated.glb" >> "$GITHUB_ENV"
-      - name: Install isolated native prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
-          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-cross-app/sandbox-setup.log
-      - name: Install pinned Godot 4.7.2
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/godot"
-          curl -fL --retry 4 --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"             -o "$RUNNER_TEMP/godot.zip"
-          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
-          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
-          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
-          "$GODOT" --version | tee verification/godot-cross-app/godot-version.txt
-          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
-      - name: Build sandbox helper
-        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
-      - name: Cross-app Driver Host handshake control
-        env:
-          SEMWRIGHT_TEST_GODOT_AUTHORING_HOST: '1'
-          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
-        run: |
-          set -euo pipefail
-          cargo test --locked -p semwright-driver-godot --test authoring_host             driver_host_handshake_control_reaches_capabilities             -- --ignored --exact --nocapture             2>&1 | tee verification/godot-cross-app/provider-handshake-control.log
       - name: Generic E artifact handoff to D native import and gameplay
         env:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
