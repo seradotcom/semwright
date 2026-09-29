@@ -38,7 +38,8 @@ const VALIDATION_PY: &str =
 const BRIDGE_PY: &str = include_str!("bridge.py");
 const SEMANTIC_PY: &str = include_str!("semantic.py");
 const AUTHORING_PY: &str = include_str!("authoring_native.py");
-const EXPORT_SCOPE_PY: &str = include_str!("../../../adapters/blender/semwright_blender/export_scope.py");
+const EXPORT_SCOPE_PY: &str =
+    include_str!("../../../adapters/blender/semwright_blender/export_scope.py");
 
 fn blender_binary() -> Result<PathBuf> {
     let path = tool_path(BLENDER_TOOL)?;
