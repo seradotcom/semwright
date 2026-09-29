@@ -488,7 +488,7 @@ class AuthoringRuntime:
         rows = [self._row(obj) for obj in self._objects(island)]
         scene = self.bpy.context.scene
         fingerprint = digest(source_projection_value({
-                              "schema": "blender-source-projection-v2", "items": rows,
+                              "schema": "blender-source-projection-v3", "items": rows,
                               "scene_units": scene.unit_settings.scale_length,
                               "fps": scene.render.fps, "fps_base": scene.render.fps_base,
                               "frame": scene.frame_current

@@ -386,7 +386,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
                 bytes: None,
                 projection: Some(graph::ProjectionDigest {
                     digest: projection,
-                    method: "blender-source-projection-v2".into(),
+                    method: "blender-source-projection-v3".into(),
                     method_version: 1,
                 }),
             },
