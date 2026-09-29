@@ -7,6 +7,7 @@ on:
       - 'scripts/effects/**'
       - '.github/workflows/effect-conformance.yml'
       - 'Cargo.lock'
+      - 'Cargo.toml'
   pull_request:
     paths:
       - 'crates/effect-conformance/**'

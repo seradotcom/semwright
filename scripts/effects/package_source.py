@@ -49,9 +49,10 @@ def build(source, base, output):
         files[name] = data
     if not files or len(files) > 256 or sum(map(len, files.values())) > 2_097_152:
         raise ValueError("source bundle budget exceeded")
-    selected = [*files, "Cargo.lock"]
+    selected = [*files, "Cargo.toml", "Cargo.lock"]
     patch = git("diff", "--no-ext-diff", "--no-textconv", "--binary", "--full-index", base, source, "--", *selected)
     lock = git("show", source + ":Cargo.lock")
+    workspace = git("show", source + ":Cargo.toml")
     with tempfile.TemporaryDirectory(prefix="F-patch-reconstruction-") as temp:
         root = Path(temp)
         for name in selected:
@@ -63,20 +64,20 @@ def build(source, base, output):
         subprocess.run(["git", "init", "--quiet", str(root)], check=True)
         subprocess.run(["git", "-C", str(root), "-c", "core.autocrlf=false", "apply", "--check", "-"], input=patch, check=True)
         subprocess.run(["git", "-C", str(root), "-c", "core.autocrlf=false", "apply", "-"], input=patch, check=True)
-        for name, expected in {**files, "Cargo.lock": lock}.items():
+        for name, expected in {**files, "Cargo.toml": workspace, "Cargo.lock": lock}.items():
             if (root / name).read_bytes() != expected:
                 raise ValueError("restored source mismatch: " + name)
     manifest = {"schema_version": 1, "role": "F", "source_sha": source,
                 "patch_base_sha": base, "contract_sha": A_CONTRACT,
                 "main_baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
                 "files": {name: sha(data) for name, data in files.items()},
-                "lock_sha256": sha(lock), "patch_sha256": sha(patch),
+                "lock_sha256": sha(lock), "workspace_sha256": sha(workspace), "patch_sha256": sha(patch),
                 "reconstruction": "git apply --check and byte-for-byte source comparison passed",
                 "build_or_native_execution": False,
                 "acceptance": "NOT_ESTABLISHED_BY_PACKAGING"}
     readme = f"""# F source backup — not an accepted release
 
-This is a reconstructive patch ZIP, not a full repository checkout. F_SOURCE.patch contains all {len(files)} F-owned implementation, contract, test, native harness, CI and documentation files plus the Cargo.lock delta. SOURCE_MANIFEST.json records exact source hashes.
+This is a reconstructive patch ZIP, not a full repository checkout. F_SOURCE.patch contains all {len(files)} F-owned implementation, contract, test, native harness, CI and documentation files plus the Cargo.toml/Cargo.lock deltas. SOURCE_MANIFEST.json records exact source hashes.
 
 Source: {source}
 Patch base: {base}
