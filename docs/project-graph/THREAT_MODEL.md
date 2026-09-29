@@ -1,0 +1,37 @@
+# Project Graph threat model
+
+## Assets and trust boundaries
+Protected assets are durable logical identity, immutable revision/receipt history, current knowledge state, private project metadata, query visibility and rebuild reservations. Native application files remain owned by their applications/filesystem grants; C does not acquire blanket ownership of them.
+
+Trusted boundaries are: authenticated local transport -> Broker policy/context; registered provider/receipt adapters; A PlanVault/controller; private GraphStore directory; and scoped filesystem/native resolvers supplied by platform or D/E. Agent JSON, imported manifests, Skill text, locators, content digests, application names and caller-selected IDs are untrusted data.
+
+The graph must preserve distinctions between logical identity, native identity and ephemeral refs. A path, filename, digest, UUID from another owner, session ticket or PID is never promoted to durable ownership.
+
+## Principal threats
+**Cross-owner disclosure.** Guessing an opaque ID, cursor or receipt must not reveal names, counts, existence or provenance outside current grants. Queries filter visibility before result construction; cursors bind owner/session, visibility and grant fingerprint.
+
+**Evidence forgery.** A syntactically valid ExecutionReceipt or EvidenceSource supplied by a client must not certify execution. Only registered host ReceiptAdapter admission can create AdmittedReceipt; verification remains a separate A verdict.
+
+**Stale identity / path replacement.** Reusing a locator after rename/replacement must not silently reuse logical identity or old derivations. Binding generation and native instance evidence force explicit rebind/reconcile; same bytes after replacement do not prove continuity.
+
+**Dependency omission.** Missing fonts, textures, import settings, runtime, descriptor, contract or other determining inputs must not produce cache-safe CURRENT. Coverage tracks incomplete extraction and unknown frontier.
+
+**Rebuild authority escalation.** A stored plan must not become a command or grant. RebuildCatalog is trusted lookup data, proposals are bounded data, A PlanVault binds canonical bytes/session/grants/snapshot/epoch, and every real operation must re-enter Broker policy.
+## Store and recovery threats
+**Torn/corrupt local state.** Canonical journal rows are hash chained and sequence checked; materialized indexes are rebuildable only after canonical log verification. Transaction fault injection covers multiple commit boundaries. Commit acknowledgment uncertainty poisons the handle until reopen.
+
+**Cross-app atomicity illusion.** A committed graph transaction does not mean Blender/Godot/file/AV side effects committed. The graph contains a durable PREPARED/APPLYING/terminal intent ledger and converts interrupted APPLYING to UNKNOWN; native host wiring around actual provider calls is still open. Unknown native outcomes are never synthesized as success or blindly retried.
+
+**Malicious portable import.** Imported manifests cannot import locators, owner identity, trusted receipts, CURRENT state or permissions. Local IDs are reallocated and only bounded declarations are accepted.
+
+**Destructive cleanup.** Tombstone is graph-only. No default GC deletes user sources or outputs. A future destructive cleanup requires an explicit policy-gated scope and verification.
+
+## Denial, ambiguity and resource attacks
+Denied/offline/timeout/ambiguous probes remain UNKNOWN, never MISSING. Watch loss/overflow/reorder invalidates affected scope until a bounded rescan. Node/edge/depth/result/cursor/store/payload budgets return truncation/conflict/resource exhaustion rather than fabricated completeness.
+
+SQLite, canonical JSON, manifests and receipts have explicit row/byte/count limits. Fuzz targets cover manifest, receipt, traversal and synthetic store paths; their result is parser/state-machine evidence, not native security certification.
+
+## Current blockers and non-claims
+There is no registered Project Graph Broker/CLI/MCP route in this branch. The review draft is not compiled. The local transport authenticates peers, but a cross-platform durable principal is not yet propagated into Broker request context; C refuses to substitute session/PID/path identity.
+
+D/E native projectors, Blender->GLB->Godot acceptance, A/B AV/audio receipt flow and external-operation recovery remain open. Linux confined file observation is best-effort revalidation, not CAS. No distributed ACID, exactly-once execution, universal watcher, hidden background sync, destructive GC, security certification or R16 closure is claimed.

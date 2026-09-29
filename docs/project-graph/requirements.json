@@ -2,182 +2,292 @@
   "schema_version": 1,
   "role": "C",
   "project_graph_ready": false,
+  "candidate_sha": "5ed86bc613d97bdd179d50440dd9e49ed7f01a9f",
   "requirements": [
     {
       "requirement": "C01",
       "condition": "P0 published with consumer fixtures",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": null
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/{identity,knowledge,model}.rs",
+        "docs/project-graph/P0_HANDOFF.md"
+      ],
+      "tests": [
+        "tests/p0.rs"
+      ],
+      "tested_sha": "6ee52b428310370d3ad438a13964086a63f48367",
+      "run_id": 36502360629,
+      "job_id": 109195916146,
+      "evidence": "P0 exact-SHA lane: 13/13 tests plus fmt, strict clippy, schemas and rustdoc succeeded."
     },
     {
       "requirement": "C02",
       "condition": "Logical identity distinct from path/digest/ref",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/identity.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "identity_is_neither_content_path_nor_other_namespace",
+        "replacing_locator_never_changes_or_discovers_logical_identity",
+        "same_bytes_after_explicit_rebind_do_not_validate_old_derivation",
+        "instance_identity_survives_in_place_edit_but_not_same_path_replacement"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Implemented; final exact-SHA full lane 36521594559 is queued."
     },
     {
       "requirement": "C03",
       "condition": "Immutable revisions and exact derivations",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/model.rs",
+        "crates/project-graph/src/graph.rs",
+        "crates/project-graph/src/store.rs"
+      ],
+      "tests": [
+        "receipt_idempotency_rejects_content_and_owner_substitution",
+        "receipt_cannot_substitute_source_base_while_retaining_valid_revision_pins",
+        "reopen_preserves_history_and_does_not_reuse_observation_epoch"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Implemented; awaiting final full-lane evidence."
     },
     {
       "requirement": "C04",
       "condition": "Independent knowledge dimensions",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/knowledge.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "required_unknown_and_known_stale_are_independent",
+        "external_output_change_is_diverged_and_downstream_stale",
+        "report_pass_for_another_output_does_not_certify_this_output"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Implemented; awaiting final full-lane evidence."
     },
     {
       "requirement": "C05",
-      "condition": "Deny/offline UNKNOWN, not MISSING",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "condition": "UNKNOWN not MISSING on deny/offline",
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/knowledge.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "denied_offline_and_ambiguous_are_not_missing",
+        "denied_and_missing_remain_distinct_and_required_dependency_is_not_current",
+        "native_missing_budget_and_read_denial_have_distinct_protocol_errors"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Fixture and confined-native primitive cases implemented; no Broker graph route yet."
     },
     {
       "requirement": "C06",
       "condition": "Transitive invalidation and unknown frontier",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/graph.rs",
+        "crates/project-graph/src/query.rs"
+      ],
+      "tests": [
+        "transitive_stale_preserves_unchanged_output_and_exact_revert",
+        "incremental_receipt_index_matches_independent_full_fixed_point",
+        "bounded_impact_reports_truncation_and_cancelled_scope"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Incremental/differential implementation present; final full lane pending."
     },
     {
       "requirement": "C07",
-      "condition": "Watcher gaps/reorder/duplicates",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "condition": "Watcher gaps/reorder/duplicates reconciled",
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/watch.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "watcher_loss_reorder_duplicate_and_rescan_are_explicit",
+        "watcher_registration_and_restart_never_reuse_old_rescan_evidence",
+        "restart_and_watcher_gap_require_new_observation"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Implemented without a background watcher daemon; final full lane pending."
     },
     {
       "requirement": "C08",
       "condition": "Scoped snapshot pagination",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/query.rs"
+      ],
+      "tests": [
+        "snapshot_cursor_rejects_changed_graph_query_grants_and_owner",
+        "scope_filter_never_reveals_hidden_names_or_counts",
+        "cursor_binds_actual_visibility_even_when_grant_digest_is_reused"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Implemented; final full lane pending."
     },
     {
       "requirement": "C09",
       "condition": "Typed rebuild through Broker",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "BLOCKED",
+      "implementation": [
+        "crates/project-graph/src/rebuild.rs",
+        "crates/project-graph/src/{model,graph}.rs ExternalIntent recovery boundary",
+        "docs/project-graph/P1_REBUILD_HANDOFF.md",
+        "docs/project-graph/integration-drafts/project_graph.rs"
+      ],
+      "tests": [
+        "altered_reservation_cannot_be_promoted_even_with_a_recomputed_digest",
+        "reservation_binds_session_grants_snapshot_and_restart_epoch",
+        "changed_runtime_or_cancelled_attempt_does_not_enter_the_controller"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Typed proposal, A PlanVault reservation and durable external-intent recovery boundary exist, but Broker/core/daemon graph route is not wired or compiled. Durable authenticated principal propagation is unresolved across the current daemon boundary. No Broker trace/deny evidence."
     },
     {
       "requirement": "C10",
-      "condition": "Reuse only with valid complete dependencies",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "condition": "Cache reuse only under valid complete dependencies",
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/knowledge.rs",
+        "crates/project-graph/src/rebuild.rs"
+      ],
+      "tests": [
+        "partial_dependencies_prevent_cache_safe",
+        "complete_current_outputs_are_reused_but_unknowns_are_not",
+        "unavailable_catalog_is_a_blocker_not_provider_substitution",
+        "diverged_output_is_not_silently_overwritten_by_rebuild"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Implemented conservatively; final full lane pending."
     },
     {
       "requirement": "C11",
       "condition": "Crash-safe private local store",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/store.rs",
+        "crates/project-graph/src/store_tests.rs",
+        "crates/project-graph/src/{identity,model,graph}.rs ExternalIntent ledger",
+        "docs/project-graph/CONSISTENCY.md"
+      ],
+      "tests": [
+        "every_transaction_fault_boundary_is_atomic_on_reopen",
+        "corrupt_indexes_require_explicit_rebuild_and_canonical_log_is_untouched",
+        "corrupted_canonical_payload_is_preserved_and_not_repaired_as_an_index",
+        "backup_verifies_hash_owner_version_and_preserves_live_history",
+        "second_writer_cannot_commit_against_a_stale_snapshot",
+        "external_applying_intent_reopens_unknown_and_cannot_be_redispatched",
+        "external_intent_requires_dispatch_and_matching_persisted_receipt"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "SQLite journal/index boundaries plus durable external PREPARED/APPLYING/terminal ledger are implemented. Interrupted APPLYING reopens UNKNOWN and cannot redispatch. Native host wiring around real Broker/provider calls remains open; final exact-SHA full lane pending."
     },
     {
       "requirement": "C12",
       "condition": "Portable untrusted manifests and safe GC",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/manifest.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "imported_manifest_never_inherits_identity_locator_receipts_or_current",
+        "malformed_manifest_and_parent_cycle_leave_target_unchanged"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Portable import/export is declaration-only; tombstone never deletes user files; no destructive user-file GC is implemented. Final full lane pending."
     },
     {
       "requirement": "C13",
       "condition": "Native Blender GLB Godot pipeline",
-      "status": "OPEN",
-      "implementation": [],
+      "status": "BLOCKED",
+      "implementation": [
+        "C P0 reviewed by E PR #175; C reviewed E receipt candidate at 872aa964a8864d138bac43e6eac46306b498e4a7"
+      ],
       "tests": [],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "E receipt shape is compatible and conservative; E native run 36521454495 is pending. D model run 36508797435 at 568e1edc14528436d49b56dfcfb990756f9a364e succeeded, but D native GLB import/reopen observation adapter is still implementing. C Broker route remains unwired."
     },
     {
       "requirement": "C14",
-      "condition": "Native motion AV audio pipeline",
-      "status": "OPEN",
-      "implementation": [],
+      "condition": "Native motion/AV/audio integration",
+      "status": "BLOCKED",
+      "implementation": [
+        "A C1 inspected; A PR #168 currently at 028ae5f5168dfc87bf9fade6c4eebf77f264b0a1"
+      ],
       "tests": [],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "No A/B native AV receipt flow has been consumed into C and C Broker graph routing is unwired. A candidate checks are still running; no PASS transferred."
     },
     {
       "requirement": "C15",
-      "condition": "Usable continuity Skill",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "condition": "Usable continuity Skill with real requirements",
+      "status": "PARTIAL",
+      "implementation": [
+        "skills/semwright-project-continuity",
+        "crates/project-graph/tests/skill_package.rs"
+      ],
+      "tests": [
+        "continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execution"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Package/requirements/examples are implemented against real Skills/Registry tooling, but operational graph routes are absent, so the Skill cannot yet be called runtime-usable. Final package test is in the queued full lane."
     },
     {
       "requirement": "C16",
-      "condition": "Scale fuzz hostile packaging exact SHA",
-      "status": "OPEN",
-      "implementation": [],
-      "tests": [],
+      "condition": "Scale/fuzz/hostile/packaging exact SHA",
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/tests/scale.rs",
+        "scripts/project-graph/fuzz",
+        "scripts/project-graph/fuzz-lane.py",
+        ".github/workflows/project-graph.yml"
+      ],
+      "tests": [
+        "ten_thousand_resources_fifty_thousand_edges_under_declared_budgets",
+        "four bounded fuzz targets: manifest, receipt, traversal, store",
+        "hostile identity/manifest/cursor/store cases across test suite"
+      ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": null
+      "evidence": "Remote fuzz lock is pinned at SHA-256 3ff72edc7795d5e917deb96c35a2c0a4a66657f95b492856d7fccf08d0880662. Full exact-SHA run 36521594559 for 2776300 is queued; package/audit/global gates must be checked separately."
     }
   ]
 }

@@ -26,7 +26,7 @@ Production SCCs are computed iteratively and reported explicitly; a cycle yields
 
 This permit is NOT a policy grant. It only bounds entry to native preparation via the existing Broker/controller. It does not apply the reconstruction, execute an old native plan, authorize exports, clear uncertain effects, or prove external files did not change between observations. Native preparation must reacquire references and current base states. Every actual app operation must re-enter Broker policy; the controller records partial/cancelled/unknown outcomes in A's vault and produces trusted C receipts afterward. The reservation's operation count is preparation calls, not a claim of N native suboperations or N Broker approvals.
 
-There is no scheduler or background process in this module. Replanning after conflict is explicit. Broker-native re-entry, durable external intent/receipt recovery and both native integration paths remain separate acceptance gates until actual runtime evidence exists.
+There is no scheduler or background process in this module. Replanning after conflict is explicit. C now provides a separate durable ExternalIntent ledger for host integration: PREPARED and APPLYING are store transitions, interrupted APPLYING becomes UNKNOWN after restart, and COMPLETED requires a matching admitted receipt. That ledger still has to be wired around the real Broker/provider call; it does not make the rebuild proposal executable or privileged. Broker-native re-entry and both native integration paths remain separate acceptance gates until actual runtime evidence exists.
 
 ## Contract tests and CI
 
