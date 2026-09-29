@@ -38,16 +38,16 @@ jobs:
         include:
           - id: kernel
             package: semwright-semantic-composition
-            files: 'src/controller.rs src/vault.rs'
+            files: 'crates/semantic-composition/src/controller.rs crates/semantic-composition/src/vault.rs'
           - id: media-time
             package: semwright-media-time
-            files: 'src/lib.rs src/cue.rs'
+            files: 'crates/media-time/src/lib.rs crates/media-time/src/cue.rs'
           - id: motion
             package: semwright-motion-authoring
-            files: 'src/temporal.rs src/measurement.rs'
+            files: 'crates/motion-authoring/src/temporal.rs crates/motion-authoring/src/measurement.rs'
           - id: av
             package: semwright-av-composition
-            files: 'src/sync.rs src/coordinator.rs src/executor.rs'
+            files: 'crates/av-composition/src/sync.rs crates/av-composition/src/coordinator.rs crates/av-composition/src/executor.rs'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

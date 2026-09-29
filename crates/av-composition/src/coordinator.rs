@@ -43,8 +43,8 @@ pub enum StagePayload {
         artifact: MediaArtifact,
     },
     Mux {
-        motion: DeliveryInput,
-        audio: DeliveryInput,
+        motion: Box<DeliveryInput>,
+        audio: Box<DeliveryInput>,
         profile: DeliveryProfile,
     },
     VerifyFinalAudio {
@@ -292,8 +292,8 @@ impl AvCoordinator {
                 artifact: o.audio.clone().ok_or_else(missing)?,
             },
             Stage::Mux => StagePayload::Mux {
-                motion: o.motion_input.clone().ok_or_else(missing)?,
-                audio: o.audio_input.clone().ok_or_else(missing)?,
+                motion: Box::new(o.motion_input.clone().ok_or_else(missing)?),
+                audio: Box::new(o.audio_input.clone().ok_or_else(missing)?),
                 profile: b.spec.delivery.clone(),
             },
             Stage::VerifyFinalAudio => StagePayload::VerifyFinalAudio {
