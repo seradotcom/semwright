@@ -543,6 +543,38 @@ fn reconcile(
         },
     )
 }
+fn prospective_canonical_directory(directory: &Path) -> Result<PathBuf> {
+    if !directory.is_absolute() {
+        return Err(Error::invalid("Project state directory must be absolute"));
+    }
+    match std::fs::canonicalize(directory) {
+        Ok(resolved) => {
+            if resolved != directory {
+                return Err(Error::invalid(
+                    "Project state path must use canonical spelling",
+                ));
+            }
+            Ok(resolved)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            let parent = directory
+                .parent()
+                .ok_or_else(|| Error::invalid("Project state directory needs a parent"))?;
+            let parent_resolved = std::fs::canonicalize(parent)?;
+            let name = directory
+                .file_name()
+                .ok_or_else(|| Error::invalid("Project state directory needs a final component"))?;
+            let candidate = parent_resolved.join(name);
+            if candidate != directory {
+                return Err(Error::invalid(
+                    "Project state parent must use canonical spelling",
+                ));
+            }
+            Ok(candidate)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
 impl Broker {
     /// Trusted host initialization. `authenticated_principal` must come from OS/server
     /// authentication, never from a command argument, project manifest or stored session ref.
@@ -551,7 +583,8 @@ impl Broker {
         directory: &Path,
         authenticated_principal: String,
     ) -> Result<()> {
-        // Reject obvious overlap before creating the private state root.
+        let resolved_state = prospective_canonical_directory(directory)?;
+        // Reject both lexical and resolved overlap before creating private state.
         for grant in &self.policy.config().filesystem {
             if directory.starts_with(&grant.path) || grant.path.starts_with(directory) {
                 return Err(Error::new(
@@ -559,13 +592,9 @@ impl Broker {
                     "Project state overlaps an application filesystem grant",
                 ));
             }
-        }
-        let service = ProjectGraphs::new(directory, authenticated_principal)?;
-        // Also compare resolved spellings when a configured grant already exists.
-        // This prevents a symlinked grant spelling from aliasing the private state tree.
-        for grant in &self.policy.config().filesystem {
-            if let Ok(resolved) = std::fs::canonicalize(&grant.path)
-                && (service.home.starts_with(&resolved) || resolved.starts_with(&service.home))
+            if let Ok(resolved_grant) = std::fs::canonicalize(&grant.path)
+                && (resolved_state.starts_with(&resolved_grant)
+                    || resolved_grant.starts_with(&resolved_state))
             {
                 return Err(Error::new(
                     ErrorCode::PolicyDenied,
@@ -573,6 +602,7 @@ impl Broker {
                 ));
             }
         }
+        let service = ProjectGraphs::new(directory, authenticated_principal)?;
         let mut state = self
             .project_graphs
             .lock()

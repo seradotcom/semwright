@@ -314,6 +314,10 @@ fn project_state_rejects_a_symlinked_grant_that_resolves_to_its_parent() {
         .configure_project_graphs(&state, "os-user-v1:fixture:overlap".into())
         .unwrap_err();
     assert_eq!(error.code, ErrorCode::PolicyDenied);
+    assert!(
+        !state.exists(),
+        "overlap rejection must happen before private state creation"
+    );
 }
 
 #[cfg(unix)]
