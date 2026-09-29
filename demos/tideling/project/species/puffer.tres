@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TidelingSpecies" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/species.gd" id="1"]
+[resource]
+script = ExtResource("1")
+id = "puffer"
+display_name = "Moss puffer"
+asset_path = "res://assets/puffer.glb"
+edible_stage = 3
+size = 0.73
+speed = 1.2
+nutrition = 12
+predator = false
+spawn_weight = 1.5
+enabled = true
+schooling = false

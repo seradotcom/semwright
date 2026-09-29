@@ -1,0 +1,287 @@
+{
+  "audit_version": "1.2.0",
+  "schema_id": "semwright.pre-r16-audit/v1",
+  "start_sha": "241000c268d1bf1dc29d4e91a913097ac0d020cb",
+  "observed_main_sha": "6dc9da507a2fc239a766a6a81a7607fbcc79618d",
+  "code_head": "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81",
+  "candidate_sha": null,
+  "date": "2026-09-28",
+  "status": "NOT_READY_FOR_INDEPENDENT_R16_REVIEW",
+  "audit_lane_state": "MERGED_TO_MAIN_EXACT_MAIN_CI_RUNNING",
+  "audit_complete": false,
+  "maintainer_preflight_only": true,
+  "independent_review_performed": false,
+  "r16_ready": false,
+  "r16_state": "OPEN",
+  "historical_report_commit": "495df3283f6e591c2db1a2448a7192e41335c580",
+  "historical_report_path": "verification/pre-r16/pre-r16-audit.json",
+  "fix_commits": [
+    "53c5344ec3fea500b7cade8471928a25bb194048",
+    "495df3283f6e591c2db1a2448a7192e41335c580",
+    "1fff19e90df9bc83c3d855ce47d5bf63fab1126b",
+    "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81"
+  ],
+  "open_prs": {
+    "inventory": "inventory/continuation-state.json",
+    "count_at_observation": 15,
+    "all_classified": true,
+    "classification_scope": "Recorded snapshot only; not perpetual admission of new features"
+  },
+  "must_land_prs": [],
+  "must_resolve_owner_lanes": [
+    154
+  ],
+  "superseded_prs": [
+    135
+  ],
+  "deferred_prs": [
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    168
+  ],
+  "unique_branch_findings": {
+    "original_refs_inspected": 333,
+    "original_worktrees_inspected": 188,
+    "original_dirty_worktrees": 46,
+    "original_detached_worktrees": 14,
+    "original_unmerged_heads": 63,
+    "heads_with_explicit_disposition": 63,
+    "audit_unassigned_heads": 0,
+    "delegated_application_heads": 9,
+    "ledger": "inventory/branch-dispositions-v2.json",
+    "review": "BRANCH_DISPOSITION_CLOSEOUT.md",
+    "cleanup_performed": false,
+    "note": "Delegation is not equivalence or proof that no application-only critical fix remains."
+  },
+  "security_findings": [
+    {
+      "id": "PRE-001",
+      "severity": "MEDIUM",
+      "status": "FIX_VERIFIED_PRIOR_HEAD",
+      "summary": "Review-bundle non-destructive output handling",
+      "verified_head": "495df3283f6e591c2db1a2448a7192e41335c580"
+    },
+    {
+      "id": "PRE-002",
+      "severity": "LOW",
+      "status": "FIX_VERIFIED_PRIOR_HEAD",
+      "summary": "BASELINE_SHA included in bundle integrity checks",
+      "verified_head": "495df3283f6e591c2db1a2448a7192e41335c580"
+    },
+    {
+      "id": "PRE-003",
+      "severity": "MEDIUM",
+      "status": "FIX_VERIFIED_PRIOR_HEAD",
+      "summary": "CLI terminal-control escaping",
+      "verified_head": "495df3283f6e591c2db1a2448a7192e41335c580"
+    },
+    {
+      "id": "PRE-004",
+      "severity": "MEDIUM",
+      "status": "AUDIT_DOCS_RECONCILED_OWNER_BLOCKERS_RETAINED",
+      "summary": "Root claims and doctor implementation reporting reconciled"
+    },
+    {
+      "id": "PRE-005",
+      "severity": "GATE",
+      "status": "OPEN_OWNER_WINDOWS",
+      "summary": "Native main ARM64 UIA fixture StaleReference failure",
+      "run": 36460484896,
+      "job": 109057480347
+    },
+    {
+      "id": "PRE-006",
+      "severity": "MEDIUM",
+      "status": "OPEN_OWNER_WINDOWS",
+      "summary": "Positive test-count admission and dedicated interactive-runner routing required",
+      "comment": 5876090544
+    },
+    {
+      "id": "PRE-007",
+      "severity": "GATE",
+      "status": "DISPOSITION_COMPLETE_OWNER_ACCEPTANCE_PENDING",
+      "summary": "63 heads classified; nine application heads delegated, none deleted"
+    },
+    {
+      "id": "PRE-008",
+      "severity": "GATE",
+      "status": "SOURCE_PROVENANCE_FIXED_RUNTIME_OWNER_PENDING",
+      "summary": "PR154 source has 143 descriptors and 143 provenance records; exact-head runtime acceptance remains owner work",
+      "head": "571083bfa995c62638ab4b9145ee2ac7002ad3d2"
+    },
+    {
+      "id": "PRE-010",
+      "severity": "MEDIUM",
+      "status": "FIX_VERIFIED_ON_CODE_HEAD",
+      "summary": "Revocation now discards unfinished recordings without persisting partial evidence or erasing completed traces",
+      "fix_sha": "1fff19e90df9bc83c3d855ce47d5bf63fab1126b",
+      "run": 36467811798,
+      "job": 109082539796
+    },
+    {
+      "id": "PRE-011",
+      "severity": "MEDIUM",
+      "status": "FIX_VERIFIED_ON_CODE_HEAD",
+      "summary": "Native Figma codecs and sandbox-safe UTF-8 replace mock-hidden browser-global assumptions",
+      "fix_sha": "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81",
+      "run": 36467811731,
+      "job": 109082185324
+    }
+  ],
+  "resource_leaks": {
+    "source_confirmed_recording_retention": true,
+    "finding": "PRE-010",
+    "regressions": "Three manager tests including 256 cycles, plus 64 broker start/revoke cycles",
+    "whole_runtime_rss_fd_socket_soak_executed": false,
+    "absence_of_other_leaks_claimed": false
+  },
+  "claim_mismatches": {
+    "initial_report": "CLAIMS_EVIDENCE_MATRIX.md",
+    "current_disposition": "R16_HANDOFF_READINESS.md",
+    "new_codec_correction": "CONTINUATION.md",
+    "historical_evidence_invalidated_by_new_features": false,
+    "historical_evidence_transferred_to_new_sha": false
+  },
+  "ci": {
+    "prior_green_audit_head": "495df3283f6e591c2db1a2448a7192e41335c580",
+    "prior_successful_checks": 34,
+    "non_pr_attestation": "SKIPPED_BY_DESIGN_NOT_COUNTED_AS_EXECUTED",
+    "new_audit_head": "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81",
+    "final_head_gates": "PENDING_AT_DOCUMENT_CAPTURE",
+    "source_python_tests": 171,
+    "source_python_status": "PASS",
+    "secret_precheck_run": 36467811671,
+    "secret_precheck_job": 109082183674,
+    "secret_precheck_status": "PASS_WITH_TRIAGED_NON_SECRETS",
+    "secret_precheck_report": "inventory/secret-precheck-triaged-run.json",
+    "queued_is_pass": false,
+    "skipped_is_pass": false,
+    "figma_authoring": {
+      "run": 36467811731,
+      "job": 109082185324,
+      "head": "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81",
+      "status": "SUCCESS",
+      "plugin_tests": 89,
+      "runtime_tests": 42,
+      "typecheck": "PASS",
+      "plugin_build": "PASS",
+      "new_codec_tests_executed": true
+    },
+    "scan_source_revision": "7f844d5bf7b5973fd7d8f41d0072f6595dc36903",
+    "rust_arm64_code_verification": {
+      "head": "536e8b14bdc7bb0873ee3cd0a65e5f1048342d81",
+      "run": 36467811798,
+      "job": 109082539796,
+      "status": "SUCCESS",
+      "new_recording_regressions_executed": 4
+    },
+    "main_merge_sha": "6dc9da507a2fc239a766a6a81a7607fbcc79618d",
+    "main_exact_sha_state_at_first_post_merge_observation": "SECRET_PRECHECK_AND_X11_SUCCESS; OTHER_RELEVANT_WORKFLOWS_QUEUED_OR_IN_PROGRESS",
+    "main_exact_sha_green_claimed": false
+  },
+  "security_precheck": [
+    {
+      "area": "1. Authorization and confirmation",
+      "status": "PRECHECK PASS",
+      "scope": "Source/fixture review; existing policy and foreground approval boundaries retained"
+    },
+    {
+      "area": "2. IPC and session identity",
+      "status": "PRECHECK PASS",
+      "scope": "Bounded peer/session/request lifecycle; PRE-010 retention correction tracked separately"
+    },
+    {
+      "area": "3. Object identity and focus",
+      "status": "FINDING",
+      "scope": "Windows main UIA failure assigned to owner; no silent fallback introduced"
+    },
+    {
+      "area": "4. Portal authority",
+      "status": "NOT EXECUTED",
+      "scope": "No new live session; historical isolated evidence and R06 residuals preserved"
+    },
+    {
+      "area": "5. Filesystem confinement",
+      "status": "PRECHECK PASS",
+      "scope": "Existing bounded FD-relative Linux paths and grant separation inspected; no universal platform proof"
+    },
+    {
+      "area": "6. Plugin and driver isolation",
+      "status": "PRECHECK PASS",
+      "scope": "Historical exact-SHA hostile Linux fixtures; Blender runtime acceptance still owner work"
+    },
+    {
+      "area": "7. Federated MCP",
+      "status": "PRECHECK PASS",
+      "scope": "Mandatory platform sandbox and existing hostile federation fixture; no new transport authority"
+    },
+    {
+      "area": "8. Prompt-injection containment",
+      "status": "PRECHECK PASS",
+      "scope": "Schema/provenance/policy re-entry; not formal information-flow security"
+    },
+    {
+      "area": "9. Audit and disclosure",
+      "status": "PRECHECK PASS",
+      "scope": "Prior CLI fix and hosted metadata-only history scan; triaged findings remain visible"
+    },
+    {
+      "area": "10. Resource and lifecycle safety",
+      "status": "FINDING",
+      "scope": "PRE-010 fixed with regressions; whole-runtime soak not executed"
+    },
+    {
+      "area": "11. Supply chain",
+      "status": "PRECHECK PASS",
+      "scope": "Prior no-clobber bundle checks and bounded hosted scanner; final-head CI still separate"
+    },
+    {
+      "area": "12. Platform boundaries",
+      "status": "FINDING",
+      "scope": "Windows owner findings and physical/interactive non-claims retained"
+    }
+  ],
+  "security_precheck_detail": "SECURITY_PRECHECK.md plus CONTINUATION.md and current owner receipts",
+  "release_blockers": {
+    "R06": "OPEN: physical Hyprland login and physical mixed-scale/multi-monitor residuals; no synthetic-to-physical relabeling",
+    "R16": "OPEN: identified independent reviewer and exact-baseline report required"
+  },
+  "bundle": {
+    "candidate_bundle": null,
+    "status_required": "UNREVIEWED",
+    "reason": "Global candidate not admitted; do not package a floating main as final review baseline"
+  },
+  "owner_comments": {
+    "windows": 5876090544,
+    "blender_godot": 5876090829,
+    "composition_media": 5876417178
+  },
+  "scope_exclusions": [
+    "no edits to other agents worktrees",
+    "no canonical checkout implementation",
+    "no heavy compilation or dependency installs on connected device",
+    "no new feature campaign",
+    "no worktree deletion",
+    "no independent R16 conclusion"
+  ],
+  "audit_pr": 156,
+  "audit_lane_complete": true,
+  "must_resolve_owner_topics": [
+    "windows_arm64_uia_and_interactive_evidence",
+    "blender_godot_runtime_acceptance"
+  ],
+  "merged_after_classification": {
+    "155": "TIDELING merged before PR156; no longer deferred, application evidence remains owner-scoped",
+    "167": "Windows authority documentation merged before PR156; native/interactive owner findings remain",
+    "156": "6dc9da507a2fc239a766a6a81a7607fbcc79618d"
+  },
+  "post_merge_reconciliation": "POST_MERGE_RECONCILIATION.md"
+}

@@ -150,6 +150,9 @@ impl Broker {
         if let Ok(mut jobs) = self.jobs.lock() {
             jobs.revoke_session(session);
         }
+        if let Ok(mut workflows) = self.workflows.lock() {
+            workflows.revoke_session(session);
+        }
     }
     pub fn subscribe(&self) -> broadcast::Receiver<Event> {
         self.broadcast.subscribe()
@@ -1179,7 +1182,7 @@ impl Broker {
     ) -> Result<Value> {
         match command {
             "doctor" => Ok(
-                json!({"project":"Semwright","version":env!("CARGO_PKG_VERSION"),"protocol":PROTOCOL_VERSION,"fake":self.fake,"environment":self.environment,"features":self.probe().await,"providers":self.provider_status()?,"policy":{"profile":self.policy.config().profile,"granted":self.policy.capabilities(),"apps":self.policy.config().apps,"shell":false,"external_confirmation":"foreground operator only; unavailable in user service"},"uptime_seconds":self.started.elapsed().as_secs(),"verification":"Runtime capability probes are not a live desktop acceptance certificate","unimplemented":["PipeWire pixel-stream decoder"]}),
+                json!({"project":"Semwright","version":env!("CARGO_PKG_VERSION"),"protocol":PROTOCOL_VERSION,"fake":self.fake,"environment":self.environment,"features":self.probe().await,"providers":self.provider_status()?,"policy":{"profile":self.policy.config().profile,"granted":self.policy.capabilities(),"apps":self.policy.config().apps,"shell":false,"external_confirmation":"foreground operator only; unavailable in user service"},"uptime_seconds":self.started.elapsed().as_secs(),"verification":"Runtime capability probes are not a live desktop acceptance certificate","unimplemented":[]}),
             ),
             "capabilities.list" => Ok(
                 json!({"granted":self.policy.capabilities(),"filesystem":self.policy.config().filesystem.iter().map(|r|json!({"name":r.name,"read":r.read,"write":r.write})).collect::<Vec<_>>(),"backends":self.probe().await,"fake":self.fake}),

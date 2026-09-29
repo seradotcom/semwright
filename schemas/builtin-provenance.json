@@ -1866,5 +1866,21 @@
     "object_types": [],
     "untrusted_metadata": false,
     "tags": ["browser", "page", "semantic"]
+  },
+  "blender.export.glb": {
+    "aliases": [],
+    "app": "org.blender.Blender",
+    "object_types": [
+      "collection"
+    ],
+    "provider": "blender-native",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "tags": [
+      "blender",
+      "export",
+      "artifact-out:model/3d"
+    ],
+    "untrusted_metadata": false
   }
 }

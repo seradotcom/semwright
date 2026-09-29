@@ -11,10 +11,11 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 jobs:
   source-contracts:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -35,6 +36,7 @@ jobs:
           fixture=$(mktemp -d)
           "$RUNNER_TEMP/semwright-openat2" "$fixture"
   static-lints:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -62,6 +64,7 @@ jobs:
         run: actionlint
 
   msrv:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -102,6 +105,7 @@ jobs:
           BIN_DIR: target/release
 
   rust:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     strategy:
       fail-fast: false
       matrix:

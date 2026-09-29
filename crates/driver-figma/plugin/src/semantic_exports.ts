@@ -22,7 +22,7 @@ function sxCssValue(value: any, variables: Map<string, Variable>): string {
   return JSON.stringify(JSON.stringify(value));
 }
 function sxTextArtifact(text:string,name:string,mediaType:string,seed:string){
-  const bytes=new TextEncoder().encode(text);
+  const bytes=extraUtf8Encode(text);
   return extraStoreArtifact(bytes,mediaType,name,seed);
 }
 async function sxVariables() {

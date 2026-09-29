@@ -59,11 +59,43 @@ async function extraAllStyles(): Promise<BaseStyle[]> {
   return groups.flat();
 }
 function extraBase64(bytes: Uint8Array): string {
-  let text = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    text += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
+  return figma.base64Encode(bytes);
+}
+// The main-thread Plugin API sandbox is not a browser. Lone UTF-16 surrogates
+// encode as U+FFFD, without assuming a DOM TextEncoder exists.
+function extraUtf8ByteLength(text: string): number {
+  let length = 0;
+  for (const character of text) {
+    const point = character.codePointAt(0)!;
+    length += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
   }
-  return btoa(text);
+  return length;
+}
+function extraUtf8Encode(text: string): Uint8Array {
+  const length = extraUtf8ByteLength(text);
+  if (length > EXTRA_MAX_ARTIFACT_BYTES) throw new Error("artifact_too_large");
+  const bytes = new Uint8Array(length);
+  let at = 0;
+  for (const character of text) {
+    let point = character.codePointAt(0)!;
+    if (point >= 0xd800 && point <= 0xdfff) point = 0xfffd;
+    if (point <= 0x7f) {
+      bytes[at++] = point;
+    } else if (point <= 0x7ff) {
+      bytes[at++] = 0xc0 | (point >>> 6);
+      bytes[at++] = 0x80 | (point & 0x3f);
+    } else if (point <= 0xffff) {
+      bytes[at++] = 0xe0 | (point >>> 12);
+      bytes[at++] = 0x80 | ((point >>> 6) & 0x3f);
+      bytes[at++] = 0x80 | (point & 0x3f);
+    } else {
+      bytes[at++] = 0xf0 | (point >>> 18);
+      bytes[at++] = 0x80 | ((point >>> 12) & 0x3f);
+      bytes[at++] = 0x80 | ((point >>> 6) & 0x3f);
+      bytes[at++] = 0x80 | (point & 0x3f);
+    }
+  }
+  return bytes;
 }
 let extraArtifactSequence = 0;
 function extraArtifactToken(seed = "artifact"): string {
@@ -956,8 +988,7 @@ async function extraValidateComponents() {
 
 const extraUploads = new Map<string,{bytes:Uint8Array;written:number;mediaType:string}>();
 function extraDecodeBase64(value:string):Uint8Array{
-  const raw=atob(value);const out=new Uint8Array(raw.length);
-  for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;
+  return figma.base64Decode(value);
 }
 function extraSpacingValues(root:BaseNode){
   const values:number[]=[];

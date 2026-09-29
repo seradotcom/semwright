@@ -194,7 +194,7 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
       const node=await nodeById(String(a.nodeId)) as BaseNode&PluginDataMixin;
       const namespace=String(a.namespace),key=String(a.key),value=String(a.value);
       if(!/^[A-Za-z0-9]{3,128}$/.test(namespace))throw new Error("invalid_shared_namespace");
-      const bytes=new TextEncoder().encode(namespace+key+value).byteLength;
+      const bytes=extraUtf8ByteLength(namespace+key+value);
       if(bytes>100000)throw new Error("shared_plugin_data_limit");
       node.setSharedPluginData(namespace,key,value);
       return ok(request.id,{stored:value.length>0,removed:value.length===0,bytes},true);
@@ -362,7 +362,7 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
     }
     case "object.plugin_data.set": {
       const target=await saDataTarget(String(a.targetKind),String(a.targetId)),key=String(a.key),value=String(a.value);
-      const bytes=new TextEncoder().encode(key+value).byteLength;if(bytes>100000)throw new Error("plugin_data_limit");
+      const bytes=extraUtf8ByteLength(key+value);if(bytes>100000)throw new Error("plugin_data_limit");
       target.setPluginData(key,value);return ok(request.id,{stored:value.length>0,removed:value.length===0,bytes},true);
     }
     case "object.shared_plugin_data.get": {
@@ -378,7 +378,7 @@ async function handleSemanticAdmin(request:BridgeRequest,a:any):Promise<BridgeRe
     case "object.shared_plugin_data.set": {
       const target=await saDataTarget(String(a.targetKind),String(a.targetId)),namespace=String(a.namespace),key=String(a.key),value=String(a.value);
       if(!/^[A-Za-z0-9]{3,128}$/.test(namespace))throw new Error("invalid_shared_namespace");
-      const bytes=new TextEncoder().encode(namespace+key+value).byteLength;if(bytes>100000)throw new Error("shared_plugin_data_limit");
+      const bytes=extraUtf8ByteLength(namespace+key+value);if(bytes>100000)throw new Error("shared_plugin_data_limit");
       target.setSharedPluginData(namespace,key,value);return ok(request.id,{stored:value.length>0,removed:value.length===0,bytes},true);
     }
     case "style.variable.bind": {

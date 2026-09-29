@@ -30,7 +30,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: godot-${{ github.ref }}
+  group: godot-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: 0
@@ -39,6 +39,7 @@ env:
 
 jobs:
   conformance:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -78,6 +79,7 @@ jobs:
           retention-days: 14
 
   real-godot:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -100,6 +102,23 @@ jobs:
           echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
           "$GODOT" --version | tee verification/godot-real-ci/godot-version.log
           echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+      - name: Native readback and scene-only save contracts
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/godot-native-contracts"
+          mkdir -p "$fixture/addons" "$fixture/tests"
+          cp -R integrations/godot/addons/semwright "$fixture/addons/"
+          cp integrations/godot/tests/*_contract.gd "$fixture/tests/"
+          printf '%s\n' 'config_version=5' '[application]' 'config/name="Semwright Native Contracts"' > "$fixture/project.godot"
+          for contract in readback scene_save; do
+            log="verification/godot-real-ci/${contract}-contract.log"
+            timeout 90 "$GODOT_BIN" --headless --path "$fixture" \
+              --script "res://tests/${contract}_contract.gd" 2>&1 | tee "$log"
+            grep -q "^${contract^^}_FIXTURE_TESTS PASS:" "$log"
+            if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" "$log"; then
+              exit 1
+            fi
+          done
       - name: Build production driver
         run: |
           set -o pipefail

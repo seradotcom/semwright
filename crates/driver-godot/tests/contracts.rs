@@ -572,3 +572,132 @@ fn companion_declares_bounded_session_resume_contract() {
         );
     }
 }
+
+#[test]
+fn readback_inputs_are_bounded_and_legacy_inputs_remain_valid() {
+    let catalog = Catalog::load().unwrap();
+    let node = catalog.get("driver.godot.node.inspect").unwrap();
+    let base = json!({"session":"a".repeat(32),"path":"Camera"});
+    node.validate_input(&base).unwrap();
+    for flag in [json!(true), json!(false)] {
+        let mut input = base.clone();
+        input["include_vertex_bounds"] = flag;
+        node.validate_input(&input).unwrap();
+    }
+    for flag in [json!(1), json!("true"), json!(null)] {
+        let mut input = base.clone();
+        input["include_vertex_bounds"] = flag;
+        assert!(node.validate_input(&input).is_err());
+    }
+    for selectors in [json!(["attributes"]), json!([])] {
+        let mut input = base.clone();
+        input["resource_properties"] = selectors;
+        node.validate_input(&input).unwrap();
+    }
+    for selectors in [
+        json!(["attributes", "attributes"]),
+        json!([true]),
+        json!([""]),
+        json!(["a", "b", "c", "d", "e", "f", "g", "h", "i"]),
+    ] {
+        let mut input = base.clone();
+        input["resource_properties"] = selectors;
+        assert!(node.validate_input(&input).is_err());
+    }
+    let animation = catalog.get("driver.godot.animation.inspect").unwrap();
+    let base = json!({"session":"a".repeat(32),"player":"AnimationPlayer"});
+    animation.validate_input(&base).unwrap();
+    for (offset, limit) in [(0, 0), (0, 16), (528, 12), (1000000, 64)] {
+        let mut input = base.clone();
+        input["keys_offset"] = json!(offset);
+        input["keys_limit"] = json!(limit);
+        animation.validate_input(&input).unwrap();
+    }
+    for (field, value) in [
+        ("keys_offset", json!(-1)),
+        ("keys_offset", json!(1000001)),
+        ("keys_limit", json!(65)),
+        ("keys_limit", json!(true)),
+        ("method", json!("play")),
+    ] {
+        let mut input = base.clone();
+        input[field] = value;
+        assert!(animation.validate_input(&input).is_err());
+    }
+}
+
+#[test]
+fn readback_outputs_reject_partial_bounds_and_malformed_pages() {
+    let catalog = Catalog::load().unwrap();
+    let node = catalog.get("driver.godot.node.inspect").unwrap();
+    let mut output = json!({"stamp":{"revision":0,"fingerprint":"a".repeat(64)},"data":{
+        "path":"Mesh","name":"Mesh","class":"MeshInstance3D","ref":format!("native:{}","b".repeat(32)),"properties":{}}});
+    node.validate_output(&output).unwrap();
+    output["data"]["observed"] = json!({"scope":"edited_scene","owner_path":".","parent_path":".",
+        "position":[0,0,0],"rotation":[0,0,0],"scale":[1,1,1],"global_position":[0,0,0],"rotation_order":2,
+        "resource_properties":{"material_override":null},
+        "vertex_bounds":{"global_min":[0,0,0],"global_max":[1,2,3],"vertex_count":3,"surface_count":1,"complete":true,"space":"global","geometry":"base_mesh_vertices"}});
+    node.validate_output(&output).unwrap();
+    for (field, value) in [
+        ("complete", json!(false)),
+        ("vertex_count", json!(250001)),
+        ("global_min", json!([0, 0])),
+    ] {
+        let mut bad = output.clone();
+        bad["data"]["observed"]["vertex_bounds"][field] = value;
+        assert!(node.validate_output(&bad).is_err());
+    }
+    let mut bad = output.clone();
+    bad["data"]["observed"]["owner_path"] = json!(true);
+    assert!(node.validate_output(&bad).is_err());
+    output["data"]["observed"]["light_size"] = json!(2.0);
+    node.validate_output(&output).unwrap();
+    for invalid in [json!(true), json!("2.0"), json!(null)] {
+        let mut invalid_output = output.clone();
+        invalid_output["data"]["observed"]["light_size"] = invalid;
+        assert!(node.validate_output(&invalid_output).is_err());
+    }
+    let animation = catalog.get("driver.godot.animation.inspect").unwrap();
+    let key = json!({"index":0,"time":0,"transition":1,"value":1});
+    let track = json!({"index":0,"type":0,"path":"Camera:position","enabled":true,
+        "key_count":540,"keys_offset":0,"keys_limit":16,"next_offset":16,"keys_complete":false,
+        "interpolation_type":1,"interpolation_loop_wrap":true,"update_mode":0,"keys":[key]});
+    let animation_data = json!({"name":"reveal","length":18,"loop_mode":0,
+        "step":0.033333,"resource_path":"","tracks":[track]});
+    let library = json!({"name":"presentation","resource_path":"res://animation.tres",
+        "animations":[animation_data]});
+    let data = json!({"scope":"edited_scene","metadata_complete":true,"keys_offset":0,
+        "keys_limit":16,"returned_keys":1,
+        "player_state":{"is_playing":false,"speed_scale":0,"autoplay":""},"libraries":[library]});
+    let mut page = json!({"stamp":{"revision":0,"fingerprint":"a".repeat(64)},"data":data});
+    animation.validate_output(&page).unwrap();
+    page["data"]["metadata_complete"] = json!(false);
+    assert!(animation.validate_output(&page).is_err());
+    page["data"]["metadata_complete"] = json!(true);
+    page["data"]["libraries"][0]["animations"][0]["tracks"][0]["keys"] = json!(vec![
+        json!({"index":0,"time":0,"transition":1,"value":0});
+        65
+    ]);
+    assert!(animation.validate_output(&page).is_err());
+}
+
+#[test]
+fn scene_save_external_resource_policy_is_explicit_and_typed() {
+    let catalog = Catalog::load().unwrap();
+    let save = catalog.get("driver.godot.scene.save").unwrap();
+    let base = json!({"session":"a".repeat(32),"expect":{"revision":0,"fingerprint":"b".repeat(64)},"dry_run":false});
+    save.validate_input(&base).unwrap();
+    for policy in [json!(true), json!(false)] {
+        let mut input = base.clone();
+        input["save_external_resources"] = policy;
+        save.validate_input(&input).unwrap();
+    }
+    for policy in [json!("false"), json!(0), json!(null)] {
+        let mut input = base.clone();
+        input["save_external_resources"] = policy;
+        assert!(save.validate_input(&input).is_err());
+    }
+    let mut out_of_scope = base.clone();
+    out_of_scope["path"] = json!("res://another.tscn");
+    assert!(save.validate_input(&out_of_scope).is_err());
+}

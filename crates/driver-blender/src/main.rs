@@ -4,7 +4,7 @@
 //! introspection exposes bounded RNA/operator/add-on metadata but never arbitrary Python or generic
 //! operator invocation.
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, descriptor_digest, serve};
+use semwright_driver_sdk::{Capability, Driver, descriptor_digest, serve, tool_path};
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk, unique_id};
 use serde_json::{Value, json};
@@ -24,6 +24,9 @@ use tokio::{
 const DRIVER_ID: &str = "blender";
 const DRIVER_SCOPE: &str = "driver:blender";
 const WORKSPACE_MOUNT: &str = "workspace";
+const BLENDER_RUNTIME_MOUNT: &str = "blender-runtime";
+const BLENDER_TOOL: &str = "blender";
+const SUPPORTED_BLENDER_VERSION: &str = "Blender 4.5.14 LTS";
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 const COMMANDS_PY: &str = include_str!("../../../adapters/blender/semwright_blender/commands.py");
 const COMMANDS_JSON: &str =
@@ -33,11 +36,27 @@ const VALIDATION_PY: &str =
 const BRIDGE_PY: &str = include_str!("bridge.py");
 const SEMANTIC_PY: &str = include_str!("semantic.py");
 
-fn blender_binary() -> Result<&'static str> {
-    ["/usr/local/bin/blender", "/usr/bin/blender"]
-        .into_iter()
-        .find(|path| Path::new(path).is_file())
-        .ok_or_else(|| Error::unavailable("A supported Blender binary is required"))
+fn blender_binary() -> Result<PathBuf> {
+    let path = tool_path(BLENDER_TOOL)?;
+    let metadata = fs::metadata(&path)
+        .map_err(|_| Error::unavailable("Owner-pinned Blender sealed tool is unavailable"))?;
+    if !metadata.is_file() {
+        return Err(Error::unavailable(
+            "Owner-pinned Blender sealed tool must be a regular file",
+        ));
+    }
+    Ok(path)
+}
+
+fn configure_blender_runtime(command: &mut Command, runtime: &Path) {
+    let version_root = runtime.join("4.5");
+    command
+        .env("LD_LIBRARY_PATH", runtime.join("lib"))
+        .env("BLENDER_SYSTEM_RESOURCES", &version_root)
+        .env("BLENDER_SYSTEM_SCRIPTS", version_root.join("scripts"))
+        .env("BLENDER_SYSTEM_EXTENSIONS", version_root.join("extensions"))
+        .env("BLENDER_SYSTEM_DATAFILES", version_root.join("datafiles"))
+        .env("BLENDER_SYSTEM_PYTHON", version_root.join("python"));
 }
 
 fn curated_capabilities() -> Result<Vec<Capability>> {
@@ -57,14 +76,14 @@ fn curated_capabilities() -> Result<Vec<Capability>> {
             .filter(|name| {
                 matches!(
                     *name,
-                    "scene" | "object" | "collection" | "material" | "render" | "file"
+                    "scene" | "object" | "collection" | "material" | "export" | "render" | "file"
                 )
             })
             .map(|name| vec![name.into()])
             .unwrap_or_default();
         let mut tags = vec!["blender".into(), "native".into(), "curated".into()];
         match descriptor.name.as_str() {
-            "driver.blender.file.save" => {
+            "driver.blender.file.save" | "driver.blender.export.glb" => {
                 tags.push(semwright_driver_sdk::artifact_output_tag("model/3d")?)
             }
             "driver.blender.render" => {
@@ -1437,12 +1456,33 @@ impl BlenderDriver {
             ));
         }
 
-        let runtime = private_runtime()?;
-        let (bridge, socket) = stage_runtime(&runtime)?;
+        let blender_runtime = semwright_driver_sdk::workspace_mount(BLENDER_RUNTIME_MOUNT)?;
+        let runtime_meta = fs::metadata(&blender_runtime)
+            .map_err(|_| Error::unavailable("Blender driver requires the runtime mount"))?;
+        if !runtime_meta.is_dir() {
+            return Err(Error::unavailable(
+                "Blender runtime mount is not a directory",
+            ));
+        }
+        for relative in [
+            "lib",
+            "4.5/scripts",
+            "4.5/extensions",
+            "4.5/datafiles",
+            "4.5/python",
+        ] {
+            if !blender_runtime.join(relative).is_dir() {
+                return Err(Error::unavailable(
+                    "Blender runtime mount is incomplete for 4.5 LTS",
+                ));
+            }
+        }
 
+        let mut version_command = Command::new(&blender);
+        configure_blender_runtime(&mut version_command, &blender_runtime);
         let version_output = timeout(
             Duration::from_secs(5),
-            Command::new(blender).arg("--version").output(),
+            version_command.arg("--version").output(),
         )
         .await
         .map_err(|_| Error::new(ErrorCode::Timeout, "Blender version probe timed out"))??;
@@ -1458,8 +1498,20 @@ impl BlenderDriver {
             .chars()
             .take(128)
             .collect::<String>();
+        if version != SUPPORTED_BLENDER_VERSION {
+            return Err(Error::unavailable(
+                "Owner-pinned Blender version is not the supported 4.5.14 LTS runtime",
+            ));
+        }
 
-        let mut command = Command::new(blender);
+        let runtime = private_runtime()?;
+        let (bridge, socket) = stage_runtime(&runtime)?;
+        let user_resources = runtime.join("user");
+        fs::create_dir(&user_resources)
+            .map_err(|error| io_step("Blender private user resources creation", error))?;
+
+        let mut command = Command::new(&blender);
+        configure_blender_runtime(&mut command, &blender_runtime);
         command
             .args([
                 "--background",
@@ -1473,6 +1525,8 @@ impl BlenderDriver {
             .arg(&workspace_root)
             .arg(&runtime)
             .env("PYTHONNOUSERSITE", "1")
+            .env("BLENDER_USER_RESOURCES", &user_resources)
+            .env("TMPDIR", &runtime)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             // Normal DriverProvider execution discards the driver's stderr at the host boundary.
@@ -1628,6 +1682,7 @@ mod tests {
             .map(|capability| capability.descriptor.name.as_str())
             .collect::<std::collections::BTreeSet<_>>();
         assert!(names.contains("driver.blender.object.create"));
+        assert!(names.contains("driver.blender.export.glb"));
         assert!(names.contains("driver.blender.render"));
         assert!(names.contains("driver.blender.introspect.operator.describe"));
         assert!(names.contains("driver.blender.semantic.property.set"));
@@ -1648,6 +1703,16 @@ mod tests {
             .find(|capability| capability.descriptor.name == "driver.blender.file.save")
             .unwrap();
         assert!(saved.tags.iter().any(|tag| tag == "artifact-out:model/3d"));
+        let exported = capabilities
+            .iter()
+            .find(|capability| capability.descriptor.name == "driver.blender.export.glb")
+            .unwrap();
+        assert!(
+            exported
+                .tags
+                .iter()
+                .any(|tag| tag == "artifact-out:model/3d")
+        );
         let render = capabilities
             .iter()
             .find(|capability| capability.descriptor.name == "driver.blender.render")

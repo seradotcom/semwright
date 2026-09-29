@@ -1276,6 +1276,24 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
         backend: cli.backend.clone(),
     }))
 }
+fn terminal_format_control(c: char) -> bool {
+    matches!(c, '\u{061c}' | '\u{200e}'..='\u{200f}' | '\u{2028}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+}
+
+/// Render untrusted human-facing fields without terminal controls or forged lines.
+/// This is a presentation boundary, not a change to the underlying error or JSON value.
+pub fn escape_terminal_text(text: &str) -> String {
+    text.chars()
+        .flat_map(|c| {
+            if c.is_control() || terminal_format_control(c) {
+                c.escape_default().collect::<Vec<_>>()
+            } else {
+                vec![c]
+            }
+        })
+        .collect()
+}
+
 pub fn print_result(value: &Value, machine: bool) -> Result<()> {
     use std::io::Write;
     let text = if machine {
@@ -1283,10 +1301,10 @@ pub fn print_result(value: &Value, machine: bool) -> Result<()> {
     } else {
         serde_json::to_string_pretty(value)?
     };
-    // JSON already escapes C0 controls. Escape terminal directionality controls as well.
+    // JSON escapes C0 controls. Escape C1 and format controls without changing JSON values.
     let mut out = std::io::stdout().lock();
     for c in text.chars() {
-        if matches!(c,'\u{202a}'..='\u{202e}'|'\u{2066}'..='\u{2069}') {
+        if matches!(c, '\u{007f}'..='\u{009f}') || terminal_format_control(c) {
             write!(out, "\\u{:04x}", c as u32)?;
         } else {
             write!(out, "{c}")?;
@@ -1313,6 +1331,17 @@ pub fn create(path: &Path, text: &str) -> Result<()> {
 mod tests {
     use super::*;
     use clap::CommandFactory;
+    #[test]
+    fn human_fields_escape_terminal_controls_and_preserve_unicode() {
+        let raw = "\u{1b}]8;;https://example.invalid\u{7}label\r\nPASS\t\u{9b}2J\u{202e}abc\u{2066}def\u{061c}ghi\u{200f}j\u{2028}k";
+        let escaped = escape_terminal_text(raw);
+        assert!(!escaped.chars().any(char::is_control));
+        assert!(!escaped.chars().any(terminal_format_control));
+        assert!(escaped.contains("\\r\\nPASS\\t"));
+        assert!(escaped.contains("\\u{1b}"));
+        assert_eq!(escape_terminal_text("Málaga ✓ 漢字"), "Málaga ✓ 漢字");
+    }
+
     #[test]
     fn clap_definitions_are_consistent() {
         Cli::command().debug_assert();

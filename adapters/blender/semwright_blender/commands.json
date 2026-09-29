@@ -256,6 +256,29 @@
     ],
     "additionalProperties": false
   },
+  "blender.export.glb": {
+    "type": "object",
+    "properties": {
+      "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "path": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 4096
+      },
+      "animations": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "collection",
+      "path"
+    ],
+    "additionalProperties": false
+  },
   "blender.file.save": {
     "type": "object",
     "properties": {

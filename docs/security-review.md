@@ -32,6 +32,13 @@ sha256sum "semwright-security-review-${SHORT_SHA}.tar.gz" \
 printf '%s\n' "$BASELINE_SHA" > "semwright-security-review-${SHORT_SHA}.baseline"
 ```
 
+For the complete source/reference/template bundle, use
+`scripts/dev/security-review-bundle.sh "$BASELINE_SHA" /existing/parent/new-bundle`.
+The output directory must not already exist, and must be outside the worktree and Git
+metadata. The script creates it privately and never removes or overwrites an old bundle.
+Choose a new output path for every generation; verify `SHA256SUMS`, including `BASELINE_SHA`,
+before handoff. The generated manifest remains `UNREVIEWED`.
+
 The reviewer should independently verify the archive hash, record the baseline SHA in the final
 report, and work from a fresh extraction or clone. The report must identify every required review
 area as executed, not executed or blocked; list exact tool versions and commands; and give each
