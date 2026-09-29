@@ -1,0 +1,66 @@
+name: Project Graph diagnostics
+on:
+  push:
+    branches: [feat/project-graph]
+    paths:
+      - 'crates/project-graph/**'
+      - 'scripts/project-graph/**'
+      - '.github/workflows/project-graph.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact immutable checkout SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: project-graph-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  RUSTUP_TOOLCHAIN: 1.88.0
+jobs:
+  project-graph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source SHA
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+      - name: Rust formatting
+        run: cargo fmt -p semwright-project-graph -- --check
+      - name: Project Graph typed P0 inventory and tests
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+        run: python3 scripts/project-graph/run-suite.py contracts
+      - name: Clippy
+        run: cargo clippy --locked -p semwright-project-graph --all-targets -- -D warnings
+      - name: Wire schemas
+        run: cargo run --locked -p semwright-project-graph --example schemas > verification/project-graph/schemas.json
+      - name: Rustdoc
+        run: cargo doc --locked -p semwright-project-graph --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: project-graph-${{ github.sha }}-${{ github.run_attempt }}
+          path: verification/project-graph
+          if-no-files-found: error
+          retention-days: 7
