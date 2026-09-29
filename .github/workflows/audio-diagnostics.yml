@@ -62,6 +62,33 @@ jobs:
           path: verification/audio
           retention-days: 7
           if-no-files-found: error
+  audio-portable-cross:
+    needs: [audio-domain]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: audio-v1-portable-${{ matrix.os }}
+      - name: Portable audio tests
+        run: python3 scripts/audio/run-suite.py portable
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: audio-portable-${{ matrix.os }}-${{ github.sha }}
+          path: verification/audio
+          retention-days: 7
+          if-no-files-found: error
   faust-native:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
@@ -195,16 +222,92 @@ jobs:
           path: verification/audio
           retention-days: 7
           if-no-files-found: error
+  audio-fuzz:
+    needs: [audio-domain]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: nightly-2026-09-18
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: audio-v1-fuzz
+          workspaces: fuzz
+      - run: rustup toolchain install 1.98.1 --profile minimal
+      - run: cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Bounded targeted audio fuzz
+        run: |
+          mkdir -p verification/audio/fuzz
+          for target in audio_domain_model audio_domain_edit audio_wav; do
+            cargo +nightly-2026-09-18 fuzz run "$target" -- -max_total_time=15 -timeout=3 -rss_limit_mb=1024 -max_len=32768 2>&1 | tee "verification/audio/fuzz/$target.log"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: audio-fuzz-${{ github.sha }}
+          path: |
+            verification/audio/fuzz
+            fuzz/artifacts
+          retention-days: 7
+          if-no-files-found: warn
+  audio-package:
+    needs: [audio-domain, faust-native, analysis-native, ardour-native]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: audio-v1-development-packages
+      - name: Install pinned package-time native runtimes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y faust=2.70.3+ds-1.1build2 libsndfile1-dev libebur128-dev=1.2.6-1build1 'ardour=1:8.4.0+ds1-2ubuntu8' 'ardour-data=1:8.4.0+ds1-2ubuntu8' libpipewire-0.3-dev
+      - name: Build drivers, CLI and fixed Semwright helpers
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/faust-runtime/main.cpp -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/analysis-runtime/main.cpp -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
+          cargo build --locked -p semwright-plugin-host -p semwright-cli -p semwright-faust-audio-driver -p semwright-ardour-audio-driver --bins
+      - name: Locate pinned Ardour utilities
+        run: |
+          LUA="$(find /usr/lib -type f -path '*ardour8*' -name 'luasession' -perm /111 -print -quit)"
+          CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_empty_session' -perm /111 -print -quit)"
+          EXPORT="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-export' -perm /111 -print -quit)"
+          test -n "$LUA" && test -n "$CREATE" && test -n "$EXPORT"
+          echo "SEMWRIGHT_PACKAGE_ARDOUR_LUA=$LUA" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_PACKAGE_ARDOUR_CREATE=$CREATE" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_PACKAGE_ARDOUR_EXPORT=$EXPORT" >> "$GITHUB_ENV"
+      - name: Create and inspect real development packages
+        run: |
+          python3 scripts/audio/package-development.py             --semwright "$GITHUB_WORKSPACE/target/debug/semwright"             --faust-driver "$GITHUB_WORKSPACE/target/debug/semwright-faust-audio-driver"             --analysis-driver "$GITHUB_WORKSPACE/target/debug/semwright-audio-analysis-driver"             --ardour-driver "$GITHUB_WORKSPACE/target/debug/semwright-ardour-audio-driver"             --faust-helper "$RUNNER_TEMP/semwright-faust-interpreter"             --audio-meter "$RUNNER_TEMP/semwright-audio-meter"             --ardour-lua "$SEMWRIGHT_PACKAGE_ARDOUR_LUA"             --ardour-create "$SEMWRIGHT_PACKAGE_ARDOUR_CREATE"             --ardour-export "$SEMWRIGHT_PACKAGE_ARDOUR_EXPORT"             --faust-libraries /usr/share/faust             --output verification/audio/packages
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: audio-development-packages-${{ github.sha }}
+          path: verification/audio/packages
+          retention-days: 30
+          if-no-files-found: error
   audio-gate:
     if: always()
-    needs: [audio-domain, faust-native, analysis-native, ardour-native]
+    needs: [audio-domain, audio-portable-cross, faust-native, analysis-native, ardour-native, audio-fuzz, audio-package]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: Every selected lane must run and pass
         env:
           DOMAIN_RESULT: ${{ needs.audio-domain.result }}
+          CROSS_RESULT: ${{ needs.audio-portable-cross.result }}
           FAUST_RESULT: ${{ needs.faust-native.result }}
           ANALYSIS_RESULT: ${{ needs.analysis-native.result }}
           ARDOUR_RESULT: ${{ needs.ardour-native.result }}
-        run: test "$DOMAIN_RESULT" = success && test "$FAUST_RESULT" = success && test "$ANALYSIS_RESULT" = success && test "$ARDOUR_RESULT" = success
+          FUZZ_RESULT: ${{ needs.audio-fuzz.result }}
+          PACKAGE_RESULT: ${{ needs.audio-package.result }}
+        run: test "$DOMAIN_RESULT" = success && test "$CROSS_RESULT" = success && test "$FAUST_RESULT" = success && test "$ANALYSIS_RESULT" = success && test "$ARDOUR_RESULT" = success && test "$FUZZ_RESULT" = success && test "$PACKAGE_RESULT" = success

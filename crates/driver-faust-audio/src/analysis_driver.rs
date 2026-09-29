@@ -17,7 +17,7 @@ impl AudioAnalysisDriver {
     pub fn production() -> Result<Self> {
         Ok(Self {
             runtime: AnalysisRuntime::load()?,
-            capabilities: capabilities(),
+            capabilities: capability_catalog(),
         })
     }
     fn verify_digest(&self, command: &str, digest: &str) -> Result<()> {
@@ -123,7 +123,7 @@ impl Driver for AudioAnalysisDriver {
     }
 }
 
-fn capabilities() -> Vec<Capability> {
+pub fn capability_catalog() -> Vec<Capability> {
     vec![
         capability(
             "driver.audio-analysis.doctor",

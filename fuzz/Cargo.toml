@@ -24,6 +24,7 @@ semwright-workflow = { path = "../crates/workflow" }
 semwright-skills = { path = "../crates/skills" }
 semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/driver-obs" }
 semwright-video-domain = { path = "../crates/video-domain" }
+semwright-audio-domain = { path = "../crates/audio-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
 semwright-godot-driver = { package = "semwright-driver-godot", path = "../crates/driver-godot" }
 semwright-driver-motion-canvas = { package = "semwright-driver-motion-canvas", path = "../crates/driver-motion-canvas" }
@@ -296,6 +297,27 @@ bench = false
 [[bin]]
 name = "skill_archive_path"
 path = "fuzz_targets/skill_archive_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "audio_domain_model"
+path = "fuzz_targets/audio_domain_model.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "audio_domain_edit"
+path = "fuzz_targets/audio_domain_edit.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "audio_wav"
+path = "fuzz_targets/audio_wav.rs"
 test = false
 doc = false
 bench = false

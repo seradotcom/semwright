@@ -125,7 +125,7 @@ struct Op {
     idempotency: Idempotency,
 }
 
-fn capabilities() -> Vec<Capability> {
+pub fn capability_catalog() -> Vec<Capability> {
     let ops = [
         Op {
             name: "doctor",
@@ -220,7 +220,7 @@ fn capabilities() -> Vec<Capability> {
 }
 
 fn capability(command: &str) -> Result<Capability> {
-    capabilities()
+    capability_catalog()
         .into_iter()
         .find(|value| value.descriptor.name == command)
         .ok_or_else(|| Error::new(ErrorCode::NotFound, "Faust audio capability not registered"))
@@ -236,7 +236,7 @@ impl Driver for FaustAudioDriver {
     }
 
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
-        Ok(capabilities())
+        Ok(capability_catalog())
     }
 
     fn interfaces(&self) -> DriverInterfaces {
@@ -753,7 +753,7 @@ mod descriptor_tests {
 
     #[test]
     fn catalog_is_unique_pinned_and_accepts_semantics_not_compiler_authority() {
-        let capabilities = capabilities();
+        let capabilities = capability_catalog();
         let mut names = BTreeSet::new();
         for capability in &capabilities {
             assert!(names.insert(capability.descriptor.name.clone()));

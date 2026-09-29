@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "baseline": {
+    "runtime_versions": [
+      "2.37.3",
+      "2.70.3"
+    ],
+    "engine": "official_libfaust_interpreter"
+  },
+  "surfaces": [
+    {
+      "surface": "typed synthesis graph",
+      "status": "implemented",
+      "mapping": "FaustProgram generated source",
+      "evidence": "translation + native compile"
+    },
+    {
+      "surface": "curated SFX presets",
+      "status": "implemented",
+      "mapping": "SfxPreset -> transparent synth graph",
+      "evidence": "distinct graph/native render tests"
+    },
+    {
+      "surface": "oscillator/noise/envelope/FM/filter/mix",
+      "status": "implemented",
+      "mapping": "semantic graph",
+      "evidence": "unit + native compile/render"
+    },
+    {
+      "surface": "EQ/compressor/delay/gain/distortion",
+      "status": "implemented",
+      "mapping": "declared DSP mapping",
+      "evidence": "translation/conformance"
+    },
+    {
+      "surface": "limiter advanced lookahead/hold/true-peak",
+      "status": "unsupported",
+      "mapping": null,
+      "evidence": "fails closed; no hidden approximation"
+    },
+    {
+      "surface": "reverb unspecified topology",
+      "status": "unsupported",
+      "mapping": null,
+      "evidence": "fails closed unless algorithm semantics are explicit"
+    },
+    {
+      "surface": "arbitrary Faust source/import/compiler flags",
+      "status": "security_excluded",
+      "mapping": null,
+      "evidence": "fixed translator/helper rejection"
+    },
+    {
+      "surface": "soundfile/sample playback",
+      "status": "upstream_restricted_pending",
+      "mapping": null,
+      "evidence": "not advertised until granted asset path is certified"
+    },
+    {
+      "surface": "polyphony/MIDI voice runtime",
+      "status": "upstream_restricted_pending",
+      "mapping": null,
+      "evidence": "domain may model events; native runtime not advertised"
+    },
+    {
+      "surface": "WAV/FLAC render",
+      "status": "implemented",
+      "mapping": "sealed interpreter + libsndfile",
+      "evidence": "native CI required"
+    }
+  ]
+}

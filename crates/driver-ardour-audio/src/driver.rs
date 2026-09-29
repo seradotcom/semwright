@@ -70,7 +70,7 @@ impl ArdourAudioDriver {
             generation: 0,
             deep_runtime,
             deep_runtime_reason,
-            capabilities: capabilities(),
+            capabilities: capability_catalog(),
         })
     }
 
@@ -638,7 +638,7 @@ impl Driver for ArdourAudioDriver {
     }
 }
 
-fn capabilities() -> Vec<Capability> {
+pub fn capability_catalog() -> Vec<Capability> {
     let mut values = vec![
         descriptor(
             "driver.ardour-audio.doctor",
@@ -1500,7 +1500,7 @@ mod descriptor_tests {
 
     #[test]
     fn catalog_is_unique_pinned_and_does_not_accept_code_or_remote_hosts() {
-        let capabilities = capabilities();
+        let capabilities = capability_catalog();
         let mut names = BTreeSet::new();
         assert!(capabilities.len() >= 10);
         for capability in &capabilities {

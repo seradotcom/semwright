@@ -1,0 +1,568 @@
+{
+  "schema_version": 1,
+  "semantic_model_version": 1,
+  "generated_from": {
+    "audio_operation_count": 38,
+    "capability_count": 39
+  },
+  "audio_operations": [
+    {
+      "id": "project.profile.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "sample.import",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "sample.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "synth.create",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "synth.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "signal.add",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "signal.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "signal.connect",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "signal.disconnect",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.create",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.rename",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.mute",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.solo",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.gain.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.pan.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.insert",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.move",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.trim",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.duplicate",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "effect.add",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "effect.replace",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "effect.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "effect.enable",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "effect.disable",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "automation.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "automation.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "bus.create",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "bus.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "bus.gain.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "bus.pan.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "bus.send.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.route",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "sfx.preset.materialize",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "render.plan",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "render.start",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "analysis.inspect",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "driver.faust-audio.doctor",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "implemented",
+      "fidelity": "deterministic_declared",
+      "evidence": "portable_plus_native_runtime_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.backend.contract",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "implemented",
+      "fidelity": "deterministic_declared",
+      "evidence": "portable_plus_native_runtime_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.sfx.preset.list",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "implemented",
+      "fidelity": "deterministic_declared",
+      "evidence": "portable_plus_native_runtime_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.sfx.source",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "implemented",
+      "fidelity": "deterministic_declared",
+      "evidence": "portable_plus_native_runtime_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.synth.source",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "implemented",
+      "fidelity": "deterministic_declared",
+      "evidence": "portable_plus_native_runtime_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.synth.validate",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "native",
+      "fidelity": "deterministic_declared",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.sfx.render",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "native",
+      "fidelity": "deterministic_declared",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.synth.render",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "native",
+      "fidelity": "deterministic_declared",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.audio-analysis.doctor",
+      "provider": "driver:audio-analysis",
+      "family": "analysis",
+      "support": "implemented",
+      "fidelity": "measurement_versioned",
+      "evidence": "portable",
+      "classified": true
+    },
+    {
+      "id": "driver.audio-analysis.artifact.measure",
+      "provider": "driver:audio-analysis",
+      "family": "analysis",
+      "support": "native",
+      "fidelity": "measurement_versioned",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.doctor",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "implemented",
+      "fidelity": "native_readback",
+      "evidence": "osc_or_projection_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.inspect",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "implemented",
+      "fidelity": "lossy_read_only",
+      "evidence": "osc_or_projection_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.inspect",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.create",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.save-as",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.export",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.stem.create",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.route.remove",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.route.rename",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.route.mute",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.route.solo",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.route.gain.set",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.route.pan.set",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.clip.move",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.clip.trim",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.clip.remove",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.range.set",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.project",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "implemented",
+      "fidelity": "lossy_read_only",
+      "evidence": "osc_or_projection_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.contract",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "implemented",
+      "fidelity": "lossy_read_only",
+      "evidence": "osc_or_projection_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.stem.rename",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "implemented",
+      "fidelity": "native_readback",
+      "evidence": "osc_or_projection_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.stem.mute",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "implemented",
+      "fidelity": "native_readback",
+      "evidence": "osc_or_projection_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.stem.solo",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "implemented",
+      "fidelity": "native_readback",
+      "evidence": "osc_or_projection_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.stem.gain.set",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "best_effort_live",
+      "fidelity": "unverified_or_reobserve_required",
+      "evidence": "osc_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.stem.pan.set",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "best_effort_live",
+      "fidelity": "unverified_or_reobserve_required",
+      "evidence": "osc_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.bus.gain.set",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "best_effort_live",
+      "fidelity": "unverified_or_reobserve_required",
+      "evidence": "osc_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.bus.pan.set",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "best_effort_live",
+      "fidelity": "unverified_or_reobserve_required",
+      "evidence": "osc_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.transport.play",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "best_effort_live",
+      "fidelity": "unverified_or_reobserve_required",
+      "evidence": "osc_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.transport.stop",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "best_effort_live",
+      "fidelity": "unverified_or_reobserve_required",
+      "evidence": "osc_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.transport.locate",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "best_effort_live",
+      "fidelity": "unverified_or_reobserve_required",
+      "evidence": "osc_contract",
+      "classified": true
+    }
+  ],
+  "rules": {
+    "support_values": [
+      "implemented",
+      "native",
+      "best_effort_live"
+    ],
+    "evidence_values": [
+      "portable",
+      "portable_plus_native_runtime_contract",
+      "native_ci_required",
+      "osc_contract",
+      "osc_or_projection_contract"
+    ],
+    "unclassified_is_error": true
+  }
+}

@@ -1,0 +1,17 @@
+# Audio acceptance mapping
+
+This maps AU requirements to implementation and evidence; it is not an automatic PASS declaration.
+
+| IDs | Implementation | Evidence |
+|---|---|---|
+| AU01-AU04 | strict neutral model, operations, routing, clips/fades/automation, tempo/MIDI/cues | portable unit/property/time tests plus native only where advertised |
+| AU05-AU06 | typed Faust graph and parameterized seeded SFX | faust-native compiler/render/PCM |
+| AU07-AU08 | Ardour OSC + fixed-Lua deep create/edit/save-as/reopen/export | ardour-native |
+| AU09 | opaque plugin/loss model; arbitrary loading excluded | coverage/deny evidence; writable plugin state remains pending |
+| AU10 | shared Composition authoring, ducking and repair lifecycle | audio-authoring lifecycle + combined AV gate |
+| AU11-AU12 | PCM stats plus libebur128 loudness/true peak/LRA and defined silence/short/nonfinite/corrupt states | analysis-native + portable parser cases |
+| AU13-AU16 | declared DSP semantics, platform/runtime matrix, stale handling, sandbox/resources | native/portable/security gates |
+| AU17 | semwright-audio-production Skill and requirements | Skill validation |
+| AU18 | runtime templates and real SWDP development packages | package lane |
+
+Items marked pending or upstream_restricted in coverage JSON remain open for that feature and cannot be converted to PASS by relabeling.

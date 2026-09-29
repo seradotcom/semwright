@@ -44,8 +44,10 @@ fidelity-certified mappings for filters, EQ, zero-knee compression, delay, gain 
 distortion. Semantics that would require hidden implementation choices fail closed.
 For example, limiter attack/lookahead/hold and reverb algorithm/topology are not guessed.
 
-Production rendering uses an owner-pinned runtime manifest under
-`/workspace/runtime/runtime.json` and emits new WAV/FLAC artifacts.
+Production rendering reads an owner-granted `faust-libraries` mount containing
+`semwright-runtime.json` plus pinned library hashes, and a Driver Host sealed
+`faust-interpreter` tool. It emits only new WAV/FLAC artifacts into the explicit
+output grant.
 
 ## Ardour
 
@@ -56,14 +58,17 @@ supports transport plus bounded track/bus controls. Mutations that can be re-obs
 through Ardour's strip list are verified; numeric controls that the observation surface
 cannot echo require explicit acknowledgement and force re-observation.
 
-The deep path uses an owner-pinned `ardourN-lua` / `luasession` executable and a
-Semwright-owned fixed Lua adapter. Agent values are positional arguments, never code.
-The adapter loads only the mounted `/workspace/project` session and projects routes,
-regions and media into the portable audio model. Native routing, sends and plugin
-inventories remain explicitly incomplete until certified.
+The deep path uses three owner-pinned Driver Host tools from the Ardour 8.4 runtime:
+Lua session, new-session and export. A Semwright-owned fixed Lua adapter receives agent
+values only as bounded positional arguments. Separate `ardour-runtime`,
+`ardour-project` and `ardour-output` grants keep runtime metadata, managed session
+state and artifacts distinct.
 
-Deep mutation primitives exist internally only for operations implemented by the fixed
-adapter. They are not advertised merely because Ardour could theoretically perform them.
+Advertised deep mutations are revision-bound and are re-read through the native adapter:
+managed session creation/range, track creation, route rename/mute/solo/gain/pan,
+clip move/trim/remove, save-as/reopen and WAV export. Destructive remove operations keep
+normal confirmation policy. Native routing, sends, plugin state, GUI-only media import
+and MIDI instrument authoring remain explicitly incomplete or upstream-restricted.
 
 ## Generated/AI assets
 

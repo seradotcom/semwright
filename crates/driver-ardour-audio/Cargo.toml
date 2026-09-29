@@ -31,6 +31,7 @@ tokio.workspace = true
 
 [dev-dependencies]
 semwright-backend-api.workspace = true
+semwright-faust-audio-driver = { path = "../driver-faust-audio" }
 semwright-core.workspace = true
 semwright-driver-host.workspace = true
 semwright-policy.workspace = true

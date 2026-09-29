@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "baseline": {
+    "version": "8.4.0",
+    "source_tag": "8.4",
+    "source_commit": "c35515e43d65bac23c89ae11cfbf2fed8c8f46b6"
+  },
+  "surfaces": [
+    {
+      "surface": "OSC strip discovery/transport",
+      "status": "implemented",
+      "route": "official OSC loopback",
+      "evidence": "strict packet/parser tests; native interactive acceptance separate"
+    },
+    {
+      "surface": "OSC rename/mute/solo",
+      "status": "implemented",
+      "route": "official OSC + fresh strip readback",
+      "evidence": "verified when echoed by strip list"
+    },
+    {
+      "surface": "OSC numeric gain/pan",
+      "status": "best_effort",
+      "route": "official OSC",
+      "evidence": "explicit unverified acknowledgement + reobserve"
+    },
+    {
+      "surface": "headless session inspect",
+      "status": "implemented",
+      "route": "fixed Semwright Lua + pinned luasession",
+      "evidence": "native CI required"
+    },
+    {
+      "surface": "new managed session",
+      "status": "implemented",
+      "route": "official ardour8-new_empty_session Dummy backend utility",
+      "evidence": "state artifact + clean reopen required"
+    },
+    {
+      "surface": "route create/remove/rename/mute/solo/gain/pan",
+      "status": "implemented",
+      "route": "fixed Lua typed argv",
+      "evidence": "revision-bound native readback"
+    },
+    {
+      "surface": "clip move/trim/remove",
+      "status": "implemented",
+      "route": "fixed Lua typed argv",
+      "evidence": "revision-bound native readback; fixture media import remains separate"
+    },
+    {
+      "surface": "session range",
+      "status": "implemented",
+      "route": "Session:set_session_extents",
+      "evidence": "native snapshot start/end readback"
+    },
+    {
+      "surface": "save-as/reopen",
+      "status": "implemented",
+      "route": "Session:save_state(candidate) + independent reopen",
+      "evidence": "source revision preservation"
+    },
+    {
+      "surface": "WAV export",
+      "status": "implemented",
+      "route": "official ardour8-export",
+      "evidence": "artifact decode/hash + source preservation; exit-zero alone rejected"
+    },
+    {
+      "surface": "GUI/editor-only import/relink",
+      "status": "upstream_restricted",
+      "route": null,
+      "evidence": "official shipped example uses Editor:do_import; not claimed headlessly"
+    },
+    {
+      "surface": "complete sends/routing graph",
+      "status": "pending",
+      "route": "native snapshot v1",
+      "evidence": "projection marks incomplete/read-only"
+    },
+    {
+      "surface": "plugin inventory/state/automation",
+      "status": "pending",
+      "route": "native snapshot v1",
+      "evidence": "opaque or incomplete; not advertised as writable"
+    },
+    {
+      "surface": "MIDI phrase/instrument authoring",
+      "status": "pending",
+      "route": null,
+      "evidence": "not advertised"
+    },
+    {
+      "surface": "experimental MCP HTTP/WebSocket",
+      "status": "not_selected",
+      "route": null,
+      "evidence": "8.4 availability/security not used; no listener enabled"
+    },
+    {
+      "surface": "arbitrary Lua/raw OSC/tool name",
+      "status": "security_excluded",
+      "route": null,
+      "evidence": "no public escape hatch"
+    }
+  ]
+}
