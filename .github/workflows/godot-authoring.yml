@@ -83,28 +83,6 @@ jobs:
           test -x "$RUNNER_TEMP/export-templates/linux_release.x86_64"
           echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
           echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/export-templates" >> "$GITHUB_ENV"
-      - name: Native #171 readback and persistence contracts
-        run: |
-          set -euo pipefail
-          fixture="$RUNNER_TEMP/godot-authoring-native-contracts"
-          mkdir -p "$fixture/addons" "$fixture/tests"
-          cp -R integrations/godot/addons/semwright "$fixture/addons/"
-          cp integrations/godot/tests/readback_contract.gd integrations/godot/tests/scene_save_contract.gd "$fixture/tests/"
-          printf '%s\n' 'config_version=5' '[application]' 'config/name="Semwright D Native Contracts"' > "$fixture/project.godot"
-          for contract in readback scene_save; do
-            log="verification/godot-authoring/${contract}-contract.log"
-            timeout 90 "$GODOT_BIN" --headless --path "$fixture" \
-              --script "res://tests/${contract}_contract.gd" 2>&1 | tee "$log"
-            grep -q "^${contract^^}_FIXTURE_TESTS PASS:" "$log"
-            if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" "$log"; then
-              exit 1
-            fi
-          done
-      - name: Managed runner and native route contracts
-        run: |
-          cargo test --locked -p semwright-driver-godot --lib runner::tests:: -- --nocapture
-          cargo test --locked -p semwright-driver-godot --test contracts             native_authoring_verification_is_code_execution_and_not_a_plain_runner -- --exact --nocapture
-          cargo test --locked -p semwright-driver-godot --test contracts             runner_capabilities_accept_owned_managed_projects_without_accepting_paths -- --exact --nocapture
       - name: Build sandbox helper
         run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
       - name: Broker Driver Host isolated native scenarios
@@ -228,6 +206,28 @@ jobs:
           pathlib.Path(sys.argv[2]).write_text(json.dumps(receipt, indent=2) + "\n")
           PY2
 
+      - name: "Native #171 readback and persistence contracts"
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/godot-authoring-native-contracts"
+          mkdir -p "$fixture/addons" "$fixture/tests"
+          cp -R integrations/godot/addons/semwright "$fixture/addons/"
+          cp integrations/godot/tests/readback_contract.gd integrations/godot/tests/scene_save_contract.gd "$fixture/tests/"
+          printf '%s\n' 'config_version=5' '[application]' 'config/name="Semwright D Native Contracts"' > "$fixture/project.godot"
+          for contract in readback scene_save; do
+            log="verification/godot-authoring/${contract}-contract.log"
+            timeout 90 "$GODOT_BIN" --headless --path "$fixture" \
+              --script "res://tests/${contract}_contract.gd" 2>&1 | tee "$log"
+            grep -q "^${contract^^}_FIXTURE_TESTS PASS:" "$log"
+            if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" "$log"; then
+              exit 1
+            fi
+          done
+      - name: Managed runner and native route contracts
+        run: |
+          cargo test --locked -p semwright-driver-godot --lib runner::tests:: -- --nocapture
+          cargo test --locked -p semwright-driver-godot --test contracts             native_authoring_verification_is_code_execution_and_not_a_plain_runner -- --exact --nocapture
+          cargo test --locked -p semwright-driver-godot --test contracts             runner_capabilities_accept_owned_managed_projects_without_accepting_paths -- --exact --nocapture
       - name: Native evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
