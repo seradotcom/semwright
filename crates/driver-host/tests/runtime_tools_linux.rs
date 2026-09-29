@@ -141,6 +141,8 @@ async fn linux_v5_runtime_tool_is_host_mediated_and_mount_scoped() {
     ];
 
     let state = tempfile::tempdir().expect("driver state");
+    std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700))
+        .expect("harden driver state");
     let provider = DriverProvider::connect(
         manifest(driver, digest(&tool)),
         state.path(),

@@ -21,6 +21,9 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
 jobs:
   source-boundary:
     runs-on: ubuntu-24.04
