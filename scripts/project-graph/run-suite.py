@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Allowlisted exact-source diagnostics. No local builds or runtimes."""
+"""Allowlisted exact-source diagnostics executed by the hosted CI lane."""
 import hashlib
 import json
 import os

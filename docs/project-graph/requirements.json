@@ -2,7 +2,6 @@
   "schema_version": 1,
   "role": "C",
   "project_graph_ready": false,
-  "candidate_sha": "5ed86bc613d97bdd179d50440dd9e49ed7f01a9f",
   "requirements": [
     {
       "requirement": "C01",
