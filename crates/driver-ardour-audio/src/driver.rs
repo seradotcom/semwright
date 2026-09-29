@@ -966,16 +966,19 @@ fn deep_capabilities() -> Vec<Capability> {
     let mut values = vec![
         deep_read_descriptor(
             "driver.ardour-audio.session.deep.runtime.probe",
-            "Execute version probes for the fixed pinned Ardour 8.4 Lua, session-create and export utilities",
+            "Execute version probes plus an ephemeral Dummy-backend session-create self-test for the pinned Ardour 8.4 runtime",
             json!({
                 "type":"object",
                 "properties":{
                     "ardour_version":{"const":"8.4.0"},
                     "lua_banner":{"type":"string","minLength":1,"maxLength":160},
                     "create_banner":{"type":"string","minLength":1,"maxLength":160},
-                    "export_banner":{"type":"string","minLength":1,"maxLength":160}
+                    "export_banner":{"type":"string","minLength":1,"maxLength":160},
+                    "create_self_test":{"type":"boolean"},
+                    "create_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
+                    "create_diagnostic_prefix":{"type":"string","maxLength":512}
                 },
-                "required":["ardour_version","lua_banner","create_banner","export_banner"],
+                "required":["ardour_version","lua_banner","create_banner","export_banner","create_self_test","create_diagnostic_class","create_diagnostic_prefix"],
                 "additionalProperties":false
             }),
             &["audio-project"],

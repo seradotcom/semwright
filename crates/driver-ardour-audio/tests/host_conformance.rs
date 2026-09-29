@@ -3,7 +3,7 @@ use semwright_audio_domain::{
     edit::{self, Edit},
     model::AudioProject,
 };
-use semwright_backend_api::{Context, Provider};
+use semwright_backend_api::Provider;
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
@@ -32,41 +32,6 @@ fn required_path(name: &str) -> PathBuf {
     assert!(path.is_file(), "native prerequisite is not a file: {name}");
     path.canonicalize().unwrap()
 }
-async fn direct_host_call(
-    provider: &DriverProvider,
-    capabilities: &[semwright_backend_api::ProvidedCapability],
-    command: &str,
-    args: Value,
-) -> semwright_types::Result<Value> {
-    let descriptor = capabilities
-        .iter()
-        .find(|capability| capability.descriptor.name == format!("driver.ardour-audio.{command}"))
-        .unwrap_or_else(|| panic!("missing direct host capability {command}"));
-    Provider::execute(
-        provider,
-        &Context {
-            session: "ardour-host-diagnostic".into(),
-            request_id: unique_id(),
-            cancellation: CancellationToken::new(),
-        },
-        &descriptor.descriptor,
-        &args,
-    )
-    .await
-}
-
-fn clear_disposable_project(path: &Path) {
-    for entry in fs::read_dir(path).unwrap() {
-        let entry = entry.unwrap();
-        let child = entry.path();
-        if child.is_dir() {
-            fs::remove_dir_all(child).unwrap();
-        } else {
-            fs::remove_file(child).unwrap();
-        }
-    }
-}
-
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
     broker
         .clone()
@@ -303,19 +268,6 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     )
     .await
     .unwrap();
-    let direct_capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    let direct_create = direct_host_call(
-        provider.as_ref(),
-        &direct_capabilities,
-        "session.deep.create",
-        json!({"state":"Diagnostic","sample_rate":48000,"master_channels":2}),
-    )
-    .await;
-    assert!(
-        direct_create.is_ok(),
-        "raw Driver Host Ardour create failed before Broker redaction: {direct_create:?}"
-    );
-    clear_disposable_project(&project);
 
     let broker = Broker::new(
         Policy::new(PolicyConfig {
@@ -343,6 +295,14 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
             "{runtime_probe_data}"
         );
     }
+    assert_eq!(
+        runtime_probe_data["create_self_test"], true,
+        "Ardour Dummy create self-test failed: {runtime_probe_data}"
+    );
+    assert_eq!(
+        runtime_probe_data["create_diagnostic_class"], "ok",
+        "{runtime_probe_data}"
+    );
 
     let created = call(
         &broker,

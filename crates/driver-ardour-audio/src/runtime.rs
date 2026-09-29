@@ -66,6 +66,9 @@ pub struct ArdourRuntimeProbe {
     pub lua_banner: String,
     pub create_banner: String,
     pub export_banner: String,
+    pub create_self_test: bool,
+    pub create_diagnostic_class: String,
+    pub create_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -73,6 +76,7 @@ pub struct ArdourRuntimeProbe {
 struct ToolRun {
     stdout: Vec<u8>,
     stderr: Vec<u8>,
+    exit_code: i32,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -209,11 +213,50 @@ impl DeepRuntime {
                 ));
             }
         }
+        let probe_root = tempfile::Builder::new()
+            .prefix("semwright-ardour-create-probe-")
+            .tempdir()?;
+        let probe_state = "Probe";
+        let probe_args = vec![
+            "-s".into(),
+            "48000".into(),
+            probe_root.path().to_string_lossy().into_owned(),
+            probe_state.into(),
+        ];
+        let probe_run = self
+            .run_tool_capture(&self.create_tool, &probe_args)
+            .await?;
+        let probe_state_file = probe_root.path().join(format!("{probe_state}.ardour"));
+        let (create_self_test, create_diagnostic_class, create_diagnostic_prefix) = if probe_run
+            .exit_code
+            == 0
+            && probe_state_file.is_file()
+        {
+            (
+                true,
+                "ok".to_string(),
+                bounded_text_diagnostic("native session artifact created"),
+            )
+        } else {
+            let classified = if probe_run.exit_code != 0 {
+                classify_tool_failure(&probe_run.stdout, &probe_run.stderr)
+            } else {
+                classify_create_failure(&probe_run.stdout, &probe_run.stderr)
+            };
+            (
+                false,
+                format!("{:?}", classified.code),
+                bounded_text_diagnostic(&bounded_diagnostic(&probe_run.stdout, &probe_run.stderr)),
+            )
+        };
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
             lua_banner,
             create_banner,
             export_banner,
+            create_self_test,
+            create_diagnostic_class,
+            create_diagnostic_prefix,
         })
     }
 
@@ -394,15 +437,26 @@ impl DeepRuntime {
     }
 
     async fn run_tool(&self, tool: &Path, args: &[String]) -> Result<ToolRun> {
+        let run = self.run_tool_capture(tool, args).await?;
+        if run.exit_code != 0 {
+            return Err(classify_tool_failure(&run.stdout, &run.stderr));
+        }
+        Ok(run)
+    }
+
+    async fn run_tool_capture(&self, tool: &Path, args: &[String]) -> Result<ToolRun> {
         let temp_home = TempDir::new()?;
         let mut command = Command::new(tool);
         command
             .args(args)
             .env_clear()
             .env("HOME", temp_home.path())
+            .env("XDG_CACHE_HOME", temp_home.path().join(".cache"))
+            .env("XDG_CONFIG_HOME", temp_home.path().join(".config"))
+            .env("XDG_DATA_HOME", temp_home.path().join(".local/share"))
+            .env("PATH", "/usr/bin:/bin")
             .env("LANG", "C.UTF-8")
             .env("LC_ALL", "C.UTF-8")
-            .env("PATH", "/usr/bin:/bin")
             .env("LD_LIBRARY_PATH", "/usr/lib/ardour8")
             .env("ARDOUR_DATA_PATH", "/usr/share/ardour8")
             .env("ARDOUR_CONFIG_PATH", "/etc/ardour8")
@@ -412,7 +466,23 @@ impl DeepRuntime {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        let mut child = command.spawn()?;
+        for relative in [".cache", ".config", ".local/share"] {
+            fs::create_dir_all(temp_home.path().join(relative))?;
+        }
+        let mut child = command.spawn().map_err(|error| match error.kind() {
+            std::io::ErrorKind::PermissionDenied => Error::new(
+                ErrorCode::SandboxDenied,
+                "Sandbox denied execution of the pinned Ardour utility",
+            ),
+            std::io::ErrorKind::NotFound => Error::new(
+                ErrorCode::Unavailable,
+                "Pinned Ardour utility or dynamic loader is unavailable",
+            ),
+            _ => Error::new(
+                ErrorCode::BackendFailed,
+                "Could not start the pinned Ardour utility",
+            ),
+        })?;
         let stdout = child
             .stdout
             .take()
@@ -427,10 +497,11 @@ impl DeepRuntime {
                 read_bounded(stderr, MAX_STDERR_BYTES),
                 async { child.wait().await.map_err(Error::from) }
             )?;
-            if !status.success() {
-                return Err(classify_tool_failure(&stdout, &stderr));
-            }
-            Ok::<ToolRun, Error>(ToolRun { stdout, stderr })
+            Ok::<ToolRun, Error>(ToolRun {
+                stdout,
+                stderr,
+                exit_code: status.code().unwrap_or(-1),
+            })
         };
         timeout(RUN_TIMEOUT, execution).await.map_err(|_| {
             Error::new(
@@ -470,6 +541,20 @@ fn bounded_diagnostic(stdout: &[u8], stderr: &[u8]) -> String {
     }
     text.truncate(4096);
     text
+}
+
+fn bounded_text_diagnostic(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_control() && ch != '\n' && ch != '\t' {
+                '?'
+            } else {
+                ch
+            }
+        })
+        .take(512)
+        .collect()
 }
 
 fn classify_tool_failure(stdout: &[u8], stderr: &[u8]) -> Error {
