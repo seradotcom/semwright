@@ -967,7 +967,13 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                     json!({"ref":world["ref"],"property":"color"}),
                 )
                 .await;
-            assert_eq!(world_color["value"], json!([0.03, 0.03, 0.03]));
+            let world_color = world_color["value"].as_array().unwrap();
+            assert_eq!(world_color.len(), 3);
+            assert!(
+                world_color
+                    .iter()
+                    .all(|value| (value.as_f64().unwrap() - 0.03).abs() < 1e-5)
+            );
             fixture
                 .call(
                     "render.settings",
@@ -981,7 +987,7 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             let preview = fs::read(workspace.path().join("product-preview.png")).unwrap();
             assert_eq!(&preview[..8], b"\x89PNG\r\n\x1a\n");
             let scene = fixture.call("scene.inspect", json!({})).await;
-            assert_eq!(scene["camera"], camera_name);
+            assert_eq!(scene["camera"].as_str(), Some(camera_name.as_str()));
             assert_eq!(scene["resolution"], json!([64, 64]));
             if let Ok(evidence) = std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE") {
                 fs::create_dir_all(&evidence).unwrap();
