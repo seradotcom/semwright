@@ -43,7 +43,10 @@ fn execute(melt: &Path, args: Vec<OsString>) -> Result<(Vec<u8>, Vec<u8>), Strin
             cwd: PathBuf::from("/tmp"),
             timeout: Duration::from_secs(3),
             cpu_seconds: 30,
-            address_space_bytes: 1_073_741_824,
+            // Match the production MLT process ceiling. The Host job already
+            // enforces the same outer 4 GiB maximum, so this nested supervisor
+            // may only reduce that inherited authority, never raise it.
+            address_space_bytes: 4_294_967_296,
             environment: constrained_environment(),
         },
         &cancel,
