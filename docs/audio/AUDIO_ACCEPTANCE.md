@@ -4,7 +4,7 @@ This maps AU requirements to implementation and evidence; it is not an automatic
 
 | IDs | Implementation | Evidence |
 |---|---|---|
-| AU01-AU04 | strict neutral model, operations, routing, clips/fades/automation, tempo/MIDI/cues | portable unit/property/time tests plus native only where advertised |
+| AU01-AU04 | strict neutral model, 54 classified operations, ordered stems/buses, groups, typed sends, clip move/trim/slip/split/fades, markers/ranges, tempo map, MIDI phrases, automation and shared cues | portable unit/property/time tests plus synthetic AV fixture; native only where advertised |
 | AU05-AU06 | typed Faust graph and parameterized seeded SFX | faust-native compiler/render/PCM |
 | AU07-AU08 | Ardour OSC + fixed-Lua deep create/edit/save-as/reopen/export | ardour-native |
 | AU09 | opaque plugin/loss model; arbitrary loading excluded | coverage/deny evidence; writable plugin state remains pending |

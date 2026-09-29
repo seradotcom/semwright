@@ -1,6 +1,7 @@
 #![cfg(target_os = "linux")]
 //! Actual Broker -> policy -> Driver Host -> sealed interpreter -> decoded PCM.
 use semwright_audio_domain::{
+    model::{AudioProfile, AudioProject},
     presets::{self, SfxPreset},
     time::SampleRate,
 };
@@ -11,6 +12,7 @@ use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
     Transport,
 };
+use semwright_faust_audio::faust::compile_project_synth;
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_types::{Envelope, ErrorCode, ExecuteRequest, unique_id};
 use serde_json::{Value, json};
@@ -18,8 +20,10 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs,
+    io::Write,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
+    process::{Command, Stdio},
     sync::Arc,
 };
 use tokio_util::sync::CancellationToken;
@@ -34,6 +38,79 @@ fn required_path(name: &str) -> PathBuf {
     assert!(path.is_file(), "native prerequisite is not a file: {name}");
     path.canonicalize().unwrap()
 }
+fn materialize_libraries(
+    source_root: &Path,
+    destination_root: &Path,
+    depth: usize,
+    pins: &mut BTreeMap<String, String>,
+) {
+    assert!(
+        depth <= 8,
+        "Faust library source tree exceeded fixture depth"
+    );
+    for entry in fs::read_dir(source_root).unwrap() {
+        let entry = entry.unwrap();
+        let source = entry.path();
+        let metadata = fs::symlink_metadata(&source).unwrap();
+        let relative = source.strip_prefix("/usr/share/faust").unwrap();
+        let destination = destination_root.join(relative);
+        if metadata.is_dir() {
+            fs::create_dir_all(&destination).unwrap();
+            fs::set_permissions(&destination, fs::Permissions::from_mode(0o700)).unwrap();
+            materialize_libraries(&source, destination_root, depth + 1, pins);
+            continue;
+        }
+        // Trusted runner package inputs may use file symlinks. fs::copy follows
+        // the source target and materializes ordinary private bytes in the fixture.
+        if source.extension().is_some_and(|ext| ext == "lib") && source.is_file() {
+            fs::create_dir_all(destination.parent().unwrap()).unwrap();
+            fs::copy(&source, &destination).unwrap();
+            fs::set_permissions(&destination, fs::Permissions::from_mode(0o400)).unwrap();
+            let key = relative.to_string_lossy().replace('\\', "/");
+            assert!(pins.insert(key, digest(&destination)).is_none());
+        }
+    }
+}
+
+fn assert_staged_faust_compiles(helper: &Path, libraries: &Path) {
+    let mut project = AudioProject::new(AudioProfile::default()).unwrap();
+    project.synths.insert(
+        "host-validate".into(),
+        presets::synth_for(
+            SfxPreset::Notification,
+            "host-validate",
+            SampleRate(48_000),
+            48_000,
+            42,
+        )
+        .unwrap(),
+    );
+    project.validate().unwrap();
+    let program = compile_project_synth(&project, "host-validate", 48_000, 2).unwrap();
+    let mut child = Command::new(helper)
+        .args(["validate", libraries.to_string_lossy().as_ref()])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(program.source.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "staged Faust validation failed before Driver Host: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let receipt: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(receipt["valid"], true);
+    assert_eq!(receipt["outputs"], 2);
+}
+
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
     broker
         .clone()
@@ -96,17 +173,14 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     }
     let libraries = root.path().join("libraries");
     let mut library_pins = BTreeMap::new();
-    for entry in fs::read_dir("/usr/share/faust").unwrap() {
-        let source = entry.unwrap().path();
-        if source.extension().is_some_and(|ext| ext == "lib") && source.is_file() {
-            let name = source.file_name().unwrap().to_str().unwrap().to_owned();
-            let destination = libraries.join(&name);
-            fs::copy(&source, &destination).unwrap();
-            fs::set_permissions(&destination, fs::Permissions::from_mode(0o400)).unwrap();
-            library_pins.insert(name, digest(&destination));
-        }
-    }
+    materialize_libraries(
+        Path::new("/usr/share/faust"),
+        &libraries,
+        0,
+        &mut library_pins,
+    );
     assert!(library_pins.contains_key("stdfaust.lib"));
+    assert!(library_pins.len() > 1);
     let config = libraries.join("semwright-runtime.json");
     fs::write(
         &config,
@@ -117,6 +191,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     )
     .unwrap();
     fs::set_permissions(&config, fs::Permissions::from_mode(0o400)).unwrap();
+    assert_staged_faust_compiles(&tool, &libraries);
     let output = root.path().join("output");
     let manifest = Manifest {
         manifest_version: 1,

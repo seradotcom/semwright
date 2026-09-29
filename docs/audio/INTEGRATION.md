@@ -10,7 +10,7 @@ Do not replace A's kernel, media clock, Finding, VerificationReport, PlanVault o
 
 ## Production surfaces
 
-- semwright-audio-domain: neutral project/edit/routing/DSP/automation/render/analysis contracts.
+- semwright-audio-domain: neutral project/edit/routing/DSP/automation/render/analysis contracts, including ordered stems/buses, groups, markers/ranges, tempo changes and typed MIDI phrases.
 - semwright-audio-authoring: AudioIntent -> plan -> apply -> measure -> validate -> repair -> reverify.
 - semwright-faust-audio-driver: typed synthesis/SFX to generated Faust and sealed interpreter render.
 - semwright-audio-analysis-driver: digest-bound WAV/FLAC analysis with fixed libebur128 and independent WAV statistics.
@@ -19,7 +19,7 @@ Do not replace A's kernel, media clock, Finding, VerificationReport, PlanVault o
 
 ## AV handoff
 
-A should consume audio artifacts by digest plus sample rate, channels and frame count, never by assuming a private pathname. Audio cues use the shared media-time contract. A visual-only change may reuse audio only when the audio dependency set is unchanged.
+A should consume audio artifacts by digest plus sample rate, channels and frame count, never by assuming a private pathname. Audio cues use the shared media-time contract. The checked-in synthetic `fixtures/audio/av-technical-fixture.json` exercises cue resolution, exact 44.1→48 kHz duration mapping, crossfade frame boundaries and 30000/1001 video-to-audio time mapping without user media. A visual-only change may reuse audio only when the audio dependency set is unchanged.
 
 Faust starts cold per render. Ardour is session-stateful: save/reopen and source-revision checks are explicit. Native export verification does not make DAW edits transactionally atomic with video edits.
 

@@ -6,4 +6,6 @@ The trusted Rust translator produces bounded Faust source. On Linux, Driver Host
 
 Runtime baseline: Ubuntu 24.04 package Faust 2.70.3+ds-1.1build2. Build and all native execution occur on GitHub-hosted runners. The render helper supports WAV PCM16/24/32 and FLAC PCM16/24; FLAC32 is rejected rather than silently quantized. Integer conversion saturates; the receipt counts out-of-range pre-conversion samples. No loudness/true-peak guarantee is implied.
 
+The owner-provisioned Faust library grant is a materialized read-only tree of regular `.lib` files. Semwright recursively inventories bounded relative paths, rejects symlinks/untrusted writers, and verifies the exact SHA-256 of every declared library before invoking the helper. This preserves the real standard-library import closure without granting an ambient `/usr/share/faust` mount.
+
 The output directory is private scratch within an owner-granted output mount. Rust validates/hash-pins the resulting artifact before no-clobber publication. Interrupted scratch is never a published final output.

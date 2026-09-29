@@ -22,6 +22,10 @@ use tokio::{
 
 pub const HELPER_NAME: &str = "faust-interpreter";
 const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_RUNTIME_CONFIG_BYTES: u64 = 512 * 1024;
+const MAX_LIBRARY_FILES: usize = 2048;
+const MAX_LIBRARY_DEPTH: usize = 8;
+const MAX_LIBRARY_TOTAL_BYTES: u64 = 256 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeConfig {
@@ -66,13 +70,13 @@ impl Runtime {
         if !config_path.try_exists()? {
             return Ok(None);
         }
-        regular(&config_path, 65536)?;
+        regular(&config_path, MAX_RUNTIME_CONFIG_BYTES)?;
         let bytes = fs::read(&config_path)?;
         let config: RuntimeConfig = serde_json::from_slice(&bytes)?;
         if config.schema_version != 1
             || !matches!(config.compiler_version.as_str(), "2.37.3" | "2.70.3")
             || config.libraries.is_empty()
-            || config.libraries.len() > 256
+            || config.libraries.len() > MAX_LIBRARY_FILES
             || !config.libraries.contains_key("stdfaust.lib")
         {
             return Err(Error::invalid("Unsupported Faust runtime manifest"));
@@ -118,32 +122,27 @@ impl Runtime {
                 "Faust libraries must be a real read-only mount",
             ));
         }
-        let present: BTreeSet<String> = fs::read_dir(&self.library_root)?
-            .map(|item| item.map(|entry| entry.file_name().to_string_lossy().into_owned()))
-            .collect::<std::io::Result<Vec<_>>>()?
-            .into_iter()
-            .filter(|name| name.ends_with(".lib"))
-            .collect();
-        if present != self.config.libraries.keys().cloned().collect() {
+        let present = discover_library_files(&self.library_root)?;
+        let expected: BTreeSet<String> = self.config.libraries.keys().cloned().collect();
+        if present.keys().cloned().collect::<BTreeSet<_>>() != expected {
             return Err(Error::new(
                 ErrorCode::Conflict,
                 "Faust library inventory changed",
             ));
         }
         for (name, digest) in &self.config.libraries {
-            if name.starts_with('.')
-                || name.contains("..")
-                || !name.ends_with(".lib")
-                || !name
+            validate_library_relative(name)?;
+            if digest.len() != 64
+                || !digest
                     .bytes()
-                    .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
-                || digest.len() != 64
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
             {
-                return Err(Error::invalid("Invalid Faust library manifest entry"));
+                return Err(Error::invalid("Invalid Faust library digest"));
             }
-            let path = self.library_root.join(name);
-            regular(&path, 8 * 1024 * 1024)?;
-            if hash_file(&path, 8 * 1024 * 1024)? != *digest {
+            let path = present
+                .get(name)
+                .ok_or_else(|| Error::new(ErrorCode::Conflict, "Faust library is missing"))?;
+            if hash_file(path, 8 * 1024 * 1024)? != *digest {
                 return Err(Error::new(
                     ErrorCode::Conflict,
                     "Faust library digest changed",
@@ -295,6 +294,89 @@ impl Runtime {
         })
     }
 }
+fn validate_library_relative(value: &str) -> Result<()> {
+    let path = Path::new(value);
+    if value.is_empty()
+        || value.len() > 512
+        || !value.ends_with(".lib")
+        || path.is_absolute()
+        || path.components().count() > MAX_LIBRARY_DEPTH + 1
+        || path
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)))
+        || value.split('/').any(|part| {
+            part.is_empty()
+                || part == "."
+                || part == ".."
+                || part.len() > 128
+                || !part
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
+        })
+    {
+        return Err(Error::invalid("Invalid Faust library relative path"));
+    }
+    Ok(())
+}
+
+fn discover_library_files(root: &Path) -> Result<BTreeMap<String, PathBuf>> {
+    let mut stack = vec![(root.to_path_buf(), 0usize)];
+    let mut found = BTreeMap::new();
+    let mut total_bytes = 0u64;
+    while let Some((directory, depth)) = stack.pop() {
+        if depth > MAX_LIBRARY_DEPTH {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Faust library directory depth exceeded limit",
+            ));
+        }
+        for entry in fs::read_dir(&directory)? {
+            let entry = entry?;
+            let path = entry.path();
+            let metadata = fs::symlink_metadata(&path)?;
+            if metadata.file_type().is_symlink() {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Faust library tree cannot contain symlinks",
+                ));
+            }
+            if metadata.is_dir() {
+                stack.push((path, depth + 1));
+                continue;
+            }
+            if !metadata.is_file() || path.extension().is_none_or(|ext| ext != "lib") {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|_| Error::invalid("Faust library escaped its mount"))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            validate_library_relative(&relative)?;
+            regular(&path, 8 * 1024 * 1024)?;
+            total_bytes = total_bytes
+                .checked_add(metadata.len())
+                .filter(|value| *value <= MAX_LIBRARY_TOTAL_BYTES)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Faust library aggregate size exceeded limit",
+                    )
+                })?;
+            if found.insert(relative, path).is_some() || found.len() > MAX_LIBRARY_FILES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Faust library inventory exceeded limit or repeated a path",
+                ));
+            }
+        }
+    }
+    if found.is_empty() {
+        return Err(Error::invalid("Faust library inventory is empty"));
+    }
+    Ok(found)
+}
+
 fn regular(path: &Path, limit: u64) -> Result<()> {
     let m = fs::symlink_metadata(path)?;
     if !m.is_file() || m.file_type().is_symlink() || m.len() == 0 || m.len() > limit {
@@ -476,4 +558,54 @@ async fn run_sealed_tool(
         let _ = child.wait().await;
     }
     result
+}
+
+#[cfg(test)]
+mod library_inventory_tests {
+    use super::*;
+
+    #[test]
+    fn relative_library_paths_are_strict_and_nested() {
+        assert!(validate_library_relative("stdfaust.lib").is_ok());
+        assert!(validate_library_relative("physmodels/mesh.lib").is_ok());
+        assert!(validate_library_relative("../outside.lib").is_err());
+        assert!(validate_library_relative("/absolute.lib").is_err());
+        assert!(validate_library_relative("nested//broken.lib").is_err());
+        assert!(validate_library_relative("nested/not-a-library.txt").is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn recursive_inventory_accepts_materialized_files_and_rejects_symlinks() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+
+        let root = tempfile::tempdir().unwrap();
+        let nested = root.path().join("nested");
+        fs::create_dir(&nested).unwrap();
+        fs::write(root.path().join("stdfaust.lib"), b"main").unwrap();
+        fs::write(nested.join("dependency.lib"), b"dep").unwrap();
+        fs::set_permissions(
+            root.path().join("stdfaust.lib"),
+            fs::Permissions::from_mode(0o400),
+        )
+        .unwrap();
+        fs::set_permissions(
+            nested.join("dependency.lib"),
+            fs::Permissions::from_mode(0o400),
+        )
+        .unwrap();
+
+        let inventory = discover_library_files(root.path()).unwrap();
+        assert_eq!(
+            inventory.keys().cloned().collect::<Vec<_>>(),
+            vec!["nested/dependency.lib", "stdfaust.lib"]
+        );
+
+        symlink(
+            nested.join("dependency.lib"),
+            root.path().join("linked.lib"),
+        )
+        .unwrap();
+        assert!(discover_library_files(root.path()).is_err());
+    }
 }

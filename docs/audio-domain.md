@@ -6,16 +6,19 @@ a Faust AST, a plugin ABI or an AI-generation schema.
 
 The portable model owns:
 
-- projects, sample rates, channels and tempo/meter metadata;
+- projects, delivery/session metadata, sample rates, channels and tempo/meter maps;
 - samples with provenance;
-- stems, buses, sends and routing;
-- sample- and synth-backed clips;
+- ordered stems/buses, groups, sends, routing and explicit send role/delay;
+- sample- and synth-backed clips with move/trim/slip/split/fade semantics;
+- timeline markers and named ranges;
+- typed MIDI phrases with note/control events and optional semantic synth binding;
 - synth signal graphs, oscillators, FM, envelopes, filters and gain;
-- semantic effect chains: EQ, compressor, limiter, reverb, delay, distortion, filter and gain;
-- typed automation targets and sample-frame automation points;
+- semantic effect chains with explicit algorithms/detectors/channel linking: EQ, compressor,
+  gate/expander, limiter, reverb, delay, distortion, channel-map, filter and gain;
+- typed automation targets, including stem/bus send gain, and sample-frame automation points;
 - deterministic SFX primitives and presets;
-- analysis results for peak, RMS and optional standards-based integrated LUFS;
-- backend-neutral WAV/FLAC render intent.
+- analysis results for sample peak/RMS plus optional standards-based loudness/true peak;
+- backend-neutral WAV/FLAC render intent with explicit resampling quality and dither policy.
 
 ## Backend independence
 
@@ -65,10 +68,13 @@ values only as bounded positional arguments. Separate `ardour-runtime`,
 state and artifacts distinct.
 
 Advertised deep mutations are revision-bound and are re-read through the native adapter:
-managed session creation/range, track creation, route rename/mute/solo/gain/pan,
+managed session creation/range, track and bus creation, route rename/mute/solo/gain/pan,
 clip move/trim/remove, save-as/reopen and WAV export. Destructive remove operations keep
-normal confirmation policy. Native routing, sends, plugin state, GUI-only media import
-and MIDI instrument authoring remain explicitly incomplete or upstream-restricted.
+normal confirmation policy. The native snapshot also performs bounded send and plugin
+identity enumeration when Ardour exposes a complete list; those observations remain
+read-only metadata and never authorize plugin loading. Complete routing topology, writable
+plugin state/automation, GUI-only media import and MIDI instrument authoring remain
+explicitly incomplete or upstream-restricted.
 
 ## Generated/AI assets
 

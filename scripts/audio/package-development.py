@@ -53,9 +53,19 @@ def main():
     out.mkdir(parents=True, exist_ok=False)
 
     libs = {}
-    for path in sorted(args.faust_libraries.glob("*.lib")):
-        if path.is_file():
-            libs[path.name] = digest(path)
+    total_library_bytes = 0
+    for path in sorted(args.faust_libraries.rglob("*.lib")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(args.faust_libraries).as_posix()
+        if len(relative) > 512 or len(Path(relative).parts) > 9:
+            raise RuntimeError(f"Faust library path exceeds runtime bounds: {relative}")
+        total_library_bytes += path.stat().st_size
+        if total_library_bytes > 256 * 1024 * 1024:
+            raise RuntimeError("Faust library tree exceeds runtime size budget")
+        libs[relative] = digest(path)
+        if len(libs) > 2048:
+            raise RuntimeError("Faust library tree exceeds runtime file budget")
     if "stdfaust.lib" not in libs:
         raise RuntimeError("pinned Faust library root lacks stdfaust.lib")
     faust_runtime = out / "faust-runtime.json"

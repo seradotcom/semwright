@@ -4,6 +4,8 @@
 
 The Ubuntu 24.04 development baseline is Faust `2.70.3+ds-1.1build2` (compiler 2.70.3). The narrow GitHub Actions native lane also exercises the supported Ubuntu 22.04 package `2.37.3~ds0-1`; the runtime manifest accepts only these explicitly tested compiler versions. The official interpreter API is used instead of generating an executable during an audio request. See https://faustdoc.grame.fr/manual/embedding/ and `architecture/faust/dsp/interpreter-dsp.h` at Faust tag 2.70.3. The system header is not copied into Semwright. The original helper links the system libfaust and libsndfile; their redistribution obligations remain separate from the permissive core.
 
+The Faust standard library is treated as a versioned input closure rather than an ambient system directory. The owner stages a bounded recursive tree of `.lib` files; the runtime validates strict relative paths, rejects symlinks/untrusted writers, requires `stdfaust.lib`, verifies the exact inventory and SHA-256 of every file, and only then passes that grant to the fixed interpreter.
+
 ## Native Ardour
 
 The researched upstream tag is `8.4`, peeled commit `c35515e43d65bac23c89ae11cfbf2fed8c8f46b6`; Ubuntu 24.04 offers package `1:8.4.0+ds1-2ubuntu8`. Runtime acceptance is still pending.
