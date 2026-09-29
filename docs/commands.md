@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-143 built-in descriptors. A descriptor is not proof of live backend support.
+156 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -154,6 +154,19 @@ for many backends in this development handoff; strengthening them is a release g
 | `browser.element.drag_to` | `browser.modify` | mutating | 60000 ms | chromium |
 | `browser.element.upload` | `browser.modify`, `filesystem.read:root` | secret_access | 60000 ms | chromium |
 | `browser.page.scroll` | `browser.modify` | mutating_reversible | 60000 ms | chromium |
+| `project.create` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
+| `project.asset.register` | `filesystem.read:root`, `project.manage` | mutating | 20000 ms | core |
+| `project.asset.inspect` | `filesystem.read:root` | read_only | 10000 ms | core |
+| `project.asset.rename` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
+| `project.asset.reconcile` | `filesystem.read:root`, `project.manage` | mutating | 20000 ms | core |
+| `project.asset.rebind` | `filesystem.read:root`, `project.manage` | mutating | 20000 ms | core |
+| `project.asset.tombstone` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
+| `project.query` | `filesystem.read:root` | read_only | 10000 ms | core |
+| `project.impact` | `filesystem.read:root` | read_only | 20000 ms | core |
+| `project.revisions` | `filesystem.read:root` | read_only | 10000 ms | core |
+| `project.edge.declare` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
+| `project.manifest.export` | `filesystem.read:root` | read_only | 10000 ms | core |
+| `project.manifest.import` | `filesystem.read:root`, `project.manage` | mutating | 20000 ms | core |
 
 ## `doctor`
 
@@ -4150,5 +4163,647 @@ Idempotency: `non_idempotent`. Dry run: `true`.
     "direction"
   ],
   "additionalProperties": false
+}
+```
+
+## `project.create`
+
+Create private persistent Project Graph state bound to an explicitly granted source root.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    }
+  },
+  "required": [
+    "root"
+  ]
+}
+```
+
+## `project.asset.register`
+
+Register one logical file asset and immediately reconcile its bounded current observation.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "resource_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "max_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4194304
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "label",
+    "resource_type",
+    "path"
+  ]
+}
+```
+
+## `project.asset.inspect`
+
+Inspect one visible logical asset with independent existence, freshness, divergence and evidence coverage.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset"
+  ]
+}
+```
+
+## `project.asset.rename`
+
+Rename graph metadata for one logical asset without renaming or rewriting the native resource.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset",
+    "label"
+  ]
+}
+```
+
+## `project.asset.reconcile`
+
+Re-observe one scoped file asset under its current binding without treating denial/offline as absence.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "max_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4194304
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset"
+  ]
+}
+```
+
+## `project.asset.rebind`
+
+Explicitly bind an existing logical asset to a replacement scoped file generation and reconcile it.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "expected_generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "max_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4194304
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset",
+    "path",
+    "expected_generation",
+    "reason"
+  ]
+}
+```
+
+## `project.asset.tombstone`
+
+Tombstone graph state for one logical asset without deleting the user file.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset"
+  ]
+}
+```
+
+## `project.query`
+
+Page visible project assets against an immutable graph snapshot and grant-bound cursor.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resource_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "status": {
+          "enum": [
+            "CURRENT",
+            "STALE",
+            "UNKNOWN",
+            "MISSING",
+            "DIVERGED"
+          ]
+        },
+        "include_tombstones": {
+          "type": "boolean"
+        }
+      }
+    },
+    "cursor": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    }
+  },
+  "required": [
+    "root",
+    "project"
+  ]
+}
+```
+
+## `project.impact`
+
+Explain known and possible downstream impact with explicit traversal budgets and unknown frontier.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodes",
+        "edges",
+        "depth",
+        "results"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20000
+        },
+        "edges": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        }
+      }
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset"
+  ]
+}
+```
+
+## `project.revisions`
+
+Read bounded immutable revision summaries for one visible logical asset.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "after": {
+      "type": "string",
+      "pattern": "^rev_[0-9a-f]{32}$"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "asset"
+  ]
+}
+```
+
+## `project.edge.declare`
+
+Record a bounded declarative asset relation without certifying execution or verification.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "from": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "to": {
+      "type": "string",
+      "pattern": "^asset_[0-9a-f]{32}$"
+    },
+    "relation": {
+      "enum": [
+        "contains",
+        "references",
+        "derived_from",
+        "realizes",
+        "published_as"
+      ]
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "from",
+    "to",
+    "relation"
+  ]
+}
+```
+
+## `project.manifest.export`
+
+Export a portable declaration-only manifest for explicitly visible assets.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "pattern": "^asset_[0-9a-f]{32}$"
+      }
+    }
+  },
+  "required": [
+    "root",
+    "project"
+  ]
+}
+```
+
+## `project.manifest.import`
+
+Import a bounded declaration-only manifest using fresh local logical identities.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source_project",
+        "source_snapshot",
+        "assets",
+        "declarations",
+        "coverage_complete"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "source_project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "source_snapshot": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assets": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_id",
+              "label",
+              "resource_type"
+            ],
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "pattern": "^asset_[0-9a-f]{32}$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "resource_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            }
+          }
+        },
+        "declarations": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to",
+              "relation"
+            ],
+            "properties": {
+              "from": {
+                "type": "string",
+                "pattern": "^asset_[0-9a-f]{32}$"
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^asset_[0-9a-f]{32}$"
+              },
+              "relation": {
+                "enum": [
+                  "contains",
+                  "references",
+                  "derived_from",
+                  "realizes",
+                  "published_as"
+                ]
+              }
+            }
+          }
+        },
+        "coverage_complete": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "manifest"
+  ]
 }
 ```

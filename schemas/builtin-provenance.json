@@ -1882,5 +1882,216 @@
       "artifact-out:model/3d"
     ],
     "untrusted_metadata": false
+  },
+  "project.create": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.asset.register": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.asset.inspect": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.asset.rename": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.asset.reconcile": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph",
+      "reconcile"
+    ]
+  },
+  "project.asset.rebind": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.asset.tombstone": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.query": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.impact": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph",
+      "impact"
+    ]
+  },
+  "project.revisions": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.edge.declare": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph"
+    ]
+  },
+  "project.manifest.export": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph",
+      "portable"
+    ]
+  },
+  "project.manifest.import": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph",
+      "portable"
+    ]
   }
 }

@@ -215,6 +215,10 @@ async fn run(args: Args) -> Result<()> {
         environment,
         args.fake,
     )?;
+    broker.configure_project_graphs(
+        &state.join("projects"),
+        semwright_platform_services::current_user_principal()?,
+    )?;
     for path in &config.plugins {
         broker.install_manifest(config::manifest(path)?)?;
     }
