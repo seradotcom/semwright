@@ -119,17 +119,33 @@ fn parse() -> Result<Value, String> {
 }
 
 fn main() {
-    match parse() {
-        Ok(value) => match serde_json::to_string(&value) {
-            Ok(encoded) if encoded.len() <= 256 * 1024 => print!("{encoded}"),
-            _ => {
-                eprintln!("runtime runner output exceeded its bound");
-                std::process::exit(1);
-            }
-        },
+    let value = match parse() {
+        Ok(value) => value,
         Err(error) => {
-            eprintln!("{error}");
+            let message: String = error
+                .chars()
+                .filter(|ch| !ch.is_control())
+                .take(1024)
+                .collect();
+            let value = json!({
+                "schema": 1,
+                "operation": "error",
+                "error": message
+            });
+            match serde_json::to_string(&value) {
+                Ok(encoded) if encoded.len() <= 4096 => print!("{encoded}"),
+                _ => print!(r#"{"schema":1,"operation":"error","error":"runtime runner failed"}"#),
+            }
             std::process::exit(2);
+        }
+    };
+    match serde_json::to_string(&value) {
+        Ok(encoded) if encoded.len() <= 256 * 1024 => print!("{encoded}"),
+        _ => {
+            print!(
+                r#"{"schema":1,"operation":"error","error":"runtime runner output exceeded its bound"}"#
+            );
+            std::process::exit(1);
         }
     }
 }

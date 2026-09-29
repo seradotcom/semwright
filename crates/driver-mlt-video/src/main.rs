@@ -79,6 +79,24 @@ fn sdk_capabilities() -> Result<Vec<Capability>> {
         .collect()
 }
 
+fn host_runner_failure(bytes: &[u8]) -> Option<String> {
+    let value: Value = serde_json::from_slice(bytes).ok()?;
+    let object = value.as_object()?;
+    if object.len() != 3
+        || object.get("schema").and_then(Value::as_u64) != Some(1)
+        || object.get("operation").and_then(Value::as_str) != Some("error")
+    {
+        return None;
+    }
+    object
+        .get("error")
+        .and_then(Value::as_str)
+        .filter(|message| {
+            !message.is_empty() && message.len() <= 1024 && !message.chars().any(char::is_control)
+        })
+        .map(ToOwned::to_owned)
+}
+
 fn host_catalog(bytes: &[u8]) -> Result<ServiceCatalog> {
     const GROUPS: [&str; 6] = [
         "producers",
@@ -223,9 +241,13 @@ impl MltVideoDriver {
             )
             .await?;
         if output.exit_code != 0 {
+            let detail = host_runner_failure(&output.stdout);
             return Err(Error::new(
                 ErrorCode::BackendFailed,
-                "Host-mediated MLT discovery runner failed",
+                match detail {
+                    Some(detail) => format!("Host-mediated MLT discovery runner failed: {detail}"),
+                    None => "Host-mediated MLT discovery runner failed".into(),
+                },
             ));
         }
         let observed = host_catalog(&output.stdout)?;
@@ -313,6 +335,30 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn host_runner_failure_is_strict_and_bounded() {
+        let valid = serde_json::json!({
+            "schema": 1,
+            "operation": "error",
+            "error": "BackendFailed: melt -version discovery failed"
+        });
+        assert_eq!(
+            host_runner_failure(&serde_json::to_vec(&valid).unwrap()).as_deref(),
+            Some("BackendFailed: melt -version discovery failed")
+        );
+
+        let mut extra = valid.clone();
+        extra["extra"] = serde_json::json!(true);
+        assert!(host_runner_failure(&serde_json::to_vec(&extra).unwrap()).is_none());
+
+        let control = serde_json::json!({
+            "schema": 1,
+            "operation": "error",
+            "error": "bad\nmessage"
+        });
+        assert!(host_runner_failure(&serde_json::to_vec(&control).unwrap()).is_none());
+    }
 
     #[test]
     fn host_catalog_parser_is_strict_and_bounded() {
