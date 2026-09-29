@@ -10,10 +10,10 @@
   "loopback_port": null,
   "resources": {
     "open_files": 256,
-    "processes": 16,
+    "processes": 64,
     "cpu_seconds": 120,
     "operation_cpu_seconds": 120,
-    "address_space_bytes": 2147483648,
+    "address_space_bytes": 4294967296,
     "file_size_bytes": 536870912
   },
   "request_timeout_ms": 180000,

@@ -390,10 +390,10 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
         loopback_port: None,
         resources: DriverResources {
             open_files: 256,
-            processes: 16,
+            processes: 64,
             cpu_seconds: 120,
             operation_cpu_seconds: 120,
-            address_space_bytes: 2_147_483_648,
+            address_space_bytes: 4_294_967_296,
             file_size_bytes: 536_870_912,
         },
         request_timeout_ms: 180_000,

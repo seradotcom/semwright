@@ -23,3 +23,5 @@ Sample-backed Faust deployments additionally provision an owner-controlled read-
 The development package lane now exercises the repository's real static-index installer for every audio SWDP. It validates the generated index, performs a dry-run, installs into private temporary data/config roots, verifies the installation receipt and executable/package digests, confirms policy_grants_changed=false, and removes the exact receipt-bound version again.
 
 Installation deliberately does not execute a driver or grant driver scopes. Native use is proven by the faust-native, analysis-native, and ardour-native Driver Host lanes on the same source SHA, where the owner grants and sealed runtime tools are explicit. This preserves the distribution security boundary instead of turning install into an authority side effect.
+
+The sealed Faust compiler/interpreter is bounded to 64 processes/threads and 4 GiB of address space for native conformance; CPU, file, filesystem and network limits remain independently enforced. Both pinned Faust baselines must pass the exact Driver Host lane before this budget is treated as certified.

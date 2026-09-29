@@ -428,7 +428,7 @@ local function esc(s)
 end
 
 local function q(s) return '"' .. esc(s) .. '"' end
-local function bool(v) if v then return "true" else return "false" end
+local function bool(v) return v and "true" or "false" end
 local function arr(values) return "[" .. table.concat(values, ",") .. "]" end
 local function obj(fields) return "{" .. table.concat(fields, ",") .. "}" end
 local function field(k, v) return q(k) .. ":" .. v end
