@@ -18,6 +18,7 @@ from .validation import CommandError
 ISLAND = "sw_authoring_island"
 ENTITY = "sw_authoring_entity"
 MATERIAL = "sw_authoring_material"
+TEXTURE = "sw_authoring_texture"
 MARKER = "sw_authoring_observed_v1"
 
 
@@ -156,6 +157,13 @@ class AuthoringRuntime:
         check(len(rows) == 1, "material native identity missing or ambiguous", "Conflict")
         return rows[0]
 
+    def texture(self, island, identity):
+        local_id(identity)
+        check(len(self.bpy.data.images) <= 4096, "image enumeration budget", "Unsupported")
+        rows = [image for image in self.bpy.data.images if image.get(ISLAND) == island and image.get(TEXTURE) == identity]
+        check(len(rows) == 1, "texture native identity missing or ambiguous", "Conflict")
+        return rows[0]
+
     def _name(self, island, alias, root):
         name = "SW_" + local_id(island)[:12] + "_" + local_id(alias)[:40]
         check(root.get(name) is None, "native name collision; no implicit adoption or suffix", "Conflict")
@@ -214,6 +222,105 @@ class AuthoringRuntime:
                             ports.append([socket.identifier, list(value)])
                 values["nodes"].append({"name": node.name, "type": node.bl_idname, "inputs": ports})
             values["links"] = sorted([l.from_node.name, l.from_socket.identifier, l.to_node.name, l.to_socket.identifier] for l in material.node_tree.links)
+            bindings = []
+            expected_inputs = {
+                "base_color": "Base Color",
+                "roughness": "Roughness",
+                "metallic": "Metallic",
+                "emission": "Emission Color",
+                "opacity": "Alpha",
+            }
+            for node in material.node_tree.nodes:
+                if node.bl_idname != "ShaderNodeTexImage" or node.image is None:
+                    continue
+                role = node.get("sw_texture_role")
+                if not role:
+                    continue
+                image = node.image
+                texture_id = image.get(TEXTURE)
+                channel = node.get("sw_texture_channel", "color")
+                path = Path(self.bpy.path.abspath(image.filepath))
+                try:
+                    relative = path.relative_to(self.commands.workspace.root).as_posix()
+                    suffix = path.suffix.lower()
+                    verified = Path(self.commands.workspace.path(relative, suffix, existing=True))
+                    actual_sha256 = hashlib.sha256(verified.read_bytes()).hexdigest()
+                except (ValueError, OSError, CommandError):
+                    actual_sha256 = None
+                topology_valid = False
+                links = material.node_tree.links
+                if role == "normal":
+                    normal_nodes = [
+                        candidate
+                        for candidate in material.node_tree.nodes
+                        if candidate.bl_idname == "ShaderNodeNormalMap"
+                        and candidate.get("sw_texture_role") == "normal"
+                    ]
+                    topology_valid = len(normal_nodes) == 1 and any(
+                        link.from_node is node
+                        and link.from_socket.name == "Color"
+                        and link.to_node is normal_nodes[0]
+                        and link.to_socket.name == "Color"
+                        for link in links
+                    ) and any(
+                        link.from_node is normal_nodes[0]
+                        and link.from_socket.name == "Normal"
+                        and link.to_node is shader
+                        and link.to_socket.name == "Normal"
+                        for link in links
+                    )
+                elif role in expected_inputs:
+                    target = expected_inputs[role]
+                    if channel == "alpha":
+                        topology_valid = any(
+                            link.from_node is node
+                            and link.from_socket.name == "Alpha"
+                            and link.to_node is shader
+                            and link.to_socket.name == target
+                            for link in links
+                        )
+                    elif channel == "color":
+                        topology_valid = any(
+                            link.from_node is node
+                            and link.from_socket.name == "Color"
+                            and link.to_node is shader
+                            and link.to_socket.name == target
+                            for link in links
+                        )
+                    else:
+                        separate = [
+                            candidate
+                            for candidate in material.node_tree.nodes
+                            if candidate.bl_idname == "ShaderNodeSeparateColor"
+                            and candidate.get("sw_texture_role") == role
+                        ]
+                        output = {"red": "Red", "green": "Green", "blue": "Blue"}[channel]
+                        topology_valid = len(separate) == 1 and any(
+                            link.from_node is node
+                            and link.from_socket.name == "Color"
+                            and link.to_node is separate[0]
+                            and link.to_socket.name == "Color"
+                            for link in links
+                        ) and any(
+                            link.from_node is separate[0]
+                            and link.from_socket.name == output
+                            and link.to_node is shader
+                            and link.to_socket.name == target
+                            for link in links
+                        )
+                strength = None
+                if role == "normal" and 'normal_nodes' in locals() and len(normal_nodes) == 1:
+                    strength = float(normal_nodes[0].inputs["Strength"].default_value)
+                bindings.append({
+                    "role": role,
+                    "texture": texture_id,
+                    "channel": channel,
+                    "colorspace": image.colorspace_settings.name,
+                    "sha256": actual_sha256,
+                    "topology_valid": topology_valid,
+                    "strength": strength,
+                })
+            values["texture_bindings"] = sorted(bindings, key=lambda item: item["role"])
         return values
 
     def _row(self, obj):
@@ -326,12 +433,34 @@ class AuthoringRuntime:
                     check(all(o.as_pointer() in pointers for o in self.bpy.data.objects if o.data == obj.data), "shared datablock has an external user", "PolicyDenied")
                     for m in obj.data.materials:
                         check(m and m.get(ISLAND) == island and m.library is None, "foreign material dependency", "PolicyDenied")
-                        check(m.use_nodes and all(n.bl_idname in {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial"} for n in m.node_tree.nodes), "material graph outside managed PBR profile", "PolicyDenied")
+                        check(m.use_nodes and all(n.bl_idname in {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial", "ShaderNodeTexImage", "ShaderNodeNormalMap", "ShaderNodeSeparateColor"} for n in m.node_tree.nodes), "material graph outside managed PBR profile", "PolicyDenied")
+                        for node in m.node_tree.nodes:
+                            if node.bl_idname == "ShaderNodeTexImage":
+                                check(node.image is not None and node.image.get(ISLAND) == island and node.image.get(TEXTURE), "foreign image dependency", "PolicyDenied")
+                                image_path = Path(self.bpy.path.abspath(node.image.filepath))
+                                try:
+                                    relative = image_path.relative_to(self.commands.workspace.root).as_posix()
+                                except ValueError as error:
+                                    raise CommandError("PolicyDenied", "texture escaped workspace") from error
+                                verified = Path(self.commands.workspace.path(relative, image_path.suffix.lower(), existing=True))
+                                check(verified.stat().st_size <= 33_554_432, "texture byte budget", "Unsupported")
+                                check(hashlib.sha256(verified.read_bytes()).hexdigest() == node.image.get("sw_sha256"), "texture changed after load", "StaleReference")
                         check(not m.animation_data or len(m.animation_data.drivers) == 0, "material driver excluded", "PolicyDenied")
             if obj.type == "CURVE":
                 for material in obj.data.materials:
                     check(material and material.get(ISLAND) == island and material.library is None, "foreign curve material dependency", "PolicyDenied")
-                    check(material.use_nodes and all(node.bl_idname in {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial"} for node in material.node_tree.nodes), "curve material graph outside managed PBR profile", "PolicyDenied")
+                    check(material.use_nodes and all(node.bl_idname in {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial", "ShaderNodeTexImage", "ShaderNodeNormalMap", "ShaderNodeSeparateColor"} for node in material.node_tree.nodes), "curve material graph outside managed PBR profile", "PolicyDenied")
+                    for node in material.node_tree.nodes:
+                        if node.bl_idname == "ShaderNodeTexImage":
+                            check(node.image is not None and node.image.get(ISLAND) == island and node.image.get(TEXTURE), "foreign curve image dependency", "PolicyDenied")
+                            image_path = Path(self.bpy.path.abspath(node.image.filepath))
+                            try:
+                                relative = image_path.relative_to(self.commands.workspace.root).as_posix()
+                            except ValueError as error:
+                                raise CommandError("PolicyDenied", "curve texture escaped workspace") from error
+                            verified = Path(self.commands.workspace.path(relative, image_path.suffix.lower(), existing=True))
+                            check(verified.stat().st_size <= 33_554_432, "curve texture byte budget", "Unsupported")
+                            check(hashlib.sha256(verified.read_bytes()).hexdigest() == node.image.get("sw_sha256"), "curve texture changed after load", "StaleReference")
             for modifier in obj.modifiers:
                 check(modifier.type in {"BEVEL", "MIRROR", "SUBSURF", "ARRAY", "ARMATURE", "BOOLEAN"}, "unmanaged modifier", "PolicyDenied")
                 if modifier.type == "ARMATURE": check(modifier.object and modifier.object.as_pointer() in pointers, "external armature", "PolicyDenied")
@@ -374,6 +503,25 @@ class AuthoringRuntime:
             collection[ISLAND] = island
             collection["sw_display_name"] = operation["name"]
             self.bpy.context.scene.collection.children.link(collection)
+        elif kind == "texture":
+            self.island(island)
+            spec = operation["texture"]
+            suffix = Path(spec["path"]).suffix.lower()
+            check(suffix in {".png", ".jpg", ".jpeg", ".exr", ".tif", ".tiff", ".tga", ".bmp"}, "texture codec", "PolicyDenied")
+            source = Path(self.commands.workspace.path(spec["path"], suffix, existing=True))
+            check(source.stat().st_size <= 33_554_432, "texture byte budget", "Unsupported")
+            actual = hashlib.sha256(source.read_bytes()).hexdigest()
+            check(actual == spec["sha256"], "texture bytes changed", "StaleReference")
+            desired = self._name(island, spec["id"], data.images)
+            image = data.images.load(str(source), check_existing=False)
+            image.name = desired
+            image[ISLAND] = island
+            image[TEXTURE] = spec["id"]
+            image["sw_sha256"] = actual
+            image.colorspace_settings.name = {
+                "srgb": "sRGB",
+                "non_color": "Non-Color",
+            }[spec["color_space"]]
         elif kind == "material":
             self.island(island)
             spec = operation["material"]
@@ -393,6 +541,56 @@ class AuthoringRuntime:
             node.inputs["Alpha"].default_value = opacity
             node.inputs["Emission Color"].default_value = vec(spec["emission_color"], 4)
             node.inputs["Emission Strength"].default_value = spec["emission_strength"]
+            nodes = mat.node_tree.nodes
+            links = mat.node_tree.links
+
+            def texture_node(role, texture_id, channel="color"):
+                image = self.texture(island, texture_id)
+                tex = nodes.new("ShaderNodeTexImage")
+                tex.name = "SW_tex_" + role
+                tex.image = image
+                tex["sw_texture_role"] = role
+                tex["sw_texture_channel"] = channel
+                return tex
+
+            def scalar_socket(role, binding):
+                tex = texture_node(role, binding["texture"], binding["channel"])
+                channel = binding["channel"]
+                if channel == "alpha":
+                    return tex.outputs["Alpha"]
+                check(channel in {"red", "green", "blue"}, "scalar texture channel")
+                separate = nodes.new("ShaderNodeSeparateColor")
+                separate.name = "SW_separate_" + role
+                separate.mode = "RGB"
+                separate["sw_texture_role"] = role
+                links.new(tex.outputs["Color"], separate.inputs["Color"])
+                return separate.outputs[{"red":"Red", "green":"Green", "blue":"Blue"}[channel]]
+
+            for role, field, input_name in [
+                ("base_color", "base_color_texture", "Base Color"),
+                ("emission", "emission_texture", "Emission Color"),
+            ]:
+                binding = spec.get(field)
+                if binding:
+                    tex = texture_node(role, binding["texture"], binding["channel"])
+                    links.new(tex.outputs["Color"], node.inputs[input_name])
+            for role, field, input_name in [
+                ("roughness", "roughness_texture", "Roughness"),
+                ("metallic", "metallic_texture", "Metallic"),
+                ("opacity", "opacity_texture", "Alpha"),
+            ]:
+                binding = spec.get(field)
+                if binding:
+                    links.new(scalar_socket(role, binding), node.inputs[input_name])
+            normal = spec.get("normal_texture")
+            if normal:
+                tex = texture_node("normal", normal["texture"], "color")
+                normal_map = nodes.new("ShaderNodeNormalMap")
+                normal_map.name = "SW_normal"
+                normal_map["sw_texture_role"] = "normal"
+                normal_map.inputs["Strength"].default_value = normal["strength"]
+                links.new(tex.outputs["Color"], normal_map.inputs["Color"])
+                links.new(normal_map.outputs["Normal"], node.inputs["Normal"])
         elif kind == "entity":
             self._create_entity(island, operation["entity"], operation["meters_per_unit"])
         elif kind == "relation":

@@ -564,6 +564,7 @@ fn plan_island(plan: &Plan) -> Result<&str> {
         .first()
         .map(|operation| match &operation.payload {
             NativeOperation::Collection { island, .. }
+            | NativeOperation::Texture { island, .. }
             | NativeOperation::Material { island, .. }
             | NativeOperation::Entity { island, .. }
             | NativeOperation::Relation { island, .. }

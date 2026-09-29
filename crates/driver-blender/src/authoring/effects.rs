@@ -89,6 +89,7 @@ fn target_island(plan: &PreparedPlan<AuthoringIntent, NativeOperation>) -> Resul
         .first()
         .map(|op| match &op.payload {
             NativeOperation::Collection { island, .. }
+            | NativeOperation::Texture { island, .. }
             | NativeOperation::Material { island, .. }
             | NativeOperation::Entity { island, .. }
             | NativeOperation::Relation { island, .. }

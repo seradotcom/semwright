@@ -19,10 +19,51 @@ pub struct BlenderAuthoringSpec {
     /// Local authoring alias, not Project Graph's LogicalAssetId.
     pub collection: String,
     pub meters_per_unit: f64,
+    #[serde(default)]
+    pub textures: Vec<TextureAsset>,
     pub materials: Vec<Material>,
     pub entities: Vec<Entity>,
     pub relations: Vec<Relation>,
     pub animation: Option<Animation>,
+}
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum TextureColorSpace {
+    Srgb,
+    NonColor,
+}
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum TextureChannel {
+    Color,
+    Red,
+    Green,
+    Blue,
+    Alpha,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextureAsset {
+    pub id: String,
+    pub path: String,
+    pub sha256: String,
+    pub color_space: TextureColorSpace,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextureBinding {
+    pub texture: String,
+    pub channel: TextureChannel,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NormalTextureBinding {
+    pub texture: String,
+    pub strength: f64,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -37,6 +78,18 @@ pub struct Material {
     pub emission_strength: f64,
     #[serde(default = "default_opacity")]
     pub opacity: f64,
+    #[serde(default)]
+    pub base_color_texture: Option<TextureBinding>,
+    #[serde(default)]
+    pub roughness_texture: Option<TextureBinding>,
+    #[serde(default)]
+    pub metallic_texture: Option<TextureBinding>,
+    #[serde(default)]
+    pub normal_texture: Option<NormalTextureBinding>,
+    #[serde(default)]
+    pub emission_texture: Option<TextureBinding>,
+    #[serde(default)]
+    pub opacity_texture: Option<TextureBinding>,
 }
 fn default_emission_color() -> [f64; 4] {
     [0.0, 0.0, 0.0, 1.0]
@@ -246,6 +299,33 @@ pub fn local_id(s: &str) -> Result<()> {
             && s.bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b)),
         "local ID must be 1..64 ASCII letters, digits, underscore or hyphen",
+    )
+}
+fn relative_asset_path(value: &str) -> Result<()> {
+    ensure(
+        !value.is_empty() && value.len() <= 1024,
+        "texture path length",
+    )?;
+    ensure(
+        !value.starts_with('/') && !value.contains('\0') && !value.contains('\\'),
+        "texture path must be clean relative POSIX path",
+    )?;
+    let mut extension = None;
+    for part in value.split('/') {
+        ensure(
+            !part.is_empty() && part != "." && part != "..",
+            "texture path component",
+        )?;
+        extension = part
+            .rsplit_once('.')
+            .map(|(_, suffix)| suffix.to_ascii_lowercase());
+    }
+    ensure(
+        matches!(
+            extension.as_deref(),
+            Some("png" | "jpg" | "jpeg" | "exr" | "tif" | "tiff" | "tga" | "bmp")
+        ),
+        "texture codec allowlist",
     )
 }
 pub fn finite(x: f64, low: f64, high: f64) -> Result<()> {
@@ -458,10 +538,28 @@ impl BlenderAuthoringSpec {
         ensure(
             !self.entities.is_empty()
                 && self.entities.len() <= MAX_ENTITIES
+                && self.textures.len() <= 32
                 && self.materials.len() <= 64
                 && self.relations.len() <= 256,
             "authoring table budget",
         )?;
+        let mut textures = BTreeMap::new();
+        for texture in &self.textures {
+            local_id(&texture.id)?;
+            relative_asset_path(&texture.path)?;
+            ensure(
+                texture.sha256.len() == 64
+                    && texture
+                        .sha256
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+                "texture SHA-256 must be lowercase hex",
+            )?;
+            ensure(
+                textures.insert(texture.id.clone(), texture).is_none(),
+                "duplicate texture ID",
+            )?;
+        }
         let mut materials = BTreeSet::new();
         for m in &self.materials {
             local_id(&m.id)?;
@@ -484,6 +582,50 @@ impl BlenderAuthoringSpec {
             )?;
             finite(m.emission_strength, 0.0, 10.0)?;
             finite(m.opacity, 0.0, 1.0)?;
+            for binding in [&m.base_color_texture, &m.emission_texture] {
+                if let Some(binding) = binding {
+                    local_id(&binding.texture)?;
+                    ensure(
+                        binding.channel == TextureChannel::Color,
+                        "color texture binding requires color channel",
+                    )?;
+                    ensure(
+                        textures
+                            .get(&binding.texture)
+                            .is_some_and(|texture| texture.color_space == TextureColorSpace::Srgb),
+                        "color texture requires declared sRGB asset",
+                    )?;
+                }
+            }
+            for binding in [
+                &m.roughness_texture,
+                &m.metallic_texture,
+                &m.opacity_texture,
+            ] {
+                if let Some(binding) = binding {
+                    local_id(&binding.texture)?;
+                    ensure(
+                        binding.channel != TextureChannel::Color,
+                        "scalar texture binding requires explicit component channel",
+                    )?;
+                    ensure(
+                        textures.get(&binding.texture).is_some_and(|texture| {
+                            texture.color_space == TextureColorSpace::NonColor
+                        }),
+                        "scalar texture requires declared non-color asset",
+                    )?;
+                }
+            }
+            if let Some(binding) = &m.normal_texture {
+                local_id(&binding.texture)?;
+                finite(binding.strength, 0.0, 4.0)?;
+                ensure(
+                    textures
+                        .get(&binding.texture)
+                        .is_some_and(|texture| texture.color_space == TextureColorSpace::NonColor),
+                    "normal texture requires declared non-color asset",
+                )?;
+            }
         }
         let mut entities = BTreeMap::new();
         let mut deps = BTreeMap::<String, Vec<String>>::new();
@@ -736,7 +878,8 @@ impl BlenderAuthoringSpec {
         Ok(())
     }
     pub fn operation_count(&self) -> usize {
-        1 + self.materials.len()
+        1 + self.textures.len()
+            + self.materials.len()
             + self.entities.len()
             + self.relations.len()
             + usize::from(self.animation.is_some())

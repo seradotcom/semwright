@@ -646,6 +646,12 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
         std::env::var("SEMWRIGHT_TEST_BLENDER_ROOT").expect("required Blender runtime"),
     );
     let workspace = tempfile::tempdir().unwrap();
+    fs::create_dir_all(workspace.path().join("textures")).unwrap();
+    fs::write(
+        workspace.path().join("textures/surface.png"),
+        include_bytes!("../../../fixtures/blender-authoring/surface.png"),
+    )
+    .unwrap();
     let fixture = NativeFixture::start(workspace.path(), &root, true).await;
     for (label, source) in [
         (
@@ -728,6 +734,37 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             assert!((cable["materials"][0]["opacity"].as_f64().unwrap() - 0.82).abs() < 1e-5);
             assert!(
                 (cable["materials"][0]["emission_strength"].as_f64().unwrap() - 0.35).abs() < 1e-5
+            );
+            let bindings = cable["materials"][0]["texture_bindings"]
+                .as_array()
+                .unwrap();
+            let expected_sha = format!(
+                "{:x}",
+                Sha256::digest(include_bytes!(
+                    "../../../fixtures/blender-authoring/surface.png"
+                ))
+            );
+            for role in ["base_color", "roughness", "normal", "emission", "opacity"] {
+                let binding = bindings
+                    .iter()
+                    .find(|binding| binding["role"] == role)
+                    .unwrap();
+                assert_eq!(binding["topology_valid"], true, "{role}");
+                assert_eq!(binding["sha256"], expected_sha, "{role}");
+            }
+            assert_eq!(
+                bindings
+                    .iter()
+                    .find(|binding| binding["role"] == "base_color")
+                    .unwrap()["colorspace"],
+                "sRGB"
+            );
+            assert_eq!(
+                bindings
+                    .iter()
+                    .find(|binding| binding["role"] == "normal")
+                    .unwrap()["colorspace"],
+                "Non-Color"
             );
         } else {
             let source = items.iter().find(|row| row["entity"] == "product").unwrap();

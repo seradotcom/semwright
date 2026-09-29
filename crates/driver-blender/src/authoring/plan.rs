@@ -27,6 +27,10 @@ pub enum NativeOperation {
         island: String,
         name: String,
     },
+    Texture {
+        island: String,
+        texture: TextureAsset,
+    },
     Material {
         island: String,
         material: Material,
@@ -135,6 +139,15 @@ fn prepare_internal(
                     name: spec.collection.clone(),
                 },
             ));
+            for texture in &spec.textures {
+                payloads.push((
+                    format!("texture-{}", texture.id),
+                    NativeOperation::Texture {
+                        island: new_island.clone(),
+                        texture: texture.clone(),
+                    },
+                ));
+            }
             for material in &spec.materials {
                 payloads.push((
                     format!("material-{}", material.id),
@@ -529,6 +542,70 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                                 .is_some_and(|x| (x - expected.metallic).abs() < 1e-5)
                         {
                             return false;
+                        }
+                        let Some(actual_bindings) = m["texture_bindings"].as_array() else {
+                            return false;
+                        };
+                        let expected_asset = |texture_id: &str| {
+                            spec.textures
+                                .iter()
+                                .find(|texture| texture.id == texture_id)
+                        };
+                        let channel_name = |channel: TextureChannel| match channel {
+                            TextureChannel::Color => "color",
+                            TextureChannel::Red => "red",
+                            TextureChannel::Green => "green",
+                            TextureChannel::Blue => "blue",
+                            TextureChannel::Alpha => "alpha",
+                        };
+                        let color_space_name = |space: TextureColorSpace| match space {
+                            TextureColorSpace::Srgb => "sRGB",
+                            TextureColorSpace::NonColor => "Non-Color",
+                        };
+                        for (role, binding) in [
+                            ("base_color", expected.base_color_texture.as_ref()),
+                            ("roughness", expected.roughness_texture.as_ref()),
+                            ("metallic", expected.metallic_texture.as_ref()),
+                            ("emission", expected.emission_texture.as_ref()),
+                            ("opacity", expected.opacity_texture.as_ref()),
+                        ] {
+                            if let Some(binding) = binding {
+                                let Some(asset) = expected_asset(&binding.texture) else {
+                                    return false;
+                                };
+                                if !actual_bindings.iter().any(|actual| {
+                                    actual["role"].as_str() == Some(role)
+                                        && actual["texture"].as_str()
+                                            == Some(binding.texture.as_str())
+                                        && actual["channel"].as_str()
+                                            == Some(channel_name(binding.channel))
+                                        && actual["colorspace"].as_str()
+                                            == Some(color_space_name(asset.color_space))
+                                        && actual["sha256"].as_str() == Some(asset.sha256.as_str())
+                                        && actual["topology_valid"].as_bool() == Some(true)
+                                }) {
+                                    return false;
+                                }
+                            }
+                        }
+                        if let Some(binding) = &expected.normal_texture {
+                            let Some(asset) = expected_asset(&binding.texture) else {
+                                return false;
+                            };
+                            if !actual_bindings.iter().any(|actual| {
+                                actual["role"] == "normal"
+                                    && actual["texture"].as_str() == Some(binding.texture.as_str())
+                                    && actual["channel"] == "color"
+                                    && actual["colorspace"].as_str()
+                                        == Some(color_space_name(asset.color_space))
+                                    && actual["sha256"].as_str() == Some(asset.sha256.as_str())
+                                    && actual["topology_valid"].as_bool() == Some(true)
+                                    && actual["strength"].as_f64().is_some_and(|value| {
+                                        (value - binding.strength).abs() < 1e-5
+                                    })
+                            }) {
+                                return false;
+                            }
                         }
                     }
                 }

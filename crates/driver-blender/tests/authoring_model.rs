@@ -304,6 +304,49 @@ fn pbr_emission_and_opacity_are_bounded() {
     assert!(invalid.validate().is_err());
 }
 
+#[test]
+fn texture_resources_are_hash_pinned_and_channel_typed() {
+    let s = spec();
+    assert_eq!(s.textures.len(), 2);
+    s.validate().unwrap();
+}
+#[test]
+fn texture_missing_reference_is_rejected() {
+    let mut s = spec();
+    s.materials
+        .iter_mut()
+        .find(|material| material.id == "insert")
+        .unwrap()
+        .normal_texture
+        .as_mut()
+        .unwrap()
+        .texture = "missing".into();
+    assert!(s.validate().is_err());
+}
+#[test]
+fn scalar_texture_requires_explicit_component() {
+    let mut s = spec();
+    s.materials
+        .iter_mut()
+        .find(|material| material.id == "insert")
+        .unwrap()
+        .roughness_texture
+        .as_mut()
+        .unwrap()
+        .channel = TextureChannel::Color;
+    assert!(s.validate().is_err());
+}
+#[test]
+fn normal_texture_requires_non_color_space() {
+    let mut s = spec();
+    s.textures
+        .iter_mut()
+        .find(|texture| texture.id == "surface_data")
+        .unwrap()
+        .color_space = TextureColorSpace::Srgb;
+    assert!(s.validate().is_err());
+}
+
 fn owner() -> Owner {
     Owner {
         session: "host-session".into(),
