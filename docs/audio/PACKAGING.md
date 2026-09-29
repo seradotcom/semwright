@@ -17,3 +17,9 @@ The pinned Faust standard-library closure is recursive but bounded by path lengt
 The Ardour manifest allows up to 128 sandboxed processes/threads because native DAW initialization uses worker and backend threads; CPU, address-space, file-size and network bounds remain enforced.
 
 Sample-backed Faust deployments additionally provision an owner-controlled read-only audio-assets workspace grant. Sample bytes are not bundled into the driver SWDP by default and the agent never receives a generic filesystem-path capability.
+
+## Clean-runner installation acceptance
+
+The development package lane now exercises the repository's real static-index installer for every audio SWDP. It validates the generated index, performs a dry-run, installs into private temporary data/config roots, verifies the installation receipt and executable/package digests, confirms policy_grants_changed=false, and removes the exact receipt-bound version again.
+
+Installation deliberately does not execute a driver or grant driver scopes. Native use is proven by the faust-native, analysis-native, and ardour-native Driver Host lanes on the same source SHA, where the owner grants and sealed runtime tools are explicit. This preserves the distribution security boundary instead of turning install into an authority side effect.

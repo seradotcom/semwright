@@ -191,6 +191,7 @@ def main():
     ]
     tested_sha = run(["git", "rev-parse", "HEAD"]).strip()
     receipts = []
+    index_entries = []
     for template, executable, tools, name, runtime_manifest in specs:
         mf = out / f"{name}.manifest.json"
         manifest(template, executable, tools, mf)
@@ -204,6 +205,18 @@ def main():
         inspected = json.loads(run([
             str(args.semwright), "--json", "driver", "package", "inspect", str(package)
         ]))
+        metadata = inspected["metadata"]
+        packaged_manifest = metadata["manifest"]
+        index_entries.append({
+            "id": packaged_manifest["id"],
+            "version": packaged_manifest["version"],
+            "publisher": packaged_manifest["publisher"],
+            "package": package.name,
+            "package_sha256": inspected["package_sha256"],
+            "package_bytes": package.stat().st_size,
+            "semwright": metadata["semwright"],
+            "application_versions": packaged_manifest["application"]["supported_versions"],
+        })
         receipts.append({
             "id": name,
             "manifest_sha256": digest(mf),
@@ -212,7 +225,65 @@ def main():
             "package_bytes": package.stat().st_size,
             "inspect_package_sha256": inspected["package_sha256"],
             "runtime_model": "owner_provisioned_sealed_tools",
+            "install_verified": False,
         })
+
+    index = out / "index.json"
+    index.write_text(json.dumps({
+        "index_version": 1,
+        "drivers": index_entries,
+    }, indent=2) + "\n")
+    run([str(args.semwright), "--json", "driver", "index", "validate", str(index)])
+
+    install_data = out / "install-data"
+    install_config = out / "install-config"
+    install_data.mkdir(mode=0o700)
+    install_config.mkdir(mode=0o700)
+    for entry in index_entries:
+        common = [
+            "driver", "install", str(index), entry["id"],
+            "--version", entry["version"],
+            "--data-dir", str(install_data),
+            "--config-dir", str(install_config),
+        ]
+        if entry["application_versions"]:
+            # Package-time Faust is the Noble 2.70.3 baseline; Ardour has one exact version.
+            # Select the newest declared exact application version rather than an older compatible one.
+            selected_application_version = entry["application_versions"][-1]
+            common += ["--application-version", selected_application_version]
+        else:
+            selected_application_version = None
+        dry = json.loads(run([str(args.semwright), "--json", "--dry-run", *common]))
+        if dry.get("installed") is not False or dry.get("policy_grants_changed") is not False:
+            raise RuntimeError(f"driver dry-run install changed authority for {entry['id']}")
+        installed = json.loads(run([str(args.semwright), "--json", *common]))
+        if installed.get("installed") is not True or installed.get("policy_grants_changed") is not False:
+            raise RuntimeError(f"driver install receipt is invalid for {entry['id']}")
+        receipt = installed["receipt"]
+        executable_path = Path(receipt["executable_path"])
+        manifest_path = Path(receipt["manifest_path"])
+        if not executable_path.is_file() or not manifest_path.is_file():
+            raise RuntimeError(f"installed driver files are missing for {entry['id']}")
+        if digest(executable_path) != receipt["executable_sha256"]:
+            raise RuntimeError(f"installed executable digest mismatch for {entry['id']}")
+        if receipt["package_sha256"] != entry["package_sha256"]:
+            raise RuntimeError(f"installed package digest mismatch for {entry['id']}")
+        for row in receipts:
+            if row["id"] == entry["id"]:
+                row["install_verified"] = True
+                row["install_application_version"] = selected_application_version
+                row["install_receipt_sha256"] = hashlib.sha256(
+                    json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
+                ).hexdigest()
+                break
+        run([
+            str(args.semwright), "--json", "driver", "remove",
+            entry["id"], entry["version"],
+            "--data-dir", str(install_data),
+            "--config-dir", str(install_config),
+        ])
+        if executable_path.exists() or manifest_path.exists():
+            raise RuntimeError(f"driver removal did not clean installed files for {entry['id']}")
 
     skill = ROOT / "skills" / "semwright-audio-production"
     run([str(args.semwright), "--json", "skill", "validate", str(skill)])

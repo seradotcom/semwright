@@ -51,3 +51,30 @@ fn ardour_catalog_matches_its_matrix_rows_exactly() {
         .collect();
     assert_eq!(documented, actual);
 }
+
+#[test]
+fn backend_surface_inventories_have_required_b15_traceability_fields() {
+    for source in [
+        include_str!("../../../docs/audio/FAUST_SURFACE_COVERAGE.json"),
+        include_str!("../../../docs/audio/ARDOUR_SURFACE_COVERAGE.json"),
+    ] {
+        let value: Value = serde_json::from_str(source).unwrap();
+        let rows = value["surfaces"].as_array().unwrap();
+        assert!(!rows.is_empty());
+        for row in rows {
+            for field in [
+                "surface",
+                "status",
+                "evidence",
+                "context",
+                "risk",
+                "observability",
+                "test",
+                "limitation",
+            ] {
+                let value = row[field].as_str().unwrap_or("");
+                assert!(!value.is_empty() && value != "unclassified", "{row}");
+            }
+        }
+    }
+}
