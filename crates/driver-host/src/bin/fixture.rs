@@ -834,7 +834,11 @@ impl Driver for Fixture {
                 }
                 if let Some(dependency) = dependency {
                     runtime_args.push(RuntimeToolArg::Literal {
-                        value: "--run-dependency".into(),
+                        value: if cfg!(windows) {
+                            "--probe-dependency-path".into()
+                        } else {
+                            "--run-dependency".into()
+                        },
                     });
                     runtime_args.push(dependency);
                 }

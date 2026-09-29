@@ -2669,7 +2669,7 @@ impl SandboxLauncher for WindowsSandbox {
             "filesystem_mounts": "driver_appcontainer_sid_acl_v1",
             "plugin_mcp_mounts": "fail_closed_pending_portable_mount_lookup",
             "network": "internetClient_capability_only_when_requested",
-            "sealed_tools": "host_mediated_driver_protocol_v4_only",
+            "sealed_tools": "host_mediated_driver_protocol_v4_plus",
             "driver_child_process_creation": "denied",
             "resource_limits": ["processes", "cpu_seconds", "process_memory"],
         })

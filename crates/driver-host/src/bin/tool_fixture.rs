@@ -63,6 +63,11 @@ fn main() {
         .position(|arg| arg == "--run-dependency")
         .and_then(|index| args.get(index + 1))
         .cloned();
+    let dependency_probe_path = args
+        .iter()
+        .position(|arg| arg == "--probe-dependency-path")
+        .and_then(|index| args.get(index + 1))
+        .cloned();
     let probed = match probe_path {
         Some(path) => {
             let path = std::path::PathBuf::from(path);
@@ -81,13 +86,17 @@ fn main() {
         }
         None => None,
     };
-    let dependency_output = match dependency_path {
-        Some(path) => match std::process::Command::new(path).output() {
+    let dependency_output = match (dependency_path, dependency_probe_path) {
+        (Some(_), Some(_)) => {
+            eprintln!("dependency path may be consumed by only one fixture mode");
+            std::process::exit(6);
+        }
+        (Some(path), None) => match std::process::Command::new(path).output() {
             Ok(output) if output.status.success() => match String::from_utf8(output.stdout) {
                 Ok(value) => Some(value),
                 Err(_) => {
                     eprintln!("dependency output is not UTF-8");
-                    std::process::exit(6);
+                    std::process::exit(7);
                 }
             },
             Ok(output) => {
@@ -95,14 +104,29 @@ fn main() {
                     "dependency exited unsuccessfully: {:?}",
                     output.status.code()
                 );
-                std::process::exit(7);
+                std::process::exit(8);
             }
             Err(error) => {
                 eprintln!("failed to launch typed dependency: {error}");
-                std::process::exit(8);
+                std::process::exit(9);
             }
         },
-        None => None,
+        (None, Some(path)) => {
+            let mut file = match std::fs::File::open(path) {
+                Ok(file) => file,
+                Err(error) => {
+                    eprintln!("failed to open typed dependency path: {error}");
+                    std::process::exit(10);
+                }
+            };
+            let mut magic = [0u8; 2];
+            if std::io::Read::read_exact(&mut file, &mut magic).is_err() || magic != *b"MZ" {
+                eprintln!("typed Windows dependency path is not a readable PE image");
+                std::process::exit(11);
+            }
+            Some("readable-pe".into())
+        }
+        (None, None) => None,
     };
     #[cfg(windows)]
     {

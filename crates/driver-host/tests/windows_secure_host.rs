@@ -625,7 +625,7 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
     assert_eq!(output["read_ok"], false);
     assert_eq!(
         output["stdout"],
-        "tool-ok|appcontainer=1|path=allowed|dependency=tool-ok|appcontainer=1"
+        "tool-ok|appcontainer=1|path=allowed|dependency=readable-pe"
     );
 
     let mount_error = call(
