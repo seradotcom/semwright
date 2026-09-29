@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "collection": "metered_housing",
+  "meters_per_unit": 0.01,
+  "materials": [
+    {
+      "id": "housing",
+      "base_color": [
+        0.17,
+        0.22,
+        0.3,
+        1
+      ],
+      "roughness": 0.35,
+      "metallic": 0.7
+    },
+    {
+      "id": "insert",
+      "base_color": [
+        0.7,
+        0.25,
+        0.1,
+        1
+      ],
+      "roughness": 0.65,
+      "metallic": 0
+    }
+  ],
+  "entities": [
+    {
+      "id": "housing",
+      "name": "Housing",
+      "shape": {
+        "kind": "box",
+        "size": [
+          12,
+          8,
+          3
+        ]
+      },
+      "transform": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materials": [
+        "housing"
+      ],
+      "modifiers": [
+        {
+          "kind": "bevel",
+          "width": 0.2,
+          "segments": 2
+        }
+      ]
+    },
+    {
+      "id": "insert",
+      "name": "Insert",
+      "shape": {
+        "kind": "cylinder",
+        "radius": 1,
+        "depth": 4,
+        "segments": 24
+      },
+      "transform": {
+        "translation": [
+          3,
+          0,
+          1
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materials": [
+        "insert"
+      ],
+      "modifiers": []
+    }
+  ],
+  "relations": [],
+  "animation": null
+}

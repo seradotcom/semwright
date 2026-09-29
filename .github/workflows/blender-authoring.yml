@@ -1,0 +1,80 @@
+name: Blender authoring diagnostics
+on:
+  push:
+    branches: [feat/blender-semantic-authoring]
+    paths:
+      - 'crates/driver-blender/**'
+      - 'adapters/blender/**'
+      - 'fixtures/blender-authoring/**'
+      - 'scripts/blender-authoring/**'
+      - 'skills/semwright-blender-production/**'
+      - '.ci/blender-authoring.json'
+      - '.github/workflows/blender-authoring.yml'
+      - 'Cargo.lock'
+permissions:
+  contents: read
+concurrency:
+  group: blender-authoring-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  authoring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      SEMWRIGHT_AUTHORING_EVIDENCE: ${{ github.workspace }}/evidence/blender-authoring
+      SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
+      SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate source and enum selector
+        id: selector
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 - <<'PY'
+          import json, os
+          x = json.load(open('.ci/blender-authoring.json'))
+          assert set(x) == {'version', 'suite'} and x['version'] == 1
+          assert x['suite'] in {'blender-model', 'blender-native-authoring'}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('suite=' + x['suite'] + '\n')
+          PY
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: blender-authoring-linux-rust1.98.1-blender4.5.14-v1-${{ steps.selector.outputs.suite }}
+      - name: Native compile prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev pkg-config bubblewrap fontconfig xz-utils
+      - name: Owner-pinned Blender runtime (native lane only)
+        if: steps.selector.outputs.suite == 'blender-native-authoring'
+        run: |
+          curl --fail --location --retry 2 --output /tmp/blender.tar.xz https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
+          echo '9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  /tmp/blender.tar.xz' | sha256sum --check --strict
+          sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
+          rm -f /tmp/blender.tar.xz
+          test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
+          bash scripts/dev/ci-driver-bwrap-profile.sh evidence/blender-authoring/sandbox-setup.log
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Exact-SHA selected suite
+        env:
+          SUITE: ${{ steps.selector.outputs.suite }}
+        run: python3 scripts/blender-authoring/run-suite.py --suite "$SUITE"
+      - name: Formatting gate
+        run: cargo fmt --package semwright-driver-blender -- --check
+      - name: Preserve bounded diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blender-authoring-${{ github.sha }}-${{ steps.selector.outputs.suite }}
+          path: evidence/blender-authoring/
+          retention-days: 7
+          if-no-files-found: error
