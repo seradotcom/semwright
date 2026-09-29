@@ -12,3 +12,6 @@ mod evaluator;
 pub use enumeration::*;
 pub use evidence::*;
 pub use evaluator::*;
+
+mod quality;
+pub use quality::*;
