@@ -670,6 +670,16 @@ fn nla_track_requires_entity_with_managed_channels() {
     let spec: BlenderAuthoringSpec = serde_json::from_value(value).unwrap();
     assert!(spec.validate().is_err());
 }
+#[test]
+fn nla_repeat_below_blender_minimum_is_rejected() {
+    let mut value: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/articulated.json"
+    ))
+    .unwrap();
+    value["animation"]["nla_tracks"][0]["strips"][0]["repeat"] = 0.05.into();
+    let spec: BlenderAuthoringSpec = serde_json::from_value(value).unwrap();
+    assert!(spec.validate().is_err());
+}
 proptest! {
     #[test] fn finite_dimension_wire_normalizes_stably(x in 0.01f64..100.0) { let mut s=spec();s.entities[0].shape=Shape::Box{size:[x,x/2.,x*2.]};s.validate().unwrap();let first=canonical_bytes(&s).unwrap();let decoded:BlenderAuthoringSpec=strict_decode(&first).unwrap();decoded.validate().unwrap();let normalized=canonical_bytes(&decoded).unwrap();let decoded_again:BlenderAuthoringSpec=strict_decode(&normalized).unwrap();prop_assert_eq!(canonical_bytes(&decoded_again).unwrap(),normalized);if let Shape::Box{size}=decoded.entities[0].shape { prop_assert!((size[0]-x).abs() <= 1e-12*x.abs().max(1.0)); } else { prop_assert!(false); }}
     #[test] fn all_out_of_bounds_indices_fail(i in 3u32..u32::MAX) { let mut s=spec();s.entities[0].shape=Shape::Mesh{vertices:vec![[0.,0.,0.],[1.,0.,0.],[0.,1.,0.]],faces:vec![vec![0,1,i]],uv:None};prop_assert!(s.validate().is_err()); }

@@ -928,7 +928,7 @@ impl BlenderAuthoringSpec {
                             && strip.action_frame_start < strip.action_frame_end,
                         "NLA frame range outside managed Action",
                     )?;
-                    finite(strip.repeat, 0.01, 32.0)?;
+                    finite(strip.repeat, 0.1, 32.0)?;
                     finite(strip.scale, 0.01, 32.0)?;
                     finite(strip.influence, 0.0, 1.0)?;
                     let end = strip.start_frame as f64
