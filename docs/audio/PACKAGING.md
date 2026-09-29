@@ -15,3 +15,5 @@ No release/tag is created and no package is published to a remote registry.
 The pinned Faust standard-library closure is recursive but bounded by path length, 32 directory levels, file count and aggregate bytes; package/runtime/test code share the same limits.
 
 The Ardour manifest allows up to 128 sandboxed processes/threads because native DAW initialization uses worker and backend threads; CPU, address-space, file-size and network bounds remain enforced.
+
+Sample-backed Faust deployments additionally provision an owner-controlled read-only audio-assets workspace grant. Sample bytes are not bundled into the driver SWDP by default and the agent never receives a generic filesystem-path capability.

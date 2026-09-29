@@ -28,6 +28,14 @@
         "required": true
       },
       {
+        "id": "driver.faust-audio.sample.render",
+        "required": true
+      },
+      {
+        "id": "driver.faust-audio.instrument.render",
+        "required": true
+      },
+      {
         "id": "driver.audio-analysis.artifact.measure",
         "required": true
       },

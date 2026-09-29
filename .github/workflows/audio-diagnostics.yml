@@ -112,8 +112,20 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   faust-native:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            version: 2.37.3
+            package: faust=2.37.3~ds0-1
+            cache: jammy
+          - os: ubuntu-24.04
+            version: 2.70.3
+            package: faust=2.70.3+ds-1.1build2
+            cache: noble
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -123,18 +135,23 @@ jobs:
           toolchain: 1.98.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
-          key: audio-v2-faust-jammy
+          key: audio-v3-faust-${{ matrix.cache }}
       - name: Install runner-only Faust runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y faust=2.37.3~ds0-1 libsndfile1-dev bubblewrap libpipewire-0.3-dev
+          sudo apt-get install -y "${{ matrix.package }}" libsndfile1-dev bubblewrap libpipewire-0.3-dev
           mkdir -p verification/audio
           dpkg-query -W faust libsndfile1-dev > verification/audio/runtime-packages.txt
           sha256sum /usr/bin/faust > verification/audio/faust.sha256
           faust --version > verification/audio/faust-version.txt
-      - name: Check namespace prerequisite without changing host security policy
+      - name: Check namespace prerequisite on Ubuntu 22.04
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           bwrap --die-with-parent --unshare-all --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev -- /usr/bin/true
+      - name: Install scoped Driver Host sandbox profile on Ubuntu 24.04
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/audio/faust-sandbox-setup.log
       - name: Build fixed interpreter and sandbox binaries on runner
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/faust-runtime/main.cpp -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
@@ -146,14 +163,14 @@ jobs:
           python3 scripts/audio/run-suite.py faust
       - name: Broker to sealed interpreter and independent PCM oracle
         run: |
-          export SEMWRIGHT_TEST_FAUST_VERSION=2.37.3
+          export SEMWRIGHT_TEST_FAUST_VERSION="${{ matrix.version }}"
           export SEMWRIGHT_TEST_FAUST_HELPER="$RUNNER_TEMP/semwright-faust-interpreter"
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
           python3 scripts/audio/run-suite.py faust-host
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: audio-faust-${{ github.sha }}
+          name: audio-faust-${{ matrix.version }}-${{ github.sha }}
           path: verification/audio
           retention-days: 7
           if-no-files-found: error

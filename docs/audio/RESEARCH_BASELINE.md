@@ -5,6 +5,10 @@
 The Ubuntu 24.04 development baseline is Faust `2.70.3+ds-1.1build2` (compiler 2.70.3). The narrow GitHub Actions native lane also exercises the supported Ubuntu 22.04 package `2.37.3~ds0-1`; the runtime manifest accepts only these explicitly tested compiler versions. The official interpreter API is used instead of generating an executable during an audio request. See https://faustdoc.grame.fr/manual/embedding/ and `architecture/faust/dsp/interpreter-dsp.h` at Faust tag 2.70.3. The system header is not copied into Semwright. The original helper links the system libfaust and libsndfile; their redistribution obligations remain separate from the permissive core.
 
 The Faust standard library is treated as a versioned input closure rather than an ambient system directory. The owner stages a bounded recursive tree of `.lib` files; the runtime validates strict relative paths, rejects symlinks/untrusted writers, requires `stdfaust.lib`, verifies the exact inventory and SHA-256 of every file, and only then passes that grant to the fixed interpreter.
+Faust polyphonic behavior was checked directly against upstream 2.37.3 and 2.70.3 poly-dsp.h. Both versions allocate the first free voice, then steal the oldest release voice, then the oldest playing voice; keyOff resolves a playing voice by pitch rather than MIDI channel. Both versions use a 0.5-second default release-detection window, while setReleaseLength is available only in newer Faust and therefore is not used by Semwright. The semantic instrument tail remains an explicit render-horizon budget rather than being misrepresented as Faust voice-release configuration.
+
+Sample playback does not enable Faust soundfile(), arbitrary imports, or host paths. Semwright snapshots a SHA-256-bound WAV/FLAC from the read-only audio-assets grant, libsndfile decodes it inside the fixed helper, channel mapping is explicit mono-average, resampling is exact-rate-only, and the resulting single input is processed by generated Faust DSP.
+
 
 ## Native Ardour
 

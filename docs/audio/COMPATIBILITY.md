@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | audio-domain / audio-authoring | required portable Rust gate | portable compile required at final candidate | portable compile required at final candidate | no native DAW dependency |
 | Faust source translation | supported portable Rust | portable translation only | portable translation only | source generation is backend-neutral |
-| Faust native interpreter/render | supported, pinned 2.37.3/2.70.3 baselines | blocked | blocked | current sealed runtime implementation is Linux-only |
+| Faust native interpreter/render | supported, pinned 2.37.3/2.70.3 baselines; synth/SFX, hash-pinned sample and polyphonic MIDI lanes | blocked | blocked | current sealed runtime implementation is Linux-only; both declared Faust versions run native CI |
 | native acoustic analysis | supported, libebur128 1.2.6 | blocked | blocked | current tool/mount runtime is Linux-only |
 | Ardour deep managed sessions | supported baseline Ardour 8.4.0 | blocked | blocked | current native acceptance and sealed tools are Linux-only |
 | Ardour live OSC | driver semantics implemented | not certified | not certified | packaged Linux manifest uses explicit Driver Host loopback port 3819; no general network |

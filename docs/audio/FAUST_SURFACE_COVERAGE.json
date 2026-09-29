@@ -52,15 +52,15 @@
     },
     {
       "surface": "soundfile/sample playback",
-      "status": "upstream_restricted_pending",
-      "mapping": null,
-      "evidence": "not advertised until granted asset path is certified"
+      "status": "implemented_pending_native",
+      "mapping": "hash-pinned audio-assets Sample -> immutable scratch snapshot -> exact-rate libsndfile decode -> mono-average -> typed Faust DSP input",
+      "evidence": "sample.render native CI verifies hash mismatch denial, EOF silence, loop behavior, exact-rate/no-resample receipt and no-clobber publication"
     },
     {
       "surface": "polyphony/MIDI voice runtime",
-      "status": "upstream_restricted_pending",
-      "mapping": null,
-      "evidence": "domain may model events; native runtime not advertised"
+      "status": "implemented_pending_native",
+      "mapping": "typed Synth + MidiPhrase -> official Faust poly-interpreter-dsp with sample-frame schedule",
+      "evidence": "instrument.render native CI; 1..64 voices; pinned upstream first-free/release-oldest/playing-oldest allocator policy; same-pitch overlap rejected; only global CC120/123 admitted"
     },
     {
       "surface": "WAV/FLAC render",
@@ -73,6 +73,18 @@
       "status": "implemented_pending_native",
       "mapping": "fixed helper version operation",
       "evidence": "Broker -> Driver Host native CI"
+    },
+    {
+      "surface": "sample asset authority",
+      "status": "implemented_pending_native",
+      "mapping": "read-only audio-assets grant + RelativePath + expected SHA-256 + symlink-free snapshot",
+      "evidence": "no arbitrary host paths; Artifact source remains unsupported until explicit materialization"
+    },
+    {
+      "surface": "polyphonic tail horizon",
+      "status": "implemented_pending_native",
+      "mapping": "semantic envelope/effect tail budget plus upstream 0.5s voice-release detector common to Faust 2.37.3 and 2.70.3",
+      "evidence": "render duration must include final note-off plus bounded semantic tail"
     }
   ]
 }

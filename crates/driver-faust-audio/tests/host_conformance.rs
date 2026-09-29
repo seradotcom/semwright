@@ -1,11 +1,15 @@
 #![cfg(target_os = "linux")]
 //! Actual Broker -> policy -> Driver Host -> sealed interpreter -> decoded PCM.
 use semwright_audio_domain::{
-    model::{AudioProfile, AudioProject},
+    model::{
+        AudioProfile, AudioProject, Envelope as AudioEnvelope, MidiEvent, MidiPhrase, Oscillator,
+        Sample, SampleOrigin, SampleSource, Signal, SignalNodeKind, Synth, Waveform,
+    },
     presets::{self, SfxPreset},
-    time::SampleRate,
+    time::{SampleFrame, SampleRate},
+    units::{MilliDb, MilliHz, Permille},
 };
-use semwright_backend_api::Provider;
+use semwright_backend_api::{Context, Provider};
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
@@ -116,6 +120,30 @@ fn assert_staged_faust_compiles(helper: &Path, libraries: &Path) {
     assert_eq!(receipt["outputs"], 2);
 }
 
+async fn direct_host_call(
+    provider: &DriverProvider,
+    capabilities: &[semwright_backend_api::ProvidedCapability],
+    command: &str,
+    args: Value,
+) -> semwright_types::Result<Value> {
+    let name = format!("driver.faust-audio.{command}");
+    let descriptor = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == name)
+        .unwrap_or_else(|| panic!("missing direct Host capability {name}"));
+    Provider::execute(
+        provider,
+        &Context {
+            session: "faust-host-diagnostic".into(),
+            request_id: unique_id(),
+            cancellation: CancellationToken::new(),
+        },
+        &descriptor.descriptor,
+        &args,
+    )
+    .await
+}
+
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
     broker
         .clone()
@@ -132,6 +160,120 @@ async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
         )
         .await
 }
+fn write_pcm16_mono_wav(path: &Path, sample_rate: u32, frames: u32) {
+    let data_bytes = frames * 2;
+    let mut bytes = Vec::with_capacity(44 + data_bytes as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&sample_rate.to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate * 2).to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_bytes.to_le_bytes());
+    for frame in 0..frames {
+        let phase = 2.0 * std::f64::consts::PI * 440.0 * frame as f64 / sample_rate as f64;
+        let value = (phase.sin() * 0.5 * 32767.0).round() as i16;
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    fs::write(path, bytes).unwrap();
+}
+
+fn sample_synth(sample_id: &str, looped: bool) -> Synth {
+    Synth {
+        id: if looped {
+            "sample-loop-synth".into()
+        } else {
+            "sample-once-synth".into()
+        },
+        name: "sample-backed gain proof".into(),
+        polyphony: 1,
+        signals: vec![
+            Signal {
+                id: "sample".into(),
+                inputs: vec![],
+                node: SignalNodeKind::SamplePlayer {
+                    sample: sample_id.into(),
+                    looped,
+                },
+            },
+            Signal {
+                id: "gain".into(),
+                inputs: vec!["sample".into()],
+                node: SignalNodeKind::Gain {
+                    gain: MilliDb(-6_000),
+                },
+            },
+        ],
+        output: "gain".into(),
+    }
+}
+
+fn instrument_fixture() -> (Synth, MidiPhrase) {
+    let synth = Synth {
+        id: "poly-instrument".into(),
+        name: "polyphonic proof".into(),
+        polyphony: 4,
+        signals: vec![
+            Signal {
+                id: "osc".into(),
+                inputs: vec![],
+                node: SignalNodeKind::Oscillator {
+                    oscillator: Oscillator {
+                        waveform: Waveform::Sine,
+                        frequency: MilliHz(440_000),
+                        end_frequency: None,
+                        amplitude: Permille(700),
+                        phase_millidegrees: 0,
+                        seed: None,
+                    },
+                },
+            },
+            Signal {
+                id: "env".into(),
+                inputs: vec!["osc".into()],
+                node: SignalNodeKind::Envelope {
+                    envelope: AudioEnvelope {
+                        attack_frames: 48,
+                        decay_frames: 96,
+                        sustain: Permille(700),
+                        release_frames: 2_400,
+                    },
+                },
+            },
+        ],
+        output: "env".into(),
+    };
+    let phrase = MidiPhrase {
+        id: "proof-phrase".into(),
+        name: "proof phrase".into(),
+        instrument_synth: Some(synth.id.clone()),
+        events: vec![
+            MidiEvent::Note {
+                id: "n1".into(),
+                start: SampleFrame(0),
+                duration_frames: 2_400,
+                channel: 0,
+                note: 69,
+                velocity: 96,
+            },
+            MidiEvent::Note {
+                id: "n2".into(),
+                start: SampleFrame(4_800),
+                duration_frames: 2_400,
+                channel: 0,
+                note: 72,
+                velocity: 100,
+            },
+        ],
+    };
+    (synth, phrase)
+}
+
 fn decode_i16(path: &Path) -> Vec<i16> {
     // Deliberately independent, small fixture-only WAV oracle. Production decoding
     // has its own bounded parser; this oracle never generates the tested PCM.
@@ -161,7 +303,7 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     let helper_source = required_path("SEMWRIGHT_TEST_FAUST_HELPER");
     let root = tempfile::tempdir().unwrap();
     fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
-    for dir in ["binary", "state", "libraries", "output"] {
+    for dir in ["binary", "state", "libraries", "assets", "output"] {
         fs::create_dir(root.path().join(dir)).unwrap();
         fs::set_permissions(root.path().join(dir), fs::Permissions::from_mode(0o700)).unwrap();
     }
@@ -197,6 +339,11 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     .unwrap();
     fs::set_permissions(&config, fs::Permissions::from_mode(0o400)).unwrap();
     assert_staged_faust_compiles(&tool, &libraries);
+    let assets = root.path().join("assets").canonicalize().unwrap();
+    let asset = assets.join("tone.wav");
+    write_pcm16_mono_wav(&asset, 48_000, 4_800);
+    fs::set_permissions(&asset, fs::Permissions::from_mode(0o400)).unwrap();
+    let asset_sha256 = digest(&asset);
     let output = root.path().join("output");
     let manifest = Manifest {
         manifest_version: 1,
@@ -222,6 +369,11 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
                 execute: false,
             },
             DriverMount {
+                root: "audio-assets".into(),
+                read_only: true,
+                execute: false,
+            },
+            DriverMount {
                 root: "output".into(),
                 read_only: false,
                 execute: false,
@@ -240,11 +392,11 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
             open_files: 256,
             processes: 16,
             cpu_seconds: 120,
-            operation_cpu_seconds: 25,
+            operation_cpu_seconds: 120,
             address_space_bytes: 2_147_483_648,
             file_size_bytes: 536_870_912,
         },
-        request_timeout_ms: 40_000,
+        request_timeout_ms: 180_000,
         interfaces: DriverInterfaces {
             cooperative_cancellation: true,
             progress: true,
@@ -258,6 +410,12 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
         FilesystemGrant {
             name: "faust-libraries".into(),
             path: libraries,
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "audio-assets".into(),
+            path: assets.clone(),
             read: true,
             write: false,
         },
@@ -283,6 +441,24 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     )
     .await
     .unwrap();
+    let direct_capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
+    let direct_probe = direct_host_call(
+        provider.as_ref(),
+        &direct_capabilities,
+        "runtime.probe",
+        json!({}),
+    )
+    .await;
+    assert!(
+        direct_probe.is_ok(),
+        "raw Driver Host Faust runtime probe failed before Broker redaction: {direct_probe:?}"
+    );
+    let direct_probe = direct_probe.unwrap();
+    assert_eq!(
+        direct_probe["stdlib_compile"], true,
+        "raw Driver Host Faust stdlib probe did not compile: {direct_probe}"
+    );
+
     let audit = Audit::open(&root.path().join("audit"), 65536, 2).unwrap();
     let broker = Broker::new(
         Policy::new(PolicyConfig {
@@ -368,6 +544,214 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
         .map(|v| (f64::from(*v) / 32768.0).powi(2))
         .sum::<f64>();
     assert!(sum_square > 0.001 && sum_square < 96_000.0);
+    let sample = Sample {
+        id: "tone-sample".into(),
+        name: "tone fixture".into(),
+        channels: 1,
+        sample_rate: SampleRate(48_000),
+        frames: 4_800,
+        source: SampleSource::RelativePath {
+            path: "tone.wav".into(),
+        },
+        origin: SampleOrigin::Imported,
+    };
+    let once_synth = sample_synth(&sample.id, false);
+    let sample_args = json!({
+        "synth_json":serde_json::to_string(&once_synth).unwrap(),
+        "sample_json":serde_json::to_string(&sample).unwrap(),
+        "expected_sha256":asset_sha256,
+        "sample_rate":48000,
+        "duration_frames":9600,
+        "channels":1,
+        "format":"wav",
+        "bit_depth":16,
+        "output_file":"sample-once.wav"
+    });
+    let sample_result = call(&broker, "sample.render", sample_args).await;
+    assert!(sample_result.ok, "{sample_result:?}");
+    let sample_receipt = sample_result.data.unwrap();
+    assert_eq!(sample_receipt["input"]["sha256"], digest(&asset));
+    assert_eq!(sample_receipt["input"]["resampling"], "exact_only");
+    assert_eq!(sample_receipt["input"]["channel_mapping"], "mono_average");
+    let sample_pcm = decode_i16(&output.join("sample-once.wav"));
+    assert_eq!(sample_pcm.len(), 9_600);
+    assert!(
+        sample_pcm[..4_800]
+            .iter()
+            .any(|value| value.unsigned_abs() > 100)
+    );
+    assert!(
+        sample_pcm[4_800..]
+            .iter()
+            .all(|value| value.unsigned_abs() <= 1),
+        "non-looping sample render must feed deterministic silence after EOF"
+    );
+    let sample_overwrite = call(
+        &broker,
+        "sample.render",
+        json!({
+            "synth_json":serde_json::to_string(&once_synth).unwrap(),
+            "sample_json":serde_json::to_string(&sample).unwrap(),
+            "expected_sha256":digest(&asset),
+            "sample_rate":48000,
+            "duration_frames":9600,
+            "channels":1,
+            "format":"wav",
+            "bit_depth":16,
+            "output_file":"sample-once.wav"
+        }),
+    )
+    .await;
+    assert!(!sample_overwrite.ok);
+    assert_eq!(sample_overwrite.error.unwrap().code, ErrorCode::Conflict);
+
+    let loop_synth = sample_synth(&sample.id, true);
+    let loop_result = call(
+        &broker,
+        "sample.render",
+        json!({
+            "synth_json":serde_json::to_string(&loop_synth).unwrap(),
+            "sample_json":serde_json::to_string(&sample).unwrap(),
+            "expected_sha256":digest(&asset),
+            "sample_rate":48000,
+            "duration_frames":9600,
+            "channels":1,
+            "format":"wav",
+            "bit_depth":16,
+            "output_file":"sample-loop.wav"
+        }),
+    )
+    .await;
+    assert!(loop_result.ok, "{loop_result:?}");
+    let loop_pcm = decode_i16(&output.join("sample-loop.wav"));
+    assert!(
+        loop_pcm[4_800..]
+            .iter()
+            .any(|value| value.unsigned_abs() > 100)
+    );
+
+    let bad_hash = call(
+        &broker,
+        "sample.render",
+        json!({
+            "synth_json":serde_json::to_string(&once_synth).unwrap(),
+            "sample_json":serde_json::to_string(&sample).unwrap(),
+            "expected_sha256":"0".repeat(64),
+            "sample_rate":48000,
+            "duration_frames":9600,
+            "channels":1,
+            "format":"wav",
+            "bit_depth":16,
+            "output_file":"sample-bad.wav"
+        }),
+    )
+    .await;
+    assert!(!bad_hash.ok);
+    assert_eq!(bad_hash.error.unwrap().code, ErrorCode::Conflict);
+    assert!(!output.join("sample-bad.wav").exists());
+
+    let (instrument, phrase) = instrument_fixture();
+    let instrument_result = call(
+        &broker,
+        "instrument.render",
+        json!({
+            "synth_json":serde_json::to_string(&instrument).unwrap(),
+            "midi_phrase_json":serde_json::to_string(&phrase).unwrap(),
+            "reference_midi_note":69,
+            "sample_rate":48000,
+            "duration_frames":12000,
+            "channels":2,
+            "format":"wav",
+            "bit_depth":16,
+            "output_file":"instrument.wav"
+        }),
+    )
+    .await;
+    assert!(instrument_result.ok, "{instrument_result:?}");
+    let instrument_receipt = instrument_result.data.unwrap();
+    assert_eq!(
+        instrument_receipt["native_receipt"]["engine"],
+        "faust-poly-interpreter"
+    );
+    assert_eq!(
+        instrument_receipt["voice_policy"],
+        "faust_first_free_then_oldest_release_then_oldest_playing"
+    );
+    let instrument_pcm = decode_i16(&output.join("instrument.wav"));
+    assert_eq!(instrument_pcm.len(), 24_000);
+    assert!(
+        instrument_pcm
+            .iter()
+            .any(|value| value.unsigned_abs() > 100)
+    );
+    let tail_start = 7_200usize * 2;
+    let tail_end = 9_600usize * 2;
+    assert!(
+        instrument_pcm[tail_start..tail_end]
+            .iter()
+            .any(|value| value.unsigned_abs() > 16),
+        "semantic release tail must remain audible after final note-off"
+    );
+
+    let mut steal_synth = instrument.clone();
+    steal_synth.id = "steal-instrument".into();
+    steal_synth.polyphony = 2;
+    let steal_phrase = MidiPhrase {
+        id: "steal-phrase".into(),
+        name: "voice stealing proof".into(),
+        instrument_synth: Some(steal_synth.id.clone()),
+        events: vec![
+            MidiEvent::Note {
+                id: "s1".into(),
+                start: SampleFrame(0),
+                duration_frames: 3_000,
+                channel: 0,
+                note: 60,
+                velocity: 90,
+            },
+            MidiEvent::Note {
+                id: "s2".into(),
+                start: SampleFrame(0),
+                duration_frames: 3_000,
+                channel: 0,
+                note: 64,
+                velocity: 90,
+            },
+            MidiEvent::Note {
+                id: "s3".into(),
+                start: SampleFrame(500),
+                duration_frames: 3_000,
+                channel: 0,
+                note: 67,
+                velocity: 90,
+            },
+        ],
+    };
+    for file in ["steal-a.wav", "steal-b.wav"] {
+        let rendered = call(
+            &broker,
+            "instrument.render",
+            json!({
+                "synth_json":serde_json::to_string(&steal_synth).unwrap(),
+                "midi_phrase_json":serde_json::to_string(&steal_phrase).unwrap(),
+                "reference_midi_note":69,
+                "sample_rate":48000,
+                "duration_frames":7000,
+                "channels":2,
+                "format":"wav",
+                "bit_depth":16,
+                "output_file":file
+            }),
+        )
+        .await;
+        assert!(rendered.ok, "{rendered:?}");
+    }
+    assert_eq!(
+        digest(&output.join("steal-a.wav")),
+        digest(&output.join("steal-b.wav")),
+        "pinned Faust voice stealing must be deterministic for identical schedules"
+    );
+
     let second = call(&broker, "sfx.render", arguments).await;
     assert!(!second.ok, "existing artifact was overwritten");
     assert_eq!(second.error.unwrap().code, ErrorCode::Conflict);
@@ -396,10 +780,10 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".faust-candidate-")
+            .starts_with(".faust-")
     }));
     Provider::shutdown(provider.as_ref()).await.unwrap();
     let evidence = PathBuf::from("verification/audio/native-host.json");
     fs::create_dir_all(evidence.parent().unwrap()).unwrap();
-    fs::write(evidence, serde_json::to_vec_pretty(&json!({"schema_version":1,"route":"broker-policy-driver-host-sealed-faust-interpreter","receipt":receipt,"frames":48000,"channels":2,"pcm_oracle":"independent-riff-i16-count-energy","policy_deny_verified":true,"no_overwrite_verified":true,"scratch_clean":true})).unwrap()).unwrap();
+    fs::write(evidence, serde_json::to_vec_pretty(&json!({"schema_version":1,"route":"broker-policy-driver-host-sealed-faust-interpreter","receipt":receipt,"frames":48000,"channels":2,"pcm_oracle":"independent-riff-i16-count-energy","policy_deny_verified":true,"no_overwrite_verified":true,"scratch_clean":true,"sample_playback_verified":true,"sample_hash_mismatch_denied":true,"sample_no_overwrite_verified":true,"sample_loop_verified":true,"polyphonic_midi_verified":true,"polyphonic_tail_verified":true,"voice_stealing_determinism_verified":true})).unwrap()).unwrap();
 }

@@ -2,6 +2,7 @@
 // Original Semwright architecture. Uses the unmodified system libfaust API.
 // This executable is owner-pinned and invoked by Driver Host, never by a shell.
 #include <faust/dsp/interpreter-dsp.h>
+#include <faust/dsp/poly-interpreter-dsp.h>
 #include <sndfile.h>
 #include <algorithm>
 #include <array>
@@ -73,6 +74,82 @@ std::string json_string(std::string value) {
     }
     return out;
 }
+struct MidiEvent {
+    std::uint64_t frame;
+    std::uint8_t kind;
+    std::uint8_t channel;
+    std::uint8_t data1;
+    std::uint8_t data2;
+};
+
+std::uint32_t le32(const unsigned char* p) {
+    return std::uint32_t(p[0])
+        | (std::uint32_t(p[1]) << 8)
+        | (std::uint32_t(p[2]) << 16)
+        | (std::uint32_t(p[3]) << 24);
+}
+
+std::uint64_t le64(const unsigned char* p) {
+    std::uint64_t value = 0;
+    for (int i = 7; i >= 0; --i) value = (value << 8) | p[i];
+    return value;
+}
+
+std::vector<MidiEvent> read_midi_schedule(const std::string& directory, std::uint64_t frames) {
+    const int root = open(directory.c_str(), O_DIRECTORY | O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (root < 0) throw std::runtime_error("private MIDI schedule directory unavailable");
+    const int fd = openat(root, "midi-events.bin", O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    close(root);
+    if (fd < 0) throw std::runtime_error("private MIDI schedule is unavailable");
+    struct stat metadata{};
+    if (fstat(fd, &metadata) != 0 || !S_ISREG(metadata.st_mode)
+        || metadata.st_size < 12 || metadata.st_size > 2 * 1024 * 1024) {
+        close(fd);
+        throw std::runtime_error("invalid bounded MIDI schedule file");
+    }
+    std::vector<unsigned char> bytes(static_cast<std::size_t>(metadata.st_size));
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        const auto got = read(fd, bytes.data() + offset, bytes.size() - offset);
+        if (got <= 0) {
+            close(fd);
+            throw std::runtime_error("truncated MIDI schedule file");
+        }
+        offset += static_cast<std::size_t>(got);
+    }
+    close(fd);
+    const std::array<unsigned char, 8> magic{{'S','W','M','I','D','I','1',0}};
+    if (!std::equal(magic.begin(), magic.end(), bytes.begin()))
+        throw std::runtime_error("MIDI schedule magic mismatch");
+    const auto count = le32(bytes.data() + 8);
+    if (count == 0 || count > 100000 || bytes.size() != 12 + std::size_t(count) * 12)
+        throw std::runtime_error("MIDI schedule event count is invalid");
+    std::vector<MidiEvent> events;
+    events.reserve(count);
+    std::uint64_t previous_frame = 0;
+    std::uint8_t previous_priority = 0;
+    bool first = true;
+    for (std::uint32_t index = 0; index < count; ++index) {
+        const auto* row = bytes.data() + 12 + std::size_t(index) * 12;
+        MidiEvent event{le64(row), row[8], row[9], row[10], row[11]};
+        if (event.frame > frames || event.kind < 1 || event.kind > 3
+            || event.channel > 15 || event.data1 > 127 || event.data2 > 127
+            || (event.kind == 1 && event.data2 == 0)) {
+            throw std::runtime_error("MIDI schedule record is invalid");
+        }
+        const std::uint8_t priority = event.kind == 3 ? 0 : event.kind == 2 ? 1 : 2;
+        if (!first && (event.frame < previous_frame
+            || (event.frame == previous_frame && priority < previous_priority))) {
+            throw std::runtime_error("MIDI schedule ordering is invalid");
+        }
+        first = false;
+        previous_frame = event.frame;
+        previous_priority = priority;
+        events.push_back(event);
+    }
+    return events;
+}
+
 std::string safe_version() {
     const std::string raw(getCLibFaustVersion());
     if (raw.empty() || raw.size() > 128)
@@ -107,7 +184,10 @@ int execute(int argc, char** argv) {
     const bool probe = argc == 3 && std::string(argv[1]) == "probe";
     const bool validate = argc == 3 && std::string(argv[1]) == "validate";
     const bool render = argc == 8 && std::string(argv[1]) == "render";
-    if (!probe && !validate && !render) throw std::runtime_error("unsupported fixed helper operation");
+    const bool render_poly = argc == 10 && std::string(argv[1]) == "render-poly";
+    const bool render_sample = argc == 10 && std::string(argv[1]) == "render-sample";
+    if (!probe && !validate && !render && !render_poly && !render_sample)
+        throw std::runtime_error("unsupported fixed helper operation");
     const std::string libraries(argv[2]);
     if (libraries.empty() || libraries.front() != '/' || libraries.size() > 4096
         || libraries.find("..") != std::string::npos)
@@ -123,8 +203,15 @@ int execute(int argc, char** argv) {
         const char* probe_options[] = {"-I", libraries.c_str(), "-single"};
         std::string probe_error;
         const std::string probe_source = "import(\"stdfaust.lib\"); process = os.osc(440.0);";
-        Factory probe_factory(createInterpreterDSPFactoryFromString(
-            "semwright-runtime-probe", probe_source, 3, probe_options, probe_error));
+        Factory probe_factory;
+        try {
+            probe_factory.reset(createInterpreterDSPFactoryFromString(
+                "semwright-runtime-probe", probe_source, 3, probe_options, probe_error));
+        } catch (const std::exception& error) {
+            probe_error = std::string("exception: ") + error.what();
+        } catch (...) {
+            probe_error = "exception: unknown libfaust failure";
+        }
         std::cout
             << "{\"schema_version\":1,\"engine\":\"faust-interpreter\","
             << "\"compiler_version\":\"" << safe_version() << "\","
@@ -138,6 +225,267 @@ int execute(int argc, char** argv) {
     }
     auto source = read_source();
     const char* options[] = {"-I", libraries.c_str(), "-single"};
+    if (render_sample) {
+        const std::string directory(argv[3]);
+        const std::string input_name(argv[4]);
+        const auto rate = integer(argv[5], 8000, 192000);
+        const auto frames = integer(argv[6], 1, max_frames);
+        const std::string format(argv[7]);
+        const auto bits = integer(argv[8], 16, 32);
+        const bool looped = integer(argv[9], 0, 1) == 1;
+        if ((input_name != "sample-input.wav" && input_name != "sample-input.flac")
+            || (format != "wav" && format != "flac")
+            || (bits != 16 && bits != 24 && bits != 32)
+            || (format == "flac" && bits == 32)) {
+            throw std::runtime_error("unsupported sample render encoding or staged filename");
+        }
+
+        const int root = open(directory.c_str(), O_DIRECTORY | O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (root < 0) throw std::runtime_error("private sample directory unavailable");
+        const int input_fd = openat(root, input_name.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (input_fd < 0) {
+            close(root);
+            throw std::runtime_error("staged sample input is unavailable");
+        }
+        struct stat input_metadata{};
+        if (fstat(input_fd, &input_metadata) != 0 || !S_ISREG(input_metadata.st_mode)
+            || input_metadata.st_size <= 0 || input_metadata.st_size > 512LL * 1024LL * 1024LL) {
+            close(input_fd);
+            close(root);
+            throw std::runtime_error("staged sample input is not a bounded regular file");
+        }
+        SF_INFO source_info{};
+        SoundFile source(sf_open_fd(input_fd, SFM_READ, &source_info, SF_TRUE));
+        if (!source) {
+            close(input_fd);
+            close(root);
+            throw std::runtime_error("sample decoder initialization failed");
+        }
+        const bool input_is_wav =
+            input_name.size() >= 4 && input_name.compare(input_name.size() - 4, 4, ".wav") == 0;
+        const int expected_major = input_is_wav ? SF_FORMAT_WAV : SF_FORMAT_FLAC;
+        if ((source_info.format & SF_FORMAT_TYPEMASK) != expected_major
+            || source_info.samplerate != static_cast<int>(rate)
+            || source_info.channels < 1 || source_info.channels > 64
+            || source_info.frames < 1
+            || static_cast<std::uint64_t>(source_info.frames) > max_frames) {
+            close(root);
+            throw std::runtime_error("sample container or media shape violates exact-rate contract");
+        }
+
+        std::string error;
+        Factory factory(createInterpreterDSPFactoryFromString(
+            "semwright-sample-audio", source, 3, options, error));
+        if (!factory) {
+            close(root);
+            std::cerr << error.substr(0, 4096) << '\n';
+            throw std::runtime_error("Faust sample interpreter compilation failed");
+        }
+        std::unique_ptr<interpreter_dsp> processor(factory->createDSPInstance());
+        if (!processor || processor->getNumInputs() != 1)
+        {
+            close(root);
+            throw std::runtime_error("sample-backed Faust DSP must expose exactly one mono input");
+        }
+        const auto channels = processor->getNumOutputs();
+        if (channels < 1 || channels > 16) {
+            close(root);
+            throw std::runtime_error("sample-backed DSP channel budget exceeded");
+        }
+
+        const std::string name = "render." + format;
+        const int output_fd = openat(
+            root, name.c_str(), O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0600);
+        close(root);
+        if (output_fd < 0) throw std::runtime_error("sample output must be a new regular file");
+        SF_INFO output_info{};
+        output_info.samplerate = static_cast<int>(rate);
+        output_info.channels = channels;
+        output_info.format = (format == "wav" ? SF_FORMAT_WAV : SF_FORMAT_FLAC)
+                           | (bits == 16 ? SF_FORMAT_PCM_16
+                                        : bits == 24 ? SF_FORMAT_PCM_24 : SF_FORMAT_PCM_32);
+        SoundFile output(sf_open_fd(output_fd, SFM_WRITE, &output_info, SF_TRUE));
+        if (!output) {
+            close(output_fd);
+            throw std::runtime_error("sample output encoder initialization failed");
+        }
+        sf_command(output.get(), SFC_SET_CLIPPING, nullptr, SF_TRUE);
+        processor->init(static_cast<int>(rate));
+
+        std::vector<float> source_interleaved(
+            static_cast<std::size_t>(source_info.channels) * block_frames);
+        std::vector<FAUSTFLOAT> mono(block_frames);
+        std::array<FAUSTFLOAT*, 1> input_ptrs{{mono.data()}};
+        std::vector<std::vector<FAUSTFLOAT>> buffers(
+            channels, std::vector<FAUSTFLOAT>(block_frames));
+        std::vector<FAUSTFLOAT*> pointers;
+        for (auto& buffer : buffers) pointers.push_back(buffer.data());
+        std::vector<float> interleaved(static_cast<std::size_t>(channels) * block_frames);
+
+        std::uint64_t clipped = 0;
+        for (std::uint64_t done = 0; done < frames;) {
+            const auto count = static_cast<int>(
+                std::min<std::uint64_t>(block_frames, frames - done));
+            std::fill(mono.begin(), mono.begin() + count, FAUSTFLOAT(0));
+            int filled = 0;
+            while (filled < count) {
+                const auto request = count - filled;
+                const auto got = sf_readf_float(source.get(), source_interleaved.data(), request);
+                if (got < 0) throw std::runtime_error("sample decoder returned a negative frame count");
+                if (got == 0) {
+                    if (!looped) break;
+                    if (sf_seek(source.get(), 0, SEEK_SET) < 0)
+                        throw std::runtime_error("sample loop seek failed");
+                    continue;
+                }
+                for (sf_count_t frame = 0; frame < got; ++frame) {
+                    double sum = 0.0;
+                    for (int channel = 0; channel < source_info.channels; ++channel) {
+                        const auto value = source_interleaved[
+                            static_cast<std::size_t>(frame) * source_info.channels + channel];
+                        if (!std::isfinite(value))
+                            throw std::runtime_error("nonfinite decoded sample input");
+                        sum += value;
+                    }
+                    mono[filled + static_cast<int>(frame)] =
+                        static_cast<FAUSTFLOAT>(sum / double(source_info.channels));
+                }
+                filled += static_cast<int>(got);
+            }
+
+            processor->compute(count, input_ptrs.data(), pointers.data());
+            for (int frame = 0; frame < count; ++frame) {
+                for (int channel = 0; channel < channels; ++channel) {
+                    const auto value = buffers[channel][frame];
+                    if (!std::isfinite(value))
+                        throw std::runtime_error("nonfinite sample-backed DSP output");
+                    if (std::abs(value) > 1) ++clipped;
+                    interleaved[static_cast<std::size_t>(frame) * channels + channel] = value;
+                }
+            }
+            if (sf_writef_float(output.get(), interleaved.data(), count) != count)
+                throw std::runtime_error("short sample-backed audio write");
+            done += static_cast<std::uint64_t>(count);
+        }
+        sf_write_sync(output.get());
+        if (sf_close(output.release()) != 0)
+            throw std::runtime_error("sample-backed audio finalization failed");
+
+        std::cout
+            << "{\"schema_version\":1,\"frames\":" << frames
+            << ",\"sample_rate\":" << rate
+            << ",\"channels\":" << channels
+            << ",\"clipped_output_samples\":" << clipped
+            << ",\"compiler_version\":\"" << safe_version()
+            << "\",\"engine\":\"faust-sample-interpreter\",\"dither\":\"none\""
+            << ",\"source_frames\":" << source_info.frames
+            << ",\"source_sample_rate\":" << source_info.samplerate
+            << ",\"source_channels\":" << source_info.channels
+            << ",\"looped\":" << (looped ? "true" : "false")
+            << ",\"resampling\":\"exact_only\""
+            << ",\"channel_mapping\":\"mono_average\"}\n";
+        return 0;
+    }
+    if (render_poly) {
+        const std::string directory(argv[3]);
+        const auto rate = integer(argv[4], 8000, 192000);
+        const auto frames = integer(argv[5], 1, max_frames);
+        const std::string format(argv[6]);
+        const auto bits = integer(argv[7], 16, 32);
+        const auto voices = integer(argv[8], 1, 64);
+        const auto tail_frames = integer(argv[9], 1, 192000ULL * 30ULL);
+        if ((format != "wav" && format != "flac")
+            || (bits != 16 && bits != 24 && bits != 32)
+            || (format == "flac" && bits == 32))
+            throw std::runtime_error("unsupported polyphonic output encoding");
+        std::string error;
+        std::unique_ptr<interpreter_dsp_poly_factory> factory(
+            createInterpreterPolyDSPFactoryFromString(
+                "semwright-polyphonic-audio", source, 3, options, error));
+        if (!factory) {
+            std::cerr << error.substr(0, 4096) << '\n';
+            throw std::runtime_error("Faust polyphonic interpreter compilation failed");
+        }
+        std::unique_ptr<dsp_poly> processor(
+            factory->createPolyDSPInstance(static_cast<int>(voices), true, true, false));
+        if (!processor || processor->getNumInputs() != 0)
+            throw std::runtime_error("polyphonic helper requires zero external inputs");
+        const auto channels = processor->getNumOutputs();
+        if (channels < 1 || channels > 16)
+            throw std::runtime_error("polyphonic DSP channel budget exceeded");
+        const auto events = read_midi_schedule(directory, frames);
+
+        const int root = open(directory.c_str(), O_DIRECTORY | O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (root < 0) throw std::runtime_error("private output directory unavailable");
+        const std::string name = "render." + format;
+        const int fd = openat(root, name.c_str(), O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0600);
+        close(root);
+        if (fd < 0) throw std::runtime_error("output must be a new regular file");
+        SF_INFO info{};
+        info.samplerate = static_cast<int>(rate);
+        info.channels = channels;
+        info.format = (format == "wav" ? SF_FORMAT_WAV : SF_FORMAT_FLAC)
+                    | (bits == 16 ? SF_FORMAT_PCM_16 : bits == 24 ? SF_FORMAT_PCM_24 : SF_FORMAT_PCM_32);
+        SoundFile output(sf_open_fd(fd, SFM_WRITE, &info, SF_TRUE));
+        if (!output) { close(fd); throw std::runtime_error("encoder initialization failed"); }
+        sf_command(output.get(), SFC_SET_CLIPPING, nullptr, SF_TRUE);
+        processor->init(static_cast<int>(rate));
+        std::vector<std::vector<FAUSTFLOAT>> buffers(channels, std::vector<FAUSTFLOAT>(block_frames));
+        std::vector<FAUSTFLOAT*> pointers;
+        for (auto& buffer : buffers) pointers.push_back(buffer.data());
+        std::vector<float> interleaved(static_cast<std::size_t>(channels) * block_frames);
+        std::uint64_t clipped = 0;
+        std::uint64_t done = 0;
+        std::size_t event_index = 0;
+        while (done < frames) {
+            while (event_index < events.size() && events[event_index].frame == done) {
+                const auto& event = events[event_index++];
+                if (event.kind == 1) {
+                    processor->keyOn(event.channel, event.data1, event.data2);
+                } else if (event.kind == 2) {
+                    processor->keyOff(event.channel, event.data1, event.data2);
+                } else {
+                    processor->ctrlChange(event.channel, event.data1, event.data2);
+                }
+            }
+            std::uint64_t next_boundary = frames;
+            if (event_index < events.size()) next_boundary = events[event_index].frame;
+            if (next_boundary < done) throw std::runtime_error("MIDI schedule regressed");
+            const auto until_event = next_boundary - done;
+            if (until_event == 0) continue;
+            const auto count = static_cast<int>(
+                std::min<std::uint64_t>(block_frames, std::min<std::uint64_t>(frames - done, until_event)));
+            processor->compute(count, nullptr, pointers.data());
+            for (int frame = 0; frame < count; ++frame) {
+                for (int channel = 0; channel < channels; ++channel) {
+                    const auto sample = buffers[channel][frame];
+                    if (!std::isfinite(sample))
+                        throw std::runtime_error("nonfinite polyphonic DSP output");
+                    if (std::abs(sample) > 1) ++clipped;
+                    interleaved[static_cast<std::size_t>(frame) * channels + channel] = sample;
+                }
+            }
+            if (sf_writef_float(output.get(), interleaved.data(), count) != count)
+                throw std::runtime_error("short polyphonic audio write");
+            done += static_cast<std::uint64_t>(count);
+        }
+        processor->allNotesOff(true);
+        sf_write_sync(output.get());
+        if (sf_close(output.release()) != 0)
+            throw std::runtime_error("polyphonic audio finalization failed");
+        std::cout
+            << "{\"schema_version\":1,\"frames\":" << frames
+            << ",\"sample_rate\":" << rate
+            << ",\"channels\":" << channels
+            << ",\"clipped_input_samples\":" << clipped
+            << ",\"compiler_version\":\"" << safe_version()
+            << "\",\"engine\":\"faust-poly-interpreter\",\"dither\":\"none\""
+            << ",\"polyphony\":" << voices
+            << ",\"midi_events\":" << events.size()
+            << ",\"tail_frames\":" << tail_frames
+            << ",\"voice_policy\":\"faust_first_free_then_oldest_release_then_oldest_playing\"}\n";
+        return 0;
+    }
     std::string error;
     Factory factory(createInterpreterDSPFactoryFromString("semwright-audio", source, 3, options, error));
     if (!factory) {

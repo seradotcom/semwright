@@ -3,7 +3,7 @@
   "semantic_model_version": 1,
   "generated_from": {
     "audio_operation_count": 54,
-    "capability_count": 55
+    "capability_count": 57
   },
   "audio_operations": [
     {
@@ -711,11 +711,29 @@
       "classified": true
     },
     {
+      "id": "driver.faust-audio.instrument.render",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "native",
+      "fidelity": "sample_frame_polyphonic_render",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
       "id": "driver.faust-audio.runtime.probe",
       "provider": "driver:faust-audio",
       "family": "faust",
       "support": "native",
       "fidelity": "runtime_identity",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.sample.render",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "native",
+      "fidelity": "hash_pinned_sample_render",
       "evidence": "native_ci_required",
       "classified": true
     },
