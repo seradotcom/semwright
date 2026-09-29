@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Allowlisted Project Graph lane. Heavy work is restricted to GitHub Actions."""
+"""Allowlisted exact-source diagnostics. No local builds or runtimes."""
 import hashlib
 import json
 import os
@@ -8,48 +8,71 @@ import re
 import subprocess
 import sys
 import time
-
 if os.environ.get("GITHUB_ACTIONS") != "true":
     raise SystemExit("Project Graph suites require GitHub Actions")
-if len(sys.argv) != 2 or sys.argv[1] != "contracts":
-    raise SystemExit("unknown Project Graph suite")
 root = Path(__file__).resolve().parents[2]
 os.chdir(root)
+selection = json.loads(Path("scripts/project-graph/lane.json").read_text())
+if set(selection) != {"suite"} or selection["suite"] not in {"contracts", "store", "lockfile"}:
+    raise SystemExit("unknown Project Graph suite")
+if len(sys.argv) != 2 or sys.argv[1] not in {"auto", selection["suite"]}:
+    raise SystemExit("suite request does not match committed selector")
+suite = selection["suite"]
 out = root / "verification/project-graph"
 out.mkdir(parents=True, exist_ok=True)
 sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-expected = os.environ.get("EXPECTED_SHA") or os.environ["GITHUB_SHA"]
-if sha != expected:
+if sha != (os.environ.get("EXPECTED_SHA") or os.environ["GITHUB_SHA"]):
     raise SystemExit("checkout does not match expected source SHA")
 start = time.monotonic()
-report = {"schema_version": 1, "role": "C", "source_sha": sha, "workflow_sha": os.environ["GITHUB_SHA"], "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7", "workflow": os.environ.get("GITHUB_WORKFLOW"), "run_id": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"), "job": os.environ.get("GITHUB_JOB"), "job_id": None, "job_id_reason": "collected from Actions API after run", "event": os.environ.get("GITHUB_EVENT_NAME"), "suite": sys.argv[1], "scope": "portable-contract-not-native", "native": False, "outcome": "UNKNOWN", "executed_tests": 0, "ignored_tests": 0, "lock_sha256": hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(), "runtime_versions": {}, "artifacts": {}}
+report = {"schema_version": 1, "role": "C", "source_sha": sha, "workflow_sha": os.environ["GITHUB_SHA"], "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7", "workflow": os.environ.get("GITHUB_WORKFLOW"), "run_id": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"), "job": os.environ.get("GITHUB_JOB"), "event": os.environ.get("GITHUB_EVENT_NAME"), "suite": suite, "scope": "lock-resolution-only" if suite == "lockfile" else "portable-model-not-native", "native": False, "outcome": "UNKNOWN", "requested_tests": 0, "executed_tests": 0, "ignored_tests": 0, "job_id": None, "runtime_versions": {}, "steps": []}
+def run(name, command, print_output=True):
+    report["active_step"] = name
+    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    (out / (name + ".log")).write_text(result.stdout)
+    if print_output:
+        print(result.stdout, flush=True)
+    report["steps"].append({"name": name, "command": command, "exit_code": result.returncode})
+    if result.returncode:
+        raise RuntimeError(name + " failed")
+    return result.stdout
 try:
     report["runtime_versions"]["rustc"] = subprocess.check_output(["rustc", "--version"], text=True).strip()
-    listing = subprocess.run(["cargo", "test", "--locked", "-p", "semwright-project-graph", "--all-targets", "--", "--list"], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    print(listing.stdout, flush=True)
-    (out / "inventory.log").write_text(listing.stdout)
-    if listing.returncode:
-        raise RuntimeError("test inventory build failed")
-    expected_tests = len(re.findall(r"^.+: test$", listing.stdout, re.MULTILINE))
-    report["requested_tests"] = expected_tests
-    if expected_tests < 13:
-        raise RuntimeError("missing P0 test inventory")
-    command = ["cargo", "test", "--locked", "-p", "semwright-project-graph", "--all-targets"]
-    report["command"] = command
-    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    print(result.stdout, flush=True)
-    (out / "tests.log").write_text(result.stdout)
-    summaries = re.findall(r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured; (\d+) filtered out;", result.stdout, re.MULTILINE)
-    passed = sum(int(x[0]) for x in summaries)
-    failed = sum(int(x[1]) for x in summaries)
-    ignored = sum(int(x[2]) for x in summaries)
-    report.update(executed_tests=passed + failed, ignored_tests=ignored, failed_tests=failed)
-    if result.returncode or failed or ignored or passed != expected_tests:
-        raise RuntimeError("executed test inventory does not match requested passing inventory")
-    report["outcome"] = "PASS"
+    report["lock_sha256_before"] = hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest()
+    if suite == "lockfile":
+        run("resolve-lock", ["cargo", "metadata", "--format-version", "1"], False)
+        (out / "Cargo.lock").write_bytes(Path("Cargo.lock").read_bytes())
+        report["outcome"] = "LOCKFILE_RESOLVED_NOT_TESTED"
+        # Cargo metadata includes runner paths, not useful final evidence.
+        (out / "resolve-lock.log").unlink()
+    else:
+        features = ["--features", "store"] if suite == "store" else []
+        package = ["--locked", "-p", "semwright-project-graph"]
+        run("format", ["cargo", "fmt", "-p", "semwright-project-graph", "--", "--check"])
+        inventory = run("inventory", ["cargo", "test", *package, *features, "--all-targets", "--", "--list"])
+        expected_tests = len(re.findall(r"^.+: test$", inventory, re.MULTILINE))
+        report["requested_tests"] = expected_tests
+        if expected_tests < 24:
+            raise RuntimeError("missing graph test inventory")
+        tests = run("tests", ["cargo", "test", *package, *features, "--all-targets"])
+        summaries = re.findall(r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured; (\d+) filtered out;", tests, re.MULTILINE)
+        passed = sum(int(x[0]) for x in summaries)
+        failed = sum(int(x[1]) for x in summaries)
+        ignored = sum(int(x[2]) for x in summaries)
+        report.update(executed_tests=passed + failed, ignored_tests=ignored, failed_tests=failed)
+        if failed or ignored or passed != expected_tests:
+            raise RuntimeError("executed passing inventory does not match request")
+        run("clippy", ["cargo", "clippy", *package, *features, "--all-targets", "--", "-D", "warnings"])
+        schemas = run("schemas", ["cargo", "run", *package, *features, "--example", "schemas"], False)
+        # Cargo diagnostics go to stderr in the combined log; obtain JSON separately.
+        executable = Path("target/debug/examples/schemas")
+        (out / "schemas.json").write_bytes(subprocess.check_output([str(executable)]))
+        run("rustdoc", ["cargo", "doc", *package, *features, "--no-deps"])
+        report["outcome"] = "PASS"
 except Exception as error:
     report.update(outcome="FAIL", error=str(error))
     raise
 finally:
+    report["lock_sha256"] = hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest()
     report["duration_seconds"] = round(time.monotonic() - start, 3)
+    report["artifacts"] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in out.iterdir() if p.is_file() and p.name != "evidence.json"}
     (out / "evidence.json").write_text(json.dumps(report, indent=2) + "\n")

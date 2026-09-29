@@ -43,20 +43,11 @@ jobs:
         with:
           toolchain: 1.88.0
           components: rustfmt, clippy
-      - name: Rust formatting
-        run: cargo fmt -p semwright-project-graph -- --check
-      - name: Project Graph typed P0 inventory and tests
+      - name: Allowlisted exact-SHA lane
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
-        run: python3 scripts/project-graph/run-suite.py contracts
-      - name: Clippy
-        run: cargo clippy --locked -p semwright-project-graph --all-targets -- -D warnings
-      - name: Wire schemas
-        run: cargo run --locked -p semwright-project-graph --example schemas > verification/project-graph/schemas.json
-      - name: Rustdoc
-        run: cargo doc --locked -p semwright-project-graph --no-deps
-        env:
           RUSTDOCFLAGS: -D warnings
+        run: python3 scripts/project-graph/run-suite.py auto
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
