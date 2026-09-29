@@ -22,6 +22,8 @@ test('render harness is bound to Driver Host, runtime-bundle Firefox, and local 
   assert.ok(render.includes('context.pages()[0]'));
   assert.ok(!render.includes('context.newPage()'));
   assert.ok(render.includes('const runtimeRoot = await fs.realpath(process.cwd())'));
+  assert.ok(render.includes("process.env.PLAYWRIGHT_BROWSERS_PATH = '0'"));
+  assert.ok(render.includes("await import('playwright')"));
   assert.ok(render.includes("containedFile(runtimeRoot, firefox.executablePath(), 'Firefox executable')"));
   assert.ok(render.includes('executablePath:browser'));
   assert.ok(!render.includes('a.browser'));
