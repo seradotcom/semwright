@@ -3242,6 +3242,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-media-time"
+version = "0.9.0-dev.1"
+dependencies = [
+ "schemars",
+ "semwright-semantic-composition",
+ "semwright-video-domain",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "semwright-mlt-video-driver"
 version = "0.9.0-dev.1"
 dependencies = [
@@ -3537,6 +3548,18 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+]
+
+[[package]]
+name = "semwright-semantic-composition"
+version = "0.9.0-dev.1"
+dependencies = [
+ "hex",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
