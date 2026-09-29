@@ -26,3 +26,6 @@ Rules/tolerances/units/schema digest must be pinned before execution via existin
 and host lifecycle. Missing rule/version, wrong scope, stale receipt, concurrent attribution,
 missing final page and unsupported readback remain UNKNOWN or an explicit validation error.
 Vacuous contracts must never acquire substantive PASS. A's aggregation remains authoritative.
+
+## Workspace dependency
+Consumers use `semwright-effect-conformance.workspace = true`. The workspace entry is additive; no dependency into A is introduced. F consumes A types and C only as a test dependency. Do not point Cargo at another agent worktree.

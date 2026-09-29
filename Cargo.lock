@@ -3187,7 +3187,9 @@ version = "0.9.0-dev.1"
 dependencies = [
  "proptest",
  "schemars",
+ "semwright-project-graph",
  "semwright-semantic-composition",
+ "semwright-types",
  "serde",
  "serde_json",
 ]
