@@ -348,47 +348,223 @@ impl GodotDriver {
                 })?;
                 #[cfg(target_os = "linux")]
                 {
-                    let request: authoring::native_observation::NativeVerifyRequest =
-                        serde_json::from_value(args.clone())?;
                     let owner = Owner {
                         session: context.session().to_owned(),
                         principal: PrincipalBinding::HostSession,
                     };
-                    let binding = self
-                        .authoring
-                        .as_ref()
-                        .ok_or_else(|| {
-                            Error::new(
-                                ErrorCode::Unavailable,
-                                "Godot semantic authoring grant is not configured",
+                    match command {
+                        "driver.godot.composition.native.verify" => {
+                            let request: authoring::native_observation::NativeVerifyRequest =
+                                serde_json::from_value(args.clone())?;
+                            let binding = self
+                                .authoring
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .native_plan_context(&owner, &request.plan_id, &request.scene)?;
+                            let plan_id = request.plan_id.clone();
+                            let scene = request.scene.clone();
+                            let result = self
+                                .runner
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot runner is not configured",
+                                    )
+                                })?
+                                .execute_native_verification(request, binding, context)
+                                .await?;
+                            let effects = self
+                                .authoring
+                                .as_mut()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .evaluate_native(
+                                    &owner,
+                                    &plan_id,
+                                    context.request_id(),
+                                    &scene,
+                                    &result,
+                                )?;
+                            serde_json::to_value(
+                                authoring::native_observation::NativeVerifyResponse {
+                                    result,
+                                    effects,
+                                },
                             )
-                        })?
-                        .native_plan_context(&owner, &request.plan_id, &request.scene)?;
-                    let plan_id = request.plan_id.clone();
-                    let scene = request.scene.clone();
-                    let result = self
-                        .runner
-                        .as_ref()
-                        .ok_or_else(|| {
-                            Error::new(ErrorCode::Unavailable, "Godot runner is not configured")
-                        })?
-                        .execute_native_verification(request, binding, context)
-                        .await?;
-                    let effects = self
-                        .authoring
-                        .as_mut()
-                        .ok_or_else(|| {
-                            Error::new(
-                                ErrorCode::Unavailable,
-                                "Godot semantic authoring grant is not configured",
-                            )
-                        })?
-                        .evaluate_native(&owner, &plan_id, context.request_id(), &scene, &result)?;
-                    serde_json::to_value(authoring::native_observation::NativeVerifyResponse {
-                        result,
-                        effects,
-                    })
-                    .map_err(Into::into)
+                            .map_err(Into::into)
+                        }
+                        "driver.godot.composition.native.tracks.page" => {
+                            use authoring::native_observation::{
+                                NativeTrackPageRequest, NativeTrackPageResponse,
+                                NativeVerification, NativeVerifyRequest, NativeVerifyResult,
+                                track_page,
+                            };
+                            let page_request: NativeTrackPageRequest =
+                                serde_json::from_value(args.clone())?;
+                            let binding = self
+                                .authoring
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .native_plan_context(
+                                    &owner,
+                                    &page_request.plan_id,
+                                    &page_request.scene,
+                                )?;
+                            let verify_request = NativeVerifyRequest {
+                                plan_id: page_request.plan_id.clone(),
+                                scene: page_request.scene.clone(),
+                                verification: NativeVerification::Inspect,
+                            };
+                            let result = self
+                                .runner
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot runner is not configured",
+                                    )
+                                })?
+                                .execute_native_verification(verify_request, binding, context)
+                                .await?;
+                            let effects = self
+                                .authoring
+                                .as_mut()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .evaluate_native(
+                                    &owner,
+                                    &page_request.plan_id,
+                                    context.request_id(),
+                                    &page_request.scene,
+                                    &result,
+                                )?;
+                            let NativeVerifyResult::Inspect {
+                                binding,
+                                observation,
+                            } = result
+                            else {
+                                return Err(Error::new(
+                                    ErrorCode::Internal,
+                                    "Native track page requires inspect evidence",
+                                ));
+                            };
+                            let page = track_page(
+                                &observation,
+                                &binding.source_fingerprint,
+                                page_request.cursor.as_deref(),
+                                page_request.limit,
+                            )?;
+                            serde_json::to_value(NativeTrackPageResponse {
+                                binding,
+                                page,
+                                effects,
+                            })
+                            .map_err(Into::into)
+                        }
+                        "driver.godot.composition.native.keys.page" => {
+                            use authoring::native_observation::{
+                                NativeKeyPageRequest, NativeKeyPageResponse, NativeVerification,
+                                NativeVerifyRequest, NativeVerifyResult, key_page,
+                            };
+                            let page_request: NativeKeyPageRequest =
+                                serde_json::from_value(args.clone())?;
+                            let binding = self
+                                .authoring
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .native_plan_context(
+                                    &owner,
+                                    &page_request.plan_id,
+                                    &page_request.scene,
+                                )?;
+                            let verify_request = NativeVerifyRequest {
+                                plan_id: page_request.plan_id.clone(),
+                                scene: page_request.scene.clone(),
+                                verification: NativeVerification::Inspect,
+                            };
+                            let result = self
+                                .runner
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot runner is not configured",
+                                    )
+                                })?
+                                .execute_native_verification(verify_request, binding, context)
+                                .await?;
+                            let effects = self
+                                .authoring
+                                .as_mut()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .evaluate_native(
+                                    &owner,
+                                    &page_request.plan_id,
+                                    context.request_id(),
+                                    &page_request.scene,
+                                    &result,
+                                )?;
+                            let NativeVerifyResult::Inspect {
+                                binding,
+                                observation,
+                            } = result
+                            else {
+                                return Err(Error::new(
+                                    ErrorCode::Internal,
+                                    "Native key page requires inspect evidence",
+                                ));
+                            };
+                            let page = key_page(
+                                &observation,
+                                &binding.source_fingerprint,
+                                &page_request.player,
+                                &page_request.library,
+                                &page_request.animation,
+                                page_request.track_index,
+                                page_request.cursor.as_deref(),
+                                page_request.limit,
+                            )?;
+                            serde_json::to_value(NativeKeyPageResponse {
+                                binding,
+                                page,
+                                effects,
+                            })
+                            .map_err(Into::into)
+                        }
+                        _ => Err(Error::new(
+                            ErrorCode::Internal,
+                            "Godot authoring-runner route invariant violated",
+                        )),
+                    }
                 }
                 #[cfg(not(target_os = "linux"))]
                 {

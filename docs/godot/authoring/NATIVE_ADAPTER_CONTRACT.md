@@ -1,4 +1,4 @@
-# D native observation adapter — proposed integration boundary
+# D native observation adapter — integrated product boundary
 
 Owner of these new files: D-native-observation-557ad0b. Concurrent runtime/profile/catalog edits are being preserved, not overwritten. The `authoring/runtime.rs` implementation is the integration target; do not add the discarded `service.rs` proposal.
 
@@ -8,14 +8,14 @@ Authenticated `composition.measure` / `composition.verify` authorize active nati
 
 `NativeRequest` and `NativeObservation` live in `crates/driver-godot/src/authoring/native_observation.rs`. A fixed product-owned helper is packaged at `integrations/godot/authoring/native_observer.gd`. These are not test harness game generators. The target project is created by Semwright; the helper reads the live engine, optionally saves a declared candidate, and emits versioned native observations. Tests may inject external drift only in a separately labelled phase.
 
-## Planned integration call
+## Integrated product call
 
 The native request is built from the authenticated plan, the provider-owned derivation record, per-file hashes and logical C bindings. A copied workspace contains only the exact managed files and declared immutable input assets. Generated source is verified before engine startup; unowned addons, autoloads, edited scripts, undeclared files and client paths are not introduced into the copy. The helper stays outside the project, and is never present in normal exported packages.
 
-Native evidence must bind source fingerprint, probe version/digest, engine version/digest, job nonce, actual process identity and scope. Native node/owner/resource/animation data is read from Godot, never copied from the intent. Returned JSON is evidence data, not permission: no caller can submit it for trusted admission. Missing native runs, missing tracks, changed source revision, failed import, missing required captures or incomplete dependency enumeration preserve FAIL/UNKNOWN.
+Native evidence must bind source fingerprint, probe version/digest, engine version/digest, job nonce, actual process identity and scope. Native node/owner/resource/animation data is read from Godot, never copied from the intent. Returned JSON is evidence data, not permission: no caller can submit it for trusted admission. Missing native runs, missing tracks, changed source revision, failed import, missing required captures or incomplete dependency enumeration preserve FAIL/UNKNOWN. Model-facing animation pagination is exposed separately through `composition.native.tracks.page` and `composition.native.keys.page`. Track cursors omit process-local nonce/PID and instead bind the source fingerprint plus normalized native projection; key cursors additionally bind player/library/animation/track index. A fresh inspect process can continue only if the observable content and requested collection are unchanged.
 
 Save/reopen is two actual native processes; cache bypass inside one process is not sufficient. Reopen compares the native projection of saved candidates and observes external-resource sentinels before/after. The #171 scene-only save implementation remains unchanged. Imported/instanced scenes are tested independently through this managed authoring path.
 
 ## Status
 
-The bounded wire, fixed Godot observer source, full animation enumeration, signal/dependency inspection, runtime checkpoints, snapshot-bound paging and save/reopen sentinel comparison are implemented as source on D. Native engine execution for this source SHA is still pending, so this does not establish native acceptance merely by compiling. Product-route E2E, hostile isolation and standalone export remain required gates.
+The bounded wire, fixed Godot observer source, full animation enumeration, signal/dependency inspection, runtime checkpoints, cross-process content-bound track/key paging and save/reopen sentinel comparison are implemented as source on D. Native engine execution for this source SHA is still pending, so this does not establish native acceptance merely by compiling. Product-route E2E, hostile isolation and standalone export remain required gates.

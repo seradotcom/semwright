@@ -249,6 +249,8 @@ impl Approver for TestApprover {
         Ok(matches!(
             approval.command.as_str(),
             "driver.godot.composition.native.verify"
+                | "driver.godot.composition.native.tracks.page"
+                | "driver.godot.composition.native.keys.page"
                 | "driver.godot.project.validate"
                 | "driver.godot.project.run_test"
                 | "driver.godot.export.build"
@@ -341,6 +343,9 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         "driver.godot.composition.repair.plan",
         "driver.godot.composition.repair.apply",
         "driver.godot.composition.verify",
+        "driver.godot.composition.native.verify",
+        "driver.godot.composition.native.tracks.page",
+        "driver.godot.composition.native.keys.page",
     ] {
         assert!(
             capabilities
@@ -697,6 +702,155 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     )
     .await;
     assert_eq!(validated3["success"], true);
+
+    let paging_spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/paging.json")).unwrap();
+    let paging_plan = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.plan",
+        json!({"spec":paging_spec}),
+    )
+    .await;
+    let paging_plan_id = paging_plan["plan_id"].as_str().unwrap().to_owned();
+    let paging_apply = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":paging_plan_id}),
+    )
+    .await;
+    assert_eq!(paging_apply["execution_status"], "completed");
+
+    let first_page = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.tracks.page",
+        json!({
+            "plan_id":paging_plan_id,
+            "scene":"arena",
+            "cursor":null,
+            "limit":64
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &first_page,
+        "godot.native_readback.arena.v1"
+    ));
+    assert!(first_page.get("observation").is_none());
+    assert_eq!(first_page["page"]["total"], 70);
+    assert_eq!(
+        first_page["page"]["tracks"].as_array().map(Vec::len),
+        Some(64)
+    );
+    assert_eq!(first_page["page"]["tracks"][63]["index"], 63);
+    let cursor = first_page["page"]["next_cursor"]
+        .as_str()
+        .expect("first native track page must continue")
+        .to_owned();
+
+    let second_page = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.tracks.page",
+        json!({
+            "plan_id":paging_plan_id,
+            "scene":"arena",
+            "cursor":cursor,
+            "limit":64
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &second_page,
+        "godot.native_readback.arena.v1"
+    ));
+    assert_eq!(
+        second_page["page"]["snapshot"],
+        first_page["page"]["snapshot"]
+    );
+    assert_eq!(
+        second_page["page"]["source_fingerprint"],
+        first_page["page"]["source_fingerprint"]
+    );
+    assert_eq!(
+        second_page["page"]["tracks"].as_array().map(Vec::len),
+        Some(6)
+    );
+    assert_eq!(second_page["page"]["tracks"][5]["index"], 69);
+    assert!(second_page["page"]["next_cursor"].is_null());
+
+    let first_track = &first_page["page"]["tracks"][0];
+    let first_keys = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.keys.page",
+        json!({
+            "plan_id":paging_plan_id,
+            "scene":"arena",
+            "player":first_track["player"],
+            "library":first_track["library"],
+            "animation":first_track["animation"],
+            "track_index":first_track["index"],
+            "cursor":null,
+            "limit":64
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &first_keys,
+        "godot.native_readback.arena.v1"
+    ));
+    assert_eq!(
+        first_keys["page"]["snapshot"],
+        first_page["page"]["snapshot"]
+    );
+    assert_eq!(first_keys["page"]["total"], 70);
+    assert_eq!(
+        first_keys["page"]["keys"].as_array().map(Vec::len),
+        Some(64)
+    );
+    assert_eq!(first_keys["page"]["keys"][63]["index"], 63);
+    let key_cursor = first_keys["page"]["next_cursor"]
+        .as_str()
+        .expect("first native key page must continue")
+        .to_owned();
+
+    let second_keys = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.keys.page",
+        json!({
+            "plan_id":paging_plan_id,
+            "scene":"arena",
+            "player":first_track["player"],
+            "library":first_track["library"],
+            "animation":first_track["animation"],
+            "track_index":first_track["index"],
+            "cursor":key_cursor,
+            "limit":64
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &second_keys,
+        "godot.native_readback.arena.v1"
+    ));
+    assert_eq!(
+        second_keys["page"]["snapshot"],
+        first_keys["page"]["snapshot"]
+    );
+    assert_eq!(
+        second_keys["page"]["query_digest"],
+        first_keys["page"]["query_digest"]
+    );
+    assert_eq!(
+        second_keys["page"]["keys"].as_array().map(Vec::len),
+        Some(6)
+    );
+    assert_eq!(second_keys["page"]["keys"][5]["index"], 69);
+    assert!(second_keys["page"]["next_cursor"].is_null());
 
     let foreign = broker
         .clone()

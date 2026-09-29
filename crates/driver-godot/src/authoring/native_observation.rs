@@ -67,6 +67,28 @@ pub struct NativeVerifyRequest {
     pub verification: NativeVerification,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeTrackPageRequest {
+    pub plan_id: String,
+    pub scene: String,
+    pub cursor: Option<String>,
+    pub limit: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeKeyPageRequest {
+    pub plan_id: String,
+    pub scene: String,
+    pub player: String,
+    pub library: String,
+    pub animation: String,
+    pub track_index: u32,
+    pub cursor: Option<String>,
+    pub limit: u16,
+}
+
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NativeEvidenceBinding {
@@ -114,6 +136,22 @@ impl NativeVerifyResult {
 pub struct NativeVerifyResponse {
     #[serde(flatten)]
     pub result: NativeVerifyResult,
+    pub effects: EffectEvaluation,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeTrackPageResponse {
+    pub binding: NativeEvidenceBinding,
+    pub page: TrackPage,
+    pub effects: EffectEvaluation,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeKeyPageResponse {
+    pub binding: NativeEvidenceBinding,
+    pub page: KeyPage,
     pub effects: EffectEvaluation,
 }
 
@@ -770,6 +808,21 @@ impl NativeObservation {
         ))
         .map_err(|e| invalid(&e.to_string()))
     }
+
+    /// Stable paging identity survives a fresh native process only when the
+    /// managed source fingerprint and normalized native projection are equal.
+    pub fn paging_snapshot_digest(&self) -> semwright_types::Result<Digest> {
+        canonical_digest(&(
+            "godot-native-paging-v1",
+            &self.source_fingerprint,
+            self.authored.stable_digest()?,
+            self.live
+                .as_ref()
+                .map(NativeProjection::stable_digest)
+                .transpose()?,
+        ))
+        .map_err(|e| invalid(&e.to_string()))
+    }
 }
 pub fn decode_observation(
     bytes: &[u8],
@@ -804,6 +857,28 @@ pub struct TrackPage {
     pub source_fingerprint: Digest,
     pub total: u32,
     pub tracks: Vec<TrackSummary>,
+    pub next_cursor: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KeySummary {
+    pub index: u32,
+    pub time: f64,
+    pub transition: f64,
+    pub value: NativeValue,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KeyPage {
+    pub snapshot: Digest,
+    pub query_digest: Digest,
+    pub source_fingerprint: Digest,
+    pub player: String,
+    pub library: String,
+    pub animation: String,
+    pub track_index: u32,
+    pub total: u32,
+    pub keys: Vec<KeySummary>,
     pub next_cursor: Option<String>,
 }
 fn cursor_offset(
@@ -843,7 +918,7 @@ pub fn track_page(
         current_source == &observation.source_fingerprint,
         "Source changed after native observation; reacquire",
     )?;
-    let snapshot = observation.snapshot_digest()?;
+    let snapshot = observation.paging_snapshot_digest()?;
     let mut animations = observation.authored.animations.iter().collect::<Vec<_>>();
     animations
         .sort_by(|a, b| (&a.player, &a.library, &a.name).cmp(&(&b.player, &b.library, &b.name)));
@@ -871,6 +946,111 @@ pub fn track_page(
         total: rows.len() as u32,
         tracks: rows[offset..end].to_vec(),
         next_cursor: (end < rows.len()).then(|| format!("gtr1.{}.{end}", snapshot.as_str())),
+    })
+}
+fn key_cursor_offset(
+    cursor: Option<&str>,
+    query: &Digest,
+    total: usize,
+) -> semwright_types::Result<usize> {
+    let Some(cursor) = cursor else {
+        return Ok(0);
+    };
+    ensure(cursor.len() <= 100, "Native key cursor bound")?;
+    let fields = cursor.split('.').collect::<Vec<_>>();
+    ensure(
+        fields.len() == 3 && fields[0] == "gky1" && fields[1] == query.as_str(),
+        "Stale native key cursor",
+    )?;
+    let offset = fields[2]
+        .parse::<usize>()
+        .map_err(|_| invalid("Invalid native key cursor offset"))?;
+    ensure(
+        offset <= total,
+        "Native key cursor offset beyond collection",
+    )?;
+    Ok(offset)
+}
+pub fn key_page(
+    observation: &NativeObservation,
+    current_source: &Digest,
+    player: &str,
+    library: &str,
+    animation: &str,
+    track_index: u32,
+    cursor: Option<&str>,
+    limit: u16,
+) -> semwright_types::Result<KeyPage> {
+    ensure(
+        (1..=64).contains(&limit),
+        "Native key page limit must be 1..64",
+    )?;
+    ensure(
+        current_source == &observation.source_fingerprint,
+        "Source changed after native observation; reacquire",
+    )?;
+    ensure(
+        !player.is_empty()
+            && player.len() <= 1024
+            && !player.chars().any(char::is_control)
+            && library.len() <= 256
+            && !library.chars().any(char::is_control)
+            && !animation.is_empty()
+            && animation.len() <= 256
+            && !animation.chars().any(char::is_control),
+        "Native key page selector bounds",
+    )?;
+    let snapshot = observation.paging_snapshot_digest()?;
+    let native_animation = observation
+        .authored
+        .animations
+        .iter()
+        .find(|candidate| {
+            candidate.player == player
+                && candidate.library == library
+                && candidate.name == animation
+        })
+        .ok_or_else(|| invalid("Native animation page target missing"))?;
+    let track = native_animation
+        .tracks
+        .get(track_index as usize)
+        .filter(|track| track.index == track_index)
+        .ok_or_else(|| invalid("Native animation track page target missing"))?;
+    let query_digest = canonical_digest(&(
+        "godot-native-key-page-v1",
+        &snapshot,
+        player,
+        library,
+        animation,
+        track_index,
+    ))
+    .map_err(|error| invalid(&error.to_string()))?;
+    let offset = key_cursor_offset(cursor, &query_digest, track.keys.len())?;
+    let end = offset
+        .saturating_add(usize::from(limit))
+        .min(track.keys.len());
+    let keys = track.keys[offset..end]
+        .iter()
+        .enumerate()
+        .map(|(relative, key)| KeySummary {
+            index: (offset + relative) as u32,
+            time: key.time,
+            transition: key.transition,
+            value: key.value.clone(),
+        })
+        .collect::<Vec<_>>();
+    Ok(KeyPage {
+        snapshot,
+        query_digest: query_digest.clone(),
+        source_fingerprint: current_source.clone(),
+        player: player.to_owned(),
+        library: library.to_owned(),
+        animation: animation.to_owned(),
+        track_index,
+        total: track.keys.len() as u32,
+        keys,
+        next_cursor: (end < track.keys.len())
+            .then(|| format!("gky1.{}.{end}", query_digest.as_str())),
     })
 }
 fn dependency_sentinels(

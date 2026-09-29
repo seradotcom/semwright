@@ -338,8 +338,8 @@ fn catalog_routes_partition_the_full_surface() {
     assert_eq!(catalog.names_for(Route::Plugin).len(), 179);
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
     assert_eq!(catalog.names_for(Route::Authoring).len(), 8);
-    assert_eq!(catalog.names_for(Route::AuthoringRunner).len(), 1);
-    assert_eq!(catalog.capabilities().len(), 197);
+    assert_eq!(catalog.names_for(Route::AuthoringRunner).len(), 3);
+    assert_eq!(catalog.capabilities().len(), 199);
 }
 
 #[test]
@@ -756,37 +756,82 @@ fn runner_capabilities_accept_owned_managed_projects_without_accepting_paths() {
 #[test]
 fn native_authoring_verification_is_code_execution_and_not_a_plain_runner() {
     let catalog = Catalog::load().unwrap();
-    let entry = catalog
-        .get("driver.godot.composition.native.verify")
+    for name in [
+        "driver.godot.composition.native.verify",
+        "driver.godot.composition.native.tracks.page",
+        "driver.godot.composition.native.keys.page",
+    ] {
+        let entry = catalog.get(name).unwrap();
+        assert_eq!(entry.route, Route::AuthoringRunner);
+        assert_eq!(
+            entry.capability.descriptor.risk,
+            semwright_types::Risk::CodeExecution
+        );
+        assert!(entry.capability.descriptor.interactive_consent);
+        assert!(
+            !catalog
+                .capabilities_for_runtime(true, false)
+                .iter()
+                .any(|capability| capability.descriptor.name == name)
+        );
+        assert!(
+            !catalog
+                .capabilities_for_runtime(false, true)
+                .iter()
+                .any(|capability| capability.descriptor.name == name)
+        );
+        assert!(
+            catalog
+                .capabilities_for_runtime(true, true)
+                .iter()
+                .any(|capability| capability.descriptor.name == name)
+        );
+    }
+
+    let page = catalog
+        .get("driver.godot.composition.native.tracks.page")
         .unwrap();
-    assert_eq!(entry.route, Route::AuthoringRunner);
-    assert_eq!(
-        entry.capability.descriptor.risk,
-        semwright_types::Risk::CodeExecution
-    );
-    assert!(entry.capability.descriptor.interactive_consent);
-    assert!(
-        !catalog
-            .capabilities_for_runtime(true, false)
-            .iter()
-            .any(
-                |capability| capability.descriptor.name == "driver.godot.composition.native.verify"
-            )
-    );
-    assert!(
-        !catalog
-            .capabilities_for_runtime(false, true)
-            .iter()
-            .any(
-                |capability| capability.descriptor.name == "driver.godot.composition.native.verify"
-            )
-    );
-    assert!(
-        catalog
-            .capabilities_for_runtime(true, true)
-            .iter()
-            .any(
-                |capability| capability.descriptor.name == "driver.godot.composition.native.verify"
-            )
-    );
+    let valid = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "cursor":null,
+        "limit":64
+    });
+    page.validate_input(&valid).unwrap();
+    for (field, value) in [
+        ("limit", json!(0)),
+        ("limit", json!(65)),
+        ("cursor", json!("gtr1.not-a-digest.64")),
+        ("scene", json!("../arena")),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(page.validate_input(&invalid).is_err(), "{field}");
+    }
+
+    let keys = catalog
+        .get("driver.godot.composition.native.keys.page")
+        .unwrap();
+    let valid_keys = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "player":".",
+        "library":"",
+        "animation":"paged_tracks",
+        "track_index":0,
+        "cursor":null,
+        "limit":64
+    });
+    keys.validate_input(&valid_keys).unwrap();
+    for (field, value) in [
+        ("limit", json!(0)),
+        ("limit", json!(65)),
+        ("track_index", json!(2048)),
+        ("cursor", json!("gky1.not-a-digest.64")),
+        ("animation", json!("")),
+    ] {
+        let mut invalid = valid_keys.clone();
+        invalid[field] = value;
+        assert!(keys.validate_input(&invalid).is_err(), "{field}");
+    }
 }

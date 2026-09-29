@@ -72,6 +72,14 @@
         "required": true
       },
       {
+        "id": "driver.godot.composition.native.tracks.page",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.native.keys.page",
+        "required": true
+      },
+      {
         "id": "driver.godot.project.validate",
         "required": true
       },

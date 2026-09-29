@@ -2,7 +2,7 @@
 
 D is additive to the existing Godot driver. Existing paired-editor capabilities retain their public names. The branch adds managed Composition authoring, native verification, logical managed-project selection for runner/export routes, a production Skill and development evidence/package tooling.
 
-Managed authoring is opt-in through owner configuration. Without authoring config the eight Composition authoring routes are absent. composition.native.verify additionally requires a pinned runner and is not exposed with only one side configured. Legacy context-free execution cannot manufacture owner-bound plans.
+Managed authoring is opt-in through owner configuration. Without authoring config the eight Composition-plan lifecycle routes are absent. `composition.native.verify`, `composition.native.tracks.page` and `composition.native.keys.page` additionally require a pinned runner and are not exposed with only one side configured. Legacy context-free execution cannot manufacture owner-bound plans or native paging authority.
 
 The typed intent plus provider derivation record are the source of truth for managed content. Generated Godot files remain editable in normal Godot, but a manual change becomes DIVERGED and blocks automatic overwrite/run/export until an explicit decision and replan.
 

@@ -9,7 +9,7 @@ The existing native lane pins Godot **4.7.2-stable**, Linux x86_64, binary SHA-2
 | https://docs.godotengine.org/en/4.7/classes/class_packedscene.html | Parent hierarchy is not ownership. Authored scenes use native nodes; save/reopen must observe owner and packed membership. |
 | https://docs.godotengine.org/en/4.7/classes/class_resourcesaver.html | Flags alter external resource/path behavior. Preserve #171 scene-only mode exactly; do not claim it supports inherited/instanced scenes. |
 | https://docs.godotengine.org/en/4.7/classes/class_resourceloader.html | Cache bypass alone is not a new-process persistence proof. Use separate engine processes for acceptance. |
-| https://docs.godotengine.org/en/4.7/classes/class_animation.html | Typed native value tracks, keys and libraries; no method tracks in this IR. Large metadata needs a separate revision-bound pagination contract. |
+| https://docs.godotengine.org/en/4.7/classes/class_animation.html | Typed native value tracks, keys and libraries; no method tracks in this IR. D implements separate bounded native track/key paging whose cursors bind the stable managed observation rather than process-local identity. |
 | https://docs.godotengine.org/en/4.7/classes/class_@globalscope.html | Pinned key codes: left 4194319, up 4194320, right 4194321, down 4194322. Add native enum parity checks. |
 | https://docs.godotengine.org/en/4.7/tutorials/editor/command_line_tutorial.html | Require parsed native output and expected tests; exit zero alone is insufficient. |
 | https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows | New branch diagnostics use push, not an assumed default-branch dispatch registration. |

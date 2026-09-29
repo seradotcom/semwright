@@ -94,10 +94,11 @@
     {
       "id": "D07",
       "requirement": "full animation paging",
-      "state": "SOURCE_PASS_NATIVE_PAGING_PENDING",
-      "implementation": "complete native animation/library/track/key observation and snapshot-bound paging",
+      "state": "IMPLEMENTED_NATIVE_PAGING_EVIDENCE_PENDING",
+      "implementation": "complete native animation/library/track/key observation plus product-routed composition.native.tracks.page and composition.native.keys.page; stateless cursors bind source fingerprint, normalized native projection and exact key-page selector across fresh inspect processes",
       "tests": [
-        "native track cursor regression"
+        "native track and key cursor cross-process regressions",
+        "Broker/Host 70-track plus 70-key two-page native E2E"
       ],
       "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
       "run_id": 36521988929,
@@ -207,11 +208,11 @@
     {
       "id": "D15",
       "requirement": "Skill/install/packages",
-      "state": "SKILL_DONE_PACKAGE_PREPARED_PENDING",
-      "implementation": "production Skill committed; deterministic source package prepared locally pending current CI",
+      "state": "SKILL_AND_PACKAGES_IMPLEMENTED_EVIDENCE_PENDING",
+      "implementation": "production Skill plus exact-SHA CLI validate/inspect/bundle and deterministic reconstructable source package in the gated delivery job",
       "tests": [
-        "Skill requirements",
-        "package_source.py"
+        "semwright skill validate/inspect/bundle",
+        "package_source.py reconstruction and checksums"
       ],
       "tested_sha": null,
       "run_id": null,

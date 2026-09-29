@@ -229,14 +229,73 @@ fn native_track_cursor_is_snapshot_and_source_bound_without_truncation() {
     assert_eq!(first.total, 70);
     assert_eq!(first.tracks.len(), 64);
     assert_eq!(first.tracks.last().unwrap().index, 63);
-    let second = track_page(&observed, &source, first.next_cursor.as_deref(), 64).unwrap();
+    let mut reobserved = observed.clone();
+    reobserved.nonce = "native_request_0004".into();
+    reobserved.process_id = "103".into();
+    assert_ne!(
+        observed.snapshot_digest().unwrap(),
+        reobserved.snapshot_digest().unwrap()
+    );
+    assert_eq!(
+        observed.paging_snapshot_digest().unwrap(),
+        reobserved.paging_snapshot_digest().unwrap()
+    );
+    let second = track_page(&reobserved, &source, first.next_cursor.as_deref(), 64).unwrap();
     assert_eq!(second.tracks.len(), 6);
     assert_eq!(second.tracks.last().unwrap().index, 69);
     assert!(second.next_cursor.is_none());
     assert!(track_page(&observed, &digest("changed-source"), None, 64).is_err());
 
+    let mut changed = reobserved.clone();
+    changed.authored.animations[0].tracks[69].path = "Entity:changed".into();
+    assert!(track_page(&changed, &source, first.next_cursor.as_deref(), 64).is_err());
+
     let stale = format!("gtr1.{}.64", digest("other-snapshot").as_str());
     assert!(track_page(&observed, &source, Some(&stale), 64).is_err());
+}
+
+#[test]
+fn native_key_cursor_is_track_bound_and_survives_fresh_process() {
+    let mut authored = projection("res://scenes/arena.tscn", "11", "21");
+    let mut animation = tracks(1);
+    animation.tracks[0].keys = (0..70)
+        .map(|index| NativeKey {
+            time: f64::from(index) * 2.0 / 69.0,
+            transition: 1.0,
+            value: NativeValue::Float(f64::from(index)),
+        })
+        .collect();
+    animation.tracks[0].key_count = 70;
+    authored.animations.push(animation);
+    let observed = observation(
+        ProbeMode::Inspect,
+        "native_key_request_0001",
+        "301",
+        authored,
+        digest("scene"),
+        None,
+    );
+    let source = digest("source");
+    let first = key_page(&observed, &source, ".", "", "walk", 0, None, 64).unwrap();
+    assert_eq!(first.total, 70);
+    assert_eq!(first.keys.len(), 64);
+    assert_eq!(first.keys.last().unwrap().index, 63);
+    let cursor = first.next_cursor.clone().unwrap();
+
+    let mut reobserved = observed.clone();
+    reobserved.nonce = "native_key_request_0002".into();
+    reobserved.process_id = "302".into();
+    let second = key_page(&reobserved, &source, ".", "", "walk", 0, Some(&cursor), 64).unwrap();
+    assert_eq!(second.snapshot, first.snapshot);
+    assert_eq!(second.query_digest, first.query_digest);
+    assert_eq!(second.keys.len(), 6);
+    assert_eq!(second.keys.last().unwrap().index, 69);
+    assert!(second.next_cursor.is_none());
+
+    let mut changed = reobserved.clone();
+    changed.authored.animations[0].tracks[0].keys[69].value = NativeValue::Float(999.0);
+    assert!(key_page(&changed, &source, ".", "", "walk", 0, Some(&cursor), 64,).is_err());
+    assert!(key_page(&observed, &source, ".", "", "missing", 0, None, 64,).is_err());
 }
 
 #[test]

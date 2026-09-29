@@ -266,9 +266,9 @@ pub fn native_verify_in() -> Value {
         }
     })
 }
-pub fn native_verify_out() -> Value {
+fn native_binding_schema() -> Value {
     let digest = json!({"type":"string","pattern":"^[0-9a-f]{64}$"});
-    let binding = json!({
+    json!({
         "type":"object",
         "additionalProperties":false,
         "required":[
@@ -285,28 +285,33 @@ pub fn native_verify_out() -> Value {
             "intent_digest":digest.clone(),
             "source_fingerprint":digest
         }
-    });
-    let effects = json!({
+    })
+}
+fn native_effects_schema() -> Value {
+    let digest = json!({"type":"string","pattern":"^[0-9a-f]{64}$"});
+    json!({
         "type":"object",
         "additionalProperties":false,
         "required":["report","contract_digest","owner","request_id","coverage","vacuous"],
         "properties":{
             "report":{"type":"object","maxProperties":8},
-            "contract_digest":digest.clone(),
+            "contract_digest":digest,
             "owner":{"type":"object","maxProperties":4},
             "request_id":{"type":"string","minLength":1,"maxLength":256},
             "coverage":{"type":"array","maxItems":64,"items":{"type":"object","maxProperties":8}},
             "vacuous":{"type":"boolean"}
         }
-    });
+    })
+}
+pub fn native_verify_out() -> Value {
     json!({
         "type":"object",
         "additionalProperties":false,
         "required":["kind","binding","effects"],
         "properties":{
             "kind":{"enum":["inspect","persistence","play"]},
-            "binding":binding,
-            "effects":effects,
+            "binding":native_binding_schema(),
+            "effects":native_effects_schema(),
             "observation":{"type":"object"},
             "writer":{"type":"object"},
             "reader":{"type":"object"},
@@ -317,5 +322,134 @@ pub fn native_verify_out() -> Value {
             {"properties":{"kind":{"const":"persistence"}},"required":["writer","reader","evidence"]},
             {"properties":{"kind":{"const":"play"}},"required":["observation"]}
         ]
+    })
+}
+pub fn native_track_page_in() -> Value {
+    json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["plan_id","scene","limit"],
+        "properties":{
+            "plan_id":{"type":"string","minLength":1,"maxLength":256},
+            "scene":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,47}$"},
+            "cursor":{
+                "type":["string","null"],
+                "maxLength":100,
+                "pattern":"^gtr1\\.[0-9a-f]{64}\\.[0-9]{1,10}$"
+            },
+            "limit":{"type":"integer","minimum":1,"maximum":64}
+        }
+    })
+}
+pub fn native_track_page_out() -> Value {
+    let digest = json!({"type":"string","pattern":"^[0-9a-f]{64}$"});
+    let track = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["player","library","animation","root","index","track_type","path","enabled","key_count"],
+        "properties":{
+            "player":{"type":"string","maxLength":1024},
+            "library":{"type":"string","maxLength":256},
+            "animation":{"type":"string","maxLength":256},
+            "root":{"type":"string","maxLength":1024},
+            "index":{"type":"integer","minimum":0,"maximum":2047},
+            "track_type":{"type":"integer","minimum":0,"maximum":64},
+            "path":{"type":"string","maxLength":2048},
+            "enabled":{"type":"boolean"},
+            "key_count":{"type":"integer","minimum":0,"maximum":16384}
+        }
+    });
+    json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["binding","page","effects"],
+        "properties":{
+            "binding":native_binding_schema(),
+            "effects":native_effects_schema(),
+            "page":{
+                "type":"object",
+                "additionalProperties":false,
+                "required":["snapshot","source_fingerprint","total","tracks","next_cursor"],
+                "properties":{
+                    "snapshot":digest.clone(),
+                    "source_fingerprint":digest,
+                    "total":{"type":"integer","minimum":0,"maximum":2048},
+                    "tracks":{"type":"array","maxItems":64,"items":track},
+                    "next_cursor":{
+                        "type":["string","null"],
+                        "maxLength":100,
+                        "pattern":"^gtr1\\.[0-9a-f]{64}\\.[0-9]{1,10}$"
+                    }
+                }
+            }
+        }
+    })
+}
+pub fn native_key_page_in() -> Value {
+    json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["plan_id","scene","player","library","animation","track_index","limit"],
+        "properties":{
+            "plan_id":{"type":"string","minLength":1,"maxLength":256},
+            "scene":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,47}$"},
+            "player":{"type":"string","minLength":1,"maxLength":1024},
+            "library":{"type":"string","maxLength":256},
+            "animation":{"type":"string","minLength":1,"maxLength":256},
+            "track_index":{"type":"integer","minimum":0,"maximum":2047},
+            "cursor":{
+                "type":["string","null"],
+                "maxLength":100,
+                "pattern":"^gky1\\.[0-9a-f]{64}\\.[0-9]{1,10}$"
+            },
+            "limit":{"type":"integer","minimum":1,"maximum":64}
+        }
+    })
+}
+pub fn native_key_page_out() -> Value {
+    let digest = json!({"type":"string","pattern":"^[0-9a-f]{64}$"});
+    let key = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["index","time","transition","value"],
+        "properties":{
+            "index":{"type":"integer","minimum":0,"maximum":16383},
+            "time":{"type":"number"},
+            "transition":{"type":"number"},
+            "value":{"type":"object","maxProperties":2}
+        }
+    });
+    json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["binding","page","effects"],
+        "properties":{
+            "binding":native_binding_schema(),
+            "effects":native_effects_schema(),
+            "page":{
+                "type":"object",
+                "additionalProperties":false,
+                "required":[
+                    "snapshot","query_digest","source_fingerprint","player","library",
+                    "animation","track_index","total","keys","next_cursor"
+                ],
+                "properties":{
+                    "snapshot":digest.clone(),
+                    "query_digest":digest.clone(),
+                    "source_fingerprint":digest,
+                    "player":{"type":"string","maxLength":1024},
+                    "library":{"type":"string","maxLength":256},
+                    "animation":{"type":"string","maxLength":256},
+                    "track_index":{"type":"integer","minimum":0,"maximum":2047},
+                    "total":{"type":"integer","minimum":0,"maximum":16384},
+                    "keys":{"type":"array","maxItems":64,"items":key},
+                    "next_cursor":{
+                        "type":["string","null"],
+                        "maxLength":100,
+                        "pattern":"^gky1\\.[0-9a-f]{64}\\.[0-9]{1,10}$"
+                    }
+                }
+            }
+        }
     })
 }

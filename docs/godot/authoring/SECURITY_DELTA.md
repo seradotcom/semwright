@@ -2,7 +2,7 @@
 
 ## New active surface
 
-D adds semantic project authoring and native verification. composition.native.verify is CodeExecution because it launches pinned Godot on provider-generated code. It is advertised only with both authoring grants and a runner and requires authenticated Driver Host context plus an A-issued plan.
+D adds semantic project authoring and native verification. `composition.native.verify`, `composition.native.tracks.page` and `composition.native.keys.page` are CodeExecution because all launch pinned Godot on provider-generated code; the paging routes are read-only with respect to canonical project state but are not relabeled as ordinary ReadOnly risk. They are advertised only with authoring grants plus a runner and require authenticated Driver Host context plus an A-issued plan.
 
 ## Enforced boundaries
 
@@ -12,7 +12,7 @@ Output, state, input and artifact roots are owner configuration. Managed source 
 
 The fixed observer accepts only a bounded managed scene, declared input actions, ticks/checkpoints/variable names and capture flag. It exposes no OS.execute, expression execution, arbitrary callback or shell surface. Observation JSON is strict-decoded and request/source/process/runtime bound. Trusted native result construction and F admission entry points are crate-private.
 
-Save/reopen requires distinct native process IDs and nonces. F Reopened compares stable projections and bytes and requires unchanged external dependency sentinels. Animation cursors are snapshot/source bound. Export presets exclude authoring metadata, addons and source maps; acceptance also scans and launches the exported executable in a cleared environment.
+Save/reopen requires distinct native process IDs and nonces. F Reopened compares stable projections and bytes and requires unchanged external dependency sentinels. Animation paging cursors bind the managed source fingerprint plus normalized native projection, excluding process-local nonce/PID; keyframe cursors additionally bind the exact player/library/animation/track selector. Any source, projected-content or selected-track change invalidates continuation. Export presets exclude authoring metadata, addons and source maps; acceptance also scans and launches the exported executable in a cleared environment.
 
 ## Remaining risk and non-claims
 
