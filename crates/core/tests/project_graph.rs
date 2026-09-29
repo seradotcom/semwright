@@ -518,6 +518,7 @@ async fn project_store_database_inherits_private_windows_acl() {
         .as_str()
         .unwrap()
         .to_owned();
+    drop(broker);
     semwright_platform_services::verify_private_data_file(
         &state.join(project).join("project.sqlite3"),
         16 * 1024 * 1024,
