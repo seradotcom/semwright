@@ -3,7 +3,7 @@ use semwright_audio_domain::{
     edit::{self, Edit},
     model::AudioProject,
 };
-use semwright_backend_api::Provider;
+use semwright_backend_api::{Context, Provider};
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
@@ -52,6 +52,30 @@ async fn call_with_token(
             cancellation,
         )
         .await
+}
+
+async fn direct_host_call(
+    provider: &DriverProvider,
+    capabilities: &[semwright_backend_api::ProvidedCapability],
+    command: &str,
+    args: Value,
+) -> semwright_types::Result<Value> {
+    let full = format!("driver.ardour-audio.{command}");
+    let descriptor = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == full)
+        .unwrap_or_else(|| panic!("missing direct Driver Host capability {full}"));
+    Provider::execute(
+        provider,
+        &Context {
+            session: "ardour-direct-host-diagnostic".into(),
+            request_id: unique_id(),
+            cancellation: CancellationToken::new(),
+        },
+        &descriptor.descriptor,
+        &args,
+    )
+    .await
 }
 
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
@@ -471,12 +495,35 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     assert!(send.ok, "{send:?}");
     let revision5 = send.data.unwrap()["revision"].as_str().unwrap().to_owned();
 
+    let direct_capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
+    let direct_send_gain = direct_host_call(
+        provider.as_ref(),
+        &direct_capabilities,
+        "session.deep.send.gain.set",
+        json!({
+            "state":"Base",
+            "expected_revision":revision5,
+            "source_route_id":stem_id,
+            "target_bus_id":bus_id,
+            "gain_millidb":-3000
+        }),
+    )
+    .await;
+    assert!(
+        direct_send_gain.is_ok(),
+        "raw Driver Host send gain diagnostic failed: {direct_send_gain:?}"
+    );
+    let diagnostic_revision = direct_send_gain.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
     let send_gain = call(
         &broker,
         "session.deep.send.gain.set",
         json!({
             "state":"Base",
-            "expected_revision":revision5,
+            "expected_revision":diagnostic_revision,
             "source_route_id":stem_id,
             "target_bus_id":bus_id,
             "gain_millidb":-6000
