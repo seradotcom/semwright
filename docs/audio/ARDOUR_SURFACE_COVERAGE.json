@@ -53,7 +53,7 @@
     {
       "surface": "new managed session",
       "status": "implemented",
-      "route": "official ardour8-new_empty_session Dummy backend utility; sample-rate selectable, stereo master fixed by upstream 8.4 utility",
+      "route": "official ardour8-new_session Dummy backend utility; sample-rate selectable, stereo master fixed by upstream 8.4 utility",
       "evidence": "state artifact + clean reopen required; non-stereo request is unsupported",
       "context": "managed_offline_ardour_session",
       "risk": "revision_bound_mutation_or_read",
@@ -273,7 +273,7 @@
     {
       "surface": "pinned runtime identity probe",
       "status": "implemented_pending_native",
-      "route": "-V on luasession/new_empty_session/export with fixed runtime environment",
+      "route": "-V on luasession/new_session/export with fixed runtime environment",
       "evidence": "ardour-native before session mutation",
       "context": "portable_projection_or_upstream_restriction",
       "risk": "read_only_or_unsupported",

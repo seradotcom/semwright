@@ -27,6 +27,28 @@ const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_STDOUT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_STDERR_BYTES: usize = 256 * 1024;
 const RUN_TIMEOUT: Duration = Duration::from_secs(60);
+const ARDOUR_TEMPLATE_NAME: &str = "Semwright Managed";
+const ARDOUR_TEMPLATE_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<Session version="5990" id-counter="2" name-counter="1" event-counter="1" vca-counter="1">
+  <ProgramVersion created-with="Semwright" modified-with="Semwright"/>
+  <Config/>
+  <Metadata/>
+  <Sources/>
+  <Regions/>
+  <Locations>
+    <Location id="1" name="session" start="0" end="48000" flags="IsSessionRange" locked="0" position-lock-style="AudioTime" timestamp="0"/>
+  </Locations>
+  <Playlists/>
+  <Bundles/>
+  <VCAManager/>
+  <Routes/>
+  <RouteGroups/>
+  <TempoMap>
+    <Tempo pulse="0" frame="0" movable="0" lock-style="AudioTime" beats-per-minute="120" note-type="4" clamped="0" end-beats-per-minute="120" active="1" locked-to-meter="1"/>
+    <Meter pulse="0" frame="0" movable="0" lock-style="AudioTime" bbt="1|1|0" beat="0" note-type="4" divisions-per-bar="4"/>
+  </TempoMap>
+</Session>
+"#;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -239,6 +261,8 @@ impl DeepRuntime {
         let probe_args = vec![
             "-s".into(),
             "48000".into(),
+            "-t".into(),
+            ARDOUR_TEMPLATE_NAME.into(),
             probe_session.to_string_lossy().into_owned(),
             probe_state.into(),
         ];
@@ -485,10 +509,9 @@ close_session()
         master_channels: u16,
     ) -> Result<ArdourSnapshot> {
         validate_state(state)?;
-        if !(8_000..=192_000).contains(&sample_rate) || master_channels != 2 {
-            return Err(Error::new(
-                ErrorCode::Unsupported,
-                "Ardour 8.4 new_empty_session does not expose master-channel selection; managed creation is stereo",
+        if !(8_000..=192_000).contains(&sample_rate) || !(1..=64).contains(&master_channels) {
+            return Err(Error::invalid(
+                "Invalid Ardour managed-session sample rate or master channel count",
             ));
         }
         let session_dir = self.managed_session_dir();
@@ -502,6 +525,8 @@ close_session()
         let args = vec![
             "-s".into(),
             sample_rate.to_string(),
+            "-t".into(),
+            ARDOUR_TEMPLATE_NAME.into(),
             session_dir.to_string_lossy().into_owned(),
             state.into(),
         ];
@@ -684,6 +709,9 @@ close_session()
             context.check_cancelled()?;
         }
         let temp_home = TempDir::new()?;
+        let private_data_root = provision_static_template(temp_home.path())?;
+        let ardour_data_path =
+            format!("{}:/usr/share/ardour8", private_data_root.to_string_lossy());
         let mut command = Command::new(tool);
         command
             .args(args)
@@ -697,7 +725,7 @@ close_session()
             .env("LANG", "C.UTF-8")
             .env("LC_ALL", "C.UTF-8")
             .env("LD_LIBRARY_PATH", "/usr/lib/ardour8")
-            .env("ARDOUR_DATA_PATH", "/usr/share/ardour8")
+            .env("ARDOUR_DATA_PATH", &ardour_data_path)
             .env("ARDOUR_CONFIG_PATH", "/etc/ardour8")
             .env("ARDOUR_DLL_PATH", "/usr/lib/ardour8")
             .env("VAMP_PATH", "/usr/lib/ardour8/vamp")
@@ -945,6 +973,16 @@ fn version_banner(stdout: &[u8], prefix: &str) -> Result<String> {
     Ok(line.to_owned())
 }
 
+fn provision_static_template(private_home: &Path) -> Result<PathBuf> {
+    let data_root = private_home.join("semwright-ardour-data");
+    let template_dir = data_root.join("templates").join(ARDOUR_TEMPLATE_NAME);
+    fs::create_dir_all(&template_dir)?;
+    let template_file = template_dir.join(format!("{ARDOUR_TEMPLATE_NAME}.template"));
+    fs::write(&template_file, ARDOUR_TEMPLATE_XML.as_bytes())?;
+    regular(&template_file, 256 * 1024)?;
+    Ok(data_root)
+}
+
 fn valid_slug(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
@@ -1068,6 +1106,19 @@ mod tests {
             groups: vec![],
             warnings: vec![],
         }
+    }
+
+    #[test]
+    fn static_template_bootstraps_only_session_range_not_routes() {
+        assert!(ARDOUR_TEMPLATE_XML.contains(
+            r#"<Location id="1" name="session" start="0" end="48000" flags="IsSessionRange""#
+        ));
+        assert!(ARDOUR_TEMPLATE_XML.contains("<Routes/>"));
+        assert!(ARDOUR_TEMPLATE_XML.contains("<Playlists/>"));
+        assert!(ARDOUR_TEMPLATE_XML.contains("<RouteGroups/>"));
+        assert!(!ARDOUR_TEMPLATE_XML.contains("<Route "));
+        assert!(!ARDOUR_TEMPLATE_XML.contains("<Processor "));
+        assert!(!ARDOUR_TEMPLATE_XML.contains("<Source "));
     }
 
     #[test]

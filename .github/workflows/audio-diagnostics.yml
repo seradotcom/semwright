@@ -237,7 +237,7 @@ jobs:
       - name: Locate exact internal Ardour utilities
         run: |
           LUA="$(find /usr/lib -type f -path '*ardour8*' -name 'luasession' -perm /111 -print -quit)"
-          CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_empty_session' -perm /111 -print -quit)"
+          CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_session' -perm /111 -print -quit)"
           EXPORT="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-export' -perm /111 -print -quit)"
           test -n "$LUA" && test -n "$CREATE" && test -n "$EXPORT"
           {
@@ -329,7 +329,7 @@ jobs:
       - name: Locate pinned Ardour utilities
         run: |
           LUA="$(find /usr/lib -type f -path '*ardour8*' -name 'luasession' -perm /111 -print -quit)"
-          CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_empty_session' -perm /111 -print -quit)"
+          CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_session' -perm /111 -print -quit)"
           EXPORT="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-export' -perm /111 -print -quit)"
           test -n "$LUA" && test -n "$CREATE" && test -n "$EXPORT"
           {
