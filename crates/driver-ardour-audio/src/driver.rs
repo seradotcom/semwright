@@ -2011,6 +2011,14 @@ fn native_effect_verified(
                 && created[0].channels == *channels
                 && created[0].name == *name
         }
+        NativeMutation::MasterCreate { channels } => after
+            .routes
+            .iter()
+            .filter(|route| route.kind == RouteKind::Master)
+            .collect::<Vec<_>>()
+            .as_slice()
+            .first()
+            .is_some_and(|route| route.channels == *channels),
         NativeMutation::BusCreate { channels, name } => {
             let old_ids: std::collections::BTreeSet<_> = before
                 .routes

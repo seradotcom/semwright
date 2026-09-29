@@ -13,6 +13,9 @@ pub enum NativeMutation {
         channels: u16,
         name: String,
     },
+    MasterCreate {
+        channels: u16,
+    },
     RouteRemove {
         route_id: String,
     },
@@ -137,6 +140,12 @@ impl NativeMutation {
                     channels.to_string(),
                     name.clone(),
                 ])
+            }
+            Self::MasterCreate { channels } => {
+                if !(1..=64).contains(channels) {
+                    return Err(Error::invalid("Invalid Ardour master channel count"));
+                }
+                Ok(vec!["master_create".into(), channels.to_string()])
             }
             Self::RouteRemove { route_id } => {
                 validate_id(route_id)?;
@@ -830,6 +839,12 @@ local function mutate(command)
       renamed = true
     end
     if not renamed then error("bus create returned no route") end
+  elseif command == "master_create" then
+    local channels = tonumber(arg[5])
+    if not channels or channels < 1 or channels > 64 then error("invalid master channels") end
+    local count = ARDOUR.ChanCount(ARDOUR.DataType("audio"), channels)
+    local status = Session:add_master_bus(count)
+    if status ~= 0 then error("master create failed") end
   elseif command == "route_remove" then
     local route = require_route(arg[5])
     local ok_master, master = pcall(function() return route:is_master() end)

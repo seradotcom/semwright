@@ -157,6 +157,54 @@ jobs:
           g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/faust-runtime/main.cpp -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
           cargo build --locked -p semwright-plugin-host -p semwright-faust-audio-driver --bins
           find target/debug -maxdepth 1 -type f -name '*sandbox*' -print
+      - name: Faust confinement differential diagnostics
+        shell: bash
+        run: |
+          set +e
+          out="verification/audio/faust-confinement"
+          helper="$RUNNER_TEMP/semwright-faust-interpreter"
+          sandbox="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
+          libs="/usr/share/faust"
+          mkdir -p "$out"
+
+          record() {
+            name="$1"
+            shift
+            "$@" >"$out/$name.stdout" 2>"$out/$name.stderr"
+            code="$?"
+            printf '%s\n' "$code" >"$out/$name.exit"
+          }
+
+          if command -v setpriv >/dev/null 2>&1; then
+            record no-new-privs setpriv --no-new-privs "$helper" probe "$libs"
+          else
+            printf '%s\n' 127 >"$out/no-new-privs.exit"
+            printf '%s\n' "setpriv unavailable" >"$out/no-new-privs.stderr"
+          fi
+
+          common=(
+            --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL
+            --proc /proc --dev /dev --perms 1777 --tmpfs /dev/shm --tmpfs /tmp
+            --dir /home --dir /workspace --dir /plugin
+            --ro-bind /usr /usr --ro-bind /lib /lib
+          )
+          if test -e /lib64; then
+            common+=(--ro-bind /lib64 /lib64)
+          fi
+
+          record bwrap-narrow bwrap "${common[@]}"             --dir /etc --ro-bind /etc/ld.so.cache /etc/ld.so.cache             --ro-bind "$helper" /plugin/tools/faust-interpreter             --ro-bind "$libs" /workspace/libs             --setenv HOME /tmp --setenv TMPDIR /tmp             --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config --setenv XDG_DATA_HOME /tmp/data             --setenv FAUST_LIB_PATH /workspace/libs --setenv LANG C.UTF-8 --setenv LC_ALL C.UTF-8             --chdir /tmp -- /plugin/tools/faust-interpreter probe /workspace/libs
+
+          record bwrap-full-etc bwrap "${common[@]}"             --ro-bind /etc /etc             --ro-bind "$helper" /plugin/tools/faust-interpreter             --ro-bind "$libs" /workspace/libs             --setenv HOME /tmp --setenv TMPDIR /tmp             --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config --setenv XDG_DATA_HOME /tmp/data             --setenv FAUST_LIB_PATH /workspace/libs --setenv LANG C.UTF-8 --setenv LC_ALL C.UTF-8             --chdir /tmp -- /plugin/tools/faust-interpreter probe /workspace/libs
+
+          record bwrap-landlock bwrap "${common[@]}"             --dir /etc --ro-bind /etc/ld.so.cache /etc/ld.so.cache             --ro-bind "$sandbox" /plugin/sandbox             --ro-bind "$helper" /plugin/tools/faust-interpreter             --ro-bind "$libs" /workspace/libs             --setenv HOME /tmp --setenv TMPDIR /tmp             --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config --setenv XDG_DATA_HOME /tmp/data             --setenv FAUST_LIB_PATH /workspace/libs --setenv LANG C.UTF-8 --setenv LC_ALL C.UTF-8             --chdir /tmp -- /plugin/sandbox             --limit-nofile 256 --limit-nproc 16 --limit-cpu 120 --limit-as 2147483648 --limit-fsize 536870912             --read-root /workspace/libs --exec-root /plugin/tools/faust-interpreter             -- /plugin/tools/faust-interpreter probe /workspace/libs
+
+          {
+            printf 'no_new_privs='; cat "$out/no-new-privs.exit"
+            printf 'bwrap_narrow='; cat "$out/bwrap-narrow.exit"
+            printf 'bwrap_full_etc='; cat "$out/bwrap-full-etc.exit"
+            printf 'bwrap_landlock='; cat "$out/bwrap-landlock.exit"
+          } | tee "$out/summary.txt"
+          exit 0
       - name: Real Faust translation and helper diagnostics
         run: |
           export SEMWRIGHT_TEST_FAUST_HELPER="$RUNNER_TEMP/semwright-faust-interpreter"

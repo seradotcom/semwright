@@ -442,11 +442,18 @@ close_session()
             return Err(classify_create_failure(&creation.stdout, &creation.stderr));
         }
         regular(&state_file, 64 * 1024 * 1024)?;
-        let snapshot = self.inspect(context, state).await?;
-        let stereo_master = snapshot
-            .routes
-            .iter()
-            .any(|route| route.kind == crate::native::RouteKind::Master && route.channels == 2);
+        let snapshot = self
+            .mutate(
+                context,
+                state,
+                &NativeMutation::MasterCreate {
+                    channels: master_channels,
+                },
+            )
+            .await?;
+        let stereo_master = snapshot.routes.iter().any(|route| {
+            route.kind == crate::native::RouteKind::Master && route.channels == master_channels
+        });
         if !stereo_master {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
